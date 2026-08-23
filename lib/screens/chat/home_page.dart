@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/ai_chat/ai_chat_format/format_compatibility_page.dart';
 import '../../core/ai_chat/ai_chat_sports/agent_chat_page.dart';
 import '../../core/ai_chat/receipt_ocr/receipt_ocr_page.dart';
+import '../../core/ai_chat/system_messages/system_events_controller.dart';
+import '../../core/ai_chat/system_messages/system_messages_page.dart';
 
 /// AI 助手功能入口条目配置。
 ///
@@ -15,16 +17,21 @@ class AssistantEntry {
   final Color Function(BuildContext) color; // 主题色（依赖 Theme）
   final Widget Function(BuildContext) builder; // 目标页面
 
+  /// 可选徽章（如"未读消息数"小红点）。传 null 则不显示。
+  /// 用 builder 是因为未读数通常是响应式数据（需要 ListenableBuilder）。
+  final Widget Function(BuildContext)? badgeBuilder;
+
   const AssistantEntry({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.color,
     required this.builder,
+    this.badgeBuilder,
   });
 }
 
-/// 功能列表单一数据源。加第三个功能 = 在此追加一项。
+/// 功能列表单一数据源。加第 N 个功能 = 在此追加一项。
 final List<AssistantEntry> _entries = [
   AssistantEntry(
     icon: Icons.assistant,
@@ -46,6 +53,36 @@ final List<AssistantEntry> _entries = [
     subtitle: 'OCR 识别 → 快速比价',
     color: (context) => Theme.of(context).colorScheme.tertiary,
     builder: (context) => const ReceiptOcrPage(),
+  ),
+  AssistantEntry(
+    icon: Icons.smart_toy,
+    title: '小助手',
+    subtitle: '后台事件汇报（APK 下载 / 崩溃日志）',
+    color: (context) => Theme.of(context).colorScheme.error,
+    builder: (context) => const SystemMessagesPage(),
+    // 未读系统消息数（响应式：监听 SystemEventsController）
+    badgeBuilder: (context) => ListenableBuilder(
+      listenable: SystemEventsController(),
+      builder: (context, _) {
+        final n = SystemEventsController().unreadCount;
+        if (n == 0) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.error,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            n > 99 ? '99+' : '$n',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
+      },
+    ),
   ),
 ];
 
@@ -102,12 +139,24 @@ class _AssistantTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = entry.color(context);
+    final badge = entry.badgeBuilder?.call(context);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: CircleAvatar(
-        radius: 26,
-        backgroundColor: color.withValues(alpha: 0.1),
-        child: Icon(entry.icon, size: 28, color: color),
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: color.withValues(alpha: 0.1),
+            child: Icon(entry.icon, size: 28, color: color),
+          ),
+          if (badge != null)
+            Positioned(
+              right: -6,
+              top: -6,
+              child: badge,
+            ),
+        ],
       ),
       title: Text(
         entry.title,
