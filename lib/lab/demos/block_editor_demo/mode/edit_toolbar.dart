@@ -8,7 +8,10 @@ class EditToolbar implements ToolbarMode {
   VoidCallback? onImportMdFile;
   VoidCallback? onImportMdText;
 
-  void setImportCallbacks({VoidCallback? onImportMdFile, VoidCallback? onImportMdText}) {
+  void setImportCallbacks({
+    VoidCallback? onImportMdFile,
+    VoidCallback? onImportMdText,
+  }) {
     this.onImportMdFile = onImportMdFile;
     this.onImportMdText = onImportMdText;
   }
@@ -23,10 +26,18 @@ class EditToolbar implements ToolbarMode {
   void onModeExit() {}
 
   @override
-  Widget buildBody(BuildContext context, EditorState editorState, Widget body) => body;
+  Widget buildBody(
+    BuildContext context,
+    EditorState editorState,
+    Widget body,
+  ) => body;
 
   @override
-  Widget build(BuildContext context, EditorState editorState, VoidCallback onSwitchMode) {
+  Widget build(
+    BuildContext context,
+    EditorState editorState,
+    VoidCallback onSwitchMode,
+  ) {
     final colors = Theme.of(context).colorScheme;
     return Container(
       color: Theme.of(context).canvasColor,
@@ -42,15 +53,18 @@ class EditToolbar implements ToolbarMode {
                   child: Row(
                     children: [
                       ...NoteRootScope.of(context).noteRoot.availableTypes.map(
-                        (info) => _toolbarTypeButton(context, editorState, info),
+                        (info) =>
+                            _toolbarTypeButton(context, editorState, info),
                       ),
                       const SizedBox(width: 8),
                       _toolbarButton(
+                        context,
                         label: '导入文件',
                         icon: Icons.description,
                         onTap: onImportMdFile ?? () {},
                       ),
                       _toolbarButton(
+                        context,
                         label: '导入文字',
                         icon: Icons.paste,
                         onTap: onImportMdText ?? () {},
@@ -66,8 +80,15 @@ class EditToolbar implements ToolbarMode {
                   borderRadius: BorderRadius.circular(6),
                   onTap: () => TypePanel.show(context, editorState),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(Icons.expand_less, size: 22, color: colors.onSurfaceVariant),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    child: Icon(
+                      Icons.expand_less,
+                      size: 22,
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -78,7 +99,12 @@ class EditToolbar implements ToolbarMode {
     );
   }
 
-  Widget _toolbarTypeButton(BuildContext context, EditorState editorState, BlockTypeInfo info) {
+  Widget _toolbarTypeButton(
+    BuildContext context,
+    EditorState editorState,
+    BlockTypeInfo info,
+  ) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(right: 2),
       child: Tooltip(
@@ -90,7 +116,7 @@ class EditToolbar implements ToolbarMode {
             onTap: () => editorState.addBlockWithType(info.prototype),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Icon(info.icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              child: Icon(info.icon, size: 20, color: colors.onSurfaceVariant),
             ),
           ),
         ),
@@ -98,7 +124,8 @@ class EditToolbar implements ToolbarMode {
     );
   }
 
-  Widget _toolbarButton({
+  Widget _toolbarButton(
+    BuildContext context, {
     required String label,
     required IconData icon,
     required VoidCallback onTap,
