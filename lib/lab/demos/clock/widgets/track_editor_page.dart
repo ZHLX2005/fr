@@ -149,7 +149,9 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                   separatorBuilder: (_, _) => SizedBox(width: 8),
                   itemBuilder: (_, i) {
                     final c = provider.clocks[i];
-                    final color = Color(int.parse(c.color?.replaceFirst('#', '0xFF') ?? '0xFFD4644B'));
+                    final color = c.color == null
+                        ? Theme.of(context).colorScheme.primary
+                        : Color(int.parse(c.color!.replaceFirst('#', '0xFF')));
                     return InkWell(
                       onTap: () => _appendClock(c),
                       borderRadius: BorderRadius.circular(4),

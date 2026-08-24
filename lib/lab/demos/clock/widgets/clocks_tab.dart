@@ -143,7 +143,9 @@ class _ClockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.read<LabClockProvider>();
-    final baseColor = Color(int.parse(clock.color?.replaceFirst('#', '0xFF') ?? '0xFFD4644B'));
+    final baseColor = clock.color == null
+        ? Theme.of(context).colorScheme.primary
+        : Color(int.parse(clock.color!.replaceFirst('#', '0xFF')));
     final remaining = clock.remainingSeconds;
     final hasBeat = clock.bpm != null;
     final silenced = p.isClockSilenced(clock.id);
