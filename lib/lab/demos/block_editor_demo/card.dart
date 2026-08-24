@@ -115,7 +115,7 @@ class _BlockCardState extends State<BlockCard> {
       content = _buildDiffHighlight(pendingDiff);
     } else if (pendingNew) {
       // AI 新增的 block — 淡绿色背景 + "新增"标签
-      content = _buildPendingNew(context, widget.block);
+      content = _buildPendingNew(widget.block);
     } else if (widget.isSelected &&
         !widget.block.type.containerOnly &&
         widget.block.type is! ImageType) {
@@ -666,7 +666,7 @@ class _BlockCardState extends State<BlockCard> {
     );
   }
 
-  Widget _buildPendingNew(BuildContext context, Block block) {
+  Widget _buildPendingNew(Block block) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

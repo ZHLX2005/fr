@@ -171,7 +171,7 @@ class TypePanel extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Material(
       borderRadius: BorderRadius.circular(8),
-      color: Colors.grey[50],
+      color: colors.surfaceContainerHighest,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
