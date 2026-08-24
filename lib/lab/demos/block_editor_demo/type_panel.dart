@@ -8,10 +8,19 @@ class TypePanel extends StatelessWidget {
   final VoidCallback? onImportMd;
   final VoidCallback? onImportMdText;
 
-  const TypePanel({super.key, required this.editorState, this.onImportMd, this.onImportMdText});
+  const TypePanel({
+    super.key,
+    required this.editorState,
+    this.onImportMd,
+    this.onImportMdText,
+  });
 
-  static Future<void> show(BuildContext context, EditorState editorState,
-      {VoidCallback? onImportMdFile, VoidCallback? onImportMdText}) {
+  static Future<void> show(
+    BuildContext context,
+    EditorState editorState, {
+    VoidCallback? onImportMdFile,
+    VoidCallback? onImportMdText,
+  }) {
     return showModalBottomSheet(
       context: context,
       builder: (_) => TypePanel(
@@ -39,15 +48,21 @@ class TypePanel extends StatelessWidget {
           children: [
             Center(
               child: Container(
-                width: 32, height: 3,
+                width: 32,
+                height: 3,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: Theme.of(context).colorScheme.outlineVariant,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            const Text('插入块', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(
+              '插入块',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Flexible(
               child: SingleChildScrollView(
@@ -56,15 +71,30 @@ class TypePanel extends StatelessWidget {
                   children: [
                     for (final cat in BlockTypeCategory.values) ...[
                       if (grouped.containsKey(cat))
-                        _buildCategory(cat.label,
-                          grouped[cat]!.map((info) => _typeTile(context, info)).toList()),
+                        _buildCategory(
+                          context,
+                          cat.label,
+                          grouped[cat]!
+                              .map((info) => _typeTile(context, info))
+                              .toList(),
+                        ),
                     ],
                     if (onImportMd != null || onImportMdText != null)
-                      _buildCategory('工具', [
+                      _buildCategory(context, '工具', [
                         if (onImportMd != null)
-                          _actionTile(context, Icons.description, '导入文件', onImportMd!),
+                          _actionTile(
+                            context,
+                            Icons.description,
+                            '导入文件',
+                            onImportMd!,
+                          ),
                         if (onImportMdText != null)
-                          _actionTile(context, Icons.paste, '导入文字', onImportMdText!),
+                          _actionTile(
+                            context,
+                            Icons.paste,
+                            '导入文字',
+                            onImportMdText!,
+                          ),
                       ]),
                   ],
                 ),
@@ -76,13 +106,24 @@ class TypePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCategory(String title, List<Widget> tiles) {
+  Widget _buildCategory(
+    BuildContext context,
+    String title,
+    List<Widget> tiles,
+  ) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[500])),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: colors.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: 6),
           Wrap(spacing: 6, runSpacing: 6, children: tiles),
         ],
@@ -90,10 +131,16 @@ class TypePanel extends StatelessWidget {
     );
   }
 
-  Widget _actionTile(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+  Widget _actionTile(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
+    final colors = Theme.of(context).colorScheme;
     return Material(
       borderRadius: BorderRadius.circular(8),
-      color: Colors.grey[50],
+      color: colors.surfaceContainerHighest,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
@@ -105,9 +152,14 @@ class TypePanel extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Column(
             children: [
-              Icon(icon, size: 20, color: Colors.grey[700]),
+              Icon(icon, size: 20, color: colors.onSurfaceVariant),
               const SizedBox(height: 2),
-              Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ),
@@ -116,6 +168,7 @@ class TypePanel extends StatelessWidget {
   }
 
   Widget _typeTile(BuildContext context, BlockTypeInfo info) {
+    final colors = Theme.of(context).colorScheme;
     return Material(
       borderRadius: BorderRadius.circular(8),
       color: Colors.grey[50],
@@ -130,9 +183,14 @@ class TypePanel extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Column(
             children: [
-              Icon(info.icon, size: 20, color: Colors.grey[700]),
+              Icon(info.icon, size: 20, color: colors.onSurfaceVariant),
               const SizedBox(height: 2),
-              Text(info.label, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+              Text(
+                info.label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ),

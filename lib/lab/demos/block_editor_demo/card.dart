@@ -593,20 +593,20 @@ class _BlockCardState extends State<BlockCard> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: Colors.red.shade50,
+          color: colorScheme.errorContainer,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete_outline, size: 13, color: Colors.red.shade400),
+            Icon(Icons.delete_outline, size: 13, color: colorScheme.error),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
                 block?.content.toPlainText() ?? '(空)',
                 style: baseStyle.copyWith(
                   decoration: TextDecoration.lineThrough,
-                  decorationColor: Colors.red.shade400,
+                  decorationColor: colorScheme.error,
                   decorationThickness: 2,
                 ),
                 maxLines: 2,
@@ -615,7 +615,7 @@ class _BlockCardState extends State<BlockCard> {
             ),
             const SizedBox(width: 4),
             Text('— 待删除',
-                style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+                style: TextStyle(fontSize: 11, color: colorScheme.error)),
           ],
         ),
       ),
@@ -626,8 +626,10 @@ class _BlockCardState extends State<BlockCard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        border: Border(left: BorderSide(color: Colors.green.shade400, width: 3)),
+        color: colorScheme.tertiaryContainer,
+        border: Border(
+          left: BorderSide(color: colorScheme.tertiary, width: 3),
+        ),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -636,7 +638,7 @@ class _BlockCardState extends State<BlockCard> {
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Icon(Icons.add_circle_outline,
-                size: 13, color: Colors.green.shade700),
+                size: 13, color: colorScheme.tertiary),
           ),
           const SizedBox(width: 4),
           Expanded(
@@ -649,7 +651,7 @@ class _BlockCardState extends State<BlockCard> {
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text('+ 新增',
-                style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
+                style: TextStyle(fontSize: 11, color: colorScheme.tertiary)),
           ),
         ],
       ),

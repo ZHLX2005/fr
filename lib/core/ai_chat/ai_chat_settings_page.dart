@@ -100,6 +100,7 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI 聊天设置'),
@@ -192,18 +193,18 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green[50],
+                  color: scheme.tertiaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.storage, color: Colors.green[700]),
+                    Icon(Icons.storage, color: scheme.onTertiaryContainer),
                     const SizedBox(width: 8),
                     Text(
                       '数据库配置 (Agent)',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
+                        color: scheme.onTertiaryContainer,
                       ),
                     ),
                   ],
@@ -271,24 +272,25 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
               OutlinedButton.icon(
                 onPressed: _isSaving ? null : _saveSettings,
                 icon: _isSaving
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.green,
+                          color: scheme.tertiary,
                         ),
                       )
                     : const Icon(Icons.save),
                 label: Text(_isSaving ? '保存中...' : '保存设置'),
-                style: EmphasisButton.borderEmphasis(
-                  context,
-                  color: Colors.green,
-                ).copyWith(
-                  padding: WidgetStatePropertyAll(
-                    const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
+                style:
+                    EmphasisButton.borderEmphasis(
+                      context,
+                      color: scheme.tertiary,
+                    ).copyWith(
+                      padding: WidgetStatePropertyAll(
+                        const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
               ),
               const SizedBox(height: 24),
 
@@ -296,32 +298,32 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue),
+                        Icon(
+                          Icons.info_outline,
+                          color: scheme.onPrimaryContainer,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           '使用说明',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: scheme.onPrimaryContainer,
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 12),
-                    Text('1. 点击右上角保存或底部按钮保存设置',
-                        style: TextStyle(fontSize: 13)),
-                    Text('2. 模型类型默认为 Claude',
-                        style: TextStyle(fontSize: 13)),
-                    Text('3. 数据库配置用于 Agent 功能',
-                        style: TextStyle(fontSize: 13)),
+                    Text('1. 点击右上角保存或底部按钮保存设置', style: TextStyle(fontSize: 13)),
+                    Text('2. 模型类型默认为 Claude', style: TextStyle(fontSize: 13)),
+                    Text('3. 数据库配置用于 Agent 功能', style: TextStyle(fontSize: 13)),
                     Text(
                       '4. 保存后返回 Agent 页面即可使用',
                       style: TextStyle(fontSize: 13),

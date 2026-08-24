@@ -15,7 +15,6 @@ import 'ai/ai_settings_store.dart';
 import 'ai/article_edit_service.dart';
 import 'ai/ai_chat_service.dart';
 
-
 /// 块编辑器 Demo（持久化版）
 class BlockEditorDemo extends StatefulWidget {
   const BlockEditorDemo({super.key});
@@ -147,11 +146,12 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
+        final colors = Theme.of(context).colorScheme;
         return Container(
           decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.08),
+            color: colors.primaryContainer.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+            border: Border.all(color: colors.primary.withValues(alpha: 0.5)),
           ),
           child: child,
         );
@@ -211,7 +211,9 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: blocks.length + 1,
                     onReorder: (oldIndex, newIndex) {
-                      if (oldIndex == blocks.length || newIndex == blocks.length) return;
+                      if (oldIndex == blocks.length ||
+                          newIndex == blocks.length)
+                        return;
                       _editorState.moveBlock(oldIndex, newIndex);
                     },
                     proxyDecorator: _proxyDecorator,
@@ -282,7 +284,11 @@ class _AiPendingBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, size: 16, color: colorScheme.onPrimaryContainer),
+            Icon(
+              Icons.auto_awesome,
+              size: 16,
+              color: colorScheme.onPrimaryContainer,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

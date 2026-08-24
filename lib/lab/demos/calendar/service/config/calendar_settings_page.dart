@@ -17,12 +17,10 @@ class CalendarSettingsPage extends StatefulWidget {
   const CalendarSettingsPage({super.key});
 
   @override
-  State<CalendarSettingsPage> createState() =>
-      _CalendarSettingsPageState();
+  State<CalendarSettingsPage> createState() => _CalendarSettingsPageState();
 }
 
-class _CalendarSettingsPageState
-    extends State<CalendarSettingsPage> {
+class _CalendarSettingsPageState extends State<CalendarSettingsPage> {
   @override
   Widget build(BuildContext context) {
     // 监听 provider 变化：group 列表 / 激活 group 变化时立即重建
@@ -183,7 +181,9 @@ class _CalendarSettingsPageState
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).colorScheme.error,
+            ),
             child: const Text('删除'),
           ),
         ],
@@ -285,15 +285,19 @@ class _GroupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return ListTile(
       dense: true,
       leading: Icon(
         active ? Icons.radio_button_checked : Icons.radio_button_off,
-        color: active ? ZenColors.sage : ZenColors.secondary,
+        color: active ? scheme.primary : scheme.onSurfaceVariant,
       ),
-      title: Text(group.name, style: ZenText.body),
+      title: Text(
+        group.name,
+        style: ZenText.body.copyWith(color: scheme.onSurface),
+      ),
       subtitle: active
-          ? const Text('当前', style: TextStyle(fontSize: 11, color: ZenColors.sage))
+          ? Text('当前', style: TextStyle(fontSize: 11, color: scheme.primary))
           : null,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -335,9 +339,10 @@ class _ZenActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final color = danger
-        ? Colors.red.shade400
-        : (secondary ? ZenColors.secondary : ZenColors.sage);
+        ? scheme.error
+        : (secondary ? scheme.onSurfaceVariant : scheme.primary);
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(

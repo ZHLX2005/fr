@@ -53,6 +53,7 @@ class _SystemMessagesPageState extends State<SystemMessagesPage> {
 
   Future<void> _confirmClear(
       BuildContext context, SystemEventsController controller) async {
+    final scheme = Theme.of(context).colorScheme;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -65,7 +66,10 @@ class _SystemMessagesPageState extends State<SystemMessagesPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: scheme.error,
+              foregroundColor: scheme.onError,
+            ),
             child: const Text('清空'),
           ),
         ],

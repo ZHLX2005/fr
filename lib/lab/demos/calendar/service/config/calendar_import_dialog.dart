@@ -19,8 +19,7 @@ class CalendarImportDialog extends ConsumerStatefulWidget {
       _CalendarImportDialogState();
 }
 
-class _CalendarImportDialogState
-    extends ConsumerState<CalendarImportDialog> {
+class _CalendarImportDialogState extends ConsumerState<CalendarImportDialog> {
   final _controller = TextEditingController();
   CalendarDslFullResult? _result;
   bool _applied = false;
@@ -42,9 +41,9 @@ class _CalendarImportDialogState
     final people = LabPeopleProvider.current;
     if (cal == null || people == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('日历尚未初始化')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('日历尚未初始化')));
       }
       return;
     }
@@ -54,7 +53,8 @@ class _CalendarImportDialogState
     for (final p in _result!.persons) {
       // 已存在同名（同 group）则跳过
       final exists = people.allPeople.any(
-        (existing) => existing.groupId == activeGroupId && existing.name == p.name,
+        (existing) =>
+            existing.groupId == activeGroupId && existing.name == p.name,
       );
       if (exists) continue;
       await people.add(
@@ -62,12 +62,12 @@ class _CalendarImportDialogState
         relation: p.relation == 'self'
             ? PersonRelation.self
             : p.relation == 'family'
-                ? PersonRelation.family
-                : p.relation == 'friend'
-                    ? PersonRelation.friend
-                    : p.relation == 'colleague'
-                        ? PersonRelation.colleague
-                        : PersonRelation.other,
+            ? PersonRelation.family
+            : p.relation == 'friend'
+            ? PersonRelation.friend
+            : p.relation == 'colleague'
+            ? PersonRelation.colleague
+            : PersonRelation.other,
         avatarEmoji: p.avatarEmoji,
         note: p.note,
       );
@@ -116,7 +116,9 @@ class _CalendarImportDialogState
       children: [
         GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: Container(color: Colors.black26),
+          child: Container(
+            color: theme.colorScheme.scrim.withValues(alpha: 0.26),
+          ),
         ),
         Center(
           child: Material(
@@ -128,7 +130,7 @@ class _CalendarImportDialogState
               height: 480,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: ZenColors.hair, width: 1),
+                border: Border.all(color: theme.colorScheme.outline, width: 1),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -158,7 +160,7 @@ class _CalendarImportDialogState
                                 '日历 DSL 导入',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: ZenColors.ink,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ],
@@ -186,20 +188,24 @@ class _CalendarImportDialogState
                       decoration: InputDecoration(
                         hintText:
                             'config: default-system=solar\n张三生日 @yearly-solar:08-15 type=birthday color=red',
-                        hintStyle: const TextStyle(
+                        hintStyle: TextStyle(
                           fontSize: 11,
-                          color: ZenColors.secondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         isDense: true,
                         filled: true,
-                        fillColor: ZenColors.surface,
+                        fillColor: theme.colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: const BorderSide(color: ZenColors.hair),
+                          borderSide: BorderSide(
+                            color: theme.colorScheme.outline,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: const BorderSide(color: ZenColors.hair),
+                          borderSide: BorderSide(
+                            color: theme.colorScheme.outline,
+                          ),
                         ),
                       ),
                     ),
@@ -212,8 +218,11 @@ class _CalendarImportDialogState
                           child: OutlinedButton(
                             onPressed: _preview,
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: ZenColors.secondary,
-                              side: const BorderSide(color: ZenColors.hair),
+                              foregroundColor:
+                                  theme.colorScheme.onSurfaceVariant,
+                              side: BorderSide(
+                                color: theme.colorScheme.outline,
+                              ),
                             ),
                             child: const Text('预览'),
                           ),
@@ -222,21 +231,26 @@ class _CalendarImportDialogState
                         Expanded(
                           flex: 2,
                           child: OutlinedButton(
-                            onPressed: (_result == null || _result!.events.isEmpty || _applied)
+                            onPressed:
+                                (_result == null ||
+                                    _result!.events.isEmpty ||
+                                    _applied)
                                 ? null
                                 : _apply,
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: ZenColors.sage,
-                              side: const BorderSide(color: ZenColors.sage),
+                              foregroundColor: theme.colorScheme.primary,
+                              side: BorderSide(
+                                color: theme.colorScheme.primary,
+                              ),
                             ),
                             child: Text(
                               _applied
                                   ? '已应用'
                                   : (_result == null
-                                      ? '应用'
-                                      : _result!.events.isEmpty
-                                          ? '无事件'
-                                          : '应用 ${_result!.events.length} 个事件'),
+                                        ? '应用'
+                                        : _result!.events.isEmpty
+                                        ? '无事件'
+                                        : '应用 ${_result!.events.length} 个事件'),
                             ),
                           ),
                         ),
@@ -244,9 +258,7 @@ class _CalendarImportDialogState
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Expanded(
-                    child: _buildBody(theme, r),
-                  ),
+                  Expanded(child: _buildBody(theme, r)),
                 ],
               ),
             ),
@@ -261,7 +273,9 @@ class _CalendarImportDialogState
       return Center(
         child: Text(
           '粘贴 DSL 文本 → 点击预览',
-          style: ZenText.label.copyWith(color: ZenColors.secondary),
+          style: ZenText.label.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -270,16 +284,19 @@ class _CalendarImportDialogState
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.red.shade50,
+          color: theme.colorScheme.errorContainer,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.red.shade200),
+          border: Border.all(color: theme.colorScheme.error),
         ),
         child: ListView(
           children: r.errors
               .map(
                 (e) => Text(
                   e,
-                  style: TextStyle(color: Colors.red.shade700, fontSize: 11),
+                  style: TextStyle(
+                    color: theme.colorScheme.onErrorContainer,
+                    fontSize: 11,
+                  ),
                 ),
               )
               .toList(),
@@ -290,9 +307,9 @@ class _CalendarImportDialogState
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: ZenColors.surface,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: ZenColors.hair),
+        border: Border.all(color: theme.colorScheme.outline),
       ),
       child: ListView(
         children: [
@@ -302,11 +319,15 @@ class _CalendarImportDialogState
           ),
           const SizedBox(height: 4),
           for (final e in r.events.take(10))
-            Text('· ${e.title} (${e.system.name} ${e.month}-${e.day})',
-                style: ZenText.label),
+            Text(
+              '· ${e.title} (${e.system.name} ${e.month}-${e.day})',
+              style: ZenText.label,
+            ),
           if (r.events.length > 10)
-            Text('… 还有 ${r.events.length - 10} 个',
-                style: ZenText.label.copyWith(color: ZenColors.secondary)),
+            Text(
+              '… 还有 ${r.events.length - 10} 个',
+              style: ZenText.label.copyWith(color: ZenColors.secondary),
+            ),
         ],
       ),
     );

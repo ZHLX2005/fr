@@ -27,6 +27,7 @@ class EditToolbar implements ToolbarMode {
 
   @override
   Widget build(BuildContext context, EditorState editorState, VoidCallback onSwitchMode) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       color: Theme.of(context).canvasColor,
       child: SafeArea(
@@ -66,7 +67,7 @@ class EditToolbar implements ToolbarMode {
                   onTap: () => TypePanel.show(context, editorState),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    child: Icon(Icons.expand_less, size: 22, color: Colors.grey[600]),
+                    child: Icon(Icons.expand_less, size: 22, color: colors.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -89,7 +90,7 @@ class EditToolbar implements ToolbarMode {
             onTap: () => editorState.addBlockWithType(info.prototype),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Icon(info.icon, size: 20, color: Colors.grey[600]),
+              child: Icon(info.icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
         ),
@@ -102,6 +103,7 @@ class EditToolbar implements ToolbarMode {
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(right: 2),
       child: Material(
@@ -111,7 +113,7 @@ class EditToolbar implements ToolbarMode {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Icon(icon, size: 20, color: Colors.grey[600]),
+            child: Icon(icon, size: 20, color: colors.onSurfaceVariant),
           ),
         ),
       ),

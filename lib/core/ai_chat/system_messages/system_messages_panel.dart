@@ -66,26 +66,34 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.notifications_none, size: 56, color: Colors.grey[400]),
+            Icon(
+              Icons.notifications_none,
+              size: 56,
+              color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
             const SizedBox(height: 12),
             Text(
               '暂无系统消息',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: colors.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '小助手会在后台事件触发后向你汇报',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(
+                fontSize: 12,
+                color: colors.onSurfaceVariant.withValues(alpha: 0.8),
+              ),
             ),
           ],
         ),

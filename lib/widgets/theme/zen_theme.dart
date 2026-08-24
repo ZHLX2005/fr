@@ -49,7 +49,6 @@ class ZenText {
     fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     fontSize: 16,
-    color: Color(0xFF2C2C2C), // ZenColors.ink 内联
     height: 1.3,
   );
 
@@ -57,7 +56,6 @@ class ZenText {
     fontFamily:
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     fontSize: 13,
-    color: Color(0xFF8A8475), // ZenColors.secondary 内联
   );
 
   static const title = TextStyle(
@@ -65,7 +63,6 @@ class ZenText {
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     fontSize: 22,
     fontWeight: FontWeight.w600,
-    color: Color(0xFF2C2C2C),
   );
 
   static const button = TextStyle(
@@ -80,7 +77,6 @@ class ZenText {
     fontSize: 40,
     fontWeight: FontWeight.w600,
     fontFeatures: [FontFeature.tabularFigures()],
-    color: Color(0xFF2C2C2C),
   );
 
   static const monoDigitLarge = TextStyle(
@@ -88,14 +84,12 @@ class ZenText {
     fontSize: 64,
     fontWeight: FontWeight.w700,
     fontFeatures: [FontFeature.tabularFigures()],
-    color: Color(0xFF2C2C2C),
   );
 
   static const monoDigitSmall = TextStyle(
     fontFamily: 'SF Mono, Menlo, Consolas, monospace',
     fontSize: 14,
     fontFeatures: [FontFeature.tabularFigures()],
-    color: Color(0xFF8A8475),
   );
 }
 
@@ -112,10 +106,10 @@ enum ZenIconButtonVariant { tint, outline, hero }
 /// ⚠️ DEPRECATED 兼容版：读 ZenColors（Zen 家族固定色）。
 /// 新代码用 [zenCardTheme]。
 BoxDecoration zenCard({Color? color}) => BoxDecoration(
-      color: color ?? ZenColors.surface,
-      border: Border.all(color: ZenColors.hair, width: 1),
-      borderRadius: BorderRadius.circular(6),
-    );
+  color: color ?? ZenColors.surface,
+  border: Border.all(color: ZenColors.hair, width: 1),
+  borderRadius: BorderRadius.circular(6),
+);
 
 /// Zen 卡片装饰（v6 Heritage：读 ColorStrategy）。
 BoxDecoration zenCardTheme(BuildContext context) {
@@ -131,21 +125,17 @@ BoxDecoration zenCardTheme(BuildContext context) {
 ///
 /// ⚠️ DEPRECATED 兼容版。
 BoxDecoration zenDottedZone() => BoxDecoration(
-      color: ZenColors.surface,
-      border: Border.all(color: ZenColors.hair, width: 1, style: BorderStyle.solid),
-      borderRadius: BorderRadius.circular(6),
-    );
+  color: ZenColors.surface,
+  border: Border.all(color: ZenColors.hair, width: 1, style: BorderStyle.solid),
+  borderRadius: BorderRadius.circular(6),
+);
 
 /// Zen 点状区域（v6 Heritage）。
 BoxDecoration zenDottedZoneTheme(BuildContext context) {
   final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
   return BoxDecoration(
     color: s.surface,
-    border: Border.all(
-      color: s.outline,
-      width: 1,
-      style: BorderStyle.solid,
-    ),
+    border: Border.all(color: s.outline, width: 1, style: BorderStyle.solid),
     borderRadius: BorderRadius.circular(6),
   );
 }
@@ -275,10 +265,7 @@ class ZenDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BaseDot(
-      active: active,
-      size: size,
-    );
+    return BaseDot(active: active, size: size);
   }
 }
 

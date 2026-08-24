@@ -64,7 +64,9 @@ class _RecordSheetState extends State<RecordSheet> {
   void _applyFilter() {
     _filtered = _searchQuery.isEmpty
         ? _history
-        : _history.where((r) => r.content.toLowerCase().contains(_searchQuery)).toList();
+        : _history
+              .where((r) => r.content.toLowerCase().contains(_searchQuery))
+              .toList();
   }
 
   Color get _painColor =>
@@ -104,6 +106,7 @@ class _RecordSheetState extends State<RecordSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -120,7 +123,7 @@ class _RecordSheetState extends State<RecordSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: scheme.outlineVariant,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -143,9 +146,18 @@ class _RecordSheetState extends State<RecordSheet> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(widget.bodyPart.label, style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  widget.bodyPart.label,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(width: 8),
-                Text(tissueLabels[widget.bodyPart.tissue]!, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                Text(
+                  tissueLabels[widget.bodyPart.tissue]!,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
@@ -159,7 +171,10 @@ class _RecordSheetState extends State<RecordSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: SliderTheme(
-                    data: SliderThemeData(activeTrackColor: _painColor, thumbColor: _painColor),
+                    data: SliderThemeData(
+                      activeTrackColor: _painColor,
+                      thumbColor: _painColor,
+                    ),
                     child: Slider(
                       value: _pain,
                       min: 0,
@@ -170,7 +185,13 @@ class _RecordSheetState extends State<RecordSheet> {
                     ),
                   ),
                 ),
-                Text('${_pain.round()}', style: TextStyle(fontWeight: FontWeight.bold, color: _painColor)),
+                Text(
+                  '${_pain.round()}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _painColor,
+                  ),
+                ),
               ],
             ),
           ),
@@ -184,7 +205,10 @@ class _RecordSheetState extends State<RecordSheet> {
                 hintText: _editing != null ? '编辑记录...' : '描述你的感受...',
                 border: const OutlineInputBorder(),
                 suffixIcon: _editing != null
-                    ? IconButton(icon: const Icon(Icons.close, size: 18), onPressed: _cancelEdit)
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: _cancelEdit,
+                      )
                     : null,
               ),
             ),
@@ -212,7 +236,10 @@ class _RecordSheetState extends State<RecordSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Text('历史记录 (${_history.length})', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  '历史记录 (${_history.length})',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ],
             ),
           ),
@@ -227,8 +254,13 @@ class _RecordSheetState extends State<RecordSheet> {
                   hintText: '搜索记录...',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
                 ),
               ),
             ),
@@ -259,7 +291,11 @@ class _RecordSheetState extends State<RecordSheet> {
           if (_filtered.isEmpty && _searchQuery.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('没有找到匹配的记录', style: TextStyle(color: Colors.grey[500]), textAlign: TextAlign.center),
+              child: Text(
+                '没有找到匹配的记录',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
             ),
           // 底部安全区
           SizedBox(height: MediaQuery.of(context).padding.bottom),
@@ -275,11 +311,21 @@ class _RecordTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _RecordTile({required this.record, required this.isEditing, required this.onEdit, required this.onDelete});
+  const _RecordTile({
+    required this.record,
+    required this.isEditing,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final painColor = Color.lerp(Colors.green, Colors.red, (record.painLevel ?? 0) / 10);
+    final scheme = Theme.of(context).colorScheme;
+    final painColor = Color.lerp(
+      Colors.green,
+      Colors.red,
+      (record.painLevel ?? 0) / 10,
+    );
 
     return Dismissible(
       key: ValueKey(record.key),
@@ -287,21 +333,30 @@ class _RecordTile extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
+        color: scheme.error,
+        child: Icon(Icons.delete, color: scheme.onError),
       ),
       onDismissed: (_) => onDelete(),
       child: ListTile(
         contentPadding: EdgeInsets.zero,
-        title: Text(record.content, maxLines: 2, overflow: TextOverflow.ellipsis),
+        title: Text(
+          record.content,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Text(
           '${record.createdAt.toLocal().toString().substring(0, 16)} · 不适: ${record.painLevel ?? "-"}/10',
         ),
         dense: true,
         leading: Icon(Icons.circle, size: 10, color: painColor),
         trailing: isEditing
-            ? const Icon(Icons.edit, size: 16, color: Colors.blue)
-            : IconButton(icon: const Icon(Icons.edit_outlined, size: 18), onPressed: onEdit, tooltip: '编辑', visualDensity: VisualDensity.compact),
+            ? Icon(Icons.edit, size: 16, color: scheme.primary)
+            : IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: onEdit,
+                tooltip: '编辑',
+                visualDensity: VisualDensity.compact,
+              ),
         onTap: onEdit,
       ),
     );
