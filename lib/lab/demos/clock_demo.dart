@@ -205,16 +205,18 @@ class _ClockShellState extends State<_ClockShell> {
   @override
   Widget build(BuildContext context) {
     final showFab = _index != 2; // No FAB on Dashboard.
+    // 继承外层 app 的完整主题（含 colorScheme / ThemeExtension），
+    // 只覆盖个别字段，否则内部 MaterialApp 会退回 Material 默认配色，
+    // 导致时钟卡片等组件读到的 colorScheme 不是当前主题。
+    final base = Theme.of(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
+      theme: base.copyWith(
         scaffoldBackgroundColor: context.colors.surface,
         canvasColor: context.colors.surface,
         primaryColor: context.colors.accent,
         splashColor: context.colors.accent.withValues(alpha: 0.1),
         highlightColor: context.colors.accent.withValues(alpha: 0.05),
-        fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       ),
       home: Scaffold(
         backgroundColor: context.colors.surface,

@@ -82,7 +82,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
     final state = notifier.state;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.onSurface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Stack(
           children: [

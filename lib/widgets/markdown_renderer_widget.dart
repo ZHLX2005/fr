@@ -38,10 +38,10 @@ class MarkdownRendererWidget extends StatelessWidget {
         fontFamily: 'monospace',
         fontSize: 13,
         color: theme.colorScheme.primary,
-        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        backgroundColor: theme.colorScheme.primaryContainer,
       ),
       codeblockDecoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: theme.colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(8),
       ),
       blockquoteDecoration: BoxDecoration(

@@ -1,11 +1,13 @@
-# ref 4：当前颜色用法审计（color 用得最多的目录是哪些）
+# 子 ref C：当前颜色用法审计（color 用得最多的目录是哪些）
 
-> 数据基于 v6.1 重构 + 5 批迁移完成后的快照（`grep` 实拍，2026-08-18）。
-> 改/评审任何目录前查此表判断迁移完整度。
+> 从 [SKILL.md](../SKILL.md) 导航进入。本文是**迁移完整度快照**：残留 hex 归属、Top 热点、目录用色规模、迁移历史。
+> 数据基于 v6.1 重构 + 5 批迁移 + v6.2 收尾（ZenColors 兼容层删除）后的快照（`grep` 实拍，2026-08-25）。
+> 改/评审任何目录前查此表判断迁移完整度。架构/数据流见 [[architecture]]，改动 SOP 见 [[extension]]。
 
-## 0. 迁移状态：✅ 已完成
+## 0. 迁移状态：✅ 已完成（含 v6.2 收尾）
 
-**5 批迁移全部落地**（124 处豁免 + 65 处迁移 + 86 处 BoardTheme 令牌）。
+**5 批迁移 + v6.2 收尾全部落地**（124 处豁免 + 65 处迁移 + 86 处 BoardTheme 令牌）。
+v6.2（2026-08-25 工作区）：`zenButton(...)` → `zenButtonTheme(context, ...)` 签名迁移覆盖 15 文件、删除 `ZenColors` 兼容层（`zenCard`/`zenDottedZone`/`zenButton`）、zen 主题 5 环境色校准回 ZenColors 常量值、`calendar_import_dialog` 最后一处 `ZenColors.secondary` 迁移。
 当前 `lib/` 内所有残留 `Color(0xFF...)` 均已分类：
 
 | 分类 | 数量 | 说明 |
@@ -100,6 +102,7 @@
 | 3 | profile / jungle_chess / body / line | 8 | lab_panel delete → scheme.error；jungle 5 色 → 顶层函数式 |
 | 4 | novel_reader | 6 | 错误/绿色强调 → scheme.error/tertiary |
 | 5 | lab/demos | 16 | bottom_bar 死字段删；reaction 5 phase → scheme；bookmark 2 处迁 |
+| 6（v6.2 收尾） | 全 lib 调用点 | 17 文件 | `zenButton` → `zenButtonTheme` 签名迁移（timetable/clock/relation_calc 等）；删 `ZenColors` 兼容层（card/dottedZone/button）；zen 主题 5 色校准对齐 ZenColors 常量；calendar_import_dialog 最后 1 处 `ZenColors.secondary` → scheme；recorder `zenCard` → `zenCardTheme` |
 
 ## 5. 迁移完整度自检命令
 

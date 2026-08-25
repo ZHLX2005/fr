@@ -75,8 +75,12 @@ class _TrackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tp = context.read<LabTrackProvider>();
-    final totalSeconds = track.segments.fold(0, (s, seg) => s + seg.snapshotDurationSeconds);
-    final canRun = track.segments.isNotEmpty && !beatLocked && !otherTrackRunning;
+    final totalSeconds = track.segments.fold(
+      0,
+      (s, seg) => s + seg.snapshotDurationSeconds,
+    );
+    final canRun =
+        track.segments.isNotEmpty && !beatLocked && !otherTrackRunning;
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(16),
@@ -84,10 +88,15 @@ class _TrackCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(track.title, style: ZenText.body.copyWith(fontWeight: FontWeight.w600)),
+          Text(
+            track.title,
+            style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
+          ),
           SizedBox(height: 4),
-          Text('${track.segments.length} 段 · ${formatDuration(totalSeconds)}',
-              style: ZenText.monoDigitSmall),
+          Text(
+            '${track.segments.length} 段 · ${formatDuration(totalSeconds)}',
+            style: ZenText.monoDigitSmall,
+          ),
           if (track.description.isNotEmpty) ...[
             SizedBox(height: 4),
             Text(track.description, style: ZenText.label),
@@ -103,20 +112,30 @@ class _TrackCard extends StatelessWidget {
                           if (context.mounted) {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => TrackRunnerPage(trackId: track.id)),
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    TrackRunnerPage(trackId: track.id),
+                              ),
                             );
                           }
                         }
                       : null,
                   icon: Icon(Icons.play_arrow),
                   label: Text('开始'),
-                  style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+                  style: zenButtonTheme(
+                    context,
+                    foreground: context.colors.accent,
+                    border: context.colors.accent,
+                  ),
                 ),
               ),
               SizedBox(width: 8),
               OutlinedButton(
                 onPressed: () async {
-                  final result = await showTrackEditor(context, existing: track);
+                  final result = await showTrackEditor(
+                    context,
+                    existing: track,
+                  );
                   if (result == null) return;
                   await tp.updateTrack(result);
                 },

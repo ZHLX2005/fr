@@ -5,7 +5,7 @@ import '../../../core/theme/theme_provider.dart';
 /// 主题设置页面
 ///
 /// 展示当前所有主题的预览卡片，点选切换 + SnackBar 反馈。
-/// 当前 2 套：zen（茶禅）、purple（暮紫）。
+/// 当前 5 套：zen（茶禅）· purple（暮紫）· ink（墨白）· rose（粉雾海盐）· lemon（柠檬鼠尾草）。
 /// 保留 Scaffold + AppBar 骨架，新增主题时按 AppThemeMode.values 顺序自动出现。
 class ThemePage extends ConsumerWidget {
   const ThemePage({super.key});

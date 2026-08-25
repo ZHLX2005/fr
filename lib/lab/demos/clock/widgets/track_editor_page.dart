@@ -35,7 +35,9 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
     super.initState();
     _titleCtl = TextEditingController(text: widget.existing?.title ?? '');
     _descCtl = TextEditingController(text: widget.existing?.description ?? '');
-    _segments = List<LabTrackSegment>.from(widget.existing?.segments ?? const []);
+    _segments = List<LabTrackSegment>.from(
+      widget.existing?.segments ?? const [],
+    );
   }
 
   @override
@@ -50,14 +52,16 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
 
   void _appendClock(LabClock clock) {
     setState(() {
-      _segments.add(LabTrackSegment(
-        clockId: clock.id,
-        snapshotTitle: clock.title,
-        snapshotColor: clock.color,
-        snapshotDurationSeconds: clock.durationSeconds ?? 60,
-        snapshotBpm: clock.bpm,
-        snapshotBeatPattern: clock.beatPattern,
-      ));
+      _segments.add(
+        LabTrackSegment(
+          clockId: clock.id,
+          snapshotTitle: clock.title,
+          snapshotColor: clock.color,
+          snapshotDurationSeconds: clock.durationSeconds ?? 60,
+          snapshotBpm: clock.bpm,
+          snapshotBeatPattern: clock.beatPattern,
+        ),
+      );
     });
   }
 
@@ -101,13 +105,17 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
   Widget build(BuildContext context) {
     return zenPageScaffold(
       context: context,
-  title: widget.existing == null ? '新建编排' : '编辑编排',
+      title: widget.existing == null ? '新建编排' : '编辑编排',
       actions: [
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 8),
           child: OutlinedButton(
             onPressed: _segments.isEmpty ? null : _save,
-            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+            style: zenButtonTheme(
+              context,
+              foreground: context.colors.accent,
+              border: context.colors.accent,
+            ),
             child: const Text('保存'),
           ),
         ),
@@ -162,18 +170,32 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(children: [
-                              Container(
-                                width: 8, height: 8,
-                                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                              ),
-                              SizedBox(width: 6),
-                              Expanded(
-                                child: Text(c.title, style: ZenText.body, maxLines: 1, overflow: TextOverflow.ellipsis),
-                              ),
-                            ]),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    c.title,
+                                    style: ZenText.body,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                             Spacer(),
-                            Text(formatDuration(c.durationSeconds ?? 0), style: ZenText.monoDigitSmall),
+                            Text(
+                              formatDuration(c.durationSeconds ?? 0),
+                              style: ZenText.monoDigitSmall,
+                            ),
                           ],
                         ),
                       ),
@@ -190,15 +212,15 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
             Container(
               padding: EdgeInsets.all(24),
               decoration: zenCardTheme(context),
-              child: Center(
-                child: Text('点上方时钟加入编排', style: ZenText.label),
-              ),
+              child: Center(child: Text('点上方时钟加入编排', style: ZenText.label)),
             )
           else
             ...List.generate(_segments.length, (i) {
               final seg = _segments[i];
               final color = seg.snapshotColor != null
-                  ? Color(int.parse(seg.snapshotColor!.replaceFirst('#', '0xFF')))
+                  ? Color(
+                      int.parse(seg.snapshotColor!.replaceFirst('#', '0xFF')),
+                    )
                   : context.colors.text;
               return Container(
                 margin: EdgeInsets.only(bottom: 8),
@@ -209,8 +231,12 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                     Text('${i + 1}', style: ZenText.monoDigitSmall),
                     SizedBox(width: 12),
                     Container(
-                      width: 8, height: 8,
-                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     SizedBox(width: 8),
                     Expanded(
@@ -219,24 +245,36 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
                         children: [
                           Text(seg.snapshotTitle, style: ZenText.body),
                           if (seg.snapshotBpm != null)
-                            Text('${seg.snapshotBpm}bpm ${seg.snapshotBeatPattern ?? ""}', style: ZenText.monoDigitSmall),
+                            Text(
+                              '${seg.snapshotBpm}bpm ${seg.snapshotBeatPattern ?? ""}',
+                              style: ZenText.monoDigitSmall,
+                            ),
                         ],
                       ),
                     ),
-                    Text(formatDuration(seg.snapshotDurationSeconds), style: ZenText.monoDigitSmall),
+                    Text(
+                      formatDuration(seg.snapshotDurationSeconds),
+                      style: ZenText.monoDigitSmall,
+                    ),
                     IconButton(
                       onPressed: i == 0 ? null : () => _moveUp(i),
                       icon: Icon(Icons.keyboard_arrow_up, size: 20),
                       tooltip: '上移',
                     ),
                     IconButton(
-                      onPressed: i == _segments.length - 1 ? null : () => _moveDown(i),
+                      onPressed: i == _segments.length - 1
+                          ? null
+                          : () => _moveDown(i),
                       icon: Icon(Icons.keyboard_arrow_down, size: 20),
                       tooltip: '下移',
                     ),
                     IconButton(
                       onPressed: () => _removeSegment(i),
-                      icon: Icon(Icons.close, size: 20, color: context.colors.danger),
+                      icon: Icon(
+                        Icons.close,
+                        size: 20,
+                        color: context.colors.danger,
+                      ),
                       tooltip: '移除',
                     ),
                   ],
@@ -247,8 +285,10 @@ class _TrackEditorPageState extends State<TrackEditorPage> {
           ZenSection(
             title: '合计',
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(formatDuration(_totalSeconds),
-                style: ZenText.monoDigit.copyWith(fontSize: 20)),
+            child: Text(
+              formatDuration(_totalSeconds),
+              style: ZenText.monoDigit.copyWith(fontSize: 20),
+            ),
           ),
         ],
       ),

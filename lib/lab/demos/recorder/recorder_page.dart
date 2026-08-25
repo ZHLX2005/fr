@@ -108,9 +108,9 @@ class _RecorderDemoPageState extends State<RecorderDemoPage> {
         if (path != null) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text('${RecorderUiText.savedPrefix}$path'),
-            ));
+            ..showSnackBar(
+              SnackBar(content: Text('${RecorderUiText.savedPrefix}$path')),
+            );
         }
       },
       onDiscard: () => _controller.discard(),
@@ -148,7 +148,7 @@ class RecorderPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return zenPageScaffold(
       context: context,
-  title: '录音机',
+      title: '录音机',
       actions: [
         ZenIconButton(
           icon: Icons.library_music_outlined,
@@ -257,11 +257,11 @@ class _WaveformSection extends StatelessWidget {
   }
 
   String _stateLabel(RecorderState s) => switch (s) {
-        RecorderState.idle => '就绪',
-        RecorderState.paused => '已暂停',
-        RecorderState.stopped => '已停止',
-        RecorderState.recording => '正在录音',
-      };
+    RecorderState.idle => '就绪',
+    RecorderState.paused => '已暂停',
+    RecorderState.stopped => '已停止',
+    RecorderState.recording => '正在录音',
+  };
 }
 
 /// 电平条。
@@ -343,24 +343,40 @@ class _ControlPanel extends StatelessWidget {
           case RecorderState.recording:
             return _CenterControls([
               _OutlineBtn(
-                  icon: Icons.pause, label: '暂停', color: context.colors.textMuted, onTap: onPause),
+                icon: Icons.pause,
+                label: '暂停',
+                color: context.colors.textMuted,
+                onTap: onPause,
+              ),
               SizedBox(width: 24),
               _HeroRecord(onTap: () async => onStop(), icon: Icons.stop),
             ]);
           case RecorderState.paused:
             return _CenterControls([
               _OutlineBtn(
-                  icon: Icons.play_arrow, label: '继续', color: context.colors.accent, onTap: onResume),
+                icon: Icons.play_arrow,
+                label: '继续',
+                color: context.colors.accent,
+                onTap: onResume,
+              ),
               SizedBox(width: 24),
               _HeroRecord(onTap: () async => onStop(), icon: Icons.stop),
             ]);
           case RecorderState.stopped:
             return _CenterControls([
               _OutlineBtn(
-                  icon: Icons.check, label: '保存', color: context.colors.accent, onTap: () async => onSave()),
+                icon: Icons.check,
+                label: '保存',
+                color: context.colors.accent,
+                onTap: () async => onSave(),
+              ),
               SizedBox(width: 24),
               _OutlineBtn(
-                  icon: Icons.close, label: '放弃', color: context.colors.danger, onTap: () async => onDiscard()),
+                icon: Icons.close,
+                label: '放弃',
+                color: context.colors.danger,
+                onTap: () async => onDiscard(),
+              ),
             ]);
         }
       },
@@ -412,7 +428,11 @@ class _HeroRecord extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 48),
+        child: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.onSurface,
+          size: 48,
+        ),
       ),
     );
   }
@@ -466,10 +486,7 @@ class _LastRecordingCard extends StatelessWidget {
       builder: (context, _) {
         final path = controller.lastSavedPath;
         if (path == null) {
-          return Text(
-            RecorderUiText.noRecordingHint,
-            style: ZenText.label,
-          );
+          return Text(RecorderUiText.noRecordingHint, style: ZenText.label);
         }
         final sizeKb = (controller.lastFileSize / 1024).toStringAsFixed(1);
         final name = path.split(Platform.pathSeparator).last;
@@ -484,10 +501,12 @@ class _LastRecordingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ZenText.body),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: ZenText.body,
+                    ),
                     Text('$sizeKb KB', style: ZenText.monoDigitSmall),
                   ],
                 ),
@@ -515,10 +534,13 @@ class _PermissionBanner extends StatelessWidget {
             status == RecorderPermissionStatus.unknown) {
           return SizedBox.shrink();
         }
-        final isPermanent = status == RecorderPermissionStatus.permanentlyDenied;
+        final isPermanent =
+            status == RecorderPermissionStatus.permanentlyDenied;
         return Container(
           padding: EdgeInsets.all(12),
-          decoration: zenCard(color: context.colors.danger.withValues(alpha: 0.06)),
+          decoration: zenCardTheme(
+            context,
+          ).copyWith(color: context.colors.danger.withValues(alpha: 0.06)),
           child: Row(
             children: [
               Icon(Icons.mic_off, color: context.colors.danger, size: 20),
@@ -532,7 +554,8 @@ class _PermissionBanner extends StatelessWidget {
                 ),
               ),
               OutlinedButton(
-                style: zenButtonTheme(context,
+                style: zenButtonTheme(
+                  context,
                   foreground: context.colors.danger,
                   border: context.colors.danger,
                 ),
@@ -546,4 +569,3 @@ class _PermissionBanner extends StatelessWidget {
     );
   }
 }
-

@@ -176,4 +176,46 @@ class ThemeAppColors {
       Color(0xFF707070), Color(0xFF8C5A4F), Color(0xFFE0E0E0), Color(0xFF2A2A2A),
     ],
   );
+
+  /// 粉雾海盐主题（rose）— info 用海盐薄荷（互补），category 跨粉/灰/薄荷。
+  static const AppColorsExtension rose = AppColorsExtension(
+    success: Color(0xFF7FB4A0), // 海盐绿
+    onSuccess: Color(0xFF1B3A2F),
+    successContainer: Color(0xFFD8ECE4),
+    onSuccessContainer: Color(0xFF12352B),
+    warning: Color(0xFFE0B36A), // 暖杏
+    onWarning: Color(0xFF3F2D0E),
+    warningContainer: Color(0xFFF5E6CE),
+    onWarningContainer: Color(0xFF3A2810),
+    info: Color(0xFF7CA9A4), // 互补强调 海盐薄荷
+    onInfo: Color(0xFF1E3A36),
+    infoContainer: Color(0xFFD8E9E5),
+    onInfoContainer: Color(0xFF143B36),
+    category: [
+      Color(0xFFFECBCB), Color(0xFFF49399), Color(0xFFF1B3B8), Color(0xFF4A1F24),
+      Color(0xFFEDD8DC), Color(0xFFA69297),
+      Color(0xFF7CA9A4), Color(0xFFCDDDDD),
+    ],
+  );
+
+  /// 柠檬鼠尾草主题（lemon）— 闲鱼风亮柠檬黄 + 鼠尾草绿，category 跨柠檬黄/灰/绿。
+  static const AppColorsExtension lemon = AppColorsExtension(
+    success: Color(0xFF81C784), // 鼠尾草绿
+    onSuccess: Color(0xFF1B5E20),
+    successContainer: Color(0xFFE8F5E9),
+    onSuccessContainer: Color(0xFF1B5E20),
+    warning: Color(0xFFFFD54F), // 亮柠檬黄
+    onWarning: Color(0xFF37474F),
+    warningContainer: Color(0xFFFFF9C4),
+    onWarningContainer: Color(0xFF37474F),
+    info: Color(0xFF81C784), // 鼠尾草绿（互补强调）
+    onInfo: Color(0xFF1B5E20),
+    infoContainer: Color(0xFFE8F5E9),
+    onInfoContainer: Color(0xFF1B5E20),
+    category: [
+      Color(0xFFFFF9C4), Color(0xFFFFD54F), Color(0xFF81C784), Color(0xFF1B5E20),
+      Color(0xFF90A4AE), Color(0xFFE8F5E9),
+      Color(0xFFFFFDE7), Color(0xFFA5D6A7),
+    ],
+  );
 }

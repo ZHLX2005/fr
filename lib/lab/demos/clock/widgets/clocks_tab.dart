@@ -79,8 +79,7 @@ class _ClocksTabState extends State<ClocksTab> {
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
                 sliver: SliverGrid(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 16,
                     crossAxisSpacing: 16,
@@ -165,7 +164,11 @@ class _ClockCard extends StatelessWidget {
           durationSeconds: result.durationSeconds,
           color: result.color,
         );
-        await p.setBeat(clock.id, bpm: result.bpm, beatPattern: result.beatPattern);
+        await p.setBeat(
+          clock.id,
+          bpm: result.bpm,
+          beatPattern: result.beatPattern,
+        );
       },
       borderRadius: BorderRadius.circular(6),
       child: Container(
@@ -177,8 +180,12 @@ class _ClockCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 10, height: 10,
-                  decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle),
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: baseColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 SizedBox(width: 8),
                 Expanded(
@@ -194,7 +201,11 @@ class _ClockCard extends StatelessWidget {
                   customBorder: CircleBorder(),
                   child: Padding(
                     padding: EdgeInsets.all(4),
-                    child: Icon(Icons.close, size: 18, color: context.colors.textMuted),
+                    child: Icon(
+                      Icons.close,
+                      size: 18,
+                      color: context.colors.textMuted,
+                    ),
                   ),
                 ),
               ],
@@ -207,7 +218,9 @@ class _ClockCard extends StatelessWidget {
                   formatTime(remaining),
                   style: ZenText.monoDigit.copyWith(
                     fontSize: 32,
-                    color: remaining < 0 ? context.colors.danger : context.colors.text,
+                    color: remaining < 0
+                        ? context.colors.danger
+                        : context.colors.text,
                   ),
                 ),
               ),
@@ -220,7 +233,9 @@ class _ClockCard extends StatelessWidget {
                   SizedBox(width: 6),
                   Text(
                     (() {
-                      final modeLabel = clock.beatPattern == '1/4' ? '单拍' : '双拍';
+                      final modeLabel = clock.beatPattern == '1/4'
+                          ? '单拍'
+                          : '双拍';
                       return '${clock.bpm}bpm · $modeLabel';
                     })(),
                     style: ZenText.monoDigitSmall,
@@ -232,7 +247,9 @@ class _ClockCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ZenIconButton(
-                  icon: clock.isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  icon: clock.isRunning
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
                   color: baseColor,
                   onTap: () => clock.isRunning
                       ? p.pauseCountdown(clock.id)
@@ -293,7 +310,8 @@ class _RecordTileState extends State<_RecordTile> {
       child: Row(
         children: [
           Container(
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
@@ -329,7 +347,10 @@ class _RecordTileState extends State<_RecordTile> {
             ),
             child: Text(
               formatDuration(p.getRecordLiveDuration(record)),
-              style: ZenText.monoDigitSmall.copyWith(color: color, fontWeight: FontWeight.w600),
+              style: ZenText.monoDigitSmall.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -344,7 +365,10 @@ class _RecordTileState extends State<_RecordTile> {
         behavior: HitTestBehavior.opaque,
         onHorizontalDragUpdate: (details) {
           setState(() {
-            _offsetX = (_offsetX + details.delta.dx).clamp(-_actionWidth * 2, 0);
+            _offsetX = (_offsetX + details.delta.dx).clamp(
+              -_actionWidth * 2,
+              0,
+            );
           });
         },
         onHorizontalDragEnd: (_) {
@@ -377,7 +401,9 @@ class _RecordTileState extends State<_RecordTile> {
             children: [
               // Action buttons (overflow to the right).
               Positioned(
-                right: 0, top: 0, bottom: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
                 width: _actionWidth * 2,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -397,8 +423,11 @@ class _RecordTileState extends State<_RecordTile> {
                         if (!record.canDelete) {
                           ScaffoldMessenger.of(context)
                             ..hideCurrentSnackBar()
-                            ..showSnackBar(const SnackBar(
-                                content: Text('运行中或暂停的记录不可删除，请先完成')));
+                            ..showSnackBar(
+                              const SnackBar(
+                                content: Text('运行中或暂停的记录不可删除，请先完成'),
+                              ),
+                            );
                           return;
                         }
                         p.deleteRecord(record.id);
@@ -427,10 +456,7 @@ class _RecordTileState extends State<_RecordTile> {
                 ),
               ),
               // Content layer slides left with the gesture.
-              Transform.translate(
-                offset: Offset(_offsetX, 0),
-                child: card,
-              ),
+              Transform.translate(offset: Offset(_offsetX, 0), child: card),
             ],
           ), // Stack
         ), // ClipRect
@@ -440,7 +466,9 @@ class _RecordTileState extends State<_RecordTile> {
 
   void _rename(BuildContext context, LabClockProvider p) {
     final record = widget.record;
-    final ctl = TextEditingController(text: record.customTitle ?? record.clockTitle);
+    final ctl = TextEditingController(
+      text: record.customTitle ?? record.clockTitle,
+    );
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -448,7 +476,13 @@ class _RecordTileState extends State<_RecordTile> {
         title: Text('重命名记录'),
         content: TextField(controller: ctl, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('取消', style: TextStyle(color: context.colors.textMuted))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              '取消',
+              style: TextStyle(color: context.colors.textMuted),
+            ),
+          ),
           TextButton(
             onPressed: () {
               final v = ctl.text.trim();

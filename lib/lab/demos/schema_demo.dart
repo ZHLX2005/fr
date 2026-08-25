@@ -209,7 +209,6 @@ class _SchemaDemoPageState extends State<_SchemaDemoPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Schema 链接演示'),
-        backgroundColor: theme.colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),

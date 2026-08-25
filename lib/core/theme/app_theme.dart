@@ -34,6 +34,10 @@ enum AppThemeMode {
   zen,
   /// 墨白主题（ink）—— 墨黑主色 + 纯纸白底 + 墨赭互补强调。
   ink,
+  /// 粉雾海盐主题（rose）—— Velvet Bloom 粉主色 + 海盐薄荷互补强调。
+  rose,
+  /// 柠檬鼠尾草主题（lemon）—— 橄榄绿主色 + 柠檬黄强调 + 鼠尾草主背景。
+  lemon,
 }
 
 /// 应用主题配置类
@@ -48,6 +52,8 @@ class AppTheme {
       AppThemeMode.purple => '暮紫主题',
       AppThemeMode.zen => '茶禅主题',
       AppThemeMode.ink => '墨白主题',
+      AppThemeMode.rose => '粉雾海盐主题',
+      AppThemeMode.lemon => '柠檬鼠尾草主题',
     };
   }
 
@@ -57,6 +63,8 @@ class AppTheme {
       AppThemeMode.purple => Icons.nights_stay,
       AppThemeMode.zen => Icons.self_improvement,
       AppThemeMode.ink => Icons.brush_outlined,
+      AppThemeMode.rose => Icons.favorite,
+      AppThemeMode.lemon => Icons.eco,
     };
   }
 
@@ -76,6 +84,16 @@ class AppTheme {
       AppThemeMode.ink => _buildTheme(
           scheme: ThemeColorSchemes.ink,
           ext: ThemeAppColors.ink,
+          cardShadow: Color(0x14000000)
+        ),
+      AppThemeMode.rose => _buildTheme(
+          scheme: ThemeColorSchemes.rose,
+          ext: ThemeAppColors.rose,
+          cardShadow: Color(0x14000000)
+        ),
+      AppThemeMode.lemon => _buildTheme(
+          scheme: ThemeColorSchemes.lemon,
+          ext: ThemeAppColors.lemon,
           cardShadow: Color(0x14000000)
         ),
     };
@@ -117,7 +135,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: scheme.surfaceContainerHighest,
+        backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
         surfaceTintColor: scheme.surfaceTint,
       ),
@@ -149,7 +167,7 @@ class AppTheme {
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: scheme.surfaceContainerHighest,
+        backgroundColor: scheme.surface,
         selectedItemColor: scheme.primary,
         unselectedItemColor: scheme.onSurface.withValues(alpha: 0.5),
         type: BottomNavigationBarType.fixed,

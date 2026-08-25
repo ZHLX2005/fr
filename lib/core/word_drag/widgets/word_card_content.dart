@@ -71,14 +71,14 @@ class WordCardContent extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   word.definition,
                   style: TextStyle(
                     fontSize: 18,
-                    color: Theme.of(context).colorScheme.surface,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
                     height: 1.5,
                   ),
                 ),
@@ -91,9 +91,9 @@ class WordCardContent extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Theme.of(context).colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Theme.of(context).colorScheme.primary),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +102,7 @@ class WordCardContent extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.format_quote,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Theme.of(context).colorScheme.onSecondaryContainer,
                             size: 16,
                           ),
                           const SizedBox(width: 4),
@@ -110,7 +110,7 @@ class WordCardContent extends StatelessWidget {
                             '例句',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).colorScheme.primary,
+                              color: Theme.of(context).colorScheme.onSecondaryContainer,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -121,7 +121,7 @@ class WordCardContent extends StatelessWidget {
                         word.example,
                         style: TextStyle(
                           fontSize: 15,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Theme.of(context).colorScheme.onSecondaryContainer,
                           fontStyle: FontStyle.italic,
                           height: 1.5,
                         ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../widgets/context_colors.dart';
 import 'package:flutter/services.dart';
 import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
@@ -63,7 +62,6 @@ class _CrashLogDemoPageState extends State<CrashLogDemoPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Crash日志'),
-        backgroundColor: context.colors.scheme.inversePrimary,
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),

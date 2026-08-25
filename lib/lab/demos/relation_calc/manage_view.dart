@@ -45,9 +45,11 @@ class _ManageViewState extends State<ManageView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: context.colors.surface,
-        title: Text(existing == null
-            ? RelationCalcUiText.addEntity
-            : RelationCalcUiText.editEntity),
+        title: Text(
+          existing == null
+              ? RelationCalcUiText.addEntity
+              : RelationCalcUiText.editEntity,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -71,13 +73,17 @@ class _ManageViewState extends State<ManageView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(RelationCalcUiText.cancel,
-                style: TextStyle(color: context.colors.textMuted)),
+            child: Text(
+              RelationCalcUiText.cancel,
+              style: TextStyle(color: context.colors.textMuted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(RelationCalcUiText.save,
-                style: TextStyle(color: context.colors.accent)),
+            child: Text(
+              RelationCalcUiText.save,
+              style: TextStyle(color: context.colors.accent),
+            ),
           ),
         ],
       ),
@@ -113,9 +119,11 @@ class _ManageViewState extends State<ManageView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: context.colors.surface,
-        title: Text(existing == null
-            ? RelationCalcUiText.addTerm
-            : RelationCalcUiText.editTerm),
+        title: Text(
+          existing == null
+              ? RelationCalcUiText.addTerm
+              : RelationCalcUiText.editTerm,
+        ),
         content: TextField(
           controller: nameCtrl,
           decoration: InputDecoration(
@@ -126,13 +134,17 @@ class _ManageViewState extends State<ManageView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(RelationCalcUiText.cancel,
-                style: TextStyle(color: context.colors.textMuted)),
+            child: Text(
+              RelationCalcUiText.cancel,
+              style: TextStyle(color: context.colors.textMuted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(RelationCalcUiText.save,
-                style: TextStyle(color: context.colors.accent)),
+            child: Text(
+              RelationCalcUiText.save,
+              style: TextStyle(color: context.colors.accent),
+            ),
           ),
         ],
       ),
@@ -165,9 +177,9 @@ class _ManageViewState extends State<ManageView> {
     final entities = widget.data.entities;
     final terms = widget.data.terms;
     if (entities.isEmpty || terms.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('请先添加实体和关系词')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('请先添加实体和关系词')));
       return;
     }
     // 悬空引用防御：编辑时若 existing 引用的实体/关系词已不存在
@@ -196,7 +208,8 @@ class _ManageViewState extends State<ManageView> {
               DropdownButtonFormField<String>(
                 initialValue: fromId,
                 decoration: const InputDecoration(
-                    labelText: RelationCalcUiText.fromLabel),
+                  labelText: RelationCalcUiText.fromLabel,
+                ),
                 items: [
                   for (final e in entities)
                     DropdownMenuItem(value: e.id, child: Text(e.name)),
@@ -207,7 +220,8 @@ class _ManageViewState extends State<ManageView> {
               DropdownButtonFormField<String>(
                 initialValue: termId,
                 decoration: const InputDecoration(
-                    labelText: RelationCalcUiText.termLabel),
+                  labelText: RelationCalcUiText.termLabel,
+                ),
                 items: [
                   for (final t in terms)
                     DropdownMenuItem(value: t.id, child: Text(t.name)),
@@ -218,7 +232,8 @@ class _ManageViewState extends State<ManageView> {
               DropdownButtonFormField<String>(
                 initialValue: toId,
                 decoration: const InputDecoration(
-                    labelText: RelationCalcUiText.toLabel),
+                  labelText: RelationCalcUiText.toLabel,
+                ),
                 items: [
                   for (final e in entities)
                     DropdownMenuItem(value: e.id, child: Text(e.name)),
@@ -230,13 +245,17 @@ class _ManageViewState extends State<ManageView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(RelationCalcUiText.cancel,
-                  style: TextStyle(color: context.colors.textMuted)),
+              child: Text(
+                RelationCalcUiText.cancel,
+                style: TextStyle(color: context.colors.textMuted),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(RelationCalcUiText.save,
-                  style: TextStyle(color: context.colors.accent)),
+              child: Text(
+                RelationCalcUiText.save,
+                style: TextStyle(color: context.colors.accent),
+              ),
             ),
           ],
         ),
@@ -301,10 +320,7 @@ class _ManageViewState extends State<ManageView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DefaultTextStyle.merge(
-                  style: ZenText.button,
-                  child: title,
-                ),
+                DefaultTextStyle.merge(style: ZenText.button, child: title),
                 if (subtitle != null) ...[
                   SizedBox(height: 2),
                   DefaultTextStyle.merge(style: ZenText.label, child: subtitle),
@@ -313,13 +329,19 @@ class _ManageViewState extends State<ManageView> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.edit_outlined,
-                size: 18, color: context.colors.textMuted),
+            icon: Icon(
+              Icons.edit_outlined,
+              size: 18,
+              color: context.colors.textMuted,
+            ),
             onPressed: onEdit,
           ),
           IconButton(
-            icon: Icon(Icons.delete_outline,
-                size: 18, color: context.colors.danger),
+            icon: Icon(
+              Icons.delete_outline,
+              size: 18,
+              color: context.colors.danger,
+            ),
             onPressed: onDelete,
           ),
         ],
@@ -361,10 +383,7 @@ class _ManageViewState extends State<ManageView> {
   Widget _buildEntitiesTab() {
     final entities = widget.data.entities;
     if (entities.isEmpty) {
-      return ZenEmptyState(
-        icon: Icons.person_outline,
-        message: '还没有实体',
-      );
+      return ZenEmptyState(icon: Icons.person_outline, message: '还没有实体');
     }
     return ListView(
       padding: EdgeInsets.all(12),
@@ -381,7 +400,11 @@ class _ManageViewState extends State<ManageView> {
         Center(
           child: OutlinedButton(
             onPressed: () => _editEntity(null),
-            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+            style: zenButtonTheme(
+              context,
+              foreground: context.colors.accent,
+              border: context.colors.accent,
+            ),
             child: const Text('+'),
           ),
         ),
@@ -392,17 +415,18 @@ class _ManageViewState extends State<ManageView> {
   Widget _buildTermsTab() {
     final terms = widget.data.terms;
     if (terms.isEmpty) {
-      return ZenEmptyState(
-        icon: Icons.merge_type,
-        message: '还没有关系词',
-      );
+      return ZenEmptyState(icon: Icons.merge_type, message: '还没有关系词');
     }
     return ListView(
       padding: EdgeInsets.all(12),
       children: [
         for (final t in terms)
           _listCard(
-            leading: Icon(Icons.merge_type, color: context.colors.accent, size: 20),
+            leading: Icon(
+              Icons.merge_type,
+              color: context.colors.accent,
+              size: 20,
+            ),
             title: Text(t.name),
             onEdit: () => _editTerm(t),
             onDelete: () => _deleteTerm(t),
@@ -411,7 +435,11 @@ class _ManageViewState extends State<ManageView> {
         Center(
           child: OutlinedButton(
             onPressed: () => _editTerm(null),
-            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+            style: zenButtonTheme(
+              context,
+              foreground: context.colors.accent,
+              border: context.colors.accent,
+            ),
             child: const Text('+'),
           ),
         ),
@@ -422,20 +450,21 @@ class _ManageViewState extends State<ManageView> {
   Widget _buildRulesTab() {
     final rules = widget.data.rules;
     if (rules.isEmpty) {
-      return ZenEmptyState(
-        icon: Icons.account_tree_outlined,
-        message: '还没有规则',
-      );
+      return ZenEmptyState(icon: Icons.account_tree_outlined, message: '还没有规则');
     }
     return ListView(
       padding: EdgeInsets.all(12),
       children: [
         for (final r in rules)
           _listCard(
-            leading:
-                Icon(Icons.account_tree, color: context.colors.accent, size: 20),
+            leading: Icon(
+              Icons.account_tree,
+              color: context.colors.accent,
+              size: 20,
+            ),
             title: Text(
-                '${_entityName(r.fromId)} 的 ${_termName(r.termId)} = ${_entityName(r.toId)}'),
+              '${_entityName(r.fromId)} 的 ${_termName(r.termId)} = ${_entityName(r.toId)}',
+            ),
             onEdit: () => _editRule(r),
             onDelete: () => _deleteRule(r),
           ),
@@ -443,7 +472,11 @@ class _ManageViewState extends State<ManageView> {
         Center(
           child: OutlinedButton(
             onPressed: () => _editRule(null),
-            style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+            style: zenButtonTheme(
+              context,
+              foreground: context.colors.accent,
+              border: context.colors.accent,
+            ),
             child: const Text('+'),
           ),
         ),

@@ -23,21 +23,6 @@ import '../../core/theme/strategy/default_color_strategy.dart';
 // Zen 排版（保持 const 以兼容 const widget）
 // =====================================================================
 
-/// ⚠️ DEPRECATED：保留 ZenColors 类作为兼容层，让 23 个旧 consumer 文件继续编译。
-/// 后续阶段会逐个迁移到 `Theme.of(context).colorScheme`。
-/// 新代码请直接用 `DefaultColorStrategy.of(scheme)` 或 `ColorScheme.X`。
-@Deprecated('Use ColorScheme or DefaultColorStrategy instead')
-class ZenColors {
-  ZenColors._();
-  static const bg = Color(0xFFF4F1EA);
-  static const ink = Color(0xFF2C2C2C);
-  static const hair = Color(0xFFD9D5C8);
-  static const secondary = Color(0xFF8A8475);
-  static const sage = Color(0xFF7A9A7E);
-  static const mutedRed = Color(0xFFA0594A);
-  static const surface = Color(0xFFFBF8F1);
-}
-
 /// Zen 排版风格集合（const TextStyle）。
 ///
 /// 注：color 字段为硬编码暖墨色 / 暖灰，是 zen 家族识别的一部分。
@@ -101,16 +86,6 @@ enum ZenIconButtonVariant { tint, outline, hero }
 // Zen 风格 helper
 // =====================================================================
 
-/// Zen 卡片装饰（surface bg + outline 2px 边框 + 圆角 6）。
-///
-/// ⚠️ DEPRECATED 兼容版：读 ZenColors（Zen 家族固定色）。
-/// 新代码用 [zenCardTheme]。
-BoxDecoration zenCard({Color? color}) => BoxDecoration(
-  color: color ?? ZenColors.surface,
-  border: Border.all(color: ZenColors.hair, width: 1),
-  borderRadius: BorderRadius.circular(6),
-);
-
 /// Zen 卡片装饰（v6 Heritage：读 ColorStrategy）。
 BoxDecoration zenCardTheme(BuildContext context) {
   final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
@@ -121,15 +96,6 @@ BoxDecoration zenCardTheme(BuildContext context) {
   );
 }
 
-/// Zen 点状区域（surface bg + outline 边框 solid）。
-///
-/// ⚠️ DEPRECATED 兼容版。
-BoxDecoration zenDottedZone() => BoxDecoration(
-  color: ZenColors.surface,
-  border: Border.all(color: ZenColors.hair, width: 1, style: BorderStyle.solid),
-  borderRadius: BorderRadius.circular(6),
-);
-
 /// Zen 点状区域（v6 Heritage）。
 BoxDecoration zenDottedZoneTheme(BuildContext context) {
   final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
@@ -139,20 +105,6 @@ BoxDecoration zenDottedZoneTheme(BuildContext context) {
     borderRadius: BorderRadius.circular(6),
   );
 }
-
-/// Zen 按钮样式（onSurface fg + outline border + ZenText.button 字号）。
-///
-/// ⚠️ DEPRECATED 兼容版。
-ButtonStyle zenButton({Color? foreground, Color? border, Color? background}) =>
-    OutlinedButton.styleFrom(
-      foregroundColor: foreground ?? ZenColors.ink,
-      side: BorderSide(color: border ?? ZenColors.hair),
-      backgroundColor: background,
-      minimumSize: const Size(88, 44),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      textStyle: ZenText.button,
-    );
 
 /// Zen 按钮样式（v6 Heritage）。
 ButtonStyle zenButtonTheme(
@@ -403,9 +355,9 @@ Scaffold zenPageScaffold({
 }) {
   final scheme = Theme.of(context).colorScheme;
   return Scaffold(
-    backgroundColor: backgroundColor ?? scheme.surfaceContainerHighest,
+    backgroundColor: backgroundColor ?? scheme.surface,
     appBar: AppBar(
-      backgroundColor: scheme.surfaceContainerHighest,
+      backgroundColor: scheme.surface,
       elevation: 0,
       title: Text(title, style: ZenText.title),
       actions: actions,

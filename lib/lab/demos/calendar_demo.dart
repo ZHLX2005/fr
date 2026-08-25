@@ -134,12 +134,29 @@ class _CalendarDemoPageState extends State<_CalendarDemoPage> {
           IconButton(
             icon: const Icon(Icons.tune),
             tooltip: '日历设置（group / DSL）',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => CalendarSettingsPage(),
-                fullscreenDialog: true,
-              ),
-            ),
+            onPressed: () {
+              // 新 route 不在本页 MultiProvider 树内，必须把 provider 实例手动带进去，
+              // 否则 CalendarSettingsPage 里的 Provider.of<LabCalendarProvider> 会抛
+              // ProviderNotFoundException → 红屏崩溃。
+              final calP = context.read<LabCalendarProvider>();
+              final peopleP = context.read<LabPeopleProvider>();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MultiProvider(
+                    providers: [
+                      ChangeNotifierProvider<LabCalendarProvider>.value(
+                        value: calP,
+                      ),
+                      ChangeNotifierProvider<LabPeopleProvider>.value(
+                        value: peopleP,
+                      ),
+                    ],
+                    child: const CalendarSettingsPage(),
+                  ),
+                  fullscreenDialog: true,
+                ),
+              );
+            },
           ),
           const SizedBox(width: 12),
         ],

@@ -326,7 +326,9 @@ class _CalendarImportDialogState extends ConsumerState<CalendarImportDialog> {
           if (r.events.length > 10)
             Text(
               '… 还有 ${r.events.length - 10} 个',
-              style: ZenText.label.copyWith(color: ZenColors.secondary),
+              style: ZenText.label.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
         ],
       ),

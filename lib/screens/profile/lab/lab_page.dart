@@ -16,7 +16,6 @@ import 'demo_grid/demo_reveal_grid.dart';
 import 'lab_panel/lab_panel_colors.dart';
 import 'lab_panel/lab_panel_content.dart';
 import 'lab_panel/lab_panel_gesture.dart';
-import 'lab_panel/lab_panel_painters.dart';
 import 'lab_panel/lab_panel_state_machine.dart';
 import 'lab_perf_log.dart';
 
@@ -360,15 +359,6 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
                           child: Stack(
                             children: [
                               Positioned.fill(child: panelBackground),
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: PanelSurfacePainter(
-                                    progress: progress,
-                                    colors: panelColors,
-                                    scheme: Theme.of(context).colorScheme,
-                                  ),
-                                ),
-                              ),
                               panelContent,
                             ],
                           ),

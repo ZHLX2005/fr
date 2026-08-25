@@ -87,8 +87,9 @@ class _CalcViewState extends State<CalcView> {
             for (final e in entities)
               ListTile(
                 title: Text(e.name),
-                subtitle: e.note.isEmpty ? null : Text(e.note,
-                    style: ZenText.label),
+                subtitle: e.note.isEmpty
+                    ? null
+                    : Text(e.note, style: ZenText.label),
                 trailing: e.id == _startId
                     ? Icon(Icons.check, color: context.colors.accent)
                     : null,
@@ -155,16 +156,18 @@ class _CalcViewState extends State<CalcView> {
               onTap: _pickStart,
               borderRadius: BorderRadius.circular(6),
               child: Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: zenCardTheme(context),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(start?.name ?? '—', style: ZenText.button),
                     SizedBox(width: 6),
-                    Icon(Icons.swap_vert,
-                        size: 16, color: context.colors.textMuted),
+                    Icon(
+                      Icons.swap_vert,
+                      size: 16,
+                      color: context.colors.textMuted,
+                    ),
                   ],
                 ),
               ),
@@ -183,13 +186,15 @@ class _CalcViewState extends State<CalcView> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _chainChip(start?.name ?? '—',
-                emphasized: true, failed: false),
+            _chainChip(start?.name ?? '—', emphasized: true, failed: false),
             for (var i = 0; i < _termIds.length; i++) ...[
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6),
-                child: Icon(Icons.arrow_forward,
-                    size: 16, color: context.colors.outline),
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 16,
+                  color: context.colors.outline,
+                ),
               ),
               _chainChip(
                 _engine.term(_termIds[i])?.name ?? '?',
@@ -203,8 +208,11 @@ class _CalcViewState extends State<CalcView> {
     );
   }
 
-  Widget _chainChip(String label,
-      {required bool emphasized, required bool failed}) {
+  Widget _chainChip(
+    String label, {
+    required bool emphasized,
+    required bool failed,
+  }) {
     final color = failed
         ? context.colors.danger
         : (emphasized ? context.colors.accent : context.colors.text);
@@ -220,9 +228,13 @@ class _CalcViewState extends State<CalcView> {
         ),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(label,
-          style: ZenText.button.copyWith(
-              color: color, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: ZenText.button.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -235,7 +247,7 @@ class _CalcViewState extends State<CalcView> {
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-        decoration: zenCard(color: context.colors.surface),
+        decoration: zenCardTheme(context),
         child: Column(
           children: [
             if (finalName != null)
@@ -251,8 +263,10 @@ class _CalcViewState extends State<CalcView> {
                 overflow: TextOverflow.ellipsis,
               )
             else ...[
-              Text(RelationCalcUiText.notResolvable,
-                  style: ZenText.title.copyWith(color: context.colors.danger)),
+              Text(
+                RelationCalcUiText.notResolvable,
+                style: ZenText.title.copyWith(color: context.colors.danger),
+              ),
               SizedBox(height: 6),
               Text(
                 _termIds.isEmpty
@@ -286,7 +300,8 @@ class _CalcViewState extends State<CalcView> {
           for (final t in terms)
             OutlinedButton(
               onPressed: () => _appendTerm(t.id),
-              style: zenButtonTheme(context,
+              style: zenButtonTheme(
+                context,
                 foreground: context.colors.text,
                 border: context.colors.outline,
               ),

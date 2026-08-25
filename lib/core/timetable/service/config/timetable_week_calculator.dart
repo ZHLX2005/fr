@@ -64,7 +64,11 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
       return;
     }
     final today = DateTime.now();
-    final todayMonday = DateTime(today.year, today.month, today.day - (today.weekday - 1));
+    final todayMonday = DateTime(
+      today.year,
+      today.month,
+      today.day - (today.weekday - 1),
+    );
     final startDate = todayMonday.add(Duration(days: -(weekNum - 1) * 7));
     setState(() {
       _error = null;
@@ -110,151 +114,181 @@ class _WeekCalculatorDialogState extends State<WeekCalculatorDialog>
           padding: const EdgeInsets.all(16),
           decoration: zenCardTheme(context),
           child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Row(
                 children: [
-                  // Header
-                  Row(
+                  Icon(
+                    Icons.calendar_month,
+                    color: context.colors.accent,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text('设置起始日期', style: ZenText.title.copyWith(fontSize: 16)),
+                  Spacer(),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.close,
+                      color: context.colors.textMuted,
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              // TabBar
+              Container(
+                decoration: BoxDecoration(
+                  color: context.colors.surface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: TabBar(
+                  controller: _tab,
+                  labelColor: context.colors.accent,
+                  unselectedLabelColor: context.colors.textMuted,
+                  indicator: BoxDecoration(
+                    color: context.colors.surface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: context.colors.outline),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  tabs: const [
+                    Tab(text: '周数推算'),
+                    Tab(text: '选日期'),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+              // Tab 1：输入周数
+              if (_tab.index == 0) ...[
+                Text(
+                  '输入当前是第几周，推算出起始日期（周一）',
+                  style: ZenText.label.copyWith(fontSize: 12),
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: ZenText.monoDigitSmall.copyWith(fontSize: 18),
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    hintText: '例如：10',
+                    hintStyle: ZenText.label.copyWith(
+                      fontSize: 14,
+                      color: context.colors.outline,
+                    ),
+                    filled: true,
+                    fillColor: context.colors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: context.colors.outline),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: context.colors.outline),
+                    ),
+                  ),
+                  onSubmitted: (_) => _calculate(),
+                ),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _calculate,
+                    style: zenButtonTheme(
+                      context,
+                      foreground: context.colors.accent,
+                      border: context.colors.outline,
+                    ),
+                    child: const Text('计算起始日期'),
+                  ),
+                ),
+              ] else ...[
+                // Tab 2：选日期回退
+                Text(
+                  '选择任意一天，自动回退到当天或之前的最近周一。',
+                  style: ZenText.label.copyWith(fontSize: 12),
+                ),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _pickDateAndCompute,
+                    style: zenButtonTheme(
+                      context,
+                      foreground: context.colors.accent,
+                      border: context.colors.outline,
+                    ),
+                    icon: Icon(Icons.calendar_today, size: 18),
+                    label: const Text('选择日期'),
+                  ),
+                ),
+              ],
+              // 结果
+              if (_resultDate != null) ...[
+                SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: context.colors.accent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: context.colors.accent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Column(
                     children: [
-                      Icon(Icons.calendar_month, color: context.colors.accent, size: 20),
-                      SizedBox(width: 8),
+                      Text('起始日期（周一）', style: ZenText.label),
+                      SizedBox(height: 4),
                       Text(
-                        '设置起始日期',
-                        style: ZenText.title.copyWith(fontSize: 16),
-                      ),
-                      Spacer(),
-                      InkWell(
-                        onTap: () => Navigator.pop(context),
-                        child: Icon(Icons.close, color: context.colors.textMuted, size: 22),
+                        _resultDate!,
+                        style: ZenText.monoDigitSmall.copyWith(
+                          color: context.colors.accent,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 12),
-                  // TabBar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: context.colors.surface,
-                      borderRadius: BorderRadius.circular(6),
+                ),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, _resultDate),
+                    style: zenButtonTheme(
+                      context,
+                      foreground: context.colors.accent,
+                      border: context.colors.outline,
                     ),
-                    child: TabBar(
-                      controller: _tab,
-                      labelColor: context.colors.accent,
-                      unselectedLabelColor: context.colors.textMuted,
-                      indicator: BoxDecoration(
-                        color: context.colors.surface,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: context.colors.outline),
-                      ),
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      labelStyle: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600,
-                      ),
-                      unselectedLabelStyle: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500,
-                      ),
-                      tabs: const [
-                        Tab(text: '周数推算'),
-                        Tab(text: '选日期'),
-                      ],
-                    ),
+                    child: Text('应用此日期'),
                   ),
-                  SizedBox(height: 16),
-                  // Tab 1：输入周数
-                  if (_tab.index == 0) ...[
-                    Text(
-                      '输入当前是第几周，推算出起始日期（周一）',
-                      style: ZenText.label.copyWith(fontSize: 12),
-                    ),
-                    SizedBox(height: 12),
-                    TextField(
-                      controller: _controller,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: ZenText.monoDigitSmall.copyWith(fontSize: 18),
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        hintText: '例如：10',
-                        hintStyle: ZenText.label.copyWith(fontSize: 14, color: context.colors.outline),
-                        filled: true,
-                        fillColor: context.colors.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: context.colors.outline),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(color: context.colors.outline),
-                        ),
-                      ),
-                      onSubmitted: (_) => _calculate(),
-                    ),
-                    SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _calculate,
-                        style: zenButton(foreground: context.colors.accent, border: context.colors.outline),
-                        child: const Text('计算起始日期'),
-                      ),
-                    ),
-                  ] else ...[
-                  // Tab 2：选日期回退
-                    Text(
-                      '选择任意一天，自动回退到当天或之前的最近周一。',
-                      style: ZenText.label.copyWith(fontSize: 12),
-                    ),
-                    SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _pickDateAndCompute,
-                        style: zenButton(foreground: context.colors.accent, border: context.colors.outline),
-                        icon: Icon(Icons.calendar_today, size: 18),
-                        label: const Text('选择日期'),
-                      ),
-                    ),
-                  ],
-                  // 结果
-                  if (_resultDate != null) ...[
-                    SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: context.colors.accent.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: context.colors.accent.withValues(alpha: 0.4)),
-                      ),
-                      child: Column(
-                        children: [
-                          Text('起始日期（周一）', style: ZenText.label),
-                          SizedBox(height: 4),
-                          Text(
-                            _resultDate!,
-                            style: ZenText.monoDigitSmall.copyWith(
-                              color: context.colors.accent, fontSize: 18, fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context, _resultDate),
-                        style: zenButton(foreground: context.colors.accent, border: context.colors.outline),
-                        child: Text('应用此日期'),
-                      ),
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    SizedBox(height: 12),
-                    Text(_error!, style: TextStyle(color: context.colors.danger, fontSize: 12)),
-                  ],
-                ],
-              ),
-            ),
+                ),
+              ],
+              if (_error != null) ...[
+                SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: TextStyle(color: context.colors.danger, fontSize: 12),
+                ),
+              ],
+            ],
           ),
+        ),
+      ),
     );
   }
 }

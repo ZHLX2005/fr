@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../widgets/context_colors.dart';
 import '../lab_container.dart';
 import '../../native/overlay/overlay_service.dart';
 
@@ -157,7 +156,6 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('悬浮截屏演示'),
-        backgroundColor: context.colors.scheme.inversePrimary,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),

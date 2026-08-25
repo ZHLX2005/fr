@@ -123,8 +123,6 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text('Web Bookmarks'),
-        backgroundColor: Theme.of(context).colorScheme.onSurface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         actions: [
           IconButton(
@@ -509,7 +507,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: selectedColor.withAlpha(51),
+                            color: Theme.of(context).colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: Theme.of(context).colorScheme.outline),
                           ),
@@ -582,13 +580,13 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                           height: 44,
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? selectedColor.withAlpha(51)
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : Theme.of(context).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: isSelected
-                                  ? selectedColor
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.outline,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -883,13 +881,13 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             height: 44,
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? selectedColor.withAlpha(51)
-                                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ? Theme.of(context).colorScheme.primaryContainer
+                                  : Theme.of(context).colorScheme.surfaceContainerHighest,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: isSelected
-                                    ? selectedColor
-                                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.outline,
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
@@ -1103,7 +1101,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
         width: 64,
         height: 64,
         decoration: BoxDecoration(
-          color: color.withAlpha(51),
+          color: Theme.of(context).colorScheme.primaryContainer,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Theme.of(context).colorScheme.outline),
         ),
@@ -1296,11 +1294,11 @@ class _IconTypeOption extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? Theme.of(context).colorScheme.primary.withAlpha(26)
-              : Theme.of(context).colorScheme.onSurfaceVariant,
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
+            color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1349,7 +1347,7 @@ class _BookmarkCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.onSurface,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -1366,11 +1364,11 @@ class _BookmarkCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: bookmark.color,
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: bookmark.color.withAlpha(77),
+                      color: Theme.of(context).colorScheme.onSurface.withAlpha(20),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -1558,8 +1556,6 @@ class _WebViewPageState extends State<_WebViewPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.bookmark.name),
-        backgroundColor: Theme.of(context).colorScheme.onSurface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
@@ -1579,7 +1575,7 @@ class _WebViewPageState extends State<_WebViewPage> {
               right: 0,
               child: LinearProgressIndicator(
                 value: _loadProgress,
-                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   Theme.of(context).colorScheme.primary,
                 ),

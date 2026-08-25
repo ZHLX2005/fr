@@ -686,7 +686,6 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('KV 清单'),
-        backgroundColor: scheme.inversePrimary,
         actions: [
           _buildWorkspaceAction(scheme, gid),
           IconButton(

@@ -22,11 +22,20 @@ class ClockEditorResult {
 }
 
 const _palette = [
-  '#D4644B', '#7A9A7E', '#5B7A8C', '#C9A86A',
-  '#A2808E', '#C7B299', '#5A544B', '#2C2C2C',
+  '#D4644B',
+  '#7A9A7E',
+  '#5B7A8C',
+  '#C9A86A',
+  '#A2808E',
+  '#C7B299',
+  '#5A544B',
+  '#2C2C2C',
 ];
 
-Future<ClockEditorResult?> showClockEditor(BuildContext context, {LabClock? existing}) {
+Future<ClockEditorResult?> showClockEditor(
+  BuildContext context, {
+  LabClock? existing,
+}) {
   return showModalBottomSheet<ClockEditorResult>(
     context: context,
     isScrollControlled: true,
@@ -52,6 +61,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
   late int _hours, _minutes, _seconds;
   late String _color;
   late bool _beatEnabled;
+
   /// '1beat' = one beat per round (all strong); '2beat' = two beats per round (strong-weak).
   late String _mode;
 
@@ -80,7 +90,9 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
     final bpm = c?.bpm ?? 40;
     // rounds = bpm * duration / 60 / beatsPerRound
     final derivedRounds = (bpm * duration / 60 / beatsPerRound).round();
-    _roundsCtl = TextEditingController(text: derivedRounds > 0 ? '$derivedRounds' : '40');
+    _roundsCtl = TextEditingController(
+      text: derivedRounds > 0 ? '$derivedRounds' : '40',
+    );
   }
 
   @override
@@ -118,7 +130,8 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
   String get _preview {
     final bpm = _computedBpm;
     if (bpm == null) return '输入轮数和时长';
-    final secondsPerBeat = (_durationSeconds / (_rounds * _beatsPerRound)).toStringAsFixed(1);
+    final secondsPerBeat = (_durationSeconds / (_rounds * _beatsPerRound))
+        .toStringAsFixed(1);
     final rhythm = _mode == '1beat' ? '全强拍' : '强-弱拍';
     return '$_rounds 轮 · $bpm BPM · $secondsPerBeat秒/拍 · $rhythm';
   }
@@ -127,27 +140,46 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
   Widget build(BuildContext context) {
     final viewInsets = MediaQuery.of(context).viewInsets;
     return Padding(
-      padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 20 + viewInsets.bottom),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: 20 + viewInsets.bottom,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Drag handle
-            Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(
-              color: context.colors.outline, borderRadius: BorderRadius.circular(2),
-            ))),
-            SizedBox(height: 16),
-            Row(children: [
-              Expanded(child: Text(widget.existing == null ? '添加时钟' : '编辑时钟', style: ZenText.title)),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.close),
-                iconSize: 24,
-                color: context.colors.text,
-                tooltip: '取消',
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.colors.outline,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ]),
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.existing == null ? '添加时钟' : '编辑时钟',
+                    style: ZenText.title,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(Icons.close),
+                  iconSize: 24,
+                  color: context.colors.text,
+                  tooltip: '取消',
+                ),
+              ],
+            ),
             SizedBox(height: 20),
             TextField(
               controller: _titleCtl,
@@ -173,11 +205,32 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _WheelPicker(label: 'h', value: _hours, max: 23, onChanged: (v) => setState(() => _hours = v)),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(':', style: ZenText.title)),
-                _WheelPicker(label: 'm', value: _minutes, max: 59, onChanged: (v) => setState(() => _minutes = v)),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text(':', style: ZenText.title)),
-                _WheelPicker(label: 's', value: _seconds, max: 59, onChanged: (v) => setState(() => _seconds = v)),
+                _WheelPicker(
+                  label: 'h',
+                  value: _hours,
+                  max: 23,
+                  onChanged: (v) => setState(() => _hours = v),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(':', style: ZenText.title),
+                ),
+                _WheelPicker(
+                  label: 'm',
+                  value: _minutes,
+                  max: 59,
+                  onChanged: (v) => setState(() => _minutes = v),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(':', style: ZenText.title),
+                ),
+                _WheelPicker(
+                  label: 's',
+                  value: _seconds,
+                  max: 59,
+                  onChanged: (v) => setState(() => _seconds = v),
+                ),
               ],
             ),
             SizedBox(height: 16),
@@ -191,11 +244,14 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                 return GestureDetector(
                   onTap: () => setState(() => _color = c),
                   child: Container(
-                    width: 44, height: 44,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: Color(int.parse(c.replaceFirst('#', '0xFF'))),
                       shape: BoxShape.circle,
-                      border: selected ? Border.all(color: context.colors.text, width: 3) : null,
+                      border: selected
+                          ? Border.all(color: context.colors.text, width: 3)
+                          : null,
                     ),
                   ),
                 );
@@ -203,14 +259,16 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
             ),
             SizedBox(height: 20),
             // Beat section: rounds + mode → auto-computed bpm/pattern.
-            Row(children: [
-              Expanded(child: Text('节拍', style: ZenText.label)),
-              Switch(
-                value: _beatEnabled,
-                activeThumbColor: context.colors.accent,
-                onChanged: (v) => setState(() => _beatEnabled = v),
-              ),
-            ]),
+            Row(
+              children: [
+                Expanded(child: Text('节拍', style: ZenText.label)),
+                Switch(
+                  value: _beatEnabled,
+                  activeThumbColor: context.colors.accent,
+                  onChanged: (v) => setState(() => _beatEnabled = v),
+                ),
+              ],
+            ),
             if (_beatEnabled) ...[
               SizedBox(height: 8),
               // Total rounds input.
@@ -228,35 +286,42 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               // Mode toggle: 1beat (all strong) vs 2beat (strong-weak).
               Text('模式', style: ZenText.label),
               SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: _ModeChip(
-                    label: '每轮 1 拍',
-                    sub: '全强拍（吸气）',
-                    selected: _mode == '1beat',
-                    onTap: () => setState(() => _mode = '1beat'),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ModeChip(
+                      label: '每轮 1 拍',
+                      sub: '全强拍（吸气）',
+                      selected: _mode == '1beat',
+                      onTap: () => setState(() => _mode = '1beat'),
+                    ),
                   ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _ModeChip(
-                    label: '每轮 2 拍',
-                    sub: '强-弱拍（吸-呼）',
-                    selected: _mode == '2beat',
-                    onTap: () => setState(() => _mode = '2beat'),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: _ModeChip(
+                      label: '每轮 2 拍',
+                      sub: '强-弱拍（吸-呼）',
+                      selected: _mode == '2beat',
+                      onTap: () => setState(() => _mode = '2beat'),
+                    ),
                   ),
-                ),
-              ]),
+                ],
+              ),
               SizedBox(height: 12),
               // Live preview.
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: zenCardTheme(context),
-                child: Text(_preview, style: ZenText.monoDigitSmall.copyWith(
-                  color: _computedBpm == null ? context.colors.danger : context.colors.text,
-                  fontSize: 13,
-                )),
+                child: Text(
+                  _preview,
+                  style: ZenText.monoDigitSmall.copyWith(
+                    color: _computedBpm == null
+                        ? context.colors.danger
+                        : context.colors.text,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ],
             SizedBox(height: 24),
@@ -264,16 +329,23 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  Navigator.pop(context, ClockEditorResult(
-                    title: _titleCtl.text.isEmpty ? '新时钟' : _titleCtl.text,
-                    description: _descCtl.text,
-                    durationSeconds: _durationSeconds,
-                    color: _color,
-                    bpm: _beatEnabled ? _computedBpm : null,
-                    beatPattern: _beatEnabled ? _computedPattern : null,
-                  ));
+                  Navigator.pop(
+                    context,
+                    ClockEditorResult(
+                      title: _titleCtl.text.isEmpty ? '新时钟' : _titleCtl.text,
+                      description: _descCtl.text,
+                      durationSeconds: _durationSeconds,
+                      color: _color,
+                      bpm: _beatEnabled ? _computedBpm : null,
+                      beatPattern: _beatEnabled ? _computedPattern : null,
+                    ),
+                  );
                 },
-                style: zenButton(foreground: context.colors.accent, border: context.colors.accent),
+                style: zenButtonTheme(
+                  context,
+                  foreground: context.colors.accent,
+                  border: context.colors.accent,
+                ),
                 child: Text(widget.existing == null ? '添加' : '保存'),
               ),
             ),
@@ -289,7 +361,12 @@ class _WheelPicker extends StatelessWidget {
   final int value;
   final int max;
   final ValueChanged<int> onChanged;
-  const _WheelPicker({required this.label, required this.value, required this.max, required this.onChanged});
+  const _WheelPicker({
+    required this.label,
+    required this.value,
+    required this.max,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -308,7 +385,9 @@ class _WheelPicker extends StatelessWidget {
               i.toString().padLeft(2, '0'),
               style: ZenText.monoDigitSmall.copyWith(
                 fontSize: i == value ? 24 : 16,
-                color: i == value ? context.colors.text : context.colors.textMuted,
+                color: i == value
+                    ? context.colors.text
+                    : context.colors.textMuted,
                 fontWeight: i == value ? FontWeight.w700 : FontWeight.normal,
               ),
             ),
@@ -342,21 +421,35 @@ class _ModeChip extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? context.colors.accent : context.colors.surface,
-          border: Border.all(color: selected ? context.colors.accent : context.colors.outline),
+          border: Border.all(
+            color: selected ? context.colors.accent : context.colors.outline,
+          ),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: ZenText.button.copyWith(
-              color: selected ? Theme.of(context).colorScheme.onSurface : context.colors.text,
-              fontSize: 14,
-            )),
+            Text(
+              label,
+              style: ZenText.button.copyWith(
+                color: selected
+                    ? Theme.of(context).colorScheme.onSurface
+                    : context.colors.text,
+                fontSize: 14,
+              ),
+            ),
             SizedBox(height: 2),
-            Text(sub, style: ZenText.monoDigitSmall.copyWith(
-              color: selected ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85) : context.colors.textMuted,
-              fontSize: 11,
-            )),
+            Text(
+              sub,
+              style: ZenText.monoDigitSmall.copyWith(
+                color: selected
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.85)
+                    : context.colors.textMuted,
+                fontSize: 11,
+              ),
+            ),
           ],
         ),
       ),
