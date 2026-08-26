@@ -1,9 +1,7 @@
-import 'dart:math' as math;
 import '../../../widgets/context_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'const_metronome.dart';
-import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart' show ZenColors;
 
 /// 节拍可视化指示器组件
 ///
@@ -459,128 +457,6 @@ class TapTempoButton extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// 节拍摆锤动画
-class PendulumAnimation extends StatefulWidget {
-  const PendulumAnimation({
-    super.key,
-    required this.bpm,
-    required this.isPlaying,
-  });
-
-  final int bpm;
-  final bool isPlaying;
-
-  @override
-  State<PendulumAnimation> createState() => _PendulumAnimationState();
-}
-
-class _PendulumAnimationState extends State<PendulumAnimation>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this);
-    _updateAnimation();
-  }
-
-  @override
-  void didUpdateWidget(PendulumAnimation oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.bpm != oldWidget.bpm || widget.isPlaying != oldWidget.isPlaying) {
-      _updateAnimation();
-    }
-  }
-
-  void _updateAnimation() {
-    if (!widget.isPlaying) {
-      _controller.stop();
-      return;
-    }
-
-    // 计算摆动周期（秒）
-    final period = 60.0 / widget.bpm;
-    _controller.duration = Duration(milliseconds: (period * 1000).round());
-
-    // 使用正弦曲线实现左右摆动
-    _animation = Tween<double>(begin: -0.5, end: 0.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-
-    _controller.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 150,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final angle = _animation.value * math.pi / 6; // 最大摆动角度 30 度
-          return CustomPaint(
-            size: const Size(double.infinity, 150),
-            painter: _PendulumPainter(
-              angle: widget.isPlaying ? angle : 0,
-              scheme: Theme.of(context).colorScheme,
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _PendulumPainter extends CustomPainter {
-  _PendulumPainter({required this.angle, required this.scheme});
-
-  /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
-  final ColorScheme scheme;
-
-  final double angle;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, 0);
-    final length = size.height * 0.9;
-
-    final paint = Paint()
-      ..color = scheme.onSurfaceVariant
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    // 绘制摆杆
-    final endX = center.dx + math.sin(angle) * length;
-    final endY = center.dy + math.cos(angle) * length;
-    canvas.drawLine(center, Offset(endX, endY), paint);
-
-    // 绘制摆锤
-    final bobPaint = Paint()
-      ..color = scheme.onSurfaceVariant
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(endX, endY), 12, bobPaint);
-
-    // 绘制支点
-    final pivotPaint = Paint()
-      ..color = scheme.onSurfaceVariant
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 6, pivotPaint);
-  }
-
-  @override
-  bool shouldRepaint(_PendulumPainter oldDelegate) {
-    return angle != oldDelegate.angle;
   }
 }
 

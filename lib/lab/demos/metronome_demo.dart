@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/design/emphasis_button.dart';
 import '../lab_container.dart';
 import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart'
-    show ZenColors, ZenText, ZenSection, zenPageScaffold;
+    show ZenText, ZenSection, zenPageScaffold;
 import 'metronome/const_metronome.dart';
 import 'metronome/metronome_controller.dart';
 import 'metronome/metronome_widgets.dart';
@@ -205,11 +205,6 @@ class _MetronomePageState extends State<_MetronomePage> {
                 currentBeatListenable: controller.currentBeatNotifier,
                 isPlaying: controller.isPlaying,
                 beatPattern: controller.beatPattern,
-              ),
-              SizedBox(height: 16),
-              PendulumAnimation(
-                bpm: controller.bpm,
-                isPlaying: controller.isPlaying,
               ),
             ],
           ),
