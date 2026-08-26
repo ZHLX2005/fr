@@ -6,6 +6,8 @@ description: |
 
 # Flutter 消息策略模式工作流程
 
+> 消息落进真实 chat 入口（Agent/Format/小票/小助手）时，整个会话必须持久化、确认型消息要记录状态转换 —— 规范详见 [[im-会话持久化规范]]。
+
 ## 架构概述
 
 ```
@@ -293,3 +295,9 @@ Widget _buildFixedContent(ThemeData theme) {
   );
 }
 ```
+
+## 引用索引（按需加载）
+
+| ref | 何时读取 | 路径 |
+| --- | --- | --- |
+| [[im-会话持久化规范]] | 消息要落进真实 chat 入口 / 新增 chat 入口 / 消息需要持久化或确认状态记录时（必读） | references/im-会话持久化规范.md |
