@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/storage/hive/calendar_repository.dart';
 import '../data/calendar_config.dart';
 import '../domain/person.dart';
+import '../domain/person_patch.dart';
 import 'person_repository.dart';
 
 class LabPeopleProvider with ChangeNotifier {
@@ -55,6 +56,13 @@ class LabPeopleProvider with ChangeNotifier {
   }
 
   /// 全局 byId（不限 group）—— DSL 解析/事件 personId 引用用
+  Person? byNameAnyGroup(String name) {
+    for (final p in _people) {
+      if (p.name == name) return p;
+    }
+    return null;
+  }
+
   Person? byIdAnyGroup(String id) {
     for (final p in _people) {
       if (p.id == id) return p;
@@ -105,6 +113,30 @@ class LabPeopleProvider with ChangeNotifier {
       await _repo.remove(p.id);
     }
     if (toDelete.isNotEmpty) notifyListeners();
+  }
+
+  /// 把 PersonPatch upsert 进全局 roster（DSL apply / EventDraft 路径用）。
+  /// - 已有同名 Person（同名+同 group）：按 patch 字段更新；patch 字段为 null 时保留 Person 旧值。
+  /// - 否则：按 patch + 默认 relation=other 新建一个 Person。
+  Future<Person?> upsertPatch(PersonPatch patch, {required String groupId}) async {
+    if (patch.name == null) return null;
+    final existing = _people.where((p) => p.groupId == groupId && p.name == patch.name).toList();
+    if (existing.isNotEmpty) {
+      final p = existing.first;
+      final updated = p.copyWith(
+        relation: patch.relation ?? p.relation,
+        avatarEmoji: patch.avatarEmoji ?? p.avatarEmoji,
+        note: patch.note ?? p.note,
+      );
+      await update(updated);
+      return updated;
+    }
+    return add(
+      name: patch.name!,
+      relation: patch.relation ?? PersonRelation.other,
+      avatarEmoji: patch.avatarEmoji,
+      note: patch.note,
+    );
   }
 
   List<Person> byRelation(PersonRelation r) =>

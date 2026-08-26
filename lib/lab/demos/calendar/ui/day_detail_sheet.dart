@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
+import '../data/calendar_config.dart';
+import '../data/event_draft.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
+import '../domain/anchor.dart';
 import '../domain/event.dart';
-import '../domain/recurrence.dart';
+import '../domain/event_occurrence.dart';
+import '../domain/period.dart';
+import '../domain/person.dart';
+import '../domain/person_patch.dart';
 import '../lunar_adapter.dart';
 import 'widgets/chip_choice.dart';
 import 'widgets/paper_button.dart';
@@ -32,7 +38,7 @@ class DayDetailSheet extends StatelessWidget {
     return AnimatedBuilder(
       animation: Listenable.merge([cal, people]),
       builder: (context, _) {
-        final events = cal.eventsOnDate(date);
+        final events = cal.eventsOn(date);
 
         return Container(
           padding: EdgeInsets.only(
@@ -85,13 +91,13 @@ class DayDetailSheet extends StatelessWidget {
                 )
               else
                 ...events.map(
-                  (e) => _EventRow(
-                    event: e,
+                  (o) => _EventRow(
+                    event: o.event,
                     cal: cal,
                     people: people,
-                    personName: e.personId == null
-                        ? null
-                        : people.byId(e.personId!)?.name,
+                    personName: o.event.people.isNotEmpty
+                        ? o.event.people.first.name
+                        : null,
                   ),
                 ),
               const SizedBox(height: 12),
@@ -142,7 +148,7 @@ class _EventRow extends StatelessWidget {
           MaterialPageRoute(
             fullscreenDialog: true,
             builder: (_) => EventFormSheet(
-              date: DateTime(event.year, event.month, event.day),
+              date: _anchorDate(event),
               existing: event,
               cal: cal,
               people: people,
@@ -174,7 +180,7 @@ class _EventRow extends StatelessWidget {
                     Text(
                       [
                         _typeNameOf(event.type),
-                        event.system == CalendarSystem.solar ? '公历' : '农历',
+                        event.anchor is SolarAnchor ? '公历' : '农历',
                         if (personName != null) personName!,
                       ].join(' · '),
                       style: AppText.caption(),
@@ -225,7 +231,7 @@ class _EventRow extends StatelessWidget {
       ),
     );
     if (ok == true) {
-      await cal.remove(event.id);
+      await cal.removeEvent(event.id);
       if (context.mounted) Navigator.pop(context);
     }
   }
@@ -235,6 +241,21 @@ class _EventRow extends StatelessWidget {
     final v = int.tryParse(s, radix: 16) ?? 0;
     return Color(0xFF000000 | v);
   }
+}
+
+/// Resolve the Event's anchor to a DateTime for form prefill.
+DateTime _anchorDate(Event e) {
+  final a = e.anchor;
+  if (a is SolarAnchor) return DateTime(a.year, a.month, a.day);
+  if (a is LunarAnchor) {
+    try {
+      final s = LunarAdapter().toSolar(a.year, a.month, a.day, isLeap: a.isLeap);
+      return DateTime(s.year, s.month, s.day);
+    } catch (_) {
+      return DateTime(a.year, a.month, a.day);
+    }
+  }
+  return DateTime.now();
 }
 
 /// 类型中文映射（顶层函数，避免重复定义）
@@ -286,9 +307,9 @@ class _EventFormSheetState extends State<EventFormSheet> {
   late final TextEditingController _note;
   late EventType _type;
   late ColorTag _color;
-  late Recurrence _rec;
+  late bool _repeatYearly;
   late CalendarSystem _system;
-  String? _personId;
+  String? _personName;
 
   @override
   void initState() {
@@ -298,9 +319,9 @@ class _EventFormSheetState extends State<EventFormSheet> {
     _note = TextEditingController(text: e?.note ?? '');
     _type = e?.type ?? EventType.task;
     _color = e?.colorTag ?? ColorTag.gray;
-    _rec = e?.recurrence ?? Recurrence.none;
-    _system = e?.system ?? CalendarSystem.solar;
-    _personId = e?.personId;
+    _repeatYearly = e?.period is YearlyPeriod;
+    _system = e?.anchor is LunarAnchor ? CalendarSystem.lunar : CalendarSystem.solar;
+    _personName = (e?.people.isNotEmpty ?? false) ? e!.people.first.name : null;
   }
 
   @override
@@ -313,28 +334,55 @@ class _EventFormSheetState extends State<EventFormSheet> {
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) return;
     final cal = widget.cal;
+    // Build anchor from current widget.date + selected system.
+    final anchor = _system == CalendarSystem.lunar
+        ? AnchorFactory.lunar(
+            month: widget.date.month,
+            day: widget.date.day,
+            isLeap: false,
+            year: widget.date.year,
+          )
+        : AnchorFactory.solar(
+            month: widget.date.month,
+            day: widget.date.day,
+            year: widget.date.year,
+          );
+    final period = _repeatYearly
+        ? PeriodFactory.yearly()
+        : PeriodFactory.oneShot();
+    final people = <PersonPatch>[];
+    if (_personName != null && _personName!.isNotEmpty) {
+      // patch relation 取当前 roster 里的（如有），保持向后兼容
+      PersonRelation? relation;
+      for (final p in widget.people.allPeople) {
+        if (p.name == _personName && p.groupId == widget.cal.activeGroupId) {
+          relation = p.relation;
+          break;
+        }
+      }
+      people.add(PersonPatch(name: _personName, relation: relation));
+    }
+    final draft = EventDraft(
+      title: _title.text,
+      type: _type,
+      anchor: anchor,
+      period: period,
+      colorTag: _color,
+      people: people,
+      note: _note.text.isEmpty ? null : _note.text,
+    );
     if (widget.existing != null) {
-      await cal.update(widget.existing!.copyWith(
-        title: _title.text,
-        type: _type,
-        colorTag: _color,
-        recurrence: _rec,
-        system: _system,
-        personId: _personId,
-        note: _note.text.isEmpty ? null : _note.text,
+      await cal.updateEvent(widget.existing!.copyWith(
+        title: draft.title,
+        type: draft.type,
+        anchor: draft.anchor,
+        period: draft.period,
+        colorTag: draft.colorTag,
+        people: draft.people,
+        note: draft.note,
       ));
     } else {
-      await cal.add(
-        type: _type,
-        title: _title.text,
-        system: _system,
-        month: widget.date.month,
-        day: widget.date.day,
-        recurrence: _rec,
-        colorTag: _color,
-        personId: _personId,
-        note: _note.text.isEmpty ? null : _note.text,
-      );
+      await cal.addEvent(draft);
     }
     if (mounted) Navigator.pop(context);
   }
@@ -384,30 +432,23 @@ class _EventFormSheetState extends State<EventFormSheet> {
           ),
           ChipChoice<String?>(
             label: '关联人',
-            values: [null, ...widget.people.people.map((p) => p.id)],
-            selected: _personId,
-            onChanged: (v) => setState(() => _personId = v),
-            displayName: (v) {
-              if (v == null) return '不关联';
-              final p = widget.people.byId(v);
-              return p == null ? '已删除' : p.name;
-            },
+            values: [null, ...widget.people.people.map((p) => p.name)],
+            selected: _personName,
+            onChanged: (v) => setState(() => _personName = v),
+            displayName: (v) => v ?? '不关联',
           ),
-          ChipChoice<Recurrence>(
+          ChipChoice<bool>(
             label: '重复',
-            values: const [Recurrence.none, Recurrence.yearly],
-            selected: _rec == Recurrence.manual ? Recurrence.yearly : _rec,
-            onChanged: (v) => setState(() => _rec = v),
-            displayName: _recName,
+            values: const [false, true],
+            selected: _repeatYearly,
+            onChanged: (v) => setState(() => _repeatYearly = v),
+            displayName: (v) => v ? '每年' : '仅一次',
           ),
           ChipChoice<CalendarSystem>(
             label: '历法',
             values: CalendarSystem.values.toList(),
             selected: _system,
-            onChanged: (v) => setState(() {
-              _system = v;
-              _rec = _recFor(_system, _rec);
-            }),
+            onChanged: (v) => setState(() => _system = v),
             displayName: (s) => s == CalendarSystem.solar ? '公历' : '农历',
           ),
           ChipChoice<ColorTag>(
@@ -464,39 +505,7 @@ class _EventFormSheetState extends State<EventFormSheet> {
     }
   }
 
-  String _recName(Recurrence r) {
-    switch (r) {
-      case Recurrence.none:
-        return '仅一次';
-      case Recurrence.yearly:
-        return '每年公历';
-      case Recurrence.yearlyLunarAuto:
-        return '每年农历';
-      case Recurrence.manual:
-        return '手动';
-    }
-  }
-
-  /// 重复项联动：根据历法决定可选重复项
-  /// - 公历：仅一次 / 每年公历 / 手动
-  /// - 农历：仅一次 / 每年农历
-  List<Recurrence> _availableRecurrences() {
-    return _system == CalendarSystem.solar
-        ? [Recurrence.none, Recurrence.yearly, Recurrence.manual]
-        : [Recurrence.none, Recurrence.yearlyLunarAuto];
-  }
-
-  /// 历法切换时，把当前重复值映射到新历法下的合法值
-  Recurrence _recFor(CalendarSystem sys, Recurrence current) {
-    if (sys == CalendarSystem.solar) {
-      if (current == Recurrence.yearlyLunarAuto) return Recurrence.yearly;
-      return current;
-    } else {
-      if (current == Recurrence.yearly) return Recurrence.yearlyLunarAuto;
-      if (current == Recurrence.manual) return Recurrence.none;
-      return current;
-    }
-  }
+  String _recName(bool yearly) => yearly ? '每年' : '仅一次';
 
   String _colorName(ColorTag c) {
     switch (c) {

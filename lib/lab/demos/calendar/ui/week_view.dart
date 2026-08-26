@@ -20,7 +20,7 @@ class WeekView extends StatelessWidget {
 
     return ListView(
       children: days.map((d) {
-        final events = p.eventsOnDate(d);
+        final events = p.eventsOn(d);
         final isToday = d.year == today.year &&
             d.month == today.month &&
             d.day == today.day;
@@ -35,7 +35,7 @@ class WeekView extends StatelessWidget {
           title: Text(
             events.isEmpty
                 ? '无事件'
-                : events.map((e) => e.title).join(' · '),
+                : events.map((o) => o.event.title).join(' · '),
             style: AppText.caption(),
           ),
           onTap: () => onDayTap(d),

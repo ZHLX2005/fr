@@ -60,25 +60,26 @@ class MonthGrid extends StatelessWidget {
         final isToday = date.year == today.year &&
             date.month == today.month &&
             date.day == today.day;
-        final events = cal.eventsOnDate(date);
+        final events = cal.eventsOn(date);
         final evPeople = <Person>[
-          for (final e in events)
-            if (e.personId != null)
-              if (people.byId(e.personId!) != null) people.byId(e.personId!)!,
+          for (final o in events)
+            if (o.event.people.isNotEmpty && o.event.people.first.name != null)
+              if (people.byNameAnyGroup(o.event.people.first.name!) != null)
+                people.byNameAnyGroup(o.event.people.first.name!)!,
         ];
         // 当天所有事件的 colorTag 去重（保持插入顺序）→ 彩色小圆点
         final seen = <String>{};
         final dotColors = <Color>[];
-        for (final e in events) {
-          if (seen.add(e.colorTag.name)) {
-            dotColors.add(_hexToColor(e.colorTag.hex));
+        for (final o in events) {
+          if (seen.add(o.event.colorTag.name)) {
+            dotColors.add(_hexToColor(o.event.colorTag.hex));
           }
         }
         return DayCell(
           date: date,
           inCurrentMonth: inMonth,
           isToday: isToday,
-          events: events,
+          events: events.map((o) => o.event).toList(),
           people: evPeople,
           eventDotColors: inMonth ? dotColors : const [],
           onTap: inMonth ? () => onDayTap(date) : null,

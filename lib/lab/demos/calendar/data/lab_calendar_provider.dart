@@ -8,19 +8,37 @@ import '../../../../native/home_widget/calendar_widget_data.dart';
 import '../../../../native/home_widget/calendar_widget_service.dart';
 import '../domain/age_calculator.dart';
 import '../../../../core/storage/hive/calendar_repository.dart';
+import '../domain/anchor.dart';
 import '../domain/event.dart';
-import '../domain/recurrence.dart';
+import '../domain/event_occurrence.dart';
+import '../domain/period.dart';
 import '../lunar_adapter.dart';
 import '../data/calendar_config.dart';
-import 'event_repository.dart';
+import '../data/event_draft.dart';
+import '../data/event_v1_migration.dart';
+import '../data/lab_people_provider.dart';
+import '../data/occurrence_engine.dart';
+import '../service/dsl/dsl_exporter.dart';
+import '../service/dsl/dsl_interpreter.dart';
+import '../service/dsl/dsl_parser.dart';
+
+/// DSL apply 报告。
+class DslApplyReport {
+  final int added;
+  final int skipped;
+  final List<Object> errors; // DslError but typed loose to avoid leak
+  const DslApplyReport({
+    required this.added,
+    required this.skipped,
+    required this.errors,
+  });
+}
 
 class LabCalendarProvider with ChangeNotifier {
-  /// 当前活跃实例（由构造时设置，供非 Consumer 上下文访问如 ImportDialog / Settings）
   static LabCalendarProvider? current;
 
-  final EventRepository _repo = EventRepository();
-  final _lunar = LunarAdapter();
   final _uuid = const Uuid();
+  final _lunar = LunarAdapter();
   Timer? _midnightTimer;
 
   List<Event> _events = [];
@@ -31,12 +49,13 @@ class LabCalendarProvider with ChangeNotifier {
   int _viewYear = DateTime.now().year;
   int _viewMonth = DateTime.now().month;
   bool _ready = false;
+  int _lastDroppedMigrationCount = 0;
 
   /// 当前 group 的事件（按 groupId 过滤）
   List<Event> get events =>
       List.unmodifiable(_events.where((e) => e.groupId == _activeGroupId));
 
-  /// 所有事件（不过滤；DSL 应用等内部用）
+  /// 所有事件（不过滤）
   List<Event> get allEvents => List.unmodifiable(_events);
 
   List<CalendarGroup> get groups => List.unmodifiable(_groups);
@@ -44,14 +63,15 @@ class LabCalendarProvider with ChangeNotifier {
   int get viewYear => _viewYear;
   int get viewMonth => _viewMonth;
 
-  /// 是否正显示当前月（用于头部"今天"按钮的可见性判定）
   bool get isOnCurrentMonth {
     final n = DateTime.now();
     return _viewYear == n.year && _viewMonth == n.month;
   }
 
-  /// 数据是否已加载完成（Hive init + 全量加载）。未完成时视图渲染 loading 占位。
   bool get ready => _ready;
+
+  /// 首次启动时迁移丢弃的记录条数（用户一次性 toast 用）。
+  int get lastDroppedMigrationCount => _lastDroppedMigrationCount;
 
   LabCalendarProvider() {
     current = this;
@@ -61,6 +81,20 @@ class LabCalendarProvider with ChangeNotifier {
   Future<void> _init() async {
     final repo = CalendarRepository.instance;
     await repo.init();
+
+    // 一次性 v1→v2 迁移
+    final raw = repo.events.values.toList();
+    if (raw.isNotEmpty) {
+      final mig = EventV1Migration.run(raw);
+      _lastDroppedMigrationCount = mig.droppedIds.length;
+      await repo.clearEvents();
+      for (final d in mig.drafts) {
+        await _addInternal(d);
+      }
+    } else {
+      _lastDroppedMigrationCount = 0;
+    }
+
     _activeGroupId = await repo.getActiveGroupId();
     _groups = await repo.loadGroups();
     _loadAll();
@@ -71,7 +105,6 @@ class LabCalendarProvider with ChangeNotifier {
 
   // ──── group 操作（仿 timetable 多空间）──────
 
-  /// 切换激活 group
   Future<void> setActiveGroup(String groupId) async {
     if (_activeGroupId == groupId) return;
     _activeGroupId = groupId;
@@ -80,7 +113,6 @@ class LabCalendarProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 新建 group 并切换过去
   Future<void> createGroup(String name, {String? note}) async {
     final id = 'g_${DateTime.now().millisecondsSinceEpoch}';
     final g = CalendarGroup(
@@ -94,7 +126,6 @@ class LabCalendarProvider with ChangeNotifier {
     await setActiveGroup(id);
   }
 
-  /// 重命名 group
   Future<void> renameGroup(String id, String name) async {
     final g = _groups.firstWhere(
       (x) => x.id == id,
@@ -109,11 +140,9 @@ class LabCalendarProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 删除 group（default 不可删；删除当前激活组自动回退 default）
   Future<void> deleteGroup(String id) async {
     if (id == CalendarGroup.defaultGroupId) return;
     await CalendarRepository.instance.deleteGroup(id);
-    // 同时删除该 group 的事件
     _events.removeWhere((e) => e.groupId == id);
     await _saveAll();
     _groups = await CalendarRepository.instance.loadGroups();
@@ -126,12 +155,6 @@ class LabCalendarProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 删除指定 group 下的所有人（删除 group 时由 UI 同步调用）
-  Future<void> removePeopleByGroup(String groupId) async {
-    // 实际删除由 LabPeopleProvider 完成；这里仅占位便于外部统一调度。
-  }
-
-  /// 清空当前激活 group 的所有事件（保留人）
   Future<void> clearActiveGroupItems() async {
     final activeId = _activeGroupId;
     _events.removeWhere((e) => e.groupId == activeId);
@@ -140,28 +163,12 @@ class LabCalendarProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 批量写入事件（DSL 解析结果用）
-  Future<int> importEvents(List<Event> events) async {
-    final newOnes = events.map((e) {
-      return e.copyWith(groupId: _activeGroupId);
-    }).toList();
-    _events.addAll(newOnes);
-    await _saveAll();
-    _syncToWidget();
-    notifyListeners();
-    return newOnes.length;
-  }
+  // ──── 视图 ────
 
   Future<void> setView(int year, int month) async {
     int y = year, m = month;
-    while (m <= 0) {
-      m += 12;
-      y--;
-    }
-    while (m > 12) {
-      m -= 12;
-      y++;
-    }
+    while (m <= 0) { m += 12; y--; }
+    while (m > 12) { m -= 12; y++; }
     if (y == _viewYear && m == _viewMonth) return;
     _viewYear = y;
     _viewMonth = m;
@@ -179,112 +186,139 @@ class LabCalendarProvider with ChangeNotifier {
     return setView(n.year, n.month);
   }
 
-  /// 某公历日的所有事件（正确处理农历：把单元格日期反查成农历再比对 lunar 事件）
-  ///
-  /// 之前 eventsOf 直接 e.month==month 匹配，对 lunar 事件（存农历月日）失效。
-  /// 现在：solar 事件按公历月日匹配；lunar 事件把单元格日期 fromSolar 成农历
-  /// 后比对农历月日 + isLeap——自动处理年份对齐（农历年跨公历年）。
-  List<Event> eventsOnDate(DateTime date) {
-    final lunar = _lunar.fromSolar(date);
-    return _events.where((e) {
-      // every-N-days 展开（solar only）：从锚点 (year/month/day) 起每 N 天一次
-      if (e.everyNDays != null && e.system == CalendarSystem.solar) {
-        final start = DateTime(e.year, e.month, e.day);
-        final diff = date.difference(start).inDays;
-        if (diff < 0) return false;
-        return diff % e.everyNDays! == 0;
-      }
-      if (e.system == CalendarSystem.solar) {
-        return e.month == date.month && e.day == date.day;
-      }
-      return e.month == lunar.month &&
-          e.day == lunar.day &&
-          e.isLeap == lunar.isLeap;
-    }).toList();
+  // ──── occurrence API（替代 eventsOnDate / RecurrenceResolver）──────
+
+  List<EventOccurrence> eventsOn(DateTime day) {
+    final engine = OccurrenceEngine(_lunar);
+    return engine.eventsOn(events, day);
   }
 
-  /// 事件在某公历年的发生日（用于年度报表按公历月分组）。
-  /// lunar 事件：尝试 lunarYear∈{solarYear-1, solarYear}，取落在 solarYear 的那个。
-  /// 找不到（如闰月该年不存在）返回 null。
-  DateTime? solarOccurrenceInYear(Event e, int solarYear) {
-    if (e.system == CalendarSystem.solar) {
-      return DateTime(solarYear, e.month, e.day);
-    }
-    for (final ly in [solarYear - 1, solarYear]) {
-      try {
-        final s = _lunar.toSolar(ly, e.month, e.day, isLeap: e.isLeap);
-        if (s.year == solarYear) {
-          return DateTime(s.year, s.month, s.day);
-        }
-      } catch (_) {
-        // 该农历年无此月日（如闰月），跳过
-      }
-    }
-    return null;
+  List<EventOccurrence> occurrencesBetween(DateTime from, DateTime to) {
+    final engine = OccurrenceEngine(_lunar);
+    return engine.occurrencesBetween(events, from, to);
   }
 
-  Future<Event> add({
-    required EventType type,
-    required String title,
-    required CalendarSystem system,
-    required int month,
-    required int day,
-    required Recurrence recurrence,
-    required ColorTag colorTag,
-    int? year,
-    bool isLeap = false,
-    int? solarYearOffset,
-    String? personId,
-    String? note,
-    int? lunarAnchorYear,
-  }) async {
+  DateTime? nextOccurrence(Event e, DateTime from) {
+    return OccurrenceEngine(_lunar).nextOccurrence(e, from);
+  }
+
+  // ──── 写操作 ────
+
+  Future<Event> addEvent(EventDraft draft) async {
+    return _addInternal(draft);
+  }
+
+  Future<Event> _addInternal(EventDraft draft) async {
     final e = Event(
       id: _uuid.v4(),
-      type: type,
-      title: title,
-      system: system,
-      // year/month/day 是 system 历法下的值；year 缺省用今年（非 birthday 场景）
-      year: year ?? DateTime.now().year,
-      month: month,
-      day: day,
-      isLeap: isLeap,
-      recurrence: recurrence,
-      colorTag: colorTag,
-      solarYearOffset: solarYearOffset,
-      personId: personId,
-      note: note,
-      lunarAnchorYear: lunarAnchorYear,
+      title: draft.title,
+      type: draft.type,
+      anchor: draft.anchor,
+      period: draft.period,
+      colorTag: draft.colorTag,
+      people: draft.people,
+      note: draft.note,
       groupId: _activeGroupId,
       createdAt: DateTime.now(),
     );
     _events.add(e);
-    await _repo.add(e);
+    // 把 patches upsert 到 global roster
+    final people = LabPeopleProvider.current;
+    if (people != null) {
+      for (final p in draft.people) {
+        if (p.name != null) {
+          await people.upsertPatch(p, groupId: _activeGroupId);
+        }
+      }
+    }
+    await CalendarRepository.instance.saveEvent(e);
     _syncToWidget();
     notifyListeners();
     return e;
   }
 
-  Future<void> update(Event e) async {
+  Future<void> updateEvent(Event e) async {
     final i = _events.indexWhere((x) => x.id == e.id);
     if (i == -1) return;
     _events[i] = e;
-    await _repo.update(e);
+    await CalendarRepository.instance.saveEvent(e);
     _syncToWidget();
     notifyListeners();
   }
 
-  Future<void> remove(String id) async {
-    final event = _events.firstWhere((e) => e.id == id);
+  Future<void> removeEvent(String id) async {
+    final event = _events.firstWhere((e) => e.id == id, orElse: () => Event(
+      id: id, title: '', type: EventType.custom, anchor: const SolarAnchor(year: 1970, month: 1, day: 1),
+      period: const OneShotPeriod(), colorTag: ColorTag.gray, groupId: '', createdAt: DateTime.now(),
+    ));
     if (event.systemCalendarEventId != null) {
       await CalendarService.deleteEvent(event.systemCalendarEventId!);
     }
     _events.removeWhere((e) => e.id == id);
-    await _repo.delete(id);
+    await CalendarRepository.instance.deleteEvent(id);
     _syncToWidget();
     notifyListeners();
   }
 
-  /// 同步到系统日历（保留旧能力）
+  /// 批量写入事件（DSL 解析结果用）
+  Future<int> importEvents(List<Event> events) async {
+    final newOnes = <Event>[];
+    for (final e in events) {
+      newOnes.add(Event(
+        id: e.id,
+        title: e.title,
+        type: e.type,
+        anchor: e.anchor,
+        period: e.period,
+        colorTag: e.colorTag,
+        people: e.people,
+        note: e.note,
+        createdAt: e.createdAt,
+        groupId: _activeGroupId,
+        systemCalendarEventId: e.systemCalendarEventId,
+      ));
+    }
+    _events.addAll(newOnes);
+    await _saveAll();
+    _syncToWidget();
+    notifyListeners();
+    return newOnes.length;
+  }
+
+  /// DSL → 报告
+  Future<DslApplyReport> applyDsl(String text) async {
+    final parsed = parseCalendarDsl(text);
+    final cfg = CalendarConfig.defaultConfig;
+    final interp = interpret(parsed.stmts, config: cfg);
+    final allErrors = <Object>[
+      ...parsed.errors,
+      ...interp.errors,
+    ];
+    var added = 0;
+    var skipped = 0;
+    for (final d in interp.drafts) {
+      try {
+        await addEvent(d);
+        added++;
+      } catch (_) {
+        skipped++;
+      }
+    }
+    return DslApplyReport(added: added, skipped: skipped, errors: allErrors);
+  }
+
+  /// 导出当前 group 为 DSL。
+  String exportDsl() {
+    final cfg = CalendarConfig.defaultConfig;
+    final people = LabPeopleProvider.current?.allPeople
+            .where((p) => p.groupId == _activeGroupId)
+            .toList() ??
+        const [];
+    return exportCalendarDsl(events, people: people, config: cfg);
+  }
+
+  // ──── 系统日历同步（保留旧能力）──────
+
   Future<bool> syncToSystemCalendar(String id) async {
     final i = _events.indexWhere((e) => e.id == id);
     if (i == -1) return false;
@@ -297,50 +331,49 @@ class LabCalendarProvider with ChangeNotifier {
     if (event.systemCalendarEventId != null) {
       await CalendarService.deleteEvent(event.systemCalendarEventId!);
     }
-    // 用事件在今年的公历发生日同步到系统日历（lunar 事件要先 resolve 到公历）
-    final occurrence = solarOccurrenceInYear(event, DateTime.now().year) ??
-        DateTime(event.year, event.month, event.day);
+    final occ = nextOccurrence(event, DateTime.now());
+    final useDate = occ ?? (event.anchor is SolarAnchor
+        ? DateTime((event.anchor as SolarAnchor).year,
+                  (event.anchor as SolarAnchor).month,
+                  (event.anchor as SolarAnchor).day)
+        : DateTime.now());
     final systemId = await CalendarService.insertEvent(
       title: event.title,
       description: event.note ?? '',
-      year: occurrence.year,
-      month: occurrence.month,
-      day: occurrence.day,
+      year: useDate.year,
+      month: useDate.month,
+      day: useDate.day,
     );
     if (systemId == null) return false;
     final updated = event.copyWith(systemCalendarEventId: systemId);
     _events[i] = updated;
-    await _repo.update(updated);
+    await CalendarRepository.instance.saveEvent(updated);
     notifyListeners();
     return true;
   }
 
-  /// 年龄计算（仅 birthday 类型）
-  ///
-  /// 公历生日：直接 DateTime(year, month, day)。
-  /// 农历生日：year/month/day 是农历值，必须先用 lunarAnchorYear 换算成出生公历日
-  /// （否则按农历月日当公历算会错）。闰月用 isLeap 标识。
+  /// birthday 类型事件的人物年龄（保留 API）。
   int? ageOfBirthdayPerson(Event birthdayEvent, DateTime today) {
     if (birthdayEvent.type != EventType.birthday) return null;
     DateTime dob;
-    if (birthdayEvent.system == CalendarSystem.solar) {
-      dob = DateTime(birthdayEvent.year, birthdayEvent.month, birthdayEvent.day);
-    } else {
-      final anchor = birthdayEvent.lunarAnchorYear ?? birthdayEvent.year;
-      final s = LunarAdapter().toSolar(
-        anchor,
-        birthdayEvent.month,
-        birthdayEvent.day,
-        isLeap: birthdayEvent.isLeap,
-      );
+    if (birthdayEvent.anchor is SolarAnchor) {
+      final a = birthdayEvent.anchor as SolarAnchor;
+      dob = DateTime(a.year, a.month, a.day);
+    } else if (birthdayEvent.anchor is LunarAnchor) {
+      final a = birthdayEvent.anchor as LunarAnchor;
+      final s = _lunar.toSolar(a.year, a.month, a.day, isLeap: a.isLeap);
       dob = DateTime(s.year, s.month, s.day);
+    } else {
+      return null;
     }
     return AgeCalculator.calculate(dob, today);
   }
 
+  // ──── 内部 ────
+
   Future<void> _loadAll() async {
     final repo = CalendarRepository.instance;
-    _events = repo.events.values.toList();
+    _events = repo.loadEvents();
     final box = repo.viewState;
     _viewYear = (box.get('viewYear') as int?) ?? DateTime.now().year;
     _viewMonth = (box.get('viewMonth') as int?) ?? DateTime.now().month;
@@ -348,21 +381,23 @@ class LabCalendarProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 整批刷盘：clear box 后重写
   Future<void> _saveAll() async {
     final repo = CalendarRepository.instance;
-    await repo.events.clear();
+    await repo.clearEvents();
     for (final e in _events) {
-      await repo.events.put(e.id, e);
+      await repo.saveEvent(e);
     }
   }
 
   void _syncToWidget() {
-    final data = CalendarWidgetData.fromEvents(
+    final occ = occurrencesBetween(
+      DateTime(_viewYear, _viewMonth, 1),
+      DateTime(_viewYear, _viewMonth + 1, 0, 23, 59, 59),
+    );
+    final data = CalendarWidgetData.fromOccurrences(
       year: _viewYear,
       month: _viewMonth,
-      events: _events,
-      lunar: _lunar,
+      occurrences: occ,
     );
     CalendarWidgetService.updateCalendarWidget(data);
   }

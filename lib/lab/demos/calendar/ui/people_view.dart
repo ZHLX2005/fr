@@ -42,7 +42,9 @@ class PeopleView extends StatelessWidget {
               const SizedBox(height: 8),
               ...entry.value.map((p) {
                 final birthday = cal.events
-                    .where((e) => e.personId == p.id && e.type == EventType.birthday)
+                    .where((e) =>
+                        e.people.any((p) => p.name == p.name) &&
+                        e.type == EventType.birthday)
                     .cast<Event?>()
                     .firstWhere((_) => true, orElse: () => null);
                 final next =

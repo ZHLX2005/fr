@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/calendar_config.dart';
 import '../../data/lab_calendar_provider.dart';
 import '../../data/lab_people_provider.dart';
-import 'calendar_dsl_parser.dart';
 import 'calendar_import_dialog.dart';
 import '../../../../../widgets/theme/zen_theme.dart';
 
@@ -206,23 +206,8 @@ class _CalendarSettingsPageState extends State<CalendarSettingsPage> {
 
   Future<void> _exportDsl() async {
     final cal = LabCalendarProvider.current!;
-    final people = LabPeopleProvider.current!;
-    final activeId = cal.activeGroupId;
-    final groupEvents = cal.events;
-    final groupPeople = people.allPeople
-        .where((p) => p.groupId == activeId)
-        .map(
-          (p) => CalendarPersonDraft(
-            id: p.id,
-            name: p.name,
-            relation: p.relation.name,
-            avatarEmoji: p.avatarEmoji,
-            note: p.note,
-          ),
-        )
-        .toList();
-    final dsl = exportCalendarDsl(groupEvents, persons: groupPeople);
-    if (dsl.isEmpty) {
+    final dsl = cal.exportDsl();
+    if (dsl.trim().isEmpty || !dsl.contains('event')) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,

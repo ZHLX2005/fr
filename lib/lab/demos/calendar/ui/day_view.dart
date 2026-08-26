@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
+import '../domain/anchor.dart';
 import '../domain/event.dart';
+import '../domain/event_occurrence.dart';
 
 /// 日视图（今日）
 class DayView extends StatelessWidget {
@@ -17,7 +19,7 @@ class DayView extends StatelessWidget {
       animation: cal,
       builder: (context, _) {
         final today = DateTime.now();
-        final events = cal.eventsOnDate(today);
+        final occs = cal.eventsOn(today);
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -31,14 +33,14 @@ class DayView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            if (events.isEmpty)
+            if (occs.isEmpty)
               Text('今天没有事件', style: AppText.body(color: pp.inkMuted))
             else
-              ...events.map(
-                (e) => ListTile(
-                  title: Text(e.title, style: AppText.body()),
+              ...occs.map(
+                (o) => ListTile(
+                  title: Text(o.event.title, style: AppText.body()),
                   subtitle: Text(
-                    '${_typeNameOf(e.type)} · ${e.system == CalendarSystem.solar ? "公历" : "农历"}',
+                    '${_typeNameOf(o.event.type)} · ${o.event.anchor is SolarAnchor ? "公历" : "农历"}',
                     style: AppText.caption(),
                   ),
                 ),

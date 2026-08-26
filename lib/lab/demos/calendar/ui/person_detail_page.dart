@@ -4,12 +4,13 @@ import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
+import '../domain/anchor.dart';
 import '../domain/event.dart';
 import '../domain/next_birthday.dart';
 import '../lunar_adapter.dart';
 import 'person_form_sheet.dart';
 
-/// 人物详情页
+/// 人物详情页（v2：用 Anchor 替代 system/year/month/day）
 class PersonDetailPage extends StatelessWidget {
   final String personId;
   final LabCalendarProvider cal;
@@ -34,7 +35,9 @@ class PersonDetailPage extends StatelessWidget {
             body: const Center(child: Text('人已被删除')),
           );
         }
-        final events = cal.events.where((e) => e.personId == personId).toList();
+        final events = cal.events
+            .where((e) => e.people.any((p) => p.name == person.name))
+            .toList();
         final birthday = events
             .where((e) => e.type == EventType.birthday)
             .cast<Event?>()
@@ -42,7 +45,6 @@ class PersonDetailPage extends StatelessWidget {
         final today = DateTime.now();
         final resolver = NextBirthdayResolver(LunarAdapter());
         final next = birthday == null ? null : resolver.upcoming(birthday, today);
-        // age 委托 provider：内部已按 system 区分（lunar 用出生公历日换算）
         final age = birthday == null
             ? null
             : cal.ageOfBirthdayPerson(birthday, today);
@@ -92,40 +94,43 @@ class PersonDetailPage extends StatelessWidget {
               if (birthday != null && next != null) ...[
                 Text('生日', style: AppText.title()),
                 const SizedBox(height: 8),
-                // SoT：显示存储的原值（已是该 system 历法下的值）+ 历法标签
                 Builder(builder: (_) {
-                  final leap = birthday.isLeap ? '闰' : '';
-                  return Text(
-                    birthday.system == CalendarSystem.solar
-                        ? '公历 ${birthday.year} 年 ${birthday.month} 月 ${birthday.day} 日'
-                        : '农历 ${birthday.year} 年 $leap${birthday.month} 月 ${birthday.day}',
-                    style: AppText.body(),
-                  );
+                  final a = birthday.anchor;
+                  if (a is SolarAnchor) {
+                    return Text(
+                      '公历 ${a.year} 年 ${a.month} 月 ${a.day} 日',
+                      style: AppText.body(),
+                    );
+                  } else if (a is LunarAnchor) {
+                    final leap = a.isLeap ? '闰' : '';
+                    return Text(
+                      '农历 ${a.year} 年 $leap${a.month} 月 ${a.day} 日',
+                      style: AppText.body(),
+                    );
+                  }
+                  return const SizedBox();
                 }),
                 const SizedBox(height: 4),
-                // 对方历法等值（双向）
                 Builder(builder: (_) {
-                  if (birthday.system == CalendarSystem.solar) {
+                  final a = birthday.anchor;
+                  if (a is SolarAnchor) {
                     final l = LunarAdapter().fromSolar(
-                      DateTime(birthday.year, birthday.month, birthday.day),
+                      DateTime(a.year, a.month, a.day),
                     );
                     return Text(
                       '≈ 农历 ${l.year} 年 ${l.isLeap ? "闰" : ""}${l.month} 月 ${l.day}',
                       style: AppText.caption(color: pp.inkMuted),
                     );
-                  } else {
-                    final anchor = birthday.lunarAnchorYear ?? birthday.year;
+                  } else if (a is LunarAnchor) {
                     final s = LunarAdapter().toSolar(
-                      anchor,
-                      birthday.month,
-                      birthday.day,
-                      isLeap: birthday.isLeap,
+                      a.year, a.month, a.day, isLeap: a.isLeap,
                     );
                     return Text(
                       '≈ 公历 ${s.year} 年 ${s.month} 月 ${s.day}',
                       style: AppText.caption(color: pp.inkMuted),
                     );
                   }
+                  return const SizedBox();
                 }),
                 const SizedBox(height: 4),
                 Text(
@@ -157,7 +162,9 @@ class PersonDetailPage extends StatelessWidget {
     final pp = PaperPalette.of(context);
     final person = people.byId(personId);
     if (person == null) return;
-    final linkedEvents = cal.events.where((e) => e.personId == personId).toList();
+    final linkedEvents = cal.events
+        .where((e) => e.people.any((p) => p.name == person.name))
+        .toList();
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -181,9 +188,8 @@ class PersonDetailPage extends StatelessWidget {
       ),
     );
     if (ok != true) return;
-    // 级联删除关联事件
     for (final e in linkedEvents) {
-      await cal.remove(e.id);
+      await cal.removeEvent(e.id);
     }
     await people.remove(personId);
     if (context.mounted) Navigator.pop(context);
@@ -204,27 +210,14 @@ class PaperDangerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pp = PaperPalette.of(context);
-    return Material(
-      color: pp.bgElevated,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: pp.today,
         side: BorderSide(color: pp.today, width: 1.5),
       ),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          height: 44,
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: AppText.body().copyWith(
-              color: pp.today,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
+      icon: const Icon(Icons.delete_outline, size: 18),
+      label: Text(label),
     );
   }
 }

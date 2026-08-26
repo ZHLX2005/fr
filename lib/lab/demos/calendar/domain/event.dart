@@ -3,6 +3,7 @@ import 'package:meta/meta.dart';
 import 'anchor.dart';
 import 'period.dart';
 import 'person_patch.dart';
+import 'person.dart';
 
 /// 事件类型
 enum EventType { birthday, anniversary, countdown, holiday, task, custom }
@@ -20,6 +21,9 @@ enum ColorTag {
   final String hex;
   const ColorTag(this.hex);
 }
+
+/// 历法系统（保留用于 codec / 老 API 兼容；Event v2 用 Anchor 系统替代）
+enum CalendarSystem { solar, lunar }
 
 /// 事件 —— v2 形态：anchor + Period + 内嵌 people。
 ///
@@ -181,7 +185,7 @@ Anchor _anchorFromJson(Map<String, dynamic> j) {
 }
 
 Map<String, dynamic> _periodToJson(Period p) {
-  DateTime? iso(DateTime? d) => d?.toIso8601String();
+  String? iso(DateTime? d) => d?.toIso8601String();
   if (p is OneShotPeriod) return {'kind': 'oneShot'};
   if (p is YearlyPeriod) {
     return {

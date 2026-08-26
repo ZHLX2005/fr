@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/paper_palette.dart';
 import '../../../../core/theme/typography.dart';
+import '../data/event_draft.dart';
 import '../data/lab_calendar_provider.dart';
 import '../data/lab_people_provider.dart';
+import '../domain/anchor.dart';
 import '../domain/event.dart';
 import '../domain/lunar_date_codec.dart';
+import '../domain/period.dart';
 import '../domain/person.dart';
-import '../domain/recurrence.dart';
+import '../domain/person_patch.dart';
 import '../lunar_adapter.dart';
 import 'widgets/chip_choice.dart';
 import 'widgets/paper_button.dart';
@@ -52,16 +55,28 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
     // 不做任何换算 —— 之前的 lunarFromSolar 二次换算就是漂移 bug 的源头。
     if (p != null) {
       final existing = widget.cal.events.firstWhere(
-        (e) => e.personId == p.id && e.type == EventType.birthday,
+        (e) =>
+            e.people.any((patch) => patch.name == p.name) &&
+            e.type == EventType.birthday,
         orElse: () => _sentinel(),
       );
       if (existing.id != '_empty_') {
-        _system = existing.system;
-        _isLeap = existing.isLeap;
+        final a = existing.anchor;
+        final int y, m, d;
+        if (a is LunarAnchor) {
+          _system = CalendarSystem.lunar;
+          _isLeap = a.isLeap;
+          y = a.year; m = a.month; d = a.day;
+        } else if (a is SolarAnchor) {
+          _system = CalendarSystem.solar;
+          y = a.year; m = a.month; d = a.day;
+        } else {
+          y = 1970; m = 1; d = 1;
+        }
         _date.text =
-            '${existing.year.toString().padLeft(4, '0')}'
-            '${existing.month.toString().padLeft(2, '0')}'
-            '${existing.day.toString().padLeft(2, '0')}';
+            '${y.toString().padLeft(4, '0')}'
+            '${m.toString().padLeft(2, '0')}'
+            '${d.toString().padLeft(2, '0')}';
       }
     }
     // 首帧后刷新预览
@@ -130,41 +145,27 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
       final d = ymd % 100;
       // 删除旧 birthday 事件（如果有）
       final oldBirthday = cal.events.firstWhere(
-        (e) => e.personId == saved.id && e.type == EventType.birthday,
+        (e) =>
+            e.people.any((p) => p.name == saved.name) &&
+            e.type == EventType.birthday,
         orElse: () => _sentinel(),
       );
       if (oldBirthday.id != '_empty_') {
-        await cal.remove(oldBirthday.id);
+        await cal.removeEvent(oldBirthday.id);
       }
-      // SoT：存的就是用户输入的原值（year/month/day 已是该 system 历法下的值）。
-      // solar → yearly（公历月日固定）；lunar → yearlyLunarAuto + 锚年。
-      if (_system == CalendarSystem.solar) {
-        await cal.add(
-          type: EventType.birthday,
-          title: '${saved.name}生日',
-          system: CalendarSystem.solar,
-          year: y,
-          month: m,
-          day: d,
-          recurrence: Recurrence.yearly,
-          colorTag: ColorTag.amber,
-          personId: saved.id,
-        );
-      } else {
-        await cal.add(
-          type: EventType.birthday,
-          title: '${saved.name}生日',
-          system: CalendarSystem.lunar,
-          year: y,
-          month: m,
-          day: d,
-          isLeap: _isLeap,
-          recurrence: Recurrence.yearlyLunarAuto,
-          colorTag: ColorTag.amber,
-          personId: saved.id,
-          lunarAnchorYear: y,
-        );
-      }
+      // Anchor：solar → SolarAnchor(month, day, year)；lunar → LunarAnchor(...)
+      final anchor = _system == CalendarSystem.solar
+          ? AnchorFactory.solar(month: m, day: d, year: y)
+          : AnchorFactory.lunar(month: m, day: d, isLeap: _isLeap, year: y);
+      final draft = EventDraft(
+        title: '${saved.name}生日',
+        type: EventType.birthday,
+        anchor: anchor,
+        period: PeriodFactory.yearly(),
+        colorTag: ColorTag.amber,
+        people: [PersonPatch(name: saved.name, relation: saved.relation)],
+      );
+      await cal.addEvent(draft);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -180,12 +181,10 @@ class _PersonFormSheetState extends State<PersonFormSheet> {
         id: '_empty_',
         type: EventType.birthday,
         title: '',
-        system: CalendarSystem.solar,
-        year: 0,
-        month: 0,
-        day: 0,
-        recurrence: Recurrence.none,
+        anchor: const SolarAnchor(month: 1, day: 1, year: 1970),
+        period: const OneShotPeriod(),
         colorTag: ColorTag.gray,
+        groupId: 'default',
         createdAt: DateTime.now(),
       );
 

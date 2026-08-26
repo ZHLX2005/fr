@@ -43,11 +43,20 @@ class LexerResult {
 /// 词法分析器入口。
 LexerResult tokenize(String input) => _Lexer(input).run();
 
+/// `_advance` 步进的"一格"按 rune（Unicode 码点）算。
+/// `String.codeUnits` / `[]` 索引是 UTF-16 code unit；emoji 是 surrogate pair，
+/// 不按 rune 走会拆开字符。本文件所有 lexer 偏移都用此函数。
+int _runeAt(String s, int i) => s.runes.elementAt(i);
+
 class _Lexer {
   _Lexer(this.input);
 
   final String input;
+
+  /// `_i` 与 `_runeI` 严格同步：本 lexer 仅按 rune 推进；`_i` 保留为 codunit
+  /// 偏移仅用于 `substring` 切片，`_col` 行号按 rune 数累加。
   int _i = 0;
+  int _runeI = 0;
   int _line = 1;
   int _col = 1;
   final List<Token> _tokens = [];
@@ -55,21 +64,33 @@ class _Lexer {
 
   Position get _pos => Position(_line, _col);
 
-  void _advance(int n) {
-    for (var k = 0; k < n; k++) {
-      final ch = input.codeUnitAt(_i);
+  void _advance(int runes) {
+    for (var k = 0; k < runes; k++) {
+      if (_runeI >= input.runes.length) {
+        _i = input.length;
+        return;
+      }
+      final ch = input.runes.elementAt(_runeI);
       if (ch == 0x0A) {
         _line++;
         _col = 1;
       } else {
         _col++;
       }
-      _i++;
+      // 把 rune 跳过去的 codunit 数累加到 _i。
+      _i += _runeToCodUnits(ch);
+      _runeI++;
     }
   }
 
-  bool _at(int rel) => _i + rel < input.length;
-  int _ch([int rel = 0]) => input.codeUnitAt(_i + rel);
+  int _runeToCodUnits(int rune) =>
+      (rune >= 0x10000) ? 2 : 1; // surrogate pair 占 2 code units
+
+  bool _hasRunes([int rel = 0]) =>
+      _runeI + rel < input.runes.length;
+  int _ch([int rel = 0]) => _hasRunes(rel)
+      ? input.runes.elementAt(_runeI + rel)
+      : -1;
 
   void _error(String msg) {
     _errors.add(DslError(_pos, msg));
@@ -78,12 +99,12 @@ class _Lexer {
   Position _tokenStart = const Position(1, 1);
 
   void _skipWhitespaceAndComments() {
-    while (_i < input.length) {
+    while (_hasRunes()) {
       final c = _ch();
       if (c == 0x20 || c == 0x09 || c == 0x0D || c == 0x0A) {
         _advance(1);
       } else if (c == 0x23 /* # */) {
-        while (_i < input.length && _ch() != 0x0A) {
+        while (_hasRunes() && _ch() != 0x0A) {
           _advance(1);
         }
       } else {
@@ -102,10 +123,10 @@ class _Lexer {
     final startCol = _col;
     _advance(1); // skip opening quote
     final buf = StringBuffer();
-    while (_i < input.length && _ch() != quote) {
+    while (_hasRunes() && _ch() != quote) {
       final c = _ch();
       if (c == 0x5C /* \ */) {
-        if (!_at(1)) {
+        if (!_hasRunes(1)) {
           _error('unterminated escape in string');
           _advance(1);
           break;
@@ -135,7 +156,7 @@ class _Lexer {
         _advance(1);
       }
     }
-    if (_i >= input.length) {
+    if (!_hasRunes()) {
       _errors.add(DslError(Position(startLine, startCol), 'unterminated string literal'));
     } else {
       _advance(1); // skip closing quote
@@ -147,34 +168,47 @@ class _Lexer {
     final startLine = _line;
     final startCol = _col;
     final start = _i;
-    while (_i < input.length && _ch() >= 0x30 && _ch() <= 0x39) {
+    while (_hasRunes() && _ch() >= 0x30 && _ch() <= 0x39) {
       _advance(1);
     }
     var text = input.substring(start, _i);
-    // Date: YYYY-MM-DD or YYYYMMDD (8 digits with optional -/ separation)
+    // Date: YYYY-MM-DD or YYYYMMDD (8 digits with optional - separation)
     if (text.length == 8) {
       _emit(TokenKind.date, text);
       return;
     }
-    if (text.length == 4 && _i + 2 < input.length &&
+    if (text.length == 4 && _hasRunes(2) &&
         _ch() == 0x2D /* - */ &&
         _ch(1) >= 0x30 && _ch(1) <= 0x39) {
       // possibly YYYY-MM-DD
       _advance(1); // skip -
-      while (_i < input.length && _ch() >= 0x30 && _ch() <= 0x39) {
+      while (_hasRunes() && _ch() >= 0x30 && _ch() <= 0x39) {
         _advance(1);
       }
-      if (_i + 1 < input.length &&
+      if (_hasRunes(1) &&
           _ch() == 0x2D /* - */ &&
           _ch(1) >= 0x30 && _ch(1) <= 0x39) {
         _advance(1);
-        while (_i < input.length && _ch() >= 0x30 && _ch() <= 0x39) {
+        while (_hasRunes() && _ch() >= 0x30 && _ch() <= 0x39) {
           _advance(1);
         }
         text = input.substring(start, _i);
         _emit(TokenKind.date, text);
         return;
       }
+    }
+    // MM-DD pattern (1-2 digits, dash, 1-2 digits) — used by one-liner
+    // period forms like `yearly:08-15`. Emit as date.
+    if (text.length <= 2 && _hasRunes(1) &&
+        _ch() == 0x2D &&
+        _ch(1) >= 0x30 && _ch(1) <= 0x39) {
+      _advance(1); // skip -
+      while (_hasRunes() && _ch() >= 0x30 && _ch() <= 0x39) {
+        _advance(1);
+      }
+      text = input.substring(start, _i);
+      _emit(TokenKind.date, text);
+      return;
     }
     _emit(TokenKind.number, text);
     // startLine/startCol kept for potential debug use
@@ -186,13 +220,16 @@ class _Lexer {
 
   void _readIdent() {
     final start = _i;
-    while (_i < input.length) {
+    while (_hasRunes()) {
       final c = _ch();
-      final isLetter = (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A);
+      // ASCII letter / digit / underscore / dash：结构 idents（`yearly`、`monthly-nth` 等）。
+      // 非 ASCII（>= 0x80）：emoji / 中文等值字符也接受为 ident 文本（用于 attribute value）。
+      final isAsciiLetter = (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A);
       final isDigit = c >= 0x30 && c <= 0x39;
       final isUnderscore = c == 0x5F;
       final isDash = c == 0x2D;
-      if (isLetter || isDigit || isUnderscore || isDash) {
+      final isNonAsciiValue = c >= 0x80;
+      if (isAsciiLetter || isDigit || isUnderscore || isDash || isNonAsciiValue) {
         _advance(1);
       } else {
         break;
@@ -209,10 +246,10 @@ class _Lexer {
   }
 
   LexerResult run() {
-    while (_i < input.length) {
+    while (_hasRunes()) {
       _tokenStart = _pos;
       _skipWhitespaceAndComments();
-      if (_i >= input.length) break;
+      if (!_hasRunes()) break;
       _tokenStart = _pos;
       final c = _ch();
       switch (c) {
@@ -234,7 +271,9 @@ class _Lexer {
             _readNumberOrDate();
           } else if ((c >= 0x41 && c <= 0x5A) ||
                      (c >= 0x61 && c <= 0x7A) ||
-                     c == 0x5F) {
+                     c == 0x5F ||
+                     c >= 0x80) {
+            // ASCII letter / underscore / non-ASCII rune 都进 ident（emoji 中文等）。
             _readIdent();
           } else {
             _error('unexpected character: ${String.fromCharCode(c)}');
