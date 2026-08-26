@@ -592,6 +592,37 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     return record.accumulatedSeconds ?? 0;
   }
 
+  /// 按 title 自动聚类的"个人最佳 BP"列表（fr todo #27）。
+  ///
+  /// - 聚合 key：customTitle ?? clockTitle（去空白；空字符串视同未命名回退）
+  /// - BP 选取：同一 key 下 completed 记录中 durationSeconds 最大者
+  /// - 排序：title 字典序（让"最佳面板"有稳定的展示顺序，便于跨次会话扫读）
+  ///
+  /// 注意：纯派生 getter，不修改 _records、不写 prefs；UI toggle 是 State 内
+  /// 局部状态，关闭后回到全量列表不丢数据。
+  List<LabClockRecord> get maxRecordsByTitle {
+    final Map<String, LabClockRecord> best = {};
+    for (final r in _records.where((r) => r.completed)) {
+      final custom = r.customTitle?.trim();
+      final key = (custom == null || custom.isEmpty) ? r.clockTitle : custom;
+      final prev = best[key];
+      if (prev == null || r.durationSeconds > prev.durationSeconds) {
+        best[key] = r;
+      }
+    }
+    final list = best.values.toList();
+    list.sort((a, b) {
+      final ka = (a.customTitle?.trim().isNotEmpty ?? false)
+          ? a.customTitle!.trim()
+          : a.clockTitle;
+      final kb = (b.customTitle?.trim().isNotEmpty ?? false)
+          ? b.customTitle!.trim()
+          : b.clockTitle;
+      return ka.compareTo(kb);
+    });
+    return list;
+  }
+
   @override
   void dispose() {
     _timer?.cancel();

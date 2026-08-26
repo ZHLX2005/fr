@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
+import 'package:xiaodouzi_fr/lab/demos/clock/const_clock_max_mode.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
@@ -30,6 +31,10 @@ class ClocksTab extends StatefulWidget {
 }
 
 class _ClocksTabState extends State<ClocksTab> {
+  /// 记录区是否按 title 自动聚类（max 模式 = fr todo #27）。
+  /// UI 局部状态，关闭后回到全量列表，无数据丢失。
+  bool _maxMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -86,7 +91,10 @@ class _ClocksTabState extends State<ClocksTab> {
                     childAspectRatio: 0.85,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, i) => _ClockCard(clock: provider.clocks[i]),
+                    (context, i) => _ClockCard(
+                      clock: provider.clocks[i],
+                      maxMode: _maxMode,
+                    ),
                     childCount: provider.clocks.length,
                   ),
                 ),
@@ -97,6 +105,36 @@ class _ClocksTabState extends State<ClocksTab> {
                 child: Text('记录', style: ZenText.label),
               ),
             ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        kClockMaxModeHint,
+                        style: ZenText.monoDigitSmall.copyWith(
+                          color: context.colors.textMuted,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      kClockMaxModeLabel,
+                      style: ZenText.monoDigitSmall.copyWith(
+                        color: _maxMode
+                            ? context.colors.accent
+                            : context.colors.textMuted,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Switch(
+                      value: _maxMode,
+                      onChanged: (v) => setState(() => _maxMode = v),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             if (provider.records.isEmpty)
               const SliverToBoxAdapter(
                 child: Padding(
@@ -104,6 +142,25 @@ class _ClocksTabState extends State<ClocksTab> {
                   child: Text('暂无记录。', style: ZenText.label),
                 ),
               )
+            else if (_maxMode)
+              () {
+                final maxList = provider.maxRecordsByTitle;
+                if (maxList.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      child: Text(kClockMaxModeEmpty, style: ZenText.label),
+                    ),
+                  );
+                }
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, i) =>
+                        _MaxRecordTile(record: maxList[i]),
+                    childCount: maxList.length,
+                  ),
+                );
+              }()
             else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -137,7 +194,10 @@ class _EmptyState extends StatelessWidget {
 
 class _ClockCard extends StatelessWidget {
   final LabClock clock;
-  const _ClockCard({required this.clock});
+  /// max 模式开关（fr todo #27）。开启且时钟空闲时，中央显示该 title
+  /// 的"个人最佳"时长，否则维持 remainingSeconds。
+  final bool maxMode;
+  const _ClockCard({required this.clock, this.maxMode = false});
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +206,35 @@ class _ClockCard extends StatelessWidget {
         ? Theme.of(context).colorScheme.primary
         : Color(int.parse(clock.color!.replaceFirst('#', '0xFF')));
     final remaining = clock.remainingSeconds;
+
+    // max 模式：未运行时显示该 title 的 BP（customTitle ?? clockTitle 同 key），
+    // 运行中维持倒计时（不让 BP 覆盖实时进度感）。
+    int? displaySeconds;
+    String? displayHint;
+    if (maxMode && !clock.isRunning) {
+      final key = (clock.title.trim().isNotEmpty)
+          ? clock.title.trim()
+          : null;
+      if (key != null) {
+        LabClockRecord? best;
+        for (final r in p.records) {
+          if (!r.completed) continue;
+          final rKey = (r.customTitle?.trim().isNotEmpty ?? false)
+              ? r.customTitle!.trim()
+              : r.clockTitle;
+          if (rKey != key) continue;
+          if (best == null || r.durationSeconds > best.durationSeconds) {
+            best = r;
+          }
+        }
+        if (best != null) {
+          displaySeconds = best.durationSeconds;
+          displayHint = kClockBestRecordBadge;
+        }
+      }
+    }
+    final centerSeconds = displaySeconds ?? remaining;
+    final isMaxDisplay = displaySeconds != null;
     final hasBeat = clock.bpm != null;
     final silenced = p.isClockSilenced(clock.id);
     final isActive = clock.isRunning && hasBeat && !silenced;
@@ -215,16 +304,29 @@ class _ClockCard extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  formatTime(remaining),
+                  formatTime(centerSeconds),
                   style: ZenText.monoDigit.copyWith(
                     fontSize: 32,
-                    color: remaining < 0
-                        ? context.colors.danger
-                        : context.colors.text,
+                    color: isMaxDisplay
+                        ? context.colors.accent
+                        : (remaining < 0
+                            ? context.colors.danger
+                            : context.colors.text),
                   ),
                 ),
               ),
             ),
+            if (isMaxDisplay) ...[
+              SizedBox(height: 2),
+              Center(
+                child: Text(
+                  displayHint!,
+                  style: ZenText.monoDigitSmall.copyWith(
+                    color: context.colors.accent,
+                  ),
+                ),
+              ),
+            ],
             Spacer(),
             if (hasBeat)
               Row(
@@ -492,6 +594,74 @@ class _RecordTileState extends State<_RecordTile> {
             child: Text('保存', style: TextStyle(color: context.colors.accent)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// max 模式下按 title 折叠后的单行（fr todo #27）。
+/// 不带 swipe/重命名/删除 —— BP 视图是"只读"的概览面板，操作回到普通模式。
+class _MaxRecordTile extends StatelessWidget {
+  final LabClockRecord record;
+  const _MaxRecordTile({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final title =
+        (record.customTitle?.trim().isNotEmpty ?? false)
+            ? record.customTitle!
+            : record.clockTitle;
+    final accent = context.colors.accent;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Container(
+        decoration: zenCardTheme(context),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                kClockBestRecordBadge,
+                style: ZenText.monoDigitSmall.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: ZenText.body),
+                  Text(
+                    formatRecordDate(record.startTime),
+                    style: ZenText.monoDigitSmall,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                formatTime(record.durationSeconds),
+                style: ZenText.monoDigitSmall.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
