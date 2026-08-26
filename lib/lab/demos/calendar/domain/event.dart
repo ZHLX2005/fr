@@ -1,11 +1,11 @@
-import 'recurrence.dart';
-import '../data/calendar_config.dart';
+import 'package:meta/meta.dart';
+
+import 'anchor.dart';
+import 'period.dart';
+import 'person_patch.dart';
 
 /// 事件类型
 enum EventType { birthday, anniversary, countdown, holiday, task, custom }
-
-/// 历法系统
-enum CalendarSystem { solar, lunar }
 
 /// 颜色标签（8 色预设，含 hex 给 widget 同步用）
 enum ColorTag {
@@ -21,138 +21,262 @@ enum ColorTag {
   const ColorTag(this.hex);
 }
 
-/// 事件
+/// 事件 —— v2 形态：anchor + Period + 内嵌 people。
+///
+/// 历史 v1 字段（`recurrence` / `everyNDays` / `solarYearOffset` /
+/// `lunarAnchorYear`）已删除；老数据走 `EventV1Migration` 一次性迁移。
+@immutable
 class Event {
   final String id;
-  final EventType type;
   final String title;
-  final CalendarSystem system;
-  // ⚠️ 存储约定（source of truth）：year/month/day 永远是 [system] 所指
-  // 历法下的值——system=solar 时是公历年月日；system=lunar 时是农历年月日。
-  // 读取方解释这三个字段前必须先看 system，绝不能假定是公历。
-  final int year;     // 该历法下的年（首次发生年）
-  final int month;    // 1-12
-  final int day;      // 1-30 (lunar) / 1-31 (solar)
-  final bool isLeap;  // 仅 lunar：是否闰月（如闰四月）
-  final int? solarYearOffset; // 仅 manual
-  final Recurrence recurrence;
-  final String? personId;
+  final EventType type;
+  final Anchor anchor;
+  final Period period;
   final ColorTag colorTag;
+  final List<PersonPatch> people;
   final String? note;
-  final DateTime createdAt;
-  final int? systemCalendarEventId; // 系统日历同步 id（保留旧能力）
-  /// 农历锚定年：仅 recurrence=yearlyLunarAuto 时使用，存"那次农历月日所在的那一年"
-  /// 用于 next_birthday 反推后续年份的对应公历
-  final int? lunarAnchorYear;
-
-  /// 所属日历 group（仿 timetable 多空间：default + 自建）
   final String groupId;
-
-  /// 每 N 天展开（solar only）：从锚点 [year]/[month]/[day] 起每 N 天出现一次。
-  /// null = 单次/周期（school/general/追剧周期模式），由 [Recurrence] 驱动。
-  /// 用于"面向事件"的"每 x 天"语法：例如 every-4-days 表示每 4 天一次。
-  final int? everyNDays;
+  final DateTime createdAt;
+  final int? systemCalendarEventId;
 
   const Event({
     required this.id,
-    required this.type,
     required this.title,
-    required this.system,
-    required this.year,
-    required this.month,
-    required this.day,
-    this.isLeap = false,
-    this.solarYearOffset,
-    this.recurrence = Recurrence.none,
-    this.personId,
-    this.colorTag = ColorTag.gray,
+    required this.type,
+    required this.anchor,
+    required this.period,
+    required this.colorTag,
+    this.people = const [],
     this.note,
+    required this.groupId,
     required this.createdAt,
     this.systemCalendarEventId,
-    this.lunarAnchorYear,
-    this.groupId = CalendarGroup.defaultGroupId,
-    this.everyNDays,
   });
 
   Event copyWith({
-    EventType? type,
     String? title,
-    CalendarSystem? system,
-    int? year,
-    int? month,
-    int? day,
-    bool? isLeap,
-    int? solarYearOffset,
-    Recurrence? recurrence,
-    String? personId,
+    EventType? type,
+    Anchor? anchor,
+    Period? period,
     ColorTag? colorTag,
+    List<PersonPatch>? people,
     String? note,
     int? systemCalendarEventId,
-    int? lunarAnchorYear,
-    String? groupId,
-    int? everyNDays,
-  }) {
-    return Event(
-      id: id,
-      type: type ?? this.type,
-      title: title ?? this.title,
-      system: system ?? this.system,
-      year: year ?? this.year,
-      month: month ?? this.month,
-      day: day ?? this.day,
-      isLeap: isLeap ?? this.isLeap,
-      solarYearOffset: solarYearOffset ?? this.solarYearOffset,
-      recurrence: recurrence ?? this.recurrence,
-      personId: personId ?? this.personId,
-      colorTag: colorTag ?? this.colorTag,
-      note: note ?? this.note,
-      systemCalendarEventId: systemCalendarEventId ?? this.systemCalendarEventId,
-      lunarAnchorYear: lunarAnchorYear ?? this.lunarAnchorYear,
-      groupId: groupId ?? this.groupId,
-      everyNDays: everyNDays ?? this.everyNDays,
-      createdAt: createdAt,
-    );
-  }
+  }) =>
+      Event(
+        id: id,
+        title: title ?? this.title,
+        type: type ?? this.type,
+        anchor: anchor ?? this.anchor,
+        period: period ?? this.period,
+        colorTag: colorTag ?? this.colorTag,
+        people: people ?? this.people,
+        note: note ?? this.note,
+        groupId: groupId,
+        createdAt: createdAt,
+        systemCalendarEventId: systemCalendarEventId ?? this.systemCalendarEventId,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'type': type.name,
         'title': title,
-        'system': system.name,
-        'year': year,
-        'month': month,
-        'day': day,
-        'isLeap': isLeap,
-        if (solarYearOffset != null) 'solarYearOffset': solarYearOffset,
-        'recurrence': recurrence.name,
-        if (personId != null) 'personId': personId,
+        'type': type.name,
+        'anchor': _anchorToJson(anchor),
+        'period': _periodToJson(period),
         'colorTag': colorTag.name,
+        'people': people.map(_personPatchToJson).toList(),
         if (note != null) 'note': note,
-        if (systemCalendarEventId != null) 'systemCalendarEventId': systemCalendarEventId,
-        if (lunarAnchorYear != null) 'lunarAnchorYear': lunarAnchorYear,
-        if (groupId != CalendarGroup.defaultGroupId) 'groupId': groupId,
-        if (everyNDays != null) 'everyNDays': everyNDays,
+        'groupId': groupId,
         'createdAt': createdAt.toIso8601String(),
+        if (systemCalendarEventId != null)
+          'systemCalendarEventId': systemCalendarEventId,
       };
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
         id: j['id'] as String,
-        type: EventType.values.byName(j['type'] as String),
         title: j['title'] as String,
-        system: CalendarSystem.values.byName(j['system'] as String),
-        year: (j['year'] as int?) ?? DateTime.now().year,
-        month: j['month'] as int,
-        day: j['day'] as int,
-        isLeap: (j['isLeap'] as bool?) ?? false,
-        solarYearOffset: j['solarYearOffset'] as int?,
-        recurrence: Recurrence.values.byName(j['recurrence'] as String),
-        personId: j['personId'] as String?,
+        type: EventType.values.byName(j['type'] as String),
+        anchor: _anchorFromJson(j['anchor'] as Map<String, dynamic>),
+        period: _periodFromJson(j['period'] as Map<String, dynamic>),
         colorTag: ColorTag.values.byName(j['colorTag'] as String),
+        people: ((j['people'] as List?) ?? const [])
+            .map((p) => _personPatchFromJson(p as Map<String, dynamic>))
+            .toList(),
         note: j['note'] as String?,
-        systemCalendarEventId: j['systemCalendarEventId'] as int?,
-        lunarAnchorYear: j['lunarAnchorYear'] as int?,
+        groupId: (j['groupId'] as String?) ?? 'default',
         createdAt: DateTime.parse(j['createdAt'] as String),
-        groupId: j['groupId'] as String? ?? CalendarGroup.defaultGroupId,
-        everyNDays: j['everyNDays'] as int?,
+        systemCalendarEventId: j['systemCalendarEventId'] as int?,
       );
+
+  @override
+  bool operator ==(Object o) =>
+      o is Event &&
+      o.id == id &&
+      o.title == title &&
+      o.type == type &&
+      o.anchor == anchor &&
+      o.period == period &&
+      o.colorTag == colorTag &&
+      _listEq(o.people, people) &&
+      o.note == note &&
+      o.groupId == groupId &&
+      o.createdAt == createdAt &&
+      o.systemCalendarEventId == systemCalendarEventId;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        title,
+        type,
+        anchor,
+        period,
+        colorTag,
+        Object.hashAll(people),
+        note,
+        groupId,
+        createdAt,
+        systemCalendarEventId,
+      );
+
+  static bool _listEq(List a, List b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }
+
+Map<String, dynamic> _anchorToJson(Anchor a) {
+  if (a is SolarAnchor) {
+    return {'system': 'solar', 'month': a.month, 'day': a.day, 'year': a.year};
+  }
+  if (a is LunarAnchor) {
+    return {
+      'system': 'lunar',
+      'month': a.month,
+      'day': a.day,
+      'isLeap': a.isLeap,
+      'year': a.year,
+    };
+  }
+  throw StateError('unknown anchor: ${a.runtimeType}');
+}
+
+Anchor _anchorFromJson(Map<String, dynamic> j) {
+  final sys = j['system'] as String;
+  if (sys == 'lunar') {
+    return LunarAnchor(
+      month: j['month'] as int,
+      day: j['day'] as int,
+      isLeap: (j['isLeap'] as bool?) ?? false,
+      year: j['year'] as int,
+    );
+  }
+  return SolarAnchor(
+    month: j['month'] as int,
+    day: j['day'] as int,
+    year: j['year'] as int,
+  );
+}
+
+Map<String, dynamic> _periodToJson(Period p) {
+  DateTime? iso(DateTime? d) => d?.toIso8601String();
+  if (p is OneShotPeriod) return {'kind': 'oneShot'};
+  if (p is YearlyPeriod) {
+    return {
+      'kind': 'yearly',
+      if (p.until != null) 'until': iso(p.until),
+      if (p.count != null) 'count': p.count,
+    };
+  }
+  if (p is MonthlyDayPeriod) {
+    return {
+      'kind': 'monthlyDay',
+      'day': p.day,
+      if (p.until != null) 'until': iso(p.until),
+      if (p.count != null) 'count': p.count,
+    };
+  }
+  if (p is MonthlyNthWeekdayPeriod) {
+    return {
+      'kind': 'monthlyNthWeekday',
+      'nth': p.n,
+      'weekday': p.weekday,
+      if (p.until != null) 'until': iso(p.until),
+      if (p.count != null) 'count': p.count,
+    };
+  }
+  if (p is EveryNDaysPeriod) {
+    return {
+      'kind': 'everyNDays',
+      'n': p.n,
+      if (p.until != null) 'until': iso(p.until),
+      if (p.count != null) 'count': p.count,
+    };
+  }
+  if (p is EveryNWeeksPeriod) {
+    return {
+      'kind': 'everyNWeeks',
+      'n': p.n,
+      'weekdays': (p.weekdays.toList()..sort()),
+      if (p.until != null) 'until': iso(p.until),
+      if (p.count != null) 'count': p.count,
+    };
+  }
+  throw StateError('unknown period: ${p.runtimeType}');
+}
+
+Period _periodFromJson(Map<String, dynamic> j) {
+  DateTime? parseUntil() => j['until'] == null ? null : DateTime.parse(j['until'] as String);
+  int? parseCount() => j['count'] as int?;
+  switch (j['kind'] as String) {
+    case 'oneShot':
+      return const OneShotPeriod();
+    case 'yearly':
+      return YearlyPeriod(until: parseUntil(), count: parseCount());
+    case 'monthlyDay':
+      return MonthlyDayPeriod(
+        day: j['day'] as int,
+        until: parseUntil(),
+        count: parseCount(),
+      );
+    case 'monthlyNthWeekday':
+      return MonthlyNthWeekdayPeriod(
+        n: j['nth'] as int,
+        weekday: j['weekday'] as int,
+        until: parseUntil(),
+        count: parseCount(),
+      );
+    case 'everyNDays':
+      return EveryNDaysPeriod(
+        n: j['n'] as int,
+        until: parseUntil(),
+        count: parseCount(),
+      );
+    case 'everyNWeeks':
+      return EveryNWeeksPeriod(
+        n: j['n'] as int,
+        weekdays: (j['weekdays'] as List).cast<int>().toSet(),
+        until: parseUntil(),
+        count: parseCount(),
+      );
+  }
+  throw StateError('unknown period kind: ${j['kind']}');
+}
+
+Map<String, dynamic> _personPatchToJson(PersonPatch p) => {
+      if (p.name != null) 'name': p.name,
+      if (p.relation != null) 'relation': p.relation!.name,
+      if (p.avatarEmoji != null) 'avatar': p.avatarEmoji,
+      if (p.note != null) 'note': p.note,
+    };
+
+PersonPatch _personPatchFromJson(Map<String, dynamic> j) => PersonPatch(
+      name: j['name'] as String?,
+      relation: j['relation'] == null
+          ? null
+          : PersonRelation.values.byName(j['relation'] as String),
+      avatarEmoji: j['avatar'] as String?,
+      note: j['note'] as String?,
+    );
