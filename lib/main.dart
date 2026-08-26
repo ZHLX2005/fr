@@ -45,6 +45,38 @@ Future<dynamic> _handleRootMethodCall(MethodCall call) async {
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ★ Layer-2 修复：FrNavigator.handle 内部依赖的 _navigatorKey static 字段
+  // 必须由 setNavigatorKey() 显式注入,否则任何 FrNavigator.handle(...) 走到
+  // `final nav = _navigatorKey?.currentState; if (nav == null) return;` 时
+  // 会早 return;以及 handler.build 在 context 为 null 时回退到
+  // `_placeholderContext()` = `_navigatorKey!.currentContext!` —— *!* 解
+  // 引用 null 抛 NullCheckError,被 handle try/catch 吞掉只 print一行。
+  // 历史根因：commit 235eabd3 把 _MyAppState 改成 ConsumerWidget(无 initState),
+  // 原本在 initState 里调用的 FrNavigator.setNavigatorKey(navigatorKey) 被
+  // 一起删掉,之后没人再注入 —— analyze 不查 runtime call graph,CI 漏检,
+  // 直到 widget deep-link 全面失效才暴露。
+  FrNavigator.setNavigatorKey(rootNavigatorKey);
+
+  // ★ cold-start race fix：把桌面 widget MethodChannel 的 handler 注册
+  // 与 frRouter 路由注册提前到任何 await 之前。
+  //
+  // 时序根因：冷启动 widget 点击 → MainActivity.onResume 立即
+  // invokeMethod("navigateToClock") 等。等价于 Flutter 引擎在 Dart 侧
+  // DefaultBinaryMessenger.handlePlatformMessage 里查 _handlers[channel]：
+  // 若 setMethodCallHandler 还没调到,该 channel handler 为 null,
+  // 消息会**静默丢弃**（logcat 无报错、无 SnackBar）,用户感受就是
+  // "点了 widget,app 打开但停在首页"。一旦 dart main() 跑完 await 链
+  // 才注册 handler,之前的 invokeMethod 已丢,补发只能靠 onNewIntent。
+  //
+  // bootstrapLab + registerAllFrRoutes 是同步操作,放进这里既保证
+  // handler 注册时 routing infrastructure 已就绪,又不会拖慢冷启动。
+  bootstrapLab();
+  registerAllFrRoutes();
+  // ★ 注册桌面 widget MethodChannel（必须在 runApp 之前,handler 在 widget 树之外也可调用）
+  const channel = MethodChannel(_kWidgetChannel);
+  channel.setMethodCallHandler(_handleRootMethodCall);
+
   await RiveNative.init();
 
   // 初始化 APK 后台下载服务（Android Foreground Service）
@@ -57,12 +89,6 @@ void main() async {
 
   // 初始化 Supabase
   await SupabaseConfig.init();
-
-  // 初始化 Lab 模块（注册所有 Demo + Schema）
-  bootstrapLab();
-
-  // Task 8: 注册 fr:// 路由到全局 frRouter（handler 来自 bootstrap_routes.dart）
-  registerAllFrRoutes();
 
   // 初始化消息策略
   registerMessageStrategies();
@@ -89,10 +115,6 @@ void main() async {
   // 这样首帧渲染就能拿到正确主题，避免 flash-to-default。
   await container.read(themeNotifierProvider.notifier).hydrate();
   await container.read(TimetableStore.provider.notifier).hydrate();
-
-  // ★ 注册桌面 widget MethodChannel（在 runApp 前注册，handler 在 widget 树之外也可调用）
-  const channel = MethodChannel(_kWidgetChannel);
-  channel.setMethodCallHandler(_handleRootMethodCall);
 
   // 使用 NoteRootScope + UncontrolledProviderScope（preloaded container）包裹应用根节点
   runApp(
