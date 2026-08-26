@@ -46,7 +46,8 @@ class ChipChoice<T> extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active ? pp.bgElevated : pp.bg,
+                    // §0.1：表单选择 chip 选中态走 bgCard 浅主题色。
+                    color: active ? pp.bgCard : pp.bg,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: active ? pp.accent : pp.line,

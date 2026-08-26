@@ -405,7 +405,8 @@ class _PaperField extends StatelessWidget {
               hintText: hint,
               hintStyle: AppText.body(color: pp.inkFaint),
               filled: true,
-              fillColor: pp.bgElevated,
+              // §0.1：输入框 fillColor 用 bgCard 浅主题色。
+              fillColor: pp.bgCard,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),

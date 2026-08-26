@@ -42,7 +42,8 @@ class DayDetailSheet extends StatelessWidget {
             top: 16,
           ),
           decoration: BoxDecoration(
-            color: pp.bgElevated,
+            // §0.1：底部表单 sheet 顶部大色块容器走 bgCard 浅主题色。
+            color: pp.bgCard,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
           child: Column(
@@ -554,7 +555,8 @@ class _PaperField extends StatelessWidget {
               hintText: hint,
               hintStyle: AppText.body(color: pp.inkFaint),
               filled: true,
-              fillColor: pp.bgElevated,
+              // §0.1：输入框 fillColor 用 bgCard 浅主题色。
+              fillColor: pp.bgCard,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),

@@ -22,7 +22,8 @@ class PillSegmented extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: pp.bgElevated,
+        // §0.1：段选择器容器走 bgCard 浅主题色。
+        color: pp.bgCard,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: pp.line, width: 1),
       ),
