@@ -27,6 +27,8 @@
 
 **踩坑案例**：`lib/lab/demos/notion_image_host_demo.dart` 拍照框 + 文字输入框 → 最初 `surfaceContainerHighest`（太深）→ `primaryContainer`（仍深）→ `Color.lerp(..., 0.4)` → `Color.lerp(..., 0.2)` 才对。
 
+> **"输入/上传/选择" 在 PR review 中需要进一步细化** —— 用户实操把违规范围卡在「输入框 / 表单选择控件」这一严格子集，按钮 / 确认 / 纯展示 / 小头像 / chat 气泡 / 进度槽 等**明确不算**。详见 [[#4.5.13 用户实操边界白名单]]。
+
 
 
 ## 1. 新增一套主题配色
@@ -206,6 +208,54 @@
 **正确做法**：用 `Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.2)` —— 80% surface + 20% primaryContainer。背景几乎看不出主题色调，仅在对比时才有微弱色感。
 
 **踩坑案例**：notion_image_host 拍照框 + 文字输入框 → surfaceContainerHighest → primaryContainer → `Color.lerp(0.4)` → `Color.lerp(0.2)`。这才是"承载交互的大色块卡片该有的浅度"。
+
+### 4.5.13 用户实操边界白名单 — 这些场景**不算** §0.1 违规
+
+> **本条来自 2026-08 审 calendar/AI 对话框的实战沉淀**。§0.1 原话是"输入 / 上传 / 选择"，但**用户实操卡得比原话更严**——只在真正承载"输入/表单选择"功能时才视为违规。下表是兜底判定清单，遇到模糊案例直接来查表，不必重新推理。
+
+#### 不算违规的具体场景
+
+| 场景 | 典型写法 | 为什么不算 |
+|---|---|---|
+| **操作按钮**（含确认 / 删除）| `OutlinedButton(bg: pp.bgElevated)`、`FilledButton(bg: scheme.error)` 清空确认 | 用户原话："不是确认删除btn"。按钮是动作触发，不是输入 |
+| **头像 (CircleAvatar)**，包括半径较大的空状态 40dp | `CircleAvatar(radius: 16~40, bg: secondaryContainer)` | 视觉装饰元素，非"大色块交互卡片" |
+| **纯展示卡 / borderEmphasis 标记卡** | Container + border + accent 文本，强调当前选中 | 仅作视觉强调，无输入 / 选择功能 |
+| **Chat message bubble**（user / assistant / error / loading / image）| 圆角色块气泡样式 | 消息展示容器，非"输入"或"表单选择" |
+| **Loading 状态指示** | `surfaceContainerHighest` loading bar / status indicator | §0.1 已明示的"状态栏 / 进度显示"例外 |
+| **LinearProgressIndicator 槽** | `LinearProgressIndicator.backgroundColor: surfaceContainerHighest` | 进度条槽底色，状态显示类 |
+| **M3 标准 outline input** | TextField `border: OutlineInputBorder()` 无 `fillColor` | M3 标准 outline 不填充，OK |
+| **页面 / Scaffold 全屏背景是深底 onSurface** | `Scaffold(backgroundColor: onSurface)` + AppBar 透明 + icon/title/文字前景 surface | 反白夜间阅读的有意设计（word_drag word_detail 原状）。若要改成 light mode 需联动改所有前景色，不能孤立改背景 |
+| **占位 / 加载骨架** | `Container(color: surfaceContainerHighest) + CircularProgressIndicator` 缩略图占位 | 占位显示型，非"输入/选择" |
+
+#### 严格违规判定流（按用户实操）
+
+```
+1. 是大色块卡片？（padding ≥ 16dp 或占满视口宽度）
+   ├─ 否 → 不算违规（如头像、小 chip、小 button）
+   └─ 是 ↓
+
+2. 承载"输入 / 表单选择" 功能？
+   ├─ 否 → 不算违规（展示型 / 标记型 / 按钮型 / chat 气泡 / 占位）
+   └─ 是 ↓
+
+3. 是 TextField.fillColor / 表单选择控件（chip_choice 选中、pill_segmented）/ 
+   表单 sheet 大色块容器？
+   ├─ 是 → ❌ 违规，改 Color.lerp(surface, primaryContainer, 0.2)
+   └─ 否 → 重判
+```
+
+#### 与既有 §4.5 章节的关系
+
+- §4.5.1（surfaceContainerHighest 当 AppBar）属于"展示型"例外 —— 上表第 3 / 6 行覆盖
+- §4.5.5（onSurface 当 Card 背景）属于反白设计 —— 上表第 8 行覆盖。**孤立改背景不行**，必须联动改前景
+- §4.5.12（颜色太深 lerp 0.2）是输入/表单选择的正确写法 —— 上表判定流第 3 步即指向此写法
+
+#### 复盘：用户原话
+
+> 1. 大面积
+> 2. 明显交互属性的，此处指的交互属性是指的输入框，表单选择这种，不是指的确认删除btn
+
+提炼：**"大面积 + 是输入框或表单选择控件"** = 严格违规集合。其他场景按上表白名单豁免。
 
 
 

@@ -6,11 +6,19 @@
 // 切换主题（茶禅/暮紫/墨白）时日历跟随主题。
 //
 // 字段语义映射（保留 paper 语汇）：
-//   ink / inkMuted / inkFaint → onSurface / onSurfaceVariant / 弱化档
-//   line                      → outline
-//   bg / bgElevated           → surface / surfaceContainerHighest
-//   accent / today            → primary
-//   highlight                 → tertiary
+//   ink / inkMuted / inkFaint  → onSurface / onSurfaceVariant / 弱化档
+//   line                       → outline
+//   bg                         → surface（页/容器底色）
+//   bgElevated                 → surfaceContainerHighest（深底）
+//                                用于：AlertDialog/OutlinedButton 大按钮/
+//                                "边框强调"纯展示卡/段选择器轨道/小 chip 选中态
+//                                等不属"输入/表单选择"交互场景
+//   bgCard                     → Color.lerp(surface, primaryContainer, 0.2)
+//                                §0.1 契约浅色 —— 用于：输入框（TextField.fillColor）/
+//                                表单选择控件选中态（chip_choice/pill_segmented）/
+//                                底部表单 sheet 顶部容器 等"输入/选择"大色块
+//   accent / today             → primary
+//   highlight                  → tertiary
 
 import 'package:flutter/material.dart';
 
@@ -22,6 +30,7 @@ class PaperPalette {
     required this.line,
     required this.bg,
     required this.bgElevated,
+    required this.bgCard,
     required this.accent,
     required this.highlight,
     required this.today,
@@ -36,7 +45,13 @@ class PaperPalette {
       inkFaint: scheme.onSurfaceVariant.withValues(alpha: 0.45),
       line: scheme.outline,
       bg: scheme.surface,
+      // 原"抬升底色"语义：surfaceContainerHighest，多数主题偏深。
+      // 仅用于：AlertDialog/大按钮/纯展示卡/段选择器轨道/小 chip 选中态
+      // （详见文件头字段映射表注释）。
       bgElevated: scheme.surfaceContainerHighest,
+      // §0.1 契约浅色：80% surface + 20% primaryContainer。
+      // 仅用于：输入框 / 表单选择控件选中态 / 表单 sheet 大色块容器。
+      bgCard: Color.lerp(scheme.surface, scheme.primaryContainer, 0.2)!,
       accent: scheme.primary,
       highlight: scheme.tertiary,
       today: scheme.primary,
@@ -59,7 +74,14 @@ class PaperPalette {
   final Color bg;
 
   /// 抬高底色（surfaceContainerHighest，比 surface 略深）。
+  /// 适用于：AlertDialog/大按钮/纯展示卡片/段选择器轨道/小 chip 选中态。
   final Color bgElevated;
+
+  /// §0.1 大色块交互卡片浅色
+  /// （`Color.lerp(surface, primaryContainer, 0.2)`）。
+  /// 适用于：输入框（TextField.fillColor）/ 表单选择控件选中态
+  /// （chip_choice/pill_segmented）/ 底部表单 sheet 大色块容器。
+  final Color bgCard;
 
   /// 强调色（primary）。
   final Color accent;

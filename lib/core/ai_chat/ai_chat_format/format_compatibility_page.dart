@@ -236,9 +236,12 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
+                  // §0.1：输入框 fillColor 用 lerp 浅主题色
+                  fillColor: Color.lerp(
+                    Theme.of(context).colorScheme.surface,
+                    Theme.of(context).colorScheme.primaryContainer,
+                    0.2,
+                  ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,

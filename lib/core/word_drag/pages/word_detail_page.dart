@@ -12,17 +12,18 @@ class WordDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.onSurface,
+      // A 方案：light mode 化 —— 整页背景 surface、AppBar 透明
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.surface),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           '单词详情',
-          style: TextStyle(color: Theme.of(context).colorScheme.surface, fontSize: 18),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18),
         ),
         centerTitle: true,
       ),
@@ -33,13 +34,13 @@ class WordDetailPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // 单词主体
+              // 单词主体 —— onSurface 深色前景（取代原 onSurface 反白设计）
               Text(
                 word.text,
                 style: TextStyle(
                   fontSize: 42,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.surface,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 12),
@@ -125,7 +126,8 @@ class _DetailCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        // A 方案：light 化 —— 反白深底改用 surfaceContainerHighest（保留视觉层次但不黑）
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
@@ -147,11 +149,12 @@ class _DetailCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          // light mode：内容文字前景 onSurface（深色）
           Text(
             content,
             style: TextStyle(
               fontSize: 18,
-              color: Theme.of(context).colorScheme.surface,
+              color: Theme.of(context).colorScheme.onSurface,
               height: 1.5,
             ),
           ),
