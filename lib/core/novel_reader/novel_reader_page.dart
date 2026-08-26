@@ -1234,9 +1234,8 @@ class _SideBookCard extends StatelessWidget {
                           color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(28),
                           border: Border.all(
-                            color: Color(
-                              0xFF2F6A55,
-                            ).withValues(alpha: 0.30),
+                            color: Theme.of(context).colorScheme.outline,
+                            width: 1.5,
                           ),
                         ),
                         child: Padding(

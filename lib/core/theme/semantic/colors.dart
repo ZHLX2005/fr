@@ -38,10 +38,10 @@ class ThemeColorSchemes {
     onTertiary: Color(0xFF1B1722),
     tertiaryContainer: Color(0xFFCBB88C),
     onTertiaryContainer: Color(0xFF3E3018),
-    surface: Color(0xFF3A3832), // 暖底色（更亮的卡片背景）
+    surface: Color(0xFF201F1A), // 鎏金暖黑底
     onSurface: Color(0xFFE3E2DD), // 暖墨浅字
     onSurfaceVariant: Color(0xFFA8A499),
-    surfaceContainerHighest: Color(0xFF2A2823), // 抬升背景
+    surfaceContainerHighest: Color(0xFF191713), // 抬升背景
     error: Color(0xFFC99DBA), // 红紫系保持
     onError: Color(0xFF1B1722),
     errorContainer: Color(0xFF8D6E82),

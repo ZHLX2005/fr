@@ -564,7 +564,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
             decoration: BoxDecoration(
               color: hasCaptured
                   ? Theme.of(context).colorScheme.onSurface
-                  : theme.colorScheme.surfaceContainerHighest,
+                  : theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: hasCaptured
@@ -771,7 +771,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: theme.colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: theme.colorScheme.outline.withValues(alpha: 0.3),
