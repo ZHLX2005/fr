@@ -13,8 +13,8 @@ import 'novel_reader_storage.dart';
 import 'novel_volume_key_turn.dart';
 
 // 主题豁免：本文件其余 `Color(0xFF...)` 都是"纸质书视觉风格"识别色
-// （纸张底色 0xFFF4EDE3/0xFFEEE6D8、棕色墨水 0xFF4B3728/0xFF7A5D47/0xFF6C523F、
-// 烫金封面渐变 0xFFDFB982→0xFF6E3D27 等），跨主题保留以维持阅读器视觉语言。
+// （纸张底色 0xFFF4EDE3/0xFFEEE6D8、棕色墨水 0xFF4B3728/0xFF7A5D47/0xFF6C523F），
+// 跨主题保留以维持阅读器视觉语言。书皮封面渐变已走主题通道（见 _CurrentBookCard）。
 
 class NovelReaderBookshelfPage extends StatefulWidget {
   const NovelReaderBookshelfPage({super.key});
@@ -1092,10 +1092,14 @@ class _CurrentBookCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFDFB982), Color(0xFFB96F42), Color(0xFF6E3D27)],
+          colors: [
+            Theme.of(context).colorScheme.tertiaryContainer,
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.onPrimaryContainer,
+          ],
         ),
         boxShadow: [
           BoxShadow(

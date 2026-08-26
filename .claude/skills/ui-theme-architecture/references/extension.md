@@ -11,7 +11,23 @@
 | 新增强调色 / 语义角色（如 danger→warning、新增 focus 色） | `strategy/color_strategy.dart` + `strategy/default_color_strategy.dart`（+ 其他策略如有同类需求） | §2 |
 | 新增 / 改一个复用的组件样式 | `component/` 或 `zen_theme.dart` helper | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
+| 看历史踩过的反模式 / 找正确做法 | 踩坑经验库 | §4.5 |
 | 判断某处能不能写裸 hex | 豁免规则 | §5 |
+
+### 0.1 契约规则（大色块交互卡片）
+
+> **若是大色块卡片，承载交互功能（输入 / 上传 / 选择），卡片背景颜色必须用「淡色主题色」。**
+
+实现：`Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.2)` 或更浅（lerp 系数 0~0.3 区间）。
+
+- ✅ 反例：`surfaceContainerHighest`（多数主题偏深）、`primaryContainer`（多数主题仍偏深）、`onSurface`（light 主题是深色，会变黑底）
+- ✅ 正例：`Color.lerp(surface, primaryContainer, 0.2)` —— 80% surface + 20% primaryContainer，背景极淡、保留主题色调
+- 展示型（图片列表 / 空状态 / 状态栏 / 进度显示）仍可用 `surfaceContainerHighest`，不属于本规则范围
+- 拍照框的"已拍照态"用 `colorScheme.onSurface` 深底（衬托图片），属合理用法，不在本规则限制
+
+**踩坑案例**：`lib/lab/demos/notion_image_host_demo.dart` 拍照框 + 文字输入框 → 最初 `surfaceContainerHighest`（太深）→ `primaryContainer`（仍深）→ `Color.lerp(..., 0.4)` → `Color.lerp(..., 0.2)` 才对。
+
+
 
 ## 1. 新增一套主题配色
 
@@ -70,6 +86,128 @@
 3. 若目录出现成片迁移，回到 `color-usage-audit.md` 迁移历史表登记新批次、更新残留计数。
 
 **命名不带裸 hex 的注意点**：`const` widget / `static const` 里原本用 `Color(0xFF...)` 又要求 const 的，先看能否改读 `ColorScheme` 实例值（const 就放弃，改非 const 或用 `RawColors` 常量）；`Color.lerp` 派生的色允许在策略类内（它们是计算产物不是硬编码）。
+
+## 4.5 踩坑经验库（迁移常见反模式 → 正确做法）
+
+> 本节汇总 v6+ 历次迁移踩过的反模式。每条按"症状 / 根因 / 正确做法 / 案例"组织。**改代码前先扫一遍本节，能省一半调试时间。**
+
+### 4.5.1 ❌ 用 `surfaceContainerHighest` 当 AppBar / Scaffold / 卡片背景
+
+**症状**：AppBar 颜色发暗、页面整体偏深、lemon/rose 等浅色主题下"看起来像没换主题"。
+
+**根因**：`surfaceContainerHighest` 是 M3 的"最抬升容器"，在浅色主题也是**淡灰/淡彩**（不是纯白）；在 dark 主题（purple）则变成**深色底**。把它当 AppBar 背景会把页面压暗。
+
+**正确做法**：用 `surface`（页面/卡片/AppBar/BottomNavBar 的背景标准值）。
+- AppBar → `colorScheme.surface`
+- Scaffold → `colorScheme.surface`
+- BottomNavigationBar → `colorScheme.surface`
+- Card → 默认走 `CardTheme.color = scheme.surface`（`app_theme.dart` 已配好）
+
+**踩坑案例**：`lib/widgets/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme` 之前用 `surfaceContainerHighest`，改 `surface` 后整页变通透。
+
+### 4.5.2 ❌ 用 `inversePrimary` 当 AppBar / Scaffold 背景
+
+**症状**：AppBar 颜色与主色互补，整页色调诡异（深色主题下尤其突兀）。
+
+**根因**：`inversePrimary` 是为"主题翻转"设计的强调色（亮/暗互补），不是基础背景。
+
+**正确做法**：直接删掉 `backgroundColor:` 让它走 AppBarTheme 默认值（=`scheme.surface`）。要更深背景 → 用 `surfaceContainer`，不要用 `inversePrimary`。
+
+**踩坑案例**：`lib/lab/demos/crash_log_demo.dart` / `kvcli_todo_demo.dart` / `overlay_demo.dart` / `schema_demo.dart` 的 AppBar 之前用 `inversePrimary`，移除后页面恢复正常。
+
+### 4.5.3 ❌ 用 `surfaceVariant`（已 deprecated）
+
+**症状**：analyze 报 `deprecated_member_use`，未来 Flutter 版本会编译失败。
+
+**根因**：M3 把 `surfaceVariant` 拆成 5 档 `surfaceContainer*`，旧的 `surfaceVariant` 已废弃。
+
+**正确做法**：换成 `surfaceContainerHighest`（语义最接近：弱化表面）。如果嫌深，再换成 `surface` 或 `surfaceContainerHigh`。
+
+**踩坑案例**：`lib/lab/demos/web_bookmark_demo.dart` 多处用 `surfaceVariant`，改 `surfaceContainerHighest`。
+
+### 4.5.4 ❌ 用 `Color.lerp(color, Colors.white/black, 0.5)` 调淡
+
+**症状**：hover/selected 背景"看起来淡了但灰蒙蒙的"。
+
+**根因**：用 `Colors.white/black` 中和会拉低饱和度，结果是灰色不是"淡主题色"。
+
+**正确做法**：用主题角色：`primaryContainer` / `secondaryContainer` / `tertiaryContainer`（已是该主题的"浅色版本"）。要更淡 → `Color.lerp(surface, primaryContainer, 0.2)`（保留色调但接近纯白底）。
+
+**踩坑案例**：web_bookmark 的 icon selector 之前 `selectedColor.withAlpha(51)`（淡灰），改 `primaryContainer`。
+
+### 4.5.5 ❌ Card 背景用 `onSurface`（light 主题下变深底）
+
+**症状**：卡片在 light 主题下背景变成深色，文字看不清楚。
+
+**根因**：用 M3 角色记错——`onSurface` 是"表面**上**的文字色"，不是表面本身的色。在 light 主题下 onSurface 是深色（接近黑），把它当 card 背景就成黑底卡片。
+
+**正确做法**：Card 背景用 `surface`。`onSurface` 只用于文字/图标前景色。
+
+**踩坑案例**：`lib/lab/demos/web_bookmark_demo.dart` `_BookmarkCard` 之前 `backgroundColor: onSurface`（dark 主题下"碰巧"看起来合理，light 主题下就翻车）。
+
+### 4.5.6 ❌ outline 调成太淡的纯灰
+
+**症状**：次要图标 / 分割线 / 输入框边框几乎看不见，但边框本身又不够清晰。
+
+**根因**：`outline` 这个角色**多重用途**——同时承担边框、分割线、次要图标、占位符色。调太淡（如 `#E6E6E6` 纯灰）会让"次要图标"和"分割线"看不见。
+
+**正确做法**：保留**带主题色温的淡色调**——lemon 用淡柠檬白 `#EAE5D6`、rose 用淡粉白 `#EADEE1`。跨主题一致（不鲜艳），但保留了色调辨识度，且作为图标/分割线仍可见。
+
+**踩坑案例**：`colors.dart` lemon/rose outline 从纯亮黄/纯粉 → 太深 → 最终定为带主题色温的淡色调（呼应主题设置色点的低调描边 `Colors.black12`）。
+
+### 4.5.7 ❌ Icon container 背景用 `bookmark.color.withAlpha(51)`
+
+**症状**：icon 背景半透明彩色，hover/selected 时颜色混乱。
+
+**根因**：用业务数据色做背景 + 50% alpha —— 跨主题不可控（dark 主题下会变成深色）。
+
+**正确做法**：icon container 背景用 `primaryContainer`（选中）或 `surfaceContainerHighest`（未选）；边框用 `primary`/`outline`。
+
+**踩坑案例**：`lib/lab/demos/web_bookmark_demo.dart` 多处 icon container 改 `primaryContainer`。
+
+### 4.5.8 ❌ Markdown code 块背景用 `surfaceContainerHighest`
+
+**症状**：深色代码块在 light 主题下也偏深。
+
+**正确做法**：用 `primaryContainer`（浅主题色块，代码对比度好）。注意 dark 主题下 `primaryContainer` 仍是浅色，需要验证可读性。
+
+**踩坑案例**：`lib/widgets/markdown_renderer_widget.dart` code/codeblock 改 `primaryContainer`。
+
+### 4.5.9 ❌ 修改 ColorScheme 后没核对引用面
+
+**症状**：改了 `surface` 或 `outline` 后某些页面"颜色突然变了"，但不知道是预期还是 bug。
+
+**正确做法**：改 ColorScheme 后跑 §6 校验流程，grep 新值是否在所有 5 主题下的边界用例都正常（如 dark 主题 surface 是否够深、light 主题 outline 是否够可见）。
+
+**踩坑案例**：purple 主题 surface 之前被错误地改亮（#3A3832）→ 后续用户报告"暮紫背景不够深" → 改回 #201F1A。**所有 ColorScheme 改动必须有"为什么"的注释，否则下次又会被误改。**
+
+### 4.5.10 ❌ 整文件声明"主题豁免"但里面有些项不该豁免
+
+**症状**：文件顶部注释说"本文件所有 `Color(0xFF...)` 都是豁免"，但其中某一项其实是用户希望走主题的。
+
+**正确做法**：豁免注释**逐项列清楚**（不要写"等"或"全部"）。每个豁免项必须单独有"为什么"的业务理由（品牌识别 / 数据固定 / 解剖标准色…）。用户后续要拿掉某个豁免项时只动那一处。
+
+**踩坑案例**：`lib/core/novel_reader/novel_reader_page.dart` 顶部注释一开始说"烫金封面渐变 0xFFDFB982→0xFF6E3D27 也豁免"——后续用户要求**不豁免**书皮封面，改走主题三段渐变 `tertiaryContainer → primary → onPrimaryContainer`。注释同步更新为逐项豁免（只留纸张底色/棕色墨水）。
+
+### 4.5.11 ❌ "看起来颜色不对"先改 token 而不是先查树
+
+**症状**：发现某 demo 颜色错了，直接去改 `colors.dart` / `extensions.dart` / `DefaultColorStrategy`。改完一堆其它页面也跟着崩。
+
+**正确做法**：颜色不对先按 [[architecture]] §7.3 的调试步骤排查（嵌套 MaterialApp？Provider 树隔离？token 注入？组件裸 hex？），**90% 的"颜色不对"是树问题，不是 token 问题**。
+
+**踩坑案例**：暮紫主题 surface 之前被错误地"调亮"以适配"时钟卡片不走主题通道"——实际根因是 clock_demo 嵌套 MaterialApp 不继承 colorScheme（已单独修）。改 token 是治标错的。
+
+### 4.5.12 ❌ "颜色太深"先想到 `surfaceContainerHighest` → `primaryContainer` 就停
+
+**症状**：把"颜色太深"的卡片从 `surfaceContainerHighest` 换成 `primaryContainer`，用户反馈"还是太深"。
+
+**根因**：`primaryContainer` 在 lemon（#FFF9C4）、rose（#FECBCB）等主题下虽然比 surfaceContainerHighest 浅，但仍**有可见饱和度**——卡片色块铺满时仍会"显色"。
+
+**正确做法**：用 `Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.2)` —— 80% surface + 20% primaryContainer。背景几乎看不出主题色调，仅在对比时才有微弱色感。
+
+**踩坑案例**：notion_image_host 拍照框 + 文字输入框 → surfaceContainerHighest → primaryContainer → `Color.lerp(0.4)` → `Color.lerp(0.2)`。这才是"承载交互的大色块卡片该有的浅度"。
+
+
 
 ## 5. 豁免规则（何时允许裸 hex）
 

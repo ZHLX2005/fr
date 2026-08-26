@@ -132,6 +132,29 @@ flutter build apk --debug  # √ Built
 | 调试/诊断页 | `Theme.of(context).colorScheme.X` | 无视觉风格诉求 |
 | 自定义数据色（站点/品牌） | **硬编码豁免** + `主题豁免` 注释 | 数据持久化属性 |
 
+## 6.5 历史踩坑文件清单（迁移时必查）
+
+> 这些文件在本会话及历次主题迁移中**至少踩过 1 次主题色坑**。下次迁移相似功能前先扫一遍，能直接复用修法：
+>
+> （修法与根因详见 [[extension]] §4.5 与 [[architecture]] §7。）
+
+| 文件 | 踩过的坑 | 修法 |
+| --- | --- | --- |
+| `lib/lab/demos/clock_demo.dart` | 嵌套 `MaterialApp` 只复制 4 个字段，子树退回 Flutter 默认配色（时钟卡片/仪表盘颜色不对） | `theme: base.copyWith(...)` 继承完整 ThemeData（[[architecture]] §7.1） |
+| `lib/lab/demos/calendar_demo.dart` | `CalendarSettingsPage` 被 `Navigator.push` 推出去后查不到 `LabCalendarProvider`，红屏崩溃 | push 时用 `MultiProvider` + `.value` 显式传 provider（[[architecture]] §7.2） |
+| `lib/lab/demos/web_bookmark_demo.dart` | 卡片 `backgroundColor: onSurface`（light 主题下变深底）、icon selector `withAlpha(51)` 半透明硬编码色、`surfaceVariant` 已 deprecated | 卡片改 `surface`、selector 改 `primaryContainer`/`surfaceContainerHighest`、`surfaceVariant` 改 `surfaceContainerHighest` |
+| `lib/core/word_drag/pages/word_drag_page.dart` | 拖拽背景 `onSurface`（深底） | 改 `surface` |
+| `lib/core/word_drag/widgets/word_card_content.dart` | 定义/例句容器用 `onSurfaceVariant` / `primary` 等不协调角色 | 定义 `primaryContainer`+`onPrimaryContainer`，例句 `secondaryContainer`+`onSecondaryContainer`+`outline` 边框 |
+| `lib/widgets/markdown_renderer_widget.dart` | code/codeblock 背景 `surfaceContainerHighest`（深） | `primaryContainer` |
+| `lib/widgets/theme/zen_theme.dart` `zenPageScaffold` | `backgroundColor: surfaceContainerHighest`（深） | `surface` |
+| `lib/core/theme/app_theme.dart` `appBarTheme` / `bottomNavigationBarTheme` | 背景 `surfaceContainerHighest`（深） | `surface` |
+| `lib/lab/demos/crash_log_demo.dart` / `kvcli_todo_demo.dart` / `overlay_demo.dart` / `schema_demo.dart` | AppBar `backgroundColor: inversePrimary`（暗沉互补色） | 移除（走 AppBarTheme 默认 `surface`） |
+| `lib/core/theme/semantic/colors.dart` | lemon/rose `outline`/`outlineVariant` 鲜艳（纯黄/纯粉），与主题整体调性冲突 | 改为"带主题色温的淡色调"（呼应主题设置色点的低调描边） |
+| `lib/core/theme/semantic/colors.dart` | purple `surface` 被基于错误诊断改亮（#3A3832） → 暮紫主题丢失"鎏金暖黑底"质感 | 恢复 `#201F1A`（所有 ColorScheme 改动必须有"为什么"注释，否则会被误改） |
+| `lib/lab/demos/notion_image_host_demo.dart` | 拍照框 + 文字输入框 `surfaceContainerHighest` → `primaryContainer` → `Color.lerp(0.4)` → `Color.lerp(0.2)` 才够浅 | `Color.lerp(surface, primaryContainer, 0.2)`（§0.1 契约规则） |
+| `lib/core/novel_reader/novel_reader_page.dart` | 顶部注释"全部豁免"含烫金封面渐变 → 用户要求不豁免书皮封面 | 注释改为逐项豁免；封面渐变改主题三段色 `tertiaryContainer → primary → onPrimaryContainer` |
+| `lib/core/novel_reader/novel_reader_page.dart` | 占位卡边框硬编码绿 `Color(0xFF2F6A55).withAlpha(0.30)` | `colorScheme.outline`（边框主义：用主题边框代替硬编码色） |
+
 ## 7. v7 架构议题（未做，已记录）
 
 surround_game + reversi 的 `BoardThemeData`（86 处 hex）是否整合进 `context.boardColors`：

@@ -120,3 +120,67 @@
 - `ZenSection` / `ZenIconButton` / `ZenDot` 等：委托 `widgets/base/*` 组件 + 锁定 `DefaultColorStrategy`。
 - `zenPageScaffold`：保留的兼容壳（23 个 consumer），读 `scheme.surfaceContainerHighest`。
 - 已删除（v6.2 收尾）：`ZenColors` 类、`zenCard()` / `zenDottedZone()` / `zenButton()` 三个 deprecated 兼容函数。
+
+## 7. 架构陷阱（嵌套路由 + Provider 树）
+
+> 这些坑跟主题色强相关但不在颜色层，调试时会让人误以为是颜色不对——根因在组件树/路由树被隔断。
+
+### 7.1 嵌套 MaterialApp 不继承 colorScheme（症状：主题色不生效）
+
+**症状**：demo 页里有局部 `MaterialApp` 包裹。切主题后，整个 app 主题变了，但这个 demo 里所有读 `Theme.of(context).colorScheme.X` 的组件仍是 Flutter 默认配色（primary 蓝紫、surface 浅灰白），不会跟着主题走。
+
+**根因**：内层 `MaterialApp.theme` 只复制了 4 个字段（`scaffoldBackgroundColor` / `canvasColor` / `primaryColor` / `splashColor` 等），**没复制 `colorScheme` 也没复制 `extensions`**。内层子树 `Theme.of()` 返回的就是 Flutter 默认 ThemeData，不是父级。
+
+**修法**：
+```dart
+final base = Theme.of(context); // 拿当前主题
+return MaterialApp(
+  theme: base.copyWith(
+    scaffoldBackgroundColor: context.colors.surface,
+    canvasColor: context.colors.surface,
+    primaryColor: context.colors.accent,
+    splashColor: context.colors.accent.withValues(alpha: 0.1),
+    highlightColor: context.colors.accent.withValues(alpha: 0.05),
+    // 不要重置 colorScheme/extensions —— base.copyWith 会自动继承
+  ),
+  home: ...
+);
+```
+**教训**：能用 `Theme` 注入解决就别套 `MaterialApp`。实在要套，必须 `base.copyWith()` 继承完整 ThemeData（含 colorScheme / extensions）。
+
+**踩坑案例**：`lib/lab/demos/clock_demo.dart`（时钟卡片/仪表盘颜色看起来"没走主题通道"——实际不是颜色值不对，是嵌套 MaterialApp 退回到 Flutter 默认配色）。
+
+### 7.2 Navigator.push 后 Provider 树被隔断（症状：白屏红屏崩溃）
+
+**症状**：某个 `ConsumerStatefulWidget` / 用 `Provider.of<>(context)` 取 provider 的页面，被 `Navigator.push` 推到新 route 后，打开立即红屏 `ProviderNotFoundException` 或白屏。
+
+**根因**：新 route 的 `BuildContext` 祖先链 ≠ 原 MultiProvider 子树。`Navigator.push(MaterialPageRoute(builder: (_) => XxxPage()))` 里 `builder` 的 context 不会继承原页面所在的 Provider 子树。
+
+**修法**（`provider` 包）：
+```dart
+final p = context.read<XxxProvider>();
+Navigator.of(context).push(MaterialPageRoute(
+  builder: (_) => ChangeNotifierProvider<XxxProvider>.value(
+    value: p,
+    child: const XxxPage(),
+  ),
+));
+```
+多个 provider 同理用 `MultiProvider`：
+```dart
+builder: (_) => MultiProvider(providers: [
+  ChangeNotifierProvider<A>.value(value: aP),
+  ChangeNotifierProvider<B>.value(value: bP),
+], child: const XxxPage()),
+```
+
+**踩坑案例**：`lib/lab/demos/calendar_demo.dart` → `CalendarSettingsPage`。`MultiProvider` 在 `CalendarDemo.buildPage()` 顶层，但 `CalendarSettingsPage` 被 `Navigator.push` 推出去后查不到 `LabCalendarProvider`，`Provider.of` 抛异常 → 红屏。修复：push 时 `.value` 显式传 provider（与 `clock_demo.dart` 中 `TrackRecordsPage` 处理方式一致）。
+
+### 7.3 调试步骤（不能只改颜色——先排除树问题）
+
+碰到"主题色不对"的页面，按下面顺序排查：
+
+1. **是不是树问题？** 当前页面或父页面有没有嵌套 `MaterialApp` / `Navigator.push` 出去的 route？是 → 套用 §7.1 / §7.2 修法，不是颜色层问题。
+2. **是不是 token/strategy 没拿到？** 看 `Theme.of(context).colorScheme.X` 是否为 Flutter 默认值（蓝紫 primary）；看 `context.colors` 是否为 null。是 → strategy 注入问题（[[extension]] §2）。
+3. **是不是组件自己写了裸 hex？** `grep -rn "Color(0xFF" <file>` + 检查 `Colors.X`。是 → 走迁移 SOP（[[extension]] §4）。
+4. **是不是该用 channel 但没用？** 列表/卡片缺 `context.colors.surface` 时检查是不是手动传了颜色。是 → 改读 scheme。
