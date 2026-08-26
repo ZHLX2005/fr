@@ -1,25 +1,19 @@
 import 'dart:convert';
 
-import '../../lab/demos/calendar/domain/event.dart';
-import '../../lab/demos/calendar/domain/lunar_calendar.dart';
+import '../../lab/demos/calendar/domain/event_occurrence.dart';
 
-/// 桌面日历小组件传递的数据
+/// 桌面日历小组件传递的数据（v2：接受 EventOccurrence）。
 ///
 /// Kotlin 端无需理解 Event 的完整结构，仅按日期分桶收颜色数组：
 ///   { "1": ["#FF0000"], "5": ["#FF9800", "#2196F3"], ... }
 class CalendarWidgetData {
-  /// 视图年（如 2026）
   final int year;
-
-  /// 视图月（1-12）
   final int month;
-
-  /// 今日年（用于高亮判定，可能与视图月不一致）
   final int todayYear;
   final int todayMonth;
   final int todayDay;
 
-  /// 按日分组的颜色 map：key=日(1..31 string)，value=该日所有事件颜色（按 createdAt 升序）
+  /// key=日(1..31 string), value=该日所有事件颜色（按 createdAt 升序）
   final Map<String, List<String>> colorsByDay;
 
   const CalendarWidgetData({
@@ -31,48 +25,25 @@ class CalendarWidgetData {
     required this.colorsByDay,
   });
 
-  /// 从事件列表构建当月 widget 数据（新签名：接受 List<Event>）
-  ///
-  /// 传 [lunar] 后，农历事件会先 resolve 到 [year] 公历年的发生日再分桶，
-  /// 否则按公历月日直接匹配（仅 solar 事件正确）。
-  factory CalendarWidgetData.fromEvents({
+  /// 从 EventOccurrence 列表构建当月 widget 数据。
+  /// 仅保留 `[year, month]` 内的发生日。
+  factory CalendarWidgetData.fromOccurrences({
     required int year,
     required int month,
-    required List<Event> events,
-    LunarCalendar? lunar,
+    required List<EventOccurrence> occurrences,
     DateTime? now,
   }) {
     final today = now ?? DateTime.now();
-    final Map<String, List<String>> grouped = {};
-    // 把每个事件 resolve 到 [year] 的公历发生日，保留落在 [month] 的。
-    final projected = <(DateTime, Event)>[];
-    for (final e in events) {
-      DateTime d;
-      if (e.system == CalendarSystem.solar) {
-        d = DateTime(year, e.month, e.day);
-      } else if (lunar != null) {
-        DateTime? found;
-        for (final ly in [year - 1, year]) {
-          try {
-            final s = lunar.toSolar(ly, e.month, e.day, isLeap: e.isLeap);
-            if (s.year == year) {
-              found = DateTime(s.year, s.month, s.day);
-              break;
-            }
-          } catch (_) {
-            // 该农历年无此月日，跳过
-          }
-        }
-        if (found == null) continue;
-        d = found;
-      } else {
-        d = DateTime(year, e.month, e.day);
+    final grouped = <String, List<String>>{};
+    final projected = <EventOccurrence>[];
+    for (final o in occurrences) {
+      if (o.date.year == year && o.date.month == month) {
+        projected.add(o);
       }
-      if (d.month == month) projected.add((d, e));
     }
-    projected.sort((a, b) => a.$2.createdAt.compareTo(b.$2.createdAt));
-    for (final (d, e) in projected) {
-      grouped.putIfAbsent(d.day.toString(), () => []).add(e.colorTag.hex);
+    projected.sort((a, b) => a.event.createdAt.compareTo(b.event.createdAt));
+    for (final o in projected) {
+      grouped.putIfAbsent(o.date.day.toString(), () => []).add(o.event.colorTag.hex);
     }
     return CalendarWidgetData(
       year: year,
