@@ -2,7 +2,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../lab/demos/calendar/data/calendar_config.dart';
-import '../../../lab/demos/calendar/data/event_adapter.dart';
 import '../../../lab/demos/calendar/data/person_adapter.dart';
 import '../../../lab/demos/calendar/domain/event.dart';
 import '../../../lab/demos/calendar/domain/person.dart';
@@ -12,6 +11,11 @@ import '../storage_registry.dart';
 import 'hive_repository.dart';
 import 'hive_store.dart';
 
+/// v2: events box 改为 untyped Map（参考 groups 已有的做法）。
+///
+/// v1 的 typed `Box<Event>` 在 Event 模型变更后无法保留老数据。
+/// 升级首次启动由 `EventV1Migration.run` 一次性迁移；
+/// 此后所有 read/write 都以 `Map<String, dynamic>` 形式进出。
 class CalendarRepository implements HiveRepository {
   static const eventsBoxName = 'calendarEvents';
   static const peopleBoxName = 'calendarPeople';
@@ -29,11 +33,8 @@ class CalendarRepository implements HiveRepository {
 
   Future<void> init() async {
     if (_initialized) return;
-    await HiveStore.instance.openTyped<Event>(
-      eventsBoxName,
-      adapter: EventAdapter(),
-      typeId: HiveTypeIds.calendarEvent,
-    );
+    // events 改为 untyped（v2）
+    await HiveStore.instance.openUntyped(eventsBoxName);
     await HiveStore.instance.openTyped<Person>(
       peopleBoxName,
       adapter: PersonAdapter(),
@@ -45,14 +46,41 @@ class CalendarRepository implements HiveRepository {
     _initialized = true;
   }
 
-  Box<Event> get events => Hive.box<Event>(eventsBoxName);
+  Box<dynamic> get events => Hive.box<dynamic>(eventsBoxName);
   Box<Person> get people => Hive.box<Person>(peopleBoxName);
   Box<dynamic> get viewState => Hive.box(viewStateBoxName);
   Box<dynamic> get groups => Hive.box(groupsBoxName);
 
+  /// 加载所有 events；尝试 fromJson，失败跳过。
+  List<Event> loadEvents() {
+    final out = <Event>[];
+    for (final key in events.keys) {
+      final v = events.get(key);
+      if (v is Map) {
+        try {
+          out.add(Event.fromJson(Map<String, dynamic>.from(v)));
+        } catch (_) {
+          // skip malformed
+        }
+      }
+    }
+    return out;
+  }
+
+  Future<void> saveEvent(Event e) async {
+    await events.put(e.id, e.toJson());
+  }
+
+  Future<void> deleteEvent(String id) async {
+    await events.delete(id);
+  }
+
+  Future<void> clearEvents() async {
+    await events.clear();
+  }
+
   // ──── group 管理（仿 timetable 多空间）──────
 
-  /// 加载所有 group（default 永远存在）
   Future<List<CalendarGroup>> loadGroups() async {
     final list = <CalendarGroup>[const CalendarGroup(
       id: CalendarGroup.defaultGroupId,
@@ -68,38 +96,29 @@ class CalendarRepository implements HiveRepository {
     return list;
   }
 
-  /// 保存（新建或更新）一个 group
   Future<void> saveGroup(CalendarGroup group) async {
-    if (group.id == CalendarGroup.defaultGroupId) {
-      // default 组不可写（不可改 id/name）
-      return;
-    }
+    if (group.id == CalendarGroup.defaultGroupId) return;
     await groups.put(group.id, group.toJson());
   }
 
-  /// 删除一个 group（default 不可删）
   Future<void> deleteGroup(String id) async {
     if (id == CalendarGroup.defaultGroupId) return;
     await groups.delete(id);
-    // 若删除的是当前激活组，回退 default
     final activeId = await getActiveGroupId();
     if (activeId == id) {
       await setActiveGroup(CalendarGroup.defaultGroupId);
     }
   }
 
-  /// 读取当前激活 group id（默认 'default'）
   Future<String> getActiveGroupId() async {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getString(_activeGroupKey);
     if (id == null) return CalendarGroup.defaultGroupId;
-    // 校验 group 存在
     if (id == CalendarGroup.defaultGroupId) return id;
     if (groups.containsKey(id)) return id;
     return CalendarGroup.defaultGroupId;
   }
 
-  /// 切换激活 group
   Future<void> setActiveGroup(String id) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_activeGroupKey, id);
@@ -107,27 +126,15 @@ class CalendarRepository implements HiveRepository {
 
   void _registerToStorageRegistry() {
     if (!StorageRegistry.has(eventsBoxName)) {
-      StorageRegistry.register(BoxDescriptor<Event>(
+      StorageRegistry.register(BoxDescriptor(
         name: eventsBoxName,
         displayName: '日历事件',
-        typeId: HiveTypeIds.calendarEvent,
-        openTyped: () => HiveStore.instance.openTyped<Event>(
-          eventsBoxName,
-          adapter: EventAdapter(),
-          typeId: HiveTypeIds.calendarEvent,
-        ),
+        openUntyped: () => HiveStore.instance.openUntyped(eventsBoxName),
         formatValue: (v) {
-          final e = v as Event;
-          final parts = <String>[
-            '标题: ${e.title}',
-            '类型: ${e.type.name}',
-            '历法: ${e.system.name}',
-            '日期: ${e.month}月${e.day}日',
-            '重复: ${e.recurrence.name}',
-            if (e.personId != null) '关联人: ${e.personId}',
-            if (e.note != null) '备注: ${e.note}',
-          ];
-          return parts.join('\n');
+          if (v is! Map) return v.toString();
+          final title = v['title']?.toString() ?? '未命名';
+          final type = v['type']?.toString() ?? '';
+          return '标题: $title\n类型: $type';
         },
       ));
     }

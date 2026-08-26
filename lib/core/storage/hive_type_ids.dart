@@ -17,8 +17,8 @@ abstract final class HiveTypeIds {
   static const int bodyRecord = 0;
 
   // ── lab 区段 80-99 ────────────────────────────
-  /// 日历事件
-  static const int calendarEvent = 90;
+  /// 日历事件 v2：untyped Map（见 CalendarRepository）；typeId 不再使用。
+  // static const int calendarEvent = 90;  // deprecated in v2
 
   /// 日历人物
   static const int calendarPerson = 91;
