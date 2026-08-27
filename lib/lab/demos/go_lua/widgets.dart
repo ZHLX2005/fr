@@ -662,8 +662,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final winner = GoRoom.winner(_snap);
     final area = GoRoom.detectArea(_board);
     final isBlackWin = winner == 'black';
-    final iWon = (winner == 'draw') ? false : (isBlackWin == _imBlack);
-    final msg = winner == 'draw' ? '平局' : (iWon ? '我方获胜！' : '对方获胜');
+    final String msg;
+    if (winner == null) {
+      msg = '对局结果有争议';
+    } else if (winner == 'draw') {
+      msg = '平局';
+    } else {
+      msg = (isBlackWin == _imBlack) ? '我方获胜！' : '对方获胜';
+    }
     final winColor = (winner == 'black')
         ? context.gameColors.pieceBlack
         : (winner == 'white' ? context.gameColors.pieceWhite : Theme.of(context).colorScheme.outline);
@@ -686,7 +692,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             SizedBox(height: 8),
             Text('黑 ${area.black} · 白 ${area.white}', style: TextStyle(color: theme.btnSub, fontSize: 13)),
             SizedBox(height: 8),
-            Text(winner == 'draw' ? '双方点数相同' : '${winner == "black" ? "黑方" : "白方"}胜',
+            Text(
+              winner == null
+                  ? '请重开对局'
+                  : winner == 'draw'
+                      ? '双方点数相同'
+                      : '${winner == "black" ? "黑方" : "白方"}胜',
               style: TextStyle(color: theme.btnSub, fontSize: 13)),
             SizedBox(height: 16),
             if (_canPerform('RESET'))
