@@ -150,6 +150,13 @@ const Map<String, GameMeta> kGameMeta = {
     mode: '联机双人',
     pattern: GameArtPattern.grid,
   ),
+  'go-lua': GameMeta(
+    categories: {GameCategory.multiplayer, GameCategory.board},
+    icon: Icons.circle_outlined,
+    gradient: [Color(0xFF1E293B), Color(0xFF475569)],  // 黑白灰
+    mode: '联机双人',
+    pattern: GameArtPattern.grid,
+  ),
   'team-card-lua': GameMeta(
     categories: {GameCategory.multiplayer, GameCategory.party},
     icon: Icons.style_rounded,
