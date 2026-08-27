@@ -240,3 +240,17 @@ function isFalse(eye):
 - `WebSearch` 工具 API 报错不可用；`mcp__MiniMax__web_search` API key 失效；最终使用 `mcp__web-search-prime` 完成。
 - 候选池（按相关度）：tenuki(JS) / orca0613/go-game(Python) / SabakiHQ/go-board(JS) / pasky/michi(Python) / lightvector/GoNN / kobanium/TamaGo / xuhui/Go-1(Java 规则) / CGLemon/Sayuri(围棋引擎) / justinmc/flutter-go / gobo(pub.dev)。
 - Flutter/Dart 侧确认无规则引擎（gobo 明确不含规则），故选择语言无关的 JS + Python 规则引擎。
+
+---
+
+## 6. 2026-08-27 已实现（联机围棋 go-lua 已落地）
+
+按本调研产出模块 `xiaodouzi_fr/lib/lab/demos/go_lua/`：
+
+- **服务端 Lua 权威（kGoScript）**：翻译 orca0613 `handle_move` + `get_dead_group` 骨架（Lua 1-based 坐标，泛洪找无气群，遇空短路），并由实现者在真实 gopher-lua v1.1.2 上 10/10 用例通过（含 simple ko 校验、双连过终局、WIN 三态）。
+- **客户端 Dart 复刻（go_engine.applyMove）**：与 Lua 同一算法（`Set<(int,int)>` 天然去重对齐 Lua `killed_set`），14 个单元测试全过（提子 3/3、自杀 2/2、打劫 1/1、数子 4/4、atari 4/4）。
+- **服务端权威 vs 客户端职责分离**：落子校验、提子、打劫、superko 都放服务端；客户端只做 atari 检测与渲染。
+- **记分**：当前实现用「中国数子（area）+ 跨端一致比对」—— detectArea 是 flood fill 单色包围空区归属（无边权，与标准围棋不同，但 WIN 比对只看双方对黑点数是否一致，所以规则可两两匹配）。
+- **5×5 变体**：未实现。如后续要，按调研 §4 天然支持，仅需改 `kGoSize`（Lua 与 Dart 算法均与 size 无关）。
+- **superko**：未实现，简单 ko 已够。若加：服务端需 Zobrist 哈希（Lua 随机表固定种子），客户端无需改。
+- **commits**: `0570b138 → 82520f5b → 0145151d → 6d99652d → 82520f5b → 22ebaf56 → c53543b7 → 0a846bf2`（spec/design at `5b13294c`）；8 个 SDD 任务全部完成 review clean。

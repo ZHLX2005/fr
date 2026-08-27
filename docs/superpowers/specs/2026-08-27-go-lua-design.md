@@ -69,6 +69,7 @@ end
 
 - `killed.size==1 && suicide.size==1 → ko_spot = killed[0]`（单子打劫形状）
 - 落子前校验 `move == ko_spot` → 非法
+- **上一手为 pass 时劫禁解除**（`passes > 0` 时放行）——与围棋"禁止立即回提"本意一致
 - **superko**（禁止任何局面重复）先不做：需 Zobrist 哈希（Lua 随机表固定种子麻烦），后续可加
 
 ### 决策 4 — 终局：中国数子（area），双方连过 → 客户端本地数子一致 → 终局
@@ -157,7 +158,7 @@ class GoRoom {
   static List<GoMove> rebuildMoves(Snapshot?);
   static GoBoard rebuildBoard(List<GoMove>);      // 从 history 重放（含提子）
   static ({int black, int white}) detectArea(GoBoard);  // 中国数子（子+空）
-  static bool isBlackTurn(List<GoMove>);          // history 末步反色（pass 不算）
+  static bool isBlackTurn(List<GoMove>);          // 与服务端一致：pass 占槽位，(moves.length % 2)==0 为黑回合
   static bool canPerform(String action, Snapshot?, {isBlack, isMyTurn, isHost});
 }
 ```
@@ -167,7 +168,7 @@ class GoRoom {
 `GoBoardWidget` — 9×9 网格线棋盘（对齐 gomoku 的 `_GridPainter` 思路，但棋子画在交点）：
 - 棋盘背景 → `context.boardColors.background`
 - 网格线/星位 → `context.boardColors.gridLine`
-- 黑白子 → `context.gameColors.pieceBlack / pieceWhite`
+- 黑白子 → `context.boardColors.player1Stone / player2Stone`（深=黑/浅=白，对齐 gomoku）
 - 最后一步标记 → `context.boardColors.lastMove`
 - 合法落点提示 → `context.boardColors.hint`（半透明圆点）
 - **atari 高亮** → 客户端本地算 `liberties==1` 的群 → 该群子加红描边（纯展示）
