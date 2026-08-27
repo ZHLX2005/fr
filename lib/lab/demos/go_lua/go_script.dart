@@ -279,6 +279,7 @@ end
 -- 数子终局：客户端连过后本地数子 → 发 WIN(area)。双方对同一色点数一致才终局。
 on_action_WIN = function(c, p)
   if not role_check(c, p, "WIN") then return c end
+  if c.winner ~= nil then return c end  -- 幂等：winner 已定（认输/已记终局）则忽略后续 WIN
   if state ~= "ended" then return c end
   if c.players[p.device_id] == nil then return c end
   local area = p.area
