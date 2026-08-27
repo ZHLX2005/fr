@@ -112,7 +112,7 @@ class ThemeColorSchemes {
     onTertiary: RawColors.pureWhite,
     tertiaryContainer: Color(0xFFE5D2CB),
     onTertiaryContainer: Color(0xFF3F1F18),
-    surface: Color(0xFFFAFAFA), // 纯纸白（生宣）
+    surface: Color(0xFFFCFCFC), // 暖纸白（生宣）lerp(primaryContainer→白, 0.88) 轻微暖化
     onSurface: Color(0xFF1A1A1A), // 墨黑字
     onSurfaceVariant: Color(0xFF707070), // 纸灰字
     surfaceContainerHighest: Color(0xFFF0F0F0),
@@ -125,9 +125,9 @@ class ThemeColorSchemes {
     surfaceTint: Color(0xFF1A1A1A),
   );
 
-  /// 粉雾海盐主题（rose）— 粉主色 ↔ 海盐薄荷互补撞色 + 纯白背景。
+  /// 粉雾海盐主题（rose）— 粉主色 ↔ 海盐薄荷互补撞色 + 暖粉白背景。
   ///
-  /// 撞色设计：主色粉（Velvet Bloom）与互补薄荷绿形成 hue 173° 对比，纯白背景让撞色更突出。
+  /// 撞色设计：主色粉（Velvet Bloom）与互补薄荷绿形成 hue 173° 对比，暖粉白背景让撞色更突出。
   ///
   /// 角色映射：
   ///   primary           → Velvet Bloom（#F49399）：主按钮背景 / FAB / 选中 tab / 重点 CTA
@@ -142,7 +142,7 @@ class ThemeColorSchemes {
   ///   onTertiary         → 深薄荷绿（#1E3A36）：薄荷绿内文字 / 图标前景
   ///   tertiaryContainer  → 浅薄荷绿（#D8E9E5）：薄荷绿容器 / 浅强调背景
   ///   onTertiaryContainer→ 深薄荷绿（#143B36）：容器内文字
-  ///   surface           → 纯白（#FFFFFF）：页面背景 / 卡片背景
+  ///   surface           → 暖粉白（#FFF9F9）：页面背景 / 卡片背景
   ///   onSurface         → 深玫瑰棕（#3A2A2D）：正文 / 标题文字
   ///   onSurfaceVariant  → 弱玫瑰灰（#8A6F74）：辅助文字 / 占位符
   ///   surfaceContainerHighest → Rose Fog（#EDD8DC）：页面底 / 抬升背景
@@ -167,7 +167,7 @@ class ThemeColorSchemes {
     onTertiary: Color(0xFF1E3A36),
     tertiaryContainer: Color(0xFFD8E9E5),
     onTertiaryContainer: Color(0xFF143B36),
-    surface: Color(0xFFFFFFFF), // 纯白 页面背景/卡片背景
+    surface: Color(0xFFFFF9F9), // 暖粉白 lerp(primaryContainer→白, 0.88)：纯白偏冷，取暖粉基调
     onSurface: Color(0xFF3A2A2D), // 深玫瑰棕 正文/标题文字
     onSurfaceVariant: Color(0xFF8A6F74), // 弱玫瑰灰 辅助文字/占位符
     surfaceContainerHighest: Color(0xFFEDD8DC), // Rose Fog 页面底/抬升背景
@@ -180,9 +180,9 @@ class ThemeColorSchemes {
     surfaceTint: Color(0xFFF49399),
   );
 
-  /// 柠檬鼠尾草主题（lemon）— 闲鱼风亮柠檬黄 ↔ 鼠尾草绿互补撞色 + 纯白背景。
+  /// 柠檬鼠尾草主题（lemon）— 闲鱼风亮柠檬黄 ↔ 鼠尾草绿互补撞色 + 暖乳白背景。
   ///
-  /// 撞色设计：亮柠檬黄与鼠尾草绿形成清新对比，纯白背景让配色更活泼年轻。
+  /// 撞色设计：亮柠檬黄与鼠尾草绿形成清新对比，暖乳白背景让配色更活泼年轻。
   ///
   /// 角色映射：
   ///   primary           → 亮柠檬黄（#FFD54F）：主按钮背景 / FAB / 选中 tab / 标题点缀
@@ -190,7 +190,7 @@ class ThemeColorSchemes {
   ///   tertiary          → 鼠尾草绿（#81C784）：互补强调 / 图标高亮 / 链接 / 成功态
   ///   tertiaryContainer → 浅绿容器（#E8F5E9）：卡片点缀 / 浅强调背景
   ///   surfaceContainerHighest → 极浅灰黄（#FFFDE7）：AppBar 导航条背景
-  ///   surface           → 纯白（#FFFFFF）：页面背景 / 卡片背景
+  ///   surface           → 暖乳白（#FFFEF8）：页面背景 / 卡片背景
   ///   onSurfaceVariant  → #78909C：蓝灰弱字 / 辅助
   static const ColorScheme lemon = ColorScheme(
     brightness: Brightness.light,
@@ -206,7 +206,7 @@ class ThemeColorSchemes {
     onTertiary: Color(0xFF1B5E20), // 深绿 鼠尾草绿内文字/图标前景
     tertiaryContainer: Color(0xFFE8F5E9), // 浅绿容器 浅强调背景/标签/卡片点缀
     onTertiaryContainer: Color(0xFF1B5E20), // 深绿 浅绿容器内文字
-    surface: Color(0xFFFFFFFF), // 纯白 页面背景/卡片背景
+    surface: Color(0xFFFFFEF8), // 暖乳白 lerp(primaryContainer→白, 0.88)：纯白偏冷，取暖乳基调
     onSurface: Color(0xFF37474F), // 深蓝灰 正文/标题文字
     onSurfaceVariant: Color(0xFF78909C), // 蓝灰 辅助文字/占位符/弱图标
     surfaceContainerHighest: Color(0xFFFFFDE7), // 极浅灰黄 AppBar导航条背景/抬升背景
