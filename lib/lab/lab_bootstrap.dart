@@ -40,6 +40,7 @@ import 'demos/metronome_demo.dart';
 import 'demos/team_card_lua_demo.dart' show registerTeamCardLuaDemo;
 import 'demos/surround_game_lua_demo.dart' show registerSurroundGameLuaDemo;
 import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
+import 'demos/jungle_chess_lua_demo.dart' show registerJungleChessLuaDemo;
 import 'demos/go_lua_demo.dart' show registerGoLuaDemo;
 import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
 import 'demos/coup_lua_demo.dart' show registerCoupLuaDemo;
@@ -86,6 +87,7 @@ void registerAllDemos() {
   registerSurroundGameLuaDemo();
   registerGomokuLuaDemo();
   registerGoLuaDemo();
+  registerJungleChessLuaDemo();
   registerTetrisLuaDemo();
   registerCoupLuaDemo();
   registerRecorderDemo();
