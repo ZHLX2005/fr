@@ -561,17 +561,34 @@ Future<Snapshot> fetchSnapshot() async {
 bool get isConnected;
 ```
 
-**底部状态条设计**（28px 固定高度，避免撑动下方操作栏）：
+**共享 widget（推荐用法）**：
+
+直接用项目自带的 `RelayConnectionBar`，自带 stream 订阅 + 防双击 + 失败 snackbar：
+
+```dart
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
+
+// 在 OnlineGamePage 的 Column 底部（操作栏 Padding 上方）：
+RelayConnectionBar(handle: widget.handle),
+```
+
+源文件：`lib/core/net_engine/relay_v3/relay_connection_bar.dart`（28px 固定高度）。
+
+**底部状态条设计**：
 
 ```
 ┌─────────────────────────────────────────────┐
 │  ●  已连接        [☁ 拉取最新快照]          │  ← 绿点（primary）
-├─────────────────────────────────────────────┤
-│  ●  已断开 · 自动重连中  [� 拉取中…]       │  ← 红点（error）
+├─────────────────────────────────────────────�
+│  ●  已断开 · 自动重连中  [⏳ 拉取中…]       │  ← 红点（error）
 └─────────────────────────────────────────────┘
 ```
 
-**Flutter 落地关键点**：
+**已接入的 Lua 房间游戏**（可直接参照）：
+- `lib/lab/demos/gomoku_lua/widgets.dart`、`go_lua/widgets.dart`、`reversi_lua/widgets.dart`、`surround_game_lua/widgets.dart`、`coup_lua/widgets.dart`、`jungle_chess_lua/widgets.dart`、`cowrite_lua/cowrite_widgets.dart`
+- 俄罗斯方块跳过（自带 `_disconnected` 全屏覆盖层，加 bar 会和既有断线 UX 重复）
+
+**Flutter 落地关键点**（如需自定义样式时）：
 
 ```dart
 class _OnlineGamePageState extends State<OnlineGamePage> {
@@ -616,34 +633,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     } finally {
       if (mounted) setState(() => _pullingSnapshot = false);
     }
-  }
-
-  Widget _buildConnectionBar(BoardThemeData theme, BuildContext context) {
-    final dotColor = _wsConnected
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.error;
-    final statusText = _wsConnected ? '已连接' : '已断开 · 自动重连中';
-    return SizedBox(
-      height: 28,
-      child: Container(...child: Row(children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(
-          color: dotColor, shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: dotColor.withValues(alpha: 0.6), blurRadius: 4)],
-        )),
-        const SizedBox(width: 8),
-        Text(statusText, ...),
-        const Spacer(),
-        TextButton.icon(
-          onPressed: _pullingSnapshot ? null : _pullSnapshot,
-          icon: _pullingSnapshot
-              ? SizedBox(width: 12, height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.5, color: theme.btnSub))
-              : Icon(Icons.cloud_download_outlined, size: 14, color: theme.btnSub),
-          label: Text(_pullingSnapshot ? '拉取中…' : '拉取最新快照', ...),
-          ...
-        ),
-      ])),
-    );
   }
 }
 ```
