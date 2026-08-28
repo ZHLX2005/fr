@@ -16,7 +16,7 @@ abstract final class JungleEngine {
   // 初始布局
   // ============================================================
 
-  /// 创建标准开局（16 子对称布局）
+  /// 创建标准开局（16 子对称布局）。默认**蓝方先手**（沿用 LAN 版斗兽棋约定）。
   ///
   /// 蓝方（底部）：
   ///   Row 8: 虎 - 陷 - 陷 穴 陷 - 狮
@@ -26,7 +26,10 @@ abstract final class JungleEngine {
   ///   Row 0: 狮 - 陷 - 穴 陷 - 虎
   ///   Row 1: - 狗 - 陷 - 猫 -
   ///   Row 2: 鼠 - 豹 - 狼 - 象
-  static GameState createInitialState() {
+  static GameState createInitialState() => createInitialStateFor(firstTurn: PlayerColor.blue);
+
+  /// 同上，但可指定先手方（红方=top=host 用于 Lua 互联网版）。
+  static GameState createInitialStateFor({required PlayerColor firstTurn}) {
     final pieces = <int, Piece>{};
 
     void place(int row, int col, Animal animal, PlayerColor color) {
@@ -58,7 +61,7 @@ abstract final class JungleEngine {
     place(2, 4, Animal.wolf, PlayerColor.red);
     place(2, 6, Animal.elephant, PlayerColor.red);
 
-    return GameState(pieces: pieces, currentTurn: PlayerColor.blue);
+    return GameState(pieces: pieces, currentTurn: firstTurn);
   }
 
   // ============================================================

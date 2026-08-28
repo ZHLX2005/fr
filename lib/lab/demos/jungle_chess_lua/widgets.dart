@@ -303,7 +303,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
   Snapshot? _snap;
   List<JungleMoveRecord> _history = const [];
-  GameState _gameState = JungleEngine.createInitialState();
+  GameState _gameState = JungleEngine.createInitialStateFor(firstTurn: PlayerColor.red);
 
   /// 本地乐观状态：lobby 阶段点了"准备好了"立即置 true。
   bool _ackedLocally = false;
@@ -313,9 +313,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   late final JungleRoom _room;
   late final JungleTouchController _touchController;
-
-  /// 待确认走法：from → to（非 null 时显示确认按钮条）。
-  ({Coord from, Coord to})? _pending;
 
   @override
   void initState() {
@@ -341,9 +338,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _snap = s;
       _rebuild(s);
     });
-    if (_history.isNotEmpty && _pending != null) {
-      setState(() => _pending = null);
-    }
     if (_ackedLocally && (s.state != 'lobby' && s.state != 'ready')) {
       setState(() => _ackedLocally = false);
     }
@@ -397,7 +391,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   Future<void> _deal() async => _room.deal();
   Future<void> _reset() async {
-    setState(() => _pending = null);
     await _room.reset();
   }
 
@@ -420,7 +413,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (confirm == true) await _room.resign();
   }
 
-  /// 触摸控制器触发的本地走法 → 进入待确认（不直接发）。
+  /// 触摸控制器触发的本地走法 → 直接发网络（不需确认）。
+  ///
+  /// JungleTouchController 自身已支持两种交互：
+  ///   - 点击棋子 → 选中（pieceSelected）→ 再点击目标 → onMoveConfirmed
+  ///   - 按住棋子拖动 → 松手在合法目标 → onMoveConfirmed
+  /// 这里直接发 MOVE；服务端 Lua 校验权限 + 写入 history。
   void _onLocalMoveConfirmed(Coord from, Coord to) {
     if (!_isMyTurn) return;
     if (_snap?.state != 'playing') return;
@@ -435,34 +433,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       color: color,
       round: _history.length + 1,
     );
-    setState(() => _pending = (from: from, to: to));
-    // 暂存 toJson，待用户点确认再发网络
-    _pendingRecord = rec;
+    _room.move(rec);
   }
-
-  JungleMoveRecord? _pendingRecord;
-
-  Future<void> _confirmPending() async {
-    final rec = _pendingRecord;
-    if (rec == null) return;
-    if (!_isMyTurn) {
-      setState(() {
-        _pending = null;
-        _pendingRecord = null;
-      });
-      return;
-    }
-    setState(() {
-      _pending = null;
-      _pendingRecord = null;
-    });
-    await _room.move(rec);
-  }
-
-  void _cancelPending() => setState(() {
-        _pending = null;
-        _pendingRecord = null;
-      });
 
   /// 胜负判定：history 增长后本地算 → 发 WIN（幂等：state 已 ended 时 Lua 忽略）。
   void _maybeDeclareWin() {
@@ -753,8 +725,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             ),
             // 下方玩家面板（我方）—— 不旋转
             _buildMyPanel(theme),
-            // 待确认按钮条（固定 56px）
-            _buildConfirmSlot(theme, context),
             // 底部操作栏
             Padding(
               padding: const EdgeInsets.symmetric(
@@ -790,11 +760,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final turnLabel = turn == PlayerColor.red ? '红方' : '蓝方';
 
     final String statusText;
-    if (_pending != null && isMine) {
-      statusText = '走子到目标？点别处改主意';
-    } else {
-      statusText = isMine ? '轮到你（$myLabel）走子' : '等待 $turnLabel 走子…';
-    }
+    statusText = isMine ? '轮到你（$myLabel）走子' : '等待 $turnLabel 走子…';
     return SizedBox(
       height: kJungleLuaTurnBarHeight,
       width: double.infinity,
@@ -875,75 +841,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   bool _canMountTouchView() {
     return _snap != null && _snap?.state == 'playing' && _isMyTurn;
-  }
-
-  /// 确认按钮条（固定高度 56px，移出 flip 层）。
-  ///
-  /// host 端需要把传入的 from/to 坐标镜像（视觉翻转后坐标对应也翻转）。
-  Widget _buildConfirmSlot(BoardThemeData theme, BuildContext context) {
-    if (_pending == null) {
-      return const SizedBox(
-        height: kJungleLuaConfirmBarHeight,
-        width: double.infinity,
-      );
-    }
-    final from = _pending!.from;
-    final to = _pending!.to;
-    final myColor = _imTop ? kRedPieceTint : kBluePieceTint;
-    final piece = _gameState.pieces[from.index];
-
-    // host 端：传入棋盘坐标 (row, col) → 视觉坐标 (8-row, 6-col)
-    final visualFrom =
-        _imTop ? (row: 8 - from.row, col: 6 - from.col) : from;
-    final visualTo = _imTop ? (row: 8 - to.row, col: 6 - to.col) : to;
-    final animalLabel = piece != null
-        ? kAnimalFile[piece.animal]!.replaceAll('.png', '')
-        : '?';
-
-    return SizedBox(
-      height: kJungleLuaConfirmBarHeight,
-      width: double.infinity,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _cancelPending,
-              icon: const Icon(Icons.close, size: 18),
-              label: const Text('取消'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-                side: BorderSide(color: Theme.of(context).colorScheme.error),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              ),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              onPressed: _confirmPending,
-              icon: Icon(Icons.check,
-                  size: 18, color: Theme.of(context).colorScheme.onPrimary),
-              label: Text(
-                '确认 $animalLabel: (${visualFrom.col + 1},${visualFrom.row + 1}) → (${visualTo.col + 1},${visualTo.row + 1})',
-                style:
-                    TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: myColor,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   /// 下方玩家面板 —— "我方"。

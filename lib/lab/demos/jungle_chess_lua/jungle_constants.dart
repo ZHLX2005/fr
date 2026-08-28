@@ -7,9 +7,6 @@ const String kJungleLuaRelayUrl = 'http://47.110.80.47:8988';
 /// 顶部回合提示条固定高度（避免文案字数变化撑动棋盘）。
 const double kJungleLuaTurnBarHeight = 44.0;
 
-/// 待确认按钮条预留高度（不待确认时也保留，棋盘区域高度恒定）。
-const double kJungleLuaConfirmBarHeight = 56.0;
-
 /// 顶部/底部面板高度（用于两侧玩家面板的固定高度，避免出现/消失撑动棋盘）。
 const double kJungleLuaPanelHeight = 58.0;
 

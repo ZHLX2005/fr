@@ -158,8 +158,11 @@ class JungleRoom {
   // ── 棋盘重建（从权威 history 用 JungleEngine 一步步重放）──
 
   /// 用初始局面 + history 重建 GameState（双方严格一致）。
+  ///
+  /// **先手方**：服务端 Lua 约定 top_player（红方 / host）先走 →
+  /// 用 [JungleEngine.createInitialStateFor] 显式指定 red 先手。
   static GameState rebuildBoard(List<JungleMoveRecord> history) {
-    var s = JungleEngine.createInitialState();
+    var s = JungleEngine.createInitialStateFor(firstTurn: PlayerColor.red);
     for (final m in history) {
       final from = (row: m.fromRow, col: m.fromCol);
       final to = (row: m.toRow, col: m.toCol);
