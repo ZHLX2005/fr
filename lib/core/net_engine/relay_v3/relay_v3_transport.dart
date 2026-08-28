@@ -403,6 +403,22 @@ class RoomHandle {
     _ws = null;
   }
 
+  /// 主动从服务端拉一次最新 snapshot（不依赖 WS push）。
+  ///
+  /// 用于：网络抖动 / WS 暂时掉线但 HTTP 还可用 / 手动刷新。
+  /// 成功时同步更新 [latest] + 推送 snapshot 流（同 WS 行为）。
+  Future<Snapshot> fetchSnapshot() async {
+    final snap = await transport.fetchSnapshot(code);
+    latest = snap;
+    if (!_snapshotsCtrl.isClosed) {
+      _emitSnapshot(snap);
+    }
+    return snap;
+  }
+
+  /// 当前 WS 是否处于连接态（仅作 UI 提示用；不参与控制流）。
+  bool get isConnected => _connected;
+
   /// 断线恢复：先重新 join（HTTP 把被 on_leave 移出后的 sub 重新注册回房间，
   /// 配合稳定 device_id 被服务端识别为同一玩家），再重连 WS。
   /// 返回 join 是否成功；WS 是否真正连上由 snapshots / closeEvents 流告知。

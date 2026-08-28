@@ -35,13 +35,37 @@ class JungleTouchController extends ChangeNotifier {
 
     switch (phase) {
       case TouchPhase.idle:
-      case TouchPhase.pieceSelected:
+        // 空闲 → 点到己方棋子 → 选中并展示合法目标
         if (piece != null && piece.isAlive && piece.color == state.currentTurn) {
           selectedIndex = index;
           validTargets = JungleEngine.getValidMoves(state, CoordUtils.fromIndex(index));
           phase = TouchPhase.pieceSelected;
           notifyListeners();
         }
+        break;
+
+      case TouchPhase.pieceSelected:
+        // 已选中一个棋子 → 点合法目标 → 直接落子（点哪走哪）
+        if (selectedIndex != null &&
+            validTargets.any((c) => c.index == index)) {
+          final from = CoordUtils.fromIndex(selectedIndex!);
+          final to = CoordUtils.fromIndex(index);
+          // 落子成功：触发回调 + 清状态
+          _reset();
+          phase = TouchPhase.moveConfirmed;
+          notifyListeners();
+          onMoveConfirmed?.call(from, to);
+          break;
+        }
+        // 点了另一颗己方棋子 → 切换选中
+        if (piece != null && piece.isAlive && piece.color == state.currentTurn) {
+          selectedIndex = index;
+          validTargets = JungleEngine.getValidMoves(state, CoordUtils.fromIndex(index));
+          notifyListeners();
+          break;
+        }
+        // 点到非法位置（己方棋子阻挡 / 对方棋子但不可吃 / 空格不在 validTargets）→ 取消
+        _reset();
         break;
 
       case TouchPhase.moveConfirmed:
