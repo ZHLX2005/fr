@@ -41,6 +41,7 @@ import 'demos/team_card_lua_demo.dart' show registerTeamCardLuaDemo;
 import 'demos/surround_game_lua_demo.dart' show registerSurroundGameLuaDemo;
 import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
 import 'demos/jungle_chess_lua_demo.dart' show registerJungleChessLuaDemo;
+import 'demos/cowrite_lua_demo.dart' show registerCoWriteLuaDemo;
 import 'demos/go_lua_demo.dart' show registerGoLuaDemo;
 import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
 import 'demos/coup_lua_demo.dart' show registerCoupLuaDemo;
@@ -88,6 +89,7 @@ void registerAllDemos() {
   registerGomokuLuaDemo();
   registerGoLuaDemo();
   registerJungleChessLuaDemo();
+  registerCoWriteLuaDemo();
   registerTetrisLuaDemo();
   registerCoupLuaDemo();
   registerRecorderDemo();
