@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/component/zen/zen_theme.dart';
 
 void main() {
   group('formatRecordDate', () {

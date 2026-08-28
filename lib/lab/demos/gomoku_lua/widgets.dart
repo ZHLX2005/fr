@@ -20,7 +20,7 @@ import 'engine.dart' show
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Exception;
 import 'board.dart' show GomokuBoardWidget;
-import '../../../widgets/context_game_colors.dart';
+import '../../../widgets/context_board_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
@@ -263,7 +263,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
 // 五子棋落子简单，落错了就落错了——如需悔棋未来再加 UNDO）。
 // ══════════════════════════════════════════════════════════════
 
-// 五子棋本黑/本白由 context.gameColors.pieceBlack/pieceWhite 派生。
+// 五子棋本黑/本白由 context.boardColors.player1Stone/player2Stone 派生。
 
 class OnlineGamePage extends StatefulWidget {
   const OnlineGamePage({
@@ -748,10 +748,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildTurnBar(BoardThemeData theme, BuildContext context) {
     final blackTurn = GomokuRoom.isBlackTurn(_moves);
     final isMine = blackTurn == _imBlack;
-    final gc = context.gameColors;
-    final myColor = _imBlack ? gc.pieceBlack : gc.pieceWhite;
+    final bc = context.boardColors;
+    final myColor = _imBlack ? bc.player1Stone : bc.player2Stone;
     final myLabel = _imBlack ? '黑方' : '白方';
-    final turnColor = blackTurn ? gc.pieceBlack : gc.pieceWhite;
+    final turnColor = blackTurn ? bc.player1Stone : bc.player2Stone;
     final turnLabel = blackTurn ? '黑方' : '白方';
     // 待确认时改文案，提示用户确认或换点
     final String statusText;
@@ -804,8 +804,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (_pendingPoint == null) {
       return SizedBox(height: kGomokuConfirmBarHeight, width: double.infinity);
     }
-    final gc = context.gameColors;
-    final myColor = _imBlack ? gc.pieceBlack : gc.pieceWhite;
+    final bc = context.boardColors;
+    final myColor = _imBlack ? bc.player1Stone : bc.player2Stone;
     return SizedBox(
       height: kGomokuConfirmBarHeight,
       width: double.infinity,
@@ -861,7 +861,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     // 角色感知：winner == 我方颜色 → 我赢
     final iWon = (isBlackWin == _imBlack);
     final msg = iWon ? '我方获胜！' : '对方获胜';
-    final winColor = isBlackWin ? context.gameColors.pieceBlack : context.gameColors.pieceWhite;
+    final winColor = isBlackWin ? context.boardColors.player1Stone : context.boardColors.player2Stone;
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(child: Stack(children: [

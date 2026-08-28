@@ -1,6 +1,6 @@
 import 'dart:async';
 import '../../widgets/context_colors.dart';
-import '../../widgets/context_game_colors.dart';
+import '../../widgets/context_torch_protect_colors.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,11 +50,11 @@ class _TorchPageState extends State<_TorchPage>
   double _savedBrightness = 0.5;
   bool _keepScreenOn = false;
 
-  // 颜色状态 - 索引指向 context.gameColors.protectPresets 的某个护眼色
+  // 颜色状态 - 索引指向 context.torchProtect.protectPresets 的某个护眼色
   // _customColor 存 HSV 微调后的色（null 时用 preset）
   int _selectedPresetIndex = 0;
   Color? _customColor;
-  Color get _selectedColor => _customColor ?? context.gameColors.protectPresets[_selectedPresetIndex];
+  Color get _selectedColor => _customColor ?? context.torchProtect.protectPresets[_selectedPresetIndex];
 
   // 模式: 0=手电筒, 1=屏幕光
   int _currentMode = 0;
@@ -698,8 +698,8 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColors(ColorScheme theme) {
-    final presets = context.gameColors.protectPresets;
-    final names = context.gameColors.protectPresetNames;
+    final presets = context.torchProtect.protectPresets;
+    final names = context.torchProtect.protectPresetNames;
 
     // 分两行，平衡数量
     final half = (presets.length / 2).ceil();
@@ -1121,7 +1121,7 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColorsCompact(ColorScheme theme) {
-    final presets = context.gameColors.protectPresets;
+    final presets = context.torchProtect.protectPresets;
     return Wrap(
       spacing: 10,
       runSpacing: 10,

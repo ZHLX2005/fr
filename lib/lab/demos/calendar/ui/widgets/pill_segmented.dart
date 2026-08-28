@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/paper_palette.dart';
+import '../../../../../core/theme/component/calendar/paper_palette.dart';
 import '../../../../../core/theme/typography.dart';
 
 /// 顶部视图切换 pill：0 弹层切换月/周/年/人/报表

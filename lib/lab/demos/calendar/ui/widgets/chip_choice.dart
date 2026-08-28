@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/paper_palette.dart';
+import '../../../../../core/theme/component/calendar/paper_palette.dart';
 import '../../../../../core/theme/typography.dart';
 
 /// 通用 chip 选项组（平铺多选/单选）

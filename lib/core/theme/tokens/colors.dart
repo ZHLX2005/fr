@@ -1,53 +1,23 @@
-// Layer 1 — Raw color tokens.
+// Layer 1 — tokens barrel：re-export 颜色相关常量。
 //
-// 只放跨主题复用的中性色与基础色（白、黑、阴影 alpha-black）。
-// 7 套主题的具体色进 semantic/colors.dart 的 _Palette。
-//
-// 这里的设计意图：tokens 层是"原料"，semantic 层是"调色师"，
-// 两者职责分离，tokens 不感知任何主题。
+// 实际 hex 定义分散在子目录：
+//   · raw/         中性骨架（pureWhite/nearBlack/9 档灰/shadow alpha）
+//   · base/        通用规范（功能色 + 国际识别色）
+//   · theme/       5 套主题调色板（zen/purple/ink/rose/lemon）
+//   · board/       对弈棋盘 11 角色常量
+//   · tetris/      俄罗斯方块 4 角色常量
+//   · team/        团队卡 6 头像色常量
+//   · torch/       灯具护眼色常量
 
-import 'package:flutter/material.dart';
-
-/// 跨主题共享的原料色板。
-///
-/// 用途：onPrimary 黑白、surface 容器色、shadow alpha-black 等
-/// 在多套主题下复用的"中性骨架色"。主题专属色不放这里。
-class RawColors {
-  RawColors._();
-
-  // -- 纯白与近黑 -------------------------------------------------------
-  /// 浅色主题 onPrimary 用色（light/pink/green/orange/rose 共用）。
-  static const pureWhite = Color(0xFFFFFFFF);
-
-  /// 深色主题 onPrimary 用色（dark 用）。
-  static const nearBlack = Color(0xFF0F1419);
-
-  /// 暮紫主题 onPrimary 用色（purple 用，深紫黑）。
-  static const deepBlack = Color(0xFF1B1722);
-
-  // -- 中性灰阶 ---------------------------------------------------------
-  // 9 档中性灰，从深到浅，与 M3 Neutral Variant 对齐。
-  // 用途：未来如需自定义中性色（surface tint、outlineVariant），
-  // 优先从这里取，不在主题内重复定义。
-  static const neutral10 = Color(0xFF1A1C1E);
-  static const neutral20 = Color(0xFF2F3133);
-  static const neutral30 = Color(0xFF45484A);
-  static const neutral40 = Color(0xFF5C5F62);
-  static const neutral50 = Color(0xFF75787B);
-  static const neutral60 = Color(0xFF8E9194);
-  static const neutral70 = Color(0xFFA9ACAE);
-  static const neutral80 = Color(0xFFC4C7C9);
-  static const neutral90 = Color(0xFFE0E2E4);
-  static const neutral95 = Color(0xFFEFEFF1);
-  static const neutral99 = Color(0xFFFBFBFC);
-
-  // -- 阴影色（alpha 黑） -----------------------------------------------
-  /// 浅色主题 cardShadow 用的 8% 黑。
-  static const shadowLight = Color(0x14000000);
-
-  /// 深色主题 cardShadow 用的 30% 黑。
-  static const shadowMedium = Color(0x4D000000);
-
-  /// 暮紫主题 cardShadow 用的 40% 黑。
-  static const shadowHeavy = Color(0x66000000);
-}
+export 'color/raw/raw.dart';
+export 'color/base/base.dart';
+export 'color/app_colors_extension.dart';
+export 'color/theme/zen.dart';
+export 'color/theme/purple.dart';
+export 'color/theme/ink.dart';
+export 'color/theme/rose.dart';
+export 'color/theme/lemon.dart';
+export 'color/board/board.dart';
+export 'color/tetris/tetris.dart';
+export 'color/team/team.dart';
+export 'color/torch/torch.dart';

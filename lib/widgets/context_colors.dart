@@ -13,8 +13,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/extensions/color_strategy_extension.dart';
-import '../core/theme/strategy/color_strategy.dart';
-import '../core/theme/strategy/default_color_strategy.dart';
+import '../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../core/theme/colors/strategy/color_strategy/themes/default.dart';
 
 extension ColorStrategyContext on BuildContext {
   /// 当前生效的 ColorStrategy（三层兜底，绝不返回 null）。

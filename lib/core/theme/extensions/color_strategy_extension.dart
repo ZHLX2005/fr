@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../strategy/color_strategy.dart';
+import '../colors/strategy/color_strategy/color_strategy.dart';
 
 class ColorStrategyExtension extends ThemeExtension<ColorStrategyExtension> {
   final ColorStrategy strategy;

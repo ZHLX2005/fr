@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../domain/models.dart';
-import '../../../../../../widgets/theme/zen_theme.dart';
+import '../../../../../../core/theme/component/zen/zen_theme.dart';
 import 'shared/zen_controls.dart';
 
 /// 高级设置「周期配置」策略 —— 3 模式各自声明可调性（fr 30）。

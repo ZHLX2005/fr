@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/paper_palette.dart';
+import '../../../../../core/theme/component/calendar/paper_palette.dart';
 import '../../../../../core/theme/typography.dart';
 import '../../domain/event.dart';
 import '../../domain/person.dart';

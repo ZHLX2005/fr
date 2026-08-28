@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/paper_palette.dart';
+import '../../../../../core/theme/component/calendar/paper_palette.dart';
 import '../../domain/person.dart';
 
 /// 人物头像 chip：emoji 优先，否则取姓名首字符

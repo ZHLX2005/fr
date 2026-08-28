@@ -9,8 +9,8 @@ import 'timetable_advanced_settings_page.dart';
 import 'timetable_anime_editor_page.dart';
 import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
-import '../../../../widgets/theme/zen_theme.dart';
-import '../../../../widgets/theme/zen_date_picker.dart';
+import '../../../../core/theme/component/zen/zen_theme.dart';
+import '../../../../core/theme/component/zen/zen_date_picker.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 起始日期 UX + 数据来源预设。
 ///

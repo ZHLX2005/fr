@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/theme_provider.dart';
+import '../../../core/theme/state/theme_provider.dart';
 
 /// 主题设置页面
 ///

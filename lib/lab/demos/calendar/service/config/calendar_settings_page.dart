@@ -6,7 +6,7 @@ import '../../data/calendar_config.dart';
 import '../../data/lab_calendar_provider.dart';
 import '../../data/lab_people_provider.dart';
 import 'calendar_import_dialog.dart';
-import '../../../../../widgets/theme/zen_theme.dart';
+import '../../../../../core/theme/component/zen/zen_theme.dart';
 
 /// 日历设置页（仿 timetable 主设置页第一层结构 + 高级入口）
 ///

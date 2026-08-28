@@ -6,7 +6,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../strategy/board_color_strategy.dart';
+import '../colors/strategy/board_color_strategy/board_color_strategy.dart';
 
 class BoardColorStrategyExtension extends ThemeExtension<BoardColorStrategyExtension> {
   final BoardColorStrategy strategy;

@@ -9,7 +9,7 @@ import 'const_recorder.dart';
 import 'recorder_list_page.dart';
 import 'waveform_view.dart';
 import '../../../widgets/base/base_icon_button.dart';
-import '../../../widgets/theme/zen_theme.dart';
+import '../../../core/theme/component/zen/zen_theme.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
 ///

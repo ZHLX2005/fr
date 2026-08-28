@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/component/zen/zen_theme.dart';
 
 class TrackRunnerPage extends StatefulWidget {
   final String trackId;

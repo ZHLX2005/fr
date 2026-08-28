@@ -1,44 +1,36 @@
-// 应用主题工厂（zen / purple / ink 主题入口）。
+// 应用主题工厂（zen / purple / ink / rose / lemon 主题入口）。
 //
 // 设计：v6.1「主色不动 · 环境染互补色温」——
 //   所有颜色统一从 ColorScheme 派生（theme.component/ 单数据源）。
-//   · surface / surfaceContainerHighest / onSurface / onSurfaceVariant / outline
-//     → 已在 semantic/colors.dart 按每主题环境色染好
-//   · primary / primaryContainer / tertiary（互补强调）从 ColorScheme 读取
-//   · error 红系不变（危险语义）
+//   · 5 套 ColorScheme 在 tokens/color/theme/<mode>.dart 集中维护
+//   · 切主题 = 换 scheme 实例；strategy 层零主题感知（5 个 strategy 实现单一 default）
 //
 // 依赖层级：
-//   tokens/       raw 原子色（colors / typography / spacing / radius / elevation）
-//   semantic/     ColorScheme + AppColorsExtension（语义角色）
-//   component/    button / card / section / input（复合组件样式）
-//   this file     zen / purple / ink 主题 ThemeData 工厂 + 各组件主题覆盖
+//   tokens/         raw 原子色 + 5 套主题调色板 + 各用途色板
+//   colors/strategy/  5 个 strategy 默认派生规则
+//   extensions/     ThemeExtension 注入器
+//   component/      全局组件主题 + 家族/域专属子目录
+//   text_theme.dart AppTextThemes（与 ColorScheme 平级）
+//   state/          Riverpod 状态层（themeNotifierProvider）
 
 import 'package:flutter/material.dart';
+import 'colors/factory.dart';
+import 'colors/theme_mode.dart' show AppThemeMode;
 import 'extensions/board_color_strategy_extension.dart';
 import 'extensions/color_strategy_extension.dart';
-import 'extensions/game_colors_strategy_extension.dart';
-import 'semantic/colors.dart';
-import 'semantic/extensions.dart';
-import 'semantic/typography.dart';
-import 'strategy/default_board_color_strategy.dart';
-import 'strategy/game_colors_strategy.dart';
-import 'strategy/theme_strategy_factory.dart';
+import 'extensions/team_avatar_strategy_extension.dart';
+import 'extensions/tetris_colors_strategy_extension.dart';
+import 'extensions/torch_protect_strategy_extension.dart';
+import 'text_theme.dart';
+import 'tokens/colors.dart';
+import 'tokens/color/theme/zen.dart' as zen_t;
+import 'tokens/color/theme/purple.dart' as purple_t;
+import 'tokens/color/theme/ink.dart' as ink_t;
+import 'tokens/color/theme/rose.dart' as rose_t;
+import 'tokens/color/theme/lemon.dart' as lemon_t;
 
-export 'semantic/extensions.dart' show AppColorsExtension;
-
-/// 应用主题模式枚举
-enum AppThemeMode {
-  /// 暮紫主题（深色）— 暮紫主色 ↔ 鎏金暖黑环境（hue45°）。
-  purple,
-  /// 茶禅主题（zen）—— sage 绿 + 暖米环境 + 陶土红强调。
-  zen,
-  /// 墨白主题（ink）—— 墨黑主色 + 纯纸白底 + 墨赭互补强调。
-  ink,
-  /// 粉雾海盐主题（rose）—— Velvet Bloom 粉主色 + 海盐薄荷互补强调。
-  rose,
-  /// 柠檬鼠尾草主题（lemon）—— 橄榄绿主色 + 柠檬黄强调 + 鼠尾草主背景。
-  lemon,
-}
+export 'colors/theme_mode.dart' show AppThemeMode;
+export 'tokens/colors.dart' show AppColorsExtension;
 
 /// 应用主题配置类
 class AppTheme {
@@ -70,31 +62,32 @@ class AppTheme {
 
   /// 根据模式获取主题数据
   static ThemeData getThemeData(AppThemeMode mode) {
+    // 唯一数据源：scheme + appColors 都从 tokens/color/theme/<mode>.dart 取
     return switch (mode) {
       AppThemeMode.purple => _buildTheme(
-          scheme: ThemeColorSchemes.purple,
-          ext: ThemeAppColors.purple,
-          cardShadow: Color(0x66000000)
+          scheme: purple_t.PurpleColors.scheme,
+          ext: purple_t.PurpleColors.appColors,
+          cardShadow: Color(0x66000000),
         ),
       AppThemeMode.zen => _buildTheme(
-          scheme: ThemeColorSchemes.zen,
-          ext: ThemeAppColors.zen,
-          cardShadow: Color(0x14000000)
+          scheme: zen_t.ZenColors.scheme,
+          ext: zen_t.ZenColors.appColors,
+          cardShadow: Color(0x14000000),
         ),
       AppThemeMode.ink => _buildTheme(
-          scheme: ThemeColorSchemes.ink,
-          ext: ThemeAppColors.ink,
-          cardShadow: Color(0x14000000)
+          scheme: ink_t.InkColors.scheme,
+          ext: ink_t.InkColors.appColors,
+          cardShadow: Color(0x14000000),
         ),
       AppThemeMode.rose => _buildTheme(
-          scheme: ThemeColorSchemes.rose,
-          ext: ThemeAppColors.rose,
-          cardShadow: Color(0x14000000)
+          scheme: rose_t.RoseColors.scheme,
+          ext: rose_t.RoseColors.appColors,
+          cardShadow: Color(0x14000000),
         ),
       AppThemeMode.lemon => _buildTheme(
-          scheme: ThemeColorSchemes.lemon,
-          ext: ThemeAppColors.lemon,
-          cardShadow: Color(0x14000000)
+          scheme: lemon_t.LemonColors.scheme,
+          ext: lemon_t.LemonColors.appColors,
+          cardShadow: Color(0x14000000),
         ),
     };
   }
@@ -103,8 +96,7 @@ class AppTheme {
   // 通用 ThemeData 构建器
   // ============================================================
   //
-  // 所有颜色统一从 ColorScheme 派生 —— 单一数据源。
-  // 环境色（surface / outline / bg）由 semantic/colors.dart 按互补 hue 染好。
+  // 所有颜色统一从传入的 ColorScheme 派生 —— 单一数据源。
 
   static ThemeData _buildTheme({
     required ColorScheme scheme,
@@ -112,8 +104,10 @@ class AppTheme {
     required Color cardShadow,
   }) {
     final colorStrategy = ThemeStrategyFactory.create(scheme);
-    final boardStrategy = DefaultBoardColorStrategy.of(scheme);
-    final gameStrategy = DefaultGameColorsStrategy.of(scheme);
+    final boardStrategy = ThemeStrategyFactory.createBoardColorStrategy(scheme);
+    final tetrisColorsStrategy = ThemeStrategyFactory.createTetrisColorsStrategy(scheme);
+    final teamAvatarStrategy = ThemeStrategyFactory.createTeamAvatarStrategy();
+    final torchProtectStrategy = ThemeStrategyFactory.createTorchProtectStrategy(scheme);
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
@@ -123,7 +117,9 @@ class AppTheme {
         ext,
         ColorStrategyExtension(colorStrategy),
         BoardColorStrategyExtension(boardStrategy),
-        GameColorsStrategyExtension(gameStrategy),
+        TetrisColorsStrategyExtension(tetrisColorsStrategy),
+        TeamAvatarStrategyExtension(teamAvatarStrategy),
+        TorchProtectStrategyExtension(torchProtectStrategy),
       ],
       cardTheme: CardThemeData(
         elevation: 2,
@@ -177,4 +173,3 @@ class AppTheme {
   }
 
 }
-

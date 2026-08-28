@@ -10,14 +10,14 @@
 //   - 其他 widget class 委托 Base* + DefaultColorStrategy.of(scheme)
 
 import 'package:flutter/material.dart';
-import '../context_colors.dart';
+import '../../../../widgets/context_colors.dart';
 
-import '../base/base_dialog.dart';
-import '../base/base_dot.dart';
-import '../base/base_empty_state.dart';
-import '../base/base_icon_button.dart';
-import '../base/base_swipe_action.dart';
-import '../../core/theme/strategy/default_color_strategy.dart';
+import '../../../../widgets/base/base_dialog.dart';
+import '../../../../widgets/base/base_dot.dart';
+import '../../../../widgets/base/base_empty_state.dart';
+import '../../../../widgets/base/base_icon_button.dart';
+import '../../../../widgets/base/base_swipe_action.dart';
+import '../../colors/strategy/color_strategy/themes/default.dart';
 
 // =====================================================================
 // Zen 排版（保持 const 以兼容 const widget）

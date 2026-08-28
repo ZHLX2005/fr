@@ -8,8 +8,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/extensions/color_strategy_extension.dart';
-import '../../core/theme/strategy/color_strategy.dart';
-import '../../core/theme/strategy/default_color_strategy.dart';
+import '../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../../core/theme/colors/strategy/color_strategy/themes/default.dart';
 
 enum BaseIconButtonVariant { tint, outline, hero }
 

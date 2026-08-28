@@ -5,16 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
-import 'core/theme/theme_provider.dart';
+import 'core/theme/state/theme_provider.dart';
 import 'services/ai_chat/ai_chat_provider.dart';
 import 'services/ai_chat/agent_chat_provider.dart';
-import 'screens/chat/home_page.dart';
 import 'lab/lab_bootstrap.dart';
-import 'screens/profile/profile_page.dart';
-import 'core/focus/focus_home_page.dart';
 import 'core/focus/providers/focus_provider.dart';
 import 'core/timetable/timetable.dart';
-import 'widgets/xiaodouzi_bottom_bar.dart';
 import 'core/schema/schema.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
 import 'core/storage/hive/body_record_repository.dart';
@@ -22,9 +18,12 @@ import 'core/line/io/supabase_config.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/ai_chat/system_messages/system_events_controller.dart';
 import 'core/note/note_root_scope.dart';
-import 'core/share_receive/share_receive_store.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
+import 'app_lifecycle/fr_method_channel_translator.dart';
+import 'app_lifecycle/apk_startup_hook.dart';
+import 'app_lifecycle/crash_log_startup_hook.dart';
+import 'app_lifecycle/main_screen.dart';
 
 /// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -81,6 +80,13 @@ void main() async {
 
   // 初始化 APK 后台下载服务（Android Foreground Service）
   await ApkDownloadService().initialize();
+
+  // APK 自动下载生命周期：先 hydrate 状态（lastSeenUploadTime / autoDownloadEnabled）
+  // 再触发启动期检查；开关关闭时静默返回，不影响冷启动。
+  unawaited(runApkAutoDownloadOnStartup());
+
+  // 崩溃日志摄入：启动时一次性把原生侧累积的 crash 日志导入系统消息面板。
+  unawaited(runCrashLogIntakeOnStartup());
 
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
@@ -179,190 +185,5 @@ class MyApp extends ConsumerWidget {
         },
       ),
     );
-  }
-}
-
-/// Task 8: `_CalendarDeepLinkPage` 已删除 — 日历入口统一走
-/// `fr://lab/demo/calendar` -> frRouter -> LabDemoHandler。
-/// `NotionImageHostDeepLinkPage` 整体搬到
-/// `lib/core/schema/handlers/notion_image_host_handler.dart`。
-
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
-
-  @override
-  State<MainScreen> createState() => _MainScreenState();
-}
-
-class _MainScreenState extends State<MainScreen>
-    with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
-
-  // RepaintBoundary 缓存渲染层，Transform 平移时只移 GPU 图层
-  final List<Widget> _pages = const [
-    RepaintBoundary(child: ProfilePage()),    // 主页（左）
-    RepaintBoundary(child: FocusHomePage()),  // Time（中）
-    RepaintBoundary(child: HomePage()),       // AI 助手（右）
-  ];
-
-  late final AnimationController _ctrl;
-  late final CurvedAnimation _pageCurve;
-  bool _isAnimating = false;
-  int _toIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    // 预热 banner 路径，消除首页切换时 ProfilePage State 重建的占位帧（fr #3）
-    HomeBannerCache.warmUp();
-    _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _pageCurve = CurvedAnimation(
-      parent: _ctrl,
-      curve: Curves.easeInOutQuint,
-    );
-    _ctrl.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        setState(() {
-          _selectedIndex = _toIndex;
-          _isAnimating = false;
-        });
-        _ctrl.reset();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _pageCurve.dispose();
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _onItemTapped(int index) {
-    if (index == _selectedIndex || _isAnimating) return;
-    _startTransition(index);
-  }
-
-  void _onAddPressed() {
-    if (_isAnimating) return;
-    _startTransition(2);
-  }
-
-  void _startTransition(int target) {
-    _toIndex = target;
-    _isAnimating = true;
-    setState(() {});
-    _ctrl.forward(from: 0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final w = constraints.maxWidth;
-          return Stack(
-            children: [
-              // 底层：目标页面（静止不动）
-              SizedBox(
-                width: w,
-                child: _pages[_isAnimating ? _toIndex : _selectedIndex],
-              ),
-              // 覆盖层：双页同时平移（传送带效果）
-              if (_isAnimating)
-                AnimatedBuilder(
-                  animation: _pageCurve,
-                  builder: (context, _) {
-                    final isForward = _toIndex > _selectedIndex;
-                    final t = _pageCurve.value;
-                    // 新页从异侧滑入，旧页往同侧滑出
-                    final newDx = isForward ? (1 - t) * w : -(1 - t) * w;
-                    final oldDx = isForward ? -t * w : t * w;
-                    return SizedBox(
-                      width: w,
-                      child: Stack(
-                        children: [
-                          Transform.translate(
-                            offset: Offset(newDx, 0),
-                            child: SizedBox(width: w, child: _pages[_toIndex]),
-                          ),
-                          Transform.translate(
-                            offset: Offset(oldDx, 0),
-                            child: SizedBox(width: w, child: _pages[_selectedIndex]),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-            ],
-          );
-        },
-      ),
-      bottomNavigationBar: XiaoDouZiBottomBar(
-        currentIndex: _isAnimating ? _toIndex : _selectedIndex,
-        onItemSelected: _onItemTapped,
-        onAddPressed: _onAddPressed,
-      ),
-    );
-  }
-}
-
-/// fr:// URL 翻译器 —— 把原生 MethodChannel call(method + args)翻译成
-/// 项目内统一路由 URL,供 main.dart 的 _handleMethodCall 调用。
-///
-/// 设计目的:
-///   - 翻译表与 `bootstrap_routes.dart` 的注册表同目录可见
-///   - 加新 widget → 改这一个文件 + bootstrap_routes + handler,不需进 main.dart
-///   - 防腐蚀:把"method name → fr:// URL"的唯一映射关系收口到本文件
-///
-/// 调用约定:
-///   返回 null 表示该 method 不归本层管(常见情况:notImplemented);
-///   调用方应保留旧行为:不 push、不抛错。
-///
-/// 已支持的 method(与 WidgetChannel.kt 的 when 分支严格对称):
-///   navigateToLab              → fr://lab
-///   navigateToCalendar         → fr://lab/demo/calendar
-///   navigateToClock            → fr://lab/demo/clock
-///   navigateToTimetable        → fr://timetable
-///   navigateToNotionImage      → fr://notion/image-host?autocapture=<bool>
-///   navigateToRecorder         → fr://lab/demo/recorder?autostart=<bool>
-///   navigateToClockWidgetToggle→ fr://clock/widget-toggle
-///   shareReceived              → fr://share/receive（载荷存 ShareReceiveStore.pending）
-class FrMethodChannelTranslator {
-  FrMethodChannelTranslator._();
-
-  /// 同步翻译:输入 call,返回 fr:// URL 或 null。
-  ///
-  /// 不读 clock / context,纯字符串拼接 + 类型断言 —— 单元可测。
-  static String? translate(MethodCall call) {
-    return switch (call.method) {
-      'navigateToLab' => 'fr://lab',
-      'navigateToCalendar' => 'fr://lab/demo/calendar',
-      'navigateToClock' => 'fr://lab/demo/clock',
-      'navigateToTimetable' => 'fr://timetable',
-      'navigateToNotionImage' =>
-        'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
-      'navigateToRecorder' =>
-        'fr://lab/demo/recorder?autostart=${(call.arguments as bool?) ?? true}',
-      'navigateToClockWidgetToggle' => 'fr://clock/widget-toggle',
-      'shareReceived' => _translateShareReceived(call.arguments),
-      _ => null,
-    };
-  }
-
-  /// 分享接收：原生传 `{text: String?, files: List<String>}`，
-  /// 载荷经 URL 不便传输（文本长/含特殊字符），存入
-  /// [ShareReceiveStore.pending] 供 handler 页面消费，URL 仅作导航信号。
-  static String? _translateShareReceived(Object? arguments) {
-    final map = (arguments as Map?)?.cast<String, dynamic>() ?? const {};
-    ShareReceiveStore.pending = ShareReceiveData(
-      text: map['text'] as String?,
-      fileUris: (map['files'] as List?)?.cast<String>() ?? const [],
-    );
-    return 'fr://share/receive';
   }
 }

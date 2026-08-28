@@ -15,9 +15,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'app_theme.dart';
+import '../app_theme.dart';
 
-export 'app_theme.dart' show AppTheme, AppThemeMode;
+export '../app_theme.dart' show AppTheme, AppThemeMode;
 
 /// SharedPreferences key（与历史值保持一致，避免旧用户回退到默认主题）
 const _kThemeKey = 'app_theme_mode';

@@ -3,7 +3,7 @@ import '../../../../widgets/context_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/component/zen/zen_theme.dart';
 
 /// Dashboard tab content. Plain widgets — the shell owns the Scaffold/AppBar.
 class DashboardTab extends StatelessWidget {

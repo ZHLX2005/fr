@@ -12,7 +12,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
-import '../../../widgets/context_game_colors.dart';
+import '../../../widgets/context_board_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
@@ -570,10 +570,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildTurnBar(BoardThemeData theme, BuildContext context) {
     final blackTurn = GoRoom.isBlackTurn(_moves);
     final isMine = blackTurn == _imBlack;
-    final gc = context.gameColors;
-    final myColor = _imBlack ? gc.pieceBlack : gc.pieceWhite;
+    final gc = context.boardColors;
+    final myColor = _imBlack ? gc.player1Stone : gc.player2Stone;
     final myLabel = _imBlack ? '黑方' : '白方';
-    final turnColor = blackTurn ? gc.pieceBlack : gc.pieceWhite;
+    final turnColor = blackTurn ? gc.player1Stone : gc.player2Stone;
     final turnLabel = blackTurn ? '黑方' : '白方';
     final caps = GoRoom.captures(_snap);
     final capsText = ' 黑吃×${caps.white} 白吃×${caps.black}';
@@ -611,8 +611,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (_pendingPoint == null) {
       return SizedBox(height: kGoConfirmBarHeight, width: double.infinity);
     }
-    final gc = context.gameColors;
-    final myColor = _imBlack ? gc.pieceBlack : gc.pieceWhite;
+    final gc = context.boardColors;
+    final myColor = _imBlack ? gc.player1Stone : gc.player2Stone;
     return SizedBox(
       height: kGoConfirmBarHeight, width: double.infinity,
       child: Padding(
@@ -673,8 +673,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       msg = (isBlackWin == _imBlack) ? '我方获胜！' : '对方获胜';
     }
     final winColor = (winner == 'black')
-        ? context.gameColors.pieceBlack
-        : (winner == 'white' ? context.gameColors.pieceWhite : Theme.of(context).colorScheme.outline);
+        ? context.boardColors.player1Stone
+        : (winner == 'white' ? context.boardColors.player2Stone : Theme.of(context).colorScheme.outline);
     return Scaffold(
       backgroundColor: theme.boardSurface,
       body: SafeArea(child: Stack(children: [

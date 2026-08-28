@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../widgets/theme/zen_theme.dart';
+import '../../../core/theme/component/zen/zen_theme.dart';
 
 /// dBFS → [0,1] 显示比例。-60dB → 0,0dB → 1,线性,带 NaN/越界钳制。
 ///

@@ -6,7 +6,7 @@ import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_editor_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_runner_page.dart';
-import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/component/zen/zen_theme.dart';
 
 /// Tracks tab content. Plain widgets — the shell owns the Scaffold/FAB.
 class TracksTab extends StatefulWidget {

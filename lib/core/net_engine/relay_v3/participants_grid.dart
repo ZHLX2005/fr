@@ -14,14 +14,14 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_game_colors.dart';
+import '../../../widgets/context_team_avatar_colors.dart';
 
 /// 参与者圆环卡片
 ///
 /// [capacity] 房间总人数
 /// [participants] 已就绪玩家（deviceId → alias），按 Map 插入顺序显示
 /// [readyMap] 各玩家准备状态（deviceId → true/false），默认全 true
-/// [colors] 颜色表；为 null 时从 `context.gameColors.avatarColors` 取（随主题切换）
+/// [colors] 颜色表；为 null 时从 `context.teamAvatar.avatarColors` 取（随主题切换）
 /// [slotSize] 圆环直径，默认 66
 /// [spectatorIds] 旁观者 deviceId 集合（房主不参与时标记为'旁观者'）
 class LobbyParticipants extends StatelessWidget {
@@ -57,7 +57,7 @@ class LobbyParticipants extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final palette = colors ?? context.gameColors.avatarColors;
+    final palette = colors ?? context.teamAvatar.avatarColors;
     final allEntries = participants.entries.toList();
     // 按名字排序
     allEntries.sort((a, b) => a.value.compareTo(b.value));

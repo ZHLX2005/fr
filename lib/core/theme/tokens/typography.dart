@@ -10,18 +10,36 @@ import 'package:flutter/material.dart';
 
 /// 应用字体族。
 ///
-/// - [sans]：西文与中文混排默认族（沿用 zen_theme 链路）。
-/// - [mono]：数字 / 时钟 / 倒计时专用等宽族（tabularFigures）。
+/// - [sans]：主字体（CSS 通用族名）+ [sansFallback] 回退链（OS 系统字体）
+/// - [mono]：等宽族，配合 [AppFontWeight] 的 tabularFigures 用于数字/时钟
+///
+/// Flutter 的 `fontFamily` 只接受单个 family name；OS 回退链走 `fontFamilyFallback`。
 class AppFontFamily {
   AppFontFamily._();
 
-  /// 无衬线族：系统字体回退链（macOS / Windows / Android / iOS）。
-  static const sans =
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, '
-      '"Helvetica Neue", Arial, sans-serif';
+  /// 主字体族：CSS 通用 sans-serif（Flutter 系统会按平台查找默认无衬线字体）。
+  static const String sans = 'sans-serif';
+
+  /// 系统字体回退链（macOS / Windows / Android / iOS 各自的默认无衬线）。
+  /// 通过 `fontFamilyFallback` 传给 TextStyle，确保跨平台都有合理字体。
+  static const List<String> sansFallback = [
+    '-apple-system',
+    'BlinkMacSystemFont',
+    'Segoe UI',
+    'Roboto',
+    'Helvetica Neue',
+    'Arial',
+  ];
 
   /// 等宽族：用于数字、时钟、时间显示，配合 FontFeature.tabularFigures。
-  static const mono = 'SF Mono, Menlo, Consolas, monospace';
+  static const String mono = 'monospace';
+
+  /// 等宽族回退链。
+  static const List<String> monoFallback = [
+    'SF Mono',
+    'Menlo',
+    'Consolas',
+  ];
 }
 
 /// 常用字重常量（仅语义命名，不引入新值）。

@@ -6,7 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../../services/media_service.dart';
 import '../../../services/audio_recording_service.dart';
 import '../../../widgets/base/base_icon_button.dart';
-import '../../../widgets/theme/zen_theme.dart';
+import '../../../core/theme/component/zen/zen_theme.dart';
 
 /// 原生媒体功能测试页面
 /// 用于在Web和移动端验证摄像头、图库、麦克风等原生功能

@@ -6,7 +6,7 @@ import 'recorder_controller.dart';
 import 'recorder_list_utils.dart';
 import 'recording_file.dart';
 import '../../../widgets/base/base_icon_button.dart';
-import '../../../widgets/theme/zen_theme.dart';
+import '../../../core/theme/component/zen/zen_theme.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
 ///

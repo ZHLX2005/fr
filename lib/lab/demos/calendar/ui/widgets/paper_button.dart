@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../core/theme/paper_palette.dart';
+import '../../../../../core/theme/component/calendar/paper_palette.dart';
 import '../../../../../core/theme/typography.dart';
 
 /// 纸张风格副操作按钮（边框强调版）

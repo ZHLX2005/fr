@@ -6,7 +6,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/context_colors.dart';
 
-import '../../widgets/theme/zen_theme.dart';
+import '../../core/theme/component/zen/zen_theme.dart';
 import '../lab_container.dart';
 import 'relation_calc/calc_view.dart';
 import 'relation_calc/const_relation_calc.dart';

@@ -3,8 +3,8 @@ import '../../../../widgets/context_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
-import '../../../../../widgets/theme/zen_theme.dart';
-import '../../../../../widgets/theme/zen_date_picker.dart';
+import '../../../../../core/theme/component/zen/zen_theme.dart';
+import '../../../../../core/theme/component/zen/zen_date_picker.dart';
 
 /// 供课表页复用（fr 28）：追剧模式 cell 点击 → 打开剧模型编辑对话框。
 /// 课程由剧模型自动派生，编辑课程本身会被覆盖，统一走剧编辑。

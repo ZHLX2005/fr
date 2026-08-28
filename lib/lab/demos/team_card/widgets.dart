@@ -10,7 +10,7 @@ import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 
 import 'constants.dart';
 import 'engine.dart';
-import '../../../widgets/context_game_colors.dart';
+import '../../../widgets/context_team_avatar_colors.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Setup Page（房主建房前）
@@ -1150,7 +1150,7 @@ class _LobbyZoneCard extends StatelessWidget {
               children: List.generate(slots, (i) {
                 if (i < zoneEntries.length) {
                   final e = zoneEntries[i];
-                  final color = context.gameColors.avatarColors[i % context.gameColors.avatarColors.length];
+                  final color = context.teamAvatar.avatarColors[i % context.teamAvatar.avatarColors.length];
                   final isReady = readyMap[e.key] == true;
                   if (isSpectator) {
                     return _AnimatedSlot(

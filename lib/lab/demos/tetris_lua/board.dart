@@ -5,15 +5,16 @@
 //   [TetrisMiniBoard]   对方迷你预览：只画堆积（复用主棋盘，无 current/ghost）
 //   [TetrisPiecePreview] 单方块预览：Hold / Next 槽用
 //
-// 所有颜色（背景/网格/高光/方块/ghost）从 ColorScheme + GameColorsStrategy 派生。
+// 所有颜色从 ColorScheme + 主题策略派生：
+//   - 棋盘角色（背景/网格/方块顶亮面/方块识别色）→ TetrisColorsStrategy（tetris 专属）
+//   - ghost 落点                            → pieceColor + 固定 alpha 派生（动态跟随 piece 色）
 
 import 'dart:math' as math show min;
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_board_colors.dart';
-import '../../../widgets/context_game_colors.dart';
-import '../../../core/theme/strategy/board_color_strategy.dart';
+import '../../../widgets/context_tetris_colors.dart';
+import '../../../core/theme/colors/strategy/tetris_colors_strategy/tetris_colors_strategy.dart';
 import 'constants.dart';
 import 'engine.dart' show TetrisPiece;
 
@@ -42,8 +43,8 @@ class TetrisBoardView extends StatelessWidget {
           child: CustomPaint(
             painter: _BoardPainter(
               scheme: Theme.of(ctx).colorScheme,
-              bc: ctx.boardColors,
-              pieceColors: ctx.gameColors.pieceColors,
+              tc: ctx.tetrisColors,
+              pieceColors: ctx.tetrisColors.pieceColors,
               grid: grid,
               current: current,
               ghost: ghostOffset,
@@ -67,14 +68,14 @@ class TetrisMiniBoard extends StatelessWidget {
 class _BoardPainter extends CustomPainter {
   _BoardPainter({
     required this.scheme,
-    required this.bc,
+    required this.tc,
     required this.pieceColors,
     required this.grid,
     this.current,
     this.ghost = 0,
   });
   final ColorScheme scheme;
-  final BoardColorStrategy bc;
+  final TetrisColorsStrategy tc;
   final List<Color> pieceColors;
   final List<List<int>> grid;
   final TetrisPiece? current;
@@ -85,13 +86,13 @@ class _BoardPainter extends CustomPainter {
     final cellW = size.width / kTetrisCols;
     final cellH = size.height / kTetrisRows;
 
-    // 背景走 boardColors.background，网格线走 boardColors.gridLine（棋局策略模式）
+    // 背景走 tc.pieceBackground，网格线走 tc.pieceGridLine（tetris 棋盘策略）
     canvas.drawRect(
       Offset.zero & size,
-      Paint()..color = bc.background,
+      Paint()..color = tc.pieceBackground,
     );
     final linePaint = Paint()
-      ..color = bc.gridLine
+      ..color = tc.pieceGridLine
       ..strokeWidth = 1;
     for (var i = 1; i < kTetrisCols; i++) {
       canvas.drawLine(
@@ -158,7 +159,7 @@ class _BoardPainter extends CustomPainter {
         Rect.fromLTWH(x + 2.5, y + 2.5, w - 5, (h - 5) * 0.32),
         const Radius.circular(2),
       ),
-      Paint()..color = bc.player2Stone.withValues(alpha: 0.28),
+      Paint()..color = tc.cellHighlight,
     );
   }
 
@@ -179,7 +180,12 @@ class _BoardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BoardPainter old) =>
-      scheme != old.scheme || pieceColors != old.pieceColors || true;
+      scheme != old.scheme ||
+      tc != old.tc ||
+      pieceColors != old.pieceColors ||
+      grid != old.grid ||
+      current != old.current ||
+      ghost != old.ghost;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -197,8 +203,8 @@ class TetrisPiecePreview extends StatelessWidget {
       child: CustomPaint(
         painter: _PiecePreviewPainter(
           scheme: Theme.of(context).colorScheme,
-          bc: context.boardColors,
-          pieceColors: context.gameColors.pieceColors,
+          tc: context.tetrisColors,
+          pieceColors: context.tetrisColors.pieceColors,
           type: type,
         ),
       ),
@@ -209,12 +215,12 @@ class TetrisPiecePreview extends StatelessWidget {
 class _PiecePreviewPainter extends CustomPainter {
   _PiecePreviewPainter({
     required this.scheme,
-    required this.bc,           // BoardColorStrategy for outer frame
+    required this.tc,
     required this.pieceColors,
     required this.type,
   });
   final ColorScheme scheme;
-  final BoardColorStrategy bc;
+  final TetrisColorsStrategy tc;
   final List<Color> pieceColors;
   final int? type;
 
@@ -222,12 +228,12 @@ class _PiecePreviewPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
-      Paint()..color = bc.background,
+      Paint()..color = tc.pieceBackground,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
       Paint()
-        ..color = bc.gridLine
+        ..color = tc.pieceGridLine
         ..style = PaintingStyle.stroke,
     );
 
@@ -274,6 +280,7 @@ class _PiecePreviewPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PiecePreviewPainter old) =>
       scheme != old.scheme ||
+      tc != old.tc ||
       pieceColors != old.pieceColors ||
       type != old.type;
 }

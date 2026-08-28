@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../widgets/context_colors.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
-import 'package:xiaodouzi_fr/widgets/theme/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/component/zen/zen_theme.dart';
 
 class ClockEditorResult {
   final String title;
