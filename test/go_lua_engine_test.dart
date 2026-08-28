@@ -246,5 +246,50 @@ void main() {
       expect(GoRoom.isAtari(b, 4, 4), isFalse);
       expect(GoRoom.groupsInAtari(b, 1), isEmpty);
     });
+
+    test('atari 回归：渲染循环外 y 内 x 遍历，(y,x) 比较命中整群且不误伤对角线', () {
+      // 模拟 GoBoardWidget.build 的渲染循环：
+      //   for (int y = 0; y < kGoSize; y++)
+      //     for (int x = 0; x < kGoSize; x++)
+      //       isAtari: atariPoints.contains((y, x))   ← 修复后的方向
+      // 复现 on-diagonal bug：修复前用 (x, y) 比较会让对角线对称位置被错误高亮，
+      // 且真正的 atari 群反而没有高亮。
+      final b = empty();
+      // 黑竖链：b[4][4]=1, b[5][4]=1, b[6][4]=1（用 (x,y) 表示即 (4,4)(4,5)(4,6)）。
+      // 白围四周，留 (7,4) 唯一气 → atari 群 = 这三颗黑子。
+      b[4][4] = 1; b[5][4] = 1; b[6][4] = 1;
+      b[3][4] = 2;                            // 上方白
+      b[4][3] = 2; b[4][5] = 2;                // 黑链水平邻居白
+      b[5][3] = 2; b[5][5] = 2;
+      b[6][3] = 2; b[6][5] = 2;
+      b[7][4] = 0;                              // 唯一气
+      // 黑链气断言
+      expect(GoRoom.libertiesAt(b, 4, 4), contains((7, 4)));
+      final inAtari = GoRoom.groupsInAtari(b, 1);  // 返回 (y, x) 形式
+
+      // 模拟渲染循环：用正确的 (y, x) 比较
+      final hits = <(int, int)>{};  // 用 (x, y) 记录被高亮的棋子位置
+      for (int y = 0; y < kGoSize; y++) {
+        for (int x = 0; x < kGoSize; x++) {
+          if (b[y][x] == 0) continue;
+          if (inAtari.contains((y, x))) hits.add((x, y));
+        }
+      }
+      // 真正的 atari 群：黑链 (x=4, y=4)(4,5)(4,6)。
+      expect(hits, containsAll([(4, 4), (4, 5), (4, 6)]));
+      // 对角线位置 (x=5, y=4) 的白子不能误伤 —— bug 存在时它会被标 atari。
+      expect(hits, isNot(contains((5, 4))));
+      // 反向用 (x, y) 比较应产生错位集合（命中 (5,4) 哨兵白 + 漏掉 (4,5)(4,6) 黑链）。
+      final wrongHits = <(int, int)>{};
+      for (int y = 0; y < kGoSize; y++) {
+        for (int x = 0; x < kGoSize; x++) {
+          if (b[y][x] == 0) continue;
+          if (inAtari.contains((x, y))) wrongHits.add((x, y));
+        }
+      }
+      expect(wrongHits, isNot(equals(hits)));
+      // 错位集合应当命中 (5,4) 对角线哨兵。
+      expect(wrongHits, contains((5, 4)));
+    });
   });
 }

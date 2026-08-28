@@ -95,7 +95,10 @@ class GoBoardWidget extends StatelessWidget {
                   context, x, y, step, stoneRadius,
                   board[y][x] == 1,
                   isLast: lastMove == (x, y),
-                  isAtari: atariPoints.contains((x, y)),
+                  // atariPoints 由 GoRoom.groupsInAtari 返回，内部约定是 (y, x) record
+                  // （与 GoEngine.libertiesAt / isAtari 一致，与测试断言同口径）。
+                  // 必须用 (y, x) 比较，否则高亮会落到对角线对称位置。
+                  isAtari: atariPoints.contains((y, x)),
                   stoneShadow: stoneShadow,
                   stoneRim: bc.gridLine,
                 ),
