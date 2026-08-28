@@ -11,6 +11,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/net_engine/relay_v3/relay_device_id.dart';
+import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 
 import 'constants.dart';
 import 'engine.dart' show
@@ -724,6 +725,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         // 待确认按钮条 —— 固定占位（即便不在待确认状态也保留高度），
         // 避免其出现/消失撑动上方 Expanded，导致棋盘在回合切换时上下抖动
         _buildConfirmSlot(theme, context),
+        RelayConnectionBar(handle: widget.handle),
         // 底部操作栏
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),

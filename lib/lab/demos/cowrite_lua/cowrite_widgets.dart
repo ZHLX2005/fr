@@ -32,6 +32,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_device_id.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Exception;
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
@@ -526,6 +527,8 @@ class _OnlineCoWritePageState extends State<OnlineCoWritePage> {
             _buildOptionRow(theme, context),
             Expanded(child: _buildEditor(theme, context)),
             _buildStatusBar(theme, context),
+            // WS 状态条 + 拉取快照
+            RelayConnectionBar(handle: widget.handle),
           ],
         ),
       ),

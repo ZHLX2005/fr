@@ -16,6 +16,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/net_engine/relay_v3/relay_device_id.dart';
+import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 
 import 'constants.dart';
 import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
@@ -840,6 +841,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             padding: EdgeInsets.only(top: 6, bottom: 6),
             child: Center(child: _buildPlayerPanel(theme)),
           ),
+          // WS 状态条 + 拉取快照
+          RelayConnectionBar(handle: widget.handle),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [

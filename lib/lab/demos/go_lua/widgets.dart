@@ -11,6 +11,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/net_engine/relay_v3/relay_device_id.dart';
+import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 import '../../../widgets/context_game_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
@@ -543,6 +544,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           })),
         ),
         _buildConfirmSlot(theme, context),
+        RelayConnectionBar(handle: widget.handle),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [

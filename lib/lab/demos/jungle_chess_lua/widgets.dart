@@ -33,6 +33,7 @@ import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_touch_controller.d
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_device_id.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Exception;
 import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
@@ -302,7 +303,6 @@ class OnlineGamePage extends StatefulWidget {
 
 class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
-  StreamSubscription<dynamic>? _closeSub;
   Snapshot? _snap;
   List<JungleMoveRecord> _history = const [];
   GameState _gameState = JungleEngine.createInitialStateFor(firstTurn: PlayerColor.red);
@@ -312,12 +312,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   /// 已声明过胜利（防死循环：WIN 万一被拒/网络抖动，不重复发导致闪屏）。
   bool _winDeclared = false;
-
-  /// WS 连接状态（来自 RoomHandle.isConnected；初始 false，等首次推送即变 true）。
-  bool _wsConnected = false;
-
-  /// 手动拉取 snapshot 进行中（防双击）。
-  bool _pullingSnapshot = false;
 
   late final JungleRoom _room;
   late final JungleTouchController _touchController;
@@ -330,9 +324,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _touchController.onMoveConfirmed = _onLocalMoveConfirmed;
     _snap = widget.handle.latest;
     _rebuild(_snap);
-    _wsConnected = widget.handle.isConnected;
     _sub = widget.handle.snapshots.listen(_onSnapshot);
-    _closeSub = widget.handle.closeEvents.listen(_onWSClose);
     // 预加载落子音，消除首次落子的加载延迟
     PieceSound.instance.preload();
   }
@@ -340,14 +332,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   @override
   void dispose() {
     _sub?.cancel();
-    _closeSub?.cancel();
     _touchController.dispose();
     super.dispose();
-  }
-
-  void _onWSClose(dynamic _) {
-    if (!mounted) return;
-    setState(() => _wsConnected = widget.handle.isConnected);
   }
 
   void _onSnapshot(Snapshot s) {
@@ -356,7 +342,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     setState(() {
       _snap = s;
       _rebuild(s);
-      _wsConnected = widget.handle.isConnected;
     });
     // history 增长 = 有新落子（自己或对方）→ 播放落子音
     if (_history.length > prevHistoryLen) {
@@ -435,28 +420,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       ),
     );
     if (confirm == true) await _room.resign();
-  }
-
-  /// 主动从服务端拉一次最新 snapshot（绕过 WS 推送）。
-  ///
-  /// 用于：WS 暂时抖动 / 怀疑本地状态陈旧 / 调试。
-  Future<void> _pullSnapshot() async {
-    if (_pullingSnapshot) return;
-    setState(() => _pullingSnapshot = true);
-    try {
-      await widget.handle.fetchSnapshot();
-    } catch (_) {
-      if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('拉取快照失败（HTTP）'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _pullingSnapshot = false);
-    }
   }
 
   /// 触摸控制器触发的本地走法 → 直接发网络（不需确认）。
@@ -772,8 +735,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             ),
             // 下方玩家面板（我方）—— 不旋转
             _buildMyPanel(theme),
-            // WS 状态条 + 拉取快照
-            _buildConnectionBar(theme, context),
+            // WS 状态条 + 拉取快照（共享 widget，自带 stream 订阅 + 防双击）
+            RelayConnectionBar(handle: widget.handle),
             // 底部操作栏
             Padding(
               padding: const EdgeInsets.symmetric(
@@ -941,81 +904,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         const SizedBox(width: 4),
         Text(label, style: TextStyle(fontSize: 12, color: color)),
       ]),
-    );
-  }
-
-  /// WS 状态条：绿/红圆点 + 文字 + 拉取快照按钮。
-  ///
-  /// 高度固定 28px（避免出现/消失撑动下方操作栏）。
-  Widget _buildConnectionBar(BoardThemeData theme, BuildContext context) {
-    final dotColor = _wsConnected
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.error;
-    final statusText = _wsConnected ? '已连接' : '已断开 · 自动重连中';
-    return SizedBox(
-      height: 28,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: theme.panelBg.withValues(alpha: 0.3),
-          border: Border(
-            top: BorderSide(
-                color: theme.panelBorder.withValues(alpha: 0.4)),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: dotColor.withValues(alpha: 0.6),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              statusText,
-              style: TextStyle(
-                color: _wsConnected ? theme.btnText : theme.btnSub,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 1,
-              ),
-            ),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _pullingSnapshot ? null : _pullSnapshot,
-              icon: _pullingSnapshot
-                  ? SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: theme.btnSub,
-                      ),
-                    )
-                  : Icon(Icons.cloud_download_outlined,
-                      size: 14, color: theme.btnSub),
-              label: Text(
-                _pullingSnapshot ? '拉取中…' : '拉取最新快照',
-                style: TextStyle(fontSize: 11, color: theme.btnSub),
-              ),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-                minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

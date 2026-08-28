@@ -17,6 +17,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/net_engine/relay_v3/relay_device_id.dart';
+import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 
 import 'package:xiaodouzi_fr/core/reversi/board_theme.dart';
 import 'package:xiaodouzi_fr/core/reversi/models/reversi_board.dart';
@@ -805,6 +806,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           ),
           // 待确认按钮条（固定占位 56）
           _buildConfirmSlot(theme),
+          // WS 状态条 + 拉取快照
+          RelayConnectionBar(handle: widget.handle),
           // 底部操作栏：认输 / 悔棋 / 退出
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
