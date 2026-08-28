@@ -30,6 +30,7 @@ import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_board.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_board_frame.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_player_panel.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_touch_controller.dart';
+import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_device_id.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
@@ -332,6 +333,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _wsConnected = widget.handle.isConnected;
     _sub = widget.handle.snapshots.listen(_onSnapshot);
     _closeSub = widget.handle.closeEvents.listen(_onWSClose);
+    // 预加载落子音，消除首次落子的加载延迟
+    PieceSound.instance.preload();
   }
 
   @override
@@ -349,11 +352,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
+    final prevHistoryLen = _history.length;
     setState(() {
       _snap = s;
       _rebuild(s);
       _wsConnected = widget.handle.isConnected;
     });
+    // history 增长 = 有新落子（自己或对方）→ 播放落子音
+    if (_history.length > prevHistoryLen) {
+      PieceSound.instance.play();
+    }
     if (_ackedLocally && (s.state != 'lobby' && s.state != 'ready')) {
       setState(() => _ackedLocally = false);
     }
@@ -471,6 +479,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       color: color,
       round: _history.length + 1,
     );
+    PieceSound.instance.play();  // 本地立即响（不等服务端回包）
     _room.move(rec);
   }
 
