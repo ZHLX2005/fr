@@ -80,27 +80,41 @@ class LabCalendarProvider with ChangeNotifier {
 
   Future<void> _init() async {
     final repo = CalendarRepository.instance;
-    await repo.init();
+    try {
+      await repo.init();
 
-    // 一次性 v1→v2 迁移
-    final raw = repo.events.values.toList();
-    if (raw.isNotEmpty) {
+      // 升级时若 events box 因 frame header 不可读已被重置，直接当作空盒。
+      if (repo.eventsBoxWasReset) {
+        _lastDroppedMigrationCount = -1; // 哨兵：表示"已重置"
+        _activeGroupId = await repo.getActiveGroupId();
+        _groups = await repo.loadGroups();
+        _loadAll();
+        _scheduleMidnightRefresh();
+        return;
+      }
+
+      // 一次性 v1→v2 迁移（仅在 Map-shaped 数据上工作）
+      final raw = repo.events.values.toList();
       final mig = EventV1Migration.run(raw);
       _lastDroppedMigrationCount = mig.droppedIds.length;
-      await repo.clearEvents();
-      for (final d in mig.drafts) {
-        await _addInternal(d);
+      if (raw.isNotEmpty) {
+        await repo.clearEvents();
+        for (final d in mig.drafts) {
+          await _addInternal(d);
+        }
       }
-    } else {
-      _lastDroppedMigrationCount = 0;
-    }
 
-    _activeGroupId = await repo.getActiveGroupId();
-    _groups = await repo.loadGroups();
-    _loadAll();
-    _scheduleMidnightRefresh();
-    _ready = true;
-    notifyListeners();
+      _activeGroupId = await repo.getActiveGroupId();
+      _groups = await repo.loadGroups();
+      _loadAll();
+      _scheduleMidnightRefresh();
+    } catch (e, st) {
+      // 永不抛出 —— 否则 _ready 永远 false，UI 一直转圈。
+      debugPrint('[LabCalendarProvider] _init failed: $e\n$st');
+    } finally {
+      _ready = true;
+      notifyListeners();
+    }
   }
 
   // ──── group 操作（仿 timetable 多空间）──────

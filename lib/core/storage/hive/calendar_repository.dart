@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,9 +14,10 @@ import 'hive_store.dart';
 
 /// v2: events box 改为 untyped Map（参考 groups 已有的做法）。
 ///
-/// v1 的 typed `Box<Event>` 在 Event 模型变更后无法保留老数据。
-/// 升级首次启动由 `EventV1Migration.run` 一次性迁移；
-/// 此后所有 read/write 都以 `Map<String, dynamic>` 形式进出。
+/// 升级路径：v1 用 typed `Box<Event>` 写盘，v2 不再保留 `EventAdapter`。
+/// 旧设备首次启动时直接 `openBox<dynamic>(name)` 可能因为 frame header
+/// 引用了未知 typeId 而抛 `HiveError`。这里捕获后清盘重建 —— 旧事件丢失，
+/// 但用户可以重新创建（与"no historical debt"原则一致）。
 class CalendarRepository implements HiveRepository {
   static const eventsBoxName = 'calendarEvents';
   static const peopleBoxName = 'calendarPeople';
@@ -27,14 +29,30 @@ class CalendarRepository implements HiveRepository {
   static final CalendarRepository instance = CalendarRepository._();
 
   bool _initialized = false;
+  bool _eventsBoxReset = false;
+
+  /// 升级时是否丢弃了旧事件 box（用于一次性 toast 提示）。
+  bool get eventsBoxWasReset => _eventsBoxReset;
 
   @override
   String get boxName => eventsBoxName;
 
   Future<void> init() async {
     if (_initialized) return;
-    // events 改为 untyped（v2）
-    await HiveStore.instance.openUntyped(eventsBoxName);
+    // events 改为 untyped（v2）。
+    // 旧设备可能因 frame header 引用已删除的 typeId 而抛 HiveError。
+    // 兜底：捕获后清盘重建。
+    try {
+      await HiveStore.instance.openUntyped(eventsBoxName);
+    } catch (e, st) {
+      debugPrint('[CalendarRepository] events box open failed, resetting: $e\n$st');
+      _eventsBoxReset = true;
+      if (Hive.isBoxOpen(eventsBoxName)) {
+        await Hive.box<dynamic>(eventsBoxName).close();
+      }
+      await Hive.deleteBoxFromDisk(eventsBoxName);
+      await HiveStore.instance.openUntyped(eventsBoxName);
+    }
     await HiveStore.instance.openTyped<Person>(
       peopleBoxName,
       adapter: PersonAdapter(),

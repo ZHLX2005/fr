@@ -8,9 +8,13 @@ import 'package:xiaodouzi_fr/lab/demos/calendar/domain/person_patch.dart';
 
 /// v1 → v2 一次性迁移。
 ///
-/// 读取老 Hive `events` box 里的每条记录（v1 是 typed `Event` 对象；
-/// v2 改为 untyped Map 后，这里接受 `Map`/`Event`/其它任何值），
-/// 尽力识别 v1 形态转 v2 EventDraft。无法识别的记录收集到 droppedIds。
+/// 读取老 Hive `events` box 里的每条记录：
+/// - Map 形态（新装设备的 v2 写盘）：正常 v1→v2 字段映射。
+/// - Event 实例（v1 typed 写盘 → v2 用 Box<dynamic> 读取）：用反射（dynamic
+///   字段访问）抽取 v1 字段。删除/重命名的字段读不到 → 用默认值。
+/// - 其它类型：dropped。
+///
+/// 无法识别的记录收集到 droppedIds。
 ///
 /// v1 → v2 字段映射：
 ///   recurrence=yearly + system=solar  → Period.yearly + SolarAnchor
@@ -43,24 +47,97 @@ class EventV1Migration {
   }
 
   static String _idOf(dynamic raw, {required int fallbackIndex}) {
+    try {
+      final id = (raw as dynamic).id;
+      if (id is String) return id;
+    } catch (_) {}
     if (raw is Map && raw['id'] is String) return raw['id'] as String;
     return 'unknown_$fallbackIndex';
   }
 
   static EventDraft? _tryDecode(dynamic raw, {CalendarConfig? config}) {
-    if (raw is! Map) return null;
-    final m = Map<String, dynamic>.from(raw);
+    // 1) Map 形态
+    if (raw is Map) {
+      return _fromMap(Map<String, dynamic>.from(raw), config: config);
+    }
+    // 2) 旧 v1 Event 实例（typed box → dynamic 读取）
+    if (raw != null && raw is! String && raw is! num && raw is! bool) {
+      try {
+        final m = _readTypedFields(raw);
+        if (m == null) return null;
+        return _fromMap(m, config: config);
+      } catch (e) {
+        // ignore: avoid_print
+        print('[EventV1Migration] typed decode failed: $e');
+        return null;
+      }
+    }
+    return null;
+  }
 
+  /// 用反射从 typed v1 Event 对象读字段；任何字段缺失都返回 null（不是异常）。
+  static Map<String, dynamic>? _readTypedFields(dynamic raw) {
+    String? id;
+    String? title;
+    try { id = (raw as dynamic).id as String?; } catch (_) {}
+    try { title = ((raw as dynamic).title as String?)?.trim(); } catch (_) {}
+    if (id == null || title == null || title.isEmpty) return null;
+    String typeStr = 'custom';
+    try { typeStr = ((raw as dynamic).type?.toString()) ?? 'custom'; } catch (_) {}
+    String sysStr = 'solar';
+    try { sysStr = ((raw as dynamic).system?.toString()) ?? 'solar'; } catch (_) {}
+    int? year, month, day;
+    int? everyNDays;
+    int? lunarAnchorYear;
+    bool? isLeap;
+    String? note, personId, groupId;
+    String recStr = 'none';
+    String colorStr = 'gray';
+    try { year = _safeInt((raw as dynamic).year); } catch (_) {}
+    try { month = _safeInt((raw as dynamic).month); } catch (_) {}
+    try { day = _safeInt((raw as dynamic).day); } catch (_) {}
+    try { recStr = ((raw as dynamic).recurrence?.toString()) ?? 'none'; } catch (_) {}
+    try { colorStr = ((raw as dynamic).colorTag?.toString()) ?? 'gray'; } catch (_) {}
+    try { everyNDays = _safeInt((raw as dynamic).everyNDays); } catch (_) {}
+    try { isLeap = (raw as dynamic).isLeap as bool?; } catch (_) {}
+    try { lunarAnchorYear = _safeInt((raw as dynamic).lunarAnchorYear); } catch (_) {}
+    try { note = (raw as dynamic).note as String?; } catch (_) {}
+    try { personId = (raw as dynamic).personId as String?; } catch (_) {}
+    try { groupId = ((raw as dynamic).groupId as String?) ?? 'default'; } catch (_) {}
+    return {
+      'id': id,
+      'title': title,
+      'type': typeStr,
+      'system': sysStr,
+      'year': year,
+      'month': month,
+      'day': day,
+      'recurrence': recStr,
+      'colorTag': colorStr,
+      'everyNDays': everyNDays,
+      'isLeap': isLeap,
+      'lunarAnchorYear': lunarAnchorYear,
+      'personId': personId,
+      'groupId': groupId,
+      'note': note,
+    };
+  }
+
+  static int? _safeInt(dynamic v) {
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    return null;
+  }
+
+  static EventDraft? _fromMap(Map<String, dynamic> m, {CalendarConfig? config}) {
     final title = (m['title'] as String?)?.trim();
     if (title == null || title.isEmpty) return null;
 
     final type = _parseType(m['type'] as String?);
 
-    // system
     final sys = (m['system'] as String?) ?? 'solar';
     final isLunar = sys == 'lunar';
 
-    // date parts (v1 stores solar-style month/day in calendar of `system`)
     final month = m['month'] as int?;
     final day = m['day'] as int?;
     if (month == null || day == null) return null;
@@ -73,14 +150,11 @@ class EventV1Migration {
         ? int.parse(config!.startDateIso!.substring(0, 4))
         : DateTime.now().year);
 
-    // color
     final color = _parseColor(m['colorTag'] as String?);
 
-    // recurrence + period
     Anchor anchor;
     Period period;
     if (everyNDays != null) {
-      // every-N-days solar
       anchor = AnchorFactory.solar(month: month, day: day, year: anchorYear);
       period = PeriodFactory.everyNDays(n: everyNDays);
     } else {
@@ -101,7 +175,6 @@ class EventV1Migration {
           period = PeriodFactory.yearly();
           break;
         case 'manual':
-          // drop solarYearOffset (lossy)
           anchor = AnchorFactory.solar(month: month, day: day, year: anchorYear);
           period = PeriodFactory.yearly();
           break;
@@ -112,17 +185,12 @@ class EventV1Migration {
       }
     }
 
-    final people = <PersonPatch>[];
-    final personId = m['personId'] as String?;
-    // 老数据里只有 personId 指针，patch 字段暂时缺失；解析器后置 resolve。
-
     return EventDraft(
       title: title,
       type: type,
       anchor: anchor,
       period: period,
       colorTag: color,
-      people: people,
       note: m['note'] as String?,
     );
   }
