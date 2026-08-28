@@ -136,6 +136,7 @@ void _onPointerDown(Offset pos, double cs, double dist) {
 | **确认按钮 `ConfirmActions`** | **移出 flip 层**，传入坐标 `y → 8-y` 镜像 | flip 会把按钮 top 上下镜像（视觉对称反向） | 原样传入 |
 | `PlayerPanel` | `rotated: false`，不翻转 | 面板始终底部，棋盘翻转代替 | 同 |
 | 终局消息 | 用 `_imTop` 推"我方/对方" | 角色感知，host 视觉翻转后"上方"语义错位 | 同 |
+| **棋子图标朝向** | **保留内置 `flipped` 标记（如 `piece.color == PlayerColor.red`）** | 详见 §4.5 — 外层 `Transform.flip` 会和内置翻转**对消** | 同 host 列 |
 
 ### 确认按钮为什么特殊？
 
@@ -167,6 +168,75 @@ Widget _buildConfirmActions(double cs, double boardSize, BoardThemeData theme) {
 ```
 
 > 🟡 `Positioned` widget 必须是 `Stack` 的**直接**子节点，不能被 `Transform` 包裹（否则布局报错）。这是把 ConfirmActions 移出 flip 层的另一个技术原因。
+
+---
+
+## 4.5 棋子图标对称 — 内置 `flipped` 和外层 `Transform.flip` 的对消
+
+> 从斗兽棋互联网版沉淀：棋子图标的"对自己正 / 对对方反"语义在 LAN 和互联网两种模式下是**天然兼容**的。
+
+### 经典 LAN 设计
+
+LAN 面对面坐，两人共享一块屏幕。设计师约定：棋子图标的"正"方向是给**棋子所属方**看的。渲染时：
+
+```dart
+// JunglePieceWidget
+Transform.rotate(
+  angle: flipped ? math.pi : 0,  // flipped = piece.color == PlayerColor.red
+  child: Image.asset(piece.assetPath),
+)
+```
+
+**效果**：
+- LAN 蓝方视角：己方（蓝）棋子不翻转 → 自己看的动物是正的；对方（红）棋子旋转 180° → 看着对面玩家
+- LAN 红方视角：刚好相反
+
+### 互联网模式的兼容
+
+互联网模式下，整块棋盘按 §2 翻转了 180°（host 端 `Transform.flip`）。棋子的内置 `flipped` 标记 **继续生效**（因为 JungleBoard 在 flip 子树内），产生**双重翻转对消**：
+
+| 客户端 | 棋子 | 内置 flipped | 外层 flip | 视觉朝向 |
+|--------|------|--------------|-----------|----------|
+| **host**（top=red） | 自己的红子 | 旋转 180° | 旋转 180° | **正向**（己方看着自己） |
+| **host**（top=red） | 对方的蓝子 | 不旋转 | 旋转 180° | **反向**（看着对面玩家） |
+| **guest**（bottom=blue） | 自己的蓝子 | 不旋转 | 不旋转 | **正向**（己方看着自己） |
+| **guest**（bottom=blue） | 对方的红子 | 旋转 180° | 不旋转 | **反向**（看着对面玩家） |
+
+**结论**：互联网模式直接复用 LAN 的 JunglePieceWidget，**零额外代码**——只要"自己正、对方反"是正确语义。`flipped = piece.color == PlayerColor.red`（或 bottom 之外的颜色）这种 LAN 写法**不需要任何改动**就能在互联网模式下工作。
+
+### 反模式：互联网模式下"自己棋子也翻"
+
+> 🟡 不要写 `flipped: piece.color == state.currentTurn` 或 `flipped: !isMine`。这会让**自己棋子反向**、**对方棋子正向**——和直觉完全相反。
+
+```dart
+// ❌ 反模式（互联网模式下）
+flipped: !isMine
+// 自己棋子 → flipped → 外层再翻 → 双重翻转对消 → 正向 ✓
+// 对方棋子 → 不翻 → 外层翻 → 反向 ✓
+// ……看起来对？但 _imTop 不同时方向相反。host 端自己的红子是 !isMine = true，
+//   flipped=true → 外层翻 → 对消成正向 ✓
+//   guest 端自己的蓝子是 !isMine = false，
+//   flipped=false → 外层不翻 → 正向 ✓
+//   这个写法**碰巧**也对，但耦合了"isMine"和"颜色"，不易维护。
+
+// ✅ 正确（沿用 LAN 写法）
+flipped: piece.color == PlayerColor.red  // 或任意非 top 方颜色
+// 直接基于颜色语义，不依赖 isMine 派生。LAN / 互联网共用同一行代码。
+```
+
+### 何时必须自己写翻转
+
+如果棋子的"正方向"对**当前玩家视角**而言需要翻转（例如中国象棋的红黑双方字面朝向）：
+
+```dart
+// 例如：棋子上的"帅"字应该正对**当前玩家**——host 看自己的帅字是正的
+Transform.rotate(
+  angle: (isMyTurn || isMine) ? 0 : math.pi,
+  child: ...,
+)
+```
+
+**判断方法**：问"我的棋子上的字/图，应该是**我**看正，还是**对面的对方**看正"。前者用 `isMine`；后者用内置 LAN 写法（颜色派别）。
 
 ---
 

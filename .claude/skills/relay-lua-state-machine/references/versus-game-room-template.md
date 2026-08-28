@@ -515,13 +515,12 @@ Widget build(BuildContext context) {
 **核心三件套**（不变）：
 
 1. **回合状态条**（顶部）：`轮到你（黑方）落子` / `等待白方落子…` + 我方颜色标识
-2. **棋盘 + 落子交互**（见 §4 游戏特化）
+2. **棋盘 + 落子交互**：统一手势范式（点击选中 + 二次点击落子 / 长按拖动）—— 见 [[board-gesture-patterns]] ref
 3. **底部操作栏**：认输 / 重新开始（host）/ 退出，全走 `_canPerform(action)`
 
-**落子必须确认**（两步）：
-- 点击/拖动 → `_pending` 待确认状态（半透明预览）
-- 确认按钮 → 发 MOVE；取消 → 清 pending
-- **回合切换自动清 pending**（防跨回合残留）
+**落子是否需要确认**：
+- **无需确认**（推荐）：斗兽棋 / 围棋等走法靠引擎校验（非法目标根本不响应），直接落子 UX 更紧
+- **需要确认**（特殊场景）：五子棋（落错不可逆）+ 用户的强需求场景；按"五子棋两步确认"流程
 
 > 五子棋曾因"点击直接落"被用户要求改回确认——落错不可逆，必须有确认。
 
@@ -530,6 +529,176 @@ Widget build(BuildContext context) {
 - 胜负消息**角色感知**：`我方获胜！` / `对方获胜`（用 `imRole == winner` 推，不用"上方/下方"）
 - 半透明遮罩 + 棋盘背景（保留终局棋面）
 - 房主：`再来一局` 按钮；客方：`等待房主开始下一局…` 文字
+
+---
+
+### 3.5 底部状态条：WS 连接检测 + 手动拉取快照（互联网对战通用）
+
+> 从斗兽棋互联网版沉淀：长对局中 WS 偶尔抖动，但 HTTP 还可用；让用户**看到**连接状态并能**手动拉一次**最新 snapshot 是必要的人机协作。
+
+**为什么需要**：
+- WS 推送不可靠时（弱网 / 服务端压力 / 客户端切后台），用户不知道"是不是我卡了还是对方卡了"
+- 历史快照陈旧会让用户以为"我刚落的子没生效"——能拉一次就放心
+- 调试时定位"是 WS 收不到还是 HTTP 推不到"很有用
+
+**RoomHandle API（已内置）**：
+
+```dart
+// 监听连接事件
+handle.closeEvents.listen((e) {
+  // WS 关闭，UI 更新成"已断开"
+});
+
+// 主动拉一次最新 snapshot（绕过 WS 推送）
+Future<Snapshot> fetchSnapshot() async {
+  final snap = await transport.fetchSnapshot(code);
+  latest = snap;
+  if (!_snapshotsCtrl.isClosed) _emitSnapshot(snap);
+  return snap;
+}
+
+// 当前 WS 状态（仅作 UI 提示用，不参与控制流）
+bool get isConnected;
+```
+
+**底部状态条设计**（28px 固定高度，避免撑动下方操作栏）：
+
+```
+┌─────────────────────────────────────────────┐
+│  ●  已连接        [☁ 拉取最新快照]          │  ← 绿点（primary）
+├─────────────────────────────────────────────┤
+│  ●  已断开 · 自动重连中  [� 拉取中…]       │  ← 红点（error）
+└─────────────────────────────────────────────┘
+```
+
+**Flutter 落地关键点**：
+
+```dart
+class _OnlineGamePageState extends State<OnlineGamePage> {
+  StreamSubscription<Snapshot>? _sub;
+  StreamSubscription<WSCloseEvent>? _closeSub;
+  bool _wsConnected = false;
+  bool _pullingSnapshot = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _wsConnected = widget.handle.isConnected;
+    _sub = widget.handle.snapshots.listen(_onSnapshot);
+    _closeSub = widget.handle.closeEvents.listen(_onWSClose);
+  }
+
+  void _onSnapshot(Snapshot s) {
+    if (!mounted) return;
+    setState(() {
+      _snap = s;
+      _rebuild(s);
+      _wsConnected = widget.handle.isConnected;  // snapshot 到达 = WS 通
+    });
+    ...
+  }
+
+  void _onWSClose(WSCloseEvent _) {
+    if (!mounted) return;
+    setState(() => _wsConnected = widget.handle.isConnected);
+  }
+
+  Future<void> _pullSnapshot() async {
+    if (_pullingSnapshot) return;  // 防双击
+    setState(() => _pullingSnapshot = true);
+    try {
+      await widget.handle.fetchSnapshot();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('拉取快照失败（HTTP）'), duration: Duration(seconds: 2)),
+      );
+    } finally {
+      if (mounted) setState(() => _pullingSnapshot = false);
+    }
+  }
+
+  Widget _buildConnectionBar(BoardThemeData theme, BuildContext context) {
+    final dotColor = _wsConnected
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.error;
+    final statusText = _wsConnected ? '已连接' : '已断开 · 自动重连中';
+    return SizedBox(
+      height: 28,
+      child: Container(...child: Row(children: [
+        Container(width: 8, height: 8, decoration: BoxDecoration(
+          color: dotColor, shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: dotColor.withValues(alpha: 0.6), blurRadius: 4)],
+        )),
+        const SizedBox(width: 8),
+        Text(statusText, ...),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: _pullingSnapshot ? null : _pullSnapshot,
+          icon: _pullingSnapshot
+              ? SizedBox(width: 12, height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5, color: theme.btnSub))
+              : Icon(Icons.cloud_download_outlined, size: 14, color: theme.btnSub),
+          label: Text(_pullingSnapshot ? '拉取中…' : '拉取最新快照', ...),
+          ...
+        ),
+      ])),
+    );
+  }
+}
+```
+
+**反模式**：
+- ❌ 不用 `_wsConnected` 参与控制流（"WS 断了就不让用户操作"）—— 用户体验差；HTTP 也能用
+- ❌ 拉取失败弹错误对话框 —— 静默 snackbar 即可，状态条上保留红点 + "已断开"提示用户重试
+- ❌ 用 `_sub` 的"最近一次收到时间"推算连接状态 —— 不准确（snapshot 间隔可能 >30 秒）；直接读 `handle.isConnected`
+
+**何时不显示**：
+- lobby / ready / ended 阶段不显示 WS 状态条（这些阶段玩家不在做实时操作）
+- 如果游戏不需要实时（协作笔记、投票），也不需要
+
+---
+
+### 3.6 落子音接入（互联网对战通用）
+
+> 从斗兽棋互联网版沉淀：和本地版共用同一个 `PieceSound.instance`（单 AudioPlayer + seek+play），无需重写。
+
+**3 个接入点**：
+
+```dart
+@override
+void initState() {
+  super.initState();
+  PieceSound.instance.preload();  // 1) 预加载，消除首次落子延迟
+  ...
+}
+
+void _onLocalMoveConfirmed(Coord from, Coord to) {
+  ...
+  PieceSound.instance.play();  // 2) 本地立即响（不等服务端回包）
+  _room.move(rec);
+}
+
+void _onSnapshot(Snapshot s) {
+  ...
+  if (_history.length > prevHistoryLen) {
+    PieceSound.instance.play();  // 3) snapshot 增长 = 对方落子（也可能自己落子的回包）
+  }
+}
+```
+
+**为什么 3 个接入点**：
+- **`preload()`**：避免首次落子时 AudioPlayer seek+play 卡顿
+- **本地立即 `play()`**：响应感更紧，手指松开瞬间就有声音（不等服务端回包）
+- **snapshot 增长再 `play()`**：对方落子也能听到；自己的本地 play 可能和服务端回包错开（双重触发无副作用——单 AudioPlayer seek+play 会重新从头放）
+
+**复用现有资源**：
+- `PieceSound` 是五子棋 / 围棋 / 斗兽棋本地版共用的单例，不需要每个游戏自己写 AudioPlayer
+- 直接 `import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';` 即可
+
+**何时不接入**：
+- 工具型 demo（协作笔记 / 投票）不需要落子音
+- 多人对战（4 人+）每步都响可能太吵——按需开启
 
 ---
 

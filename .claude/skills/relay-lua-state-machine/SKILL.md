@@ -13,10 +13,11 @@ description: Relay-v3 Lua 状态机接入指南。新增一个互联网房间业
 | ref | 何时读取 |
 |---|---|
 | [[team-card-lobby-pattern]] | **实现"大厅 + 身份 + 就绪门 + 双区"类业务时**（团建卡牌、狼人杀、谁是卧底、观众制直播、回合制棋牌）。包含 4 个可组合机制：私有身份分配（`assignments`）、ACK/UNACK 就绪门、双区槽位（`zones`）、SIT 换区。还含前端 `TeamCardRoom` 语义封装 + widget 分文件模板。 |
-| [[role-aware-board-mirror]] | **实现"对称对战棋盘"类业务时**（围追堵截/国际象棋/围棋/五子棋/军棋——双方都看到"自己在底部"）。这是**逐元素翻转决策**，不是统一镜像：触摸坐标手动镜像、确认按钮移出 flip 层、终局消息用角色推。含完整翻转决策表 + 围追堵截 4 轮 fix 踩坑时间线。 |
+| [[role-aware-board-mirror]] | **实现"对称对战棋盘"类业务时**（围追堵截/国际象棋/围棋/五子棋/军棋——双方都看到"自己在底部"）。这是**逐元素翻转决策**，不是统一镜像：触摸坐标手动镜像、确认按钮移出 flip 层、终局消息用角色推。还含**棋子图标对称**（LAN `flipped` 标记和外层 `Transform.flip` 的对消）+ 围追堵截 4 轮 fix 踩坑时间线。 |
+| [[board-gesture-patterns]] | **实现"棋盘手势交互"时**（象棋 / 国际象棋 / 中国象棋等需要"点击选中 → 二次点击落子"的预备范式）。统一手势层：点击选中 + 二次点击落子 + 长按拖动 + 悬停预览 + 非法目标静默拒绝。含 4 phase 状态机 + JungleBoard 单 GestureDetector 设计 + 4 轮踩坑记录。 |
 | [[server-authoritative-client-state]] | **所有 v3 互联网房间业务的"上游原则"**——客户端"我是谁/谁赢了/谁是房主"不能自查，必须用服务端权威字段（`host_id`/`top_player_id`/`winner`）。含 3 类典型自查 bug 案例（imTop/WIN/isHost）+ 乐观更新合法用法 + 围追堵截踩坑时间线。**任何业务先读这一篇。** |
 | [[action-permission-table]] | ⚠️ **成熟期优化，前期不推荐**——当 action 多（≥5）、规则稳定、出现"无效按钮"UX bug 时才引入。把"谁能做哪个 action"收敛到服务端 `c.action_permissions` 单一表 + `role_check` helper，客户端 `canPerform(action)` 单点消费，零特判代码。是 [[server-authoritative-client-state]] 的"怎么做"落地篇。含 5 种角色规则 + 服务端/客户端双保险 + 迁移步骤 + ★何时引入判断。 |
-| [[versus-game-room-template]] | **从 0 实现一个 2 人互联网对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋）时通读。端到端模板：六件套文件结构 + Lua 状态机/权限表设计 + 四阶段 UX 交互（lobby/ready/playing/ended）+ 胜负判定模式 + widget 抽象边界 + 新游戏 checklist。综合调用前 4 个 ref。 |
+| [[versus-game-room-template]] | **从 0 实现一个 2 人互联网对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋）时通读。端到端模板：六件套文件结构 + Lua 状态机/权限表设计 + 四阶段 UX 交互（lobby/ready/playing/ended）+ 胜负判定模式 + widget 抽象边界 + 新游戏 checklist。还含**WS 连接状态条 + 手动拉取快照**（§3.5）和**落子音接入**（§3.6）两节通用增强。综合调用前 4 个 ref。 |
 | [[social-room-code-pattern]] | **实现"用户自行约定房间号 + 第一个进入自动成为房主"的双人对战时**通读（社交场景：微信群喊号/线下面对面）。含服务端 `requested_code` 撞号机制、Lua `max_players` + `rejected_join` 完整写法、客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示、`.tool/relay-room-tester` 11 个端到端验证场景。是 `[[versus-game-room-template]]` 的"双方输入同一号码谁先到谁是房主"特化版。 |
 
 ---
@@ -329,3 +330,14 @@ await handle.applyAction(
 | snapshot 不更新                 | 检查 Lua handler 是否`return c`                                |
 
 诊断工具：项目 `.tool/relay-v3-simulator/scripts/prove_bug.py` 验证后端 / `relay_v3_sim.py` 跑全流程。
+
+---
+
+### [2026-08-28] key_board_3 操作教训
+
+| 错误操作 | 实际后果 | 正确做法 |
+|---------|---------|---------|
+| 把"图标对称"也独立成一个 ref | 和 `role-aware-board-mirror` 翻转决策表重复（都属于"棋盘对称"主题） | 在 `role-aware-board-mirror` 加 §4.5 一节，沿用其"翻转决策表"框架 |
+| 把"手势层"塞进 `versus-game-room-template` | 200+ 行让端到端模板臃肿，且未来"非对战棋盘"（围棋布局编辑器 / 解谜）也要用 | 独立 `board-gesture-patterns` ref，按"主题判据"（不是"内容多少"）拆 |
+| 把"WS 检测 + 快照拉取"独立成 ref | 适用范围狭窄（只互联网对战），但 `versus-game-room-template` 已经是"对战通用模板"，扩 §3.5 一节即可 | 扩 `versus-game-room-template.md`，加 §3.5 WS 状态条 + §3.6 落子音 |
+| 把"音效"独立成 ref | 所有 4 个对战游戏都用同一个 `PieceSound`，不是 relay-v3 协议相关 | 同样扩 §3.6，不另起 ref |
