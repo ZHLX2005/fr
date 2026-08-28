@@ -22,7 +22,7 @@ class RoseColors {
     onTertiary: Color(0xFF1E3A36),
     tertiaryContainer: Color(0xFFD8E9E5),
     onTertiaryContainer: Color(0xFF143B36),
-    surface: Color(0xFFFFFFFF),
+    surface: Color(0xFFFFF9F9), // 暖粉白 lerp(primaryContainer→白, 0.88)：纯白偏冷，取暖粉基调
     onSurface: Color(0xFF3A2A2D),
     onSurfaceVariant: Color(0xFF8A6F74),
     surfaceContainerHighest: Color(0xFFEDD8DC),

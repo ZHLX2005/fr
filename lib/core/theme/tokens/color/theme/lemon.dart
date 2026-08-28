@@ -22,7 +22,7 @@ class LemonColors {
     onTertiary: Color(0xFF1B5E20),
     tertiaryContainer: Color(0xFFE8F5E9),
     onTertiaryContainer: Color(0xFF1B5E20),
-    surface: Color(0xFFFFFFFF),
+    surface: Color(0xFFFFFEF8), // 暖乳白 lerp(primaryContainer→白, 0.88)：纯白偏冷，取暖乳基调
     onSurface: Color(0xFF37474F),
     onSurfaceVariant: Color(0xFF78909C),
     surfaceContainerHighest: Color(0xFFFFFDE7),
