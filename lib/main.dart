@@ -24,6 +24,7 @@ import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
+import 'core/chess/chess.dart';
 
 /// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -44,6 +45,10 @@ Future<dynamic> _handleRootMethodCall(MethodCall call) async {
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 注册国际象棋皮肤（const catalog → RemoteChessSkin）。
+  // 必须在任何 chess UI 构建之前调用；这里走"启动期一次性"语义。
+  ChessSkinBundle.registerHardcoded();
 
   // ★ Layer-2 修复：FrNavigator.handle 内部依赖的 _navigatorKey static 字段
   // 必须由 setNavigatorKey() 显式注入,否则任何 FrNavigator.handle(...) 走到
