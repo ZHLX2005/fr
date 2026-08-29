@@ -262,4 +262,41 @@ void main() {
     expect(countSquaresOfColor(tester, themeSelected), 1,
         reason: '选中格高亮未自定义 → 仍走主题 selectedSquare');
   });
+
+  // ─────────────── 高亮污染：一格只落一色（选中 > 上一步 > 自定义格色） ───────────────
+
+  testWidgets('既是选中又是上一步 from/to → 只显示选中色（优先级单色，不叠加）',
+      (tester) async {
+    ChessSkinBundle.registerHardcoded();
+    final skin = ChessSkinBundle.byId(kChessSkinsCatalog[0].id);
+
+    // e2 既是上一步 from（e2e4），又被选中 → 只应显示 selectedSquare 一色，
+    // 不得出现 selectedSquare 与 lastMoveHighlight 之外的"叠加污染色"。
+    const from = 52; // e2
+    const to = 36; // e4
+    await tester.pumpWidget(host(
+      skin: skin,
+      selectedSquare: from,
+      lastMove: const Move(from: from, to: to),
+      boardPalette: const BoardPalette(
+        lightSquare: Color(0xFFAA0000),
+        darkSquare: Color(0xFF0000AA),
+      ),
+    ));
+    await tester.pump();
+
+    final scheme =
+        Theme.of(tester.element(find.byType(ChessBoard))).colorScheme;
+    final theme = DefaultChessColorStrategy.of(scheme);
+    expect(
+      countSquaresOfColor(tester, theme.selectedSquare),
+      1,
+      reason: '选中优先：e2 一格显示 selectedSquare',
+    );
+    expect(
+      countSquaresOfColor(tester, theme.lastMoveHighlight),
+      1,
+      reason: 'e4（上一步 to，未被选中）显示 lastMoveHighlight',
+    );
+  });
 }

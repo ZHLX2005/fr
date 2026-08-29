@@ -127,11 +127,18 @@ class FakeRoomHandle extends RoomHandle {
     if (failWith409) {
       throw RelayV3Exception(409, 'version conflict');
     }
-    // 成功路径：模拟服务端把 MOVE 的 fen/status 写回 context。
+    // 成功路径：模拟服务端把 MOVE 的 fen/status 写回 context + 追加棋谱。
     if (type == 'MOVE') {
       final ctx = Map<String, dynamic>.from(latest?.context ?? {});
       ctx['fen'] = params['fen'];
       ctx['status'] = params['status'];
+      final moves = List<dynamic>.from(latest?.context['moves'] ?? const []);
+      moves.add({
+        'uci': params['uci'],
+        'by': sourceDeviceId ?? transport.deviceId,
+        'ts': DateTime.now().millisecondsSinceEpoch,
+      });
+      ctx['moves'] = moves;
       final next = Snapshot(
         roomCode: code,
         scriptHash: latest?.scriptHash ?? '',
@@ -166,6 +173,7 @@ Snapshot makeSnapshot({
   String? hostId,
   String? guestId,
   String? winner,
+  List<dynamic> moves = const [],
 }) {
   return Snapshot(
     roomCode: code,
@@ -179,7 +187,7 @@ Snapshot makeSnapshot({
         if (guestId != null) guestId: 'guest',
       },
       'fen': fen,
-      'moves': <dynamic>[],
+      'moves': moves,
       'draw_offers': <dynamic>{},
       'status': status,
       if (winner != null) 'winner': winner,
@@ -581,6 +589,109 @@ void main() {
 
     expect(find.text('再来一局'), findsNothing);
     expect(find.widgetWithText(OutlinedButton, '返回'), findsOneWidget);
+  });
+
+  // ─────────────── 合规修复：上一步高亮从服务端棋谱派生（不残留本方旧高亮） ───────────────
+
+  testWidgets('对方走子快照（moves 追加）→ lastMove 高亮跟到最新一手', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    ChessBoard board() => tester.widget<ChessBoard>(find.byType(ChessBoard));
+    // 初始：空棋谱 → 无上一步高亮
+    expect(board().lastMove, isNull);
+
+    // 我方（host）走 e2-e4 后：棋谱 [e2e4]，高亮 e2/e4。
+    const fen1 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: fen1,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        moves: const [
+          {'uci': 'e2e4', 'by': 'd-host', 'ts': 1},
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    var lm = board().lastMove;
+    expect(lm, isNotNull);
+    expect(lm!.from, squareToIndex('e2'));
+    expect(lm.to, squareToIndex('e4'));
+
+    // 对方（guest）回应 d7-d5：棋谱追加，高亮必须跟到 d7/d5 ——
+    // 不得残留本方的 e2/e4（旧版 _lastMove 本地持有 → 污染）。
+    const fen2 =
+        'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2';
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: fen2,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        moves: const [
+          {'uci': 'e2e4', 'by': 'd-host', 'ts': 1},
+          {'uci': 'd7d5', 'by': 'd-guest', 'ts': 2},
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    lm = board().lastMove;
+    expect(lm, isNotNull);
+    expect(lm!.from, squareToIndex('d7'), reason: '高亮跟随最新一手（对方 d7d5）');
+    expect(lm.to, squareToIndex('d5'));
+  });
+
+  testWidgets('RESET 后空棋谱 → lastMove 清空（无残留高亮）', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 终局 → 再来一局 → RESET → 服务端清空 moves 回新一局。
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'checkmate',
+        state: 'ended',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        winner: 'd-host',
+        moves: const [
+          {'uci': 'e2e4', 'by': 'd-host', 'ts': 1},
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('再来一局'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '再来一局'));
+    await tester.pump();
+
+    // RESET 后新快照：moves 空 → lastMove 必须为 null。
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        state: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        moves: const [],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.lastMove, isNull, reason: 'RESET 清棋谱 → 上一步高亮消失');
   });
 
   // ─────────────── 合规修复：WS 状态条（RelayConnectionBar）存在 ───────────────

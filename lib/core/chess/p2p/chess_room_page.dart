@@ -175,6 +175,11 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       }
     }
 
+    // 1.5 上一步高亮：永远从服务端权威棋谱 moves 的最后一条派生 ——
+    //    不缓存本地值。对手走子后快照重建，高亮跟到最新一手
+    //    （旧版 _lastMove 只在本地走子时更新，对手回合时残留本方上一步 → 污染）。
+    _lastMove = _latestMoveFrom(snap);
+
     // 2. 阵营：host = 白方，guest = 黑方（每次快照重算）。
     final myColor = _resolveMyColor(snap);
     _myColor = myColor;
@@ -201,13 +206,30 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       _gameOverShown = false;
     }
 
-    // 6. 服务端 RESET 后（ended → playing）：清掉本局本地状态（上一步高亮 / 发送锁）。
-    //    只在整个房间从"终局"回到"进行中"时清，普通走子（playing → playing）不清。
+    // 6. 服务端 RESET 后（ended → playing）：清掉本局本地状态（发送锁）。
+    //    上一步高亮由 [._latestMoveFrom] 从新棋谱派生（RESET 清空 moves → null）。
     if (_prevState == 'ended' && snap.state != 'ended') {
-      _lastMove = null;
       _sendLock = false;
     }
     _prevState = snap.state;
+  }
+
+  /// 从服务端权威棋谱 context['moves'] 取最后一手（from/to）→ 上一步高亮。
+  ///
+  /// moves 形如 `[{uci: "e2e4", by: ..., ts: ...}, ...]`，追加式唯一走法权威。
+  /// 解析失败 / 空棋谱 → null（无高亮）。
+  Move? _latestMoveFrom(Snapshot snap) {
+    final raw = snap.context['moves'];
+    if (raw is! List || raw.isEmpty) return null;
+    final last = raw.last;
+    if (last is! Map) return null;
+    final uci = last['uci']?.toString();
+    if (uci == null || uci.length < 4) return null;
+    try {
+      return Move.fromUci(uci);
+    } on ArgumentError {
+      return null; // 畸形 uci —— 防御：不高亮。
+    }
   }
 
   /// 判定本地棋子颜色：host = 白，guest = 黑。
