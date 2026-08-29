@@ -7,10 +7,14 @@
 //   · 把每个非空格子的 [BoardState.cells] 通过 [ChessSkin] 找 [ImageProvider]
 //     渲染 [ChessPiece]
 //   · tap 通过 [onSquareTap] 透传（1D index）
+//   · 拖动（board-gesture-patterns）：传入 [onDragSquareStart]/[onDragSquareEnd]
+//     后挂顶层手势层 —— tap + pan 收敛到单一 GestureDetector，pan 坐标
+//     （翻转感知）转成 1D index 回调；浮起棋子由 [draggingSquare]/
+//     [dragFingerPos] 参数驱动，跟手渲染。
 //
 // 不负责：
 //   · 走法生成（[ChessEngine]）
-//   · 选中态管理（[ChessController]）
+//   · 选中态管理（[ChessController] / 对弈页拥有）
 //   · 升变面板（v2）
 //
 // 颜色走 [context.chessColors]（v6.2.1 第 6 strategy 通道）：
@@ -88,6 +92,31 @@ class ChessBoard extends StatelessWidget {
   /// 点击回调（1D index）。
   final void Function(int square)? onSquareTap;
 
+  /// 拖动开始：手指按在某格并开始拖动（square + 手指在 8x8 网格局部坐标）。
+  ///
+  /// 非 null 时棋盘挂顶层手势层（tap + pan 收敛单一 GestureDetector），
+  /// tap 仍走 [onSquareTap]（选中-点击两段式保持不变）。
+  /// 合法性 / 回合门由调用方判定（棋盘只做翻转感知的坐标映射）。
+  final void Function(int square, Offset fingerPos)? onDragSquareStart;
+
+  /// 拖动移动：手指位置变化（square = 当前命中格；null = 拖出 8x8 网格）。
+  final void Function(int? square, Offset fingerPos)? onDragSquareUpdate;
+
+  /// 拖动结束（手指抬起 / 系统取消）：square = 松手命中格（null = 网格外）。
+  /// 松手在合法目标 → 调用方提交走法；非法 → 调用方弹回（保持选中）。
+  final void Function(int? square, Offset fingerPos)? onDragSquareEnd;
+
+  /// 正在拖动的格子（1D index）：该格棋子隐藏、浮起棋子按 [dragFingerPos]
+  /// 跟手渲染。null = 无拖动。
+  final int? draggingSquare;
+
+  /// 手指在 8x8 网格局部坐标系的实时位置（[onDragSquareStart/Update]
+  /// 回传给本参数）。null = 无拖动。
+  final Offset? dragFingerPos;
+
+  /// 拖动悬停格（1D index）：合法目标在悬停时放大高亮。null = 无。
+  final int? dragHoverSquare;
+
   /// 自定义棋盘配色（可空）。null = 完全跟随主题（旧行为）。
   ///
   /// 优先级：`boardPalette?.X ?? context.chessColors.X`
@@ -104,6 +133,12 @@ class ChessBoard extends StatelessWidget {
     this.legalTargets = const <int>{},
     this.lastMove,
     this.onSquareTap,
+    this.onDragSquareStart,
+    this.onDragSquareUpdate,
+    this.onDragSquareEnd,
+    this.draggingSquare,
+    this.dragFingerPos,
+    this.dragHoverSquare,
     this.boardPalette,
   });
 
@@ -192,6 +227,12 @@ class ChessBoard extends StatelessWidget {
                     legalTargets: legalTargets,
                     lastMove: lastMove,
                     onSquareTap: onSquareTap,
+                    onDragSquareStart: onDragSquareStart,
+                    onDragSquareUpdate: onDragSquareUpdate,
+                    onDragSquareEnd: onDragSquareEnd,
+                    draggingSquare: draggingSquare,
+                    dragFingerPos: dragFingerPos,
+                    dragHoverSquare: dragHoverSquare,
                   ),
                 ),
               ],
@@ -218,16 +259,32 @@ class _BoardGrid extends StatelessWidget {
   final Move? lastMove;
   final void Function(int square)? onSquareTap;
 
+  /// 拖动回调（Start + End 同时非 null 时挂顶层手势层 [_BoardDragLayer]）。
+  final void Function(int square, Offset fingerPos)? onDragSquareStart;
+  final void Function(int? square, Offset fingerPos)? onDragSquareUpdate;
+  final void Function(int? square, Offset fingerPos)? onDragSquareEnd;
+
+  /// 拖动渲染状态（调用方把回调收到的值回传进来）。
+  final int? draggingSquare;
+  final Offset? dragFingerPos;
+  final int? dragHoverSquare;
+
   const _BoardGrid({
     required this.state,
     required this.skin,
     required this.flipped,
     required this.cellSize,
     required this.colors,
-    required this.selectedSquare,
-    required this.legalTargets,
-    required this.lastMove,
-    required this.onSquareTap,
+    this.selectedSquare,
+    this.legalTargets = const <int>{},
+    this.lastMove,
+    this.onSquareTap,
+    this.onDragSquareStart,
+    this.onDragSquareUpdate,
+    this.onDragSquareEnd,
+    this.draggingSquare,
+    this.dragFingerPos,
+    this.dragHoverSquare,
   });
 
   /// 1D index (白方视角) → 屏幕 (col, row)。
@@ -299,12 +356,15 @@ class _BoardGrid extends StatelessWidget {
                       cellSize: cellSize,
                       legalMoveHint: colors.legalMoveHint,
                       captureHint: colors.captureHint,
+                      isDragHover:
+                          draggingSquare != null && dragHoverSquare == idx,
                     ),
                   ),
                 ),
               );
             }(),
-          // 棋子层 —— IgnorePointer 让棋子不抢走下层格子的 tap
+          // 棋子层 —— IgnorePointer 让棋子不抢走下层格子的 tap；
+          // 拖动中的棋子由浮起层跟手渲染，原格留空位（Opacity 0）
           for (var idx = 0; idx < kBoardSquares; idx++)
             if (!state.isEmpty(idx))
               () {
@@ -314,6 +374,8 @@ class _BoardGrid extends StatelessWidget {
                 final pieceColor = PieceSlot.unpackColorEnum(slot);
                 final key = chessSkinKeyOf(pieceColor, type);
                 final image = skin.pieces[key];
+                // 拖动中的原格棋子隐藏（浮起层接管渲染）
+                final hidden = draggingSquare == idx;
                 if (image == null) {
                   // fallback：unicode 字符
                   return Positioned(
@@ -322,10 +384,13 @@ class _BoardGrid extends StatelessWidget {
                     width: cellSize,
                     height: cellSize,
                     child: IgnorePointer(
-                      child: Center(
-                        child: Text(
-                          _unicodeFallback(key),
-                          style: TextStyle(fontSize: cellSize * 0.7),
+                      child: Opacity(
+                        opacity: hidden ? 0 : 1,
+                        child: Center(
+                          child: Text(
+                            _unicodeFallback(key),
+                            style: TextStyle(fontSize: cellSize * 0.7),
+                          ),
                         ),
                       ),
                     ),
@@ -338,17 +403,78 @@ class _BoardGrid extends StatelessWidget {
                   width: cellSize - pad * 2,
                   height: cellSize - pad * 2,
                   child: IgnorePointer(
-                    child: ChessPiece(
-                      image: image,
-                      size: cellSize - pad * 2,
+                    child: Opacity(
+                      opacity: hidden ? 0 : 1,
+                      // 稳定 key（白方视角 1D index）：拖动换格时 Flutter 认出
+                      // 同一棋子，测试也可按 key 精确定位棋子。
+                      child: ChessPiece(
+                        key: ValueKey<String>('piece_$idx'),
+                        image: image,
+                        size: cellSize - pad * 2,
+                      ),
                     ),
                   ),
                 );
               }(),
+          // 拖动浮起棋子：中心钉在手指位置（clamp 棋盘内），放大 1.15"浮起"。
+          // 放在手势层**之后**（Stack 末尾）：松手层/拖动层之前的子项索引稳定，
+          // 拖动开始 setState 插入本子项时不会让手势层元素被按索引回收。
+          if (draggingSquare != null && dragFingerPos != null)
+            _buildDraggingPiece(draggingSquare!, dragFingerPos!),
+          // 顶层手势层（挂载条件 = 拖动回调存在）：tap 透传 + pan 拖动，
+          // opaque 覆盖在格子/棋子之上，避免双 GestureDetector 双触发。
+          // 必须带稳定 key —— 拖动中浮起棋子是动态子项，无 key 时 Stack 按索引
+          // 匹配会把手势层元素回收（拖动中断、pan 被 abort）。
+          if (onDragSquareStart != null && onDragSquareEnd != null)
+            Positioned.fill(
+              key: const ValueKey<String>('chess_board_drag_layer'),
+              child: _BoardDragLayer(
+                cellSize: cellSize,
+                flipped: flipped,
+                onSquareTap: onSquareTap,
+                onDragStart: onDragSquareStart!,
+                onDragUpdate: onDragSquareUpdate,
+                onDragEnd: onDragSquareEnd!,
+              ),
+            ),
         ],
       ),
     );
     return board;
+  }
+
+  /// 拖动中的棋子：圆心钉在手指位置 → 跟手"丝滑"（jungle _buildDraggingPiece 同款）。
+  Widget _buildDraggingPiece(int fromIdx, Offset finger) {
+    final slot = state.slotAt(fromIdx);
+    if (slot == null) return const SizedBox.shrink();
+    final type = PieceSlot.unpackType(slot);
+    final pieceColor = PieceSlot.unpackColorEnum(slot);
+    final key = chessSkinKeyOf(pieceColor, type);
+    final image = skin.pieces[key];
+    final boardW = cellSize * kBoardCols;
+    final boardH = cellSize * kBoardRows;
+    // 圆心 = 手指 → 左上 = 手指 - 半格；clamp 在棋盘内
+    final left = (finger.dx - cellSize / 2).clamp(0.0, boardW - cellSize);
+    final top = (finger.dy - cellSize / 2).clamp(0.0, boardH - cellSize);
+    return Positioned(
+      left: left,
+      top: top,
+      width: cellSize,
+      height: cellSize,
+      child: IgnorePointer(
+        child: Transform.scale(
+          scale: 1.15,
+          child: image != null
+              ? ChessPiece(image: image, size: cellSize)
+              : Center(
+                  child: Text(
+                    _unicodeFallback(key),
+                    style: TextStyle(fontSize: cellSize * 0.7),
+                  ),
+                ),
+        ),
+      ),
+    );
   }
 
   /// 计算 idx 格的背景色覆盖（null = 不覆盖，走默认两色格）
@@ -445,6 +571,9 @@ class _LegalMarker extends StatelessWidget {
   final Color legalMoveHint;
   final Color captureHint;
 
+  /// 拖动悬停在本格：标记放大 + 描边（拖动中的目标点预览）。
+  final bool isDragHover;
+
   const _LegalMarker({
     required this.isLegalTarget,
     required this.hasOpponent,
@@ -452,17 +581,19 @@ class _LegalMarker extends StatelessWidget {
     required this.cellSize,
     required this.legalMoveHint,
     required this.captureHint,
+    this.isDragHover = false,
   });
 
   @override
   Widget build(BuildContext context) {
     if (!isLegalTarget) return const SizedBox.shrink();
-    // 吃子走法 → 圆圈；空格走法 → 圆点
+    // 吃子走法 → 圆圈；空格走法 → 圆点；拖动悬停 → 放大强调
     if (hasOpponent) {
+      final sizeFactor = isDragHover ? 0.95 : 0.85;
       return Center(
         child: Container(
-          width: cellSize * 0.85,
-          height: cellSize * 0.85,
+          width: cellSize * sizeFactor,
+          height: cellSize * sizeFactor,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
@@ -474,18 +605,121 @@ class _LegalMarker extends StatelessWidget {
       );
     }
     if (emptySquare) {
+      final sizeFactor = isDragHover ? 0.46 : 0.32;
       return Center(
         child: Container(
-          width: cellSize * 0.32,
-          height: cellSize * 0.32,
+          width: cellSize * sizeFactor,
+          height: cellSize * sizeFactor,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: legalMoveHint,
+            border: isDragHover
+                ? Border.all(color: captureHint, width: cellSize * 0.05)
+                : null,
           ),
         ),
       );
     }
     return const SizedBox.shrink();
+  }
+}
+
+/// 棋盘顶层手势层 —— 单 GestureDetector 收敛 tap + pan（board-gesture-patterns §3.1）。
+///
+/// 挂在 8x8 网格 Stack 最顶（opaque）：拖动回调存在时由本层接管全部手势 ——
+/// tap 仍透传 [onSquareTap]（选中-点击两段式不变），pan 坐标（翻转感知）
+/// 映射成 1D index 走拖动回调。不做合法性/回合判定（调用方职责）。
+///
+/// 单 GestureDetector 防双触发；[StatefulWidget] 记录最近 pan 位置
+/// （DragEndDetails 无 localPosition，用最后的 update 位置代替）。
+class _BoardDragLayer extends StatefulWidget {
+  const _BoardDragLayer({
+    required this.cellSize,
+    required this.flipped,
+    this.onSquareTap,
+    required this.onDragStart,
+    this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  final double cellSize;
+  final bool flipped;
+  final void Function(int square)? onSquareTap;
+  final void Function(int square, Offset fingerPos) onDragStart;
+  final void Function(int? square, Offset fingerPos)? onDragUpdate;
+  final void Function(int? square, Offset fingerPos) onDragEnd;
+
+  @override
+  State<_BoardDragLayer> createState() => _BoardDragLayerState();
+}
+
+class _BoardDragLayerState extends State<_BoardDragLayer> {
+  /// 最近一次 pan 手指位置（网格局部坐标）；pan end/cancel 用它结算落点。
+  Offset? _lastLocal;
+
+  /// 按下（pan down）时记住的格子 —— pan 识别后 onPanStart 的 localPosition
+  /// 是"已偏移后的当前位置"，不是按下的格子；onPanDown 在按下瞬间触发、
+  /// 坐标准确，保证拖动起点 = 手指按下的那格。
+  int? _downSquare;
+
+  /// 网格局部坐标 → 1D index（翻转感知）；8x8 外返回 null。
+  int? _squareFromLocal(Offset pos) {
+    final cell = widget.cellSize;
+    if (pos.dx < 0 ||
+        pos.dy < 0 ||
+        pos.dx >= cell * kBoardCols ||
+        pos.dy >= cell * kBoardRows) {
+      return null;
+    }
+    final dcol = (pos.dx ~/ cell).clamp(0, kBoardCols - 1);
+    final drow = (pos.dy ~/ cell).clamp(0, kBoardRows - 1);
+    if (widget.flipped) {
+      // 黑方视角：显示 (dcol, drow) ↔ 白方视角 (7-dcol, 7-drow)
+      return (kBoardRows - 1 - drow) * kBoardCols + (kBoardCols - 1 - dcol);
+    }
+    return drow * kBoardCols + dcol;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // tapDown：透传 tap（选中-点击两段式；无拖动时才胜出）
+      onTapDown: (d) {
+        final hit = _squareFromLocal(d.localPosition);
+        if (hit != null) widget.onSquareTap?.call(hit);
+      },
+      // panDown：按下瞬间记录起始格（拖动起点）
+      onPanDown: (d) {
+        _downSquare = _squareFromLocal(d.localPosition);
+        _lastLocal = d.localPosition;
+      },
+      onPanStart: (d) {
+        _lastLocal = d.localPosition;
+        final hit = _downSquare;
+        if (hit != null) widget.onDragStart(hit, d.localPosition);
+      },
+      onPanUpdate: (d) {
+        _lastLocal = d.localPosition;
+        widget.onDragUpdate?.call(
+          _squareFromLocal(d.localPosition),
+          d.localPosition,
+        );
+      },
+      onPanEnd: (_) {
+        final last = _lastLocal ?? Offset.zero;
+        widget.onDragEnd(_squareFromLocal(last), last);
+        _lastLocal = null;
+        _downSquare = null;
+      },
+      // 系统取消（如被上层手势抢走）：按"棋盘外松手"结算 → 调用方弹回
+      onPanCancel: () {
+        final last = _lastLocal;
+        if (last != null) widget.onDragEnd(null, last);
+        _lastLocal = null;
+        _downSquare = null;
+      },
+    );
   }
 }
 

@@ -280,6 +280,41 @@ void main() {
     await tester.pump();
   }
 
+  /// 1D index（白方视角）→ 格子中心全局坐标（几何推导，与实现解耦）。
+  ///
+  /// ChessBoard 自带 16px 标签边距（labelSpace）：内部 SizedBox = boardSize + 32，
+  /// 由 Center 在 ChessBoard 内居中 —— 长宽不等时网格并不贴左上角，而是
+  /// 在 (rect.left + (w - boardSize)/2, rect.top + (h - boardSize)/2) 开始。
+  /// 测试按真实 rect 反推，不依赖具体布局尺寸。
+  Offset cellCenter(WidgetTester tester, int idx) {
+    final rect = tester.getRect(find.byType(ChessBoard));
+    final side = rect.width < rect.height ? rect.width : rect.height;
+    const labelSpace = 16.0;
+    final boardSize = side - labelSpace * 2;
+    final cell = boardSize / kBoardCols;
+    final gridLeft = rect.left + (rect.width - boardSize) / 2;
+    final gridTop = rect.top + (rect.height - boardSize) / 2;
+    final row = idx ~/ 8;
+    final col = idx % 8;
+    return Offset(
+      gridLeft + labelSpace + col * cell + cell / 2,
+      gridTop + labelSpace + row * cell + cell / 2,
+    );
+  }
+
+  /// 从 [from] 格拖到 [to] 格（分步移动模拟真实拖动序列 → pan 识别）。
+  Future<void> dragPiece(WidgetTester tester, int from, int to) async {
+    final a = cellCenter(tester, from);
+    final b = cellCenter(tester, to);
+    final g = await tester.startGesture(a);
+    for (var i = 1; i <= 4; i++) {
+      await g.moveTo(Offset.lerp(a, b, i / 4)!);
+      await tester.pump();
+    }
+    await g.up();
+    await tester.pump();
+  }
+
   testWidgets('初始快照（fen + status playing）→ 渲染 ChessBoard', (tester) async {
     final handle = makeHostHandle();
     await tester.pumpWidget(host(handle));
@@ -563,6 +598,32 @@ void main() {
     );
     expect(hasConn, isTrue);
     expect(find.text('拉取最新快照'), findsOneWidget);
+  });
+
+  // ─────────────── 拖动（board-gesture-patterns）：松手合法目标 → 提交走法 ───────────────
+
+  testWidgets('拖动己方兵 e2 → 松手 e4 → 发送 MOVE uci e2e4', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 拖动松手在合法目标 → 乐观走子 + 发送 MOVE
+    await dragPiece(tester, squareToIndex('e2'), squareToIndex('e4'));
+
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'MOVE');
+    expect(handle.lastParams?['uci'], 'e2e4');
+  });
+
+  testWidgets('拖动己方兵 e2 → 松手在非法格（e3 前的 b3）→ 不发 MOVE', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // e2 兵不可走 b3 → 非法目标 → 弹回（保持选中），不发走法
+    await dragPiece(tester, squareToIndex('e2'), squareToIndex('b3'));
+
+    expect(handle.actionCalls, isEmpty);
   });
 
   // ─────────────── 本地皮肤（localSkin 参数） ───────────────

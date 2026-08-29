@@ -97,6 +97,12 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 当前选中格（1D index）。
   int? _selectedSquare;
 
+  /// 拖动状态（board-gesture-patterns）：正在拖动的格 + 手指位置 + 悬停格。
+  /// 值来自 ChessBoard 顶层手势层回调并回传渲染（浮起棋子跟手）。
+  int? _draggingSquare;
+  Offset? _dragFingerPos;
+  int? _dragHoverSquare;
+
   /// 上一步走法（from/to 高亮）。
   Move? _lastMove;
 
@@ -158,9 +164,12 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       try {
         final board = FenCodec.fromFen(rawFen);
         _board = board;
-        // 服务端调和：本地已选中的格子在权威局面下失效，清选。
+        // 服务端调和：本地已选中的格子在权威局面下失效，清选（含拖动）。
         _selectedSquare = null;
         _pendingPromotion = null;
+        _draggingSquare = null;
+        _dragFingerPos = null;
+        _dragHoverSquare = null;
       } on ArgumentError {
         // 畸形 FEN —— 保持上一份棋盘不动（防御）。
       }
@@ -244,12 +253,16 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       if (m.from == sel) m.to};
   }
 
+  /// 交互门：我的回合 + 未在乐观发送 + 对局进行中（playing/check）。
+  /// tap 与拖动共用同一道门。
+  bool get _canInteract =>
+      _myTurn && !_sendLock && (_status == 'playing' || _status == 'check');
+
   void _handleTap(int square) {
     final board = _board;
     if (board == null) return;
     // 轮次 / 发送锁 / 状态门：不是我的回合或已乐观发送 → 忽略。
-    if (!_myTurn || _sendLock) return;
-    if (_status != 'playing' && _status != 'check') return;
+    if (!_canInteract) return;
 
     final pieceColor = board.pieceColorAt(square);
     final sel = _selectedSquare;
@@ -275,27 +288,74 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
 
     // 情况 4：已选中 → 点到合法目标（空格或对方）→ 走子。
-    final targets = _legalTargets;
-    if (targets.contains(square)) {
-      final moves = widget.engine
-          .generateLegalMoves(board)
-          .where((m) => m.from == sel && m.to == square)
-          .toList();
-      if (moves.isNotEmpty) {
-        final promotionMoves =
-            moves.where((m) => m.promotion != null).toList();
-        if (promotionMoves.isNotEmpty) {
-          // 升变候选存在 → 暂停，等玩家选 Q/R/B/N。
-          setState(() => _pendingPromotion = (from: sel, to: square));
-          return;
-        }
-        _commitMove(moves.first);
-        return;
-      }
+    if (_legalTargets.contains(square)) {
+      _tryMove(sel, square);
+      return;
     }
 
     // 情况 5：其它（非法目标）→ 清选。
     setState(() => _selectedSquare = null);
+  }
+
+  // ─────────────────────────── 拖动（board-gesture-patterns） ───────────────────────────
+
+  /// 拖动开始：只有"我的回合 + 己方棋子"才抬起拖动，其余忽略。
+  void _handleDragStart(int square, Offset fingerPos) {
+    if (!_canInteract) return;
+    final board = _board;
+    if (board == null) return;
+    if (board.pieceColorAt(square) != board.sideToMove) return;
+    setState(() {
+      // 顺带选中（合法目标圆点/吃子圈随拖动显示），拖动/点选两种模式共用选中态。
+      _selectedSquare = square;
+      _draggingSquare = square;
+      _dragFingerPos = fingerPos;
+      _dragHoverSquare = square;
+    });
+  }
+
+  /// 拖动移动：手指位置 + 悬停格实时更新（浮起棋子跟手 + 目标点放大）。
+  void _handleDragUpdate(int? square, Offset fingerPos) {
+    if (_draggingSquare == null) return;
+    setState(() {
+      _dragFingerPos = fingerPos;
+      _dragHoverSquare = square;
+    });
+  }
+
+  /// 拖动结束：合法目标 → 提交走法（升变 → 弹面板）；非法/棋盘外 → 弹回
+  /// 并保持选中（规范 §2.3：退到"已选中"等待二次点击，不直接清空）。
+  void _handleDragEnd(int? square, Offset fingerPos) {
+    final from = _draggingSquare;
+    if (from == null) return;
+    setState(() {
+      _draggingSquare = null;
+      _dragFingerPos = null;
+      _dragHoverSquare = null;
+    });
+    // 棋盘外 / 原地松手 → 保持选中（再点目标或再拖）
+    if (square == null || square == from) return;
+    if (!_legalTargets.contains(square)) return; // 非法目标 → 弹回
+    _tryMove(from, square);
+  }
+
+  /// 尝试提交 from → to（已确认 to 在合法目标内）。
+  /// 升变候选存在 → 暂停弹 [PromotionPanel]；否则直接乐观走子 + 发送。
+  void _tryMove(int from, int to) {
+    final board = _board;
+    if (board == null) return;
+    final moves = widget.engine
+        .generateLegalMoves(board)
+        .where((m) => m.from == from && m.to == to)
+        .toList();
+    if (moves.isEmpty) return;
+    final promotionMoves = moves.where((m) => m.promotion != null).toList();
+    if (promotionMoves.isNotEmpty) {
+      // 升变候选存在 → 暂停，等玩家选 Q/R/B/N（拖到底线同弹面板，选完提交）。
+      setState(() => _pendingPromotion = (from: from, to: to));
+      return;
+    }
+    _commitMove(moves.first);
   }
 
   /// 玩家在升变面板选好类型 → 构造升变走法 → 乐观应用 + 发送。
@@ -334,6 +394,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       _selectedSquare = null;
       _lastMove = move;
       _pendingPromotion = null;
+      _draggingSquare = null;
+      _dragFingerPos = null;
+      _dragHoverSquare = null;
       _myTurn = false; // 乐观锁：发送期间不响应本地输入
       _sendLock = true;
     });
@@ -586,6 +649,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                     legalTargets: _legalTargets,
                     lastMove: _lastMove,
                     onSquareTap: _handleTap,
+                    // 拖动（规范 board-gesture-patterns）：跟手浮起 + 悬停放大 +
+                    // 松手合法目标提交；门控（我的回合/状态）在回调内判定。
+                    onDragSquareStart: _handleDragStart,
+                    onDragSquareUpdate: _handleDragUpdate,
+                    onDragSquareEnd: _handleDragEnd,
+                    draggingSquare: _draggingSquare,
+                    dragFingerPos: _dragFingerPos,
+                    dragHoverSquare: _dragHoverSquare,
                     // 用户自定义棋盘配色（null = 跟随主题）
                     boardPalette: widget.boardPalette,
                   ),
