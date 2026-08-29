@@ -22,6 +22,12 @@
 //   · coordinateLabel               → a-h / 1-8 字符
 //   · gridLine                      → 格子描边（可选，浅色）
 //
+// 自定义棋盘配色（[boardPalette]，可空）：
+//   非空时按"用户自定义 > 主题默认"逐角色覆盖 —— 即
+//     boardPalette?.X ?? context.chessColors.X
+//   未覆盖的角色（palette 对应字段为 null）仍走主题默认。
+//   [boardPalette] == null → 行为与旧版完全一致（全部跟随主题）。
+//
 // 翻转：
 //   · [flipped] == false → 白方在底，a1-h1 在底部（标准白方视角）
 //   · [flipped] == true  → 棋盘上下翻转，a8-h8 在底（黑方视角）
@@ -40,10 +46,12 @@ import '../models/board_state.dart';
 import '../models/move.dart';
 import '../models/piece.dart';
 import '../skins/chess_skin.dart';
+import 'board_palette.dart';
 import 'chess_piece.dart';
 
 import '../../../core/theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
+import 'package:flutter/material.dart' show ColorScheme;
 
 /// 8x8 棋盘 + 坐标 + 高亮 + 棋子渲染。
 ///
@@ -77,6 +85,12 @@ class ChessBoard extends StatelessWidget {
   /// 点击回调（1D index）。
   final void Function(int square)? onSquareTap;
 
+  /// 自定义棋盘配色（可空）。null = 完全跟随主题（旧行为）。
+  ///
+  /// 优先级：`boardPalette?.X ?? context.chessColors.X`
+  /// （用户自定义 > 主题默认 —— 自定义颜色永远优先，未覆盖的角色跟随主题）。
+  final BoardPalette? boardPalette;
+
   const ChessBoard({
     super.key,
     required this.state,
@@ -87,11 +101,37 @@ class ChessBoard extends StatelessWidget {
     this.legalTargets = const <int>{},
     this.lastMove,
     this.onSquareTap,
+    this.boardPalette,
   });
+
+  /// 解析当前棋盘配色 —— 用户自定义优先，未覆盖角色回退主题默认。
+  ///
+  /// 核心语义：`palette?.X ?? theme.X`（用户自定义 > 主题）。
+  /// [boardPalette] 为 null 或空 → 全部走主题。
+  ChessColorStrategy _resolveColors(BuildContext context) {
+    final theme = context.chessColors;
+    final p = boardPalette;
+    if (p == null || p.isEmpty) return theme;
+    return _ResolvedChessColors(
+      lightSquare: p.lightSquare ?? theme.lightSquare,
+      darkSquare: p.darkSquare ?? theme.darkSquare,
+      gridLine: p.gridLine ?? theme.gridLine,
+      coordinateLabel: theme.coordinateLabel,
+      selectedSquare: p.selectedSquare ?? theme.selectedSquare,
+      lastMoveHighlight: p.lastMoveHighlight ?? theme.lastMoveHighlight,
+      legalMoveHint: p.legalMoveHint ?? theme.legalMoveHint,
+      captureHint: p.captureHint ?? theme.captureHint,
+      checkWarning: p.checkWarning ?? theme.checkWarning,
+      checkmateOverlay: theme.checkmateOverlay,
+      promotionOverlay: theme.promotionOverlay,
+      promotionBorder: theme.promotionBorder,
+      scheme: theme.scheme,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.chessColors;
+    final colors = _resolveColors(context);
     final flipped = this.flipped ?? sideToMove == PieceColor.black;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -143,6 +183,7 @@ class ChessBoard extends StatelessWidget {
                     skin: skin,
                     flipped: flipped,
                     cellSize: cell,
+                    colors: colors,
                     selectedSquare: selectedSquare,
                     legalTargets: legalTargets,
                     lastMove: lastMove,
@@ -164,6 +205,10 @@ class _BoardGrid extends StatelessWidget {
   final ChessSkin skin;
   final bool flipped;
   final double cellSize;
+
+  /// 已解析的棋盘配色（用户自定义优先 + 主题兜底），由父级 ChessBoard 传入。
+  final ChessColorStrategy colors;
+
   final int? selectedSquare;
   final Set<int> legalTargets;
   final Move? lastMove;
@@ -174,6 +219,7 @@ class _BoardGrid extends StatelessWidget {
     required this.skin,
     required this.flipped,
     required this.cellSize,
+    required this.colors,
     required this.selectedSquare,
     required this.legalTargets,
     required this.lastMove,
@@ -193,7 +239,6 @@ class _BoardGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.chessColors;
     final board = SizedBox(
       width: cellSize * kBoardCols,
       height: cellSize * kBoardRows,
@@ -237,12 +282,14 @@ class _BoardGrid extends StatelessWidget {
                         width: 0.5,
                       ),
                     ),
-                    // 走法提示（圆点 / 圆圈）
+                    // 走法提示（圆点 / 圆圈）—— 颜色走已解析配色（用户自定义优先）
                     child: _LegalMarker(
                       isLegalTarget: legalTargets.contains(idx),
                       hasOpponent: _isOpponentOn(idx),
                       emptySquare: state.isEmpty(idx),
                       cellSize: cellSize,
+                      legalMoveHint: colors.legalMoveHint,
+                      captureHint: colors.captureHint,
                     ),
                   ),
                 ),
@@ -318,6 +365,63 @@ class _BoardGrid extends StatelessWidget {
   }
 }
 
+/// 已解析的棋盘配色 —— 用户自定义（BoardPalette）逐角色覆盖主题后的结果。
+///
+/// 由 [ChessBoard._colors] 构造：`palette?.X ?? theme.X`（用户自定义 > 主题）。
+/// 未被 BoardPalette 覆盖的角色（coordinateLabel / checkmateOverlay /
+/// promotionOverlay / promotionBorder，BoardPalette v1 不含这些字段）
+/// 直接透传主题值。
+class _ResolvedChessColors extends ChessColorStrategy {
+  @override
+  final Color lightSquare;
+  @override
+  final Color darkSquare;
+  @override
+  final Color gridLine;
+  @override
+  final Color coordinateLabel;
+  @override
+  final Color selectedSquare;
+  @override
+  final Color lastMoveHighlight;
+  @override
+  final Color legalMoveHint;
+  @override
+  final Color captureHint;
+  @override
+  final Color checkWarning;
+  @override
+  final Color checkmateOverlay;
+  @override
+  final Color promotionOverlay;
+  @override
+  final Color promotionBorder;
+
+  /// 主题兜底 scheme（透传 context.chessColors.scheme，本 widget 不直接读）。
+  final ColorScheme _scheme;
+
+  const _ResolvedChessColors({
+    required this.lightSquare,
+    required this.darkSquare,
+    required this.gridLine,
+    required this.coordinateLabel,
+    required this.selectedSquare,
+    required this.lastMoveHighlight,
+    required this.legalMoveHint,
+    required this.captureHint,
+    required this.checkWarning,
+    required this.checkmateOverlay,
+    required this.promotionOverlay,
+    required this.promotionBorder,
+    required ColorScheme scheme,
+  }) : _scheme = scheme;
+
+  @override
+  ColorScheme get scheme => _scheme;
+
+  // ==/hashCode 继承自 ChessColorStrategy 基类（按 12 角色逐字段比较）。
+}
+
 /// 走法提示小点 / 圆圈
 class _LegalMarker extends StatelessWidget {
   final bool isLegalTarget;
@@ -325,17 +429,22 @@ class _LegalMarker extends StatelessWidget {
   final bool emptySquare;
   final double cellSize;
 
+  /// 已解析的配色（用户自定义优先，由 _BoardGrid 传入）。
+  final Color legalMoveHint;
+  final Color captureHint;
+
   const _LegalMarker({
     required this.isLegalTarget,
     required this.hasOpponent,
     required this.emptySquare,
     required this.cellSize,
+    required this.legalMoveHint,
+    required this.captureHint,
   });
 
   @override
   Widget build(BuildContext context) {
     if (!isLegalTarget) return const SizedBox.shrink();
-    final colors = context.chessColors;
     // 吃子走法 → 圆圈；空格走法 → 圆点
     if (hasOpponent) {
       return Center(
@@ -345,7 +454,7 @@ class _LegalMarker extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: colors.captureHint,
+              color: captureHint,
               width: cellSize * 0.08,
             ),
           ),
@@ -359,7 +468,7 @@ class _LegalMarker extends StatelessWidget {
           height: cellSize * 0.32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: colors.legalMoveHint,
+            color: legalMoveHint,
           ),
         ),
       );
