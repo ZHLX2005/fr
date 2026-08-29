@@ -10,15 +10,19 @@
 //
 // 不负责：
 //   · 走法生成（[ChessEngine.generateLegalMoves]）
-//   · 网络同步 / 撤销 / 计时 / 升变面板（v2）
+//   · 网络同步 / 撤销 / 计时
 //
 // 状态机：
 //   无选 → tap 己方棋子 → 选中（合法目标刷新）
 //   无选 → tap 对方 / 空 → no-op
 //   已选（己方棋子A）→ tap 己方棋子A → 重新选中（同上）
 //   已选（己方棋子A）→ tap 己方棋子B → 切换到 B
-//   已选（己方棋子A）→ tap A 的合法目标 → 应用走法 + emit + 清选
+//   已选（己方棋子A）→ tap A 的合法目标（非升变） → 应用走法 + emit + 清选
+//   已选（己方棋子A）→ tap A 的合法目标（升变） → 弹升变面板，等玩家选 Q/R/B/N
 //   已选 → tap 非法（空 / 对方不在合法目标） → 清选
+//
+// 升变（v2 新增）：兵到底线时暂停走法应用，弹 [PromotionPanel] 让玩家选
+// 后/车/象/马；选完才应用走法 + emit，取消则回到未选状态。
 //
 // 不变量：
 //   · 选中的格子必须是 [state.sideToMove] 一方的棋子
@@ -30,8 +34,10 @@ import '../engine/chess_engine.dart';
 import '../engine/make_move.dart';
 import '../models/board_state.dart';
 import '../models/move.dart';
+import '../models/piece.dart';
 import '../skins/chess_skin.dart';
 import 'chess_board.dart';
+import 'promotion_panel.dart';
 
 /// 棋盘交互控制器 —— StatefulWidget。
 ///
@@ -44,7 +50,8 @@ class ChessController extends StatefulWidget {
   final ChessSkin skin;
 
   /// 合法走法完成时回调（含 captures / castling 等）。
-  /// v1 不做升变面板，遇到升变走法时默认取第一个（Q 升变）作为走法发出。
+  /// 升变走法：弹 [PromotionPanel] 等玩家选完 Q/R/B/N 后，再以所选升变
+  /// 走法调用本回调（不再是 v1 的静默取 Q）。
   final void Function(Move move) onMove;
 
   /// 起始局面（null = 默认 [BoardState.initial()]）。
@@ -66,6 +73,10 @@ class _ChessControllerState extends State<ChessController> {
   late BoardState _state;
   int? _selectedSquare;
   Move? _lastMove;
+
+  // 当玩家点到一个"升变目标格"（4 个 promotion 候选）时，暂停走法应用，
+  // 弹出升变面板让玩家选 Q/R/B/N。选完才应用 + emit。
+  ({int from, int to})? _pendingPromotion;
 
   @override
   void initState() {
@@ -124,12 +135,16 @@ class _ChessControllerState extends State<ChessController> {
           .where((m) => m.from == sel && m.to == square)
           .toList();
       if (moves.isNotEmpty) {
-        // v1 无升变面板：如有升变候选（4 个），取非空 promotion 走法做默认；
-        // 若没有升变分支，则取普通走法
-        final chosen = moves.firstWhere(
-          (m) => m.promotion == null,
-          orElse: () => moves.first,
-        );
+        // 升变候选存在 → 暂停，等玩家选 Q/R/B/N（面板由 build() 里的 Stack 弹出）
+        final promotionMoves =
+            moves.where((m) => m.promotion != null).toList();
+        if (promotionMoves.isNotEmpty) {
+          setState(() {
+            _pendingPromotion = (from: sel, to: square);
+          });
+          return;
+        }
+        final chosen = moves.first;
         final newState = applyMove(_state, chosen).nextState;
         setState(() {
           _state = newState;
@@ -147,16 +162,62 @@ class _ChessControllerState extends State<ChessController> {
     });
   }
 
+  /// 玩家在升变面板选了具体类型 → 应用对应升变走法 + emit。
+  void _resolvePromotion(PieceType type) {
+    final pending = _pendingPromotion;
+    if (pending == null) return;
+    final moves = widget.engine
+        .generateLegalMoves(_state)
+        .where((m) =>
+            m.from == pending.from &&
+            m.to == pending.to &&
+            m.promotion == type)
+        .toList();
+    if (moves.isEmpty) {
+      // 状态异常（不应发生）：清 pending
+      setState(() => _pendingPromotion = null);
+      return;
+    }
+    final chosen = moves.first;
+    final newState = applyMove(_state, chosen).nextState;
+    setState(() {
+      _state = newState;
+      _selectedSquare = null;
+      _lastMove = chosen;
+      _pendingPromotion = null;
+    });
+    widget.onMove(chosen);
+  }
+
+  /// 取消升变 → 面板消失，回到未选状态。
+  void _cancelPromotion() {
+    setState(() => _pendingPromotion = null);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ChessBoard(
-      state: _state,
-      skin: widget.skin,
-      sideToMove: _state.sideToMove,
-      selectedSquare: _selectedSquare,
-      legalTargets: _legalTargets,
-      lastMove: _lastMove,
-      onSquareTap: _handleTap,
+    final pending = _pendingPromotion;
+    return Stack(
+      children: [
+        ChessBoard(
+          state: _state,
+          skin: widget.skin,
+          sideToMove: _state.sideToMove,
+          selectedSquare: _selectedSquare,
+          legalTargets: _legalTargets,
+          lastMove: _lastMove,
+          onSquareTap: _handleTap,
+        ),
+        if (pending != null)
+          Positioned.fill(
+            child: PromotionPanel(
+              skin: widget.skin,
+              promotingColor: _state.sideToMove,
+              onSelected: _resolvePromotion,
+              onCancel: _cancelPromotion,
+            ),
+          ),
+      ],
     );
   }
 }

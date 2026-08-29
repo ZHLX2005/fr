@@ -9,11 +9,12 @@
 |---|---|---|
 | `chess_piece.dart`      | 单个棋子的 Image 渲染（PNG / WebP 透明图） | `ImageProvider` + `size` |
 | `chess_board.dart`      | 8×8 棋盘 + 两色格 + 坐标 + 选中/上一步/合法走法/吃子高亮 | `context.chessColors` + `BoardState` + `ChessSkin` |
-| `chess_controller.dart` | 触摸状态机（选中 / 切换 / 走法生成 / 应用 + emit） | `ChessEngine` + `BoardState` + `Move` |
+| `chess_controller.dart` | 触摸状态机（选中 / 切换 / 走法生成 / 应用 + emit / 升变暂停） | `ChessEngine` + `BoardState` + `Move` |
+| `promotion_panel.dart`  | 升变选择面板（Q/R/B/N 悬浮层，点击遮罩取消） | `context.chessColors` + `ChessSkin` + `PieceType` |
 | `README.md`             | 本文件 | — |
 
 > **未实现（v2 计划）**：`chess_room_page.dart`（P2P 顶层页 / 在线对弈入口）、
-> 升变面板、将军警告覆盖层、走法历史、动画、声音。
+> 将军警告覆盖层、走法历史、动画、声音。
 
 ## 二、接入原则（与 ui-theme-architecture v6.2.1 对齐）
 
@@ -43,8 +44,12 @@ ChessController
 | 无选 | 对方 / 空 | no-op |
 | 已选 A | A 同格 | 清选 |
 | 已选 A | 己方棋子 B | 切换到 B |
-| 已选 A | A 合法目标 | 应用走法 + emit + 清选 |
+| 已选 A | A 合法目标（非升变） | 应用走法 + emit + 清选 |
+| 已选 A | A 合法目标（升变） | 弹 `PromotionPanel`，等玩家选 Q/R/B/N 再应用 + emit |
 | 已选 | 其它 | 清选 |
+
+> 升变：兵到底线时暂停走法应用，弹出 `PromotionPanel`（半透明遮罩 + 4 个
+> Q/R/B/N 棋子按钮）。选完才应用走法 + emit；点遮罩取消（回到未选状态）。
 
 ## 四、测试覆盖
 
@@ -53,8 +58,9 @@ ChessController
 | `chess_piece_widget_test.dart`  | 1 | MemoryImage → ChessPiece → Image 渲染（width / height / fit） |
 | `chess_board_widget_test.dart`  | 5 | 默认皮肤 unicode fallback / 32 个 ChessPiece / tap 1D index / 高亮参数 / 黑方翻转 |
 | `chess_controller_widget_test.dart` | 4 | 选中 / 应用走法 / 对方 no-op / 非法目标清选 |
+| `promotion_panel_test.dart`   | 4 | e7 兵到底线弹面板 / 选 Q 升后 / 选 R 升车 / 点遮罩取消 |
 
-合计 widget 测试 10 个；chess 模块总测试数 ≥ 70。
+合计 widget 测试 14 个；chess 模块总测试数 76。
 
 ## 五、stub 状态
 
@@ -62,9 +68,9 @@ ChessController
 [x] chess_piece.dart
 [x] chess_board.dart
 [x] chess_controller.dart
+[x] promotion_panel.dart
 [ ] chess_room_page.dart       ← v2（P2P 顶层）
-[ ] promotion panel            ← v2
 [ ] move history / undo        ← v2
 ```
 
-**触发 v2 的条件**：用户接入 P2P + 在线对弈 + 升变面板 + 动画需求时。
+**触发 v2 的条件**：用户接入 P2P + 在线对弈 + 动画需求时。
