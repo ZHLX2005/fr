@@ -203,6 +203,9 @@ class _ChessControllerState extends State<ChessController> {
           state: _state,
           skin: widget.skin,
           sideToMove: _state.sideToMove,
+          // 本地对弈视角整局稳定（白方在底）——不随 sideToMove 翻转，
+          // 否则每走一步棋盘 180° 掉头（真机反馈"走子后棋盘变样"）。
+          flipped: false,
           selectedSquare: _selectedSquare,
           legalTargets: _legalTargets,
           lastMove: _lastMove,

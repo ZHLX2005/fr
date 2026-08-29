@@ -129,6 +129,61 @@ void main() {
     expect(find.byType(ChessBoard), findsOneWidget);
   });
 
+  // ─────────────── 走子后棋盘不变样（渲染不依赖 sideToMove） ───────────────
+
+  testWidgets('走子后（sideToMove 翻转）→ 64 格颜色不变（无选中 / 无上一步高亮）',
+      (tester) async {
+    ChessSkinBundle.registerHardcoded();
+    final skin = ChessSkinBundle.byId(kChessSkinsCatalog[0].id);
+    final before = BoardState.initial();
+    const afterFen =
+        'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+    final after = FenCodec.fromFen(afterFen);
+
+    /// 按渲染顺序收集 64 个格子的背景色（棋盘 Stack 内恰好 64 个格子 Container）。
+    List<Color?> squareColors(WidgetTester t) => [
+          for (final c in t.widgetList<Container>(find.byType(Container)))
+            (c.decoration as BoxDecoration?)?.color,
+        ];
+
+    await tester.pumpWidget(host(
+      skin: skin,
+      state: before,
+      sideToMove: PieceColor.white,
+    ));
+    await tester.pump();
+    final colorsBefore = squareColors(tester);
+    expect(colorsBefore, hasLength(64));
+
+    // 同一棋盘、走了一步（state 变化 + sideToMove 翻转）→ 每个显示位置的
+    // 格子颜色必须逐一相同（渲染不依赖 sideToMove）。
+    await tester.pumpWidget(host(
+      skin: skin,
+      state: after,
+      sideToMove: PieceColor.black,
+    ));
+    await tester.pump();
+    final colorsAfter = squareColors(tester);
+    expect(colorsAfter, hasLength(64));
+    expect(colorsAfter, colorsBefore,
+        reason: 'sideToMove 翻转不得改变任何格子颜色（曾默认 flipped=黑方视角导致每步翻转）');
+  });
+
+  testWidgets('flipped 未传 → 默认白方视角整局稳定（sideToMove=black 也不翻转）',
+      (tester) async {
+    // 默认皮肤 unicode 回退：白王 ♔ 在 e1。不翻转时 e1 在屏幕下半部；
+    // 若默认仍按 sideToMove 翻转，白王会跳到上半部（每走一步掉头）。
+    await tester.pumpWidget(host(
+      skin: const ChessDefaultSkin(),
+      sideToMove: PieceColor.black,
+    ));
+    await tester.pump();
+
+    final kingCenter = tester.getCenter(find.text('♔'));
+    expect(kingCenter.dy, greaterThan(300),
+        reason: 'e1 白王应保持在下半部（默认白方视角，不随 sideToMove 翻转）');
+  });
+
   // ─────────────── boardPalette：用户自定义 > 主题 ───────────────
 
   testWidgets('boardPalette 覆盖主题两色格（32 浅 + 32 深全替换）', (tester) async {

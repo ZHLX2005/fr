@@ -31,9 +31,10 @@
 // 翻转：
 //   · [flipped] == false → 白方在底，a1-h1 在底部（标准白方视角）
 //   · [flipped] == true  → 棋盘上下翻转，a8-h8 在底（黑方视角）
-//   · [flipped] 默认 = (sideToMove == black)（保持旧行为：走子方在底）。
-//     联机对局应显式传入"角色稳定"的 flipped（如 _myColor == black），
-//     让视角整局稳定，而不是每走一步 180° 翻转。
+//   · [flipped] 默认 false（白方视角，整局稳定）。
+//     渲染**不依赖** [sideToMove] —— 曾默认 `sideToMove == black`，导致本地
+//     对弈每走一步棋盘 180° 翻转、"走子后棋盘变样"。联机对局应显式传入
+//     "角色稳定"的 flipped（如 _myColor == black），让视角整局稳定。
 //
 // 棋子图像优先用 [ChessSkin.boardBackground] 拼棋盘底图（透明 PNG 1:1），
 // 若为 null 则走默认两色格。
@@ -66,11 +67,13 @@ class ChessBoard extends StatelessWidget {
   /// 哪一方在底部。
   /// - white → a1-h1 在底，标准白方视角
   /// - black → 棋盘上下翻转，a8-h8 在底
+  ///
+  /// 仅作语义标注 / 调用方便捷字段，**渲染不使用**（防"走子后棋盘变样"）。
   final PieceColor sideToMove;
 
   /// 是否翻转棋盘（黑方视角）。
-  /// 联机对局由"角色"（我方颜色）驱动并整局稳定；
-  /// 不传时默认 = (sideToMove == black)，保持旧行为（每步走子方在底）。
+  /// 默认 false（白方视角，整局稳定）；联机对局由"角色"（我方颜色）驱动
+  /// 并整局稳定。渲染不依赖 [sideToMove]。
   final bool? flipped;
 
   /// 当前选中的 1D index（高亮最强）。
@@ -132,7 +135,8 @@ class ChessBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = _resolveColors(context);
-    final flipped = this.flipped ?? sideToMove == PieceColor.black;
+    // 视角默认白方（整局稳定）——渲染不依赖 sideToMove（防每步翻转）。
+    final flipped = this.flipped ?? false;
     return LayoutBuilder(
       builder: (context, constraints) {
         final side = constraints.biggest.shortestSide;
@@ -239,6 +243,11 @@ class _BoardGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 走子方颜色从"选中格的棋子"派生（而非 state.sideToMove）——
+    // 渲染不依赖轮次：合法目标标记的"吃子圈 vs 空格点"在走子前后表现一致。
+    final moverColor = selectedSquare != null
+        ? state.pieceColorAt(selectedSquare!)
+        : null;
     final board = SizedBox(
       width: cellSize * kBoardCols,
       height: cellSize * kBoardRows,
@@ -285,7 +294,7 @@ class _BoardGrid extends StatelessWidget {
                     // 走法提示（圆点 / 圆圈）—— 颜色走已解析配色（用户自定义优先）
                     child: _LegalMarker(
                       isLegalTarget: legalTargets.contains(idx),
-                      hasOpponent: _isOpponentOn(idx),
+                      hasOpponent: _isOpponentOn(idx, moverColor),
                       emptySquare: state.isEmpty(idx),
                       cellSize: cellSize,
                       legalMoveHint: colors.legalMoveHint,
@@ -358,10 +367,13 @@ class _BoardGrid extends StatelessWidget {
     return null;
   }
 
-  bool _isOpponentOn(int idx) {
+  /// idx 格上是否是"被吃方"棋子（相对走子方 [moverColor]，从选中格棋子派生）。
+  ///
+  /// 渲染不依赖 state.sideToMove：走子轮次切换不改变任何格子外观。
+  bool _isOpponentOn(int idx, PieceColor? moverColor) {
     final c = state.pieceColorAt(idx);
-    if (c == null) return false;
-    return c != state.sideToMove;
+    if (c == null || moverColor == null) return false;
+    return c != moverColor;
   }
 }
 
