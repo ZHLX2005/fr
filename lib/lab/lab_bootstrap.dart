@@ -47,6 +47,7 @@ import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
 import 'demos/coup_lua_demo.dart' show registerCoupLuaDemo;
 import 'demos/recorder_demo.dart' show registerRecorderDemo;
 import 'demos/relation_calc_demo.dart' show registerRelationCalcDemo;
+import 'demos/chess_online_demo.dart' show registerChessOnlineDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -94,6 +95,7 @@ void registerAllDemos() {
   registerCoupLuaDemo();
   registerRecorderDemo();
   registerRelationCalcDemo();
+  registerChessOnlineDemo();
 }
 
 // 初始化 Lab 模块

@@ -75,3 +75,9 @@ ChessController
 ```
 
 **触发 v2 的条件**：用户接入 P2P 在线对弈（`ChessRoomPage` 已就绪，缺入口路由）+ 动画需求时。
+
+## 六、P2P 在线入口
+
+Lab 演示入口：`lib/lab/demos/chess_online_demo.dart`（`ChessOnlineDemo`，slug `chess-online`）。
+流程：`RelayV3Lobby`（v3 Lua 状态机大厅，host=白 / guest=黑）→ 房主开始 → `onStarted(RoomHandle)`
+→ `Navigator.push` 到 `ChessRoomPage(handle:)`。已登记 Lab bootstrap + 游戏中心 `kGameMeta`。
