@@ -857,4 +857,94 @@ void main() {
       reason: '无 localSkin 时回退 ChessSkinBundle.byId(skinId)',
     );
   });
+
+  // ─────────────── 身份稳定（Bug 1/2 根因）：稳定 uid + 防御回退 ───────────────
+
+  testWidgets('host_id 缺失 → 防御回退白方（不崩溃，棋盘照常渲染）', (tester) async {
+    // 本地 transport = 'd-host'（稳定 uid），但快照缺 host_id（服务端异常）。
+    final transport = FakeTransport(deviceId: 'd-host');
+    final handle = FakeRoomHandle(
+      transport: transport,
+      code: '999999',
+      initial: makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: null,
+        guestId: null,
+      ),
+    );
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 不崩溃，棋盘渲染。
+    expect(find.byType(ChessBoard), findsOneWidget);
+    // 回退白方：flipped false（我方视角 = 白方视角）。
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.flipped, isFalse, reason: 'host_id 缺失 → 白方兜底视角');
+  });
+
+  testWidgets('host_id 缺失但本地 == guest_id → 判定黑方（不误判白）', (tester) async {
+    // 本地 transport = 'd-guest'（稳定 uid），快照缺 host_id 但有 guest_id。
+    final transport = FakeTransport(deviceId: 'd-guest');
+    final handle = FakeRoomHandle(
+      transport: transport,
+      code: '999999',
+      initial: makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: null,
+        guestId: 'd-guest',
+      ),
+    );
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.flipped, isTrue, reason: '本地==guest_id → 黑方视角（不丢身份）');
+    expect(find.text('你执黑'), findsOneWidget);
+  });
+
+  testWidgets('稳定身份重连：transport 用登录 uid 且 host_id 同源 → 正确判定白方', (
+    tester,
+  ) async {
+    // 模拟登录态稳定 uid：transport.deviceId == 'uid-tok-1'，
+    // 服务端 host_id 也是 'uid-tok-1'（同一稳定身份）→ 白方。
+    final transport = FakeTransport(deviceId: 'uid-tok-1');
+    final handle = FakeRoomHandle(
+      transport: transport,
+      code: '999999',
+      initial: makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'uid-tok-1',
+        guestId: 'uid-tok-2',
+      ),
+    );
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    expect(find.text('你执白'), findsOneWidget);
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.flipped, isFalse);
+
+    // 重连后（新 handle 但同一稳定 uid）→ 身份仍对得上。
+    final reconnect = FakeRoomHandle(
+      transport: FakeTransport(deviceId: 'uid-tok-1'),
+      code: '999999',
+      initial: makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'uid-tok-1',
+        guestId: 'uid-tok-2',
+      ),
+    );
+    await tester.pumpWidget(host(reconnect));
+    await tester.pump();
+    expect(find.text('你执白'), findsOneWidget,
+        reason: '重连后同一稳定 uid 仍识别为白方（Bug 2 根因修复）');
+  });
 }

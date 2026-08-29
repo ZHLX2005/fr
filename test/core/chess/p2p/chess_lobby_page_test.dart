@@ -18,6 +18,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xiaodouzi_fr/api/token/token_storage.dart';
+import 'package:xiaodouzi_fr/core/chess/p2p/chess_identity.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_lobby_page.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
@@ -97,6 +99,34 @@ class FakeLobbyHandle extends RoomHandle {
   }
 }
 
+/// 假 token 存储（测试注入 ChessIdentity.debugStorage）。
+class _FakeTokenStorage implements TokenStorage {
+  String? access;
+
+  @override
+  Future<String?> get accessToken async => access;
+
+  @override
+  Future<String?> get refreshToken async => null;
+
+  @override
+  Future<DateTime?> get expiresAt async => null;
+
+  @override
+  Future<void> save({
+    required String accessToken,
+    String? refreshToken,
+    DateTime? expiresAt,
+  }) async {
+    access = accessToken;
+  }
+
+  @override
+  Future<void> clear() async {
+    access = null;
+  }
+}
+
 /// 生成一份快照（lobby / playing 均可）。
 Snapshot makeSnap({
   required String state,
@@ -130,7 +160,10 @@ Snapshot makeSnap({
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    ChessIdentity.debugReset();
   });
+
+  tearDown(() => ChessIdentity.debugReset());
 
   Widget host({required RecordingTransport transport, required List<RoomHandle> joined}) {
     return MaterialApp(
@@ -297,5 +330,95 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(joined, hasLength(1));
+  });
+
+  // ─────────────── 稳定身份（Bug 1/2 根因）：登录 uid 流入 transport ───────────────
+
+  testWidgets('已登录 → transport 收到 uid-<token>（登录 uid 优先）', (tester) async {
+    ChessIdentity.debugReset(storage: _FakeTokenStorage()..access = 'tok-me');
+    String? capturedDeviceId;
+    final transport = RecordingTransport(deviceId: 'uid-tok-me');
+    final handle = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby', guestId: null),
+    );
+    transport.handleToReturn = handle;
+    final joined = <RoomHandle>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChessLobbyPage(
+          relayUrl: 'http://fake',
+          onStarted: joined.add,
+          transportBuilder: (alias, deviceId) {
+            capturedDeviceId = deviceId;
+            return transport;
+          },
+        ),
+      ),
+    );
+    await fillAndGo(tester);
+
+    expect(capturedDeviceId, 'uid-tok-me',
+        reason: '已登录 → 稳定登录 uid 作为玩家身份（非会话 deviceId）');
+    expect(transport.joinCalls, hasLength(1));
+  });
+
+  testWidgets('未登录 → transport 收到设备级 UUID（回退，不以空身份进房）', (tester) async {
+    ChessIdentity.debugReset(storage: _FakeTokenStorage()); // 无 token
+    String? capturedDeviceId;
+    final transport = RecordingTransport(deviceId: 'whatever');
+    final handle = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby', guestId: null),
+    );
+    transport.handleToReturn = handle;
+    final joined = <RoomHandle>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChessLobbyPage(
+          relayUrl: 'http://fake',
+          onStarted: joined.add,
+          transportBuilder: (alias, deviceId) {
+            capturedDeviceId = deviceId;
+            return transport;
+          },
+        ),
+      ),
+    );
+    await fillAndGo(tester);
+
+    expect(capturedDeviceId, isNotNull);
+    expect(capturedDeviceId, isNotEmpty);
+    expect(capturedDeviceId, startsWith('dev-'),
+        reason: '未登录回退设备级 UUID（稳定）');
+  });
+
+  testWidgets('同一稳定身份二次进房：tryJoinOrCreate 正常走（不因新 session 误判新玩家）', (
+    tester,
+  ) async {
+    ChessIdentity.debugReset(storage: _FakeTokenStorage()..access = 'tok-me');
+    final transport = RecordingTransport(deviceId: 'uid-tok-me');
+    final handle = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby', guestId: null, hostId: 'uid-tok-me'),
+    );
+    transport.handleToReturn = handle;
+    final joined = <RoomHandle>[];
+
+    // 第一次进房（模拟 host 建房）。
+    await tester.pumpWidget(host(transport: transport, joined: joined));
+    await fillAndGo(tester);
+    expect(transport.joinCalls, hasLength(1));
+    expect(find.text('ABCD'), findsOneWidget);
+
+    // 同 session 内重置回入口（模拟断线重连 / 退房重进）→ 再次 join。
+    await tester.tap(find.byTooltip('断开'));
+    await tester.pump();
+    await tester.pump();
+    await fillAndGo(tester);
+    expect(transport.joinCalls, hasLength(2), reason: '同一稳定身份重进走 join');
   });
 }

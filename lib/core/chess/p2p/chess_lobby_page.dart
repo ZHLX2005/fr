@@ -28,8 +28,8 @@ import 'package:flutter/material.dart';
 
 import '../../../services/lua/lua_game_alias.dart';
 import '../../../widgets/context_chess_colors.dart';
-import '../../net_engine/relay_v3/relay_device_id.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
+import 'chess_identity.dart';
 import 'chess_script.dart';
 
 /// 社交房间号入口页 —— 单表单 + 等待房 + onStarted。
@@ -143,7 +143,9 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
       _error = null;
     });
     try {
-      final deviceId = await RelayDeviceId.get();
+      // 稳定身份：登录 uid 优先，未登录回退设备级 UUID（chess_identity.dart）。
+      // 断线重连/重新进房身份不丢（Bug 1/2 根因修复 —— 会话级 deviceId 已弃用）。
+      final deviceId = await ChessIdentity.resolve();
       final t = widget.transportBuilder?.call(alias, deviceId) ??
           RelayV3Transport(
             relayUrl: widget.relayUrl,

@@ -233,16 +233,23 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   }
 
   /// 判定本地棋子颜色：host = 白，guest = 黑。
+  ///
+  /// 身份 = 稳定登录 uid（transport.deviceId，见 chess_identity.dart），
+  /// 与快照 context 里的 host_id / guest_id 同源 —— 断线重连 / 重新进房
+  /// 身份不丢，不会出现"我方执黑却被判定为白"的错视角（Bug 2 根因）。
+  ///
+  /// 防御回退：host_id 缺失时用 guest_id 反推（我方 == guest_id → 黑）；
+  /// 仍无法判定 → 回退白方（棋盘照常渲染，走子合法性由服务端兜底），不崩溃。
   PieceColor? _resolveMyColor(Snapshot snap) {
     final myDeviceId = widget.handle.transport.deviceId;
     final hostId = snap.context['host_id']?.toString();
-    if (myDeviceId.isNotEmpty && myDeviceId == hostId) {
-      return PieceColor.white;
-    }
-    if (hostId != null && hostId.isNotEmpty && myDeviceId != hostId) {
-      return PieceColor.black;
-    }
-    return null;
+    final guestId = snap.context['guest_id']?.toString();
+    if (myDeviceId.isEmpty) return PieceColor.white; // 防御：身份空 → 白方兜底
+    if (myDeviceId == hostId) return PieceColor.white;
+    if (myDeviceId == guestId) return PieceColor.black;
+    if (hostId != null && hostId.isNotEmpty) return PieceColor.black;
+    // host_id 缺失且我方不是 guest → 无法判定：白方兜底（棋盘仍可渲染）。
+    return PieceColor.white;
   }
 
   void _onCloseEvent(WSCloseEvent event) {
