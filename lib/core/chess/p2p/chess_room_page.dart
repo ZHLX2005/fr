@@ -508,7 +508,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
-  // ─────────────────────────── 动作：投降 / 和棋 ───────────────────────────
+  // ─────────────────────────── 动作：投降 / 和棋（offer → accept/decline） ───────────────────────────
 
   Future<void> _resign() async {
     if (_sendLock) return;
@@ -532,11 +532,66 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
-  Future<void> _drawAgree() async {
+  /// 对方是否已挂起和棋 offer（context['draw_offers'] 含对方 device_id）。
+  bool get _opponentOffered {
+    final snap = _snapshot;
+    final myColor = _myColor;
+    if (snap == null || myColor == null) return false;
+    final offers = snap.context['draw_offers'];
+    if (offers is! Map) return false;
+    final oppId = myColor == PieceColor.white ? snap.context['guest_id'] : snap.context['host_id'];
+    if (oppId == null) return false;
+    return offers[oppId.toString()] == true;
+  }
+
+  /// 我方是否已挂起 offer（等待对方回应）。
+  bool get _iOffered {
+    final snap = _snapshot;
+    if (snap == null) return false;
+    final offers = snap.context['draw_offers'];
+    if (offers is! Map) return false;
+    return offers[widget.handle.transport.deviceId] == true;
+  }
+
+  /// 点"议和"：无对方 offer → 发 DRAW_OFFER（只挂申请，等对方接受）；
+  /// 对方已 offer → 直接发 DRAW_ACCEPT 接受 → 和棋。
+  Future<void> _drawOffer() async {
     if (_sendLock) return;
     setState(() => _sendLock = true);
     try {
-      await widget.handle.applyAction(type: 'DRAW_AGREE', params: {});
+      await widget.handle.applyAction(
+        type: _opponentOffered ? 'DRAW_ACCEPT' : 'DRAW_OFFER',
+        params: {},
+      );
+      if (!_opponentOffered && mounted) {
+        // 只发了 offer（对方尚未回）→ 提示"已发送议和请求，等待对方回应"。
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已发送议和请求，等待对方回应')),
+        );
+      }
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sendLock = false);
+      }
+    }
+  }
+
+  /// 对方 offer 时点"拒绝" → DRAW_DECLINE（清掉对方申请，回到正常对局）。
+  Future<void> _drawDecline() async {
+    if (_sendLock) return;
+    setState(() => _sendLock = true);
+    try {
+      await widget.handle.applyAction(type: 'DRAW_DECLINE', params: {});
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -684,23 +739,48 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                   ),
                 ),
               ),
-              // 操作条：投降 / 和棋
+              // 操作条：投降 / 和棋（offer → accept/decline）
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: gameOver ? null : _resign,
-                      icon: const Icon(Icons.flag, size: 18),
-                      label: const Text('投降'),
-                    ),
-                    const SizedBox(width: 16),
-                    OutlinedButton.icon(
-                      onPressed: gameOver ? null : _drawAgree,
-                      icon: const Icon(Icons.handshake, size: 18),
-                      label: const Text('协议和棋'),
-                    ),
+                    if (_opponentOffered && !gameOver) ...[
+                      // 对方挂起议和：接受 / 拒绝 两按钮。
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FilledButton.tonalIcon(
+                            onPressed: _sendLock ? null : _drawOffer,
+                            icon: const Icon(Icons.handshake, size: 18),
+                            label: const Text('接受议和'),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            onPressed: _sendLock ? null : _drawDecline,
+                            icon: const Icon(Icons.close, size: 18),
+                            label: const Text('拒绝'),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: gameOver ? null : _resign,
+                            icon: const Icon(Icons.flag, size: 18),
+                            label: const Text('投降'),
+                          ),
+                          const SizedBox(width: 16),
+                          OutlinedButton.icon(
+                            onPressed: gameOver ? null : _drawOffer,
+                            icon: const Icon(Icons.handshake, size: 18),
+                            label: Text(_iOffered ? '等待对方回应' : '议和'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

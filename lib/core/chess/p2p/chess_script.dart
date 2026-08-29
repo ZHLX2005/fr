@@ -10,8 +10,9 @@
 //   · action 类型：
 //     · MOVE       — UCI 字符串（"e2e4"、"e7e8q"）
 //     · RESIGN     — 投降
-//     · DRAW_AGREE — 协议和棋（对方需再发一次 DRAW_AGREE 才生效）
-//     · DRAW_DECLINE — 撤回自己的和棋申请
+//     · DRAW_OFFER — 议和申请（单方发，只挂 offer，不直接和棋）
+//     · DRAW_ACCEPT — 接受对方挂起的 offer → 和棋
+//     · DRAW_DECLINE — 拒绝对方 offer（清掉对方申请，回到正常对局）
 //     · RESET      — 房主在终局后发起重开
 //   · context 字段（服务端权威状态）：
 //     · host_id        : string
@@ -19,7 +20,7 @@
 //     · guest_id       : string | nil
 //     · fen            : string（FEN 标准字符串，空格分隔 6 字段）
 //     · moves          : [{uci, by, ts_ms}, ...]（棋谱 —— 追加式唯一走法权威）
-//     · draw_offers    : {device_id → true}（当前挂起的和棋申请）
+//     · draw_offers    : {device_id → true}（当前挂起的和棋 offer，接受/拒绝后清除）
 //     · status         : "playing" | "check" | "checkmate" | "stalemate" | "resigned" | "draw"
 //     · winner         : string | nil（仅 terminal 时存在）
 //
@@ -32,7 +33,8 @@
 //      且 sideToMove 字段 = 当前走子方的**对侧**（白走完必须报 'b'）。
 //   4. MOVE 不携带 status（客户端不能借走子声明终局）。将杀/僵局由走子方
 //      另发 CLAIM_END 声明，且只有"刚走完的一方"能声明（moves 奇偶校验）。
-//   5. RESIGN 是唯一"自认输"路径；DRAW_AGREE 双方达成 = draw。
+//   5. RESIGN 是唯一"自认输"路径；和棋走 DRAW_OFFER → 对方 DRAW_ACCEPT 显式接受
+//      （单方 offer 不直接和棋，杜绝"我没同意就议和了"）。
 //   这仍允许"端到端作弊"（无服务器引擎的固有上限），但把协议层从
 //   "盲存客户端任意字符串"升级为"结构 + 归属 + 轮次严格校验"。
 //
@@ -194,7 +196,7 @@ on_action_MOVE = function(c, p)
     ts = p.ts or 0,
   })
   -- 客户端负责算新 FEN（dart 引擎）；服务端只做结构校验后落盘。
-  -- status 不随 MOVE 更新 —— 终局只能走 CLAIM_END / RESIGN / DRAW_AGREE。
+  -- status 不随 MOVE 更新 —— 终局只能走 CLAIM_END / RESIGN / DRAW_OFFER(+ACCEPT)。
   c.fen = p.fen
   c.draw_offers = {}
   return c
@@ -254,14 +256,19 @@ on_action_RESIGN = function(c, p)
   return c
 end
 
--- 协议和棋申请（DRAW_AGREE）
--- 单方发：c.draw_offers[device_id] = true
--- 双方都发：状态 = "draw"
-on_action_DRAW_AGREE = function(c, p)
+-- 协议和棋：申请 → 对方接受/拒绝（offer → accept/decline，Bug 修复）
+-- 单方点"议和" = 只发 offer（c.draw_offers[device_id] = true），**不会**直接和棋。
+-- 对方收到 offer 后必须显式 DRAW_ACCEPT 接受才算和棋；
+-- DRAW_DECLINE 拒绝会清掉发起方的 offer（并清除我方自己挂起的，防御双开）。
+on_action_DRAW_OFFER = function(c, p)
   if state ~= "playing" then
     return c
   end
+  if c.status ~= "playing" and c.status ~= "check" then
+    return c
+  end
   c.draw_offers[p.device_id] = true
+  -- 双方各自已挂 offer（如 A 发过 offer 后 B 又发）→ 直接成和棋。
   local h = c.draw_offers[c.host_id] == true
   local g = c.draw_offers[c.guest_id] == true
   if h and g and c.guest_id ~= nil then
@@ -271,9 +278,37 @@ on_action_DRAW_AGREE = function(c, p)
   return c
 end
 
--- 撤销和棋申请（DRAW_DECLINE）—— 对手可主动撤回自己的申请
+-- 接受对方挂起的和棋 offer → 和棋。
+-- 只接受"存在对方 offer"的情况；接受自己不存在的 offer = no-op（防御）。
+on_action_DRAW_ACCEPT = function(c, p)
+  if state ~= "playing" then
+    return c
+  end
+  local opponent_offered = false
+  if p.device_id == c.host_id then
+    opponent_offered = c.draw_offers[c.guest_id] == true
+  elseif p.device_id == c.guest_id then
+    opponent_offered = c.draw_offers[c.host_id] == true
+  end
+  if not opponent_offered then
+    return c
+  end
+  c.status = "draw"
+  c.winner = nil
+  state = "ended"
+  return c
+end
+
+-- 拒绝对方挂起的和棋 offer → 清掉对方的 offer（回到正常对局）。
 on_action_DRAW_DECLINE = function(c, p)
-  c.draw_offers[p.device_id] = nil
+  if state ~= "playing" then
+    return c
+  end
+  if p.device_id == c.host_id then
+    c.draw_offers[c.guest_id] = nil
+  elseif p.device_id == c.guest_id then
+    c.draw_offers[c.host_id] = nil
+  end
   return c
 end
 
@@ -299,8 +334,8 @@ return {
     functions = {
       "on_init", "on_join", "on_leave",
       "on_action_START", "on_action_MOVE", "on_action_CLAIM_END",
-      "on_action_RESIGN", "on_action_DRAW_AGREE", "on_action_DRAW_DECLINE",
-      "on_action_RESET",
+      "on_action_RESIGN", "on_action_DRAW_OFFER", "on_action_DRAW_ACCEPT",
+      "on_action_DRAW_DECLINE", "on_action_RESET",
     },
   },
   on_init = on_init,
@@ -310,7 +345,8 @@ return {
   on_action_MOVE = on_action_MOVE,
   on_action_CLAIM_END = on_action_CLAIM_END,
   on_action_RESIGN = on_action_RESIGN,
-  on_action_DRAW_AGREE = on_action_DRAW_AGREE,
+  on_action_DRAW_OFFER = on_action_DRAW_OFFER,
+  on_action_DRAW_ACCEPT = on_action_DRAW_ACCEPT,
   on_action_DRAW_DECLINE = on_action_DRAW_DECLINE,
   on_action_RESET = on_action_RESET,
 }

@@ -174,6 +174,7 @@ Snapshot makeSnapshot({
   String? guestId,
   String? winner,
   List<dynamic> moves = const [],
+  Map<String, dynamic> drawOffers = const {},
 }) {
   return Snapshot(
     roomCode: code,
@@ -188,7 +189,7 @@ Snapshot makeSnapshot({
       },
       'fen': fen,
       'moves': moves,
-      'draw_offers': <dynamic>{},
+      'draw_offers': drawOffers,
       'status': status,
       if (winner != null) 'winner': winner,
     },
@@ -692,6 +693,99 @@ void main() {
     await tester.pump();
     final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
     expect(board.lastMove, isNull, reason: 'RESET 清棋谱 → 上一步高亮消失');
+  });
+
+  // ─────────────── 和棋 offer → accept/decline（单方 offer 不和棋） ───────────────
+
+  testWidgets('点"议和"（对方无 offer）→ 只发 DRAW_OFFER（等待对方，不和棋）', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '议和'));
+    await tester.pump();
+
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'DRAW_OFFER',
+        reason: '单方点议和 = 只发 offer，不得直接和棋');
+    expect(find.textContaining('等待对方回应'), findsWidgets,
+        reason: '按钮态变"等待对方回应"');
+  });
+
+  testWidgets('对方 offer 挂起 → 显示"接受议和/拒绝"；接受 → DRAW_ACCEPT', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 对方（guest）挂起 offer。
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        drawOffers: {'d-guest': true},
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('接受议和'), findsOneWidget);
+    expect(find.text('拒绝'), findsOneWidget);
+
+    await tester.tap(find.text('接受议和'));
+    await tester.pump();
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'DRAW_ACCEPT',
+        reason: '接受 = 显式 DRAW_ACCEPT → 和棋');
+  });
+
+  testWidgets('对方 offer 挂起 → 拒绝 → DRAW_DECLINE（回到正常对局）', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        drawOffers: {'d-guest': true},
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('拒绝'));
+    await tester.pump();
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'DRAW_DECLINE',
+        reason: '拒绝 = DRAW_DECLINE，服务端清对方 offer');
+  });
+
+  testWidgets('我方已 offer（等待回应）→ 按钮显示"等待对方回应"且无接受/拒绝', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        drawOffers: {'d-host': true},
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('接受议和'), findsNothing, reason: '对方未 offer → 不显示接受');
+    expect(find.textContaining('等待对方回应'), findsWidgets);
   });
 
   // ─────────────── 合规修复：WS 状态条（RelayConnectionBar）存在 ───────────────
