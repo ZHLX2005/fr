@@ -24,6 +24,7 @@ import 'package:xiaodouzi_fr/core/chess/skins/chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_settings_page.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
+import 'package:xiaodouzi_fr/core/chess/widgets/board_palette.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
 import 'package:xiaodouzi_fr/core/theme/colors/factory.dart';
 import 'package:xiaodouzi_fr/core/theme/extensions/chess_color_strategy_extension.dart';
@@ -39,6 +40,8 @@ void main() {
     bool Function(String)? isDownloading,
     String? Function(String)? downloadError,
     void Function(String)? onRetryDownload,
+    BoardPalette? initialPalette,
+    void Function(BoardPalette?)? onPaletteChanged,
     Size surfaceSize = const Size(900, 700),
   }) {
     return MaterialApp(
@@ -61,6 +64,8 @@ void main() {
           isDownloading: isDownloading,
           downloadError: downloadError,
           onRetryDownload: onRetryDownload,
+          initialPalette: initialPalette,
+          onPaletteChanged: onPaletteChanged,
         ),
       ),
     );
@@ -398,6 +403,129 @@ void main() {
       await tester.tap(find.text('重试'));
       await tester.pump();
       expect(retried, ['1'], reason: '重试按钮应触发 onRetryDownload 重新下载');
+    });
+  });
+
+  // ─────────────── 自定义棋盘颜色（boardPalette 优先级：自定义 > 主题） ───────────────
+
+  group('ChessSkinSettingsPage 自定义棋盘颜色', () {
+    /// 读取预览棋盘当前的 boardPalette。
+    BoardPalette? previewPalette(WidgetTester tester) =>
+        tester.widget<ChessBoard>(find.byType(ChessBoard)).boardPalette;
+
+    testWidgets('页面渲染含"自定义棋盘颜色"区（预设 + 跟随主题 + 自定义色）', (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(host(initialSkinId: '1'));
+      await tester.pump();
+
+      expect(find.text('自定义棋盘颜色'), findsOneWidget);
+      expect(find.text('经典木色'), findsOneWidget);
+      expect(find.text('绿色棋盘'), findsOneWidget);
+      expect(find.text('灰蓝棋盘'), findsOneWidget);
+      expect(find.text('跟随主题'), findsOneWidget);
+      expect(find.text('自定义色…'), findsOneWidget);
+    });
+
+    testWidgets('点击预设 → 预览棋盘 palette 实时更新 + onPaletteChanged 回调',
+        (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      BoardPalette? changed;
+      await tester.pumpWidget(host(
+        initialSkinId: '1',
+        onPaletteChanged: (p) => changed = p,
+      ));
+      await tester.pump();
+
+      // 初始无自定义 → 预览棋盘 palette 为 null（跟随主题）
+      expect(previewPalette(tester), isNull);
+
+      // 点击"经典木色"预设 → 预览 + 回调同步更新
+      await tester.tap(find.text('经典木色'));
+      await tester.pump();
+
+      final palette = previewPalette(tester);
+      expect(palette, isNotNull, reason: '点预设后预览棋盘应携带自定义配色');
+      expect(palette!.lightSquare, const Color(0xFFF0D9B5));
+      expect(palette.darkSquare, const Color(0xFFB58863));
+      expect(changed?.lightSquare, const Color(0xFFF0D9B5),
+          reason: 'onPaletteChanged 应实时回调所选配色');
+    });
+
+    testWidgets('initialPalette 非空 → 进入即选中对应预设并预览', (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(host(
+        initialSkinId: '1',
+        initialPalette: const BoardPalette(
+          lightSquare: Color(0xFFAAD751),
+          darkSquare: Color(0xFF5D9B44),
+        ),
+      ));
+      await tester.pump();
+
+      expect(previewPalette(tester)?.lightSquare, const Color(0xFFAAD751));
+      expect(previewPalette(tester)?.darkSquare, const Color(0xFF5D9B44));
+    });
+
+    testWidgets('点击"跟随主题" → 清除自定义（palette = null）+ 回调 null',
+        (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      BoardPalette? changed = const BoardPalette(lightSquare: Color(0xFF000000));
+      await tester.pumpWidget(host(
+        initialSkinId: '1',
+        initialPalette: const BoardPalette(
+          lightSquare: Color(0xFFF0D9B5),
+          darkSquare: Color(0xFFB58863),
+        ),
+        onPaletteChanged: (p) => changed = p,
+      ));
+      await tester.pump();
+      expect(previewPalette(tester), isNotNull);
+
+      // 点击"跟随主题" → 清除自定义
+      await tester.tap(find.text('跟随主题'));
+      await tester.pump();
+
+      expect(previewPalette(tester), isNull, reason: '跟随主题 = 清除自定义');
+      expect(changed, isNull, reason: '回调 null 通知调用方清除持久化');
+    });
+
+    testWidgets('自定义色对话框：确定 → 应用所选配色（默认浅深色板）', (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      BoardPalette? changed;
+      await tester.pumpWidget(host(
+        initialSkinId: '1',
+        onPaletteChanged: (p) => changed = p,
+      ));
+      await tester.pump();
+
+      // 打开自定义拾色对话框
+      await tester.tap(find.text('自定义色…'));
+      await tester.pumpAndSettle();
+      expect(find.text('浅色格'), findsOneWidget);
+      expect(find.text('深色格'), findsOneWidget);
+
+      // 直接确定 → 应用默认浅深色（kSwatches[1] / kSwatches[13]）
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+
+      expect(previewPalette(tester)?.lightSquare, const Color(0xFFF0D9B5));
+      expect(previewPalette(tester)?.darkSquare, const Color(0xFFB58863));
+      expect(changed?.lightSquare, const Color(0xFFF0D9B5));
     });
   });
 }

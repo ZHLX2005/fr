@@ -5,6 +5,8 @@
 //     （没有 Image 棋子，因为默认 skin.pieces 为空）
 //   · 第一套皮肤 (kChessSkinsCatalog[0]) → 起始局面 → 32 个 ChessPiece + Image
 //   · tap 棋盘格 → onSquareTap 透传 1D index
+//   · boardPalette（用户自定义）覆盖主题两色格 —— 优先级：自定义 > 主题；
+//     只覆盖浅色格时深色格仍走主题（null → 主题兜底）
 //
 // 注：ChessDefaultSkin 的 fallback unicode 路径：起点 32 个棋子 → 32 个 Text。
 // 测试避免依赖外部网络（不真正下载 webp）。
@@ -13,8 +15,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/chess/chess.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
+import 'package:xiaodouzi_fr/core/chess/widgets/board_palette.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_piece.dart';
+import 'package:xiaodouzi_fr/core/theme/colors/strategy/chess_color_strategy/themes/default.dart';
 
 void main() {
   setUp(() => ChessSkinBundle.resetForTest());
@@ -28,6 +32,7 @@ void main() {
     Set<int> legalTargets = const <int>{},
     Move? lastMove,
     void Function(int square)? onSquareTap,
+    BoardPalette? boardPalette,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -43,11 +48,22 @@ void main() {
               legalTargets: legalTargets,
               lastMove: lastMove,
               onSquareTap: onSquareTap,
+              boardPalette: boardPalette,
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// 统计 Container 中 BoxDecoration.color == [color] 的格子数。
+  int countSquaresOfColor(WidgetTester tester, Color color) {
+    var count = 0;
+    for (final c in tester.widgetList<Container>(find.byType(Container))) {
+      final deco = c.decoration;
+      if (deco is BoxDecoration && deco.color == color) count++;
+    }
+    return count;
   }
 
   testWidgets('默认皮肤 + 初始局面 → 32 个 Text (unicode fallback)', (tester) async {
@@ -111,5 +127,84 @@ void main() {
     ));
     await tester.pump();
     expect(find.byType(ChessBoard), findsOneWidget);
+  });
+
+  // ─────────────── boardPalette：用户自定义 > 主题 ───────────────
+
+  testWidgets('boardPalette 覆盖主题两色格（32 浅 + 32 深全替换）', (tester) async {
+    const light = Color(0xFFFF0000); // 自定义红
+    const dark = Color(0xFF0000FF); // 自定义蓝
+    await tester.pumpWidget(host(
+      skin: const ChessDefaultSkin(),
+      boardPalette: const BoardPalette(lightSquare: light, darkSquare: dark),
+    ));
+    await tester.pump();
+
+    // 64 格 = 32 浅 + 32 深，全部用自定义色（用户自定义 > 主题）。
+    expect(countSquaresOfColor(tester, light), 32,
+        reason: '32 个浅色格应为自定义红色');
+    expect(countSquaresOfColor(tester, dark), 32,
+        reason: '32 个深色格应为自定义蓝色');
+
+    // 主题默认两色不应再出现（被自定义完全覆盖）。
+    final scheme =
+        Theme.of(tester.element(find.byType(ChessBoard))).colorScheme;
+    final themeLight = DefaultChessColorStrategy.of(scheme).lightSquare;
+    final themeDark = DefaultChessColorStrategy.of(scheme).darkSquare;
+    expect(countSquaresOfColor(tester, themeLight), 0,
+        reason: '主题浅色格被自定义覆盖后不应出现');
+    expect(countSquaresOfColor(tester, themeDark), 0,
+        reason: '主题深色格被自定义覆盖后不应出现');
+  });
+
+  testWidgets('boardPalette 只覆盖浅色格 → 深色格仍走主题（null → 主题兜底）',
+      (tester) async {
+    const light = Color(0xFF00FF00); // 只自定义浅色格
+    await tester.pumpWidget(host(
+      skin: const ChessDefaultSkin(),
+      boardPalette: const BoardPalette(lightSquare: light),
+    ));
+    await tester.pump();
+
+    expect(countSquaresOfColor(tester, light), 32,
+        reason: '浅色格用自定义绿色');
+    // 深色格未覆盖 → 回退主题默认（darkSquareFrom(scheme)）。
+    final scheme =
+        Theme.of(tester.element(find.byType(ChessBoard))).colorScheme;
+    final themeDark = DefaultChessColorStrategy.of(scheme).darkSquare;
+    expect(countSquaresOfColor(tester, themeDark), 32,
+        reason: '深色格未覆盖 → 32 格仍是主题默认色');
+  });
+
+  testWidgets('boardPalette == null → 与旧版行为一致（全部主题色）', (tester) async {
+    await tester.pumpWidget(host(skin: const ChessDefaultSkin()));
+    await tester.pump();
+
+    final scheme =
+        Theme.of(tester.element(find.byType(ChessBoard))).colorScheme;
+    final themeLight = DefaultChessColorStrategy.of(scheme).lightSquare;
+    final themeDark = DefaultChessColorStrategy.of(scheme).darkSquare;
+    expect(countSquaresOfColor(tester, themeLight), 32);
+    expect(countSquaresOfColor(tester, themeDark), 32);
+  });
+
+  testWidgets('selectedSquare 走主题高亮（palette 未覆盖 selectedSquare）',
+      (tester) async {
+    const light = Color(0xFFFF0000);
+    await tester.pumpWidget(host(
+      skin: const ChessDefaultSkin(),
+      selectedSquare: squareToIndex('e2'),
+      boardPalette: const BoardPalette(
+        lightSquare: light,
+        darkSquare: Color(0xFF0000FF),
+      ),
+    ));
+    await tester.pump();
+
+    final scheme =
+        Theme.of(tester.element(find.byType(ChessBoard))).colorScheme;
+    final themeSelected = DefaultChessColorStrategy.of(scheme).selectedSquare;
+    expect(countSquaresOfColor(tester, themeSelected), 1,
+        reason: '选中格高亮未自定义 → 仍走主题 selectedSquare');
   });
 }
