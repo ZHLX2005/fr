@@ -67,6 +67,27 @@ void main() {
       ]);
       expect(() => ChessSkinMeta.parseList(json), throwsFormatException);
     });
+
+    test('id 不符合 kChessSkinIdPattern 抛 FormatException（Uppercase / 含 ! / 长度超）', () {
+      // 测试 3 个 invalid id 模式
+      for (final invalidId in ['HasUpper', 'has-bang!', 'a' * 33]) {
+        final json = jsonEncode([
+          {'id': invalidId, 'displayName': 'X', 'pieces': <String, dynamic>{}},
+        ]);
+        expect(() => ChessSkinMeta.parseList(json), throwsFormatException,
+            reason: 'id "$invalidId" 不符合 kebab-case regex');
+      }
+    });
+
+    test('parseList 返回的 List 顺序 = 输入 JSON array 顺序（稳定）', () {
+      final json = jsonEncode([
+        {'id': 'first', 'displayName': '1', 'pieces': <String, dynamic>{}},
+        {'id': 'second', 'displayName': '2', 'pieces': <String, dynamic>{}},
+        {'id': 'third', 'displayName': '3', 'pieces': <String, dynamic>{}},
+      ]);
+      final list = ChessSkinMeta.parseList(json);
+      expect(list.map((m) => m.id).toList(), ['first', 'second', 'third']);
+    });
   });
 
   group('kChessSkinsCatalog', () {
