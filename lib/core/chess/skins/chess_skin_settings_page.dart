@@ -29,13 +29,38 @@ import '../models/piece.dart';
 import '../widgets/chess_board.dart';
 import 'chess_skin.dart';
 import 'chess_skin_meta.dart';
+import 'local_chess_skin.dart';
 
 /// 全屏换肤设置页 — 左侧皮肤列表 + 右侧实时棋盘预览。
 class ChessSkinSettingsPage extends StatefulWidget {
-  const ChessSkinSettingsPage({super.key, required this.initialSkinId});
+  const ChessSkinSettingsPage({
+    super.key,
+    required this.initialSkinId,
+    this.localSkins = const {},
+    this.onRequestDownload,
+    this.isDownloading,
+    this.downloadError,
+    this.onRetryDownload,
+  });
 
   /// 进入页面时选中的皮肤 id（由调用方传入，通常是已持久化的值）。
   final String initialSkinId;
+
+  /// 调用方已本地化的皮肤（id → LocalChessSkin）。预览优先用本地文件渲染。
+  final Map<String, LocalChessSkin> localSkins;
+
+  /// 点击皮肤时触发下载（由调用方拥有 localizer，异步下载后更新 [localSkins]）。
+  /// null → 预览回退 [ChessSkinBundle.byId]（网络皮肤 / unicode）。
+  final void Function(String skinId)? onRequestDownload;
+
+  /// 查询某皮肤是否正在下载中（显示 loading）。
+  final bool Function(String skinId)? isDownloading;
+
+  /// 查询某皮肤上次下载的错误信息（null = 无错误；显示"下载失败 + 重试"）。
+  final String? Function(String skinId)? downloadError;
+
+  /// 点击"重试"按钮时触发重新下载（通常与 [onRequestDownload] 同一实现）。
+  final void Function(String skinId)? onRetryDownload;
 
   /// 两栏布局分界宽度（≥此值用 Row 两栏，否则竖排单栏）。
   static const double kWideBreakpoint = 600;
@@ -59,10 +84,14 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
     Navigator.of(context).pop(_selectedId);
   }
 
-  /// 皮肤条目点击：只切换选中态（不 pop，预览实时刷新；用户自行返回应用）。
+  /// 皮肤条目点击：切换选中态 + 触发调用方下载（异步，预览下载完成后刷新）。
   void _selectSkin(String id) {
     if (id == _selectedId) return;
     setState(() => _selectedId = id);
+    // 已本地化的皮肤无需再下载；未本地化 → 通知调用方异步下载。
+    if (!widget.localSkins.containsKey(id)) {
+      widget.onRequestDownload?.call(id);
+    }
   }
 
   @override
@@ -84,7 +113,8 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
         ),
         body: LayoutBuilder(
           builder: (context, constraints) {
-            final wide = constraints.maxWidth >= ChessSkinSettingsPage.kWideBreakpoint;
+            final wide =
+                constraints.maxWidth >= ChessSkinSettingsPage.kWideBreakpoint;
             if (wide) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,10 +125,20 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
                     child: _SkinList(
                       selectedId: _selectedId,
                       onSelect: _selectSkin,
+                      localSkins: widget.localSkins,
                     ),
                   ),
                   // 右侧：实时棋盘预览
-                  Expanded(child: _SkinPreview(skinId: _selectedId)),
+                  Expanded(
+                    child: _SkinPreview(
+                      skinId: _selectedId,
+                      localSkins: widget.localSkins,
+                      isDownloading:
+                          widget.isDownloading?.call(_selectedId) ?? false,
+                      downloadError: widget.downloadError?.call(_selectedId),
+                      onRetry: widget.onRetryDownload,
+                    ),
+                  ),
                 ],
               );
             }
@@ -109,8 +149,18 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
                 _SkinStrip(
                   selectedId: _selectedId,
                   onSelect: _selectSkin,
+                  localSkins: widget.localSkins,
                 ),
-                Expanded(child: _SkinPreview(skinId: _selectedId)),
+                Expanded(
+                  child: _SkinPreview(
+                    skinId: _selectedId,
+                    localSkins: widget.localSkins,
+                    isDownloading:
+                        widget.isDownloading?.call(_selectedId) ?? false,
+                    downloadError: widget.downloadError?.call(_selectedId),
+                    onRetry: widget.onRetryDownload,
+                  ),
+                ),
               ],
             );
           },
@@ -122,9 +172,9 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
             child: Text(
               '点击左侧皮肤实时预览 · 返回箭头即应用所选皮肤',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.coordinateLabel,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.coordinateLabel),
             ),
           ),
         ),
@@ -137,8 +187,13 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
 class _SkinList extends StatelessWidget {
   final String selectedId;
   final ValueChanged<String> onSelect;
+  final Map<String, LocalChessSkin> localSkins;
 
-  const _SkinList({required this.selectedId, required this.onSelect});
+  const _SkinList({
+    required this.selectedId,
+    required this.onSelect,
+    this.localSkins = const {},
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -146,15 +201,15 @@ class _SkinList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: kChessSkinsCatalog.length,
-      separatorBuilder: (_, _) => Divider(
-        height: 1,
-        color: colors.gridLine.withValues(alpha: 0.3),
-      ),
+      separatorBuilder: (_, _) =>
+          Divider(height: 1, color: colors.gridLine.withValues(alpha: 0.3)),
       itemBuilder: (context, i) {
         final meta = kChessSkinsCatalog[i];
         final isSelected = meta.id == selectedId;
+        // 缩略图优先本地皮肤（离线可用）；未本地化回退注册表。
+        final skin = localSkins[meta.id] ?? ChessSkinBundle.byId(meta.id);
         return ListTile(
-          leading: _SkinThumb(skin: ChessSkinBundle.byId(meta.id)),
+          leading: _SkinThumb(skin: skin),
           title: Text(meta.displayName),
           trailing: isSelected
               ? Icon(Icons.check_circle, color: colors.checkWarning)
@@ -172,8 +227,13 @@ class _SkinList extends StatelessWidget {
 class _SkinStrip extends StatelessWidget {
   final String selectedId;
   final ValueChanged<String> onSelect;
+  final Map<String, LocalChessSkin> localSkins;
 
-  const _SkinStrip({required this.selectedId, required this.onSelect});
+  const _SkinStrip({
+    required this.selectedId,
+    required this.onSelect,
+    this.localSkins = const {},
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -188,7 +248,7 @@ class _SkinStrip extends StatelessWidget {
         itemBuilder: (context, i) {
           final meta = kChessSkinsCatalog[i];
           final isSelected = meta.id == selectedId;
-          final skin = ChessSkinBundle.byId(meta.id);
+          final skin = localSkins[meta.id] ?? ChessSkinBundle.byId(meta.id);
           return InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: () => onSelect(meta.id),
@@ -209,10 +269,11 @@ class _SkinStrip extends StatelessWidget {
                 children: [
                   Center(child: _SkinThumb(skin: skin, size: 32)),
                   if (isSelected)
-                    const Positioned(top: 1, right: 1, child: Icon(
-                      Icons.check_circle,
-                      size: 14,
-                    )),
+                    const Positioned(
+                      top: 1,
+                      right: 1,
+                      child: Icon(Icons.check_circle, size: 14),
+                    ),
                 ],
               ),
             ),
@@ -224,15 +285,33 @@ class _SkinStrip extends StatelessWidget {
 }
 
 /// 右侧实时预览：选中皮肤的 ChessBoard + 初始局面（白方视角）。
+///
+/// 皮肤解析优先级：
+///   1. 本地皮肤（[localSkins] 命中）→ FileImage 本地文件，零网络
+///   2. 下载中（[isDownloading]）→ 居中 loading（下载完成后由调用方刷新）
+///   3. 下载失败（[downloadError] != null）→ "下载失败 + 重试"按钮
+///   4. 回退 [ChessSkinBundle.byId]（RemoteChessSkin / unicode）
 class _SkinPreview extends StatelessWidget {
   final String skinId;
+  final Map<String, LocalChessSkin> localSkins;
+  final bool isDownloading;
+  final String? downloadError;
+  final void Function(String skinId)? onRetry;
 
-  const _SkinPreview({required this.skinId});
+  const _SkinPreview({
+    required this.skinId,
+    this.localSkins = const {},
+    this.isDownloading = false,
+    this.downloadError,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final skin = ChessSkinBundle.byId(skinId);
     final colors = context.chessColors;
+    // 优先本地皮肤；下载中显示 loading；失败显示重试；其余回退注册表。
+    final skin = localSkins[skinId] ?? ChessSkinBundle.byId(skinId);
+    final hasError = downloadError != null && !isDownloading;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -242,29 +321,68 @@ class _SkinPreview extends StatelessWidget {
           Expanded(
             child: AspectRatio(
               aspectRatio: 1,
-              child: ChessBoard(
-                state: BoardState.initial(),
-                skin: skin,
-                sideToMove: PieceColor.white,
-                // 预览无交互：onSquareTap 留 null（ChessBoard 可选参数）。
-                onSquareTap: null,
-              ),
+              child: isDownloading
+                  // 下载中：居中 loading（背景沿用预览区表面色）
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: colors.checkWarning,
+                      ),
+                    )
+                  : hasError
+                  // 下载失败：提示 + 重试按钮
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.cloud_off,
+                            size: 40,
+                            color: colors.gridLine,
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              downloadError ?? '下载失败',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => onRetry?.call(skinId),
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('重试'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ChessBoard(
+                      state: BoardState.initial(),
+                      skin: skin,
+                      sideToMove: PieceColor.white,
+                      // 预览无交互：onSquareTap 留 null（ChessBoard 可选参数）。
+                      onSquareTap: null,
+                    ),
             ),
           ),
           const SizedBox(height: 12),
           // 选中皮肤名 + 返回提示
           Text(
             skin.displayName,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colors.coordinateLabel,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: colors.coordinateLabel),
           ),
           const SizedBox(height: 4),
           Text(
-            '点击返回使用此皮肤',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.gridLine,
-                ),
+            isDownloading
+                ? '皮肤下载中…（首次使用需联网下载）'
+                : hasError
+                ? '下载失败，可点击重试'
+                : '点击返回使用此皮肤',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colors.gridLine),
           ),
         ],
       ),
@@ -287,12 +405,19 @@ class _SkinThumb extends StatelessWidget {
       height: size,
       child: Center(
         child: image != null
-            ? Image(image: image, width: size, height: size, fit: BoxFit.contain)
-            : Text('♔',
+            ? Image(
+                image: image,
+                width: size,
+                height: size,
+                fit: BoxFit.contain,
+              )
+            : Text(
+                '♔',
                 style: TextStyle(
                   fontSize: size * 0.75,
                   fontWeight: FontWeight.w600,
-                )),
+                ),
+              ),
       ),
     );
   }
