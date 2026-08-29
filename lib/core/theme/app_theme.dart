@@ -7,7 +7,7 @@
 //
 // 依赖层级：
 //   tokens/         raw 原子色 + 5 套主题调色板 + 各用途色板
-//   colors/strategy/  5 个 strategy 默认派生规则
+//   colors/strategy/  6 个 strategy 默认派生规则
 //   extensions/     ThemeExtension 注入器
 //   component/      全局组件主题 + 家族/域专属子目录
 //   text_theme.dart AppTextThemes（与 ColorScheme 平级）
@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'colors/factory.dart';
 import 'colors/theme_mode.dart' show AppThemeMode;
 import 'extensions/board_color_strategy_extension.dart';
+import 'extensions/chess_color_strategy_extension.dart';
 import 'extensions/color_strategy_extension.dart';
 import 'extensions/team_avatar_strategy_extension.dart';
 import 'extensions/tetris_colors_strategy_extension.dart';
@@ -105,6 +106,7 @@ class AppTheme {
   }) {
     final colorStrategy = ThemeStrategyFactory.create(scheme);
     final boardStrategy = ThemeStrategyFactory.createBoardColorStrategy(scheme);
+    final chessStrategy = ThemeStrategyFactory.createChessColorStrategy(scheme);
     final tetrisColorsStrategy = ThemeStrategyFactory.createTetrisColorsStrategy(scheme);
     final teamAvatarStrategy = ThemeStrategyFactory.createTeamAvatarStrategy();
     final torchProtectStrategy = ThemeStrategyFactory.createTorchProtectStrategy(scheme);
@@ -117,6 +119,7 @@ class AppTheme {
         ext,
         ColorStrategyExtension(colorStrategy),
         BoardColorStrategyExtension(boardStrategy),
+        ChessColorStrategyExtension(chessStrategy),
         TetrisColorsStrategyExtension(tetrisColorsStrategy),
         TeamAvatarStrategyExtension(teamAvatarStrategy),
         TorchProtectStrategyExtension(torchProtectStrategy),

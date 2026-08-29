@@ -8,6 +8,7 @@
 **「主色不动 · 环境染互补色温」** — v6.1 起，所有颜色统一从 `ColorScheme` 派生（组件层单数据源），
 每个主题 = 主色族（原色不变）+ 环境族（按互补 hue 150°~170° 重新染色）+ 互补强调族（tertiary）+ 固定的 error 红系。
 v6.2 把 strategy 层拆成 5 个独立 strategy（含 2 个"识别色锁定"特例），3 通道扩展为 5 通道。
+v6.2.1 新增第 6 个 strategy `ChessColorStrategy`（国际象棋 13 角色，从 scheme 派生），5 通道扩展为 6 通道。
 
 五个范本：
 - **zen（茶禅，light）**：sage 绿（hue128°）漂在暖米环境（hue42°）
@@ -28,13 +29,13 @@ v6.2 把 strategy 层拆成 5 个独立 strategy（含 2 个"识别色锁定"特
 │   ├── tetris/  俄罗斯方块 7 方块色 + 棋盘环境（v6.2 特例）      │
 │   ├── torch/   灯具护眼色                                       │
 │   └── theme/   5 主题 ColorScheme + AppColorsExtension（独立目录）│
-│ Layer 2  strategy/ 5 个 strategy 抽象契约 + 默认实现            │
-│ Layer 2.5  color/ 5 策略统一工厂 + extensions/ ThemeExtension 注入│
+│ Layer 2  strategy/ 6 个 strategy 抽象契约 + 默认实现            │
+│ Layer 2.5  color/ 6 策略统一工厂 + extensions/ ThemeExtension 注入│
 │ Layer 3  component/ 组件：复合组件样式主题                       │
 │ 组装    app_theme.dart + state/theme_provider.dart → ThemeData   │
-│ 注入    extensions/* → 5 个 ThemeExtension 挂到 ThemeData        │
+│ 注入    extensions/* → 6 个 ThemeExtension 挂到 ThemeData        │
 │ 消费    widgets/context_*  → context.colors / boardColors /      │
-│         tetrisColors / teamAvatar / torchProtect                 │
+│         chessColors / tetrisColors / teamAvatar / torchProtect   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -49,6 +50,7 @@ v6.2 把 strategy 层拆成 5 个独立 strategy（含 2 个"识别色锁定"特
 | L1 | `lib/core/theme/tokens/color/raw/` | `RawColors` | 跨主题中性骨架：pureWhite/nearBlack/9 档 neutral/shadow alpha |
 | L1 | `lib/core/theme/tokens/color/base/` | `BaseColors` | 跨主题锁定的功能色 + 国际识别色（含 pieceI..L → avatar1..6 别名） |
 | L1 | `lib/core/theme/tokens/color/board/` | 棋盘专属 token | — |
+| L1 | `lib/core/theme/tokens/color/chess/` | `ChessColors` | **v6.2.1 新增**：国际象棋 13 角色（两色格 + 选中/将军/升变） |
 | L1 | `lib/core/theme/tokens/color/team/` | 团队卡头像色 | — |
 | L1 | `lib/core/theme/tokens/color/tetris/tetris.dart` | `TetrisColors` | **v6.2 特例**：4 角色全 native const（棋盘环境 + 7 方块识别色 Map 1..7） |
 | L1 | `lib/core/theme/tokens/color/torch/` | 灯具护眼色 | — |
@@ -58,19 +60,22 @@ v6.2 把 strategy 层拆成 5 个独立 strategy（含 2 个"识别色锁定"特
 | L2 | `lib/core/theme/colors/strategy/color_strategy/themes/default.dart` | `DefaultColorStrategy` | 完全从 scheme 派生 + 单例缓存（`DefaultColorStrategy(scheme: ...)`） |
 | L2 | `lib/core/theme/colors/strategy/board_color_strategy/` | `BoardColorStrategy` | 11 棋盘角色 |
 | L2 | `lib/core/theme/colors/strategy/board_color_strategy/themes/default.dart` | `DefaultBoardColorStrategy` | 棋盘角色从 scheme 派生 + 单例缓存（`.of(scheme)`） |
+| L2 | `lib/core/theme/colors/strategy/chess_color_strategy/` | `ChessColorStrategy` | **v6.2.1 新增**：13 国际象棋角色（两色格 + 选中/将军/升变） |
+| L2 | `lib/core/theme/colors/strategy/chess_color_strategy/themes/default.dart` | `DefaultChessColorStrategy` | 13 角色从 scheme 派生 + 单例缓存（`.of(scheme)`） |
 | L2 | `lib/core/theme/colors/strategy/tetris_colors_strategy/` | `TetrisColorsStrategy` | 4 角色抽象（棋盘环境 + 7 方块识别色） |
 | L2 | `lib/core/theme/colors/strategy/tetris_colors_strategy/themes/default.dart` | `DefaultTetrisColorsStrategy` | **v6.2 修正**：4 角色全 native const（不跟主题），单例缓存（`.of(scheme)`） |
 | L2 | `lib/core/theme/colors/strategy/team_avatar_strategy/` | `TeamAvatarStrategy` | 6 头像色（识别色锁定，不跟主题） |
 | L2 | `lib/core/theme/colors/strategy/team_avatar_strategy/themes/default.dart` | `DefaultTeamAvatarStrategy` | const 构造，无 scheme 依赖 |
 | L2 | `lib/core/theme/colors/strategy/torch_protect_strategy/` | `TorchProtectStrategy` | 10 护眼色预设 |
 | L2 | `lib/core/theme/colors/strategy/torch_protect_strategy/themes/default.dart` | `DefaultTorchProtectStrategy` | 从 scheme 派生 + 单例缓存 |
-| L2.5 | `lib/core/theme/colors/factory.dart` | `ThemeStrategyFactory` | 编译期安全工厂（switch 表达式），5 strategy 统一入口 |
-| L2.5 | `lib/core/theme/extensions/*.dart` | `*StrategyExtension` | 5 个 ThemeExtension 注入器：只存 strategy 实例，lerp 用 50% 阈值离散切换 |
+| L2.5 | `lib/core/theme/colors/factory.dart` | `ThemeStrategyFactory` | 编译期安全工厂（switch 表达式），**6 strategy** 统一入口 |
+| L2.5 | `lib/core/theme/extensions/*.dart` | `*StrategyExtension` | **6 个** ThemeExtension 注入器：只存 strategy 实例，lerp 用 50% 阈值离散切换 |
 | L3 | `lib/core/theme/component/` | 复合组件样式 | — |
-| 组装 | `lib/core/theme/app_theme.dart` | `AppTheme.getThemeData(mode)` | switch 映射 mode → scheme + ext + cardShadow，`_buildTheme` 组装 ThemeData + 5 个 strategy 注入 |
+| 组装 | `lib/core/theme/app_theme.dart` | `AppTheme.getThemeData(mode)` | switch 映射 mode → scheme + ext + cardShadow，`_buildTheme` 组装 ThemeData + **6 个 strategy** 注入 |
 | 状态 | `lib/core/theme/state/theme_provider.dart` | `ThemeNotifier` / `themeNotifierProvider` / `themeDataProvider` / `materialThemeModeProvider` | Riverpod 状态单一源 |
 | 消费 | `lib/widgets/context_colors.dart` | `ColorStrategyContext` | `context.colors` → 6 角色（三层兜底） |
 | 消费 | `lib/widgets/context_board_colors.dart` | `BoardColorContext` | `context.boardColors` → 11 棋盘角色 |
+| 消费 | `lib/widgets/context_chess_colors.dart` | `ChessColorContext` | **v6.2.1 新增**：`context.chessColors` → 13 国际象棋角色（双层兜底） |
 | 消费 | `lib/widgets/context_tetris_colors.dart` | `TetrisColorsContext` | `context.tetrisColors` → 4 角色（双层兜底：extension → factory） |
 | 消费 | `lib/widgets/context_team_avatar_colors.dart` | `TeamAvatarContext` | `context.teamAvatar` → 6 头像色 |
 | 消费 | `lib/widgets/context_torch_protect_colors.dart` | `TorchProtectContext` | `context.torchProtect` → 10 护眼色 |
@@ -83,20 +88,21 @@ v6.2 把 strategy 层拆成 5 个独立 strategy（含 2 个"识别色锁定"特
             │ getThemeData(AppThemeMode.zen)
 ② 工厂组装 app_theme.dart
    _buildTheme(scheme, ext, cardShadow)
-   → ThemeStrategyFactory.create 5 个 strategy（color/board/tetris/teamAvatar/torchProtect）
-   → 5 个 StrategyExtension 挂到 ThemeData.extensions
+   → ThemeStrategyFactory.create 6 个 strategy（color/board/chess/tetris/teamAvatar/torchProtect）
+   → 6 个 StrategyExtension 挂到 ThemeData.extensions
             │ themeDataProvider ref.watch(themeNotifierProvider)
 ③ 状态 state/theme_provider.dart
    ThemeNotifier.state = AppThemeMode        ← main() 前 hydrate() 注入持久值
    setMode() → state 更新 → themeDataProvider 重建 → MaterialApp 换 ThemeData
             │ MaterialApp(theme: ref.watch(themeDataProvider))
 ④ 注入 ThemeData.extensions
-   Theme.of(context).extension<ColorStrategyExtension>() 等读回 5 个 strategy
+   Theme.of(context).extension<ColorStrategyExtension>() 等读回 6 个 strategy
             │ 兜底：extension 为 null → factory 单例（绝不崩溃）
 ⑤ 消费 组件读颜色
    context.colors.accent / .textMuted …                    （6 角色）
    context.colors.scheme.primaryContainer …                 （scheme 兜底）
    context.boardColors.player1Stone / .winHighlight …       （棋盘）
+   context.chessColors.lightSquare / .checkWarning …        （国际象棋，13 角色，scheme 派生）
    context.tetrisColors.pieceBackground / .pieceColors[7]  （俄罗斯方块，4 角色，跨主题锁定）
    context.teamAvatar.avatars[i]                            （团队卡 6 头像，跨主题锁定）
    context.torchProtect.presets[i]                          （护眼色，从 scheme 派生）
@@ -104,24 +110,25 @@ v6.2 把 strategy 层拆成 5 个独立 strategy（含 2 个"识别色锁定"特
    Theme.of(context).extension<AppColorsExtension>().category …（分类/状态）
 ```
 
-**时序要点**：切主题 → Notifier state 变化 → 派生 Provider 重建 ThemeData → `MaterialApp` 换新 Theme → 全树 `Theme.of` 读新 scheme → 3 个 scheme-派生 strategy（color/board/torchProtect）返回新实例 → 依赖它的 widget rebuild。
+**时序要点**：切主题 → Notifier state 变化 → 派生 Provider 重建 ThemeData → `MaterialApp` 换新 Theme → 全树 `Theme.of` 读新 scheme → **4 个 scheme-派生 strategy**（color/board/chess/torchProtect）返回新实例 → 依赖它的 widget rebuild。
 **2 个 native-const strategy（tetris/teamAvatar）切主题不变**（玩家靠颜色识别，跨主题锁定）。
 
 策略切换是**离散事件**：所有 `*StrategyExtension.lerp` 用 `t < 0.5 ? this : other`，**不做跨色插值**（注释明确说明避免渐变鬼影）。
 
-## 4. 五条消费通道怎么选
+## 4. 六条消费通道怎么选
 
 | 通道 | 读取方式 | 数据源 | 角色数 | 典型使用者 |
 | --- | --- | --- | --- | --- |
 | `context.colors` | `ColorStrategyExtension` | scheme 派生 | 6 核心 + scheme 兜底 | 页面 / 卡片 / 对话框 / 列表 |
 | `context.boardColors` | `BoardColorStrategyExtension` | scheme 派生 | 11 棋盘角色 | gomoku / reversi / jungle_chess 棋盘 |
+| `context.chessColors` | `ChessColorStrategyExtension` | scheme 派生 | 13 国际象棋角色 | 国际象棋棋盘（两色格 + 选中/将军/升变） |
 | `context.tetrisColors` | `TetrisColorsStrategyExtension` | **native const** | 4 角色（棋盘 + 方块） | tetris 棋盘（见 [[special-cases]]） |
 | `context.teamAvatar` | `TeamAvatarStrategyExtension` | **native const** | 6 头像色 | team_card 团队卡 |
 | `context.torchProtect` | `TorchProtectStrategyExtension` | scheme 派生 | 10 护眼色预设 | torch 护眼灯 |
 | `Theme.of(...).colorScheme.X` | M3 标准 | scheme | primary/secondary/tertiary/surface/error… | 跨主题一致性要求高的壳层 |
 | `AppColorsExtension` | `Theme.of(...).extension<>()` | scheme | success/warning/info + category(8) | 图表 / 标签分类 |
 
-> **决策速查**：能用 `Theme.of(context).colorScheme.X` 的优先用；需语义封装的用 `context.colors`；棋盘用 `context.boardColors`；特例（tetris/teamAvatar/torch）走各自通道；图表分类用 `AppColorsExtension.category`。
+> **决策速查**：能用 `Theme.of(context).colorScheme.X` 的优先用；需语义封装的用 `context.colors`；通用棋盘用 `context.boardColors`；**国际象棋用 `context.chessColors`**；特例（tetris/teamAvatar/torch）走各自通道；图表分类用 `AppColorsExtension.category`。
 > 详细判定流：[[extension]] §4 表 + [[color-usage-audit]] §6。
 
 ## 5. 关键设计决策（改代码前必读）

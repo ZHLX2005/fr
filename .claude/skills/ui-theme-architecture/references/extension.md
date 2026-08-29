@@ -9,6 +9,7 @@
 | --- | --- | --- |
 | 新增一套主题配色 | `tokens/color/theme/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
 | 新增强调色 / 语义角色（如在 `ColorStrategy` 加 `info`） | `colors/strategy/color_strategy/color_strategy.dart` + `colors/strategy/color_strategy/themes/default.dart`（+ 其他 strategy 如有同类需求） | §2 |
+| 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `widgets/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
 | 新增 / 改一个复用的组件样式 | `component/` 或 `widgets/theme/zen_theme.dart` helper | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
 | 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[special-cases]] |

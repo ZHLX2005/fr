@@ -1,12 +1,23 @@
 # 子 ref C：当前颜色用法审计（color 用得最多的目录是哪些）
 
 > 从 [SKILL.md](../SKILL.md) 导航进入。本文是**迁移完整度快照**：残留 hex 归属、Top 热点、目录用色规模、迁移历史。
-> 数据基于 v6.2 重构（5 strategy 拆出）+ tetris 特例修正（commit 24d91ea1，2026-08-29）后的快照。
+> 数据基于 v6.2 重构（5 strategy 拆出）+ tetris 特例修正（commit 24d91ea1，2026-08-29）+ **v6.2.1 新增 ChessColorStrategy（第 6 个 strategy）** 后的快照。
 > 改/评审任何目录前查此表判断迁移完整度。架构/数据流见 [[architecture]]，改动 SOP 见 [[extension]]，特例业务写法见 [[special-cases]]。
 
-## 0. 迁移状态：✅ 已完成（v6.2 + tetris 特例收尾）
+## 0. 迁移状态：✅ v6.2.1（5→6 strategy 通道 + chess 占位）
 
-**5 批迁移 + v6.2 收尾 + v6.2 特例修正全部落地**（124 处豁免 + 65 处迁移 + 86 处 BoardTheme 令牌 + 2 处特例 strategy）。
+**5 批迁移 + v6.2 收尾 + v6.2 特例修正 + v6.2.1 新增 ChessColorStrategy 全部落地**
+（124 处豁免 + 65 处迁移 + 86 处 BoardTheme 令牌 + 2 处特例 strategy + **1 处新增 strategy 通道**）。
+
+### v6.2.1 关键变化（chess 新通道）
+- `lib/core/theme/tokens/color/chess/chess.dart`（13 角色 + *From() 派生）
+- `lib/core/theme/colors/strategy/chess_color_strategy/`（13 角色抽象 + Default 实现 + 单例缓存）
+- `lib/core/theme/extensions/chess_color_strategy_extension.dart`（注入器）
+- `lib/widgets/context_chess_colors.dart`（`context.chessColors` 快捷入口，双层兜底）
+- `lib/core/theme/colors/factory.dart` 注册 `createChessColorStrategy`
+- `lib/core/theme/app_theme.dart` `_buildTheme` 注入 6 个 strategy（5→6）
+- **测试**：`test/core/theme/chess_color_strategy_test.dart`（12 个回归断言：单例缓存、派生正确性、==/hashCode）
+- **审计**：本表 §2 加 chessColors 一节（消费点 0 个，等待用户棋子 UI 接入）
 
 ### v6.2 关键变化
 - `lib/core/theme/colors/strategy/`（5 strategy 独立目录，替代原 `lib/core/theme/strategy/`）
@@ -25,7 +36,8 @@
 | --- | --- | --- |
 | **S 令牌系统** | 86 | surround_game (54) + reversi (32) 的 `BoardThemeData` 独立令牌，与 `context.boardColors` 平级 |
 | **E 豁免** | 124 | 全部带 `主题豁免` 注释（品牌色/国际识别色/纸质书视觉/医学解剖色/sage 家族…） |
-| **特例 strategy** | 13 | `tokens/color/tetris/` (8 = 4 角色 + 7 方块色 - 2 重叠) + `tokens/color/team/` (6 头像色) — 架构决策保留，**不豁免注释**（本身就是架构师决策） |
+| **特例 strategy** | 14 | `tokens/color/tetris/` (8 = 4 角色 + 7 方块色 - 2 重叠) + `tokens/color/team/` (6 头像色) — 架构决策保留，**不豁免注释**（本身就是架构师决策） |
+| **新增 strategy 通道** | 0 | `tokens/color/chess/` (13 角色基础色 + 13 *From scheme 派生 → 0 残留) — v6.2.1 新通道，**不豁免**（派生方法封装在 token 中，调用方零裸 hex） |
 | **未分类** | **0** | — |
 
 **红线不变**：`lib/` 新增代码禁止裸 hex —— 走 scheme / 5 通道，或写豁免注释说明业务理由。
@@ -52,6 +64,15 @@
 - 早期 `lib/lab/demos/tetris_lua/board.dart`（v6.2 短暂用过，现已迁到 `context.tetrisColors` 特例）
 
 **S 级并存系统**：`surround_game` 与 `reversi` 用各自的 `BoardThemeData` 令牌（见 §4），是架构决策保留的独立通道。
+
+### `context.chessColors`（13 国际象棋角色，scheme 派生，**v6.2.1 新通道**）
+
+设计原因：国际象棋棋盘的"两色格对照"语义（lightSquare + darkSquare）无法用 `board_color_strategy` 的"single background"表达，独立通道避免稀释其他棋类。
+
+使用点 0 个：
+- 暂无消费点（v6.2.1 策略通道已搭建，等待用户后续提供棋子 UI 时接入 widget 端）
+
+**特殊豁免**（未来 chess 模块）：棋子图案走 asset bundle（用户后续提供），不进入 strategy 通道；棋子本身**不用** `chessColors.player1Stone / player2Stone`（棋子是图片而非纯色），仅棋盘底色 / 选中格 / 走法提示 / 将军警告等环境色通过 strategy 派生。
 
 ### `context.tetrisColors`（4 角色 + 7 方块色，native const 特例）
 使用点 1 个：
@@ -128,6 +149,7 @@
 | 5 | lab/demos | 16 | bottom_bar 死字段删；reaction 5 phase → scheme；bookmark 2 处迁 |
 | 6（v6.2 收尾） | 全 lib 调用点 | 17 文件 | `zenButton` → `zenButtonTheme` 签名迁移；删 `ZenColors` 兼容层；zen 主题 5 色校准；calendar_import_dialog 最后 1 处 → scheme；recorder `zenCard` → `zenCardTheme` |
 | 7（v6.2.1 特例修正） | tetris_lua + tetris_colors_strategy | 4 文件 | `pieceColors` 改 Map 1..7 + 4 角色 native const + shouldRepaint `=> true` + 新增 15 回归测试 |
+| **8（v6.2.1 新通道）** | **theme/tokens/color/chess/ + colors/strategy/chess_color_strategy/ + extensions/ + factory + app_theme + context + test** | **7 文件** | **`ChessColorStrategy` 第 6 个 strategy：13 角色 from scheme 派生 + ThemeExtension + context 双层兜底 + 12 单元测试** |
 
 ## 5. 迁移完整度自检命令
 
@@ -154,6 +176,7 @@ flutter test test/lab/tetris_lua/  # 15/15 passed
 | --- | --- | --- |
 | 业务壳层（profile/chat/setting） | `Theme.of(context).colorScheme.X` + `context.colors` | 跨主题一致性高 |
 | 棋盘/棋类游戏（gomoku/reversi/jungle） | `context.boardColors` | 棋子黑白关系 + 棋盘环境独立 |
+| **国际象棋** | **`context.chessColors`** | **两色格 + 选中/将军/升变（v6.2.1 新通道）** |
 | 俄罗斯方块 | `context.tetrisColors` | 7 方块识别色锁定，玩家靠颜色识别 |
 | 团队卡头像 | `context.teamAvatar` | 6 头像色锁定，色 = 身份 |
 | 护眼灯 | `context.torchProtect` | 10 预设色，跟主题联动（暗主题更柔） |

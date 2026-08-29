@@ -1,8 +1,9 @@
-// Layer 3 — 编译期安全工厂 — 5 个 strategy 的统一构造入口。
+// Layer 3 — 编译期安全工厂 — 6 个 strategy 的统一构造入口。
 //
-// 5 个 strategy 角色分工：
+// 6 个 strategy 角色分工：
 //   · ColorStrategy            全局样式（6 角色）：从 scheme 派生，5 主题切换 = 换 scheme
 //   · BoardColorStrategy       对弈棋盘（11 角色）：从 scheme + tokens/color/board 派生
+//   · ChessColorStrategy       国际象棋棋盘（13 角色）：从 scheme + tokens/color/chess 派生
 //   · TetrisColorsStrategy     俄罗斯方块（4 角色）：棋盘 + 方块（识别色锁定）
 //   · TeamAvatarStrategy       团队卡 6 头像色（识别色锁定，不跟主题）
 //   · TorchProtectStrategy     灯具护眼色（从 scheme 派生）
@@ -14,6 +15,8 @@ import 'package:flutter/material.dart';
 
 import 'strategy/board_color_strategy/board_color_strategy.dart';
 import 'strategy/board_color_strategy/themes/default.dart';
+import 'strategy/chess_color_strategy/chess_color_strategy.dart';
+import 'strategy/chess_color_strategy/themes/default.dart';
 import 'strategy/color_strategy/color_strategy.dart';
 import 'strategy/color_strategy/themes/default.dart';
 import 'strategy/team_avatar_strategy/team_avatar_strategy.dart';
@@ -32,6 +35,10 @@ class ThemeStrategyFactory {
   /// 对弈棋盘 11 角色（context.boardColors）—— 从 scheme 派生。
   static BoardColorStrategy createBoardColorStrategy(ColorScheme scheme) =>
       DefaultBoardColorStrategy.of(scheme);
+
+  /// 国际象棋棋盘 13 角色（context.chessColors）—— 从 scheme 派生。
+  static ChessColorStrategy createChessColorStrategy(ColorScheme scheme) =>
+      DefaultChessColorStrategy.of(scheme);
 
   /// 俄罗斯方块 4 角色（context.tetrisColors）—— 棋盘环境从 scheme 派生 + 方块识别色锁定。
   static TetrisColorsStrategy createTetrisColorsStrategy(ColorScheme scheme) =>
