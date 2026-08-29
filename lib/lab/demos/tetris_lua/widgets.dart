@@ -944,12 +944,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   SizedBox(height: 4),
                   Text(
                     '分数 ${opp?.score ?? 0}',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70), fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.70), fontSize: 12),
                   ),
                   SizedBox(height: 2),
                   Text(
                     '消行 ${opp?.lines ?? 0}',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54), fontSize: 11),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.54), fontSize: 11),
                   ),
                 ],
               ),
@@ -1007,7 +1007,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       Text(
         label,
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
+          color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
           fontSize: 10,
           letterSpacing: 1,
         ),
@@ -1020,7 +1020,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _stat(String label, String value, Color color) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38), fontSize: 9)),
+      Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.6), fontSize: 9)),
       Text(
         value,
         style: TextStyle(
@@ -1134,14 +1134,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               children: [
                 Icon(
                   icon,
-                  color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onPrimary,
+                  color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onSurface,
                   size: 24,
                 ),
                 SizedBox(height: 2),
                 Text(
                   label,
                   style: TextStyle(
-                    color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.54),
+                    color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
                     fontSize: 9,
                   ),
                 ),
@@ -1308,7 +1308,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               SizedBox(height: 8),
               Text(
                 '对手当前分数 ${opp?.score ?? 0}',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70), fontSize: 13),
+                style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.70), fontSize: 13),
               ),
             ],
           ),
