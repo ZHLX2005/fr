@@ -331,6 +331,18 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
+    // 防御服务端快照端点 bug：拒绝把 state 倒退的快照应用到本地
+    if (_snap != null &&
+        RoomHandle.isStateRegression(_snap!.state, s.state)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '服务端快照状态倒退（${_snap!.state} → ${s.state}），已忽略。请退出重进。'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
     final prevMoveCount = _moves.length;
     setState(() {
       _snap = s;

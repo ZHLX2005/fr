@@ -407,17 +407,60 @@ class RoomHandle {
   ///
   /// 用于：网络抖动 / WS 暂时掉线但 HTTP 还可用 / 手动刷新。
   /// 成功时同步更新 [latest] + 推送 snapshot 流（同 WS 行为）。
+  ///
+  /// **副作用**：调用后强制重连 WS（用户主动拉取通常意味着 WS 已失活，
+  /// 而 `connect()` 内部幂等，重复调用安全）。如果服务端 GET /snapshot
+  /// 真的不会重置 Lua 状态机，这一步只是单纯把本地拉到一致；
+  /// 如果服务端有 bug 导致快照回退（lobby / state 倒退），
+  /// 客户端应在快照处理的 [onSnapshot] 回调里检测回退并报警用户退出重进。
   Future<Snapshot> fetchSnapshot() async {
     final snap = await transport.fetchSnapshot(code);
     latest = snap;
     if (!_snapshotsCtrl.isClosed) {
       _emitSnapshot(snap);
     }
+    // 顺手把 WS 重新拉起来 —— 用户主动 refresh 通常是怀疑连接断了，
+    // HTTP 通了不代表 WS 也通。`connect()` 内部对 _connected=true 是
+    // 幂等的（直接 return），所以重复调用安全。
+    if (!_disposed && !_connected) {
+      // 取消挂起中的重连定时器，立即尝试重连（不等 backoff）
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
+      unawaited(connect());
+    }
     return snap;
   }
 
   /// 当前 WS 是否处于连接态（仅作 UI 提示用；不参与控制流）。
   bool get isConnected => _connected;
+
+  /// 比较两个 snapshot 的 `state` 字段是否"状态机回退"。
+  ///
+  /// 用于防御服务端 GET /snapshot 的 bug：有些服务端实现会在快照端点
+  /// 错误地重跑 `on_init`，导致客户端收到一个 `state` 字段倒退到初始阶段
+  /// （如 `ended` → `lobby` / `playing` → `lobby`）的快照。直接应用会
+  /// 把用户从对局中踢回大厅。
+  ///
+  /// 用法（在游戏的 `_onSnapshot` 中）：
+  /// ```dart
+  /// if (_prevState != null && RoomHandle.isStateRegression(_prevState!, s.state)) {
+  ///   // 拒绝应用，提示用户退出重进
+  ///   return;
+  /// }
+  /// _prevState = s.state;
+  /// ```
+  ///
+  /// 判定规则（保守：只把"终局 → 进行中"判定为回退）：
+  /// - `ended` → 任何非 `ended` → 是回退（服务端不能把终局的房间拉回进行中）
+  /// - `playing` → `lobby` → 是回退（进行中不应该回到大厅）
+  /// - 其他组合 → 正常推进（lobby → ready → playing / playing → ended 都合理）
+  static bool isStateRegression(String? prev, String next) {
+    if (prev == null) return false;
+    if (prev == next) return false;
+    if (prev == 'ended' && next != 'ended') return true;
+    if (prev == 'playing' && next == 'lobby') return true;
+    return false;
+  }
 
   /// 断线恢复：先重新 join（HTTP 把被 on_leave 移出后的 sub 重新注册回房间，
   /// 配合稳定 device_id 被服务端识别为同一玩家），再重连 WS。
