@@ -5,26 +5,52 @@
 // 协议要点（参见 references/net-p2p-protocol-playbook/v3-lua-state-machine）：
 //   · 房主 = 白方（先手）—— 建房者
 //   · 加入者 = 黑方
-//   · state = "lobby" → "playing" → "ended"
+//   · state = "lobby" → "playing" → "ended"（host 点 RESET → 重新 "playing"）
 //   · action 类型：
-//     · MOVE       — UCI 字符串（"e2e4"、"e7e8q"），由服务端权威校验合法性（u3 引用 dart 引擎太重，
-//                    因此合法性在客户端守门 + 服务端作 fence：核对"是不是属于 sideToMove 方的合法走法清单"
-//                    通过 host_fen + snapshot.moves 增量重放判定。最简实现要求双端用同一引擎实例。
+//     · MOVE       — UCI 字符串（"e2e4"、"e7e8q"）
 //     · RESIGN     — 投降
 //     · DRAW_AGREE — 协议和棋（对方需再发一次 DRAW_AGREE 才生效）
+//     · DRAW_DECLINE — 撤回自己的和棋申请
+//     · RESET      — 房主在终局后发起重开
 //   · context 字段（服务端权威状态）：
 //     · host_id        : string
 //     · players        : {device_id → alias}
 //     · guest_id       : string | nil
 //     · fen            : string（FEN 标准字符串，空格分隔 6 字段）
-//     · moves          : [{uci, by, ts_ms}, ...]（棋谱）
+//     · moves          : [{uci, by, ts_ms}, ...]（棋谱 —— 追加式唯一走法权威）
 //     · draw_offers    : {device_id → true}（当前挂起的和棋申请）
 //     · status         : "playing" | "check" | "checkmate" | "stalemate" | "resigned" | "draw"
+//     · winner         : string | nil（仅 terminal 时存在）
 //
-// **服务端权威策略**：
-//   这里只规定 Lua 层校验"是否到该方走"（基于 fen 中 sideToMove 字段 + moves 数量）。
-//   客户端必须保证走法合法（用本模块的 dart 引擎）。
-//   服务端不需要另一份引擎实现，因为 v3 状态机不模拟棋盘 —— 校验限于"格式 + 轮次方"。
+// **服务端权威策略（无引擎 fence）**：
+//   本脚本不内嵌象棋引擎（gopher-lua 太重），因此无法验证"走法是否规则合法"。
+//   权威设计如下（堵住 FEN 造假 / status 造假 / 畸形 UCI 三类漏洞）：
+//   1. MOVE 只能由 sideToMove 方发起（moves 奇偶 → 期望 device_id）。
+//   2. UCI 必须结构合法：len>=4、from/to 均 ∈ [a-h][1-8]、可选第 5 位为 [qrbn]。
+//   3. c.fen 不再无条件信任客户端 —— 要求 6 个空格字段、首字段 8 段 '/'
+//      且 sideToMove 字段 = 当前走子方的**对侧**（白走完必须报 'b'）。
+//   4. MOVE 不携带 status（客户端不能借走子声明终局）。将杀/僵局由走子方
+//      另发 CLAIM_END 声明，且只有"刚走完的一方"能声明（moves 奇偶校验）。
+//   5. RESIGN 是唯一"自认输"路径；DRAW_AGREE 双方达成 = draw。
+//   这仍允许"端到端作弊"（无服务器引擎的固有上限），但把协议层从
+//   "盲存客户端任意字符串"升级为"结构 + 归属 + 轮次严格校验"。
+//
+// **MOVE 请求格式**（客户端必须携带）：
+//   {
+//     device_id: <必带>,          — 由 transport 自动注入
+//     uci: "e2e4" | "e7e8q",     — 必须
+//     fen: "<6 字段 FEN>",        — 必须（结构校验后写入 c.fen）
+//     ts: <可选>
+//   }
+//   MOVE **不**携带 status —— 终局判定走 CLAIM_END（见下）。
+//
+// **CLAIM_END 请求格式**：
+//   {
+//     device_id: <必带>,
+//     reason: "checkmate" | "stalemate",  — 必须二选一
+//   }
+//   仅"刚走完的一方"（= 下一手轮到的对侧）可声明；
+//   checkmate 时 winner = 声明方本人，stalemate 时 winner = nil。
 
 /// 国际象棋 Lua 脚本（kChessScript）。
 ///
@@ -77,7 +103,43 @@ on_action_START = function(c, p)
   return c
 end
 
--- 走子（MOVE）—— 客户端必须是 sideToMove 方
+-- 判断 UCI 是否结构合法（len>=4，from/to ∈ [a-h][1-8]，可选第5位 ∈ [qrbn]）
+function is_valid_uci(uci)
+  if type(uci) ~= "string" then return false end
+  if #uci < 4 or #uci > 5 then return false end
+  local from = uci:sub(1, 2)
+  local to = uci:sub(3, 4)
+  if from:match("^[a-h][1-8]$") == nil then return false end
+  if to:match("^[a-h][1-8]$") == nil then return false end
+  if #uci == 5 and uci:sub(5, 5):match("^[qrbn]$") == nil then return false end
+  return true
+end
+
+-- 判断 FEN 是否结构合法：6 个空格字段、首字段 8 段 '/'
+function is_valid_fen_structure(fen)
+  if type(fen) ~= "string" then return false end
+  local fields = {}
+  for field in fen:gmatch("%S+") do table.insert(fields, field) end
+  if #fields ~= 6 then return false end
+  local ranks = {}
+  for r in fields[1]:gmatch("[^/]+") do table.insert(ranks, r) end
+  return #ranks == 8
+end
+
+-- 当前走子方（"w"/"b"）+ 期望 device_id（nil = 尚未满员）
+function current_move_context(c)
+  local n = #c.moves
+  local side = (n % 2 == 0) and "w" or "b"
+  local expected_id
+  if side == "w" then
+    expected_id = c.host_id
+  else
+    expected_id = c.guest_id
+  end
+  return side, expected_id
+end
+
+-- 走子（MOVE）—— 仅当前走子方可发；结构校验 + FEN sideToMove 反证；不携带 status
 on_action_MOVE = function(c, p)
   if state ~= "playing" then
     return c
@@ -85,44 +147,71 @@ on_action_MOVE = function(c, p)
   if c.status ~= "playing" and c.status ~= "check" then
     return c
   end
-  -- 仅允许"当前走子方"发 MOVE
-  -- 白方先走，所以只有 moves 数是奇数（走第 1/3/5..）时白方才能走
-  -- 数 moves 的偶数（已下完的半回合）
-  local n = #c.moves
-  local side = (n % 2 == 0) and "w" or "b"
-  -- 期望 p.device_id 是 side 对应方
-  local expected_id
-  if side == "w" then
-    expected_id = c.host_id
-  else
-    expected_id = c.guest_id
-  end
+  local side, expected_id = current_move_context(c)
   if expected_id == nil or p.device_id ~= expected_id then
     return c
   end
-  -- p.uci 必须为合法 UCI 字符串
-  if type(p.uci) ~= "string" or #p.uci < 4 then
+  -- UCI 结构校验（畸形 UCI 直接拒绝）
+  if not is_valid_uci(p.uci) then
     return c
   end
-  -- 服务端 fence：这里我们信任客户端合法性（引擎在客户端守门）。
-  -- 若需要服务端模拟棋盘，可在此处调用 chess 状态机（重工程；先不做）。
-  -- 这里至少检查：从格与目标格字符合法
-  local uci = p.uci
-  -- p.promotion = "q"/"r"/"b"/"n"（可选）
-  -- 记录走法
+  -- FEN 结构校验 + sideToMove 反证：白方走完，FEN 必须轮到 'b'
+  if not is_valid_fen_structure(p.fen) then
+    return c
+  end
+  local fields = {}
+  for field in p.fen:gmatch("%S+") do table.insert(fields, field) end
+  local expect_side = (side == "w") and "b" or "w"
+  if fields[2] ~= expect_side then
+    return c
+  end
+  -- 记录走法（c.moves 是追加式唯一走法权威）
   table.insert(c.moves, {
-    uci = uci,
+    uci = p.uci,
     by = p.device_id,
     ts = p.ts or 0,
   })
-  -- c.fen 由客户端维护 / 服务端可推（v3 协议）；这里保持原值（每走一步刷新）
-  -- clients send updated fen in payload
-  if type(p.fen) == "string" then
-    c.fen = p.fen
+  -- 客户端负责算新 FEN（dart 引擎）；服务端只做结构校验后落盘。
+  -- status 不随 MOVE 更新 —— 终局只能走 CLAIM_END / RESIGN / DRAW_AGREE。
+  c.fen = p.fen
+  c.draw_offers = {}
+  return c
+end
+
+-- 终局声明（CLAIM_END）：走子方引擎检测到 checkmate / stalemate 后上报。
+-- 只有"刚走完的一方"（= 下一手轮到的对侧）能声明；幂等。
+on_action_CLAIM_END = function(c, p)
+  if state ~= "playing" then
+    return c
   end
-  if type(p.status) == "string" then
-    c.status = p.status
+  if c.status ~= "playing" and c.status ~= "check" then
+    return c
   end
+  local reason = p.reason
+  if reason ~= "checkmate" and reason ~= "stalemate" then
+    return c
+  end
+  -- 刚走完的一方：moves 为偶数 → 轮到白 → 刚走完的是黑；反之亦然。
+  local n = #c.moves
+  local mover_id
+  if n % 2 == 0 then
+    mover_id = c.guest_id
+  else
+    mover_id = c.host_id
+  end
+  if mover_id == nil or p.device_id ~= mover_id then
+    return c
+  end
+  if reason == "checkmate" then
+    -- 将杀：赢家 = 刚走完的一方（声明者本人）
+    c.status = "checkmate"
+    c.winner = p.device_id
+  else
+    -- 僵局：和棋，无赢家
+    c.status = "stalemate"
+    c.winner = nil
+  end
+  state = "ended"
   return c
 end
 
@@ -166,12 +255,30 @@ on_action_DRAW_DECLINE = function(c, p)
   return c
 end
 
+-- 重开（RESET）—— 仅房主可在终局后发起；棋盘/棋谱/状态全部回退到新一局
+on_action_RESET = function(c, p)
+  if c.host_id ~= p.device_id then
+    return c
+  end
+  if state ~= "ended" then
+    return c
+  end
+  c.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  c.moves = {}
+  c.draw_offers = {}
+  c.status = "playing"
+  c.winner = nil
+  state = "playing"
+  return c
+end
+
 return {
   definition = {
     functions = {
       "on_init", "on_join", "on_leave",
-      "on_action_START", "on_action_MOVE", "on_action_RESIGN",
-      "on_action_DRAW_AGREE", "on_action_DRAW_DECLINE",
+      "on_action_START", "on_action_MOVE", "on_action_CLAIM_END",
+      "on_action_RESIGN", "on_action_DRAW_AGREE", "on_action_DRAW_DECLINE",
+      "on_action_RESET",
     },
   },
   on_init = on_init,
@@ -179,8 +286,10 @@ return {
   on_leave = on_leave,
   on_action_START = on_action_START,
   on_action_MOVE = on_action_MOVE,
+  on_action_CLAIM_END = on_action_CLAIM_END,
   on_action_RESIGN = on_action_RESIGN,
   on_action_DRAW_AGREE = on_action_DRAW_AGREE,
   on_action_DRAW_DECLINE = on_action_DRAW_DECLINE,
+  on_action_RESET = on_action_RESET,
 }
 ''';
