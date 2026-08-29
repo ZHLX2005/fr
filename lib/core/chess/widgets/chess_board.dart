@@ -23,8 +23,11 @@
 //   · gridLine                      → 格子描边（可选，浅色）
 //
 // 翻转：
-//   · [sideToMove] == white → 白方在底，a1-h1 在底部（白方视角一致）
-//   · [sideToMove] == black → 棋盘上下翻转，黑方在底
+//   · [flipped] == false → 白方在底，a1-h1 在底部（标准白方视角）
+//   · [flipped] == true  → 棋盘上下翻转，a8-h8 在底（黑方视角）
+//   · [flipped] 默认 = (sideToMove == black)（保持旧行为：走子方在底）。
+//     联机对局应显式传入"角色稳定"的 flipped（如 _myColor == black），
+//     让视角整局稳定，而不是每走一步 180° 翻转。
 //
 // 棋子图像优先用 [ChessSkin.boardBackground] 拼棋盘底图（透明 PNG 1:1），
 // 若为 null 则走默认两色格。
@@ -57,6 +60,11 @@ class ChessBoard extends StatelessWidget {
   /// - black → 棋盘上下翻转，a8-h8 在底
   final PieceColor sideToMove;
 
+  /// 是否翻转棋盘（黑方视角）。
+  /// 联机对局由"角色"（我方颜色）驱动并整局稳定；
+  /// 不传时默认 = (sideToMove == black)，保持旧行为（每步走子方在底）。
+  final bool? flipped;
+
   /// 当前选中的 1D index（高亮最强）。
   final int? selectedSquare;
 
@@ -74,6 +82,7 @@ class ChessBoard extends StatelessWidget {
     required this.state,
     required this.skin,
     required this.sideToMove,
+    this.flipped,
     this.selectedSquare,
     this.legalTargets = const <int>{},
     this.lastMove,
@@ -83,7 +92,7 @@ class ChessBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.chessColors;
-    final flipped = sideToMove == PieceColor.black;
+    final flipped = this.flipped ?? sideToMove == PieceColor.black;
     return LayoutBuilder(
       builder: (context, constraints) {
         final side = constraints.biggest.shortestSide;

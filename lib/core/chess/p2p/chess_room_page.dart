@@ -8,6 +8,11 @@
 //
 // 阵营判定：host = 白方（先手），guest = 黑方。
 //   对比 transport.deviceId 与 context['host_id'] 得出本地棋子颜色。
+//   注意：每次快照都重算（_myColor = _resolveMyColor(snap)），
+//   避免重连 / 服务端改判后阵营锁定过期。
+//
+// 棋盘翻转：由"角色"驱动（_myColor == black），整局稳定 —— 与走子轮次解耦，
+//   棋盘不会在对手走子时 180° 翻转（isMyTurn 仍由 sideToMove == _myColor 独立推导）。
 //
 // 本页拥有棋盘状态（Option A）—— 不复用 ChessController（它自带内部 BoardState），
 // 直接渲染无状态 ChessBoard + 自己实现选中 / 合法目标 / 升变状态机。
@@ -19,6 +24,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../widgets/context_chess_colors.dart';
+import '../../net_engine/relay_v3/relay_connection_bar.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
@@ -26,9 +32,11 @@ import '../engine/chess_engine.dart';
 import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
 import '../models/board_state.dart';
+import '../models/game_status.dart';
 import '../models/move.dart';
 import '../models/piece.dart';
 import '../skins/chess_skin.dart';
+import '../skins/local_chess_skin.dart';
 import '../widgets/chess_board.dart';
 import '../widgets/promotion_panel.dart';
 
@@ -46,12 +54,17 @@ class ChessRoomPage extends StatefulWidget {
   /// 皮肤 id（默认 '1'）。
   final String skinId;
 
+  /// 已本地化的皮肤（可选）。非 null → 优先用本地文件渲染（零网络 / 离线可用）；
+  /// null → 回退 [ChessSkinBundle.byId]（RemoteChessSkin / unicode），向后兼容。
+  final LocalChessSkin? localSkin;
+
   const ChessRoomPage({
     super.key,
     required this.handle,
     this.onLeave,
     this.engine = const ChessEngine(),
     this.skinId = '1',
+    this.localSkin,
   });
 
   @override
@@ -69,7 +82,11 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   BoardState? _board;
 
   /// 本地棋子颜色（null = 尚未判定；host=白，guest=黑）。
+  /// 每次快照都重算 —— 不缓存，避免重连 / 角色变更后阵营过期。
   PieceColor? _myColor;
+
+  /// 本地是否为房主（host）—— 终局后"再来一局"按钮仅 host 可见。
+  bool _isHost = false;
 
   /// 当前选中格（1D index）。
   int? _selectedSquare;
@@ -85,6 +102,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 服务端 status（"playing"/"check"/"checkmate"/"stalemate"/"resigned"/"draw"）。
   String _status = 'playing';
+
+  /// 上一份快照的 state（用于检测 RESET：ended → playing 时清本地态）。
+  String? _prevState;
 
   /// 发送锁 —— 本地 MOVE 已乐观应用但服务端尚未调和时，禁止再走。
   bool _sendLock = false;
@@ -140,13 +160,15 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       }
     }
 
-    // 2. 阵营：host = 白方，guest = 黑方（只判一次）。
-    _myColor ??= _resolveMyColor(snap);
+    // 2. 阵营：host = 白方，guest = 黑方（每次快照重算）。
+    final myColor = _resolveMyColor(snap);
+    _myColor = myColor;
+    _isHost = myColor == PieceColor.white && snap.context['host_id'] != null;
 
     // 3. 轮次：快照 sideToMove == 本地颜色 → 轮到我。
     final board = _board;
-    if (board != null && _myColor != null) {
-      _myTurn = board.sideToMove == _myColor;
+    if (board != null && myColor != null) {
+      _myTurn = board.sideToMove == myColor;
     }
 
     // 4. 状态：context['status']（playing/check/...）。
@@ -163,6 +185,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     } else {
       _gameOverShown = false;
     }
+
+    // 6. 服务端 RESET 后（ended → playing）：清掉本局本地状态（上一步高亮 / 发送锁）。
+    //    只在整个房间从"终局"回到"进行中"时清，普通走子（playing → playing）不清。
+    if (_prevState == 'ended' && snap.state != 'ended') {
+      _lastMove = null;
+      _sendLock = false;
+    }
+    _prevState = snap.state;
   }
 
   /// 判定本地棋子颜色：host = 白，guest = 黑。
@@ -304,20 +334,26 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     await _sendMove(move, newState);
   }
 
-  /// 发送 MOVE action（uci + fen + status + ts）。
+  /// 发送 MOVE action（uci + fen + ts）。
+  ///
+  /// 协议（v6.2 校验 fence）：MOVE **不携带** status —— 终局由走子方
+  /// 另行发 CLAIM_END（见 [_claimEnd]）。服务端对 uci 做结构校验、
+  /// 对 fen 做结构 + sideToMove 反证，防 FEN 造假 / 任意终局声明。
   Future<void> _sendMove(Move move, BoardState newState) async {
-    // 升变时 toUci 带 promotion 字符（如 e7e8q）。
-    final status = widget.engine.getStatus(newState).name;
     try {
       await widget.handle.applyAction(
         type: 'MOVE',
         params: {
           'uci': move.toUci(promotingColor: _myColor ?? PieceColor.white),
           'fen': FenCodec.toFen(newState),
-          'status': status,
           'ts': DateTime.now().millisecondsSinceEpoch,
         },
       );
+      // 走子已落地 → 若引擎判定将杀 / 僵局，走子方补发终局声明。
+      // （幂等：服务端 ended 后 CLAIM_END 会被拒，无害）
+      if (widget.engine.getStatus(newState).isGameOver) {
+        await _claimEnd(newState);
+      }
       // 成功：applyAction 内部已更新 latest + 推送 snapshot；
       // 快照回调会整体重建棋盘（服务端调和），这里只解锁。
       if (mounted) {
@@ -351,6 +387,33 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       if (mounted) {
         setState(() => _sendLock = false);
       }
+    }
+  }
+
+  /// 走子方上报终局（checkmate / stalemate）。
+  ///
+  /// 服务端只接受"刚走完的一方"的声明（moves 奇偶校验），checkmate 赢家 =
+  /// 声明者本人；stalemate 无赢家。重复声明幂等（ended 后被拒）。
+  Future<void> _claimEnd(BoardState newState) async {
+    final status = widget.engine.getStatus(newState).name;
+    final reason = status == 'checkmate' ? 'checkmate' : 'stalemate';
+    try {
+      await widget.handle.applyAction(
+        type: 'CLAIM_END',
+        params: {'reason': reason},
+      );
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      if (e.statusCode != 409) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('终局声明失败: ${e.statusCode} ${e.body}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('终局声明失败: $e')),
+      );
     }
   }
 
@@ -400,6 +463,33 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
+  // ─────────────────────────── 动作：重开（host only） ───────────────────────────
+
+  /// 房主发起重开 —— 服务端 RESET 会把 fen/moves/status 重置回新一局并回到
+  /// state="playing"。本地状态（选中 / 上一步 / 升变 / 发送锁）在收到
+  /// 新快照时由 [_applySnapshot] 清空。
+  Future<void> _reset() async {
+    if (_sendLock) return;
+    setState(() => _sendLock = true);
+    try {
+      await widget.handle.applyAction(type: 'RESET', params: {});
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('重开失败: ${e.statusCode} ${e.body}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('重开失败: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sendLock = false);
+      }
+    }
+  }
+
   // ─────────────────────────── 离开 ───────────────────────────
 
   Future<void> _leaveAndPop() async {
@@ -425,10 +515,13 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
 
     final colors = context.chessColors;
-    final skin = ChessSkinBundle.byId(widget.skinId);
+    // 优先本地皮肤（离线可用）；未本地化回退注册表（RemoteChessSkin / unicode）。
+    final skin = widget.localSkin ?? ChessSkinBundle.byId(widget.skinId);
     final myColor = _myColor;
     final gameOver = snap.state == 'ended';
     final pending = _pendingPromotion;
+    // 视角由角色驱动、整局稳定：我方黑 → 翻转到黑方视角（黑在底）。
+    final flipped = myColor == PieceColor.black;
 
     return Scaffold(
       appBar: AppBar(
@@ -482,6 +575,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                     state: board,
                     skin: skin,
                     sideToMove: board.sideToMove,
+                    flipped: flipped,
                     selectedSquare: _selectedSquare,
                     legalTargets: _legalTargets,
                     lastMove: _lastMove,
@@ -509,6 +603,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                   ],
                 ),
               ),
+              // WS 连接状态条（模板 §3.5 通用增强）：断线可见 + 手动拉取快照
+              RelayConnectionBar(handle: widget.handle),
             ],
           ),
           // 升变面板
@@ -531,6 +627,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                   title: _gameOverTitle(),
                   subtitle: _gameOverSubtitle(),
                   colors: colors,
+                  isHost: _isHost,
+                  onReset: _reset,
                   onLeave: _leaveAndPop,
                 ),
               ),
@@ -586,17 +684,26 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   }
 }
 
-/// 终局卡片（结果文本 + 返回按钮）。
+/// 终局卡片（结果文本 + 再来一局[房主] + 返回按钮）。
 class _GameOverCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final ChessColorStrategy colors;
+
+  /// 本地是否为房主 —— 仅房主可见"再来一局"（服务端 RESET 仅 host 可调）。
+  final bool isHost;
+
+  /// 房主点击"再来一局" → 发 RESET action。
+  final VoidCallback onReset;
+
   final VoidCallback onLeave;
 
   const _GameOverCard({
     required this.title,
     required this.subtitle,
     required this.colors,
+    required this.isHost,
+    required this.onReset,
     required this.onLeave,
   });
 
@@ -622,7 +729,16 @@ class _GameOverCard extends StatelessWidget {
             style: TextStyle(fontSize: 16, color: colors.coordinateLabel),
           ),
           const SizedBox(height: 20),
-          FilledButton(
+          // 再来一局：仅房主可见（服务端 RESET 仅 host 可调）
+          if (isHost) ...[
+            FilledButton.icon(
+              onPressed: onReset,
+              icon: const Icon(Icons.replay, size: 18),
+              label: const Text('再来一局'),
+            ),
+            const SizedBox(height: 12),
+          ],
+          OutlinedButton(
             onPressed: onLeave,
             child: const Text('返回'),
           ),
