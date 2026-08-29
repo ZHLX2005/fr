@@ -1,9 +1,10 @@
 // lib/lab/demos/chess_online_demo.dart
 // 国际象棋（Chess）互联网双人对战 — v3 Lua 状态机版
 //
-// 流程（RelayV3Lobby 标准流程）：
-//   玩家输入昵称 → 创建房间（host = 白方）或加入房间（guest = 黑方）
-//   → lobby 等待 → 房主点"开始游戏" → state == "playing"
+// 流程（社交房间号模式 social-room-code-pattern，与其它 Lua 游戏同构）：
+//   玩家输入昵称 + 房间号 → "进入对局"（tryJoinOrCreate：
+//   房间存在 → join；404 → 用此号建房；先到者 = 房主 = 白方）
+//   → 等待房（房间号分享给朋友）→ 房主点"开始游戏" → state == "playing"
 //   → onStarted 回调把 RoomHandle 交给 ChessRoomPage（业务层接管）
 //
 // 换肤：入口 AppBar 右侧"换肤"按钮 → 打开全屏换肤设置页（左列表 + 右棋盘预览）
@@ -16,15 +17,14 @@
 //   优先级：用户自定义 boardPalette > 主题 context.chessColors。
 //
 // 棋盘 / 皮肤 / 走法引擎全部复用 lib/core/chess/ 模块；
-// 本 demo 只负责"大厅 → 房间页"的入口路由。
+// 本 demo 只负责"入口 → 房间页"的路由与皮肤/配色状态。
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import '../../core/net_engine/relay_v3/relay_v3_widget.dart';
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart' show RoomHandle;
-import '../../core/chess/p2p/chess_script.dart';
+import '../../core/chess/p2p/chess_lobby_page.dart';
 import '../../core/chess/p2p/chess_room_page.dart';
 import '../../core/chess/skins/chess_skin.dart';
 import '../../core/chess/skins/chess_skin_localizer.dart';
@@ -70,6 +70,13 @@ class ChessOnlinePage extends StatefulWidget {
 }
 
 class _ChessOnlinePageState extends State<ChessOnlinePage> {
+  /// Relay 服务地址（与其它 Lua 游戏同源的 relay 部署）。
+  static const String kRelayUrl = 'http://47.110.80.47:8988';
+
+  /// 大厅页 key：对弈页 pop 后调用 resetToEntry 回到入口表单。
+  final GlobalKey<ChessLobbyPageState> _lobbyKey =
+      GlobalKey<ChessLobbyPageState>();
+
   /// 当前选中的皮肤 id（默认 catalog 第一套 '1'；initState 从 SharedPreferences 加载）。
   String _skinId = kChessSkinsCatalog.first.id;
 
@@ -181,11 +188,12 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     return null;
   }
 
-  /// Relay v3 大厅 → state=="playing" 时触发，把房间句柄交给对弈房间页。
+  /// 大厅 state=="playing" 时触发，把房间句柄交给对弈房间页。
   /// 传入当前选中的 [skinId] + 已本地化的 [localSkin]（若可用）+ 自定义棋盘配色，
   /// 对弈页优先用本地文件渲染 —— 零网络、离线可用。
-  void _onStarted(RoomHandle handle) {
-    Navigator.of(context).push(
+  /// 对弈页 pop 回来后 → 大厅重置回入口表单（同一房间号可重开新局）。
+  Future<void> _onStarted(RoomHandle handle) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChessRoomPage(
           handle: handle,
@@ -195,6 +203,8 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
         ),
       ),
     );
+    if (!mounted) return;
+    _lobbyKey.currentState?.resetToEntry();
   }
 
   /// 设置页内改动自定义棋盘配色时回调：实时应用 + 持久化。
@@ -239,13 +249,12 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
 
   @override
   Widget build(BuildContext context) {
-    // RelayV3Lobby 自带 Scaffold + AppBar（建房 / 加入 / 大厅 / 开始）。
-    // 进入 playing 后 lobby 内部渲染 SizedBox.shrink（见 RelayV3Lobby.build），
-    // 由 onStarted push 的 ChessRoomPage 接管界面。
-    return RelayV3Lobby(
-      relayUrl: 'http://47.110.80.47:8988',
-      script: kChessScript,
-      maxPlayers: 2,
+    // 社交房间号入口（ChessLobbyPage 自带 Scaffold + AppBar）：
+    // 单表单（昵称 + 房间号）→ 等待房 → playing 后由 onStarted push
+    // ChessRoomPage 接管界面；对弈页 pop 回来 → resetToEntry 回入口。
+    return ChessLobbyPage(
+      key: _lobbyKey,
+      relayUrl: kRelayUrl,
       title: '国际象棋在线',
       onStarted: _onStarted,
       actionsBuilder: (context) => [

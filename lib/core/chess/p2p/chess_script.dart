@@ -3,8 +3,9 @@
 // 国际象棋的 net_p2p v3 Lua 状态机脚本。
 //
 // 协议要点（参见 references/net-p2p-protocol-playbook/v3-lua-state-machine）：
-//   · 房主 = 白方（先手）—— 建房者
+//   · 房主 = 白方（先手）—— 建房者（社交房间号模式：先进入自动成为房主）
 //   · 加入者 = 黑方
+//   · 第 3 人进入满员房 → on_join 设 rejected_join → 服务端 409（明确拒绝）
 //   · state = "lobby" → "playing" → "ended"（host 点 RESET → 重新 "playing"）
 //   · action 类型：
 //     · MOVE       — UCI 字符串（"e2e4"、"e7e8q"）
@@ -71,7 +72,21 @@ on_init = function(c, p)
 end
 
 on_join = function(c, p)
+  -- host（建房者）自动 join / 断线重连 → 幂等：不占 guest 槽。
+  -- （不判这个会把 host 误记成 guest，走子归属全错）
+  if p.device_id == c.host_id then
+    c.players[p.device_id] = p.alias
+    return c
+  end
+  -- 已在房间的玩家重复 join（断线重连）→ no-op
+  if c.players[p.device_id] ~= nil then
+    return c
+  end
+  -- guest 槽已占 → 明确拒绝（rejected_join → 服务端 409 join rejected），
+  -- 第 3 人不再被静默忽略（社交房间号模式：满员要给清晰提示）。
   if c.guest_id ~= nil then
+    c.rejected_join = c.rejected_join or {}
+    c.rejected_join[p.device_id] = true
     return c
   end
   c.players[p.device_id] = p.alias
