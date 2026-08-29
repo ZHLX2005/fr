@@ -13,11 +13,6 @@
 // platform=android
 // export_time=2026-07-31T10:00:00.000
 //
-// [hive:calendarEvents]
-// K:0
-// T:Event
-// V:{"title":"Birthday","type":"solar",...}
-//
 // [hive:body_records]
 // K:1719822000000
 // T:BodyRecord
@@ -63,8 +58,6 @@ String storageBase64Marker(String b64) => 'B:$b64';
 
 /// 已知 Hive value 类型字符串
 class HiveTypeNames {
-  static const String event = 'Event';
-  static const String person = 'Person';
   static const String bodyRecord = 'BodyRecord';
   static const String map = 'Map<String,dynamic>';
   static const String list = 'List<dynamic>';

@@ -154,9 +154,6 @@ class MyApp extends ConsumerWidget {
           lazy: false,
           create: (_) => LabClockProvider(),
         ),
-        // 同理：日历 widget 也要冷启动同步
-        // 注：v2 LabCalendarProvider 在 CalendarDemo 内部 MultiProvider 局部创建，
-        // 不再作为 app 级单例。
         classic_provider.ChangeNotifierProvider(
           create: (_) => AIChatProvider(),
         ),

@@ -17,11 +17,8 @@ abstract final class HiveTypeIds {
   static const int bodyRecord = 0;
 
   // ── lab 区段 80-99 ────────────────────────────
-  /// 日历事件 v2：untyped Map（见 CalendarRepository）；typeId 不再使用。
-  // static const int calendarEvent = 90;  // deprecated in v2
-
-  /// 日历人物
-  static const int calendarPerson = 91;
+  // 此前 90/91 分配给 calendar v2 (untyped Map) 与 Person Adapter；
+  // 日历 demo 已下线，相关 typeId 同时释放。
 
   // 新增 typed model 时在此追加，并确认不与已有冲突。
 }

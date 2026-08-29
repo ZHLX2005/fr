@@ -6,8 +6,8 @@
 // - 写入 [notes] 笔记文件
 //
 // 关键设计：
-// - typed box（如 calendarEvents/calendarPeople/body_records）需要把 JSON
-//   字符串反序列化为对应类的实例，通过 BoxDescriptor.getBox().put 写入。
+// - typed box（如 body_records）需要把 JSON 字符串反序列化为对应类的实例，
+//   通过 BoxDescriptor.getBox().put 写入。
 // - 非 typed box 直接写入 dynamic 值。
 // - 失败的单条记录不会中断整个导入，只统计错误数。
 // - 媒体文件不参与导入（导出端已跳过）。
@@ -25,8 +25,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../storage_manager.dart';
 import '../storage_registry.dart';
 import '../../body/models/body_record.dart';
-import '../../../../lab/demos/calendar/domain/event.dart';
-import '../../../../lab/demos/calendar/domain/person.dart';
 import 'const_storage_export.dart';
 
 /// 文本标记（导出端写入的 K/T/V/F/B）→ 消费者读取的字段名。
@@ -423,12 +421,6 @@ class StorageImporter {
   /// 按 type 标签反序列化为 typed 对象
   dynamic _decodeTypedValue(String value, String type) {
     switch (type) {
-      case HiveTypeNames.event:
-        final map = jsonDecode(value) as Map<String, dynamic>;
-        return Event.fromJson(map);
-      case HiveTypeNames.person:
-        final map = jsonDecode(value) as Map<String, dynamic>;
-        return Person.fromJson(map);
       case HiveTypeNames.bodyRecord:
         final map = jsonDecode(value) as Map<String, dynamic>;
         return BodyRecord(

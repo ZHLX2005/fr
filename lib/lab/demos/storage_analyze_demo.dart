@@ -14,7 +14,6 @@ import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
 import '../../core/design/emphasis_button.dart';
-import '../../core/storage/hive/calendar_repository.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {
@@ -90,17 +89,10 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
 
   /// 确保所有 typed Hive box 都注册了 adapter。
   ///
-  /// main.dart 启动时只 init 了 timetable + body_records；calendar 是按需 init
-  /// 的。如果用户没先进过日历 demo 就打开存储分析页，calendarEvents /
-  /// calendarPeople 这类 typed box 不会进 StorageRegistry，面板看不到、导出也
-  /// 拿不到（缺 adapter 时 Hive 读会抛）。所以在加载 / 导出 / 导入前统一兜底。
+  /// main.dart 启动时已 init 了 timetable + body_records 等 typed box；
+  /// 其它 feature 的 typed box 走自己的按需 init / 启动钩子,不在面板处强耦合。
   Future<void> _ensureBoxesInitialized() async {
     await _storage.init().timeout(const Duration(seconds: 10));
-    try {
-      await CalendarRepository.instance.init();
-    } catch (e) {
-      debugPrint('CalendarRepository.init 失败（忽略）: $e');
-    }
   }
 
   Future<void> _loadStorageData() async {
