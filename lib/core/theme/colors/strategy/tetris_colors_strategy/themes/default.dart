@@ -1,6 +1,7 @@
-// Layer 2 — DefaultTetrisColorsStrategy：从 tokens/color/tetris 派生 4 角色。
+// Layer 2 — DefaultTetrisColorsStrategy：tetris 棋盘 4 角色走 native const。
 //
-// 棋盘环境从 scheme 派生，方块识别色从 BaseColors 锁定（跨主题不变）。
+// tetris 是 5 主题特例，所有角色从 TetrisColors 跨主题锁定的 const 取，
+// 不再从 ColorScheme 派生。scheme 仍保留作接口契约（不变入派生）。
 
 import 'package:flutter/material.dart';
 
@@ -24,14 +25,14 @@ class DefaultTetrisColorsStrategy extends TetrisColorsStrategy {
   const DefaultTetrisColorsStrategy._(this.scheme);
 
   @override
-  Color get cellHighlight => TetrisColors.cellHighlight(scheme);
+  Color get cellHighlight => TetrisColors.cellHighlight;
 
   @override
-  Color get pieceBackground => TetrisColors.pieceBackground(scheme);
+  Color get pieceBackground => TetrisColors.pieceBackground;
 
   @override
-  Color get pieceGridLine => TetrisColors.pieceGridLine(scheme);
+  Color get pieceGridLine => TetrisColors.pieceGridLine;
 
   @override
-  List<Color> get pieceColors => TetrisColors.pieceColors;
+  Map<int, Color> get pieceColors => TetrisColors.pieceColors;
 }

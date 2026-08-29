@@ -76,7 +76,7 @@ class _BoardPainter extends CustomPainter {
   });
   final ColorScheme scheme;
   final TetrisColorsStrategy tc;
-  final List<Color> pieceColors;
+  final Map<int, Color> pieceColors;
   final List<List<int>> grid;
   final TetrisPiece? current;
   final int ghost;
@@ -115,7 +115,7 @@ class _BoardPainter extends CustomPainter {
       for (var x = 0; x < row.length && x < kTetrisCols; x++) {
         final t = row[x];
         if (t != kEmptyCell) {
-          _drawCell(canvas, cellW * x, cellH * y, cellW, cellH, pieceColors[t]);
+          _drawCell(canvas, cellW * x, cellH * y, cellW, cellH, pieceColors[t]!);
         }
       }
     }
@@ -125,7 +125,7 @@ class _BoardPainter extends CustomPainter {
 
     // ghost 落点
     if (ghost > 0) {
-      final color = pieceColors[cur.type];
+      final color = pieceColors[cur.type]!;
       for (var i = 0; i < cur.matrix.length; i++) {
         for (var j = 0; j < cur.matrix[i].length; j++) {
           if (cur.matrix[i][j] == 0) continue;
@@ -137,7 +137,7 @@ class _BoardPainter extends CustomPainter {
     }
 
     // 下落块
-    final color = pieceColors[cur.type];
+    final color = pieceColors[cur.type]!;
     for (var i = 0; i < cur.matrix.length; i++) {
       for (var j = 0; j < cur.matrix[i].length; j++) {
         if (cur.matrix[i][j] == 0) continue;
@@ -178,14 +178,10 @@ class _BoardPainter extends CustomPainter {
     );
   }
 
+  // grid 是 engine 内部 mutate 的同一引用；中途变化引用不变 → 用内容快照不可靠。
+  // 俄罗斯方块每秒重绘几次、仅 200 格，直接恒重绘，零漏帧。
   @override
-  bool shouldRepaint(covariant _BoardPainter old) =>
-      scheme != old.scheme ||
-      tc != old.tc ||
-      pieceColors != old.pieceColors ||
-      grid != old.grid ||
-      current != old.current ||
-      ghost != old.ghost;
+  bool shouldRepaint(covariant _BoardPainter old) => true;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -221,7 +217,7 @@ class _PiecePreviewPainter extends CustomPainter {
   });
   final ColorScheme scheme;
   final TetrisColorsStrategy tc;
-  final List<Color> pieceColors;
+  final Map<int, Color> pieceColors;
   final int? type;
 
   @override
@@ -261,7 +257,7 @@ class _PiecePreviewPainter extends CustomPainter {
     final ox = (size.width - boxW) / 2 - minC * cell;
     final oy = (size.height - boxH) / 2 - minR * cell;
 
-    final color = pieceColors[t];
+    final color = pieceColors[t]!;
     final paint = Paint()..color = color;
     for (var i = 0; i < matLen; i++) {
       for (var j = 0; j < matrix[i].length; j++) {
@@ -278,9 +274,5 @@ class _PiecePreviewPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PiecePreviewPainter old) =>
-      scheme != old.scheme ||
-      tc != old.tc ||
-      pieceColors != old.pieceColors ||
-      type != old.type;
+  bool shouldRepaint(covariant _PiecePreviewPainter old) => old.type != type;
 }
