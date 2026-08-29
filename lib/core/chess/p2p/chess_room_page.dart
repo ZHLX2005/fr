@@ -37,6 +37,7 @@ import '../models/move.dart';
 import '../models/piece.dart';
 import '../skins/chess_skin.dart';
 import '../skins/local_chess_skin.dart';
+import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
 import '../widgets/promotion_panel.dart';
 
@@ -58,6 +59,10 @@ class ChessRoomPage extends StatefulWidget {
   /// null → 回退 [ChessSkinBundle.byId]（RemoteChessSkin / unicode），向后兼容。
   final LocalChessSkin? localSkin;
 
+  /// 自定义棋盘配色（可选）。null = 跟随主题（context.chessColors）；
+  /// 非 null → 用户自定义覆盖主题（boardPalette?.X ?? 主题 X），向后兼容。
+  final BoardPalette? boardPalette;
+
   const ChessRoomPage({
     super.key,
     required this.handle,
@@ -65,6 +70,7 @@ class ChessRoomPage extends StatefulWidget {
     this.engine = const ChessEngine(),
     this.skinId = '1',
     this.localSkin,
+    this.boardPalette,
   });
 
   @override
@@ -580,6 +586,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                     legalTargets: _legalTargets,
                     lastMove: _lastMove,
                     onSquareTap: _handleTap,
+                    // 用户自定义棋盘配色（null = 跟随主题）
+                    boardPalette: widget.boardPalette,
                   ),
                 ),
               ),
