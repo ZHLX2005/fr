@@ -1,16 +1,17 @@
 # 子 ref B：如何扩展（theme-extension）
 
-> 从 [SKILL.md](../SKILL.md) 导航进入。本文给 **主题系统的扩展与迁移 SOP**：新增配色、新增语义角色、新增组件样式、把既有硬编码迁到主题通道、豁免判定。
-> 系统分层/文件地图先看 [[architecture]]；用量现状/热点文件看 [[color-usage-audit]]。
+> 从 [SKILL.md](../SKILL.md) 导航进入。本文给 **主题系统的扩展与迁移 SOP**：新增配色、新增语义角色、新增组件样式、把既有硬编码迁到主题通道、豁免判定、特例策略怎么写。
+> 系统分层/文件地图先看 [[architecture]]；用量现状/热点文件看 [[color-usage-audit]]；识别色锁定业务怎么写看 [[special-cases]]。
 
 ## 0. 扩展动作速查表
 
 | 我想… | 动哪些文件 | 详见 |
 | --- | --- | --- |
-| 新增一套主题配色 | `semantic/colors.dart` + `semantic/extensions.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
-| 新增强调色 / 语义角色（如 danger→warning、新增 focus 色） | `strategy/color_strategy.dart` + `strategy/default_color_strategy.dart`（+ 其他策略如有同类需求） | §2 |
-| 新增 / 改一个复用的组件样式 | `component/` 或 `zen_theme.dart` helper | §3 |
+| 新增一套主题配色 | `tokens/color/theme/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
+| 新增强调色 / 语义角色（如在 `ColorStrategy` 加 `info`） | `colors/strategy/color_strategy/color_strategy.dart` + `colors/strategy/color_strategy/themes/default.dart`（+ 其他 strategy 如有同类需求） | §2 |
+| 新增 / 改一个复用的组件样式 | `component/` 或 `widgets/theme/zen_theme.dart` helper | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
+| 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[special-cases]] |
 | 看历史踩过的反模式 / 找正确做法 | 踩坑经验库 | §4.5 |
 | 判断某处能不能写裸 hex | 豁免规则 | §5 |
 
@@ -27,27 +28,24 @@
 
 **踩坑案例**：`lib/lab/demos/notion_image_host_demo.dart` 拍照框 + 文字输入框 → 最初 `surfaceContainerHighest`（太深）→ `primaryContainer`（仍深）→ `Color.lerp(..., 0.4)` → `Color.lerp(..., 0.2)` 才对。
 
-> **"输入/上传/选择" 在 PR review 中需要进一步细化** —— 用户实操把违规范围卡在「输入框 / 表单选择控件」这一严格子集，按钮 / 确认 / 纯展示 / 小头像 / chat 气泡 / 进度槽 等**明确不算**。详见 [[#4.5.13 用户实操边界白名单]]。
-
-
+> **"输入/上传/选择" 在 PR review 中需要进一步细化** —— 用户实操把违规范围卡在「输入框 / 表单选择控件」这一严格子集，按钮 / 确认 / 纯展示 / 小头像 / chat 气泡 / 进度槽 等**明确不算**。详见 §4.5.13 用户实操边界白名单。
 
 ## 1. 新增一套主题配色
 
-**数据入口三件套必须同步**（缺一不可，否则 `getThemeData` 会缺参）：
+**数据入口两件套必须同步**（缺一不可，否则 `getThemeData` 会缺参）：
 
-1. **`semantic/colors.dart` → `ThemeColorSchemes`**：新增 `static const ColorScheme foxy = ColorScheme(...)`。
+1. **`tokens/color/theme/<mode>.dart` → `<Mode>Colors`**：新增 `class` 含 `static const ColorScheme scheme` + `static const AppColorsExtension appColors`。
    - 按「主色族不动 + 环境族染互补 hue（差 150°~170°）+ tertiary 互补强副 + error 保持」设计。
    - onPrimary/onError 等纯黑纯白引用 `RawColors`；环境色注意与主色 hue 对比度。
-2. **`semantic/extensions.dart` → `ThemeAppColors`**：新增对应 `AppColorsExtension`。
-   - 状态色（success/warning/info + 容器族）+ `category` 8 色，跨「主色族 / 环境族 / 互补族」混排。
-   - info 建议用 tertiary 互补色族呼应主色。
-3. **`app_theme.dart`**：
+2. **`app_theme.dart`**：
    - `enum AppThemeMode` 加一个枚举值。
    - `getThemeDisplayName` / `getThemeIcon` 的 switch 各补一支。
    - `getThemeData` 的 switch 加 `_buildTheme(scheme:..., ext:..., cardShadow:...)`（cardShadow 深色主题用 `RawColors.shadowMedium/shadowHeavy`，浅色用 `shadowLight`）。
-4. **`theme_provider.dart`**：若新主题是深色（`Brightness.dark`），`materialThemeModeProvider` 的 switch 要补 `AppThemeMode.foxy => ThemeMode.dark`，否则浅色主题全落 `_ => light` 分支。
+3. **`state/theme_provider.dart`**：若新主题是深色（`Brightness.dark`），`materialThemeModeProvider` 的 switch 要补 `AppThemeMode.<new> => ThemeMode.dark`，否则浅色主题全落 `_ => light` 分支。
 
 校验：切到新主题整页审一遍（重点：卡片/对话框 surface 对比、正文 onSurface、边框 outline、危险 error）。
+
+> **特例策略不受影响**：`TetrisColorsStrategy` / `TeamAvatarStrategy` 走 native const，新主题下不变。`DefaultTorchProtectStrategy` 切主题会重新派生。
 
 ## 2. 扩展语义角色（ColorStrategy）
 
@@ -55,12 +53,13 @@
 
 若确需新增（示例：增加 `info` 角色）：
 
-1. `strategy/color_strategy.dart`：抽象加 `Color get info;`，并在 `==`/`hashCode` 中并入 `info`。
-2. `strategy/default_color_strategy.dart`：实现 `info => scheme.tertiary`（或选合适 scheme 角色映射）。
-3. 如还有 board/game 策略需要相同角色，照 `default_board_color_strategy.dart` / `default_game_colors_strategy.dart` 同法扩，并同步它们的 `==`/`hashCode`。
+1. `colors/strategy/color_strategy/color_strategy.dart`：抽象加 `Color get info;`，并在 `==`/`hashCode` 中并入 `info`。
+2. `colors/strategy/color_strategy/themes/default.dart`：实现 `info => scheme.tertiary`（或选合适 scheme 角色映射）。
+3. 如还有 board / torchProtect 策略需要相同角色，照 `default_board_color_strategy.dart` / `default_torch_protect_strategy.dart` 同法扩，并同步它们的 `==`/`hashCode`。
 4. 消费端已有 `context.colors` 快捷入口，扩接口后自动可用，无需改 `context_colors.dart`。
 
 > ⚠️ 任何实现 `ColorStrategy` 的类都要满足 `@immutable` + 角色全覆盖 + `==`/`hashCode` 一致性，否则策略去重与 rebuild 失效。
+> ⚠️ **特例策略不要扩**：`TetrisColorsStrategy` 4 角色锁定，扩它 = 改 const 引用面 = 高风险。要加识别色业务开新 strategy（见 [[special-cases]] §2）。
 
 ## 3. 新增 / 修改组件样式
 
@@ -79,7 +78,9 @@
 | `Color(0xFF...)` / `Colors.grey` | `Theme.of(context).colorScheme.X` | 找语义对应的 M3 角色（surface/onSurface/outline/primary/error…） |
 | 6 角色语义（accent/surface/outline/text/textMuted/danger） | `context.colors.X` | 直接换，语义 1:1 |
 | 棋盘专属 | `context.boardColors.X` | player1/player2/winHighlight…见 §4 表 |
-| 方块 / 头像 / 护眼 | `context.gameColors.X` | `pieceColors[i]`（i 固定即语义固定）/ `avatarColors` |
+| tetris 棋盘 + 7 方块色 | `context.tetrisColors.X` | `pieceBackground` / `pieceColors[1..7]`（Map 强制 1..7 索引） |
+| 团队卡头像 | `context.teamAvatar.avatars[i]` | i = 0..5 |
+| 护眼色预设 | `context.torchProtect.presets[i]` | i = 0..9 |
 | 状态色 / 分类色 | `Theme.of(context).extension<AppColorsExtension>()!` | `success / warning / info / category[i]` |
 
 **流程**：
@@ -100,164 +101,96 @@
 **根因**：`surfaceContainerHighest` 是 M3 的"最抬升容器"，在浅色主题也是**淡灰/淡彩**（不是纯白）；在 dark 主题（purple）则变成**深色底**。把它当 AppBar 背景会把页面压暗。
 
 **正确做法**：用 `surface`（页面/卡片/AppBar/BottomNavBar 的背景标准值）。
-- AppBar → `colorScheme.surface`
-- Scaffold → `colorScheme.surface`
-- BottomNavigationBar → `colorScheme.surface`
-- Card → 默认走 `CardTheme.color = scheme.surface`（`app_theme.dart` 已配好）
 
-**踩坑案例**：`lib/widgets/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme` 之前用 `surfaceContainerHighest`，改 `surface` 后整页变通透。
+**踩坑案例**：`lib/widgets/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
 
 ### 4.5.2 ❌ 用 `inversePrimary` 当 AppBar / Scaffold 背景
 
-**症状**：AppBar 颜色与主色互补，整页色调诡异（深色主题下尤其突兀）。
-
-**根因**：`inversePrimary` 是为"主题翻转"设计的强调色（亮/暗互补），不是基础背景。
-
 **正确做法**：直接删掉 `backgroundColor:` 让它走 AppBarTheme 默认值（=`scheme.surface`）。要更深背景 → 用 `surfaceContainer`，不要用 `inversePrimary`。
-
-**踩坑案例**：`lib/lab/demos/crash_log_demo.dart` / `kvcli_todo_demo.dart` / `overlay_demo.dart` / `schema_demo.dart` 的 AppBar 之前用 `inversePrimary`，移除后页面恢复正常。
 
 ### 4.5.3 ❌ 用 `surfaceVariant`（已 deprecated）
 
-**症状**：analyze 报 `deprecated_member_use`，未来 Flutter 版本会编译失败。
-
-**根因**：M3 把 `surfaceVariant` 拆成 5 档 `surfaceContainer*`，旧的 `surfaceVariant` 已废弃。
-
 **正确做法**：换成 `surfaceContainerHighest`（语义最接近：弱化表面）。如果嫌深，再换成 `surface` 或 `surfaceContainerHigh`。
-
-**踩坑案例**：`lib/lab/demos/web_bookmark_demo.dart` 多处用 `surfaceVariant`，改 `surfaceContainerHighest`。
 
 ### 4.5.4 ❌ 用 `Color.lerp(color, Colors.white/black, 0.5)` 调淡
 
-**症状**：hover/selected 背景"看起来淡了但灰蒙蒙的"。
+**正确做法**：用主题角色：`primaryContainer` / `secondaryContainer` / `tertiaryContainer`（已是该主题的"浅色版本"）。要更淡 → `Color.lerp(surface, primaryContainer, 0.2)`。
 
-**根因**：用 `Colors.white/black` 中和会拉低饱和度，结果是灰色不是"淡主题色"。
-
-**正确做法**：用主题角色：`primaryContainer` / `secondaryContainer` / `tertiaryContainer`（已是该主题的"浅色版本"）。要更淡 → `Color.lerp(surface, primaryContainer, 0.2)`（保留色调但接近纯白底）。
-
-**踩坑案例**：web_bookmark 的 icon selector 之前 `selectedColor.withAlpha(51)`（淡灰），改 `primaryContainer`。
-
-### 4.5.5 ❌ Card 背景用 `onSurface`（light 主题下变深底）
-
-**症状**：卡片在 light 主题下背景变成深色，文字看不清楚。
-
-**根因**：用 M3 角色记错——`onSurface` 是"表面**上**的文字色"，不是表面本身的色。在 light 主题下 onSurface 是深色（接近黑），把它当 card 背景就成黑底卡片。
+### 4.5.5 ❌ Card 背景用 `onSurface`
 
 **正确做法**：Card 背景用 `surface`。`onSurface` 只用于文字/图标前景色。
 
-**踩坑案例**：`lib/lab/demos/web_bookmark_demo.dart` `_BookmarkCard` 之前 `backgroundColor: onSurface`（dark 主题下"碰巧"看起来合理，light 主题下就翻车）。
-
 ### 4.5.6 ❌ outline 调成太淡的纯灰
 
-**症状**：次要图标 / 分割线 / 输入框边框几乎看不见，但边框本身又不够清晰。
-
-**根因**：`outline` 这个角色**多重用途**——同时承担边框、分割线、次要图标、占位符色。调太淡（如 `#E6E6E6` 纯灰）会让"次要图标"和"分割线"看不见。
-
-**正确做法**：保留**带主题色温的淡色调**——lemon 用淡柠檬白 `#EAE5D6`、rose 用淡粉白 `#EADEE1`。跨主题一致（不鲜艳），但保留了色调辨识度，且作为图标/分割线仍可见。
-
-**踩坑案例**：`colors.dart` lemon/rose outline 从纯亮黄/纯粉 → 太深 → 最终定为带主题色温的淡色调（呼应主题设置色点的低调描边 `Colors.black12`）。
+**正确做法**：保留**带主题色温的淡色调**——lemon 用淡柠檬白 `#EAE5D6`、rose 用淡粉白 `#EADEE1`。
 
 ### 4.5.7 ❌ Icon container 背景用 `bookmark.color.withAlpha(51)`
 
-**症状**：icon 背景半透明彩色，hover/selected 时颜色混乱。
-
-**根因**：用业务数据色做背景 + 50% alpha —— 跨主题不可控（dark 主题下会变成深色）。
-
 **正确做法**：icon container 背景用 `primaryContainer`（选中）或 `surfaceContainerHighest`（未选）；边框用 `primary`/`outline`。
-
-**踩坑案例**：`lib/lab/demos/web_bookmark_demo.dart` 多处 icon container 改 `primaryContainer`。
 
 ### 4.5.8 ❌ Markdown code 块背景用 `surfaceContainerHighest`
 
-**症状**：深色代码块在 light 主题下也偏深。
-
-**正确做法**：用 `primaryContainer`（浅主题色块，代码对比度好）。注意 dark 主题下 `primaryContainer` 仍是浅色，需要验证可读性。
-
-**踩坑案例**：`lib/widgets/markdown_renderer_widget.dart` code/codeblock 改 `primaryContainer`。
+**正确做法**：用 `primaryContainer`（浅主题色块，代码对比度好）。
 
 ### 4.5.9 ❌ 修改 ColorScheme 后没核对引用面
 
-**症状**：改了 `surface` 或 `outline` 后某些页面"颜色突然变了"，但不知道是预期还是 bug。
-
-**正确做法**：改 ColorScheme 后跑 §6 校验流程，grep 新值是否在所有 5 主题下的边界用例都正常（如 dark 主题 surface 是否够深、light 主题 outline 是否够可见）。
-
-**踩坑案例**：purple 主题 surface 之前被错误地改亮（#3A3832）→ 后续用户报告"暮紫背景不够深" → 改回 #201F1A。**所有 ColorScheme 改动必须有"为什么"的注释，否则下次又会被误改。**
+**正确做法**：改 ColorScheme 后跑 §6 校验流程，grep 新值是否在所有 5 主题下的边界用例都正常。
 
 ### 4.5.10 ❌ 整文件声明"主题豁免"但里面有些项不该豁免
 
-**症状**：文件顶部注释说"本文件所有 `Color(0xFF...)` 都是豁免"，但其中某一项其实是用户希望走主题的。
-
-**正确做法**：豁免注释**逐项列清楚**（不要写"等"或"全部"）。每个豁免项必须单独有"为什么"的业务理由（品牌识别 / 数据固定 / 解剖标准色…）。用户后续要拿掉某个豁免项时只动那一处。
-
-**踩坑案例**：`lib/core/novel_reader/novel_reader_page.dart` 顶部注释一开始说"烫金封面渐变 0xFFDFB982→0xFF6E3D27 也豁免"——后续用户要求**不豁免**书皮封面，改走主题三段渐变 `tertiaryContainer → primary → onPrimaryContainer`。注释同步更新为逐项豁免（只留纸张底色/棕色墨水）。
+**正确做法**：豁免注释**逐项列清楚**（不要写"等"或"全部"）。每个豁免项必须单独有"为什么"的业务理由。
 
 ### 4.5.11 ❌ "看起来颜色不对"先改 token 而不是先查树
 
-**症状**：发现某 demo 颜色错了，直接去改 `colors.dart` / `extensions.dart` / `DefaultColorStrategy`。改完一堆其它页面也跟着崩。
-
-**正确做法**：颜色不对先按 [[architecture]] §7.3 的调试步骤排查（嵌套 MaterialApp？Provider 树隔离？token 注入？组件裸 hex？），**90% 的"颜色不对"是树问题，不是 token 问题**。
-
-**踩坑案例**：暮紫主题 surface 之前被错误地"调亮"以适配"时钟卡片不走主题通道"——实际根因是 clock_demo 嵌套 MaterialApp 不继承 colorScheme（已单独修）。改 token 是治标错的。
+**正确做法**：颜色不对先按 [[architecture]] §6.4 的调试步骤排查（嵌套 MaterialApp？Provider 树隔离？token 注入？组件裸 hex？），**90% 的"颜色不对"是树问题，不是 token 问题**。
 
 ### 4.5.12 ❌ "颜色太深"先想到 `surfaceContainerHighest` → `primaryContainer` 就停
 
-**症状**：把"颜色太深"的卡片从 `surfaceContainerHighest` 换成 `primaryContainer`，用户反馈"还是太深"。
-
-**根因**：`primaryContainer` 在 lemon（#FFF9C4）、rose（#FECBCB）等主题下虽然比 surfaceContainerHighest 浅，但仍**有可见饱和度**——卡片色块铺满时仍会"显色"。
-
-**正确做法**：用 `Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.2)` —— 80% surface + 20% primaryContainer。背景几乎看不出主题色调，仅在对比时才有微弱色感。
-
-**踩坑案例**：notion_image_host 拍照框 + 文字输入框 → surfaceContainerHighest → primaryContainer → `Color.lerp(0.4)` → `Color.lerp(0.2)`。这才是"承载交互的大色块卡片该有的浅度"。
+**正确做法**：用 `Color.lerp(theme.colorScheme.surface, theme.colorScheme.primaryContainer, 0.2)` —— 80% surface + 20% primaryContainer。
 
 ### 4.5.13 用户实操边界白名单 — 这些场景**不算** §0.1 违规
 
-> **本条来自 2026-08 审 calendar/AI 对话框的实战沉淀**。§0.1 原话是"输入 / 上传 / 选择"，但**用户实操卡得比原话更严**——只在真正承载"输入/表单选择"功能时才视为违规。下表是兜底判定清单，遇到模糊案例直接来查表，不必重新推理。
+> **本条来自 2026-08 审 calendar/AI 对话框的实战沉淀**。§0.1 原话是"输入 / 上传 / 选择"，但**用户实操卡得比原话更严**——只在真正承载"输入/表单选择"功能时才视为违规。下表是兜底判定清单。
 
 #### 不算违规的具体场景
 
 | 场景 | 典型写法 | 为什么不算 |
 |---|---|---|
-| **操作按钮**（含确认 / 删除）| `OutlinedButton(bg: pp.bgElevated)`、`FilledButton(bg: scheme.error)` 清空确认 | 用户原话："不是确认删除btn"。按钮是动作触发，不是输入 |
-| **头像 (CircleAvatar)**，包括半径较大的空状态 40dp | `CircleAvatar(radius: 16~40, bg: secondaryContainer)` | 视觉装饰元素，非"大色块交互卡片" |
-| **纯展示卡 / borderEmphasis 标记卡** | Container + border + accent 文本，强调当前选中 | 仅作视觉强调，无输入 / 选择功能 |
-| **Chat message bubble**（user / assistant / error / loading / image）| 圆角色块气泡样式 | 消息展示容器，非"输入"或"表单选择" |
-| **Loading 状态指示** | `surfaceContainerHighest` loading bar / status indicator | §0.1 已明示的"状态栏 / 进度显示"例外 |
-| **LinearProgressIndicator 槽** | `LinearProgressIndicator.backgroundColor: surfaceContainerHighest` | 进度条槽底色，状态显示类 |
+| **操作按钮**（含确认 / 删除）| `OutlinedButton(bg: pp.bgElevated)`、`FilledButton(bg: scheme.error)` 清空确认 | 按钮是动作触发，不是输入 |
+| **头像 (CircleAvatar)**，包括半径较大的空状态 40dp | `CircleAvatar(radius: 16~40, bg: secondaryContainer)` | 视觉装饰元素 |
+| **纯展示卡 / borderEmphasis 标记卡** | Container + border + accent 文本，强调当前选中 | 仅作视觉强调 |
+| **Chat message bubble** | 圆角色块气泡样式 | 消息展示容器 |
+| **Loading 状态指示** | `surfaceContainerHighest` loading bar / status indicator | §0.1 已明示的例外 |
+| **LinearProgressIndicator 槽** | `LinearProgress.backgroundColor: surfaceContainerHighest` | 进度条槽底色 |
 | **M3 标准 outline input** | TextField `border: OutlineInputBorder()` 无 `fillColor` | M3 标准 outline 不填充，OK |
-| **页面 / Scaffold 全屏背景是深底 onSurface** | `Scaffold(backgroundColor: onSurface)` + AppBar 透明 + icon/title/文字前景 surface | 反白夜间阅读的有意设计（word_drag word_detail 原状）。若要改成 light mode 需联动改所有前景色，不能孤立改背景 |
-| **占位 / 加载骨架** | `Container(color: surfaceContainerHighest) + CircularProgressIndicator` 缩略图占位 | 占位显示型，非"输入/选择" |
+| **页面 / Scaffold 全屏背景是深底 onSurface** | `Scaffold(backgroundColor: onSurface)` + AppBar 透明 | 反白夜间阅读的有意设计 |
+| **占位 / 加载骨架** | `Container(color: surfaceContainerHighest) + CircularProgressIndicator` | 占位显示型 |
 
 #### 严格违规判定流（按用户实操）
 
 ```
 1. 是大色块卡片？（padding ≥ 16dp 或占满视口宽度）
-   ├─ 否 → 不算违规（如头像、小 chip、小 button）
+   ├─ 否 → 不算违规
    └─ 是 ↓
 
 2. 承载"输入 / 表单选择" 功能？
-   ├─ 否 → 不算违规（展示型 / 标记型 / 按钮型 / chat 气泡 / 占位）
+   ├─ 否 → 不算违规
    └─ 是 ↓
 
-3. 是 TextField.fillColor / 表单选择控件（chip_choice 选中、pill_segmented）/ 
-   表单 sheet 大色块容器？
+3. 是 TextField.fillColor / 表单选择控件 / 表单 sheet 大色块容器？
    ├─ 是 → ❌ 违规，改 Color.lerp(surface, primaryContainer, 0.2)
    └─ 否 → 重判
 ```
 
-#### 与既有 §4.5 章节的关系
+### 4.5.14 ❌ 识别色业务强行接 scheme 派生（v6.2 tetris 真实踩坑）
 
-- §4.5.1（surfaceContainerHighest 当 AppBar）属于"展示型"例外 —— 上表第 3 / 6 行覆盖
-- §4.5.5（onSurface 当 Card 背景）属于反白设计 —— 上表第 8 行覆盖。**孤立改背景不行**，必须联动改前景
-- §4.5.12（颜色太深 lerp 0.2）是输入/表单选择的正确写法 —— 上表判定流第 3 步即指向此写法
+**症状**：tetris 棋盘切主题时方块颜色全错（I 变琥珀、O 变紫色、...），L 块（type 7）越界直接消失。
 
-#### 复盘：用户原话
+**根因**：`pieceColors` 改 `List<Color>` 0..6 强行从 scheme 派生，但 engine / Lua 协议始终用 1..7 → off-by-one + 越界。
 
-> 1. 大面积
-> 2. 明显交互属性的，此处指的交互属性是指的输入框，表单选择这种，不是指的确认删除btn
+**正确做法**：见 [[special-cases]] §1。识别色业务必须 native const + `Map<int, Color>` 1..7 索引。
 
-提炼：**"大面积 + 是输入框或表单选择控件"** = 严格违规集合。其他场景按上表白名单豁免。
-
-
+**踩坑案例**：`fix(tetris): revert palette to native + fix pieceColors off-by-one`（commit 24d91ea1）。
 
 ## 5. 豁免规则（何时允许裸 hex）
 
@@ -265,7 +198,10 @@
 
 1. **国际 / 品牌识别色**：斗兽棋暖米盘、Othello 绿盘黑白子、2048 原版识别色、小说书封面品牌渐变…
 2. **数据持久化 / 业务必显色**：医学解剖标准色（骨蓝/肌红/关黄/器绿）、莫兰迪课程色（light 专属）、pigment 调色板本体、web_bookmark 站点色…
-3. **独立令牌系统（无需豁免注释，架构决策保留）**：`surround_game` / `reversi` 的 `BoardThemeData`（86 处，见 [[architecture]] §5.7）。
+3. **特例 strategy（无需豁免注释，架构决策保留）**：
+   - `tokens/color/tetris/tetris.dart` 4 角色 + 7 方块色（识别色锁定，玩家靠颜色识别方块）
+   - `tokens/color/team/team.dart` 6 头像色（识别色锁定）
+   - `lib/core/surround_game` 与 `lib/core/reversi` 的 `BoardThemeData`（86 处，见 [[architecture]] §5.8）
 
 **红线**：`lib/` 新增代码不默认这些豁免——只有上面场景适用，任何其它裸 hex 都要先想通道。
 
@@ -277,6 +213,7 @@ flutter build apk --debug        # √ Built
 ```
 
 - 切到 zen / purple / ink / rose / lemon 五主题各审关键页一次（壳层、卡片、board 棋盘、game 色板）。
+- **特例页面**（tetris / team_card）跨主题审一次：切主题后该不动的角色必须不变。
 - 新增枚举 / 扩角色后，确认无遗漏 switch 分支（`getThemeData` / `materialThemeModeProvider` / displayName / icon）。
 - strategy 扩展后跑一次测试或至少 analyze，确认 `==`/`hashCode` 改动不崩。
 - 回到 [[color-usage-audit]] 更新：目录计数、迁移历史、Top 热点（如有变化）。
