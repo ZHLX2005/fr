@@ -12,13 +12,22 @@
 //    RESIGN          → state="ended"      认输
 //    WIN             → state="ended"      胜负判定（客户端算 + 上报）
 //    RESET (host)    → state="lobby"     房主再来一局
+//
+//    ## 掉线重连（关键）
+//    on_leave (playing/ready) → state="waiting"  标记 c.disconnected[id]=true
+//                                                       保留 history(不重置)
+//    on_join (same device_id) → 取消 disconnected 标记
+//                              若双方都 connected → state="playing"
+//    on_join (新 device_id)   → waiting 期间拒绝
+//    CANCEL_WAIT (host)       → 清空 history,回 lobby
 // ```
 //
 // ## context 字段
 //
 //   - `host_id`           : string   创建者 device_id（服务端权威）
 //   - `top_player_id`     : string   = host_id（视觉顶部方）
-//   - `players`           : {device_id: alias, …}
+//   - `players`           : {device_id: alias, …}  ← 离线玩家也保留
+//   - `disconnected`      : {device_id: true, …}   ← 离线的玩家标记
 //   - `ready`             : {device_id: true, …}
 //   - `history`           : [{from, to, piece, captured, isRiverJump, round}, …]
 //   - `winner`            : "blue"|"red"|nil
@@ -66,23 +75,49 @@ on_init = function(c, p)
   c.players = {}
   c.players[p.device_id] = p.alias
   c.ready = {}
+  c.disconnected = {}
   c.history = {}
   c.winner = nil
   c.max_players = p.max_players or 2
   c.action_permissions = {
-    ACK    = "any",
-    DEAL   = "host",
-    MOVE   = "current_player",
-    RESIGN = "any",
-    WIN    = "non_current_player",
-    RESET  = "host",
+    ACK          = "any",
+    DEAL         = "host",
+    MOVE         = "current_player",
+    RESIGN       = "any",
+    WIN          = "non_current_player",
+    RESET        = "host",
+    CANCEL_WAIT  = "host",
   }
   state = "lobby"
   return c
 end
 
 on_join = function(c, p)
-  if c.players[p.device_id] ~= nil then return c end
+  -- 关键修复：先识别"断线重连"（同 device_id）
+  -- 同会话进程内的 WS 重连 → device_id 相同 → 复用 player + 取消 disconnected
+  if c.players[p.device_id] ~= nil then
+    c.disconnected[p.device_id] = nil
+    -- 双方都 connected + 处于 waiting → 自动恢复到 playing
+    if state == "waiting" then
+      local allConnected = true
+      for id, _ in pairs(c.players) do
+        if c.disconnected[id] then allConnected = false; break end
+      end
+      if allConnected then
+        state = "playing"
+      end
+    end
+    return c
+  end
+
+  -- 新 device_id：waiting 期间拒绝（保留 history 给原对手重连）
+  if state == "waiting" then
+    c.rejected_join = c.rejected_join or {}
+    c.rejected_join[p.device_id] = true
+    return c
+  end
+
+  -- lobby / ready：人数满则拒绝
   local count = 0
   for _, _ in pairs(c.players) do count = count + 1 end
   if count >= c.max_players then
@@ -95,14 +130,27 @@ on_join = function(c, p)
   return c
 end
 
+-- 关键修复：不清空 history！
+-- playing/ready 阶段任一方掉线 → 进入 "waiting" 状态，保留棋谱等待重连。
+-- history/winner 只在 RESET / CANCEL_WAIT / ended 之后由房主显式清空。
 on_leave = function(c, p)
-  c.players[p.device_id] = nil
   c.ready[p.device_id] = nil
-  -- 房间剩 0/1 人 → 退到 lobby 等下次 ACK
   if state == "playing" or state == "ready" then
-    state = "lobby"
-    c.history = {}
-    c.winner = nil
+    -- 玩家保留在 players 中，只标记 disconnected
+    -- （同会话 WS 重连时 on_join 能识别并恢复）
+    state = "waiting"
+    c.disconnected[p.device_id] = true
+  elseif state == "waiting" then
+    -- 已经 waiting 时再有玩家掉线：仅更新 disconnected 标记
+    c.disconnected[p.device_id] = true
+  elseif state == "lobby" then
+    -- lobby 阶段：彻底移除（房主开了房但又主动退出,房间空置等 TTL）
+    c.players[p.device_id] = nil
+    c.disconnected[p.device_id] = nil
+  elseif state == "ended" then
+    -- 终局后有人离开：保持 ended（winner/history 留给对局回顾）
+    -- 玩家也保留——终局画面上能看到对手的最终 alias
+    c.disconnected[p.device_id] = true
   end
   return c
 end
@@ -180,6 +228,22 @@ on_action_RESET = function(c, p)
   if not role_check(c, p, "RESET") then return c end
   c.history = {}
   c.ready = {}
+  c.disconnected = {}
+  c.winner = nil
+  state = "lobby"
+  return c
+end
+
+-- 房主主动取消"等待重连"（认对手彻底断线）
+-- 等价于一次重置，但语义更清晰——明确"放弃等待"。
+-- 与 RESET 的区别：waiting 期间 RESET 也合法，RESET 在 lobby/ended 等
+-- 状态下也能用，而 CANCEL_WAIT 只在 waiting 状态生效。
+on_action_CANCEL_WAIT = function(c, p)
+  if not role_check(c, p, "CANCEL_WAIT") then return c end
+  if state ~= "waiting" then return c end
+  c.history = {}
+  c.ready = {}
+  c.disconnected = {}
   c.winner = nil
   state = "lobby"
   return c
@@ -190,6 +254,7 @@ return {
     "on_init", "on_join", "on_leave",
     "on_action_ACK", "on_action_DEAL", "on_action_MOVE",
     "on_action_RESIGN", "on_action_RESET", "on_action_WIN",
+    "on_action_CANCEL_WAIT",
   }},
   on_init = on_init,
   on_join = on_join,
@@ -200,5 +265,6 @@ return {
   on_action_RESIGN = on_action_RESIGN,
   on_action_RESET = on_action_RESET,
   on_action_WIN = on_action_WIN,
+  on_action_CANCEL_WAIT = on_action_CANCEL_WAIT,
 }
 ''';

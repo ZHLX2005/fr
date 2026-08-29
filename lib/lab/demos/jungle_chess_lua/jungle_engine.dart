@@ -117,6 +117,10 @@ class JungleRoom {
   Future<void> move(JungleMoveRecord m) =>
       handle.applyAction(type: 'MOVE', params: {'move': m.toJson()});
 
+  /// 房主主动取消"等待重连"状态（认对手彻底断线）。
+  Future<void> cancelWait() =>
+      handle.applyAction(type: 'CANCEL_WAIT', params: const {});
+
   // ── Snapshot 便捷读取 ──
 
   static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
@@ -131,6 +135,14 @@ class JungleRoom {
 
   static Map<String, bool> readyMap(Snapshot? s) {
     final raw = s?.context['ready'];
+    if (raw is! Map) return const {};
+    return raw.map((k, v) => MapEntry(k.toString(), v == true));
+  }
+
+  /// 离线玩家表（断线但保留在 players 中的玩家）。
+  /// UI 用于显示"对手掉线"标记；on_join 时若同 device_id 自动清掉。
+  static Map<String, bool> disconnectedPlayers(Snapshot? s) {
+    final raw = s?.context['disconnected'];
     if (raw is! Map) return const {};
     return raw.map((k, v) => MapEntry(k.toString(), v == true));
   }

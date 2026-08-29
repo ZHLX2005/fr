@@ -417,6 +417,30 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     await _room.reset();
   }
 
+  /// 房主主动取消等待重连（认对手彻底断线）。
+  /// 二次确认，避免误点把已下几十步的棋直接归零。
+  Future<void> _cancelWait() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('取消等待'),
+        content: const Text(
+            '对手已断线。继续等待可让对手网络恢复时自动续局；\n'
+            '取消等待会清空当前对局回到房间。\n\n'
+            '确认取消等待？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('继续等待')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('确认取消')),
+        ],
+      ),
+    );
+    if (confirm == true) await _room.cancelWait();
+  }
+
   Future<void> _resign() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -442,6 +466,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   ///   - 点击棋子 → 选中（pieceSelected）→ 再点击目标 → onMoveConfirmed
   ///   - 按住棋子拖动 → 松手在合法目标 → onMoveConfirmed
   /// 这里直接发 MOVE；服务端 Lua 校验权限 + 写入 history。
+  ///
+  /// 音效统一在 `_onSnapshot`（history 增长时）播放——
+  /// 与 gomoku / reversi / go / surround_game_lua 一致。
+  /// 避免在这里本地立即响导致双音。
   void _onLocalMoveConfirmed(Coord from, Coord to) {
     if (!_isMyTurn) return;
     if (_snap?.state != 'playing') return;
@@ -456,7 +484,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       color: color,
       round: _history.length + 1,
     );
-    PieceSound.instance.play();  // 本地立即响（不等服务端回包）
     _room.move(rec);
   }
 
@@ -480,6 +507,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (phase == null || phase == 'lobby' || phase == 'ready') {
       return _buildLobby(theme);
     }
+    if (phase == 'waiting') return _buildWaiting(theme);
     if (phase == 'ended') return _buildFinished(theme);
     return _buildPlaying(theme);
   }
@@ -717,6 +745,105 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ── 等待重连（state="waiting"）──
+
+  /// 棋盘背景 + "对手掉线"提示条 + 房主选项（继续等待 / 取消等待 / 认输）。
+  /// 与 playing 共用棋盘渲染（history 完整保留），但禁掉触摸层。
+  Widget _buildWaiting(BoardThemeData theme) {
+    final disconnected = JungleRoom.disconnectedPlayers(_snap);
+    final offlineName = disconnected.isNotEmpty
+        ? (JungleRoom.players(_snap)[disconnected.keys.first] ?? '对手')
+        : '对手';
+    final isMyOffline = disconnected.containsKey(_room.deviceId);
+    final statusText = isMyOffline
+        ? '你已掉线 · 正在尝试重连…'
+        : '$offlineName 已掉线 · 等待重连（棋盘已冻结）';
+
+    return Scaffold(
+      backgroundColor: theme.boardSurface,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 顶部"等待重连"状态条（与 playing 同款位置，避免棋盘跳动）
+            SizedBox(
+              height: kJungleLuaTurnBarHeight,
+              width: double.infinity,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                color: theme.panelBg.withValues(alpha: 0.5),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: theme.btnText.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        statusText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.btnText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // 上方玩家面板（与 playing 同）
+            _buildOpponentPanel(theme),
+            // 棋盘（冻结——禁掉触摸层）
+            Expanded(
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 7 / 9,
+                  child: JungleBoardFrame(
+                    child: _buildBoardWithMirror(),
+                  ),
+                ),
+              ),
+            ),
+            // 下方玩家面板（与 playing 同）
+            _buildMyPanel(theme),
+            // WS 状态条（断线时显示重连中——和 waiting 状态自然衔接）
+            RelayConnectionBar(handle: widget.handle),
+            // 底部操作栏：房主多一项"取消等待"；玩家可主动退出
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_canPerform('CANCEL_WAIT')) ...[
+                    _bottomAction(
+                        Icons.close, '取消等待', _cancelWait, theme),
+                    const SizedBox(width: 16),
+                  ],
+                  if (_canPerform('RESIGN')) ...[
+                    _bottomAction(Icons.flag_outlined, '认输', _resign, theme),
+                    const SizedBox(width: 16),
+                  ],
+                  _bottomAction(
+                      Icons.exit_to_app, '退出', widget.onLeave, theme),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
