@@ -18,6 +18,8 @@
 // 棋盘 / 皮肤 / 走法引擎全部复用 lib/core/chess/ 模块；
 // 本 demo 只负责"大厅 → 房间页"的入口路由。
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import '../../core/net_engine/relay_v3/relay_v3_widget.dart';
@@ -152,6 +154,14 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
         _downloadingId = null;
         _downloadErrorId = null;
         _downloadError = null;
+      });
+    } on TimeoutException {
+      // 网络黑洞（不可达不拒绝）→ GET 挂起被超时掐断 → 明确文案 + 重试。
+      if (!mounted) return;
+      setState(() {
+        _downloadingId = null;
+        _downloadErrorId = skinId;
+        _downloadError = '下载超时，请检查网络后重试';
       });
     } catch (e) {
       if (!mounted) return;

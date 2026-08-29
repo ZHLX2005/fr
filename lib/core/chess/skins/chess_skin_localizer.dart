@@ -12,10 +12,16 @@
 //                   → false → download(meta)（HTTP 下载 + 写盘 + 返回 LocalChessSkin）
 //
 // 幂等 / 失败语义：
-//   · download 期间任何一张失败（非 200 / socket error）→ 删除全部部分文件
+//   · download 期间任何一张失败（非 200 / socket error / 超时）→ 删除全部部分文件
 //     并 rethrow —— 绝不留下半缓存皮肤（isCached 永远为 false）。
 //   · 断点续传不做（全套 13 张，量小，全量下载即可）。
 //   · 磁盘写失败（IOError）同样清空目录后 rethrow。
+//
+// 超时语义（真机踩坑：网络黑洞 —— 不可达但不立刻拒绝时 http.get 永不完成，
+// loading 转圈不结束）：
+//   · 每张资源的 HTTP GET 都有 [ChessSkinLocalizer.defaultTimeout] 超时；
+//     超时抛 TimeoutException → 走既有失败路径（清目录 + rethrow → UI 错误态 + 重试）。
+//     绝不允许"挂着不完成"的未来。
 //
 // Web 平台：dart:io 不可用 → [isCached] 返回 false、[fromCache]/[download]
 // 抛 [StateError]（调用方应预先用 [ChessSkinLocalizer.isSupported] 判断）。
@@ -23,6 +29,7 @@
 // 测试注入：默认用 `getApplicationDocumentsDirectory()`（path_provider）；
 // 测试可传 [dirProvider] 覆盖为临时目录，避免依赖 path_provider mock。
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -39,20 +46,32 @@ class ChessSkinLocalizer {
   ///
   /// [metaById] 是 [isCached] / [fromCache] 解析 meta 的钩子：默认从
   /// `kChessSkinsCatalog` 按 id 查找；测试可注入自定义 meta（皮肤 id 不在 catalog）。
+  ///
+  /// [timeout] 每张资源 HTTP GET 的超时（默认 [defaultTimeout] 15s）。
+  /// 网络黑洞（不可达但不拒绝）下 GET 永不完成 → 超时抛 TimeoutException
+  /// 走失败路径；测试可注入短超时加速。
   ChessSkinLocalizer({
     required FileResolver resolver,
     http.Client? client,
     Future<Directory> Function()? dirProvider,
     ChessSkinMeta? Function(String id)? metaById,
+    Duration? timeout,
   }) : _resolver = resolver,
        _client = client ?? http.Client(),
        _dirProvider = dirProvider ?? getApplicationDocumentsDirectory,
-       _metaById = metaById ?? _catalogMetaById;
+       _metaById = metaById ?? _catalogMetaById,
+       _timeout = timeout ?? defaultTimeout;
 
   final FileResolver _resolver;
   final http.Client _client;
   final Future<Directory> Function() _dirProvider;
   final ChessSkinMeta? Function(String id) _metaById;
+
+  /// 每张资源 HTTP GET 的默认超时。
+  static const Duration defaultTimeout = Duration(seconds: 15);
+
+  /// 每张资源 HTTP GET 的超时（构造注入；测试用短超时）。
+  final Duration _timeout;
 
   /// 根目录名（`<documents>/chess_skins/`）。
   static const String kRootDirName = 'chess_skins';
@@ -159,13 +178,18 @@ class ChessSkinLocalizer {
   }
 
   /// 下载单个 [FileRef] 写到 [dir]/[fileName]，校验 HTTP 200 后写盘。
+  ///
+  /// GET 带 [_timeout] 超时：网络黑洞（连接挂起不完成）→ TimeoutException
+  /// 抛给上层（清目录 + 错误态），绝不挂死 UI。
   Future<void> _downloadTo(FileRef ref, Directory dir, String fileName) async {
     final url = _resolver.url(ref.fileId);
     final http.Response resp;
     try {
-      resp = await _client.get(Uri.parse(url));
+      resp = await _client.get(Uri.parse(url)).timeout(_timeout);
     } on http.ClientException {
       rethrow;
+    } on TimeoutException {
+      throw TimeoutException('下载超时（${_timeout.inSeconds}s）: $url', _timeout);
     }
     if (resp.statusCode != 200) {
       throw HttpException('下载失败 ${resp.statusCode}: $url', uri: Uri.parse(url));

@@ -12,6 +12,7 @@
 // 注入：dirProvider → Directory.systemTemp.createTemp（不碰 path_provider）。
 // 目标目录结构：<tempRoot>/chess_skins/<skinId>/
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -86,7 +87,11 @@ void main() {
 
   File skinFile(String name) => File('${skinDir().path}/$name');
 
-  ChessSkinLocalizer makeLocalizer({http.Client? client, ChessSkinMeta? meta}) {
+  ChessSkinLocalizer makeLocalizer({
+    http.Client? client,
+    ChessSkinMeta? meta,
+    Duration? timeout,
+  }) {
     return ChessSkinLocalizer(
       resolver: _FakeResolver(),
       client: client,
@@ -94,6 +99,7 @@ void main() {
       // 测试皮肤 id 't1' 不在 const catalog → 注入自定义 meta 解析。
       // [meta] 传给 isCached/fromCache 用的 meta（默认无 boardBackground）。
       metaById: (id) => id == 't1' ? (meta ?? makeMeta()) : null,
+      timeout: timeout,
     );
   }
 
@@ -206,6 +212,22 @@ void main() {
     );
     expect(await l.isCached('t1'), isFalse);
     expect(skinDir().existsSync(), isFalse, reason: '目录应被清理，不留半缓存');
+  });
+
+  test('网络黑洞（GET 永不完成）→ 超时抛 TimeoutException + 目录被清理', () async {
+    // 真机踩坑：不可达但不立刻拒绝的网络下 http.get 挂死 → loading 永转圈。
+    // 防回归：注入短超时，永远不完成的 MockClient 必须在超时内落到失败路径。
+    final neverCompletes = MockClient(
+      (req) => Completer<http.Response>().future,
+    );
+    final l = makeLocalizer(client: neverCompletes, timeout: const Duration(milliseconds: 50));
+
+    await expectLater(
+      l.download(makeMeta(board: null)),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(await l.isCached('t1'), isFalse, reason: '超时后不得命中缓存');
+    expect(skinDir().existsSync(), isFalse, reason: '超时后目录应被清理');
   });
 
   test('部分文件下载失败 → 已写文件被清理（半缓存不留）', () async {
