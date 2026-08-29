@@ -44,11 +44,18 @@ import 'relay_v3_transport.dart';
 /// 游戏开始回调 — 传入 [RoomHandle]，业务层接管
 typedef V3OnStarted = void Function(RoomHandle handle);
 
+/// 额外 AppBar actions 构造器 — 返回的 widgets 会**前置**到大厅 AppBar actions。
+///
+/// 业务层（如游戏入口 demo）用它挂"换肤"等设置按钮；
+/// 默认 null → AppBar 保持原行为（lobby/playing 阶段仅显示断开按钮）。
+typedef V3ActionsBuilder = List<Widget> Function(BuildContext context);
+
 /// v3 大厅 Widget
 ///
 /// 统一"建房→大厅→开始"和"加入→大厅→开始"两条路径。
 /// [script] Lua 状态机脚本。
 /// [onStarted] state=="playing" 时触发。
+/// [actionsBuilder] 可选：返回额外 AppBar actions，前置到断开按钮之前。
 class RelayV3Lobby extends StatefulWidget {
   const RelayV3Lobby({
     super.key,
@@ -57,6 +64,7 @@ class RelayV3Lobby extends StatefulWidget {
     this.maxPlayers = 8,
     required this.onStarted,
     this.title = 'P2P 房间',
+    this.actionsBuilder,
   });
 
   final String relayUrl;
@@ -64,6 +72,9 @@ class RelayV3Lobby extends StatefulWidget {
   final int maxPlayers;
   final V3OnStarted onStarted;
   final String title;
+
+  /// 额外 AppBar actions（默认 null → 不追加；向后兼容）。
+  final V3ActionsBuilder? actionsBuilder;
 
   @override
   State<RelayV3Lobby> createState() => _RelayV3LobbyState();
@@ -292,6 +303,8 @@ class _RelayV3LobbyState extends State<RelayV3Lobby> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
       actions: [
+        // 业务层附加的 actions（如换肤按钮）前置；默认 null 时不影响原行为
+        ...?widget.actionsBuilder?.call(context),
         if (_phase == _LobbyPhase.lobby || _phase == _LobbyPhase.playing)
           IconButton(
             icon: const Icon(Icons.logout),
