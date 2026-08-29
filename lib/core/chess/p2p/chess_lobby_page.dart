@@ -9,9 +9,11 @@
 //
 // 阶段：
 //   entry  单表单（昵称 + 房间号 + 规则提示 + 错误提示）
-//   room   等待房（房间号 chip + 玩家列表 + 房主"开始游戏" / 客人等待）
+//   room   等待房（房间号 chip + 玩家列表 + 自动开局提示）
 //   服务端 state == "playing"（或 "ended" 断线重连）→ onStarted(handle)
 //   交给业务层接管（push ChessRoomPage）。
+// 无准备按钮：kChessScript 的 on_join 在双人到齐时自动置 playing —— 玩家只需
+// 一起输入房间号，人齐即开（房主不再点"开始游戏"）。
 //
 // 409 区分（服务端 message 关键词，per social-room-code-pattern）：
 //   "code collision" → 撞号（房间号被占，提示换一个）
@@ -208,25 +210,6 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
         widget.onStarted(h);
       }
     });
-  }
-
-  /// 房主点开始（guest 已在场）→ START action → 快照 state=playing → onStarted。
-  Future<void> _startGame() async {
-    final h = _handle;
-    if (h == null) return;
-    setState(() => _busy = true);
-    try {
-      await h.applyAction(
-        type: 'START',
-        params: {'device_id': _transport!.deviceId},
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '开始失败: $e';
-        _busy = false;
-      });
-    }
   }
 
   /// 重置回入口表单（对弈页 pop 后由外层调用 / 用户点断开）。
@@ -428,7 +411,6 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     final hostId = snap?.context['host_id']?.toString();
     final guestId = snap?.context['guest_id']?.toString();
     final myId = _transport?.deviceId;
-    final iAmHost = myId != null && myId == hostId;
     final guestIn = guestId != null && guestId.isNotEmpty && players.containsKey(guestId);
 
     return Center(
@@ -522,42 +504,22 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                 ),
               ],
               const SizedBox(height: 24),
-              if (iAmHost && guestIn)
-                FilledButton.icon(
-                  onPressed: _busy ? null : _startGame,
-                  icon: _busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.play_arrow)
-                  ,
-                  label: Text(_busy ? '开始中…' : '开始游戏'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                )
-              else if (!guestIn)
+              // 无准备按钮（Bug 修复）：双人到齐即自动开局（服务端 on_join 置 playing）。
+              // 这里只展示状态 —— 真正的跳转由快照 state == playing 触发 onStarted。
+              if (guestIn)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.primary,
-                      ),
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 18,
+                      color: theme.colorScheme.primary,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Text(
-                      '等待朋友加入…',
+                      '双方已就绪，自动开局…',
                       style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: colors.coordinateLabel),
+                          ?.copyWith(color: theme.colorScheme.primary),
                     ),
                   ],
                 )
@@ -575,7 +537,7 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      '等待房主开始…',
+                      '等待朋友加入…',
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: colors.coordinateLabel),
                     ),

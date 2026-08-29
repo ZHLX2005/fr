@@ -259,7 +259,7 @@ void main() {
     expect(joined, hasLength(1));
   });
 
-  testWidgets('host + guest 在场 → 房主"开始游戏"可见；guest 在场提示双方已就绪', (tester) async {
+  testWidgets('host + guest 在场 → 显示"双方已就绪，自动开局"（无开始按钮）', (tester) async {
     final transport = RecordingTransport(deviceId: 'd-me');
     final handle = FakeLobbyHandle(
       transport: transport,
@@ -271,9 +271,31 @@ void main() {
     await tester.pumpWidget(host(transport: transport, joined: joined));
     await fillAndGo(tester);
 
-    expect(find.textContaining('双方已就绪'), findsOneWidget);
-    expect(find.text('开始游戏'), findsOneWidget);
+    // 无准备按钮：双人到齐只提示自动开局（不出现"开始游戏"按钮）。
+    expect(find.textContaining('自动开局'), findsOneWidget);
+    expect(find.text('开始游戏'), findsNothing);
     expect(find.textContaining('执白'), findsWidgets, reason: 'host = 白方先手标注');
     expect(find.textContaining('执黑'), findsOneWidget);
+  });
+
+  testWidgets('guest 加入（playing 快照）→ 自动开局 onStarted 触发', (tester) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final handle = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby', guestId: null),
+    );
+    transport.handleToReturn = handle;
+    final joined = <RoomHandle>[];
+    await tester.pumpWidget(host(transport: transport, joined: joined));
+    await fillAndGo(tester);
+    expect(find.textContaining('等待朋友加入'), findsOneWidget);
+    expect(joined, isEmpty);
+
+    // 服务端 on_join 在双人到齐时自动置 playing → 无需点"开始游戏"即触发 onStarted。
+    handle.pushSnapshot(makeSnap(state: 'playing', guestId: 'd-guest'));
+    await tester.pump();
+    await tester.pump();
+    expect(joined, hasLength(1));
   });
 }

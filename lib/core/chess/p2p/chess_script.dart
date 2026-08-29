@@ -67,6 +67,7 @@ on_init = function(c, p)
   c.moves = {}
   c.draw_offers = {}
   c.status = "playing"
+  -- 无准备按钮：房主建房即隐式"已准备"。等待 guest 加入，on_join 双人到齐自动开局。
   state = "lobby"
   return c
 end
@@ -91,6 +92,11 @@ on_join = function(c, p)
   end
   c.players[p.device_id] = p.alias
   c.guest_id = p.device_id
+  -- 无准备按钮（Bug 修复）：双方都进 lobby 即视为就绪 → 自动开局。
+  -- host 建房（on_init）时 guest_id == nil；guest 加入后双人到齐 → playing。
+  if c.guest_id ~= nil and c.host_id ~= nil then
+    state = "playing"
+  end
   return c
 end
 
@@ -106,7 +112,8 @@ on_leave = function(c, p)
   return c
 end
 
--- 房主点 START 后进入对弈
+-- 房主点 START（向后兼容保留）：双人到齐后已被 on_join 自动置 playing，
+-- 这里变成 no-op 兜底（防旧客户端 / 重放把状态又切回去）。
 on_action_START = function(c, p)
   if c.host_id ~= p.device_id then
     return c
