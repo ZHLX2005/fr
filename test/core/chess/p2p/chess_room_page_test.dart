@@ -23,6 +23,7 @@ import 'package:xiaodouzi_fr/core/chess/chess.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_room_page.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
 /// 记录一次 applyAction 调用。
@@ -277,6 +278,10 @@ void main() {
     expect(handle.actionCalls, hasLength(1));
     expect(handle.actionCalls.first.type, 'MOVE');
     expect(handle.lastParams?['uci'], 'e2e4');
+    // 合规 fence：MOVE 不携带 status（终局走 CLAIM_END），fen 必须存在且结构合法。
+    expect(handle.lastParams?.containsKey('status'), isFalse,
+        reason: 'MOVE 不得携带 status（服务端校验 fence 的一部分）');
+    expect(handle.lastParams?['fen'], isA<String>());
   });
 
   testWidgets('非我回合（guest=黑，轮白走）：tap 不发 MOVE', (tester) async {
@@ -318,7 +323,8 @@ void main() {
     expect(find.textContaining('你的回合'), findsOneWidget);
   });
 
-  testWidgets('status == checkmate → 终局覆盖层出现', (tester) async {
+  testWidgets('status == checkmate → 终局覆盖层出现（host 可见再来一局）',
+      (tester) async {
     final handle = makeHostHandle();
     await tester.pumpWidget(host(handle));
     await tester.pump();
@@ -339,7 +345,34 @@ void main() {
 
     expect(find.text('将杀'), findsOneWidget);
     expect(find.text('你赢了'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, '返回'), findsOneWidget);
+    // host 终局卡片：再来一局（FilledButton）+ 返回（OutlinedButton）
+    expect(find.widgetWithText(FilledButton, '再来一局'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '返回'), findsOneWidget);
+  });
+
+  testWidgets('status == stalemate → 终局覆盖层（guest 不可见再来一局）',
+      (tester) async {
+    final handle = makeGuestHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    handle.pushSnapshot(makeSnapshot(
+      code: '999999',
+      fen: kStartingFen,
+      status: 'stalemate',
+      state: 'ended',
+      hostId: 'd-host',
+      guestId: 'd-guest',
+    ));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('僵局'), findsOneWidget);
+    expect(find.text('平局'), findsOneWidget);
+    // guest 看不到"再来一局"（RESET 仅 host 可调）
+    expect(find.text('再来一局'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, '返回'), findsOneWidget);
   });
 
   testWidgets('RESIGN 按钮 → 发送 RESIGN action', (tester) async {
@@ -352,5 +385,139 @@ void main() {
 
     expect(handle.actionCalls, hasLength(1));
     expect(handle.actionCalls.first.type, 'RESIGN');
+  });
+
+  // ─────────────── 合规修复：翻转由角色驱动（不随 sideToMove 抖动） ───────────────
+
+  testWidgets('host=白视角：整局棋盘不翻转（flipped 恒 false）', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    ChessBoard board() => tester.widget<ChessBoard>(find.byType(ChessBoard));
+    // 白方视角：flipped 恒 false（我始终在底，稳定）。
+    expect(board().flipped, isFalse);
+    // 白先手：sideToMove = white。
+    expect(board().sideToMove, PieceColor.white);
+
+    // 模拟黑方回应 d7-d5（轮白）→ 棋盘更新，但视角保持不翻转。
+    const newFen =
+        'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2';
+    handle.pushSnapshot(makeSnapshot(
+      code: '999999',
+      fen: newFen,
+      status: 'playing',
+      hostId: 'd-host',
+      guestId: 'd-guest',
+    ));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(board().sideToMove, PieceColor.white);
+    expect(board().flipped, isFalse,
+        reason: '视角由角色驱动，不随 sideToMove 翻转');
+  });
+
+  testWidgets('guest=黑视角：翻转由角色驱动（flipped 恒 true）', (tester) async {
+    final handle = makeGuestHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    ChessBoard board() => tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board().flipped, isTrue, reason: '我方执黑 → 黑方视角，黑在底');
+  });
+
+  // ─────────────── 合规修复：RESET（host 再来一局 → 新对局） ───────────────
+
+  testWidgets('终局 → host 点"再来一局" → 发 RESET → 快照回 playing 清空本地态',
+      (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 1. 进入终局（checkmate）。
+    handle.pushSnapshot(makeSnapshot(
+      code: '999999',
+      fen: kStartingFen,
+      status: 'checkmate',
+      state: 'ended',
+      hostId: 'd-host',
+      guestId: 'd-guest',
+      winner: 'd-host',
+    ));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('再来一局'), findsOneWidget);
+
+    // 2. host 点"再来一局" → RESET action。
+    await tester.tap(find.widgetWithText(FilledButton, '再来一局'));
+    await tester.pump();
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'RESET');
+
+    // 3. 服务端 RESET 后推送新快照（回 playing + 起始 fen）。
+    handle.pushSnapshot(makeSnapshot(
+      code: '999999',
+      fen: kStartingFen,
+      status: 'playing',
+      state: 'playing',
+      hostId: 'd-host',
+      guestId: 'd-guest',
+    ));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    // 终局覆盖层消失；host 又能正常走子。
+    expect(find.text('再来一局'), findsNothing);
+    expect(find.text('将杀'), findsNothing);
+    expect(find.textContaining('你的回合'), findsOneWidget);
+
+    // 4. 重开后走子正常（上一局 _lastMove/_selectedSquare 已清空）。
+    final e2 = squareToIndex('e2');
+    final e4 = squareToIndex('e4');
+    await tapCell(tester, e2);
+    await tapCell(tester, e4);
+    await tester.pump();
+    expect(handle.actionCalls.last.type, 'MOVE');
+    expect(handle.lastParams?['uci'], 'e2e4');
+  });
+
+  testWidgets('guest 终局后不可见"再来一局"', (tester) async {
+    final handle = makeGuestHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    handle.pushSnapshot(makeSnapshot(
+      code: '999999',
+      fen: kStartingFen,
+      status: 'checkmate',
+      state: 'ended',
+      hostId: 'd-host',
+      guestId: 'd-guest',
+      winner: 'd-host',
+    ));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('再来一局'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, '返回'), findsOneWidget);
+  });
+
+  // ─────────────── 合规修复：WS 状态条（RelayConnectionBar）存在 ───────────────
+
+  testWidgets('房间页底部渲染 RelayConnectionBar（WS 状态可见）', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    expect(find.byType(RelayConnectionBar), findsOneWidget);
+    // 测试环境无真实 WS：状态条存在即可（连接文案随 isConnected 变化）。
+    final texts = tester.widgetList<Text>(find.byType(Text));
+    final hasConn = texts.any((t) => t.data == '已连接' || t.data == '已断开 · 自动重连中');
+    expect(hasConn, isTrue);
+    expect(find.text('拉取最新快照'), findsOneWidget);
   });
 }
