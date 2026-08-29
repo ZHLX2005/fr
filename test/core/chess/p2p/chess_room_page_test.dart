@@ -7,6 +7,7 @@
 //   · 对方走子快照（新 fen）→ 棋盘更新
 //   · status == checkmate → 终局覆盖层出现
 //   · RESIGN 按钮 → 发送 RESIGN action
+//   · 传 localSkin → 棋盘用本地皮肤渲染（离线可用）
 //
 // Fake 设计：复用真实 RoomHandle + 真实 RelayV3Transport，但 HTTP 走 MockClient
 // （不联网），并用 RoomHandle.testCreate 注入初始快照 —— WS 不连接。
@@ -14,6 +15,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +24,7 @@ import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/core/chess/chess.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_room_page.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
+import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
@@ -40,12 +43,12 @@ class FakeTransport extends RelayV3Transport {
   bool failWith409 = false;
 
   FakeTransport({required String deviceId})
-      : super(
-          relayUrl: 'http://fake',
-          alias: 'me',
-          deviceId: deviceId,
-          httpClient: MockClient(_handler),
-        );
+    : super(
+        relayUrl: 'http://fake',
+        alias: 'me',
+        deviceId: deviceId,
+        httpClient: MockClient(_handler),
+      );
 
   /// MockClient 处理器 —— 所有 HTTP 端点都回一个可解析的 envelope。
   static Future<http.Response> _handler(http.Request req) async {
@@ -54,26 +57,23 @@ class FakeTransport extends RelayV3Transport {
         : '000000';
     return http.Response(
       jsonEncode({
-        'data': {
-          'ws_url': 'ws://fake/ws3/$code',
-          'snapshot': _snapJson(code),
-        },
+        'data': {'ws_url': 'ws://fake/ws3/$code', 'snapshot': _snapJson(code)},
       }),
       200,
     );
   }
 
   static Map<String, dynamic> _snapJson(String code) => {
-        'room_code': code,
-        'script_hash': '',
-        'script_src': '',
-        'context': {'n': 0},
-        'state': '',
-        'version': 1,
-        'created_at': '2026-07-25T10:00:00Z',
-        'updated_at': '2026-07-25T10:00:00Z',
-        'history': <dynamic>[],
-      };
+    'room_code': code,
+    'script_hash': '',
+    'script_src': '',
+    'context': {'n': 0},
+    'state': '',
+    'version': 1,
+    'created_at': '2026-07-25T10:00:00Z',
+    'updated_at': '2026-07-25T10:00:00Z',
+    'history': <dynamic>[],
+  };
 }
 
 /// Fake RoomHandle —— 复用真实 RoomHandle（testCreate，不连 WS）。
@@ -97,11 +97,11 @@ class FakeRoomHandle extends RoomHandle {
     required String code,
     Snapshot? initial,
   }) : super.testCreate(
-          transport: transport,
-          code: code,
-          wsUrl: 'ws://fake/ws3/$code',
-          initial: initial,
-        );
+         transport: transport,
+         code: code,
+         wsUrl: 'ws://fake/ws3/$code',
+         initial: initial,
+       );
 
   @override
   Stream<Snapshot> get snapshots => _fakeSnapshots.stream;
@@ -227,8 +227,33 @@ FakeRoomHandle makeGuestHandle() {
 void main() {
   setUp(() => ChessSkinBundle.resetForTest());
 
+  /// 构造本地皮肤：写 12 张 PNG 到临时目录 + LocalChessSkin。
+  LocalChessSkin makeLocalSkin(String id) {
+    final dir = Directory.systemTemp.createTempSync('chess_room_local_$id');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    final meta = ChessSkinMeta(
+      id: id,
+      displayName: '本地皮肤 $id',
+      pieces: {
+        for (final k in kChessSkin12PieceKeys)
+          k: FileRef(
+            fileId: k.padRight(32, 'a'),
+            fileName: '$k.webp',
+            sizeBytes: 1,
+            contentType: 'image/webp',
+          ),
+      },
+    );
+    for (final k in kChessSkin12PieceKeys) {
+      File('${dir.path}/$k.webp').writeAsBytesSync([0x89, 0x50, 0x4E, 0x47]);
+    }
+    return LocalChessSkin.tryCreate(meta: meta, dir: dir)!;
+  }
+
   /// 用 ChessRoomPage 包一层 host widget（默认 600x600 可点棋盘）。
-  Widget host(FakeRoomHandle handle) {
+  Widget host(FakeRoomHandle handle, {LocalChessSkin? localSkin}) {
     ChessSkinBundle.registerHardcoded();
     return MaterialApp(
       home: Scaffold(
@@ -239,6 +264,7 @@ void main() {
             child: ChessRoomPage(
               handle: handle,
               skinId: kChessSkinsCatalog[0].id,
+              localSkin: localSkin,
             ),
           ),
         ),
@@ -263,8 +289,9 @@ void main() {
     expect(find.textContaining('你的回合'), findsOneWidget);
   });
 
-  testWidgets('我的回合（host=白）：tap e2 → tap e4 → 发送 MOVE uci e2e4',
-      (tester) async {
+  testWidgets('我的回合（host=白）：tap e2 → tap e4 → 发送 MOVE uci e2e4', (
+    tester,
+  ) async {
     final handle = makeHostHandle();
     await tester.pumpWidget(host(handle));
     await tester.pump();
@@ -279,8 +306,11 @@ void main() {
     expect(handle.actionCalls.first.type, 'MOVE');
     expect(handle.lastParams?['uci'], 'e2e4');
     // 合规 fence：MOVE 不携带 status（终局走 CLAIM_END），fen 必须存在且结构合法。
-    expect(handle.lastParams?.containsKey('status'), isFalse,
-        reason: 'MOVE 不得携带 status（服务端校验 fence 的一部分）');
+    expect(
+      handle.lastParams?.containsKey('status'),
+      isFalse,
+      reason: 'MOVE 不得携带 status（服务端校验 fence 的一部分）',
+    );
     expect(handle.lastParams?['fen'], isA<String>());
   });
 
@@ -306,13 +336,15 @@ void main() {
     // fen：e2e4 d7d5 之后（轮到白方走）。
     const newFen =
         'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2';
-    handle.pushSnapshot(makeSnapshot(
-      code: '999999',
-      fen: newFen,
-      status: 'playing',
-      hostId: 'd-host',
-      guestId: 'd-guest',
-    ));
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: newFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+      ),
+    );
     await tester.pump();
 
     // 棋盘内容从快照 fen 重建：e4 / d5 有子，e2 已空，轮到白。
@@ -323,21 +355,22 @@ void main() {
     expect(find.textContaining('你的回合'), findsOneWidget);
   });
 
-  testWidgets('status == checkmate → 终局覆盖层出现（host 可见再来一局）',
-      (tester) async {
+  testWidgets('status == checkmate → 终局覆盖层出现（host 可见再来一局）', (tester) async {
     final handle = makeHostHandle();
     await tester.pumpWidget(host(handle));
     await tester.pump();
 
-    handle.pushSnapshot(makeSnapshot(
-      code: '999999',
-      fen: kStartingFen,
-      status: 'checkmate',
-      state: 'ended',
-      hostId: 'd-host',
-      guestId: 'd-guest',
-      winner: 'd-host',
-    ));
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'checkmate',
+        state: 'ended',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        winner: 'd-host',
+      ),
+    );
     // 广播流是异步派发（微任务），需多 pump 几次直到新快照被应用。
     await tester.pump();
     await tester.pump();
@@ -350,20 +383,21 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '返回'), findsOneWidget);
   });
 
-  testWidgets('status == stalemate → 终局覆盖层（guest 不可见再来一局）',
-      (tester) async {
+  testWidgets('status == stalemate → 终局覆盖层（guest 不可见再来一局）', (tester) async {
     final handle = makeGuestHandle();
     await tester.pumpWidget(host(handle));
     await tester.pump();
 
-    handle.pushSnapshot(makeSnapshot(
-      code: '999999',
-      fen: kStartingFen,
-      status: 'stalemate',
-      state: 'ended',
-      hostId: 'd-host',
-      guestId: 'd-guest',
-    ));
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'stalemate',
+        state: 'ended',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await tester.pump();
@@ -403,19 +437,20 @@ void main() {
     // 模拟黑方回应 d7-d5（轮白）→ 棋盘更新，但视角保持不翻转。
     const newFen =
         'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2';
-    handle.pushSnapshot(makeSnapshot(
-      code: '999999',
-      fen: newFen,
-      status: 'playing',
-      hostId: 'd-host',
-      guestId: 'd-guest',
-    ));
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: newFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await tester.pump();
     expect(board().sideToMove, PieceColor.white);
-    expect(board().flipped, isFalse,
-        reason: '视角由角色驱动，不随 sideToMove 翻转');
+    expect(board().flipped, isFalse, reason: '视角由角色驱动，不随 sideToMove 翻转');
   });
 
   testWidgets('guest=黑视角：翻转由角色驱动（flipped 恒 true）', (tester) async {
@@ -429,22 +464,25 @@ void main() {
 
   // ─────────────── 合规修复：RESET（host 再来一局 → 新对局） ───────────────
 
-  testWidgets('终局 → host 点"再来一局" → 发 RESET → 快照回 playing 清空本地态',
-      (tester) async {
+  testWidgets('终局 → host 点"再来一局" → 发 RESET → 快照回 playing 清空本地态', (
+    tester,
+  ) async {
     final handle = makeHostHandle();
     await tester.pumpWidget(host(handle));
     await tester.pump();
 
     // 1. 进入终局（checkmate）。
-    handle.pushSnapshot(makeSnapshot(
-      code: '999999',
-      fen: kStartingFen,
-      status: 'checkmate',
-      state: 'ended',
-      hostId: 'd-host',
-      guestId: 'd-guest',
-      winner: 'd-host',
-    ));
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'checkmate',
+        state: 'ended',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        winner: 'd-host',
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await tester.pump();
@@ -457,14 +495,16 @@ void main() {
     expect(handle.actionCalls.first.type, 'RESET');
 
     // 3. 服务端 RESET 后推送新快照（回 playing + 起始 fen）。
-    handle.pushSnapshot(makeSnapshot(
-      code: '999999',
-      fen: kStartingFen,
-      status: 'playing',
-      state: 'playing',
-      hostId: 'd-host',
-      guestId: 'd-guest',
-    ));
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        state: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await tester.pump();
@@ -489,15 +529,17 @@ void main() {
     await tester.pumpWidget(host(handle));
     await tester.pump();
 
-    handle.pushSnapshot(makeSnapshot(
-      code: '999999',
-      fen: kStartingFen,
-      status: 'checkmate',
-      state: 'ended',
-      hostId: 'd-host',
-      guestId: 'd-guest',
-      winner: 'd-host',
-    ));
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'checkmate',
+        state: 'ended',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        winner: 'd-host',
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await tester.pump();
@@ -516,8 +558,37 @@ void main() {
     expect(find.byType(RelayConnectionBar), findsOneWidget);
     // 测试环境无真实 WS：状态条存在即可（连接文案随 isConnected 变化）。
     final texts = tester.widgetList<Text>(find.byType(Text));
-    final hasConn = texts.any((t) => t.data == '已连接' || t.data == '已断开 · 自动重连中');
+    final hasConn = texts.any(
+      (t) => t.data == '已连接' || t.data == '已断开 · 自动重连中',
+    );
     expect(hasConn, isTrue);
     expect(find.text('拉取最新快照'), findsOneWidget);
+  });
+
+  // ─────────────── 本地皮肤（localSkin 参数） ───────────────
+
+  testWidgets('传 localSkin → 棋盘用本地皮肤渲染（离线可用）', (tester) async {
+    final handle = makeHostHandle();
+    final localSkin = makeLocalSkin('1');
+    await tester.pumpWidget(host(handle, localSkin: localSkin));
+    await tester.pump();
+
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.skin, same(localSkin), reason: '应优先用本地皮肤');
+    // 本地皮肤 12 棋子齐全 → ChessPiece 有图渲染
+    expect(find.byType(ChessBoard), findsOneWidget);
+  });
+
+  testWidgets('不传 localSkin → 回退注册表皮肤（默认行为）', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(
+      board.skin.id,
+      kChessSkinsCatalog[0].id,
+      reason: '无 localSkin 时回退 ChessSkinBundle.byId(skinId)',
+    );
   });
 }
