@@ -16,10 +16,6 @@ class WidgetChannel(messenger: BinaryMessenger) {
                     onNavigateToLab?.invoke()
                     result.success(null)
                 }
-                "navigateToCalendar" -> {
-                    onNavigateToCalendar?.invoke()
-                    result.success(null)
-                }
                 "navigateToClock" -> {
                     onNavigateToClock?.invoke()
                     result.success(null)
@@ -48,7 +44,6 @@ class WidgetChannel(messenger: BinaryMessenger) {
     }
 
     var onNavigateToLab: (() -> Unit)? = null
-    var onNavigateToCalendar: (() -> Unit)? = null
     var onNavigateToClock: (() -> Unit)? = null
     var onNavigateToTimetable: (() -> Unit)? = null
 
@@ -65,10 +60,6 @@ class WidgetChannel(messenger: BinaryMessenger) {
 
     fun notifyNavigateToLab() {
         channel.invokeMethod("navigateToLab", null)
-    }
-
-    fun notifyNavigateToCalendar() {
-        channel.invokeMethod("navigateToCalendar", null)
     }
 
     fun notifyNavigateToClock() {

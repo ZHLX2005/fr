@@ -9,7 +9,6 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.github.xiaodouzi.fr.native.calendar.CalendarChannel
 import io.github.xiaodouzi.fr.native.clock.ClockChannel
 import io.github.xiaodouzi.fr.native.crash.CrashLogChannel
 import io.github.xiaodouzi.fr.native.crash.CrashLogHandler
@@ -24,7 +23,6 @@ import io.github.xiaodouzi.fr.native.widget.WidgetChannel
 class MainActivity : FlutterActivity() {
     private lateinit var widgetChannel: WidgetChannel
     private lateinit var clockChannel: ClockChannel
-    private lateinit var calendarChannel: CalendarChannel
     private lateinit var systemChannel: SystemChannel
     private lateinit var floatingChannel: FloatingChannel
     private lateinit var volumeChannel: VolumeChannel
@@ -66,9 +64,6 @@ class MainActivity : FlutterActivity() {
 
         // Clock Channel
         clockChannel = ClockChannel(messenger, this)
-
-        // Calendar Channel
-        calendarChannel = CalendarChannel(messenger, this)
 
         // System Channel
         systemChannel = SystemChannel(messenger, this)
@@ -236,9 +231,6 @@ class MainActivity : FlutterActivity() {
                     // 桌面 widget 进入默认 autostart=true；普通 fr:// 链接可显式 ?autostart=false
                     val autostart = uri.getBooleanQueryParameter("autostart", true)
                     widgetChannel.notifyNavigateToRecorder(autostart)
-                }
-                uriStr == "fr://calendar" || uri.path == "/calendar" -> {
-                    widgetChannel.notifyNavigateToCalendar()
                 }
                 // 更具体的 toggle 分支必须放 fr://clock 之前：clock 分支是 prefix
                 // 匹配，若不前置会被 startsWith("fr://clock") 吞掉（fr #1）。

@@ -12,7 +12,6 @@
 //
 // 已支持的 method(与 WidgetChannel.kt 的 when 分支严格对称):
 //   navigateToLab              → fr://lab
-//   navigateToCalendar         → fr://lab/demo/calendar
 //   navigateToClock            → fr://lab/demo/clock
 //   navigateToTimetable        → fr://timetable
 //   navigateToNotionImage      → fr://notion/image-host?autocapture=<bool>
@@ -32,7 +31,6 @@ class FrMethodChannelTranslator {
   static String? translate(MethodCall call) {
     return switch (call.method) {
       'navigateToLab' => 'fr://lab',
-      'navigateToCalendar' => 'fr://lab/demo/calendar',
       'navigateToClock' => 'fr://lab/demo/clock',
       'navigateToTimetable' => 'fr://timetable',
       'navigateToNotionImage' =>
