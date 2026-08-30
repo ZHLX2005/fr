@@ -13,10 +13,13 @@
 //     装入 const catalog（N 套皮肤由 spec §2 kChessSkinsCatalog 决定）
 //   - 后续版本：可加 RegisterRemoteSkins() 从 KV/JSON 动态注入
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/widgets.dart' show ImageProvider;
 
 import '../models/piece.dart';
+import 'chess_skin_localizer.dart';
 import 'chess_skin_meta.dart';
 import 'file_resolver.dart';
 import 'remote_chess_skin.dart';
@@ -93,15 +96,37 @@ abstract class ChessSkinBundle {
     'default': const ChessDefaultSkin(),
   };
 
+  /// live 元数据注册表（id → meta）—— UI 皮肤列表的数据源（Fix A）。
+  ///
+  /// 顺序约定：catalog 顺序在前，KV 新 id 按注册顺序追加；
+  /// 同 id 覆盖保持原位（Dart LinkedHashMap 赋值语义）。
+  static final Map<String, ChessSkinMeta> _metas = <String, ChessSkinMeta>{};
+
   static Map<String, ChessSkin> get all => Map.unmodifiable(_registry);
+
+  /// 当前可见的皮肤元数据（live，含 KV 合入的新皮肤）。
+  ///
+  /// UI 列表（设置页 / 入口条）应遍历本列表而非 `kChessSkinsCatalog`
+  /// —— 后者是 const 编译期快照，看不到 KV 覆盖/追加的皮肤。
+  static List<ChessSkinMeta> get metas => List.unmodifiable(_metas.values);
+
+  /// metas 数量（等价 `metas.length`，测试断言便捷）。
+  static int get metaCount => _metas.length;
 
   static ChessSkin byId(String id) => _registry[id] ?? _registry['default']!;
 
   /// 把 [kChessSkinsCatalog] 的 N 套皮肤装入注册表。
   /// 每套用 [PublicFileResolver] 拼 `/files/<id>` URL。
   ///
-  /// 调用时机：`main()` 启动期；多调幂等（已存在的 id 会被覆盖）。
+  /// 调用时机：`main()` 启动期；多调幂等（已存在的 id 会被覆盖；
+  /// metas 会被重置为本地基线 —— 生产只在启动调一次）。
   static void registerHardcoded() {
+    // 本地文件优先渲染（Fix B）：尽早解析静态缓存根目录，让
+    // RemoteChessSkin 的同步判存可用。fire-and-forget，不阻塞启动。
+    unawaited(ChessSkinLocalizer.ensureBaseDirInit());
+    _metas
+      ..clear()
+      ..addAll({for (final m in kChessSkinsCatalog) m.id: m});
     for (final meta in kChessSkinsCatalog) {
       _registry[meta.id] = RemoteChessSkin(
         meta: meta,
@@ -115,8 +140,8 @@ abstract class ChessSkinBundle {
   /// 把远端 KV 载入的 [metas] 覆盖/扩展进注册表（"换肤免发版"）。
   ///
   /// 语义（与 registerHardcoded 一致：mutable 注册表，幂等）：
-  ///   · 已存在的 id → **覆盖**（同 id 远端版本优先）
-  ///   · 新 id → **追加**
+  ///   · 已存在的 id → **覆盖**（同 id 远端版本优先；metas 同步覆盖、保位）
+  ///   · 新 id → **追加**（metas 追加到列表末尾）
   ///   · 不删除任何本地 id —— 本地 7 套永远在（KV 缺失/失败时兜底）
   ///   · 绝不触碰 'default'（default 是 unicode 回退，永远存在）
   ///
@@ -125,12 +150,14 @@ abstract class ChessSkinBundle {
   ///
   /// 调用时机：`main()` 启动期 `registerHardcoded()` 之后，由
   /// `fetchAndMergeSkins()`（chess_skin_meta_sync.dart）fire-and-forget 触发。
-  /// 已渲染页面下次 `byId()` 查询实时拿到新皮肤（注册表是 live map）。
+  /// 已渲染页面下次 `byId()` 查询实时拿到新皮肤（注册表是 live map）；
+  /// 设置页遍历 [metas] 同样实时看到 KV 新皮肤（Fix A）。
   static void registerRemoteSkins(
     List<ChessSkinMeta> metas, {
     required FileResolver fileResolver,
   }) {
     for (final meta in metas) {
+      _metas[meta.id] = meta; // 同 id 覆盖保位；新 id 追加
       _registry[meta.id] = RemoteChessSkin(
         meta: meta,
         fileResolver: fileResolver,
@@ -143,5 +170,6 @@ abstract class ChessSkinBundle {
   static void resetForTest() {
     _registry.clear();
     _registry['default'] = const ChessDefaultSkin();
+    _metas.clear();
   }
 }

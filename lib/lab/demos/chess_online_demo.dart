@@ -29,6 +29,7 @@ import '../../core/chess/p2p/chess_room_page.dart';
 import '../../core/chess/skins/chess_skin.dart';
 import '../../core/chess/skins/chess_skin_localizer.dart';
 import '../../core/chess/skins/chess_skin_meta.dart';
+import '../../core/chess/skins/chess_skin_meta_sync.dart';
 import '../../core/chess/skins/chess_skin_prefs.dart';
 import '../../core/chess/skins/chess_skin_settings_page.dart';
 import '../../core/chess/skins/file_resolver.dart';
@@ -117,6 +118,16 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     BoardColorPrefs.read().then((palette) {
       if (!mounted) return;
       setState(() => _boardPalette = palette);
+    });
+    // Fix D：KV 皮肤合入后的 UI 刷新钩子。进入大厅即 fire-and-forget 拉一次
+    // KV index（幂等；reader 内部自带 5s 超时，绝不阻塞导航），完成后 setState
+    // —— 让入口按钮 / 之后 push 的设置页实时拿到 KV 新皮肤（设置页读 live
+    // ChessSkinBundle.metas，Fix A）。
+    fetchAndMergeSkins().then((merged) {
+      if (!mounted || !merged) return;
+      setState(() {});
+    }).catchError((Object _) {
+      // best-effort：任何异常都不影响入口（本地 catalog 已在 main() 注册兜底）。
     });
   }
 

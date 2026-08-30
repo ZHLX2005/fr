@@ -316,6 +316,9 @@ class _BoardGrid extends StatelessWidget {
               child: Image(
                 image: skin.boardBackground!,
                 fit: BoxFit.cover,
+                // Fix C：底图加载失败（离线 / 404）→ 不渲染，让上层两色格透出，
+                // 绝不留永不完成的 loading 占位。
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
           // 两色格（Positioned.fill 覆盖；boardBackground 在下层）
@@ -411,6 +414,7 @@ class _BoardGrid extends StatelessWidget {
                         key: ValueKey<String>('piece_$idx'),
                         image: image,
                         size: cellSize - pad * 2,
+                        pieceKey: key,
                       ),
                     ),
                   ),
@@ -465,7 +469,7 @@ class _BoardGrid extends StatelessWidget {
         child: Transform.scale(
           scale: 1.15,
           child: image != null
-              ? ChessPiece(image: image, size: cellSize)
+              ? ChessPiece(image: image, size: cellSize, pieceKey: key)
               : Center(
                   child: Text(
                     _unicodeFallback(key),
@@ -803,11 +807,6 @@ class _RankLabels extends StatelessWidget {
 }
 
 /// Unicode 字符 fallback（当 skin.pieces 缺 key 时使用）
-/// key → FEN char → unicode symbol
-String _unicodeFallback(String key) {
-  // key 形如 'wK' / 'bp'；FEN char = type char，颜色决定大小写
-  final isWhite = key.startsWith('w');
-  final typeChar = key.substring(1).toLowerCase();
-  final fenChar = isWhite ? typeChar.toUpperCase() : typeChar;
-  return kUnicodePieces[fenChar] ?? '?';
-}
+/// 委托共享 helper（chess_constants.chessPieceUnicodeFallback，
+/// ChessPiece.errorBuilder / 升变面板同用一份映射）。
+String _unicodeFallback(String key) => chessPieceUnicodeFallback(key);

@@ -43,6 +43,18 @@ const Map<String, String> kUnicodePieces = {
   'p': '♟', // 黑兵
 };
 
+/// 皮肤 piece key（'wK' / 'bp' …）→ unicode 字符兜底。
+///
+/// 统一供三处使用（chess_board 缺图回退、ChessPiece.errorBuilder、
+/// 升变面板缺图回退）：key 首字符 w/b 决定 FEN 大小写，再查
+/// [kUnicodePieces]；未知 key 返回 '?'。
+String chessPieceUnicodeFallback(String skinKey) {
+  final isWhite = skinKey.startsWith('w');
+  final typeChar = skinKey.substring(1).toLowerCase();
+  final fenChar = isWhite ? typeChar.toUpperCase() : typeChar;
+  return kUnicodePieces[fenChar] ?? '?';
+}
+
 /// 字母 → 文件（column）
 const String kFiles = 'abcdefgh';
 

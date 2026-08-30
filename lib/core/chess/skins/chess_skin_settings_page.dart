@@ -239,18 +239,21 @@ class _LeftPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.chessColors;
+    // Fix A：皮肤列表遍历 live [ChessSkinBundle.metas]（KV 合入的新皮肤实时可见），
+    // 而非 const `kChessSkinsCatalog`（编译期快照，看不到 KV 追加）。
+    final metas = ChessSkinBundle.metas;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var i = 0; i < kChessSkinsCatalog.length; i++) ...[
+          for (var i = 0; i < metas.length; i++) ...[
             if (i > 0)
               Divider(height: 1, color: colors.gridLine.withValues(alpha: 0.3)),
             _SkinTile(
-              meta: kChessSkinsCatalog[i],
-              isSelected: kChessSkinsCatalog[i].id == selectedId,
+              meta: metas[i],
+              isSelected: metas[i].id == selectedId,
               localSkins: localSkins,
-              onTap: () => onSelectSkin(kChessSkinsCatalog[i].id),
+              onTap: () => onSelectSkin(metas[i].id),
             ),
           ],
           Divider(height: 1, color: colors.gridLine.withValues(alpha: 0.3)),
@@ -309,15 +312,18 @@ class _SkinStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.chessColors;
+    // Fix A：横向缩略图条同样遍历 live [ChessSkinBundle.metas]
+    // （KV 合入的新皮肤在窄屏也能看到）。
+    final metas = ChessSkinBundle.metas;
     return SizedBox(
       height: 72,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: kChessSkinsCatalog.length,
+        itemCount: metas.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          final meta = kChessSkinsCatalog[i];
+          final meta = metas[i];
           final isSelected = meta.id == selectedId;
           final skin = localSkins[meta.id] ?? ChessSkinBundle.byId(meta.id);
           return InkWell(

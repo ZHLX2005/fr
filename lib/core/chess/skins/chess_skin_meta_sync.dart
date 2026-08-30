@@ -14,9 +14,12 @@
 //
 // 幂等：KV 反复拉取可重复调用；同 id 覆盖、新 id 追加、本地 id 不删。
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'chess_skin.dart';
+import 'chess_skin_localizer.dart';
 import 'chess_skin_meta.dart';
 import 'file_resolver.dart';
 import 'public_kv_reader.dart';
@@ -32,6 +35,9 @@ Future<bool> fetchAndMergeSkins({
   PublicKvReader? reader,
   FileResolver? resolver,
 }) async {
+  // 本地文件优先渲染（Fix B）：尽早解析静态缓存根目录，让 KV 皮肤的
+  // RemoteChessSkin 同步判存可用。fire-and-forget，不阻塞 KV 拉取。
+  unawaited(ChessSkinLocalizer.ensureBaseDirInit());
   final kv = reader ?? PublicKvReader(baseUrl: kDefaultChessSkinBaseUrl);
   // KV 皮肤图的 URL 用 reader 同源 baseUrl（不要 hardcode host）
   final fileResolver =

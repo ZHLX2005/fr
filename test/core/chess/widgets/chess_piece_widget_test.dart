@@ -53,4 +53,47 @@ void main() {
     expect(img.height, size);
     expect(img.fit, BoxFit.contain);
   });
+
+  // ─────────────── Fix C：errorBuilder unicode 兜底 ───────────────
+
+  testWidgets('图片解码失败 → errorBuilder 渲染 unicode 字符（不抛异常）', (tester) async {
+    const size = 48.0;
+    // 非法图片字节（0 字节）→ MemoryImage 解码必然失败 → 触发 errorBuilder。
+    final badImage = MemoryImage(Uint8List(0));
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: ChessPiece(
+            image: badImage,
+            size: size,
+            pieceKey: 'wK',
+          ),
+        ),
+      ),
+    );
+    // 等待解码失败回调（errorBuilder 渲染 unicode）
+    await tester.pumpAndSettle();
+
+    // 兜底字符渲染（♔ = kUnicodePieces['K']），无异常泄漏
+    expect(find.text('♔'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('未传 pieceKey 的失败图 → 兜底字符为 ?', (tester) async {
+    const size = 48.0;
+    final badImage = MemoryImage(Uint8List(0));
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: ChessPiece(image: badImage, size: size),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

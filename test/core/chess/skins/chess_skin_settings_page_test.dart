@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_settings_page.dart';
+import 'package:xiaodouzi_fr/core/chess/skins/file_resolver.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/board_palette.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
@@ -30,7 +31,26 @@ import 'package:xiaodouzi_fr/core/theme/colors/factory.dart';
 import 'package:xiaodouzi_fr/core/theme/extensions/chess_color_strategy_extension.dart';
 
 void main() {
-  setUp(() => ChessSkinBundle.registerHardcoded());
+  setUp(() {
+    ChessSkinBundle.resetForTest();
+    ChessSkinBundle.registerHardcoded();
+  });
+
+  /// 构造一个最小完整 12-key 的 KV meta（Fix A：KV 合入的新皮肤）。
+  ChessSkinMeta kvMeta(String id, {String displayName = 'KV皮肤'}) =>
+      ChessSkinMeta(
+        id: id,
+        displayName: displayName,
+        pieces: {
+          for (final k in kChessSkin12PieceKeys)
+            k: FileRef(
+              fileId: k.padRight(32, 'a'),
+              fileName: '$k.webp',
+              sizeBytes: 1,
+              contentType: 'image/webp',
+            ),
+        },
+      );
 
   /// 宿主：注入 ChessColorStrategyExtension，页面才能读 context.chessColors。
   Widget host({
@@ -124,6 +144,75 @@ void main() {
       expect(strip, findsWidgets);
       // 预览棋盘仍在
       expect(find.byType(ChessBoard), findsOneWidget);
+    });
+  });
+
+  // ─────────────── Fix A：KV 合入的新皮肤实时可见 ───────────────
+
+  group('ChessSkinSettingsPage KV 皮肤（Fix A）', () {
+    testWidgets('注册 KV 新皮肤 → 宽屏列表显示 8 项（含 KV displayName）', (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // 模拟 KV 合入新皮肤（第 8 套，'pipeline-test'）
+      ChessSkinBundle.registerRemoteSkins(
+        [kvMeta('pipeline-test', displayName: '流水线测试皮')],
+        fileResolver: const PublicFileResolver(baseUrl: 'http://kv-fake'),
+      );
+      expect(ChessSkinBundle.metaCount, 8);
+
+      await tester.pumpWidget(host(initialSkinId: '1'));
+      await tester.pump();
+
+      // KV 皮肤的 displayName 出现在列表中
+      expect(
+        find.text('流水线测试皮'),
+        findsWidgets,
+        reason: 'Fix A：KV 合入的皮肤必须在设置页列表可见',
+      );
+      // 7 套本地皮肤仍在
+      for (final meta in kChessSkinsCatalog) {
+        expect(find.text(meta.displayName), findsWidgets);
+      }
+    });
+
+    testWidgets('注册 KV 新皮肤 → 窄屏横向条也能渲染 KV 皮肤', (tester) async {
+      tester.view.physicalSize = const Size(400, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      ChessSkinBundle.registerRemoteSkins(
+        [kvMeta('pipeline-test', displayName: '流水线测试皮')],
+        fileResolver: const PublicFileResolver(baseUrl: 'http://kv-fake'),
+      );
+
+      await tester.pumpWidget(host(initialSkinId: '1'));
+      await tester.pump();
+
+      expect(find.byType(ListView), findsWidgets);
+      expect(find.byType(ChessBoard), findsOneWidget);
+    });
+
+    testWidgets('KV 覆盖同 id → 列表 displayName 显示 KV 版本', (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // KV 覆盖本地 '1'（displayName → 'KV-覆盖版'）
+      ChessSkinBundle.registerRemoteSkins(
+        [kvMeta('1', displayName: 'KV-覆盖版')],
+        fileResolver: const PublicFileResolver(baseUrl: 'http://kv-fake'),
+      );
+
+      await tester.pumpWidget(host(initialSkinId: '1'));
+      await tester.pump();
+
+      expect(
+        find.text('KV-覆盖版'),
+        findsWidgets,
+        reason: '同 id 覆盖后列表显示 KV 版本',
+      );
     });
   });
 

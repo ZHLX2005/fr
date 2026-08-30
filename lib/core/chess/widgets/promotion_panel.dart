@@ -109,24 +109,29 @@ class _PromotionButton extends StatelessWidget {
     const buttonSize = 56.0;
     final key = chessSkinKeyOf(color, type);
     final image = skin.pieces[key];
+    // unicode 兜底字符（缺图 / 图片加载失败共用；key 形如 'wQ' / 'bp'）
+    final fallbackChar = kUnicodePieces[
+            (color == PieceColor.white
+                ? type.name[0].toUpperCase()
+                : type.name[0])] ??
+        '?';
+    final fallback = Center(
+      child: Text(
+        fallbackChar,
+        style: TextStyle(fontSize: buttonSize * 0.62),
+      ),
+    );
     final child = image == null
-        // fallback：unicode 字符（key 形如 'wQ' / 'bp'；FEN char = type char，颜色决定大小写）
-        ? Center(
-            child: Text(
-              kUnicodePieces[
-                      (color == PieceColor.white
-                          ? type.name[0].toUpperCase()
-                          : type.name[0])] ??
-                  '?',
-              style: TextStyle(fontSize: buttonSize * 0.62),
-            ),
-          )
+        // fallback：unicode 字符
+        ? fallback
         : Image(
             image: image,
             fit: BoxFit.contain,
             width: buttonSize,
             height: buttonSize,
             gaplessPlayback: true,
+            // Fix C：网络图加载失败 → unicode 兜底（同缺图分支），不留 loading 占位。
+            errorBuilder: (_, _, _) => fallback,
           );
     return Padding(
       padding: const EdgeInsets.all(4),

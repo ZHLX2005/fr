@@ -16,6 +16,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/painting.dart' show FileImage;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -24,6 +25,7 @@ import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_localizer.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/file_resolver.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
+import 'package:xiaodouzi_fr/core/chess/skins/remote_chess_skin.dart';
 
 /// 1x1 有效 PNG（最小合法 png 头 + 内容），用于写入本地文件的字节。
 final Uint8List _tinyPng = Uint8List.fromList(const [
@@ -278,5 +280,145 @@ void main() {
     skinFile('wK.webp').writeAsBytesSync(_tinyPng);
     skinFile('.done').deleteSync();
     expect(await l.isCached('t1'), isFalse, reason: '缺 done 哨兵不得命中缓存');
+  });
+
+  // ─────────────── 静态同步判存（Fix B：本地文件优先渲染） ───────────────
+
+  group('ChessSkinLocalizer.cachedPieceFile（Fix B）', () {
+    late Directory cacheRoot;
+
+    setUp(() {
+      cacheRoot = Directory.systemTemp.createTempSync('chess_skin_cache_root_');
+      addTearDown(() {
+        if (cacheRoot.existsSync()) cacheRoot.deleteSync(recursive: true);
+        // 复位静态根目录 + 清 memo，避免污染其它测试。
+        ChessSkinLocalizer.setBaseDirForTest(null);
+      });
+    });
+
+    test('根目录注入后：已有文件返回 File，缺失返回 null', () {
+      ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+      final skinDir =
+          Directory('${cacheRoot.path}/chess_skins/t1')..createSync(recursive: true);
+      File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+
+      final hit = ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp');
+      expect(hit, isNotNull, reason: '已落盘文件应判存命中');
+      // 路径分隔符不跨平台断言：只验证"同一文件 + 落在目标目录"。
+      expect(hit!.existsSync(), isTrue);
+      expect(
+        hit.path.replaceAll('\\', '/'),
+        endsWith('chess_skins/t1/wK.webp'),
+      );
+
+      expect(
+        ChessSkinLocalizer.cachedPieceFile('t1', 'wQ.webp'),
+        isNull,
+        reason: '未落盘文件返回 null（回退网络）',
+      );
+      expect(
+        ChessSkinLocalizer.cachedPieceFile('nope', 'wK.webp'),
+        isNull,
+        reason: '未知皮肤目录返回 null',
+      );
+    });
+
+    test('根目录未初始化 → 恒 null（行为退化网络）', () {
+      // 默认（/ 复位后）未注入根目录
+      expect(ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp'), isNull);
+    });
+
+    test('download 落盘后静态判存立即可见（memo 失效生效）', () async {
+      // 静态根目录与 localizer 写入目录必须同源（都是 cacheRoot），
+      // download 结束后 cachedPieceFile 才能立刻命中。
+      ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+      final l = ChessSkinLocalizer(
+        resolver: _FakeResolver(),
+        client: okClient(),
+        dirProvider: () async => cacheRoot,
+        metaById: (id) => id == 't1' ? makeMeta() : null,
+      );
+
+      // 下载前判存 miss
+      expect(ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp'), isNull);
+
+      await l.download(makeMeta(board: null));
+
+      // 下载完成 → 同步判存命中（无需重新 await path_provider）
+      final hit = ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp');
+      expect(hit, isNotNull, reason: 'download 后静态判存应立即命中');
+      expect(hit!.existsSync(), isTrue);
+    });
+  });
+
+  // ─────────────── RemoteChessSkin 本地文件优先（Fix B） ───────────────
+
+  group('RemoteChessSkin 本地文件优先（Fix B）', () {
+    late Directory cacheRoot;
+
+    setUp(() {
+      cacheRoot = Directory.systemTemp.createTempSync('chess_skin_remote_');
+      addTearDown(() {
+        if (cacheRoot.existsSync()) cacheRoot.deleteSync(recursive: true);
+        ChessSkinLocalizer.setBaseDirForTest(null);
+      });
+    });
+
+    test('本地已缓存 → pieces[key] 是 FileImage（零网络）', () {
+      ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+      final skinDir =
+          Directory('${cacheRoot.path}/chess_skins/t1')..createSync(recursive: true);
+      File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+
+      final s = RemoteChessSkin(meta: makeMeta(), fileResolver: _FakeResolver());
+      final img = s.pieces['wK']!;
+      expect(img, isA<FileImage>(), reason: '本地文件存在 → FileImage 渲染');
+      // 未缓存 key 仍走网络
+      expect(s.pieces['wQ'], isA<CachedNetworkImageProvider>());
+    });
+
+    test('无本地缓存 → 全部 CachedNetworkImageProvider', () {
+      ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+      final s = RemoteChessSkin(meta: makeMeta(), fileResolver: _FakeResolver());
+      for (final img in s.pieces.values) {
+        expect(img, isA<CachedNetworkImageProvider>(), reason: '未缓存 → 网络');
+      }
+      expect(s.boardBackground, isNull, reason: 'meta 无底图 → null');
+    });
+
+    test('boardBackground 未缓存 → 网络', () {
+      ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+      final board = FileRef(
+        fileId: 'b' * 32,
+        fileName: 'board.webp',
+        sizeBytes: 2048,
+        contentType: 'image/webp',
+      );
+      final meta = makeMeta(board: board);
+      expect(
+        RemoteChessSkin(meta: meta, fileResolver: _FakeResolver()).boardBackground,
+        isA<CachedNetworkImageProvider>(),
+      );
+    });
+
+    test('boardBackground 本地已缓存 → FileImage', () {
+      ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+      final board = FileRef(
+        fileId: 'b' * 32,
+        fileName: 'board.webp',
+        sizeBytes: 2048,
+        contentType: 'image/webp',
+      );
+      final meta = makeMeta(board: board);
+      // 先落盘 boardBackground.webp，再判存（无先前 miss 污染 memo）
+      final skinDir =
+          Directory('${cacheRoot.path}/chess_skins/t1')..createSync(recursive: true);
+      File('${skinDir.path}/boardBackground.webp').writeAsBytesSync(_tinyPng);
+      expect(
+        RemoteChessSkin(meta: meta, fileResolver: _FakeResolver()).boardBackground,
+        isA<FileImage>(),
+        reason: '底图已落盘 → 本地文件渲染',
+      );
+    });
   });
 }

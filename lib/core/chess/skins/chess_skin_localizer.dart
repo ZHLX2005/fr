@@ -28,11 +28,15 @@
 //
 // 测试注入：默认用 `getApplicationDocumentsDirectory()`（path_provider）；
 // 测试可传 [dirProvider] 覆盖为临时目录，避免依赖 path_provider mock。
+//
+// 静态判存（Fix B）：[cachedPieceFile] / [ensureBaseDirInit] /
+// [setBaseDirForTest] —— 供 RemoteChessSkin"本地文件优先渲染"同步查文件
+// （`<documents>/chess_skins/<skinId>/<fileName>`），带 memo 防每帧 IO。
 
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
@@ -81,6 +85,72 @@ class ChessSkinLocalizer {
 
   /// Web 上 dart:io / FileImage 不可用 —— 返回 false。
   static bool get isSupported => !kIsWeb;
+
+  // ─────────────────────────────────────────────────────────────
+  // 静态同步判存（本地文件优先渲染 —— Fix B）
+  //
+  // RemoteChessSkin 每次 build 都会问"这个棋子本地有没有"，
+  // 这里提供**同步**判存 + memo，避免每帧同步 IO。
+  // ─────────────────────────────────────────────────────────────
+
+  /// 静态解析的缓存根目录（`<documents>`；[ensureBaseDirInit] 一次性缓存）。
+  ///
+  /// null = 尚未初始化 / Web / path_provider 失败 —— 此时 [cachedPieceFile]
+  /// 一律返回 null，渲染退化为纯网络行为（与旧版一致，绝不少图）。
+  static Directory? _baseDir;
+
+  /// (skinId, 文件名) → 存在性 memo（值可为 null = 已确认不存在）。
+  ///
+  /// 文件只会经 [download] 落盘 → download 成功后按 skinId 前缀清除即可，
+  /// 无需全量失效。
+  static final Map<String, File?> _cachedFileMemo = {};
+
+  /// 异步初始化静态根目录（幂等；path_provider 失败静默保持 null）。
+  ///
+  /// 调用时机：`ChessSkinBundle.registerHardcoded()` /
+  /// `fetchAndMergeSkins()` / [download] —— 保证之后 [cachedPieceFile]
+  /// 的同步判存可用。
+  static Future<void> ensureBaseDirInit() async {
+    if (kIsWeb) return;
+    if (_baseDir != null) return;
+    try {
+      _baseDir = await getApplicationDocumentsDirectory();
+    } catch (_) {
+      // 插件不可用（早期启动 / 测试环境）→ 保持 null，判存退化为网络行为。
+    }
+  }
+
+  /// 测试注入静态根目录（绕过 path_provider）；传 null = 复位。
+  @visibleForTesting
+  static void setBaseDirForTest(Directory? dir) {
+    _baseDir = dir;
+    _cachedFileMemo.clear();
+  }
+
+  /// 同步判存：`<documents>/chess_skins/<skinId>/<fileName>` 存在返回 [File]，
+  /// 否则 null（带 memo，不产生每帧 IO）。
+  ///
+  /// [fileName] 是精确叶子名（棋子 `'wK.webp'`、棋盘底图
+  /// `'boardBackground.webp'|'png'|'jpg'`）。根目录未知（[_baseDir] 为 null）
+  /// 时恒返回 null —— 行为等同未下载，走网络。
+  static File? cachedPieceFile(String skinId, String fileName) {
+    if (kIsWeb) return null;
+    final base = _baseDir;
+    if (base == null) return null;
+    final memoKey = '$skinId/$fileName';
+    return _cachedFileMemo.putIfAbsent(memoKey, () {
+      final f = File(
+        '${base.path}${Platform.pathSeparator}$kRootDirName'
+        '${Platform.pathSeparator}$skinId${Platform.pathSeparator}$fileName',
+      );
+      return f.existsSync() ? f : null;
+    });
+  }
+
+  /// 按 [skinId] 前缀清掉判存 memo（[download] 落盘后调用，让新文件立即可见）。
+  static void _invalidateMemo(String skinId) {
+    _cachedFileMemo.removeWhere((k, _) => k.startsWith('$skinId/'));
+  }
 
   /// 目标目录：`<documents>/chess_skins/<skinId>/`。
   Future<Directory> dirFor(String skinId) async {
@@ -139,6 +209,8 @@ class ChessSkinLocalizer {
     if (!isSupported) {
       throw StateError('ChessSkinLocalizer 不支持 Web（无 dart:io）');
     }
+    // 静态判存根目录尽早可用（下载完成后 RemoteChessSkin 立即转本地文件渲染）。
+    await ensureBaseDirInit();
     final dir = await dirFor(meta.id);
     // 目录可能残留上次失败的部分文件 → 先清空（幂等）。
     if (dir.existsSync()) {
@@ -170,6 +242,9 @@ class ChessSkinLocalizer {
       }
       rethrow;
     }
+    // 判存 memo 失效：本次落盘的文件对 cachedPieceFile 立即可见
+    // （RemoteChessSkin 本地文件优先渲染随之生效，零网络）。
+    _invalidateMemo(meta.id);
     final skin = LocalChessSkin.tryCreate(meta: meta, dir: dir);
     if (skin == null) {
       throw StateError('皮肤下载完成但无法构造本地皮肤: ${meta.id}');
