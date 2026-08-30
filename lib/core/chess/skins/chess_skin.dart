@@ -112,6 +112,32 @@ abstract class ChessSkinBundle {
     }
   }
 
+  /// 把远端 KV 载入的 [metas] 覆盖/扩展进注册表（"换肤免发版"）。
+  ///
+  /// 语义（与 registerHardcoded 一致：mutable 注册表，幂等）：
+  ///   · 已存在的 id → **覆盖**（同 id 远端版本优先）
+  ///   · 新 id → **追加**
+  ///   · 不删除任何本地 id —— 本地 7 套永远在（KV 缺失/失败时兜底）
+  ///   · 绝不触碰 'default'（default 是 unicode 回退，永远存在）
+  ///
+  /// [fileResolver] 用 [PublicFileResolver]（baseUrl 从 `reader.baseUrl` 来，
+  /// 不要 hardcode host —— 见 file_resolver.dart 惯例）。
+  ///
+  /// 调用时机：`main()` 启动期 `registerHardcoded()` 之后，由
+  /// `fetchAndMergeSkins()`（chess_skin_meta_sync.dart）fire-and-forget 触发。
+  /// 已渲染页面下次 `byId()` 查询实时拿到新皮肤（注册表是 live map）。
+  static void registerRemoteSkins(
+    List<ChessSkinMeta> metas, {
+    required FileResolver fileResolver,
+  }) {
+    for (final meta in metas) {
+      _registry[meta.id] = RemoteChessSkin(
+        meta: meta,
+        fileResolver: fileResolver,
+      );
+    }
+  }
+
   /// 测试 reset 钩子 — 仅 unit test 用；生产调用 registerHardcoded 替代
   @visibleForTesting
   static void resetForTest() {

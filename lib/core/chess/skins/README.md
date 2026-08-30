@@ -2,6 +2,10 @@
 
 > 国际象棋棋盘的棋子皮肤来源：**dart 端 const catalog + server 端 File API 公开下载 URL**。
 > 实测（spec §0 设计变更，2026-08-29）：所有 webp 图走 `http://47.110.80.47:8988/files/<32-hex>`，无 token 也能下载成功（md5 一致）。
+>
+> **v6.2 起（2026-08-29 追加）**：新增 **KV public 皮肤 meta 覆盖** —— dart 端 7 套 catalog 作基线，
+> 启动时匿名拉一次 `GET /api/v1/kv/public/chess_skin:index?groupId=190`，成功则覆盖/扩展注册表
+> （**换肤免发版**）；失败/缺失静默回退本地（零回归）。
 
 ---
 
@@ -11,17 +15,22 @@
 1. main() 调用 ChessSkinBundle.registerHardcoded()
 2. 遍历 kChessSkinsCatalog（const List<ChessSkinMeta>，7 套皮肤 × 12 piece = 84 个 FileRef）
 3. 每套构造 RemoteChessSkin(meta, fileResolver: PublicFileResolver(baseUrl: ...))
-4. UI 端通过 ChessSkinBundle.byId('<skinId>') 拿到 ChessSkin
-5. chess_board.dart 渲染时调 `skin.pieces['wK']` → CachedNetworkImage(url) → 自动 7 天磁盘缓存
+4. main() 再 fire-and-forget 调 fetchAndMergeSkins()（不阻塞启动）
+   ├─ 成功：readString('chess_skin:index') → ChessSkinMeta.parseList → ChessSkinBundle.registerRemoteSkins()
+   │        同 id 覆盖、新 id 追加、本地 7 套不删、'default' 永不碰
+   └─ 失败/缺失/解析错：静默回退（本步骤前的 1-3 即"零回归"基线）
+5. UI 端通过 ChessSkinBundle.byId('<skinId>') 拿到 ChessSkin
+6. chess_board.dart 渲染时调 `skin.pieces['wK']` → CachedNetworkImage(url) → 自动 7 天磁盘缓存
 ```
 
 **优势：**
 - 客户端无登录即可拉图（File API 公开 endpoint）
 - 84 个 file_id 全部 hardcode 在 dart 源 → 启动零网络拉取
 - 缓存命中率高：换皮肤走同一 group，cached_network_image 复用
+- **KV 覆盖生效后**：新皮肤 / 皮肤更新无需发版（后端写一次 KV 即可）
 
 **代价：**
-- 添加 / 更新皮肤 = 发新版本客户端（file_id 是 const 字符串）
+- 添加 / 更新皮肤 = 发新版本客户端（file_id 是 const 字符串）—— **除非**走 KV 覆盖
 - 84 个 file_id 占了约 4 KB const catalog（可接受）
 
 ---
@@ -30,10 +39,12 @@
 
 ```
 lib/core/chess/skins/
-├── chess_skin.dart          ← 接口合约 + Default + Bundle（启动期 registerHardcoded）
+├── chess_skin.dart          ← 接口合约 + Default + Bundle（registerHardcoded / registerRemoteSkins）
 ├── chess_skin_meta.dart     ← ChessSkinMeta + FileRef + 12-key 校验 + const 7 套 catalog
 ├── file_resolver.dart       ← FileResolver abstract + PublicFileResolver 默认
 ├── remote_chess_skin.dart   ← RemoteChessSkin implements ChessSkin（用 CachedNetworkImage）
+├── public_kv_reader.dart    ← 匿名 public KV 读（/api/v1/kv/public/:key，best-effort 不抛）
+├── chess_skin_meta_sync.dart← fetchAndMergeSkins()：KV 覆盖 > 本地 catalog 的混合加载
 └── README.md                ← 本文件
 ```
 
@@ -46,7 +57,34 @@ lib/core/chess/skins/
 
 1. 找一张 14 张 webp 的 source 目录（用户当前是 `D:\DevProjects\my\test\image\chess\2\`）
 2. 跑上传脚本（见 `tool/upload_chess_skins/`），走 `POST /api/v1/files` multipart（**不是** `/api/v1/upload`）
-3. 把新 file_id 替换到 `chess_skin_meta.dart` 的 `kChessSkinsCatalog`
+3. 把新 file_id 替换到 `chess_skin_meta.dart` 的 `kChessSkinsCatalog`（或写入 KV index —— 见下节）
+
+---
+
+## 3.5 KV public 皮肤 index（换肤免发版）
+
+**读取侧（已实现，本仓库代码）：**
+- `PublicKvReader`：匿名 `GET /api/v1/kv/public/<key>?groupId=190`，无鉴权头
+- key 固定为 `chess_skin:index`；value = **JSON array**（结构与 `kChessSkinsCatalog`
+  条目数组一致，直接喂给 `ChessSkinMeta.parseList`）
+- `fetchAndMergeSkins()`（main() 里 `unawaited(...)`）：成功 → 覆盖/扩展注册表；
+  失败/缺失/格式错 → 保留本地 7 套（零回归）
+
+**写入侧（一次性，需登录，管理员）：**
+```bash
+# 1. 登录拿 token（kvcli 后台，用户 uid=7）
+# 2. 构造 value = JSON array（同 chess_skin_meta.dart 条目结构）：
+#    [{"id":"8","displayName":"皮肤 8","version":1,
+#      "pieces":{"wK":{"fileId":"<32hex>","fileName":"...","sizeBytes":0,"contentType":"image/webp"}, ...12个},
+#      "boardBackground":null}, ...]
+# 3. POST /api/v1/kv（带 Authorization: Bearer <token>，body 带 groupId=190, visibility=public）
+curl -X POST http://47.110.80.47:8988/api/v1/kv \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"chess_skin:index","value":"<JSON array 文本>","groupId":190,"visibility":"public"}'
+```
+写完后客户端冷启动即生效；更新同一 key 即可免发版换肤。
+文件 id 来源：先上传 webp 拿 file_id（见 §3）。
 
 ---
 
@@ -66,6 +104,7 @@ lib/core/chess/skins/
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   ChessSkinBundle.registerHardcoded();  // ← 在 runApp() 之前调
+  unawaited(fetchAndMergeSkins());     // ← KV 覆盖（best-effort，不阻塞）
   runApp(...);
 }
 ```
