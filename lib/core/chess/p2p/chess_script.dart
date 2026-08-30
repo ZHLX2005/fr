@@ -7,6 +7,11 @@
 //   · 加入者 = 黑方
 //   · 第 3 人进入满员房 → on_join 设 rejected_join → 服务端 409（明确拒绝）
 //   · state = "lobby" → "playing" → "ended"（host 点 RESET → 重新 "playing"）
+//   · 离开语义（Bug 修复"退出无法重进"）：
+//     · guest 离开 → guest_id=nil 槽空出，可同身份重进；lobby 空房直接销毁
+//     · host 离开 → 房间销毁（置 ended + 踢走 guest force_leave 4403），
+//       不留 host_id=nil 的半活房间（那种房间 host 侧永远无法再走子、
+//       原 host 重进会被当新玩家挤进 guest 槽 → 满员误拒 → 无法重进）
 //   · action 类型：
 //     · MOVE       — UCI 字符串（"e2e4"、"e7e8q"）
 //     · RESIGN     — 投降
@@ -106,9 +111,23 @@ on_leave = function(c, p)
   c.players[p.device_id] = nil
   if p.device_id == c.guest_id then
     c.guest_id = nil
+    -- 对局/等待中 guest 退出：未加入过（lobby 空房）→ 直接销毁；
+    -- 曾满员（players 还有 host）→ 房间保持 host 存活，guest 槽空出可重进。
+    if c.host_id == nil or c.players[c.host_id] == nil then
+      state = "ended"
+      c.status = "ended"
+      c.end_reason = "no_players"
+    end
   elseif p.device_id == c.host_id then
-    -- 房主离开：服务端按 v3 默认规则销毁房间（不实际处理）
-    c.host_id = nil
+    -- 房主离开：销毁房间（保留 root 防服务端 422），房间被占用
+    -- 无法删除 → 踢掉在场 guest（force_leave 4403）并置 ended，
+    -- 不留 host_id=nil 的半活房间 —— 这是"退出无法重进"根因 2 的核心修复。
+    state = "ended"
+    c.status = "ended"
+    c.end_reason = "host_left"
+    if c.guest_id ~= nil and c.players[c.guest_id] ~= nil then
+      c.force_leave = { c.guest_id }
+    end
   end
   c.draw_offers[p.device_id] = nil
   return c

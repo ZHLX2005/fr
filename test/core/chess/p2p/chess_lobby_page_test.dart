@@ -18,10 +18,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xiaodouzi_fr/api/token/token_storage.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_identity.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_lobby_page.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_device_id.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
 /// 记录 tryJoinOrCreate 调用（code + script + maxPlayers）。
@@ -99,32 +101,13 @@ class FakeLobbyHandle extends RoomHandle {
   }
 }
 
-/// 假 token 存储（测试注入 ChessIdentity.debugStorage）。
-class _FakeTokenStorage implements TokenStorage {
-  String? access;
-
-  @override
-  Future<String?> get accessToken async => access;
-
-  @override
-  Future<String?> get refreshToken async => null;
-
-  @override
-  Future<DateTime?> get expiresAt async => null;
-
-  @override
-  Future<void> save({
-    required String accessToken,
-    String? refreshToken,
-    DateTime? expiresAt,
-  }) async {
-    access = accessToken;
-  }
-
-  @override
-  Future<void> clear() async {
-    access = null;
-  }
+/// 安装假 async SharedPreferences 存储并返回它（每次新建 = 模拟重启/新会话）。
+InMemorySharedPreferencesAsync installInMemoryPrefs({
+  Map<String, Object> seed = const {},
+}) {
+  final store = InMemorySharedPreferencesAsync.withData(seed);
+  SharedPreferencesAsyncPlatform.instance = store;
+  return store;
 }
 
 /// 生成一份快照（lobby / playing 均可）。
@@ -159,11 +142,16 @@ Snapshot makeSnap({
 
 void main() {
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({}); // legacy（RelayDeviceId）
+    RelayDeviceId.debugReset();
+    installInMemoryPrefs(); // async（ChessIdentity）
     ChessIdentity.debugReset();
   });
 
-  tearDown(() => ChessIdentity.debugReset());
+  tearDown(() {
+    ChessIdentity.debugReset();
+    RelayDeviceId.debugReset();
+  });
 
   Widget host({required RecordingTransport transport, required List<RoomHandle> joined}) {
     return MaterialApp(
@@ -332,12 +320,12 @@ void main() {
     expect(joined, hasLength(1));
   });
 
-  // ─────────────── 稳定身份（Bug 1/2 根因）：登录 uid 流入 transport ───────────────
+  // ─────────────── 稳定身份（Bug 1/2 根因）：真实登录 userId 流入 transport ───────────────
 
-  testWidgets('已登录 → transport 收到 uid-<token>（登录 uid 优先）', (tester) async {
-    ChessIdentity.debugReset(storage: _FakeTokenStorage()..access = 'tok-me');
+  testWidgets('已登录 → transport 收到 uid-<userId>（真实登录 uid 优先）', (tester) async {
+    installInMemoryPrefs(seed: {ChessIdentity.userIdKey: '42'});
     String? capturedDeviceId;
-    final transport = RecordingTransport(deviceId: 'uid-tok-me');
+    final transport = RecordingTransport(deviceId: 'uid-42');
     final handle = FakeLobbyHandle(
       transport: transport,
       code: 'ABCD',
@@ -359,13 +347,13 @@ void main() {
     );
     await fillAndGo(tester);
 
-    expect(capturedDeviceId, 'uid-tok-me',
-        reason: '已登录 → 稳定登录 uid 作为玩家身份（非会话 deviceId）');
+    expect(capturedDeviceId, 'uid-42',
+        reason: '已登录 → 真实登录 userId 作为玩家身份（非 token/非会话 deviceId）');
     expect(transport.joinCalls, hasLength(1));
   });
 
   testWidgets('未登录 → transport 收到设备级 UUID（回退，不以空身份进房）', (tester) async {
-    ChessIdentity.debugReset(storage: _FakeTokenStorage()); // 无 token
+    // 无 userId → 回退设备级 UUID（稳定）。
     String? capturedDeviceId;
     final transport = RecordingTransport(deviceId: 'whatever');
     final handle = FakeLobbyHandle(
@@ -398,12 +386,12 @@ void main() {
   testWidgets('同一稳定身份二次进房：tryJoinOrCreate 正常走（不因新 session 误判新玩家）', (
     tester,
   ) async {
-    ChessIdentity.debugReset(storage: _FakeTokenStorage()..access = 'tok-me');
-    final transport = RecordingTransport(deviceId: 'uid-tok-me');
+    installInMemoryPrefs(seed: {ChessIdentity.userIdKey: '42'});
+    final transport = RecordingTransport(deviceId: 'uid-42');
     final handle = FakeLobbyHandle(
       transport: transport,
       code: 'ABCD',
-      initial: makeSnap(state: 'lobby', guestId: null, hostId: 'uid-tok-me'),
+      initial: makeSnap(state: 'lobby', guestId: null, hostId: 'uid-42'),
     );
     transport.handleToReturn = handle;
     final joined = <RoomHandle>[];

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -25,5 +26,11 @@ class RelayDeviceId {
     }
     _cached = id;
     return id;
+  }
+
+  /// 测试用：清空会话缓存（isolate 测试之间互不干扰）。
+  @visibleForTesting
+  static void debugReset() {
+    _cached = null;
   }
 }

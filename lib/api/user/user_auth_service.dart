@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../core/chess/p2p/chess_identity.dart';
 import '../token/token_storage.dart';
 
 /// 认证接口调用结果。
@@ -101,13 +102,25 @@ class UserAuthService {
         if (nickname != null && nickname.isNotEmpty) 'nickname': nickname,
       });
 
-  /// 登录 → 成功写 token 到 SharedPreferences
+  /// 登录 → 成功写 token 到 SharedPreferences + 持久化真实 userId。
+  ///
+  /// 持久化 userId（根因 1 修复）：国际象棋的玩家稳定身份 = `uid-<userId>`
+  /// （见 chess_identity.dart），token 只是凭证会随重登录/刷新变化，不能当身份。
+  /// 登录 data 里 userId 的两种形态兼容：
+  ///   · 顶层 `data['userId']`（register 接口同款）
+  ///   · 嵌套 `data['user']['id']`（后端可能带完整 user 对象）
   Future<AuthResult> login(String email, String password) async {
     final r = await _post('/user/login', {'email': email, 'password': password});
     if (r.isSuccess && r.data != null) {
-      final token = r.data!['token'] as String?;
+      final data = r.data!;
+      final token = data['token'] as String?;
       if (token != null && token.isNotEmpty) {
         await _storage.save(accessToken: token);
+      }
+      final userId = (data['userId'] ?? (data['user'] as Map?)?['id']) as int?;
+      if (userId != null) {
+        // best-effort：持久化失败不影响登录本身（身份回退设备 UUID）。
+        await ChessIdentity.persistUserId(userId);
       }
     }
     return r;
