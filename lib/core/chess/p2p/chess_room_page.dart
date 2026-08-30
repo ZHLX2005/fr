@@ -47,6 +47,7 @@ import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
 import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
+import 'chess_net.dart';
 
 /// 快照驱动的在线对弈房间页（v3 Relay + kChessScript）。
 class ChessRoomPage extends StatefulWidget {
@@ -90,6 +91,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 最新服务端快照（null = 尚未收到）。
   Snapshot? _snapshot;
+
+  /// 网络动作封装（懒初始化：拿到首份快照后建，拿到 host_id 后才有意义）。
+  ChessRoom? _room;
 
   /// 本地棋盘（权威真相源 = 快照 fen；本地走子时乐观推进）。
   BoardState? _board;
@@ -139,6 +143,29 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 服务端 echo（已在 [_commitMove] 里响过），不重复播放。
   String? _pendingLocalFen;
 
+  // ─────────────────────────── READY 门 / 断连状态 ───────────────────────────
+  //
+  // v2 协议升级：
+  //   · state 走到 lobby/ready 时，页面渲染准备卡片（"准备好了" / "开始游戏"）
+  //   · 玩家离开（playing/ready 内）→ 服务端标 c.disconnected[id] = true，
+  //     房间不销毁，等待重连；本页听 snapshot.context['disconnected'] 显示
+  //     "对手掉线"提示 / 禁用本地输入。
+  //   · WS 真正断开（on_leave 之前）→ 短暂 overlay "重连中…"，不退出页面。
+
+  /// lobby 阶段乐观 ACK：点了"准备好了"立即本地置位（按钮变"已准备 ✓"），
+  /// 等服务端 ACK 回写快照后清掉（防双发）。
+  bool _ackedLocally = false;
+
+  /// 我方当前是否掉线（disconnected[myId] = true）。WS 重连拿到快照自动清。
+  bool _isMeDisconnected = false;
+
+  /// WS 断开过渡（closeEvents 0 → set true；快照回到 → 清）。
+  /// 与 [RoomHandle] 自动重连配合：客户端不主动重连，仅 UI 提示。
+  bool _wsOffline = false;
+
+  /// lobby/ready 阶段房主点"开始游戏"发送锁（防双击）。
+  bool _dealLock = false;
+
   // ─────────────────────────── 回放（复盘）状态 ───────────────────────────
   //
   // 终局后复盘整局：步进 / 自动播放 / 拖动进度条。回放中棋盘只读
@@ -171,6 +198,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   @override
   void initState() {
     super.initState();
+    _room = ChessRoom(widget.handle);
     final snap = widget.handle.latest;
     if (snap != null) {
       _applySnapshot(snap);
@@ -204,6 +232,46 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 把服务端权威快照应用到本地状态（棋盘重建 + 阵营 + 轮次 + 状态）。
   void _applySnapshot(Snapshot snap) {
     _snapshot = snap;
+    final state = snap.state;
+
+    // ── 断连态同步（playing/ready 内）──
+    // disconnected 字典含我 → 我掉线（断连等重连）；空 → 我回来了。
+    final disc = ChessRoom.disconnectedPlayers(snap);
+    final myId = widget.handle.transport.deviceId;
+    _isMeDisconnected = disc[myId] == true;
+    // 收到任意快照 = WS 已恢复（即便内容是同一份 disconnected 状态）。
+    if (_wsOffline) {
+      _wsOffline = false;
+    }
+
+    // ── lobby / ready：棋盘为空（初始 FEN），不解析棋盘 / 不走回合逻辑 ──
+    if (state == 'lobby' || state == 'ready') {
+      _board = null;
+      _myTurn = false;
+      _status = 'playing';
+      _gameOverShown = false;
+      _selectedSquare = null;
+      _draggingSquare = null;
+      _dragFingerPos = null;
+      _dragHoverSquare = null;
+      _pendingPromotion = null;
+      _lastMove = null;
+      _sendLock = false;
+      // 清音效基线：RESET 回 lobby 后下一局首份 playing 快照不响（避免
+      // 旧终局 FEN → 新局 FEN 的"假对手走子"音）。
+      _prevFen = null;
+      _pendingLocalFen = null;
+      // 离开 lobby / ready 阶段 → 清掉本地乐观 ACK（被服务端 ACK 后已无意义）。
+      if (_ackedLocally) {
+        _ackedLocally = false;
+      }
+      // 阵营判定仍需（lobby 卡片显示"执白 / 执黑"标签）
+      final myColor = _resolveMyColor(snap);
+      _myColor = myColor;
+      _isHost = myColor == PieceColor.white && snap.context['host_id'] != null;
+      _prevState = state;
+      return;
+    }
 
     // 1. 棋盘：context['fen'] 永远是最新真相源，整体重建。
     final rawFen = snap.context['fen'];
@@ -253,7 +321,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       _gameOverShown = false;
     }
 
-    // 6. 服务端 RESET 后（ended → playing）：清掉本局本地状态（发送锁）。
+    // 6. 服务端 RESET 后（ended → lobby）：清掉本局本地状态（发送锁）。
     //    上一步高亮由 [._latestMoveFrom] 从新棋谱派生（RESET 清空 moves → null）。
     if (_prevState == 'ended' && snap.state != 'ended') {
       _sendLock = false;
@@ -324,18 +392,24 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   void _onCloseEvent(WSCloseEvent event) {
     if (!mounted) return;
-    if (event.code != 0) {
-      // 终端关闭（被踢 / 房间过期 / 慢消费者）—— 提示 + 断开。
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(WSCloseCode.describe(event.code)),
-          action: SnackBarAction(
-            label: '断开',
-            onPressed: _leaveAndPop,
-          ),
-        ),
-      );
+    // WS close code 0 = 暂时断开（RoomHandle 自动 reconnect 中），其余
+    // 4403 / 4404 / 4408 是 terminal → 提示 + 断开。
+    if (event.code == 0) {
+      // 短暂断线：显示 overlay，RoomHandle 内部指数退避重连。
+      // 拿到下一份快照时自动清（[_applySnapshot]）。
+      setState(() => _wsOffline = true);
+      return;
     }
+    // 终端关闭（被踢 / 房间过期 / 慢消费者）—— 提示 + 断开。
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(WSCloseCode.describe(event.code)),
+        action: SnackBarAction(
+          label: '断开',
+          onPressed: _leaveAndPop,
+        ),
+      ),
+    );
   }
 
   // ─────────────────────────── 交互：选中 / 走子 ───────────────────────────
@@ -354,8 +428,11 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 交互门：非回放 + 我的回合 + 未在乐观发送 + 对局进行中（playing/check）。
   /// tap 与拖动共用同一道门（回放中棋盘只读复盘）。
+  ///
+  /// v2 新增：lobby / ready 阶段棋盘为空，禁走子；自己掉线时禁走子。
   bool get _canInteract =>
       !_replayMode &&
+      !_isMeDisconnected &&
       _myTurn &&
       !_sendLock &&
       (_status == 'playing' || _status == 'check');
@@ -590,6 +667,40 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('终局声明失败: $e')),
       );
+    }
+  }
+
+  // ─────────────────────────── 动作：准备 / 开始（READY 门） ───────────────────────────
+
+  /// 准备 ACK：lobby 阶段点"准备好了"——立即本地置 _ackedLocally（按钮变"已准备 ✓"）
+  /// 再发 ACK；服务端 ACK 回写后清 _ackedLocally。幂等（已点再点忽略）。
+  Future<void> _ack() async {
+    if (_ackedLocally) return;
+    setState(() => _ackedLocally = true);
+    try {
+      await _room?.ack();
+    } catch (_) {
+      if (mounted) setState(() => _ackedLocally = false);
+    }
+  }
+
+  /// host 点"开始游戏"（DEAL）—— 把 ready 推 playing。
+  /// START 是 DEAL 的别名（向后兼容），这里优先 DEAL。
+  Future<void> _deal() async {
+    if (_dealLock || !_isHost) return;
+    setState(() => _dealLock = true);
+    try {
+      await _room?.deal();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('开局失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _dealLock = false);
+      }
     }
   }
 
@@ -873,30 +984,38 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   @override
   Widget build(BuildContext context) {
     final snap = _snapshot;
-    final board = _board;
-    if (snap == null || board == null) {
+    if (snap == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('对弈房间')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    final colors = context.chessColors;
     // 优先本地皮肤（离线可用）；未本地化回退注册表（RemoteChessSkin / unicode）。
     final skin = widget.localSkin ?? ChessSkinBundle.byId(widget.skinId);
-    final myColor = _myColor;
-    final gameOver = snap.state == 'ended';
-    final pending = _pendingPromotion;
-    // 视角由角色驱动、整局稳定：我方黑 → 翻转到黑方视角（黑在底）。
-    final flipped = myColor == PieceColor.black;
-    // 回放中：棋盘渲染局面子序列缓存（states[index]），上一步高亮 =
-    // 当前步的前一手（index 0 = 初始局面，无高亮）。
-    final replayOn = _replayMode;
-    final displayBoard = replayOn ? _replayStates[_replayIndex] : board;
-    final displayLastMove = replayOn
-        ? (_replayIndex > 0 ? _replayMoves[_replayIndex - 1] : null)
-        : _lastMove;
 
+    final state = snap.state;
+
+    // 阶段派发：
+    //   lobby / ready → 准备卡片（共用 _buildLobbyReady）
+    //   playing       → 棋盘 + 走子
+    //   ended         → 棋盘背景 + 终局覆盖层（existing _GameOverCard）
+    final Widget body;
+    if (state == 'lobby' || state == 'ready') {
+      body = _buildLobbyReady(skin);
+    } else {
+      final board = _board;
+      if (board == null) {
+        // playing 阶段但服务端 FEN 尚未到达（极少见）→ loading
+        return Scaffold(
+          appBar: AppBar(title: Text('房间 ${snap.roomCode}')),
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      }
+      body = _buildPlaying(skin, board);
+    }
+
+    // 断线 / 短暂 WS 断开 → overlay 浮在内容之上。
     return Scaffold(
       appBar: AppBar(
         title: Text('房间 ${snap.roomCode}'),
@@ -910,157 +1029,504 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       ),
       body: Stack(
         children: [
-          Column(
-            children: [
-              // 阵营 / 轮次状态条
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Row(
-                  children: [
-                    if (myColor != null)
-                      Text(
-                        myColor == PieceColor.white ? '你执白' : '你执黑',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: myColor == PieceColor.white
-                              ? colors.coordinateLabel
-                              : colors.gridLine,
-                        ),
-                      ),
-                    const Spacer(),
-                    Text(
-                      _statusLabel(),
+          body,
+          if (_wsOffline) _buildWsOfflineOverlay(),
+          if (_isMeDisconnected && state == 'playing') _buildMeOfflineBanner(),
+        ],
+      ),
+    );
+  }
+
+  // ── lobby / ready 卡片（共用，按 phase 切按钮态）──
+
+  Widget _buildLobbyReady(ChessSkin skin) {
+    final snap = _snapshot!;
+    final colors = context.chessColors;
+    final code = snap.roomCode;
+    final hostId = ChessRoom.hostId(snap);
+    final players = ChessRoom.players(snap);
+    final readyMap = ChessRoom.readyMap(snap);
+    final myId = widget.handle.transport.deviceId;
+    final phase = snap.state;
+    final bothReady = phase == 'ready';
+    final iAmReady =
+        bothReady || _ackedLocally || readyMap[myId] == true;
+    final canDeal = bothReady && _isHost;
+    final canAck = !bothReady && players.length >= 2;
+
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colors.gridLine.withValues(alpha: 0.3)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    bothReady ? '双方已就绪' : '等待对手',
+                    style: TextStyle(
+                      color: colors.coordinateLabel,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(width: 24, height: 2, color: colors.gridLine),
+                  const SizedBox(height: 18),
+
+                  // 房间号 chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: colors.lightSquare.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                          color: colors.gridLine.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      code,
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _status == 'check'
-                            ? colors.checkWarning
-                            : colors.coordinateLabel,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 8,
+                        color: colors.coordinateLabel,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // 玩家头像列表
+                  ...players.entries.map((e) {
+                    final isMe = e.key == myId;
+                    final isReady = readyMap[e.key] == true;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isReady
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.12)
+                                : colors.lightSquare.withValues(alpha: 0.5),
+                            border: Border.all(
+                              color: isReady
+                                  ? Theme.of(context).colorScheme.primary
+                                  : colors.gridLine.withValues(alpha: 0.4),
+                              width: isReady ? 2.4 : 1.6,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: isReady
+                              ? Icon(Icons.check_rounded,
+                                  size: 22,
+                                  color: Theme.of(context).colorScheme.primary)
+                              : Text(
+                                  e.value.isNotEmpty
+                                      ? e.value[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    color: colors.coordinateLabel,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            '${e.value}${isMe ? "  (我)" : ""}'
+                            '${e.key == hostId ? " · 执白" : " · 执黑"}',
+                            style: TextStyle(
+                              color: colors.coordinateLabel,
+                              fontSize: 15,
+                              fontWeight:
+                                  isMe ? FontWeight.w600 : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isReady
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.12)
+                                : colors.lightSquare.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            isReady ? '已准备 ✓' : '未准备',
+                            style: TextStyle(
+                              color: isReady
+                                  ? Theme.of(context).colorScheme.primary
+                                  : colors.coordinateLabel
+                                      .withValues(alpha: 0.7),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ]),
+                    );
+                  }),
+
+                  if (players.length < 2) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      '把房间号发给朋友',
+                      style: TextStyle(
+                        color: colors.coordinateLabel.withValues(alpha: 0.6),
+                        fontSize: 12,
                       ),
                     ),
                   ],
+
+                  if (players.length >= 2) ...[
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: bothReady
+                          ? (canDeal
+                              ? FilledButton(
+                                  onPressed: _dealLock ? null : _deal,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: colors.gridLine,
+                                    foregroundColor: colors.lightSquare,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: const Text('开始游戏 ▸',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      )),
+                                )
+                              : Center(
+                                  child: Text(
+                                    '等待房主开始…',
+                                    style: TextStyle(
+                                      color: colors.coordinateLabel
+                                          .withValues(alpha: 0.7),
+                                      fontSize: 13,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ))
+                          : (iAmReady
+                              ? FilledButton(
+                                  onPressed: null,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: colors.gridLine
+                                        .withValues(alpha: 0.4),
+                                    foregroundColor: colors.lightSquare,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: const Text('已准备 ✓',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      )),
+                                )
+                              : OutlinedButton(
+                                  onPressed: canAck ? _ack : null,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                    side: BorderSide(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                      width: 1.6,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text('准备好了',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 2,
+                                      )),
+                                )),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 短暂 WS 断开 overlay（不退出页面，等 reconnect 自动清）。
+  Widget _buildWsOfflineOverlay() {
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.55),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(
+                '连接断开，正在重连…',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontSize: 14,
                 ),
               ),
-              // 棋盘（占满剩余空间）
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: ChessBoard(
-                    // 回放中渲染缓存局面子序列；平时渲染实况棋盘（快照 fen）。
-                    state: displayBoard,
-                    skin: skin,
-                    sideToMove: displayBoard.sideToMove,
-                    flipped: flipped,
-                    // 回放中棋盘只读：选中 / 合法目标清空 + 输入回调全部
-                    // 断开（tap 与拖动手势层都不挂载）。
-                    selectedSquare: replayOn ? null : _selectedSquare,
-                    legalTargets: replayOn ? const <int>{} : _legalTargets,
-                    lastMove: displayLastMove,
-                    onSquareTap: replayOn ? null : _handleTap,
-                    onDragSquareStart: replayOn ? null : _handleDragStart,
-                    onDragSquareUpdate: replayOn ? null : _handleDragUpdate,
-                    onDragSquareEnd: replayOn ? null : _handleDragEnd,
-                    draggingSquare: replayOn ? null : _draggingSquare,
-                    dragFingerPos: replayOn ? null : _dragFingerPos,
-                    dragHoverSquare: replayOn ? null : _dragHoverSquare,
-                    // 用户自定义棋盘配色（null = 跟随主题）
-                    boardPalette: widget.boardPalette,
-                  ),
-                ),
-              ),
-              // 操作条：回放中 → 回放控制条（步进 / 自动播放 / 进度条 / 退出）；
-              // 平时 → 投降 / 和棋（offer → accept/decline）
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: replayOn
-                    ? ChessReplayBar(
-                        index: _replayIndex,
-                        total: _replayMoves.length,
-                        playing: _replayPlaying,
-                        onToStart: () => _seekReplay(0),
-                        onStepBack: () => _stepReplay(-1),
-                        onTogglePlay: _toggleReplayPlay,
-                        onStepForward: () => _stepReplay(1),
-                        onToEnd: () => _seekReplay(_replayMoves.length),
-                        onSeek: _seekReplay,
-                        onExit: _exitReplay,
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_opponentOffered && !gameOver) ...[
-                            // 对方挂起议和：接受 / 拒绝 两按钮。
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                FilledButton.tonalIcon(
-                                  onPressed: _sendLock ? null : _drawOffer,
-                                  icon: const Icon(Icons.handshake, size: 18),
-                                  label: const Text('接受议和'),
-                                ),
-                                const SizedBox(width: 12),
-                                OutlinedButton.icon(
-                                  onPressed: _sendLock ? null : _drawDecline,
-                                  icon: const Icon(Icons.close, size: 18),
-                                  label: const Text('拒绝'),
-                                ),
-                              ],
-                            ),
-                          ] else ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: gameOver ? null : _resign,
-                                  icon: const Icon(Icons.flag, size: 18),
-                                  label: const Text('投降'),
-                                ),
-                                const SizedBox(width: 16),
-                                OutlinedButton.icon(
-                                  onPressed: gameOver ? null : _drawOffer,
-                                  icon: const Icon(Icons.handshake, size: 18),
-                                  label: Text(_iOffered ? '等待对方回应' : '议和'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-              ),
-              // WS 连接状态条（模板 §3.5 通用增强）：断线可见 + 手动拉取快照
-              RelayConnectionBar(handle: widget.handle),
             ],
           ),
-          // 升变面板
-          if (pending != null)
-            Positioned.fill(
-              child: PromotionPanel(
-                skin: skin,
-                promotingColor: _myColor ?? board.sideToMove,
-                onSelected: _resolvePromotion,
-                onCancel: _cancelPromotion,
+        ),
+      ),
+    );
+  }
+
+  /// 自己掉线 banner（服务端 c.disconnected[myId] = true，房间 alive）。
+  Widget _buildMeOfflineBanner() {
+    final colors = context.chessColors;
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.85),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
               ),
             ),
-          // 终局覆盖层（回放中隐藏 —— 回放条接管底部；退出回放重新显示）。
-          if (gameOver && !replayOn)
-            Positioned.fill(
-              child: Container(
-                color: colors.checkmateOverlay.withValues(alpha: 0.75),
-                alignment: Alignment.center,
-                child: _GameOverCard(
-                  title: _gameOverTitle(),
-                  subtitle: _gameOverSubtitle(),
-                  colors: colors,
-                  isHost: _isHost,
-                  onReset: _reset,
-                  onLeave: _leaveAndPop,
-                  // 复盘入口：棋谱非空才显示（立刻投降等零走法对局无回放内容）。
-                  onReplay: _hasReplayableMoves ? _enterReplay : null,
+            const SizedBox(width: 10),
+            Text(
+              '你已掉线 · 正在重连（棋盘已冻结）',
+              style: TextStyle(
+                color: colors.checkmateOverlay,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// playing / ended 阶段：棋盘 + 走子 / 终局覆盖层（v1 同款 UI 拆出来）。
+  Widget _buildPlaying(ChessSkin skin, BoardState board) {
+    final colors = context.chessColors;
+    final myColor = _myColor;
+    final gameOver = _snapshot!.state == 'ended';
+    final pending = _pendingPromotion;
+    // 视角由角色驱动、整局稳定：我方黑 → 翻转到黑方视角（黑在底）。
+    final flipped = myColor == PieceColor.black;
+    // 回放中：棋盘渲染局面子序列缓存（states[index]），上一步高亮 =
+    // 当前步的前一手（index 0 = 初始局面，无高亮）。
+    final replayOn = _replayMode;
+    final displayBoard = replayOn ? _replayStates[_replayIndex] : board;
+    final displayLastMove = replayOn
+        ? (_replayIndex > 0 ? _replayMoves[_replayIndex - 1] : null)
+        : _lastMove;
+
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // 阵营 / 轮次状态条
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  if (myColor != null)
+                    Text(
+                      myColor == PieceColor.white ? '你执白' : '你执黑',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: myColor == PieceColor.white
+                            ? colors.coordinateLabel
+                            : colors.gridLine,
+                      ),
+                    ),
+                  const Spacer(),
+                  Text(
+                    _statusLabel(),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _status == 'check'
+                          ? colors.checkWarning
+                          : colors.coordinateLabel,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 棋盘（占满剩余空间）
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: ChessBoard(
+                  // 回放中渲染缓存局面子序列；平时渲染实况棋盘（快照 fen）。
+                  state: displayBoard,
+                  skin: skin,
+                  sideToMove: displayBoard.sideToMove,
+                  flipped: flipped,
+                  // 回放中棋盘只读：选中 / 合法目标清空 + 输入回调全部
+                  // 断开（tap 与拖动手势层都不挂载）。
+                  selectedSquare: replayOn ? null : _selectedSquare,
+                  legalTargets: replayOn ? const <int>{} : _legalTargets,
+                  lastMove: displayLastMove,
+                  onSquareTap: replayOn ? null : _handleTap,
+                  onDragSquareStart: replayOn ? null : _handleDragStart,
+                  onDragSquareUpdate: replayOn ? null : _handleDragUpdate,
+                  onDragSquareEnd: replayOn ? null : _handleDragEnd,
+                  draggingSquare: replayOn ? null : _draggingSquare,
+                  dragFingerPos: replayOn ? null : _dragFingerPos,
+                  dragHoverSquare: replayOn ? null : _dragHoverSquare,
+                  // 用户自定义棋盘配色（null = 跟随主题）
+                  boardPalette: widget.boardPalette,
                 ),
               ),
             ),
-        ],
-      ),
+            // 操作条：回放中 → 回放控制条（步进 / 自动播放 / 进度条 / 退出）；
+            // 平时 → 投降 / 和棋（offer → accept/decline）
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: replayOn
+                  ? ChessReplayBar(
+                      index: _replayIndex,
+                      total: _replayMoves.length,
+                      playing: _replayPlaying,
+                      onToStart: () => _seekReplay(0),
+                      onStepBack: () => _stepReplay(-1),
+                      onTogglePlay: _toggleReplayPlay,
+                      onStepForward: () => _stepReplay(1),
+                      onToEnd: () => _seekReplay(_replayMoves.length),
+                      onSeek: _seekReplay,
+                      onExit: _exitReplay,
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_opponentOffered && !gameOver) ...[
+                          // 对方挂起议和：接受 / 拒绝 两按钮。
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FilledButton.tonalIcon(
+                                onPressed: _sendLock ? null : _drawOffer,
+                                icon: const Icon(Icons.handshake, size: 18),
+                                label: const Text('接受议和'),
+                              ),
+                              const SizedBox(width: 12),
+                              OutlinedButton.icon(
+                                onPressed: _sendLock ? null : _drawDecline,
+                                icon: const Icon(Icons.close, size: 18),
+                                label: const Text('拒绝'),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: gameOver ? null : _resign,
+                                icon: const Icon(Icons.flag, size: 18),
+                                label: const Text('投降'),
+                              ),
+                              const SizedBox(width: 16),
+                              OutlinedButton.icon(
+                                onPressed: gameOver ? null : _drawOffer,
+                                icon: const Icon(Icons.handshake, size: 18),
+                                label: Text(_iOffered ? '等待对方回应' : '议和'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+            // WS 连接状态条（模板 §3.5 通用增强）：断线可见 + 手动拉取快照
+            RelayConnectionBar(handle: widget.handle),
+          ],
+        ),
+        // 升变面板
+        if (pending != null)
+          Positioned.fill(
+            child: PromotionPanel(
+              skin: skin,
+              promotingColor: _myColor ?? board.sideToMove,
+              onSelected: _resolvePromotion,
+              onCancel: _cancelPromotion,
+            ),
+          ),
+        // 终局覆盖层（回放中隐藏 —— 回放条接管底部；退出回放重新显示）。
+        if (gameOver && !replayOn)
+          Positioned.fill(
+            child: Container(
+              color: colors.checkmateOverlay.withValues(alpha: 0.75),
+              alignment: Alignment.center,
+              child: _GameOverCard(
+                title: _gameOverTitle(),
+                subtitle: _gameOverSubtitle(),
+                colors: colors,
+                isHost: _isHost,
+                onReset: _reset,
+                onLeave: _leaveAndPop,
+                // 复盘入口：棋谱非空才显示（立刻投降等零走法对局无回放内容）。
+                onReplay: _hasReplayableMoves ? _enterReplay : null,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

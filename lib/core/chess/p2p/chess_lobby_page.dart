@@ -12,8 +12,12 @@
 //   room   等待房（房间号 chip + 玩家列表 + 自动开局提示）
 //   服务端 state == "playing"（或 "ended" 断线重连）→ onStarted(handle)
 //   交给业务层接管（push ChessRoomPage）。
-// 无准备按钮：kChessScript 的 on_join 在双人到齐时自动置 playing —— 玩家只需
-// 一起输入房间号，人齐即开（房主不再点"开始游戏"）。
+//
+// v2（READY 门）：服务端不再"双人到齐自动 playing"。进入房间后先停在
+//   state = "lobby"（准备阶段）—— 本页等待房显示"双方已就绪"提示并快速
+//   push ChessRoomPage，由房间页渲染准备卡片（"准备好了" → "开始游戏"）。
+//   导航时机放宽到 state ∈ (lobby, ready, playing, ended)，因为房间页
+//   自带 lobby/ready/playing/ended 四态 UI（v2 之前只等 playing 才 push）。
 //
 // 409 区分（服务端 message 关键词，per social-room-code-pattern）：
 //   "code collision" → 撞号（房间号被占，提示换一个）
@@ -46,8 +50,11 @@ class ChessLobbyPage extends StatefulWidget {
   /// Relay 服务地址（如 http://47.110.80.47:8988）。
   final String relayUrl;
 
-  /// 服务端 state 进入 playing / ended 时触发（断线重连同码再进也走这里），
-  /// 把 [RoomHandle] 交给业务层接管（push ChessRoomPage）。
+  /// 服务端 state 进入 lobby / ready / playing / ended 时触发（断线重连同码再进
+  /// 也走这里），把 [RoomHandle] 交给业务层接管（push ChessRoomPage）。
+  ///
+  /// v2（READY 门）：lobby 也触发 —— 房间页自带准备卡片（"准备好了" / "开始游戏"），
+  /// 不必等 playing 才 push（旧版只等 playing/ended）。
   final void Function(RoomHandle handle) onStarted;
 
   /// AppBar 标题。
@@ -205,9 +212,14 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     _snapSub = h.snapshots.listen((snap) {
       if (!mounted) return;
       setState(() => _snapshot = snap);
-      // playing → onStarted（业务层 push 房间页）；ended（断线重连终局房）同走，
-      // 由房间页渲染终局卡片（房主可 RESET 再来一局）。
-      if (!_started && (snap.state == 'playing' || snap.state == 'ended')) {
+      // v2（READY 门）：state ∈ {lobby, ready, playing, ended} 都 push 房间页。
+      // 房间页自带四态 UI：lobby 渲染准备卡片（ACK），ready 渲染"开始游戏"，
+      // playing 渲染棋盘，ended 渲染终局卡片（host 可 RESET 再来一局）。
+      // 不 push 的条件 = 只有 null 或已 push 过（防快照风暴重复 push）。
+      if (!_started && (snap.state == 'lobby' ||
+          snap.state == 'ready' ||
+          snap.state == 'playing' ||
+          snap.state == 'ended')) {
         _started = true;
         widget.onStarted(h);
       }
@@ -506,8 +518,10 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                 ),
               ],
               const SizedBox(height: 24),
-              // 无准备按钮（Bug 修复）：双人到齐即自动开局（服务端 on_join 置 playing）。
-              // 这里只展示状态 —— 真正的跳转由快照 state == playing 触发 onStarted。
+              // v2（READY 门）：双人到齐后停在 lobby 准备阶段，玩家在房间页
+              // 点"准备好了"（ACK）→ ready → host 点"开始游戏"（DEAL）→ playing。
+              // 这里只做轻量提示 —— 真正的准备卡片由 ChessRoomPage 渲染
+              // （onStarted 在 lobby 就已 push，本页等待房仅瞬态停留）。
               if (guestIn)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -519,7 +533,7 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '双方已就绪，自动开局…',
+                      '双方已就绪，进入准备…',
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: theme.colorScheme.primary),
                     ),

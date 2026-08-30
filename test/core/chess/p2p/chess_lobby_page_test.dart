@@ -280,7 +280,7 @@ void main() {
     expect(joined, hasLength(1));
   });
 
-  testWidgets('host + guest 在场 → 显示"双方已就绪，自动开局"（无开始按钮）', (tester) async {
+  testWidgets('host + guest 在场 → 显示"双方已就绪，进入准备…"（等待房瞬态）', (tester) async {
     final transport = RecordingTransport(deviceId: 'd-me');
     final handle = FakeLobbyHandle(
       transport: transport,
@@ -292,14 +292,34 @@ void main() {
     await tester.pumpWidget(host(transport: transport, joined: joined));
     await fillAndGo(tester);
 
-    // 无准备按钮：双人到齐只提示自动开局（不出现"开始游戏"按钮）。
-    expect(find.textContaining('自动开局'), findsOneWidget);
+    // v2 READY 门：双人到齐后停在 lobby 准备阶段 —— 等待房提示"进入准备…"，
+    // 不自动开局（"开始游戏"在房间页由 host 显式点 DEAL）。
+    expect(find.textContaining('进入准备'), findsOneWidget);
     expect(find.text('开始游戏'), findsNothing);
     expect(find.textContaining('执白'), findsWidgets, reason: 'host = 白方先手标注');
     expect(find.textContaining('执黑'), findsOneWidget);
   });
 
-  testWidgets('guest 加入（playing 快照）→ 自动开局 onStarted 触发', (tester) async {
+  testWidgets('lobby 快照 → onStarted 触发（READY 门：不等 playing 即 push 房间页）', (tester) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final handle = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby', guestId: 'd-guest'),
+    );
+    transport.handleToReturn = handle;
+    final joined = <RoomHandle>[];
+    await tester.pumpWidget(host(transport: transport, joined: joined));
+    await fillAndGo(tester);
+
+    // 玩家（guest 加入）广播 lobby 快照 → v2 立即 push 房间页（不等 playing）。
+    handle.pushSnapshot(makeSnap(state: 'lobby', guestId: 'd-guest'));
+    await tester.pump();
+    await tester.pump();
+    expect(joined, hasLength(1), reason: 'lobby（准备阶段）即应 push 房间页');
+  });
+
+  testWidgets('guest 加入（ready 快照）→ onStarted 触发（READY 门）', (tester) async {
     final transport = RecordingTransport(deviceId: 'd-me');
     final handle = FakeLobbyHandle(
       transport: transport,
@@ -313,7 +333,28 @@ void main() {
     expect(find.textContaining('等待朋友加入'), findsOneWidget);
     expect(joined, isEmpty);
 
-    // 服务端 on_join 在双人到齐时自动置 playing → 无需点"开始游戏"即触发 onStarted。
+    // 服务端 on_join 后停在 lobby；双方 ACK 后进 ready —— 两种都触发 onStarted。
+    handle.pushSnapshot(makeSnap(state: 'ready', guestId: 'd-guest'));
+    await tester.pump();
+    await tester.pump();
+    expect(joined, hasLength(1), reason: 'ready（双方已 ACK）也应 push 房间页');
+  });
+
+  testWidgets('guest 加入（playing 快照）→ 开局 onStarted 触发', (tester) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final handle = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby', guestId: null),
+    );
+    transport.handleToReturn = handle;
+    final joined = <RoomHandle>[];
+    await tester.pumpWidget(host(transport: transport, joined: joined));
+    await fillAndGo(tester);
+    expect(find.textContaining('等待朋友加入'), findsOneWidget);
+    expect(joined, isEmpty);
+
+    // 服务端 on_join 双人到齐后停在 lobby；host 点"开始游戏"（DEAL）→ playing。
     handle.pushSnapshot(makeSnap(state: 'playing', guestId: 'd-guest'));
     await tester.pump();
     await tester.pump();
