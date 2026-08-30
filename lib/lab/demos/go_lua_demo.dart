@@ -20,7 +20,7 @@ import 'go_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 
 class GoLuaDemo extends DemoPage {
   GoLuaDemo();
-  @override String get title => '围棋（Lua）';
+  @override String get title => '围棋（联机）';
   @override String get slug => 'go-lua';
   @override String get description => 'Go 互联网双人对战 · Lua 服务端权威棋谱';
   @override bool get preferFullScreen => true;
@@ -69,7 +69,7 @@ class _GoLuaPageState extends State<GoLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('围棋'),
+        title: const Text('围棋（联机）'),
         backgroundColor: bg,
         foregroundColor: panelText,
         elevation: 0,

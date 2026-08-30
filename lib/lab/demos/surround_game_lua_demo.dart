@@ -25,7 +25,7 @@ import 'surround_game_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 
 class SurroundGameLuaDemo extends DemoPage {
   SurroundGameLuaDemo();
-  @override String get title => '围追堵截（Lua）';
+  @override String get title => '围追堵截（联机）';
   @override String get slug => 'surround-game-lua';
   @override String get description => 'Quoridor 互联网双人对战 · Lua 服务端权威棋谱';
   @override bool get preferFullScreen => true;
@@ -76,7 +76,7 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('围追堵截'),
+        title: const Text('围追堵截（联机）'),
         backgroundColor: bg,
         foregroundColor: panelText,
         elevation: 0,

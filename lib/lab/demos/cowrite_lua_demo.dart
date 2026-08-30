@@ -26,7 +26,7 @@ import 'cowrite_lua/cowrite_widgets.dart' show LobbyEntryPage, OnlineCoWritePage
 class CoWriteLuaDemo extends DemoPage {
   CoWriteLuaDemo();
   @override
-  String get title => '协作笔记（Lua）';
+  String get title => '协作笔记（联机）';
 
   @override
   String get slug => 'cowrite-lua';
@@ -103,7 +103,7 @@ class _CoWriteLuaPageState extends State<CoWriteLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('协作笔记'),
+        title: const Text('协作笔记（联机）'),
         backgroundColor: bg,
         foregroundColor: panelText,
         elevation: 0,

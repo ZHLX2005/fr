@@ -20,7 +20,7 @@ import 'reversi_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 class ReversiLuaDemo extends DemoPage {
   ReversiLuaDemo();
   @override
-  String get title => '黑白翻转棋（双人）';
+  String get title => '黑白翻转棋';
   @override
   String get slug => 'reversi-lua';
   @override
@@ -72,7 +72,7 @@ class _ReversiLuaPageState extends State<ReversiLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('黑白翻转棋'),
+        title: const Text('黑白翻转棋（联机）'),
         backgroundColor: bg,
         foregroundColor: theme.btnText,
         elevation: 0,
@@ -117,7 +117,7 @@ class _ReversiLuaPageState extends State<ReversiLuaPage> {
 // 旧入口（不再注册到 demoRegistry，仅保留 demo class 与 register 函数以兼容）
 class ReversiDemo extends DemoPage {
   @override
-  String get title => '黑白翻转棋（旧）';
+  String get title => '黑白翻转棋';
   @override
   String get slug => 'reversi';
   @override
@@ -136,7 +136,7 @@ class _DeprecatedReversiStub extends StatelessWidget {
   const _DeprecatedReversiStub();
   @override
   Widget build(BuildContext context) => Center(
-        child: Text('已迁移到 Lua 版：黑白翻转棋（Lua）',
+        child: Text('已迁移到联机版：黑白翻转棋（联机）',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54))),
       );
 }

@@ -26,7 +26,7 @@ import 'gomoku_lua/opening/gomoku_opening_player.dart';
 
 class GomokuLuaDemo extends DemoPage {
   GomokuLuaDemo();
-  @override String get title => '五子棋（Lua）';
+  @override String get title => '五子棋（联机）';
   @override String get slug => 'gomoku-lua';
   @override String get description => 'Gomoku 互联网双人对战 · Lua 服务端权威棋谱';
   @override bool get preferFullScreen => true;
@@ -80,7 +80,7 @@ class _GomokuLuaPageState extends State<GomokuLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('五子棋'),
+        title: const Text('五子棋（联机）'),
         backgroundColor: bg,
         foregroundColor: panelText,
         elevation: 0,

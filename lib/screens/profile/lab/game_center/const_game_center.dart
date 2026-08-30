@@ -192,6 +192,13 @@ const Map<String, GameMeta> kGameMeta = {
     mode: '联机双人',
     pattern: GameArtPattern.grid,
   ),
+  'jungle-chess-lua': GameMeta(
+    categories: {GameCategory.multiplayer, GameCategory.board},
+    icon: Icons.pets_rounded,
+    gradient: [Color(0xFF7C2D12), Color(0xFFB45309)],
+    mode: '联机双人',
+    pattern: GameArtPattern.grid,
+  ),
 
   // ── 本地 ────────────────────────────────────────────────────
   // 围追堵截本地版：本地双人对战，归「棋游」，不进「联机」。

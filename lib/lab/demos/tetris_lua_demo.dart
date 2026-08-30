@@ -22,7 +22,7 @@ import 'tetris_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 class TetrisLuaDemo extends DemoPage {
   TetrisLuaDemo();
   @override
-  String get title => '俄罗斯方块';
+  String get title => '俄罗斯方块（联机）';
   @override
   String get slug => 'tetris-lua';
   @override
@@ -80,7 +80,7 @@ class _TetrisLuaPageState extends State<TetrisLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('俄罗斯方块'),
+        title: const Text('俄罗斯方块（联机）'),
         backgroundColor: bg,
         foregroundColor: panelText,
         elevation: 0,

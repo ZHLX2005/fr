@@ -28,7 +28,7 @@ import 'jungle_chess_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 class JungleChessLuaDemo extends DemoPage {
   JungleChessLuaDemo();
   @override
-  String get title => '斗兽棋（Lua）';
+  String get title => '斗兽棋（联机）';
 
   @override
   String get slug => 'jungle-chess-lua';
@@ -90,7 +90,7 @@ class _JungleChessLuaPageState extends State<JungleChessLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('斗兽棋（Lua）'),
+        title: const Text('斗兽棋（联机）'),
         backgroundColor: bg,
         foregroundColor: panelText,
         elevation: 0,

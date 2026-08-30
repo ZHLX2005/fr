@@ -18,7 +18,7 @@ import 'team_card/widgets.dart' show SetupPage, JoinPage, PlayingView;
 
 class TeamCardLuaDemo extends DemoPage {
   TeamCardLuaDemo();
-  @override String get title => '团建卡牌 v3';
+  @override String get title => '团建卡牌（联机）';
   @override String get slug => 'team-card-lua';
   @override String get description => '谁是卧底/狼人杀 · Lua 服务端权威 + 准备门';
   @override bool get preferFullScreen => true;
@@ -67,7 +67,7 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
   Widget build(BuildContext context) {
     if (_handle != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('团建卡牌 v3')),
+        appBar: AppBar(title: const Text('团建卡牌（联机）')),
         body: PlayingView(
           handle: _handle!,
           hostCapacity: _hostCapacity ?? 0,
@@ -76,7 +76,7 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('团建卡牌 v3')),
+      appBar: AppBar(title: const Text('团建卡牌（联机）')),
       body: Column(
         children: [
           Padding(

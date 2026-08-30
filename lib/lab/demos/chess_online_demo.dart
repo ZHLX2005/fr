@@ -44,7 +44,7 @@ import '../../core/chess/widgets/board_palette.dart';
 class ChessOnlineDemo extends DemoPage {
   ChessOnlineDemo();
   @override
-  String get title => '国际象棋在线';
+  String get title => '国际象棋（联机）';
   @override
   String get slug => 'chess-online';
   @override
@@ -266,7 +266,7 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     return ChessLobbyPage(
       key: _lobbyKey,
       relayUrl: kRelayUrl,
-      title: '国际象棋在线',
+      title: '国际象棋（联机）',
       onStarted: _onStarted,
       actionsBuilder: (context) => [
         // 换肤设置按钮：打开全屏换肤设置页（所有阶段可见，无害）。

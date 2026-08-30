@@ -22,7 +22,7 @@ import 'coup_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
 class CoupLuaDemo extends DemoPage {
   CoupLuaDemo();
   @override
-  String get title => '政变';
+  String get title => '政变（联机）';
   @override
   String get slug => 'coup-lua';
   @override
@@ -80,7 +80,7 @@ class _CoupLuaPageState extends State<CoupLuaPage> {
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('政变'),
+        title: const Text('政变（联机）'),
         backgroundColor: bg,
         foregroundColor: panelText,
         elevation: 0,
