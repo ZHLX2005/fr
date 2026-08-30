@@ -19,6 +19,7 @@ description: Relay-v3 Lua 状态机接入指南。新增一个互联网房间业
 | [[action-permission-table]] | ⚠️ **成熟期优化，前期不推荐**——当 action 多（≥5）、规则稳定、出现"无效按钮"UX bug 时才引入。把"谁能做哪个 action"收敛到服务端 `c.action_permissions` 单一表 + `role_check` helper，客户端 `canPerform(action)` 单点消费，零特判代码。是 [[server-authoritative-client-state]] 的"怎么做"落地篇。含 5 种角色规则 + 服务端/客户端双保险 + 迁移步骤 + ★何时引入判断。 |
 | [[versus-game-room-template]] | **从 0 实现一个 2 人互联网对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋）时通读。端到端模板：六件套文件结构 + Lua 状态机/权限表设计 + 四阶段 UX 交互（lobby/ready/playing/ended）+ 胜负判定模式 + widget 抽象边界 + 新游戏 checklist。还含**WS 连接状态条 + 手动拉取快照**（§3.5）和**落子音接入**（§3.6）两节通用增强。综合调用前 4 个 ref。 |
 | [[social-room-code-pattern]] | **实现"用户自行约定房间号 + 第一个进入自动成为房主"的双人对战时**通读（社交场景：微信群喊号/线下面对面）。含服务端 `requested_code` 撞号机制、Lua `max_players` + `rejected_join` 完整写法、客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示、`.tool/relay-room-tester` 11 个端到端验证场景。是 `[[versus-game-room-template]]` 的"双方输入同一号码谁先到谁是房主"特化版。 |
+| [[naming-and-game-meta]] | **新增/修改任何 v3 联机 demo 前通读**——命名/分类契约：title 必须 `（联机）` 后缀（禁 `（Lua）` / `v3` / `在线`）、slug 与 `kGameMeta` 字符级一致、`GameCategory.multiplayer` 必含、`mode` 标签规范、3 步新增清单。涵盖 `const_game_center.dart` `kGameMeta` 条目与 demo `title` 的强约束。 |
 
 ---
 
