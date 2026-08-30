@@ -219,9 +219,24 @@ class RoomHandle {
   WebSocketChannel? _ws;
   StreamSubscription<dynamic>? _wsSub;
   Timer? _reconnectTimer;
+  Timer? _heartbeat;
   bool _disposed = false;
   bool _connected = false;
   int _backoffMs = 500;
+
+  /// WS 健康检查（heartbeat）周期 —— 周期性调用 fetchSnapshot()，
+  /// 兼顾三件事：
+  ///   1. 作为"客户端心跳"：HTTP GET /snapshot 是最便宜的"我还在"信号。
+  ///      后端无需要响应自定义 ping 帧（TCP keepalive + HTTP 已经足够）；
+  ///      服务端只要能响应 GET /snapshot 就证明链路活着。
+  ///   2. 作为"快照刷新保险"：用户长时间不操作（lobby 等房 / 长考），
+  ///      WS 推送可能被中间路由器/NAT 静默截断，20s 周期拉到最新快照，
+  ///      确保本地 latest 不会因静默断线而过期。
+  ///   3. 作为"重连保险"：[fetchSnapshot] 内部在 !_connected 时会主动
+  ///      取消挂起的 backoff 定时器并立即重连 WS（cancel + unawaited
+  ///      connect()），所以即使 WS 真的死了、TCP keepalive 还没探测到，
+  ///      下一次 heartbeat 也能把它拉起来。
+  static const Duration heartbeatInterval = Duration(seconds: 20);
 
   /// createRoom 后构造函数（自动 join host）
   @visibleForTesting
@@ -314,6 +329,8 @@ class RoomHandle {
       );
       _connected = true;
       _backoffMs = 500;
+      // 启动周期性心跳（heartbeat）—— 详见 [_heartbeat] 字段注释。
+      _startHeartbeat();
     } catch (_) {
       _scheduleReconnect();
     }
@@ -322,6 +339,7 @@ class RoomHandle {
   void _onWSDone() {
     if (_disposed) return;
     _connected = false;
+    _stopHeartbeat();
     _wsSub?.cancel();
     _wsSub = null;
     _ws = null;
@@ -345,6 +363,39 @@ class RoomHandle {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(Duration(milliseconds: wait), connect);
   }
+
+  /// 启动周期性心跳（heartbeat）。
+  ///
+  /// 内部走 [fetchSnapshot] —— 便宜的 HTTP GET，副作用：
+  ///   · 同步最新快照到本地（任意 20s 周期内一定有快照）
+  ///   · 顺带在 !_connected 时触发立即重连（详见 [fetchSnapshot]）
+  /// 设计取舍：没有自定义 ping 帧（WS 帧协议层心跳），后端不必为此改动；
+  /// TCP keepalive + HTTP GET + snapshot 推送三件套已经能覆盖所有失活场景。
+  void _startHeartbeat() {
+    _stopHeartbeat();
+    _heartbeat = Timer.periodic(heartbeatInterval, (_) async {
+      if (_disposed) return;
+      try {
+        await fetchSnapshot();
+      } catch (_) {
+        // best-effort：HTTP 失败时不打破周期，下个 20s 还会再试。
+        // 此时 WS 可能也失活，但 [_scheduleReconnect] 已经退避挂起中，
+        // 下次心跳或快照成功时一并拉起来。
+      }
+    });
+  }
+
+  /// 停止周期性心跳（在 dispose / disconnectWS / _onWSDone 时调用）。
+  void _stopHeartbeat() {
+    _heartbeat?.cancel();
+    _heartbeat = null;
+  }
+
+  /// 测试可见：手动启动心跳（不真正 connect WS —— fakeAsync 环境
+  /// 无法承载真实 socket I/O，单测用这个入口验证周期 fetch 行为）。
+  /// 停止路径无需对应入口：dispose() / disconnectWS() 已覆盖。
+  @visibleForTesting
+  void debugStartHeartbeat() => _startHeartbeat();
 
   /// 提交 action
   ///
@@ -396,6 +447,7 @@ class RoomHandle {
   Future<void> disconnectWS() async {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _stopHeartbeat();
     _connected = false;
     await _wsSub?.cancel();
     _wsSub = null;
@@ -493,6 +545,7 @@ class RoomHandle {
     _connected = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _stopHeartbeat();
     await _wsSub?.cancel();
     _wsSub = null;
     await _ws?.sink.close();

@@ -45,6 +45,7 @@ import '../skins/chess_skin.dart';
 import '../skins/local_chess_skin.dart';
 import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
+import '../widgets/chess_connection_status.dart';
 import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 import 'chess_net.dart';
@@ -151,6 +152,19 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   //     房间不销毁，等待重连；本页听 snapshot.context['disconnected'] 显示
   //     "对手掉线"提示 / 禁用本地输入。
   //   · WS 真正断开（on_leave 之前）→ 短暂 overlay "重连中…"，不退出页面。
+  //
+  // ── 5s grace 重连保护（UX 不变量）──
+  //
+  // 服务端 WS 关闭后 5s 内是"宽限期"：只要同 device_id 在宽限内重新连上，
+  // 服务端 on_join 的"断线重连"分支会清掉 disconnected[id]，房间状态
+  // （fen / moves / ready / disconnected）完全保留 —— 玩家视角是"画面
+  // 冻结了一下然后继续"，不会丢任何进度。客户端依赖三条保证：
+  //   1. 稳定身份：transport.deviceId = ChessIdentity.resolve()（登录 uid
+  //      优先，设备 UUID 兜底），断线重连后被识别为同一玩家（不会占新坑）。
+  //   2. 本页不退出：_wsOffline 只是 UI 态，棋盘数据不动；即便 on_leave
+  //      被触发（>5s），重连快照 disconnected[me] 被清后 banner 也自动消失。
+  //   3. RoomHandle 自动重连（指数退避 500ms→30s）+ 20s heartbeat
+  //      兜底拉快照 —— 无论哪条路径先恢复，快照都会把 UI 拉回实况。
 
   /// lobby 阶段乐观 ACK：点了"准备好了"立即本地置位（按钮变"已准备 ✓"），
   /// 等服务端 ACK 回写快照后清掉（防双发）。
@@ -162,6 +176,11 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// WS 断开过渡（closeEvents 0 → set true；快照回到 → 清）。
   /// 与 [RoomHandle] 自动重连配合：客户端不主动重连，仅 UI 提示。
   bool _wsOffline = false;
+
+  /// 手动刷新 / 409 reconcile 时 fetchSnapshot 调用的 UI 反馈标记。
+  /// true → 顶部显示 LinearProgressIndicator + 刷新按钮变 spinner。
+  /// RoomHandle 内部的 20s heartbeat 不走这里（无 UI 反馈）。
+  bool _fetching = false;
 
   /// lobby/ready 阶段房主点"开始游戏"发送锁（防双击）。
   bool _dealLock = false;
@@ -619,11 +638,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('状态已过期，同步中…')),
         );
-        try {
-          await widget.handle.fetchSnapshot();
-        } catch (_) {
-          // best-effort；WS 下次推送时 reconcile。
-        }
+        // 409 reconcile：fetchSnapshot 走带 UI 反馈的版本（顶部进度条）。
+        await _fetchSnapshotWithFeedback();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
@@ -968,6 +984,36 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     setState(() => _replayIndex = next);
   }
 
+  // ─────────────────────────── 手动刷新（fetchSnapshot UI 反馈） ───────────────────────────
+
+  /// 带 UI 反馈的 fetchSnapshot —— 顶部 LinearProgressIndicator + 按钮 spinner。
+  ///
+  /// 用法：
+  ///   · 409 reconcile（服务端 CAS 版本不匹配）→ 同走这里，让用户知道在同步
+  ///   · AppBar 手动刷新按钮 → 用户主动拉的路径
+  /// 失败时弹 snackbar；成功时 fetchSnapshot 内部已 emit snapshot，[_applySnapshot]
+  /// 自动更新本地态（无需手动 setState）。
+  Future<void> _fetchSnapshotWithFeedback() async {
+    if (_fetching) return; // 防双击
+    setState(() => _fetching = true);
+    try {
+      await widget.handle.fetchSnapshot();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('刷新失败: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _fetching = false);
+    }
+  }
+
+  /// AppBar 上的"手动刷新"按钮 — 强制拉一次最新快照。
+  ///
+  /// 心跳（[RoomHandle] 内部的 20s 周期 fetchSnapshot）已经在后台运行；
+  /// 这里只暴露给"玩家怀疑自己卡了"的应急按钮。
+  Future<void> _manualRefresh() => _fetchSnapshotWithFeedback();
+
   // ─────────────────────────── 离开 ───────────────────────────
 
   Future<void> _leaveAndPop() async {
@@ -1018,8 +1064,24 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     // 断线 / 短暂 WS 断开 → overlay 浮在内容之上。
     return Scaffold(
       appBar: AppBar(
+        // 徽标（圆点 + 文字 + 重连 spinner）需要比默认 48 宽的 leading 槽。
+        leadingWidth: 86,
+        leading: ChessConnectionStatusBadge(handle: widget.handle),
         title: Text('房间 ${snap.roomCode}'),
         actions: [
+          // 手动刷新按钮：强制拉一次最新快照（带 UI 反馈）。心跳已经在跑，
+          // 这里只暴露给"我怀疑卡了"的应急场景。
+          IconButton(
+            icon: _fetching
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            onPressed: _fetching ? null : _manualRefresh,
+            tooltip: '刷新快照',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _leaveAndPop,
@@ -1029,6 +1091,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       ),
       body: Stack(
         children: [
+          // 顶部 fetching 进度条（拉取快照时显示）。
+          if (_fetching)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
           body,
           if (_wsOffline) _buildWsOfflineOverlay(),
           if (_isMeDisconnected && state == 'playing') _buildMeOfflineBanner(),

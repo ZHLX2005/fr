@@ -4,6 +4,23 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
+/// 测试替身：覆盖 connect() 为 no-op（fake 时钟环境承载不了真实 socket），
+/// 记录调用次数以验证"心跳 fetch 顺带触发重连"的兜底逻辑。
+class _NoConnectHandle extends RoomHandle {
+  int connectCalls = 0;
+  _NoConnectHandle({
+    required super.transport,
+    required super.code,
+    required super.wsUrl,
+    super.initial,
+  }) : super.testCreate();
+
+  @override
+  Future<void> connect() async {
+    connectCalls++;
+  }
+}
+
 void main() {
   group('Snapshot.fromJson', () {
     test('parses backend wire shape', () {
@@ -176,6 +193,49 @@ void main() {
       );
       await handle.dispose();
       await handle.dispose();
+    });
+
+    testWidgets('heartbeat：20s 周期 fetchSnapshot 兜底刷新 + fetch 顺带触发重连 + dispose 停止', (tester) async {
+      var snapshotGets = 0;
+      final mock = MockClient((req) async {
+        if (req.url.path.endsWith('/snapshot')) {
+          snapshotGets++;
+          return http.Response(jsonEncode({
+            'data': {'snapshot': _emptySnap('hb-1')},
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': true}), 200);
+      });
+      final t = RelayV3Transport(
+        relayUrl: 'http://x',
+        alias: 'a',
+        deviceId: 'd1',
+        httpClient: mock,
+      );
+      final handle = _NoConnectHandle(
+        transport: t,
+        code: 'hb-1',
+        wsUrl: 'ws://x/ws3/hb-1',
+        initial: Snapshot.fromJson(_emptySnap('hb-1')),
+      );
+
+      expect(snapshotGets, 0, reason: '未启动心跳时不拉快照');
+      handle.debugStartHeartbeat();
+
+      // 20s 周期：t=20 / t=40 两次，t=41 时不触发第三次。
+      // （tester.pump(duration) 推进 fake 时钟并触发其中的 Timer。）
+      await tester.pump(const Duration(seconds: 41));
+      expect(snapshotGets, 2, reason: '20s 周期 fetchSnapshot 兜底刷新快照');
+      // 每次心跳 fetch 时 _connected=false → fetchSnapshot 内部顺带 connect()
+      // （心跳兼作重连保险）。
+      expect(handle.connectCalls, 2,
+          reason: '心跳 fetch 在断连态顺带触发立即重连');
+
+      // 停止心跳（dispose 路径）→ 不再拉取。
+      await handle.dispose();
+      final before = snapshotGets;
+      await tester.pump(const Duration(seconds: 60));
+      expect(snapshotGets, before, reason: 'dispose 后 heartbeat 停止');
     });
   });
 }
