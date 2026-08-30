@@ -29,6 +29,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../widgets/context_chess_colors.dart';
+import '../../game_audio/piece_sound.dart';
 import '../../net_engine/relay_v3/relay_connection_bar.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
@@ -130,6 +131,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 是否已触发终局覆盖层（防重复）。
   bool _gameOverShown = false;
 
+  /// 上一次应用到本地的 FEN（用于 [_applySnapshot] 检测"fen 是否变了"以触发落子音）。
+  /// 初始 null 表示还没收到首份快照 → 不播音，避免页面首次进入就响。
+  String? _prevFen;
+
+  /// 本地刚乐观提交的 FEN —— [_applySnapshot] 收到匹配该值的快照视为自己走子的
+  /// 服务端 echo（已在 [_commitMove] 里响过），不重复播放。
+  String? _pendingLocalFen;
+
   // ─────────────────────────── 回放（复盘）状态 ───────────────────────────
   //
   // 终局后复盘整局：步进 / 自动播放 / 拖动进度条。回放中棋盘只读
@@ -171,6 +180,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     _snapSub = widget.handle.snapshots.listen(_onSnapshot);
     // 监听 WS 关闭事件（断线 / 被踢 / 房间过期等）。
     _closeSub = widget.handle.closeEvents.listen(_onCloseEvent);
+    // 预加载落子音，消除首次落子的加载延迟（PieceSound 单例跨页复用）
+    PieceSound.instance.preload();
   }
 
   @override
@@ -252,6 +263,24 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     if (_replayMode && snap.state != 'ended') {
       _clearReplay();
     }
+    // 7. 落子音效（PieceSound 单例）：
+    //   · 首份快照（_prevFen == null）→ 页面刚进，不响。
+    //   · FEN 未变（同状态重推 / 走子后尚未到下一手）→ 不响。
+    //   · FEN == _pendingLocalFen → 自己走子的服务端 echo（已在 _commitMove 响过）→ 不响。
+    //   · 回放模式（_replayMode）→ 棋盘只读复盘，不响。
+    //   · 其余 = 对手走子 → 响（双方都听到对弈节奏）。
+    if (!_replayMode &&
+        rawFen is String &&
+        rawFen.isNotEmpty &&
+        _prevFen != null &&
+        rawFen != _prevFen &&
+        rawFen != _pendingLocalFen) {
+      PieceSound.instance.play();
+    }
+    if (rawFen is String && rawFen.isNotEmpty) {
+      _prevFen = rawFen;
+    }
+    _pendingLocalFen = null; // 每次快照清一次（echo 已消费 / 其它情况丢弃）。
     _prevState = snap.state;
   }
 
@@ -461,6 +490,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final board = _board;
     if (board == null) return;
     final newState = applyMove(board, move).nextState;
+    // 预计算新局面的 FEN，给 [_applySnapshot] 做 echo 识别（避免重复响）。
+    final newFen = FenCodec.toFen(newState);
     // 乐观推进：本地先走，等服务端快照调和。
     setState(() {
       _board = newState;
@@ -472,7 +503,10 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       _dragHoverSquare = null;
       _myTurn = false; // 乐观锁：发送期间不响应本地输入
       _sendLock = true;
+      _pendingLocalFen = newFen; // 标记本次 echo —— _applySnapshot 会拿来比对
     });
+    // 自己的走子立刻响（不等服务端调和，零延迟反馈）—— 回放中没有 commit 路径可达。
+    PieceSound.instance.play();
     await _sendMove(move, newState);
   }
 
