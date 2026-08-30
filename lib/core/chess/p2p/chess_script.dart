@@ -15,9 +15,11 @@
 // · 掉线重连（关键）：
 //     · 同一 device_id 在 playing/ready 内 on_join → 清 c.disconnected[id]
 //       + 双方都 connected → state 保持 playing（不强制回 lobby）
-//     · playing/ready 内 on_leave → 不销毁房间，标 c.disconnected[id] = true，
-//       房间保持 waiting 让对手继续等（host 也可以 RESET）
-//     · playing/ready 内 host 离开 → force_leave guest + state = "ended"
+//     · playing/ready 内 on_leave（p.reason == "disconnect"，host 或 guest）
+//       → 一律视为瞬态断线：不销毁房间，标 c.disconnected[id] = true，
+//       房间保持 alive 等重连（不清 host_id/guest_id/fen/moves）
+//     · playing/ready 内 host 非断线离开（reason != "disconnect"）
+//       → force_leave guest + state = "ended"
 //       （guest 无 host 同步无法继续对弈；与 jungle 的 waiting 不同 ——
 //       chess 是回合制严格依赖 host，host 走 = 必须结束）
 //     · lobby 内 on_leave（guest 还没来） → host 离开 → 房间 ended 销毁；
@@ -149,14 +151,18 @@ on_join = function(c, p)
 end
 
 -- 掉线重连 / 玩家退出：lobby / ready / playing / ended 各语义不同
--- 关键区分（v2）：
---   · playing/ready 内 **guest** 离开 → 只标 disconnected[guest]=true，房间 alive，
---     等待 guest 同 device_id 重连（WS 5s grace 内的瞬断根本不会走到 on_leave；
---     走到这里说明已离线 >5s，但 guest 仍可同身份重进）。
---   · playing/ready 内 **host** 离开（无论 p.reason 是 disconnect 还是 graceful）
+-- 关键区分（v3）：
+--   · playing/ready 内 **任何一方** p.reason == "disconnect"
+--     （WS 5s grace 超时后服务端触发）→ 一律视为瞬态断线：
+--     只标 c.disconnected[id] = true，房间保持 alive，
+--     不清 host_id/guest_id/fen/moves —— 等同一 device_id 重连
+--     （on_join 清 disconnected 复用原玩家）。
+--   · playing/ready 内 **host** 非断线离开（graceful / kicked / room_evicted）
 --     → 真正的 host 退出。chess 是回合制且 host 定义引擎权威局面（fen/moves），
 --     guest 独自无法继续对弈 → 销毁房间（force_leave guest + ended），
 --     延续 v1"房主离开 = 销毁房间"修复。
+--   · playing/ready 内 **guest** 非断线离开 → 保留 player + 标 disconnected，
+--     等待 guest 同 device_id 重连（host 单独留在房间也可 RESET / 关房）。
 --   · lobby 内 guest 离开 → 清 guest 槽（视为"没加入"）；
 --     host 离开 → 空房销毁（end_reason="host_left_lobby"）。
 --   · ended 内任何人离开 → 保持 ended（winner/moves 留作回顾）。
@@ -165,8 +171,13 @@ on_leave = function(c, p)
   c.draw_offers[p.device_id] = nil
 
   if state == "playing" or state == "ready" then
-    if p.device_id == c.host_id then
-      -- host 退出：销毁房间（保留 root 防服务端 422），踢走在场 guest。
+    if p.reason == "disconnect" then
+      -- 断线（WS 5s grace 超时）：host / guest 一律瞬态 —— 房间保持 alive
+      -- 等重连，不清槽位 / fen / moves。
+      c.disconnected[p.device_id] = true
+    elseif p.device_id == c.host_id then
+      -- host 显式退出（graceful 等非断线原因）：销毁房间（保留 root
+      -- 防服务端 422），踢走在场 guest。
       state = "ended"
       c.status = "ended"
       c.end_reason = "host_left"
@@ -174,8 +185,8 @@ on_leave = function(c, p)
         c.force_leave = { c.guest_id }
       end
     else
-      -- guest 退出：保留 player + 标 disconnected，等待同 device_id 重连。
-      -- 不清 fen/moves，不设 ended —— 断线等重连的核心。
+      -- guest 显式退出：保留 player + 标 disconnected，等待同 device_id 重连。
+      -- 不清 fen/moves，不设 ended —— 等重连的核心。
       c.disconnected[p.device_id] = true
     end
   elseif state == "lobby" then
