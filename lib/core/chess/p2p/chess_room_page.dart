@@ -17,6 +17,11 @@
 // 本页拥有棋盘状态（Option A）—— 不复用 ChessController（它自带内部 BoardState），
 // 直接渲染无状态 ChessBoard + 自己实现选中 / 合法目标 / 升变状态机。
 //
+// 回放（复盘）：终局后从服务端权威棋谱 context['moves'] 重演整局 ——
+//   步进 / 自动播放 / 拖动进度条（ChessReplayBar）。回放中棋盘只读
+//   （tap / 拖动 / 升变输入全部断开）；进入时一次性构建局面子序列缓存；
+//   RESET 重开（快照离开 ended）→ 自动退出回放回实况。
+//
 // 颜色走 context.chessColors（v6.2.1 第 6 strategy 通道），不写死 Color(0xFF...)。
 
 import 'dart:async';
@@ -39,6 +44,7 @@ import '../skins/chess_skin.dart';
 import '../skins/local_chess_skin.dart';
 import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
+import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 
 /// 快照驱动的在线对弈房间页（v3 Relay + kChessScript）。
@@ -124,6 +130,35 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 是否已触发终局覆盖层（防重复）。
   bool _gameOverShown = false;
 
+  // ─────────────────────────── 回放（复盘）状态 ───────────────────────────
+  //
+  // 终局后复盘整局：步进 / 自动播放 / 拖动进度条。回放中棋盘只读
+  // （tap / 拖动 / 升变输入全部断开），局面从服务端权威棋谱
+  // context['moves'] 重演（起始 = 初始局面；RESET 后 moves 即新一局
+  // 棋谱 —— 每次进入回放都从最新快照解析，天然无上局残留）。
+
+  /// 回放模式开关（true = 棋盘渲染回放局面 + 底部显示回放控制条）。
+  bool _replayMode = false;
+
+  /// 当前回放到第几步（0 = 初始局面，_replayMoves.length = 终局）。
+  int _replayIndex = 0;
+
+  /// 自动播放中（播放键显示 ⏸）。
+  bool _replayPlaying = false;
+
+  /// 自动播放定时器（每 [_kReplayTickInterval] 前进一步）。
+  Timer? _replayTimer;
+
+  /// 解析后的走法序列（含易位 / 吃过路兵正确 flag —— 由引擎合法走法匹配补全）。
+  List<Move> _replayMoves = const [];
+
+  /// 局面子序列缓存（states[0] = 初始局面，states[i] = 走完第 i 手）。
+  /// 进入回放时一次性构建 → 步进 / 拖动进度条都是 O(1)。
+  List<BoardState> _replayStates = const [];
+
+  /// 自动播放步进间隔（毫秒）。
+  static const Duration _kReplayTickInterval = Duration(milliseconds: 800);
+
   @override
   void initState() {
     super.initState();
@@ -142,6 +177,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   void dispose() {
     _snapSub?.cancel();
     _closeSub?.cancel();
+    _replayTimer?.cancel(); // 回放定时器随页面销毁回收
     // 不给 handle.dispose() —— 页面退出时 handle 由外层拥有；
     // 用户按了断开按钮时外层处理 dispose。
     super.dispose();
@@ -210,6 +246,11 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     //    上一步高亮由 [._latestMoveFrom] 从新棋谱派生（RESET 清空 moves → null）。
     if (_prevState == 'ended' && snap.state != 'ended') {
       _sendLock = false;
+    }
+    // 6.5 回放中收到非 ended 快照（host RESET 重开 / 状态回退）→
+    //     自动退出回放回实况棋盘（复盘针对已结束的那一局，新对局优先）。
+    if (_replayMode && snap.state != 'ended') {
+      _clearReplay();
     }
     _prevState = snap.state;
   }
@@ -282,10 +323,13 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       if (m.from == sel) m.to};
   }
 
-  /// 交互门：我的回合 + 未在乐观发送 + 对局进行中（playing/check）。
-  /// tap 与拖动共用同一道门。
+  /// 交互门：非回放 + 我的回合 + 未在乐观发送 + 对局进行中（playing/check）。
+  /// tap 与拖动共用同一道门（回放中棋盘只读复盘）。
   bool get _canInteract =>
-      _myTurn && !_sendLock && (_status == 'playing' || _status == 'check');
+      !_replayMode &&
+      _myTurn &&
+      !_sendLock &&
+      (_status == 'playing' || _status == 'check');
 
   void _handleTap(int square) {
     final board = _board;
@@ -643,6 +687,142 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
+  // ─────────────────────────── 回放（复盘） ───────────────────────────
+
+  /// 服务端棋谱是否有可回放的走法（终局卡片"复盘"按钮的显隐条件：
+  /// 立刻投降等零走法对局没有可复盘内容）。
+  bool get _hasReplayableMoves {
+    final raw = _snapshot?.context['moves'];
+    return raw is List && raw.isNotEmpty;
+  }
+
+  /// 进入回放：解析最新快照的全部棋谱 → 一次性重演构建局面子序列 →
+  /// 从终局开始（玩家先退步复盘 —— 标准复盘 UX）。
+  ///
+  /// 每手 UCI 与引擎合法走法匹配（from/to/promotion 相同者）：
+  /// 匹配拿到的 Move 自带正确 flag（易位 / 吃过路兵 / capturedSquare），
+  /// applyMove 依赖 flag 才能正确搬车 / 移除过路兵 —— 直接 Move.fromUci
+  /// 的裸 flag 会把王车易位走成"王飞两格、车不动"。
+  /// 匹配失败（畸形 / 与局面脱节的棋谱）→ 防御截断，只回放到此之前。
+  void _enterReplay() {
+    final snap = _snapshot;
+    if (snap == null) return;
+    final rawMoves = snap.context['moves'];
+    if (rawMoves is! List || rawMoves.isEmpty) return;
+
+    final moves = <Move>[];
+    final states = <BoardState>[BoardState.initial()];
+    var cur = states.first;
+    for (final entry in rawMoves) {
+      if (entry is! Map) break;
+      final uci = entry['uci']?.toString();
+      if (uci == null || uci.length < 4) break;
+      final Move parsed;
+      try {
+        parsed = Move.fromUci(uci);
+      } on ArgumentError {
+        break; // 畸形 uci —— 防御：只回放到此之前。
+      }
+      Move? matched;
+      for (final m in widget.engine.generateLegalMoves(cur)) {
+        if (m.from == parsed.from &&
+            m.to == parsed.to &&
+            m.promotion == parsed.promotion) {
+          matched = m;
+          break;
+        }
+      }
+      if (matched == null) break; // 棋谱与局面脱节 → 截断。
+      cur = applyMove(cur, matched).nextState;
+      moves.add(matched);
+      states.add(cur);
+    }
+    if (moves.isEmpty) return; // 一手都没解析出来 → 不进回放。
+
+    setState(() {
+      _replayMoves = moves;
+      _replayStates = states;
+      _replayIndex = moves.length; // 从终局开始。
+      _replayPlaying = false;
+      _replayMode = true;
+      _selectedSquare = null; // 顺带清交互残留（防御）。
+    });
+  }
+
+  /// 退出回放：回到终局覆盖层（返回 / 再来一局 / 复盘）。
+  void _exitReplay() {
+    if (!_replayMode) return;
+    setState(_clearReplay);
+  }
+
+  /// 清空回放本地态（纯字段重置，不 setState —— 供 setState 回调 /
+  /// [_applySnapshot] 内复用，避免嵌套 setState）。
+  void _clearReplay() {
+    _replayTimer?.cancel();
+    _replayTimer = null;
+    _replayMode = false;
+    _replayPlaying = false;
+    _replayIndex = 0;
+    _replayMoves = const [];
+    _replayStates = const [];
+  }
+
+  /// 跳到指定步（0 = 初始局面，moves.length = 终局）。
+  /// 拖动进度条 / 步进 / 首尾跳共用入口。
+  void _seekReplay(int index) {
+    if (!_replayMode) return;
+    final clamped = index.clamp(0, _replayMoves.length);
+    if (clamped == _replayIndex) return;
+    // 自动播放中拖到终局 → 停播（播放键复位 ▶）。
+    if (_replayPlaying && clamped >= _replayMoves.length) {
+      _replayTimer?.cancel();
+      _replayTimer = null;
+      setState(() {
+        _replayIndex = clamped;
+        _replayPlaying = false;
+      });
+      return;
+    }
+    setState(() => _replayIndex = clamped);
+  }
+
+  /// 步进（delta = -1 后退 / +1 前进；边界由 clamp 兜底 + 按钮禁用）。
+  void _stepReplay(int delta) => _seekReplay(_replayIndex + delta);
+
+  /// 自动播放开关：▶ 起播（已在终局 → 从头重放）/ ⏸ 暂停。
+  void _toggleReplayPlay() {
+    if (!_replayMode) return;
+    if (_replayPlaying) {
+      _replayTimer?.cancel();
+      _replayTimer = null;
+      setState(() => _replayPlaying = false);
+      return;
+    }
+    // 已在终局按 ▶ → 回到开局重放（标准复盘 UX）。
+    final start = _replayIndex >= _replayMoves.length ? 0 : _replayIndex;
+    setState(() {
+      _replayIndex = start;
+      _replayPlaying = true;
+    });
+    _replayTimer = Timer.periodic(_kReplayTickInterval, (_) => _replayTick());
+  }
+
+  /// 自动播放 tick：前进一步；到终局自动停播。
+  void _replayTick() {
+    if (!mounted || !_replayMode) return;
+    final next = _replayIndex + 1;
+    if (next >= _replayMoves.length) {
+      _replayTimer?.cancel();
+      _replayTimer = null;
+      setState(() {
+        _replayIndex = _replayMoves.length;
+        _replayPlaying = false;
+      });
+      return;
+    }
+    setState(() => _replayIndex = next);
+  }
+
   // ─────────────────────────── 离开 ───────────────────────────
 
   Future<void> _leaveAndPop() async {
@@ -675,6 +855,13 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final pending = _pendingPromotion;
     // 视角由角色驱动、整局稳定：我方黑 → 翻转到黑方视角（黑在底）。
     final flipped = myColor == PieceColor.black;
+    // 回放中：棋盘渲染局面子序列缓存（states[index]），上一步高亮 =
+    // 当前步的前一手（index 0 = 初始局面，无高亮）。
+    final replayOn = _replayMode;
+    final displayBoard = replayOn ? _replayStates[_replayIndex] : board;
+    final displayLastMove = replayOn
+        ? (_replayIndex > 0 ? _replayMoves[_replayIndex - 1] : null)
+        : _lastMove;
 
     return Scaffold(
       appBar: AppBar(
@@ -725,71 +912,86 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: ChessBoard(
-                    state: board,
+                    // 回放中渲染缓存局面子序列；平时渲染实况棋盘（快照 fen）。
+                    state: displayBoard,
                     skin: skin,
-                    sideToMove: board.sideToMove,
+                    sideToMove: displayBoard.sideToMove,
                     flipped: flipped,
-                    selectedSquare: _selectedSquare,
-                    legalTargets: _legalTargets,
-                    lastMove: _lastMove,
-                    onSquareTap: _handleTap,
-                    // 拖动（规范 board-gesture-patterns）：跟手浮起 + 悬停放大 +
-                    // 松手合法目标提交；门控（我的回合/状态）在回调内判定。
-                    onDragSquareStart: _handleDragStart,
-                    onDragSquareUpdate: _handleDragUpdate,
-                    onDragSquareEnd: _handleDragEnd,
-                    draggingSquare: _draggingSquare,
-                    dragFingerPos: _dragFingerPos,
-                    dragHoverSquare: _dragHoverSquare,
+                    // 回放中棋盘只读：选中 / 合法目标清空 + 输入回调全部
+                    // 断开（tap 与拖动手势层都不挂载）。
+                    selectedSquare: replayOn ? null : _selectedSquare,
+                    legalTargets: replayOn ? const <int>{} : _legalTargets,
+                    lastMove: displayLastMove,
+                    onSquareTap: replayOn ? null : _handleTap,
+                    onDragSquareStart: replayOn ? null : _handleDragStart,
+                    onDragSquareUpdate: replayOn ? null : _handleDragUpdate,
+                    onDragSquareEnd: replayOn ? null : _handleDragEnd,
+                    draggingSquare: replayOn ? null : _draggingSquare,
+                    dragFingerPos: replayOn ? null : _dragFingerPos,
+                    dragHoverSquare: replayOn ? null : _dragHoverSquare,
                     // 用户自定义棋盘配色（null = 跟随主题）
                     boardPalette: widget.boardPalette,
                   ),
                 ),
               ),
-              // 操作条：投降 / 和棋（offer → accept/decline）
+              // 操作条：回放中 → 回放控制条（步进 / 自动播放 / 进度条 / 退出）；
+              // 平时 → 投降 / 和棋（offer → accept/decline）
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_opponentOffered && !gameOver) ...[
-                      // 对方挂起议和：接受 / 拒绝 两按钮。
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                child: replayOn
+                    ? ChessReplayBar(
+                        index: _replayIndex,
+                        total: _replayMoves.length,
+                        playing: _replayPlaying,
+                        onToStart: () => _seekReplay(0),
+                        onStepBack: () => _stepReplay(-1),
+                        onTogglePlay: _toggleReplayPlay,
+                        onStepForward: () => _stepReplay(1),
+                        onToEnd: () => _seekReplay(_replayMoves.length),
+                        onSeek: _seekReplay,
+                        onExit: _exitReplay,
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          FilledButton.tonalIcon(
-                            onPressed: _sendLock ? null : _drawOffer,
-                            icon: const Icon(Icons.handshake, size: 18),
-                            label: const Text('接受议和'),
-                          ),
-                          const SizedBox(width: 12),
-                          OutlinedButton.icon(
-                            onPressed: _sendLock ? null : _drawDecline,
-                            icon: const Icon(Icons.close, size: 18),
-                            label: const Text('拒绝'),
-                          ),
+                          if (_opponentOffered && !gameOver) ...[
+                            // 对方挂起议和：接受 / 拒绝 两按钮。
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                FilledButton.tonalIcon(
+                                  onPressed: _sendLock ? null : _drawOffer,
+                                  icon: const Icon(Icons.handshake, size: 18),
+                                  label: const Text('接受议和'),
+                                ),
+                                const SizedBox(width: 12),
+                                OutlinedButton.icon(
+                                  onPressed: _sendLock ? null : _drawDecline,
+                                  icon: const Icon(Icons.close, size: 18),
+                                  label: const Text('拒绝'),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: gameOver ? null : _resign,
+                                  icon: const Icon(Icons.flag, size: 18),
+                                  label: const Text('投降'),
+                                ),
+                                const SizedBox(width: 16),
+                                OutlinedButton.icon(
+                                  onPressed: gameOver ? null : _drawOffer,
+                                  icon: const Icon(Icons.handshake, size: 18),
+                                  label: Text(_iOffered ? '等待对方回应' : '议和'),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
-                    ] else ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: gameOver ? null : _resign,
-                            icon: const Icon(Icons.flag, size: 18),
-                            label: const Text('投降'),
-                          ),
-                          const SizedBox(width: 16),
-                          OutlinedButton.icon(
-                            onPressed: gameOver ? null : _drawOffer,
-                            icon: const Icon(Icons.handshake, size: 18),
-                            label: Text(_iOffered ? '等待对方回应' : '议和'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
               ),
               // WS 连接状态条（模板 §3.5 通用增强）：断线可见 + 手动拉取快照
               RelayConnectionBar(handle: widget.handle),
@@ -805,8 +1007,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                 onCancel: _cancelPromotion,
               ),
             ),
-          // 终局覆盖层
-          if (gameOver)
+          // 终局覆盖层（回放中隐藏 —— 回放条接管底部；退出回放重新显示）。
+          if (gameOver && !replayOn)
             Positioned.fill(
               child: Container(
                 color: colors.checkmateOverlay.withValues(alpha: 0.75),
@@ -818,6 +1020,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                   isHost: _isHost,
                   onReset: _reset,
                   onLeave: _leaveAndPop,
+                  // 复盘入口：棋谱非空才显示（立刻投降等零走法对局无回放内容）。
+                  onReplay: _hasReplayableMoves ? _enterReplay : null,
                 ),
               ),
             ),
@@ -828,6 +1032,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 轮次 / 状态文案。
   String _statusLabel() {
+    // 回放中：状态条显示复盘提示（轮次文案对只读棋盘无意义）。
+    if (_replayMode) return '回放中';
     if (_myTurn) {
       return _status == 'check' ? '你的回合 · 将军' : '你的回合';
     }
@@ -884,6 +1090,9 @@ class _GameOverCard extends StatelessWidget {
   /// 房主点击"再来一局" → 发 RESET action。
   final VoidCallback onReset;
 
+  /// 点击"复盘" → 进入回放模式（null = 本局无走法，按钮不显示）。
+  final VoidCallback? onReplay;
+
   final VoidCallback onLeave;
 
   const _GameOverCard({
@@ -892,6 +1101,7 @@ class _GameOverCard extends StatelessWidget {
     required this.colors,
     required this.isHost,
     required this.onReset,
+    this.onReplay,
     required this.onLeave,
   });
 
@@ -923,6 +1133,15 @@ class _GameOverCard extends StatelessWidget {
               onPressed: onReset,
               icon: const Icon(Icons.replay, size: 18),
               label: const Text('再来一局'),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // 复盘：回放整局（步进 / 自动播放 / 进度条）—— 双方都可用。
+          if (onReplay != null) ...[
+            OutlinedButton.icon(
+              onPressed: onReplay,
+              icon: const Icon(Icons.history_edu, size: 18),
+              label: const Text('复盘'),
             ),
             const SizedBox(height: 12),
           ],
