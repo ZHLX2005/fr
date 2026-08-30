@@ -201,6 +201,26 @@ class ChessSkinLocalizer {
     return LocalChessSkin.tryCreate(meta: meta, dir: dir);
   }
 
+  /// 缓存优先确保 [meta] 已本地化（"下载前先查缓存"，Fix）。
+  ///
+  /// 语义（设置页 / 对弈页点选皮肤时的默认路径）：
+  ///   · `isCached(meta.id)` 命中（12 棋子 + done 齐全）→ `fromCache` 直接返回
+  ///     —— **零网络、不删缓存**；
+  ///   · 未命中 / `fromCache` 构造失败 → `download(meta)` 全量下载补齐。
+  ///
+  /// 与 [download] 的区别：`download` 无条件清目录重下（用于 KV 换图等强刷场景）；
+  /// `ensureLocal` 尊重已有缓存 —— 已下载的皮肤再次选中时**绝不删除重下**，
+  /// 也不触发 loading（调用方应在命中缓存时跳过 loading 态）。
+  ///
+  /// 失败语义与 [download] 一致（网络/IO 错误 → 清目录 + rethrow）。
+  Future<LocalChessSkin> ensureLocal(ChessSkinMeta meta) async {
+    if (await isCached(meta.id)) {
+      final cached = await fromCache(meta.id);
+      if (cached != null) return cached;
+    }
+    return download(meta);
+  }
+
   /// 下载 [meta] 的全部资源到本地并返回 [LocalChessSkin]。
   ///
   /// 失败（网络不可达 / 非 200 / IO 错误）→ 删除部分文件 + rethrow，

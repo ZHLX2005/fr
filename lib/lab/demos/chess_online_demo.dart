@@ -65,7 +65,11 @@ void registerChessOnlineDemo() => demoRegistry.register(ChessOnlineDemo());
 // ══════════════════════════════════════════════════════════════
 
 class ChessOnlinePage extends StatefulWidget {
-  const ChessOnlinePage({super.key});
+  const ChessOnlinePage({super.key, this.localizer});
+
+  /// 皮肤本地化器注入（测试用）。null → 生产默认构造（真实 path_provider + http）。
+  final ChessSkinLocalizer? localizer;
+
   @override
   State<ChessOnlinePage> createState() => _ChessOnlinePageState();
 }
@@ -87,9 +91,16 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
 
   /// 皮肤本地化器（一次创建，复用 http client + 目录 provider）。
   /// baseUrl 与 kDefaultChessSkinBaseUrl 一致（demo 的 relayUrl 同源）。
-  late final ChessSkinLocalizer _localizer = ChessSkinLocalizer(
-    resolver: const PublicFileResolver(baseUrl: kDefaultChessSkinBaseUrl),
-  );
+  ///
+  /// `metaById` 指向 live [ChessSkinBundle.metas]（catalog + KV 合入）——
+  /// 让 `isCached` / `fromCache` / `download` 用**同一份 meta** 判断，
+  /// 避免 KV 覆盖同 id 后 localizer 仍按旧 const catalog 判缓存的错位（Fix）。
+  late final ChessSkinLocalizer _localizer =
+      widget.localizer ??
+      ChessSkinLocalizer(
+        resolver: const PublicFileResolver(baseUrl: kDefaultChessSkinBaseUrl),
+        metaById: _metaById,
+      );
 
   /// 已本地化的皮肤缓存（id → LocalChessSkin）。
   final Map<String, LocalChessSkin> _localSkins = {};
@@ -133,19 +144,11 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
 
   /// 确保 [skinId] 已本地化：命中缓存直接加载；未命中 → 后台下载。
   ///
-  /// 下载成功写入 [_localSkins]；失败记 [_downloadErrorId]/[_downloadError]
-  /// （不崩溃，UI 可重试）。
+  /// 下载决策收敛到 [_downloadSkin]（它内部缓存优先 + 状态管理），
+  /// 本方法只补一层"后台预取不转圈"的意图（web 直接跳过）。
   Future<void> _prefetchSkin(String skinId) async {
     if (!ChessSkinLocalizer.isSupported) return; // web 回退网络皮肤
     try {
-      if (await _localizer.isCached(skinId)) {
-        final cached = await _localizer.fromCache(skinId);
-        if (cached != null) {
-          if (!mounted) return;
-          setState(() => _localSkins[skinId] = cached);
-          return;
-        }
-      }
       await _downloadSkin(skinId);
     } catch (e) {
       if (!mounted) return;
@@ -156,10 +159,32 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     }
   }
 
-  /// 下载 [skinId] 的皮肤资源到本地并写入 [_localSkins]。
+  /// 确保 [skinId] 已本地化并写入 [_localSkins]（下载决策收敛到本方法）。
+  ///
+  /// 缓存优先（Fix）：磁盘已有完整缓存 → [ChessSkinLocalizer.ensureLocal]
+  /// 立即返回 —— **不设 [_downloadingId]（不转圈）、不删缓存、不联网**。
+  /// 仅未缓存 → 才进入下载态（转圈）+ 网络下载。
+  ///
+  /// 调用方（设置页点选 / 重试 / initState 预取）都走这里，单一权威路径。
   Future<void> _downloadSkin(String skinId) async {
     final meta = _metaById(skinId);
     if (meta == null) return;
+    // 先探测是否已缓存：命中 → 直接加载，跳过 loading 态。
+    if (await _localizer.isCached(skinId)) {
+      final cached = await _localizer.fromCache(skinId);
+      if (cached != null && mounted) {
+        setState(() {
+          _localSkins[skinId] = cached;
+          // 清理该皮肤残留的 loading / 错误态（避免历史失败污染本次）。
+          if (_downloadingId == skinId) _downloadingId = null;
+          if (_downloadErrorId == skinId) _downloadErrorId = null;
+          if (_downloadError != null && _downloadErrorId == skinId) {
+            _downloadError = null;
+          }
+        });
+      }
+      return;
+    }
     setState(() {
       _downloadingId = skinId;
       if (_downloadErrorId == skinId) _downloadErrorId = null;
@@ -191,9 +216,12 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     }
   }
 
-  /// 从 const catalog 按 id 找 [ChessSkinMeta]。
+  /// 从 live 注册表（catalog + KV 合入）按 id 找 [ChessSkinMeta]。
+  ///
+  /// 用 [ChessSkinBundle.metas] 而非 `kChessSkinsCatalog` —— 后者是 const
+  /// 编译期快照，看不到 KV 合入的新皮肤（Fix：KV 皮肤同样可本地化）。
   ChessSkinMeta? _metaById(String skinId) {
-    for (final meta in kChessSkinsCatalog) {
+    for (final meta in ChessSkinBundle.metas) {
       if (meta.id == skinId) return meta;
     }
     return null;

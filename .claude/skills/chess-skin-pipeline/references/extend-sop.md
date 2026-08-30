@@ -105,3 +105,4 @@ bash .claude/skills/chess-skin-pipeline/scripts/publish_index.sh neo_meta.json
 | upload 404 | 用了错误路径（`/api/v1/upload`）——本 skill 脚本已用正确路径，检查是否被改动 |
 | KV 写成功但匿名读 404 | 写入时 `visibility` 不是 `public`，或 `groupId` 不是 190 |
 | 下载 loading 永久转 | 已修复（5s 超时）；若复现检查 `ChessSkinLocalizer` 是否仍带 timeout |
+| 皮肤已下载到本地（12 webp + .done）但点选仍 loading 转圈 | 根因：`_downloadSkin` 不查缓存，`download()` 会先删目录重下。已修复 —— demo 层 `_downloadSkin` 现在**缓存优先**（`isCached` 命中 → `fromCache` 直接加载，不转圈不删缓存）；localizer 新增 `ensureLocal()`（缓存优先下载）。若复现：① 确认走的是 `ensureLocal`/`isCached` 路径而非直接 `download()`；② 检查 `<documents>/chess_skins/<skinId>/` 是否被误删（说明走了强刷路径） |

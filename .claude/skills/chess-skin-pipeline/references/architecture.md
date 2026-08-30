@@ -27,6 +27,11 @@ Layer 3  图片本地化（离线渲染）
   首次使用某皮肤时：12 张图按 file_id 匿名 GET /files/<id>
     → 写入 <app documents>/chess_skins/<skinId>/*.webp + .done 标记
     → LocalChessSkin 用 FileImage 渲染（之后零网络）
+  **缓存优先（Fix "已下载仍转圈"）**：
+    · ensureLocal(meta)：isCached 命中 → fromCache 直接返回（零网络、不删缓存）；
+      未命中 → download 全量补齐。设置页点选 / 重试 / initState 预取都走它。
+    · download(meta)：无条件清目录重下（KV 换图等强刷场景才用）。
+    · demo 的 _downloadSkin 先 isCached 探测 → 命中则跳过 loading 态（不转圈）。
   下载中：loading icon；失败：错误 + 重试（HTTP 5s 超时，绝不无限转圈）
   失败清理：任一张失败 → 清空该皮肤目录（不留半缓存）
 ```

@@ -419,6 +419,34 @@ void main() {
       expect(requested, ['2'], reason: '未本地化皮肤点击应通知调用方下载');
     });
 
+    testWidgets('点击已本地化皮肤 → 不触发下载回调（复用本地文件）', (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // 皮肤 1 和 2 都已本地化 → 点击不应触发任何下载
+      final local1 = makeLocalSkin('1');
+      final local2 = makeLocalSkin('2');
+      final requested = <String>[];
+      await tester.pumpWidget(
+        host(
+          initialSkinId: '1',
+          localSkins: {'1': local1, '2': local2},
+          onRequestDownload: (id) => requested.add(id),
+        ),
+      );
+      await tester.pump();
+
+      final skin2 = kChessSkinsCatalog[1];
+      await tester.tap(find.text(skin2.displayName));
+      await tester.pump();
+
+      expect(requested, isEmpty, reason: '已本地化皮肤不应触发下载');
+      // 预览直接用本地皮肤渲染
+      expect(find.text('本地皮肤 2'), findsOneWidget);
+      expect(find.byType(ChessBoard), findsOneWidget);
+    });
+
     testWidgets('isDownloading → 预览区显示 loading（CircularProgressIndicator）', (
       tester,
     ) async {

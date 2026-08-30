@@ -167,6 +167,54 @@ void main() {
     expect(await l.fromCache('nope'), isNull);
   });
 
+  // ─────────────── ensureLocal：缓存优先确保本地化（Fix：磁盘已有缓存不重下） ───────────────
+
+  test('ensureLocal 已缓存 → 直接 fromCache，不触发任何网络请求', () async {
+    var httpCalls = 0;
+    final counting = MockClient((req) async {
+      httpCalls++;
+      return http.Response.bytes(_tinyPng, 200);
+    });
+    final l = makeLocalizer(client: counting);
+    // 先真实下载一份到本地（产生缓存）
+    await l.download(makeMeta(board: null));
+    expect(await l.isCached('t1'), isTrue, reason: '前置：缓存就绪');
+    expect(httpCalls, greaterThan(0), reason: '前置：下载确实走过网络');
+
+    // ensureLocal → 命中缓存，绝不再打网络
+    httpCalls = 0;
+    final skin = await l.ensureLocal(makeMeta(board: null));
+    expect(skin, isA<LocalChessSkin>());
+    expect(skin.id, 't1');
+    expect(httpCalls, 0, reason: '已缓存 → ensureLocal 必须零网络请求');
+  });
+
+  test('ensureLocal 未缓存 → 走 download（网络下载）', () async {
+    final l = makeLocalizer(client: okClient());
+    expect(await l.isCached('t1'), isFalse, reason: '前置：无缓存');
+
+    final skin = await l.ensureLocal(makeMeta(board: null));
+    expect(skin, isA<LocalChessSkin>());
+    expect(await l.isCached('t1'), isTrue, reason: 'ensureLocal 后应产生缓存');
+  });
+
+  test('ensureLocal 已缓存但 fromCache 构造失败 → 走 download（兜底重下）', () async {
+    // 缓存目录只有 done 标记但棋子文件被删 → isCached false → 走 download
+    final l = makeLocalizer(client: okClient());
+    await l.download(makeMeta(board: null));
+    expect(await l.isCached('t1'), isTrue);
+
+    // 删掉全部棋子文件 → isCached 变 false（目录仍在）
+    for (final k in kChessSkin12PieceKeys) {
+      skinFile('$k.webp').deleteSync();
+    }
+    expect(await l.isCached('t1'), isFalse, reason: '棋子缺失 → 缓存不完整');
+
+    final skin = await l.ensureLocal(makeMeta(board: null));
+    expect(skin, isA<LocalChessSkin>());
+    expect(await l.isCached('t1'), isTrue, reason: 'ensureLocal 重新补齐缓存');
+  });
+
   test('download 幂等：重复下载重建目录，不残留旧文件', () async {
     final l = makeLocalizer(client: okClient());
     final meta = makeMeta(board: null);
