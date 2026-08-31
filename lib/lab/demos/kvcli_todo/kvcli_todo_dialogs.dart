@@ -10,14 +10,48 @@ import 'kvcli_todo_models.dart';
 typedef KvEditResult = ({String topic, String text, String note});
 
 /// 标记完成：输入完成结果（可选），返回 null 表示取消。
-Future<String?> showKvDoneResultDialog(BuildContext context, KvTask task) async {
-  final ctrl = TextEditingController();
-  final result = await showDialog<String>(
+///
+/// 控制器所有权放在 `_KvDoneDialogState.dispose()` 里 —— 不能在
+/// `await showDialog(...)` 返回后立刻 `ctrl.dispose()`,因为那只是
+/// 路由 pop 的瞬间,弹窗退出动画里 TextField 仍挂载,disposed controller
+/// 触发 EditableText 在退场动画中重建,会撞到 `InheritedElement._dependents`
+/// 调试断言(`_dependents.isEmpty`)。
+Future<String?> showKvDoneResultDialog(BuildContext context, KvTask task) {
+  return showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('完成 #${task.id}：${task.text}'),
+    builder: (_) => _KvDoneDialog(task: task),
+  );
+}
+
+class _KvDoneDialog extends StatefulWidget {
+  const _KvDoneDialog({required this.task});
+
+  final KvTask task;
+
+  @override
+  State<_KvDoneDialog> createState() => _KvDoneDialogState();
+}
+
+class _KvDoneDialogState extends State<_KvDoneDialog> {
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    // 路由完全卸载(退出动画结束)后才会走到这里,无 race。
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        '完成 #${widget.task.id}：${widget.task.text}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       content: TextField(
-        controller: ctrl,
+        controller: _ctrl,
         maxLines: 3,
         autofocus: true,
         decoration: const InputDecoration(
@@ -28,18 +62,16 @@ Future<String?> showKvDoneResultDialog(BuildContext context, KvTask task) async 
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(ctx),
+          onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
         OutlinedButton(
-          onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
           child: const Text('标记完成'),
         ),
       ],
-    ),
-  );
-  ctrl.dispose();
-  return result;
+    );
+  }
 }
 
 /// 编辑任务。isDone 时改 text+note（topic 保留）；否则改 topic+text（note 保留）。
