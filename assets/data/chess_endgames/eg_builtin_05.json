@@ -1,0 +1,21 @@
+{
+  "format": "fr-chess-endgame",
+  "version": 1,
+  "id": "eg-builtin-05",
+  "title": "兵残局冲线",
+  "description": "王 + 兵对单王：白兵冲到底线升变后杀王。练习王护兵推进与升变时机（升变优先选后）。",
+  "createdAt": "2026-08-31T00:00:00Z",
+  "source": "builtin",
+  "tags": ["兵", "升变", "入门"],
+  "difficulty": 1,
+  "snapshots": [
+    {
+      "label": "白兵即将冲线",
+      "fen": "8/8/8/4k3/8/8/4P3/4K3 w - - 0 1"
+    },
+    {
+      "label": "黑先残局（轮黑走，host 执黑先走）",
+      "fen": "8/8/8/4k3/8/8/4P3/4K3 b - - 0 1"
+    }
+  ]
+}

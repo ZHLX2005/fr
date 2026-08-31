@@ -37,6 +37,8 @@ import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.da
 import '../engine/chess_engine.dart';
 import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
+import '../endgame/chess_endgame.dart';
+import '../endgame/chess_endgame_store.dart';
 import '../models/board_state.dart';
 import '../models/game_status.dart';
 import '../models/move.dart';
@@ -72,6 +74,13 @@ class ChessRoomPage extends StatefulWidget {
   /// 非 null → 用户自定义覆盖主题（boardPalette?.X ?? 主题 X），向后兼容。
   final BoardPalette? boardPalette;
 
+  /// 残局快照信息（可选；来自入口残局库选择）。用于：
+  ///   · 回放起点（lineage 存在 → 从该局面起演，null 回退快照 initial_fen）
+  ///   · 导出残局标题上下文（label）
+  ///   · lobby/ready 卡片显示残局名 chip
+  /// null = 标准开局房间（服务端 initial_fen 仍可能存在 —— 换设备进房兜底读快照）。
+  final ChessEndgameSnapshot? initialEndgame;
+
   const ChessRoomPage({
     super.key,
     required this.handle,
@@ -80,6 +89,7 @@ class ChessRoomPage extends StatefulWidget {
     this.skinId = '1',
     this.localSkin,
     this.boardPalette,
+    this.initialEndgame,
   });
 
   @override
@@ -401,12 +411,35 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final myDeviceId = widget.handle.transport.deviceId;
     final hostId = snap.context['host_id']?.toString();
     final guestId = snap.context['guest_id']?.toString();
-    if (myDeviceId.isEmpty) return PieceColor.white; // 防御：身份空 → 白方兜底
-    if (myDeviceId == hostId) return PieceColor.white;
-    if (myDeviceId == guestId) return PieceColor.black;
-    if (hostId != null && hostId.isNotEmpty) return PieceColor.black;
-    // host_id 缺失且我方不是 guest → 无法判定：白方兜底（棋盘仍可渲染）。
-    return PieceColor.white;
+    // 残局 v3：host 永远执先手方 —— 黑先残局（initial_side == 'b'）host 执黑、
+    // guest 执白；标准房间 initial_side == 'w' → host 执白（与旧逻辑一致）。
+    final firstIsWhite = ChessRoom.initialSide(snap) != 'b';
+    final hostColor =
+        firstIsWhite ? PieceColor.white : PieceColor.black;
+    final guestColor =
+        firstIsWhite ? PieceColor.black : PieceColor.white;
+    if (myDeviceId.isEmpty) return hostColor; // 防御：身份空 → 先手方兜底
+    if (myDeviceId == hostId) return hostColor;
+    if (myDeviceId == guestId) return guestColor;
+    if (hostId != null && hostId.isNotEmpty) return guestColor;
+    // host_id 缺失且我方不是 guest → 无法判定：先手方兜底（棋盘仍可渲染）。
+    return hostColor;
+  }
+
+  // ── 阵营标签（lobby 卡片）："执白"/"执黑"，残局黑先时角色化翻转 ──
+
+  String get _colorLabelHost =>
+      ChessRoom.initialSide(_snapshot) == 'b' ? '执黑（先手）' : '执白';
+  String get _colorLabelGuest =>
+      ChessRoom.initialSide(_snapshot) == 'b' ? '执白' : '执黑（先手）';
+
+  /// 残局标题（lobby 卡片 chip）：优先 widget 传入，回退快照 label 推导。
+  String? get _endgameTitle {
+    final e = widget.initialEndgame;
+    if (e != null) return '残局：${e.label ?? '快照'}';
+    // 换设备进房（widget 无残局信息）→ 服务端 initial_fen 存在 = 残局房。
+    if (ChessRoom.initialFen(_snapshot) != null) return '残局对局';
+    return null;
   }
 
   void _onCloseEvent(WSCloseEvent event) {
@@ -765,6 +798,40 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     return offers[widget.handle.transport.deviceId] == true;
   }
 
+  // ─────────────────────────── 悔棋（undo → accept/decline） ───────────────────────────
+
+  /// 对方是否已挂起悔棋 offer（context['undo_offers'] 含对方 device_id）。
+  bool get _opponentUndoOffered {
+    final snap = _snapshot;
+    final myColor = _myColor;
+    if (snap == null || myColor == null) return false;
+    final offers = snap.context['undo_offers'];
+    if (offers is! Map) return false;
+    final oppId = myColor == PieceColor.white
+        ? snap.context['guest_id']
+        : snap.context['host_id'];
+    if (oppId == null) return false;
+    return offers[oppId.toString()] == true;
+  }
+
+  /// 我方是否已挂起悔棋 offer（等待对方回应）。
+  bool get _iUndoOffered {
+    final snap = _snapshot;
+    if (snap == null) return false;
+    final offers = snap.context['undo_offers'];
+    if (offers is! Map) return false;
+    return offers[widget.handle.transport.deviceId] == true;
+  }
+
+  /// 我能否请求悔棋：对局中 + 自己至少走过一手
+  /// （host=白 → moves ≥ 1；guest=黑 → moves ≥ 2。与服务端 UNDO_OFFER 门一致）。
+  bool get _canRequestUndo {
+    final snap = _snapshot;
+    if (snap == null || snap.state != 'playing') return false;
+    final n = ChessRoom.moves(snap).length;
+    return _isHost ? n >= 1 : n >= 2;
+  }
+
   /// 点"议和"：无对方 offer → 发 DRAW_OFFER（只挂申请，等对方接受）；
   /// 对方已 offer → 直接发 DRAW_ACCEPT 接受 → 和棋。
   Future<void> _drawOffer() async {
@@ -821,6 +888,73 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
+  /// 点"悔棋"：无对方 offer → 发 UNDO_OFFER（只挂申请，等对方接受）；
+  /// 对方已 offer → 直接发 UNDO_ACCEPT → 服务端 pop 1~2 手回退棋盘。
+  /// 悔棋生效后快照 fen/moves 变化 → [_applySnapshot] 自动重建棋盘 + 轮次。
+  Future<void> _undoRequest() async {
+    if (_sendLock) return;
+    // 发送前存决策值（await 后读 getter 可能已被新快照翻转）。
+    final accepting = _opponentUndoOffered;
+    setState(() => _sendLock = true);
+    try {
+      await widget.handle.applyAction(
+        type: accepting ? 'UNDO_ACCEPT' : 'UNDO_OFFER',
+        params: {},
+      );
+      if (!accepting && mounted) {
+        // 只发了 offer（对方尚未回）→ 提示"已发送悔棋请求，等待对方回应"。
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已发送悔棋请求，等待对方回应')),
+        );
+      }
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 409) {
+        // CAS 版本不匹配 → 拉最新快照（服务端状态优先）。
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('状态已过期，同步中…')),
+        );
+        await _fetchSnapshotWithFeedback();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sendLock = false);
+      }
+    }
+  }
+
+  /// 对方悔棋 offer 时点"拒绝" → UNDO_DECLINE（清掉对方申请，回到正常对局）。
+  Future<void> _undoDecline() async {
+    if (_sendLock) return;
+    setState(() => _sendLock = true);
+    try {
+      await widget.handle.applyAction(type: 'UNDO_DECLINE', params: {});
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sendLock = false);
+      }
+    }
+  }
+
   // ─────────────────────────── 动作：重开（host only） ───────────────────────────
 
   /// 房主发起重开 —— 服务端 RESET 会把 fen/moves/status 重置回新一局并回到
@@ -860,8 +994,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 进入回放：解析最新快照的全部棋谱 → 一次性重演构建局面子序列 →
   /// 从终局开始（玩家先退步复盘 —— 标准复盘 UX）。
   ///
-  /// 每手 UCI 与引擎合法走法匹配（from/to/promotion 相同者）：
-  /// 匹配拿到的 Move 自带正确 flag（易位 / 吃过路兵 / capturedSquare），
+  /// 起点 = 服务端 initial_fen（残局房间从残局局面起演；标准房 null →
+  /// BoardState.initial()）。每手 UCI 与引擎合法走法匹配（from/to/promotion
+  /// 相同者）：匹配拿到的 Move 自带正确 flag（易位 / 吃过路兵 / capturedSquare），
   /// applyMove 依赖 flag 才能正确搬车 / 移除过路兵 —— 直接 Move.fromUci
   /// 的裸 flag 会把王车易位走成"王飞两格、车不动"。
   /// 匹配失败（畸形 / 与局面脱节的棋谱）→ 防御截断，只回放到此之前。
@@ -871,8 +1006,22 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final rawMoves = snap.context['moves'];
     if (rawMoves is! List || rawMoves.isEmpty) return;
 
+    // 回放起点：残局房间从 initial_fen 起演（黑先残局亦同）；
+    // 解析失败（畸形 FEN）→ 回退标准开局（防御）。
+    BoardState start;
+    final rawInitial = ChessRoom.initialFen(snap);
+    if (rawInitial != null) {
+      try {
+        start = FenCodec.fromFen(rawInitial);
+      } on Object {
+        start = BoardState.initial();
+      }
+    } else {
+      start = BoardState.initial();
+    }
+
     final moves = <Move>[];
-    final states = <BoardState>[BoardState.initial()];
+    final states = <BoardState>[start];
     var cur = states.first;
     for (final entry in rawMoves) {
       if (entry is! Map) break;
@@ -908,6 +1057,67 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       _replayMode = true;
       _selectedSquare = null; // 顺带清交互残留（防御）。
     });
+  }
+
+  /// 导出当前回放局面为残局快照（ChessReplayBar 保存按钮）：
+  ///   fen = 重演局面子序列在当前 index 的 FEN
+  ///   lineage.moves = 初始局面走到当前 index 的 UCI 序列
+  ///   id = eg-<房间号>-m<N>（同 (房间, 手数) 幂等 —— 重复导出提示已保存）
+  /// 保存到 <documents>/chess_endgames/ → SnackBar 提供分享入口。
+  Future<void> _exportCurrentReplayPosition() async {
+    if (!_replayMode) return;
+    final snap = _snapshot;
+    if (snap == null) return;
+    final index = _replayIndex;
+    final fen = FenCodec.toFen(_replayStates[index]);
+    final uciMoves = <String>[
+      for (var i = 0; i < index; i++) _replayMoves[i].toUci(),
+    ];
+    final code = snap.roomCode;
+    final id = 'eg-$code-m$index';
+    final title = index == 0 ? '残局·初始局面' : '残局·第 $index 手';
+    final endgame = ChessEndgame(
+      id: id,
+      title: title,
+      description: '房间 $code 回放导出'
+          '${(widget.initialEndgame?.label != null) ? ' · 源：${widget.initialEndgame!.label}' : ''}',
+      createdAt: DateTime.now().toUtc().toIso8601String(),
+      source: ChessEndgameSource.replay,
+      snapshots: [
+        ChessEndgameSnapshot(
+          label: index == 0 ? '初始局面' : '第 $index 手后',
+          fen: fen,
+          lineageMoves: uciMoves,
+          lineageMoveIndex: index,
+        ),
+      ],
+    );
+    final store = ChessEndgameStore();
+    try {
+      final existed = await store.existsLocal(id);
+      await store.save(endgame);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(existed ? '残局已更新：$title' : '已保存到残局库：$title'),
+          action: SnackBarAction(
+            label: '分享',
+            onPressed: () async {
+              try {
+                await store.exportAndShare(endgame);
+              } on Object {
+                // 分享失败静默（文件已落盘，用户可从残局库重试）。
+              }
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导出失败：$e')),
+      );
+    }
   }
 
   /// 退出回放：回到终局覆盖层（返回 / 再来一局 / 复盘）。
@@ -1184,6 +1394,51 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                       ),
                     ),
                   ),
+                  // 残局房间：残局名 chip（建房 initial_fen 注入时显示）
+                  if (_endgameTitle != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.extension_outlined,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              _endgameTitle!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color:
+                                    Theme.of(context).colorScheme.primary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 22),
 
                   // 玩家头像列表
@@ -1231,7 +1486,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                         Expanded(
                           child: Text(
                             '${e.value}${isMe ? "  (我)" : ""}'
-                            '${e.key == hostId ? " · 执白" : " · 执黑"}',
+                            '${e.key == hostId ? " · $_colorLabelHost" : " · $_colorLabelGuest"}',
                             style: TextStyle(
                               color: colors.coordinateLabel,
                               fontSize: 15,
@@ -1506,7 +1761,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               ),
             ),
             // 操作条：回放中 → 回放控制条（步进 / 自动播放 / 进度条 / 退出）；
-            // 平时 → 投降 / 和棋（offer → accept/decline）
+            // 平时 → 投降 / 悔棋 / 和棋（offer → accept/decline）。
+            // 悔棋 offer 优先于议和 offer 显示（悔棋有行动性；拒绝悔棋后
+            // 议和 offer 仍在 context 里，自然回到议和的接受/拒绝显示）。
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
               child: replayOn
@@ -1521,12 +1778,38 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                       onToEnd: () => _seekReplay(_replayMoves.length),
                       onSeek: _seekReplay,
                       onExit: _exitReplay,
+                      onExport: _exportCurrentReplayPosition,
                     )
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (_opponentOffered && !gameOver) ...[
-                          // 对方挂起议和：接受 / 拒绝 两按钮。
+                        if (_opponentUndoOffered && !gameOver) ...[
+                          // 对方挂起悔棋：接受 / 拒绝 两按钮；投降入口保留
+                          // （防对方反复挂 offer 时我方无法投降）。
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FilledButton.tonalIcon(
+                                onPressed: _sendLock ? null : _undoRequest,
+                                icon: const Icon(Icons.undo, size: 18),
+                                label: const Text('接受悔棋'),
+                              ),
+                              const SizedBox(width: 12),
+                              OutlinedButton.icon(
+                                onPressed: _sendLock ? null : _undoDecline,
+                                icon: const Icon(Icons.close, size: 18),
+                                label: const Text('拒绝'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: _resign,
+                            icon: const Icon(Icons.flag, size: 18),
+                            label: const Text('投降'),
+                          ),
+                        ] else if (_opponentOffered && !gameOver) ...[
+                          // 对方挂起议和：接受 / 拒绝 两按钮；悔棋入口保留。
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1543,16 +1826,22 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                               ),
                             ],
                           ),
-                        ] else ...[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 8),
+                          _undoEntryButton(gameOver: gameOver),
+                        ] else
+                          // 平时：投降 / 悔棋 / 议和。
+                          // Wrap 布局：窄屏自动换行，不写死宽度（防按钮文字截断）。
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
                             children: [
                               OutlinedButton.icon(
                                 onPressed: gameOver ? null : _resign,
                                 icon: const Icon(Icons.flag, size: 18),
                                 label: const Text('投降'),
                               ),
-                              const SizedBox(width: 16),
+                              _undoEntryButton(gameOver: gameOver),
                               OutlinedButton.icon(
                                 onPressed: gameOver ? null : _drawOffer,
                                 icon: const Icon(Icons.handshake, size: 18),
@@ -1560,7 +1849,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                               ),
                             ],
                           ),
-                        ],
                       ],
                     ),
             ),
@@ -1597,6 +1885,20 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
             ),
           ),
       ],
+    );
+  }
+
+  /// 悔棋入口按钮（平时操作条 / 对方议和 offer 时第二行共用）。
+  ///
+  /// 禁用条件：终局（gameOver）/ 自己一手未走（[_canRequestUndo]，
+  /// 与服务端 UNDO_OFFER 的 n 门一致 —— 白方 moves ≥ 1、黑方 moves ≥ 2）/
+  /// 已挂起自己的悔棋 offer（等待对方回应，防重复发）。
+  Widget _undoEntryButton({required bool gameOver}) {
+    final waiting = _iUndoOffered;
+    return OutlinedButton.icon(
+      onPressed: (gameOver || waiting || !_canRequestUndo) ? null : _undoRequest,
+      icon: const Icon(Icons.undo, size: 18),
+      label: Text(waiting ? '等待对方回应' : '悔棋'),
     );
   }
 

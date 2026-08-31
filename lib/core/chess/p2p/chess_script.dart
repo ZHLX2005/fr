@@ -10,7 +10,7 @@
 // · state 机：
 //     lobby   → 双人就位，等待双方 ACK（"准备"）
 //     ready   → 双方已 ACK，等待 host 显式 DEAL（"开始"）
-//     playing → 对弈中（MOVE / DRAW_OFFER / RESIGN / CLAIM_END）
+//     playing → 对弈中（MOVE / DRAW_OFFER / UNDO_OFFER / RESIGN / CLAIM_END）
 //     ended   → 终局（host 可 RESET 回 lobby）
 // · 掉线重连（关键）：
 //     · 同一 device_id 在 playing/ready 内 on_join → 清 c.disconnected[id]
@@ -33,6 +33,7 @@
 //   MOVE    = "current_player"  轮到谁走谁走
 //   RESIGN  = "any"     任何一方任何时候都能投
 //   DRAW_*  = "any"     议和流程任意一方发起
+//   UNDO_*  = "any"     悔棋流程任意一方发起（回退到"轮请求方走"）
 //   CLAIM_END = "non_current_player"  刚走完的一方声明将杀/僵局
 //   RESET   = "host"    终局后 host 可重开
 //
@@ -44,8 +45,10 @@
 //   ready          : {device_id → true}        ACK 状态
 //   disconnected   : {device_id → true}        离线玩家（仅 playing/ready 内）
 //   fen            : string（FEN 标准字符串，空格分隔 6 字段）
-//   moves          : [{uci, by, ts_ms}, ...]
+//   moves          : [{uci, by, ts, fen}, ...]（fen = 该手走完后的局面，
+//                    UNDO_ACCEPT 回退时恢复 c.fen 的唯一来源）
 //   draw_offers    : {device_id → true}
+//   undo_offers    : {device_id → true}
 //   status         : "playing" | "check" | "checkmate" | "stalemate" | "resigned" | "draw"
 //   winner         : string | nil（仅 terminal 时存在）
 //   action_permissions : {action → role_rule}
@@ -58,6 +61,18 @@
 //   3. FEN 必须 6 字段 + 首字段 8 段 + sideToMove 字段 = 当前走子方的对侧。
 //   4. MOVE 不携带 status（CLAIM_END 单独声明，且只有"刚走完的一方"）。
 //   5. RESIGN 自认输；DRAW_OFFER → DRAW_ACCEPT 显式接受。
+//   6. UNDO_OFFER → UNDO_ACCEPT 显式接受后 pop 1~2 手（撤销"请求方
+//      最近一手 + 其后所有手"），fen 从 pop 后最后一手的走后快照恢复。
+//
+// ## 残局开局（v3 initial_fen）
+//
+//   建房 initial_params 可带 initial_fen（残局快照 FEN）：
+//     · on_init 结构校验通过 → c.initial_fen = p.initial_fen，房间从该局面开始
+//     · c.initial_side 由 initial_fen 第 2 字段推出（'w'/'b'）
+//       —— host 永远执先手方：白先残局 host=白，黑先残局 host=黑
+//     · role_check / MOVE 的轮次推导统一走 side_to_move(n)（奇偶 + initial_side）
+//     · RESET / UNDO 空棋谱回 initial_fen（残局房间重开仍是残局）
+//   不带 initial_fen → initial_side='w' + 标准 FEN，行为与 v2 完全一致。
 //
 // ## MOVE 请求格式
 //   {
@@ -83,9 +98,28 @@ on_init = function(c, p)
   c.max_players = 2
   c.ready = {}
   c.disconnected = {}
-  c.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  -- 残局开局（v3）：建房 initial_params 带 initial_fen 时从残局 FEN 起始。
+  -- 结构非法 → fallback 标准开局（is_valid_fen_structure 见下方定义；
+  -- Lua 表作用域上移函数声明即可全局可见，on_init 在建房时先于此调用）。
+  c.initial_fen = nil
+  if type(p.initial_fen) == "string" and is_valid_fen_structure(p.initial_fen) then
+    c.initial_fen = p.initial_fen
+  end
+  -- 先手方（'w'/'b'）：白先（默认）= host 执白；黑先残局 = host 执黑。
+  -- 客户端 initial_side 与 initial_fen 第 2 字段一致（LobbyPage 从 FEN 推出）。
+  c.initial_side = "w"
+  if c.initial_fen ~= nil then
+    local fields = {}
+    for field in c.initial_fen:gmatch("%S+") do table.insert(fields, field) end
+    if fields[2] == "b" then c.initial_side = "b" end
+  end
+  if c.initial_fen == nil then
+    c.initial_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  end
+  c.fen = c.initial_fen
   c.moves = {}
   c.draw_offers = {}
+  c.undo_offers = {}
   c.status = "playing"
   c.action_permissions = {
     ACK        = "any",
@@ -95,6 +129,9 @@ on_init = function(c, p)
     DRAW_OFFER = "any",
     DRAW_ACCEPT = "any",
     DRAW_DECLINE = "any",
+    UNDO_OFFER = "any",
+    UNDO_ACCEPT = "any",
+    UNDO_DECLINE = "any",
     CLAIM_END  = "non_current_player",
     RESET      = "host",
   }
@@ -103,25 +140,35 @@ on_init = function(c, p)
 end
 
 -- 角色权限检查（与 jungle / gomoku / tetris 同模式）
+-- 轮次由"先手方 + 手数奇偶"推导（残局 v3：initial_side 支持 host 执黑先走）：
+--   side_to_move(n) = n 偶数 → initial_side；奇数 → 对侧
+function side_to_move(c, n)
+  local first = c.initial_side or "w"
+  if n % 2 == 0 then return first end
+  if first == "w" then return "b" end
+  return "w"
+end
+
 function role_check(c, p, action)
   local rule = c.action_permissions[action]
   if rule == nil or rule == "any" then return true end
   if c.players[p.device_id] == nil then return false end
   if rule == "host" then return p.device_id == c.host_id end
   if rule == "current_player" then
-    local n = #c.moves
-    local side = (n % 2 == 0) and "w" or "b"
-    if side == "w" then return p.device_id == c.host_id end
+    -- host 永远执先手方（白先 host=白；黑先残局 host=黑）：
+    -- side == initial_side → 轮先手方（host）；否则轮 guest。
+    local side = side_to_move(c, #c.moves)
+    if side == (c.initial_side or "w") then return p.device_id == c.host_id end
     return p.device_id == c.guest_id
   end
   if rule == "non_current_player" then
-    local n = #c.moves
-    -- 刚走完的一方：n 偶数 → 白刚走完 → 黑声明；n 奇数 → 黑刚走完 → 白声明
-    if n % 2 == 0 then
-      return p.device_id == c.guest_id
-    else
+    -- 刚走完的一方（= 声明者本人）= side_to_move(#moves - 1)：
+    -- 先手方刚走完 → host 声明；guest 刚走完 → guest 声明。
+    local last = side_to_move(c, #c.moves - 1)
+    if last == (c.initial_side or "w") then
       return p.device_id == c.host_id
     end
+    return p.device_id == c.guest_id
   end
   return false
 end
@@ -169,6 +216,7 @@ end
 on_leave = function(c, p)
   c.ready[p.device_id] = nil
   c.draw_offers[p.device_id] = nil
+  c.undo_offers[p.device_id] = nil
 
   if state == "playing" or state == "ready" then
     if p.reason == "disconnect" then
@@ -290,27 +338,31 @@ on_action_MOVE = function(c, p)
   if not is_valid_uci(p.uci) then
     return c
   end
-  -- FEN 结构校验 + sideToMove 反证：白方走完，FEN 必须轮到 'b'
+  -- FEN 结构校验 + sideToMove 反证：走完后 FEN 的轮走方必须 =
+  -- side_to_move(n+1)（残局 v3：由 initial_side + 手数奇偶推导，白先/黑先通用；
+  -- 白先时与旧逻辑 (n%2==0)→"b" 完全等价）。
   if not is_valid_fen_structure(p.fen) then
     return c
   end
   local fields = {}
   for field in p.fen:gmatch("%S+") do table.insert(fields, field) end
-  local n = #c.moves
-  local expect_side = (n % 2 == 0) and "b" or "w"
+  local expect_side = side_to_move(c, #c.moves + 1)
   if fields[2] ~= expect_side then
     return c
   end
-  -- 记录走法（c.moves 是追加式唯一走法权威）
+  -- 记录走法（c.moves 是追加式唯一走法权威；fen = 走后局面快照，
+  -- UNDO_ACCEPT 回退时恢复 c.fen 的唯一来源）
   table.insert(c.moves, {
     uci = p.uci,
     by = p.device_id,
     ts = p.ts or 0,
+    fen = p.fen,
   })
   -- 客户端负责算新 FEN（dart 引擎）；服务端只做结构校验后落盘。
   -- status 不随 MOVE 更新 —— 终局只能走 CLAIM_END / RESIGN / DRAW_OFFER(+ACCEPT)。
   c.fen = p.fen
   c.draw_offers = {}
+  c.undo_offers = {}
   return c
 end
 
@@ -409,16 +461,118 @@ on_action_DRAW_DECLINE = function(c, p)
   return c
 end
 
+-- 协商悔棋（v3）：申请 → 对方接受/拒绝。
+-- 语义：撤销"请求方最近一手 + 其后所有手"，回到轮请求方走。
+--   · 白（host）最后一手在奇数位：n 奇 → pop 1；n 偶 → pop 2
+--   · 黑（guest）最后一手在偶数位：n 偶 → pop 1；n 奇 → pop 2
+-- fen 恢复：pop 后最后一手的走后快照（MOVE entry 存的 fen）；
+-- 空棋谱 → 起始局面。与 DRAW 不同：双方同时挂 undo offer 不自动生效
+-- （回退手数取决于请求方角色，必须显式接受）。
+-- 权限：不走 role_check —— "any" 之外还需要"对局方 + 手数门"，手写判断
+-- 恰是 role_check 无法表达的细粒度校验。
+on_action_UNDO_OFFER = function(c, p)
+  if state ~= "playing" then
+    return c
+  end
+  if c.status ~= "playing" and c.status ~= "check" then
+    return c
+  end
+  local n = #c.moves
+  -- 没走任何一手 → 无从悔棋
+  if n == 0 then
+    return c
+  end
+  local is_host = (p.device_id == c.host_id)
+  local is_guest = (p.device_id == c.guest_id)
+  if not is_host and not is_guest then
+    return c
+  end
+  -- 黑方（guest）一手未走 → 无从悔棋（白 n>=1 已被上面 n==0 门覆盖）
+  if is_guest and n < 2 then
+    return c
+  end
+  c.undo_offers[p.device_id] = true
+  return c
+end
+
+on_action_UNDO_ACCEPT = function(c, p)
+  if state ~= "playing" then
+    return c
+  end
+  -- 请求方 = 挂 undo offer 的对方；没有 offer → 拒绝
+  local requester = nil
+  if p.device_id == c.host_id then
+    if c.undo_offers[c.guest_id] == true then requester = c.guest_id end
+  elseif p.device_id == c.guest_id then
+    if c.undo_offers[c.host_id] == true then requester = c.host_id end
+  end
+  if requester == nil then
+    return c
+  end
+  -- 双方同时挂 offer → 全部作废（回退手数取决于请求方角色，歧义状态
+  -- 不回退；清干净让双方从"悔棋"按钮重新发起）。
+  if c.undo_offers[p.device_id] == true then
+    c.undo_offers = {}
+    return c
+  end
+  -- offer 存续期间 moves 不变（MOVE 会清 undo_offers），
+  -- UNDO_OFFER 已校验请求方至少一手 → pop 1~2 手必然合法（> 0 门防御兜底）。
+  -- ★ 通用性：先手方（host，白先=白 / 黑先残局=黑）总是走奇数位手
+  --   （1,3,5…），后手方走偶数位 —— 黑先残局同样成立，无需按颜色分支。
+  local n = #c.moves
+  local requester_is_first = (requester == c.host_id)
+  local pops
+  if requester_is_first then
+    pops = (n % 2 == 1) and 1 or 2
+  else
+    pops = (n % 2 == 1) and 2 or 1
+  end
+  for i = 1, pops do
+    if #c.moves > 0 then
+      table.remove(c.moves)
+    end
+  end
+  -- 恢复 fen：pop 后最后一手的走后快照；空棋谱 → initial_fen
+  -- （残局 v3：残局房间回残局起点；旧协议 entry 无 fen 的防御分支
+  -- —— 实际不可达：脚本随建房下发）
+  if #c.moves > 0 and c.moves[#c.moves].fen ~= nil then
+    c.fen = c.moves[#c.moves].fen
+  else
+    c.fen = c.initial_fen or "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  end
+  c.undo_offers = {}
+  c.draw_offers = {}
+  -- 已知限制：回退后局面可能仍是"将军"，但与 MOVE 不算 status 一致
+  -- （服务端无引擎），这里复位 playing；下一手 MOVE/CLAIM_END 自然修正。
+  c.status = "playing"
+  c.winner = nil
+  return c
+end
+
+on_action_UNDO_DECLINE = function(c, p)
+  if state ~= "playing" then
+    return c
+  end
+  if p.device_id == c.host_id then
+    c.undo_offers[c.guest_id] = nil
+  elseif p.device_id == c.guest_id then
+    c.undo_offers[c.host_id] = nil
+  end
+  return c
+end
+
 -- 重开（RESET）—— 仅房主可在终局后发起；棋盘/棋谱/状态全部回退到 lobby
 -- （v2：RESET 不直接回 playing，要求双方重新 ACK + DEAL）
+-- 残局 v3：fen 回 initial_fen（残局房间重开仍是残局；标准房 = 标准开局）
 on_action_RESET = function(c, p)
   if not role_check(c, p, "RESET") then return c end
   if state ~= "ended" then
     return c
   end
-  c.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  c.fen = c.initial_fen or "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   c.moves = {}
   c.draw_offers = {}
+  c.undo_offers = {}
   c.ready = {}
   c.disconnected = {}
   c.status = "playing"
@@ -434,7 +588,8 @@ return {
       "on_action_ACK", "on_action_DEAL", "on_action_START",
       "on_action_MOVE", "on_action_CLAIM_END",
       "on_action_RESIGN", "on_action_DRAW_OFFER", "on_action_DRAW_ACCEPT",
-      "on_action_DRAW_DECLINE", "on_action_RESET",
+      "on_action_DRAW_DECLINE", "on_action_UNDO_OFFER",
+      "on_action_UNDO_ACCEPT", "on_action_UNDO_DECLINE", "on_action_RESET",
     },
   },
   on_init = on_init,
@@ -449,6 +604,9 @@ return {
   on_action_DRAW_OFFER = on_action_DRAW_OFFER,
   on_action_DRAW_ACCEPT = on_action_DRAW_ACCEPT,
   on_action_DRAW_DECLINE = on_action_DRAW_DECLINE,
+  on_action_UNDO_OFFER = on_action_UNDO_OFFER,
+  on_action_UNDO_ACCEPT = on_action_UNDO_ACCEPT,
+  on_action_UNDO_DECLINE = on_action_UNDO_DECLINE,
   on_action_RESET = on_action_RESET,
 }
 ''';

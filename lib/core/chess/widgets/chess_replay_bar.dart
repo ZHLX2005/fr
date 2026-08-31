@@ -54,6 +54,9 @@ class ChessReplayBar extends StatelessWidget {
   /// 退出回放（回到终局覆盖层）。
   final VoidCallback onExit;
 
+  /// 导出当前回放局面为残局快照（null = 不显示导出按钮）。
+  final VoidCallback? onExport;
+
   const ChessReplayBar({
     super.key,
     required this.index,
@@ -66,6 +69,7 @@ class ChessReplayBar extends StatelessWidget {
     required this.onToEnd,
     required this.onSeek,
     required this.onExit,
+    this.onExport,
   });
 
   @override
@@ -106,6 +110,13 @@ class ChessReplayBar extends StatelessWidget {
               onPressed: atEnd ? null : onToEnd,
               icon: const Icon(Icons.last_page),
             ),
+            // 导出当前局面为残局快照（回放专属能力；终局/中途任意步可存）
+            if (onExport != null)
+              IconButton(
+                tooltip: '导出残局快照',
+                onPressed: onExport,
+                icon: const Icon(Icons.save_outlined),
+              ),
             const SizedBox(width: 8),
             // 步数标签："12 / 40"（0 = 初始局面）
             Text(

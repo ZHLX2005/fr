@@ -1,0 +1,21 @@
+{
+  "format": "fr-chess-endgame",
+  "version": 1,
+  "id": "eg-builtin-04",
+  "title": "双象杀王",
+  "description": "双象 + 王对单王：两象控制相邻异色格，把黑王逼到角落。需要耐心配合，注意别逼和。",
+  "createdAt": "2026-08-31T00:00:00Z",
+  "source": "builtin",
+  "tags": ["杀王", "象", "进阶"],
+  "difficulty": 3,
+  "snapshots": [
+    {
+      "label": "起点：双象就位",
+      "fen": "8/8/8/4k3/8/8/2BB4/4K3 w - - 0 1"
+    },
+    {
+      "label": "黑王已近角落",
+      "fen": "8/8/8/8/8/2k5/2BB4/4K3 w - - 0 1"
+    }
+  ]
+}

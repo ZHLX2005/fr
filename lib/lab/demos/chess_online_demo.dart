@@ -24,6 +24,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart' show RoomHandle;
+import '../../core/chess/endgame/chess_endgame.dart';
+import '../../core/chess/endgame/chess_endgame_list_page.dart';
 import '../../core/chess/p2p/chess_lobby_page.dart';
 import '../../core/chess/p2p/chess_room_page.dart';
 import '../../core/chess/skins/chess_skin.dart';
@@ -88,6 +90,10 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
   /// 自定义棋盘配色（null = 跟随主题；initState 从 SharedPreferences 加载）。
   /// 优先级：用户自定义 > 主题 context.chessColors。
   BoardPalette? _boardPalette;
+
+  /// 已选残局快照（null = 标准开局；残局列表页 pop 返回）。
+  /// 传给 ChessLobbyPage（建房 initial_fen）+ ChessRoomPage（回放起点 / 标题）。
+  ChessEndgameSnapshot? _selectedEndgame;
 
   /// 皮肤本地化器（一次创建，复用 http client + 目录 provider）。
   /// baseUrl 与 kDefaultChessSkinBaseUrl 一致（demo 的 relayUrl 同源）。
@@ -239,11 +245,26 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
           skinId: _skinId,
           localSkin: _localSkins[_skinId],
           boardPalette: _boardPalette,
+          initialEndgame: _selectedEndgame,
         ),
       ),
     );
     if (!mounted) return;
     _lobbyKey.currentState?.resetToEntry();
+  }
+
+  /// 打开残局库：选快照 → 注入 LobbyPage 建房参数（initial_fen）；
+  /// 取消（pop null）→ 保持原选择。
+  Future<void> _openEndgameList() async {
+    final snap = await Navigator.of(context).push<ChessEndgameSnapshot>(
+      MaterialPageRoute(
+        builder: (_) => ChessEndgameListPage(
+          skin: _localSkins[_skinId],
+        ),
+      ),
+    );
+    if (!mounted || snap == null) return;
+    setState(() => _selectedEndgame = snap);
   }
 
   /// 设置页内改动自定义棋盘配色时回调：实时应用 + 持久化。
@@ -296,7 +317,15 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
       relayUrl: kRelayUrl,
       title: '国际象棋（联机）',
       onStarted: _onStarted,
+      initialEndgame: _selectedEndgame,
+      onClearEndgame: () => setState(() => _selectedEndgame = null),
       actionsBuilder: (context) => [
+        // 残局库按钮：选残局快照 → 建房从该局面开始（先手方）。
+        IconButton(
+          icon: const Icon(Icons.extension_outlined),
+          tooltip: '残局',
+          onPressed: _openEndgameList,
+        ),
         // 换肤设置按钮：打开全屏换肤设置页（所有阶段可见，无害）。
         IconButton(
           icon: const Icon(Icons.palette_outlined),

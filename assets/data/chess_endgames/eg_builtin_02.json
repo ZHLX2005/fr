@@ -1,0 +1,21 @@
+{
+  "format": "fr-chess-endgame",
+  "version": 1,
+  "id": "eg-builtin-02",
+  "title": "单车杀王",
+  "description": "车 + 王对单王：用车切线把黑王压到边线，王配合收紧，最后送将。经典 6 步内可完成（注意 50 回合规则）。",
+  "createdAt": "2026-08-31T00:00:00Z",
+  "source": "builtin",
+  "tags": ["杀王", "车", "入门"],
+  "difficulty": 2,
+  "snapshots": [
+    {
+      "label": "起点：黑王在中心",
+      "fen": "8/8/8/4k3/8/8/4R3/4K3 w - - 0 1"
+    },
+    {
+      "label": "黑王已上边线（收紧阶段）",
+      "fen": "7k/8/8/8/8/8/R7/4K3 w - - 0 1"
+    }
+  ]
+}

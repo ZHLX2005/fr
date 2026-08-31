@@ -207,6 +207,7 @@ flutter:
     - assets/rive/pendulum/
     - assets/rive/input_machine/
     - assets/data/character_profiles/douzi_profile.json
+    - assets/data/chess_endgames/
     - assets/animal/
     - assets/animals/
     - assets/audio/

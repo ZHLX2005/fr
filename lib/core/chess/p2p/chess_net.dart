@@ -95,6 +95,15 @@ class ChessRoom {
   Future<void> drawDecline() =>
       handle.applyAction(type: 'DRAW_DECLINE', params: const {});
 
+  /// 悔棋申请。对方已挂 offer → 直接发 UNDO_ACCEPT → 服务端 pop 1~2 手回退。
+  /// 调用方应读快照 undoOffers 决定发 UNDO_OFFER 还是 UNDO_ACCEPT。
+  Future<void> undoOffer() =>
+      handle.applyAction(type: 'UNDO_OFFER', params: const {});
+  Future<void> undoAccept() =>
+      handle.applyAction(type: 'UNDO_ACCEPT', params: const {});
+  Future<void> undoDecline() =>
+      handle.applyAction(type: 'UNDO_DECLINE', params: const {});
+
   /// 终局声明（走子方引擎检测到 checkmate / stalemate 后上报）。
   Future<void> claimEnd({required String reason}) =>
       handle.applyAction(type: 'CLAIM_END', params: {'reason': reason});
@@ -133,6 +142,19 @@ class ChessRoom {
   /// 当前棋盘 FEN（服务端权威）。
   static String? fen(Snapshot? s) => s?.context['fen']?.toString();
 
+  /// 残局初始 FEN（建房 initial_params 注入；null = 标准开局房间）。
+  static String? initialFen(Snapshot? s) {
+    final v = s?.context['initial_fen']?.toString();
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  /// 先手方（'w'/'b'）。残局 v3：host 永远执先手方
+  /// （白先 host=白，黑先残局 host=黑）；null 兜底 'w'。
+  static String initialSide(Snapshot? s) {
+    final v = s?.context['initial_side']?.toString();
+    return (v == 'b') ? 'b' : 'w';
+  }
+
   /// 当前对局状态（"playing" / "check" / "checkmate" / ...）。
   static String status(Snapshot? s) =>
       s?.context['status']?.toString() ?? 'playing';
@@ -157,6 +179,13 @@ class ChessRoom {
     return raw.map((k, v) => MapEntry(k.toString(), v == true));
   }
 
+  /// 挂起的悔棋 offer（device_id → true）。
+  static Map<String, bool> undoOffers(Snapshot? s) {
+    final raw = s?.context['undo_offers'];
+    if (raw is! Map) return const {};
+    return raw.map((k, v) => MapEntry(k.toString(), v == true));
+  }
+
   static Map<String, String> actionPermissions(Snapshot? s) {
     final raw = s?.context['action_permissions'];
     if (raw is! Map) return const {};
@@ -165,8 +194,9 @@ class ChessRoom {
 
   /// 我能不能发这个 action？读服务端 action_permissions + 角色判定。
   ///
-  /// chess 的 current_player 由服务端 moves 奇偶推（v1 与 v2 一致）：
-  ///   moves 偶数 → 轮白（host）走；奇数 → 轮黑（guest）走。
+  /// chess 的 current_player 由"先手方 + moves 奇偶"推（与 Lua side_to_move
+  /// 同源；残局 v3：host 永远执先手方，黑先残局 host=黑）：
+  ///   n 偶数 → 轮先手方（host）；奇数 → 轮后手方（guest）。
   static bool canPerform(
     String action,
     Snapshot? snap, {
@@ -179,14 +209,14 @@ class ChessRoom {
       final n = (snap?.context['moves'] is List)
           ? (snap!.context['moves'] as List).length
           : 0;
-      // n 偶数 → 轮白走 → host；奇数 → 轮黑走 → guest
+      // n 偶数 → 轮先手方（host）；奇数 → 轮后手方（guest）
       return (n.isEven && isHost) || (n.isOdd && !isHost);
     }
     if (rule == 'non_current_player') {
       final n = (snap?.context['moves'] is List)
           ? (snap?.context['moves'] as List).length
           : 0;
-      // 刚走完的一方：n 偶数 → 白刚走完 → 黑声明 CLAIM_END
+      // 刚走完的一方 = 上一手轮走方：n 偶数 → 先手方刚走完 → guest 声明
       return (n.isEven && !isHost) || (n.isOdd && isHost);
     }
     return false;

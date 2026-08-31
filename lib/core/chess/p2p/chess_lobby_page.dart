@@ -33,6 +33,7 @@ import 'package:flutter/material.dart';
 import '../../../services/lua/lua_game_alias.dart';
 import '../../../widgets/context_chess_colors.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
+import '../endgame/chess_endgame.dart';
 import 'chess_identity.dart';
 import 'chess_script.dart';
 
@@ -45,6 +46,8 @@ class ChessLobbyPage extends StatefulWidget {
     this.title = '国际象棋在线',
     this.actionsBuilder,
     this.transportBuilder,
+    this.initialEndgame,
+    this.onClearEndgame,
   });
 
   /// Relay 服务地址（如 http://47.110.80.47:8988）。
@@ -66,6 +69,16 @@ class ChessLobbyPage extends StatefulWidget {
   /// 测试注入：自定义 transport 构造（默认 null → 真实 RelayV3Transport）。
   final RelayV3Transport Function(String alias, String deviceId)?
       transportBuilder;
+
+  /// 残局开局快照（非 null → 建房 initial_params 带 initial_fen，房间从
+  /// 该局面开始；host 执先手方）。null = 标准开局。
+  ///
+  /// 仅"你建房"时生效（tryJoinOrCreate join 已存在房间时服务端忽略
+  /// initial_params）—— 表单提示块说明这点。
+  final ChessEndgameSnapshot? initialEndgame;
+
+  /// 清除残局选择（chip X 按钮；调用方 setState 置空 initialEndgame）。
+  final VoidCallback? onClearEndgame;
 
   @override
   State<ChessLobbyPage> createState() => ChessLobbyPageState();
@@ -158,10 +171,23 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
             deviceId: deviceId,
           );
       await LuaGameAlias.save(alias);
+      // 残局开局：initial_fen + initial_side（从 FEN 推；host 执先手方）。
+      // 仅建房（404 → createRoom）时服务端消费 initial_params；
+      // join 已存在房间时被忽略（服务端已有状态）。
+      final endgame = widget.initialEndgame;
+      final initialParams = <String, dynamic>{
+        'device_id': t.deviceId,
+        'alias': alias,
+      };
+      if (endgame != null) {
+        initialParams['initial_fen'] = endgame.fen;
+        initialParams['initial_side'] =
+            ChessEndgame.sideFromFen(endgame.fen);
+      }
       final h = await t.tryJoinOrCreate(
         code: code,
         script: kChessScript,
-        initialParams: {'device_id': t.deviceId, 'alias': alias},
+        initialParams: initialParams,
         maxPlayers: 2,
       );
       if (!mounted) return;
@@ -327,7 +353,52 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                 onSubmitted: (_) => _busy ? null : _go(),
               ),
               const SizedBox(height: 4),
-              // 规则提示（浅色块）：让用户预期"先到 = 房主 = 白方"
+              // 残局选择 chip（非 null 时显示；X 清除回标准开局）。
+              if (widget.initialEndgame != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color:
+                          theme.colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.extension_outlined,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '残局：${widget.initialEndgame!.label ?? '快照'}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.primary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: widget.onClearEndgame,
+                        child: Icon(
+                          Icons.close,
+                          size: 18,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              // 规则提示（浅色块）：让用户预期"先到 = 房主 = 执先手方"
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -351,7 +422,9 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '与朋友约定同一房间号即可对战：谁先到谁是房主（执白先行），后到者执黑。',
+                        widget.initialEndgame != null
+                            ? '残局开局：房间从所选局面开始，你（建房者）执先手方。残局仅在"你创建房间"时生效 —— 若对方已用此号建房，你加入的是对方的标准对局。'
+                            : '与朋友约定同一房间号即可对战：谁先到谁是房主（执先手方：默认白先；残局按局面轮走方），后到者执后手方。',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.coordinateLabel,
                           height: 1.4,

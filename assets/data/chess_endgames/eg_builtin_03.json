@@ -1,0 +1,17 @@
+{
+  "format": "fr-chess-endgame",
+  "version": 1,
+  "id": "eg-builtin-03",
+  "title": "短易位将杀",
+  "description": "经典开局将杀练习：白方王车易位后由车完成将杀（易位本身也可以是将杀手段！）。本局面轮白走，一步 O-O# 完成易位将杀。",
+  "createdAt": "2026-08-31T00:00:00Z",
+  "source": "builtin",
+  "tags": ["将杀", "易位", "一步杀"],
+  "difficulty": 1,
+  "snapshots": [
+    {
+      "label": "一步杀：O-O#",
+      "fen": "rk6/6pp/8/8/8/8/5PPP/4K2R w K - 0 1"
+    }
+  ]
+}
