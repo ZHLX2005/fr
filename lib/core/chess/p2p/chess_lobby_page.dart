@@ -1,6 +1,6 @@
 // lib/core/chess/p2p/chess_lobby_page.dart
 //
-// 社交房间号入口页（social-room-code-pattern）—— 单表单加入/建房 + 等待房。
+// 社交房间号入口页（social-room-code-pattern）—— 单表单加入/建房 + 过渡 loading。
 //
 // 与其它 Lua 游戏（gomoku / jungle / surround…）的 LobbyEntryPage 同构：
 //   双方输入同一房间号 + 昵称 → 点击"进入对局" →
@@ -9,13 +9,13 @@
 //
 // 阶段：
 //   entry  单表单（昵称 + 房间号 + 规则提示 + 错误提示）
-//   room   等待房（房间号 chip + 玩家列表 + 自动开局提示）
-//   服务端 state == "playing"（或 "ended" 断线重连）→ onStarted(handle)
+//   room   过渡 loading（仅转圈 —— 房间号 / 玩家 / 准备卡片全由房间页渲染）
+//   服务端 state == "lobby"/"ready"/"playing"/"ended" → onStarted(handle)
 //   交给业务层接管（push ChessRoomPage）。
 //
 // v2（READY 门）：服务端不再"双人到齐自动 playing"。进入房间后先停在
-//   state = "lobby"（准备阶段）—— 本页等待房显示"双方已就绪"提示并快速
-//   push ChessRoomPage，由房间页渲染准备卡片（"准备好了" → "开始游戏"）。
+//   state = "lobby"（准备阶段）—— 本页只显示 loading，随即 push
+//   ChessRoomPage，由房间页渲染准备卡片（"准备好了" → "开始游戏"）。
 //   导航时机放宽到 state ∈ (lobby, ready, playing, ended)，因为房间页
 //   自带 lobby/ready/playing/ended 四态 UI（v2 之前只等 playing 才 push）。
 //
@@ -36,7 +36,7 @@ import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import 'chess_identity.dart';
 import 'chess_script.dart';
 
-/// 社交房间号入口页 —— 单表单 + 等待房 + onStarted。
+/// 社交房间号入口页 —— 单表单 + 过渡 loading + onStarted。
 class ChessLobbyPage extends StatefulWidget {
   const ChessLobbyPage({
     super.key,
@@ -79,10 +79,8 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
   bool _busy = false;
   String? _error;
 
-  RelayV3Transport? _transport;
   RoomHandle? _handle;
   StreamSubscription<Snapshot>? _snapSub;
-  Snapshot? _snapshot;
 
   /// onStarted 是否已触发（防快照风暴重复 push）。
   bool _started = false;
@@ -167,11 +165,9 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
         maxPlayers: 2,
       );
       if (!mounted) return;
-      _transport = t;
       _handle = h;
       _subscribeSnapshot(h);
       setState(() {
-        _snapshot = h.latest;
         _phase = _ChessLobbyPhase.room;
         _busy = false;
       });
@@ -211,7 +207,6 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     _snapSub?.cancel();
     _snapSub = h.snapshots.listen((snap) {
       if (!mounted) return;
-      setState(() => _snapshot = snap);
       // v2（READY 门）：state ∈ {lobby, ready, playing, ended} 都 push 房间页。
       // 房间页自带四态 UI：lobby 渲染准备卡片（ACK），ready 渲染"开始游戏"，
       // playing 渲染棋盘，ended 渲染终局卡片（host 可 RESET 再来一局）。
@@ -233,10 +228,8 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     _snapSub = null;
     final h = _handle;
     _handle = null;
-    _transport = null;
     if (!mounted) return;
     setState(() {
-      _snapshot = null;
       _phase = _ChessLobbyPhase.entry;
       _busy = false;
       _error = null;
@@ -267,7 +260,11 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
       body: SafeArea(
         child: switch (_phase) {
           _ChessLobbyPhase.entry => _buildEntry(context),
-          _ChessLobbyPhase.room => _buildRoom(context),
+          // 过渡 loading：只保留转圈 —— 房间号 / 玩家列表 / 准备卡片全部由
+          // 房间页渲染，避免等待房与房间页两套 UI 的视觉跳变。
+          _ChessLobbyPhase.room => const Center(
+              child: CircularProgressIndicator(),
+            ),
         },
       ),
     );
@@ -415,165 +412,6 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     );
   }
 
-  /// 等待房：房间号 chip + 玩家列表（角色标注）+ 开始/等待。
-  Widget _buildRoom(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = context.chessColors;
-    final snap = _snapshot;
-    final code = snap?.roomCode ?? '------';
-    final players = _extractPlayers();
-    final hostId = snap?.context['host_id']?.toString();
-    final guestId = snap?.context['guest_id']?.toString();
-    final myId = _transport?.deviceId;
-    final guestIn = guestId != null && guestId.isNotEmpty && players.containsKey(guestId);
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                guestIn ? '双方已就绪' : '等待对手',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              // 房间号 chip（大号 + 字距，方便口头/截图分享）
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.lightSquare.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: colors.gridLine.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Text(
-                    code,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 8,
-                      color: colors.coordinateLabel,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (!guestIn)
-                Text(
-                  '把房间号发给朋友，输入同一号即可加入',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: colors.coordinateLabel),
-                ),
-              const SizedBox(height: 20),
-              // 玩家列表（host = 白方先手在前）
-              for (final entry in players.entries)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(
-                        entry.key == hostId
-                            ? Icons.circle_outlined
-                            : Icons.circle,
-                        size: 14,
-                        color: entry.key == hostId
-                            ? colors.coordinateLabel
-                            : colors.gridLine,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '${entry.value}'
-                          '${entry.key == myId ? "  (我)" : ""}'
-                          '${entry.key == hostId ? " · 执白" : " · 执黑"}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: entry.key == myId
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  style: TextStyle(
-                    color: theme.colorScheme.error,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              // v2（READY 门）：双人到齐后停在 lobby 准备阶段，玩家在房间页
-              // 点"准备好了"（ACK）→ ready → host 点"开始游戏"（DEAL）→ playing。
-              // 这里只做轻量提示 —— 真正的准备卡片由 ChessRoomPage 渲染
-              // （onStarted 在 lobby 就已 push，本页等待房仅瞬态停留）。
-              if (guestIn)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.check_circle_outline,
-                      size: 18,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '双方已就绪，进入准备…',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: theme.colorScheme.primary),
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      '等待朋友加入…',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: colors.coordinateLabel),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 从 snapshot context 提取 players（device_id → alias）。
-  Map<String, String> _extractPlayers() {
-    final snap = _snapshot;
-    if (snap == null) return const {};
-    final raw = snap.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
 }
 
 enum _ChessLobbyPhase { entry, room }
