@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
 
 void main() {
+  _undoGuards();
   group('kChessScript on_leave 静态守卫：断线不销毁房间', () {
     test('playing/ready 分支存在 disconnect 判因，且先于 host 销毁分支', () {
       final onLeave = _onLeaveBlock();
@@ -108,4 +109,106 @@ String _onLeaveBlock() {
   final start = kChessScript.indexOf('on_leave = function');
   expect(start, isNot(-1), reason: '脚本体必须含 on_leave');
   return kChessScript.substring(start);
+}
+
+void _undoGuards() {
+  group('kChessScript 悔棋（UNDO）静态守卫', () {
+    test('三 handler 已注册（definition.functions + 导出表）', () {
+      expect(
+        kChessScript,
+        contains('"on_action_UNDO_OFFER"'),
+        reason: 'definition.functions 必须注册 UNDO_OFFER（服务端按表派发）',
+      );
+      expect(kChessScript, contains('"on_action_UNDO_ACCEPT"'));
+      expect(kChessScript, contains('"on_action_UNDO_DECLINE"'));
+      expect(kChessScript, contains('on_action_UNDO_OFFER = on_action_UNDO_OFFER'));
+      expect(kChessScript, contains('on_action_UNDO_ACCEPT = on_action_UNDO_ACCEPT'));
+      expect(kChessScript, contains('on_action_UNDO_DECLINE = on_action_UNDO_DECLINE'));
+      // action_permissions 声明为 any（对局双方均可发起）。
+      expect(kChessScript, contains('UNDO_OFFER = "any"'));
+      expect(kChessScript, contains('UNDO_ACCEPT = "any"'));
+      expect(kChessScript, contains('UNDO_DECLINE = "any"'));
+      expect(kChessScript, contains('c.undo_offers = {}'),
+          reason: 'on_init 必须初始化 undo_offers');
+    });
+
+    test('MOVE entry 存 fen（UNDO_ACCEPT 回退恢复 c.fen 的唯一来源）', () {
+      final moveBlock = _functionBlock('on_action_MOVE = function');
+      expect(
+        moveBlock,
+        contains('fen = p.fen'),
+        reason: 'moves entry 必须存走后 fen —— 悔棋 pop 后无它无法恢复局面',
+      );
+      expect(
+        moveBlock,
+        contains('c.undo_offers = {}'),
+        reason: '走子必须清 undo_offers（offer 挂起时对方走子 → 请求失效）',
+      );
+    });
+
+    test('UNDO_OFFER 前置门：n==0 拒绝 + 非对局方拒绝 + 黑方 n<2 拒绝', () {
+      final block = _functionBlock('on_action_UNDO_OFFER = function');
+      expect(block, contains('if n == 0 then'), reason: '零走法无从悔棋');
+      expect(block, contains('if is_guest and n < 2 then'),
+          reason: '黑方一手未走无从悔棋');
+      expect(block, contains('not is_host and not is_guest'),
+          reason: '只认对局双方');
+      expect(block, contains('c.undo_offers[p.device_id] = true'),
+          reason: '校验通过才挂 offer');
+    });
+
+    test('UNDO_ACCEPT：显式 offer 校验 + 双 offer 互斥 + pop 循环 + fen 恢复', () {
+      final block = _functionBlock('on_action_UNDO_ACCEPT = function');
+      expect(block, contains('if c.undo_offers[c.guest_id] == true'),
+          reason: 'host 接受 → 校验 guest 挂的 offer');
+      expect(block, contains('if c.undo_offers[c.host_id] == true'),
+          reason: 'guest 接受 → 校验 host 挂的 offer');
+      expect(
+        block,
+        contains('if c.undo_offers[p.device_id] == true'),
+        reason: '双方同时挂 offer 必须互斥作废（回退手数取决于请求方，歧义不回退）',
+      );
+      expect(block, contains('table.remove(c.moves)'),
+          reason: '必须 pop moves（悔棋核心动作）');
+      expect(
+        block,
+        contains('c.fen = c.moves[#c.moves].fen'),
+        reason: 'fen 从 pop 后最后一手的走后快照恢复',
+      );
+      expect(block, contains('c.undo_offers = {}'), reason: '生效后清 undo_offers');
+      expect(block, contains('c.draw_offers = {}'), reason: '生效后清 draw_offers');
+      expect(block, contains('c.status = "playing"'), reason: '回退后状态复位');
+    });
+
+    test('UNDO_DECLINE 清对方 offer；on_leave 清自己的 offer；RESET 清表', () {
+      final decline = _functionBlock('on_action_UNDO_DECLINE = function');
+      expect(decline, contains('c.undo_offers[c.guest_id] = nil'));
+      expect(decline, contains('c.undo_offers[c.host_id] = nil'));
+
+      final onLeave = _onLeaveBlock();
+      expect(
+        onLeave,
+        contains('c.undo_offers[p.device_id] = nil'),
+        reason: '离开必须清自己的悔棋 offer（与 draw_offers 同款）',
+      );
+
+      final reset = _functionBlock('on_action_RESET = function');
+      expect(reset, contains('c.undo_offers = {}'),
+          reason: '重开必须清悔棋 offers');
+    });
+  });
+}
+
+/// 截取指定函数块（从定义起，到下一个顶层 `on_` 定义或脚本尾部 export 表）。
+/// 守卫测试用：限定断言不跨函数误伤。
+String _functionBlock(String marker) {
+  final start = kChessScript.indexOf(marker);
+  expect(start, isNot(-1), reason: '脚本体必须含 $marker');
+  final next = RegExp(
+    r'\non_(?:action|join|leave|init)_\w+ = function',
+  ).allMatches(kChessScript.substring(start + 1));
+  if (next.isEmpty) {
+    return kChessScript.substring(start);
+  }
+  return kChessScript.substring(start, start + 1 + next.first.start);
 }

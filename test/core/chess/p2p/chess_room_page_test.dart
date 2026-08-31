@@ -175,6 +175,7 @@ Snapshot makeSnapshot({
   String? winner,
   List<dynamic> moves = const [],
   Map<String, dynamic> drawOffers = const {},
+  Map<String, dynamic> undoOffers = const {},
 }) {
   return Snapshot(
     roomCode: code,
@@ -190,6 +191,7 @@ Snapshot makeSnapshot({
       'fen': fen,
       'moves': moves,
       'draw_offers': drawOffers,
+      'undo_offers': undoOffers,
       'status': status,
       if (winner != null) 'winner': winner,
     },
@@ -786,6 +788,182 @@ void main() {
 
     expect(find.text('接受议和'), findsNothing, reason: '对方未 offer → 不显示接受');
     expect(find.textContaining('等待对方回应'), findsWidgets);
+  });
+
+  // ─────────────── 悔棋 offer → accept/decline（协商回退） ───────────────
+
+  testWidgets('点"悔棋"（对方无 offer）→ 只发 UNDO_OFFER（等待对方）', (tester) async {
+    final handle = makeHostHandle();
+    // host=白已走 1 手（e2e4），可请求悔棋。
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        moves: const [
+          {'uci': 'e2e4', 'by': 'd-host', 'ts': 1, 'fen': kStartingFen},
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('悔棋'));
+    await tester.pump();
+
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'UNDO_OFFER',
+        reason: '单方点悔棋 = 只发 offer，等对方接受后才回退');
+    expect(find.textContaining('等待对方回应'), findsWidgets,
+        reason: '按钮态变"等待对方回应"');
+  });
+
+  testWidgets('对方 offer 挂起 → 显示"接受悔棋/拒绝"；接受 → UNDO_ACCEPT', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 对方（guest=黑）挂起悔棋 offer。
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        undoOffers: {'d-guest': true},
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('接受悔棋'), findsOneWidget);
+    expect(find.text('拒绝'), findsOneWidget);
+
+    await tester.tap(find.text('接受悔棋'));
+    await tester.pump();
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'UNDO_ACCEPT',
+        reason: '接受 = 显式 UNDO_ACCEPT → 服务端 pop 回退');
+  });
+
+  testWidgets('对方悔棋 offer 挂起 → 拒绝 → UNDO_DECLINE（回到正常对局）', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        undoOffers: {'d-guest': true},
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('拒绝'));
+    await tester.pump();
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'UNDO_DECLINE',
+        reason: '拒绝 = UNDO_DECLINE，服务端清对方 offer');
+  });
+
+  testWidgets('悔棋生效快照（fen 回退 + moves 变短）→ 棋盘渲染回退局面', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 初始：走了 e2e4（fen 为走后局面）。
+    const fenAfterE4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: fenAfterE4,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        moves: const [
+          {'uci': 'e2e4', 'by': 'd-host', 'ts': 1, 'fen': fenAfterE4},
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // 服务端悔棋生效：pop 后快照回到初始局面。
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        moves: const [],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.state.slotAt(52), isNotNull,
+        reason: 'e2 (idx 52) 有白兵 → 棋盘已回退到初始局面');
+    expect(board.state.slotAt(36), isNull,
+        reason: 'e4 (idx 36) 已空 → e2e4 已被撤销');
+    expect(board.lastMove, isNull, reason: 'moves 空 → 上一步高亮消失');
+  });
+
+  testWidgets('自己一手未走（moves 空）→ 悔棋按钮禁用', (tester) async {
+    final handle = makeHostHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 找到"悔棋"按钮并断言禁用（onPressed == null）。
+    final button = tester.widget<OutlinedButton>(
+      find.ancestor(
+        of: find.text('悔棋'),
+        matching: find.byType(OutlinedButton),
+      ),
+    );
+    expect(button.onPressed, isNull,
+        reason: 'host=白 moves=0 → 无从悔棋，按钮禁用');
+  });
+
+  testWidgets('黑方只走了对方一手（moves=1）→ 悔棋按钮禁用', (tester) async {
+    final handle = makeGuestHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        moves: const [
+          {'uci': 'e2e4', 'by': 'd-host', 'ts': 1, 'fen': kStartingFen},
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final button = tester.widget<OutlinedButton>(
+      find.ancestor(
+        of: find.text('悔棋'),
+        matching: find.byType(OutlinedButton),
+      ),
+    );
+    expect(button.onPressed, isNull,
+        reason: 'guest=黑 moves=1（自己一手未走）→ 无从悔棋，按钮禁用');
   });
 
   // ─────────────── 合规修复：WS 状态条（RelayConnectionBar）存在 ───────────────
