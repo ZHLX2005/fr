@@ -51,31 +51,39 @@ class KvTabChip extends StatelessWidget {
   }
 }
 
-/// 快捷 topic chip：点击回填主题框。删除集中在管理弹层，chip 不带 ✕。
+/// 快捷 / 筛选 topic chip：点击回填主题框或切换筛选状态。
+/// 删除集中在管理弹层，chip 不带 ✕。
+/// [selected] 缺省表示非筛选态（保持原视觉）；传 bool 进入筛选态，
+/// 选中色加重、背景加深，外层可据此决定语义（回填 vs 切换筛选）。
 class KvTopicChip extends StatelessWidget {
   KvTopicChip({
     super.key,
     required this.label,
     this.onTap,
+    this.selected,
   });
 
   final String label;
   final VoidCallback? onTap;
+  final bool? selected;
 
   @override
   Widget build(BuildContext context) {
     final accent = context.colors.accent;
+    final isSelected = selected ?? false;
+    final bgAlpha = isSelected ? 0.20 : 0.10;
+    final borderAlpha = isSelected ? 0.7 : 0.35;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.10),
+          color: accent.withValues(alpha: bgAlpha),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: accent.withValues(alpha: 0.35),
-            width: 1,
+            color: accent.withValues(alpha: borderAlpha),
+            width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Text(
@@ -83,7 +91,7 @@ class KvTopicChip extends StatelessWidget {
           style: TextStyle(
             color: accent,
             fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
       ),

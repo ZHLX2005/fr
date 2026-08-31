@@ -103,6 +103,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   /// 写操作前的 refetch 期间为 true。避免并发点击叠加二次 refetch。
   bool _refreshing = false;
 
+  /// composer 折叠态。默认展开（首次进入即可看到输入）。
+  bool _composerExpanded = true;
+
+  /// 筛选 topic 集合：空集合 = 全部显示；非空 = 任一命中即显示（OR）。
+  Set<String> _filterTopics = const <String>{};
+
   /// 激活组注入 KV 的三元值：0 → null（后端回落默认组），>0 → 原值。
   int? get _gid {
     final gid = ref.read(activeGroupProvider);
@@ -483,9 +489,44 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   void _applyTopicChip(String topic) {
+    // 折叠态下点 chip：先展开 composer 再填主题，否则用户看不到填了什么。
+    if (!_composerExpanded) {
+      setState(() => _composerExpanded = true);
+    }
     _topicCtrl.text = topic;
     _topicCtrl.selection = TextSelection.collapsed(offset: topic.length);
-    _textFocus.requestFocus();
+    // 等下一帧布局完成（折叠动画后）再聚焦，避免焦点落到 0 高度的输入框。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _textFocus.requestFocus();
+    });
+  }
+
+  void _toggleComposer() {
+    setState(() => _composerExpanded = !_composerExpanded);
+  }
+
+  /// 切换某 topic 的筛选态；空集合 = 全部，等价于"全部"chip。
+  void _toggleFilter(String topic) {
+    setState(() {
+      final next = Set<String>.from(_filterTopics);
+      if (next.contains(topic)) {
+        next.remove(topic);
+      } else {
+        next.add(topic);
+      }
+      _filterTopics = next;
+    });
+  }
+
+  void _clearFilter() {
+    if (_filterTopics.isEmpty) return;
+    setState(() => _filterTopics = const <String>{});
+  }
+
+  /// 应用筛选：空集合直接放行；否则保留 topic 命中的（OR）。
+  List<KvTask> _applyFilter(List<KvTask> source) {
+    if (_filterTopics.isEmpty) return source;
+    return source.where((t) => _filterTopics.contains(t.topic)).toList();
   }
 
   // 独立快捷 topic 区块：标题 + ⚙ 管理；chip 横向滚动、点击回填
@@ -725,9 +766,11 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
           ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildComposer(scheme),
+                _buildComposerSection(scheme),
                 Divider(height: 1),
                 _buildQuickTopicsSection(scheme),
+                Divider(height: 1),
+                _buildFilterSection(scheme),
                 Divider(height: 1),
                 Expanded(child: _buildList()),
               ],
@@ -735,9 +778,57 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     );
   }
 
+  /// composer 区块：顶部一行 toggle 按钮，展开时显示原输入框，折叠时仅一行。
+  Widget _buildComposerSection(ColorScheme scheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: _toggleComposer,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.edit_note,
+                  size: 16,
+                  color: scheme.outline,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  _composerExpanded ? '添加任务' : '添加任务（点击展开）',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.outline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Spacer(),
+                Icon(
+                  _composerExpanded
+                      ? Icons.expand_less
+                      : Icons.expand_more,
+                  size: 18,
+                  color: scheme.outline,
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          child: _composerExpanded
+              ? _buildComposer(scheme)
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildComposer(ColorScheme scheme) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -783,15 +874,75 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     );
   }
 
+  /// 筛选行：左「全部」chip（清空），右各 topic chip（多选 OR）。
+  /// 无 topic 时整行隐藏，避免空视觉噪音。
+  Widget _buildFilterSection(ColorScheme scheme) {
+    if (_topics.isEmpty) return const SizedBox.shrink();
+    final hasFilter = _filterTopics.isNotEmpty;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '按 topic 筛选',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.outline,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (hasFilter) ...[
+                SizedBox(width: 6),
+                Text(
+                  '· 已选 ${_filterTopics.length}',
+                  style: TextStyle(fontSize: 11, color: scheme.primary),
+                ),
+              ],
+            ],
+          ),
+          SizedBox(height: 4),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                KvTopicChip(
+                  label: '全部',
+                  selected: !hasFilter,
+                  onTap: _clearFilter,
+                ),
+                SizedBox(width: 6),
+                for (final t in _topics) ...[
+                  KvTopicChip(
+                    label: t,
+                    selected: _filterTopics.contains(t),
+                    onTap: () => _toggleFilter(t),
+                  ),
+                  SizedBox(width: 6),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildList() {
-    final list = _tab == 0 ? _open : _done;
+    final raw = _tab == 0 ? _open : _done;
     final isOpen = _tab == 0;
+    final list = _applyFilter(raw);
     if (list.isEmpty) {
+      final isFiltering = _filterTopics.isNotEmpty;
       return Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            isOpen ? '暂无待办任务' : '暂无已完成任务',
+            isFiltering
+                ? '当前筛选下无任务'
+                : (isOpen ? '暂无待办任务' : '暂无已完成任务'),
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
