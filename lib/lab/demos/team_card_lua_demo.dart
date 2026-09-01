@@ -360,6 +360,7 @@ class HostPoolConfigView extends StatelessWidget {
           RoleDef(label: '卧底', count: 1),
           RoleDef(label: '平民', count: 5),
         ],
+        initialAlias: handle.transport.alias,
         onStarted: (h, capacity) {
           // 把 SetupPage 创建的新 handle 回传给父组件（修复玩家区人数显示 bug）
           onDone(h, capacity);

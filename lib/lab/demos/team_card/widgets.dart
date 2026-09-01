@@ -17,16 +17,22 @@ import '../../../widgets/context_team_avatar_colors.dart';
 // ══════════════════════════════════════════════════════════════
 
 class SetupPage extends StatefulWidget {
-  const SetupPage({super.key, required this.initialRoles, required this.onStarted});
+  const SetupPage({
+    super.key,
+    required this.initialRoles,
+    required this.onStarted,
+    this.initialAlias = '',
+  });
   final List<RoleDef> initialRoles;
   final void Function(RoomHandle, int capacity) onStarted;
+  /// 从 LobbyEntryPage 传进来的 alias（不再让用户重复输入）
+  final String initialAlias;
 
   @override State<SetupPage> createState() => _SetupPageState();
 }
 
 class _SetupPageState extends State<SetupPage> {
   final List<RoleDef> rolePool = [];
-  final _aliasCtrl = TextEditingController();
   int _playerSlots = 4;
   int _spectatorSlots = 0;
   bool _busy = false;
@@ -38,10 +44,6 @@ class _SetupPageState extends State<SetupPage> {
   @override
   void initState() {
     super.initState();
-    // 别名
-    AliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
-    });
     // 预设库
     PresetLibrary.load().then((lib) {
       if (mounted) setState(() => _presetLib = lib);
@@ -70,7 +72,6 @@ class _SetupPageState extends State<SetupPage> {
   @override
   void dispose() {
     _persistSetup();
-    _aliasCtrl.dispose();
     for (final r in rolePool) {
       r.dispose();
     }
@@ -202,8 +203,8 @@ class _SetupPageState extends State<SetupPage> {
     for (final r in rolePool) {
       r.sync();
     }
-    final alias = _aliasCtrl.text.trim().isEmpty ? '房主' : _aliasCtrl.text.trim();
-    await AliasPrefs.save(alias);
+    // alias 从 LobbyEntryPage 传进来（initialAlias），不再让用户在此处重复输入
+    final alias = widget.initialAlias.isEmpty ? '房主' : widget.initialAlias;
     _persistSetup();
     setState(() {
       _busy = true;
@@ -216,8 +217,6 @@ class _SetupPageState extends State<SetupPage> {
         deviceId: await RelayDeviceId.get(),
       );
       final roles = rolePool.map((r) => {'label': r.label, 'count': r.count}).toList();
-      // Commit 2 中间过渡：SetupPage 用 tryJoinOrCreate 路径
-      // （commit 3 会把 SetupPage/JoinPage 合并为单表单 LobbyEntryPage）
       final code = _generateCode();
       final h = await TeamCardRoom.tryJoinOrCreate(
         t,
@@ -415,14 +414,18 @@ class _SetupPageState extends State<SetupPage> {
           ),
         ),
         SizedBox(height: 4),
-        TextField(
-          controller: _aliasCtrl,
-          decoration: InputDecoration(
-            labelText: '你的名字',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        if (widget.initialAlias.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              Icon(Icons.person_outline,
+                  size: 16, color: theme.colorScheme.outline),
+              SizedBox(width: 6),
+              Text('你的名字：${widget.initialAlias}',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline)),
+            ]),
           ),
-          onChanged: (v) => AliasPrefs.save(v.trim()),
-        ),
         if (_error != null)
           Padding(
             padding: EdgeInsets.only(top: 12),
