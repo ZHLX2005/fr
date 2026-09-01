@@ -1446,6 +1446,57 @@ class _LobbyZoneCard extends StatelessWidget {
                 ),
               ],
             ),
+            SizedBox(height: 12),
+            // 在场名单（用户名汇总，让用户一眼看到谁在这个区）
+            if (zoneEntries.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: zoneEntries.map((e) {
+                    final isHost = e.key == hostId;
+                    return Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isHost
+                            ? Colors.amber.shade100
+                            : theme.colorScheme.primaryContainer
+                                .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(14),
+                        border: isHost
+                            ? Border.all(
+                                color: Colors.amber.shade400, width: 1)
+                            : null,
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (isHost) ...[
+                          Icon(Icons.workspace_premium,
+                              size: 12, color: Colors.amber.shade700),
+                          SizedBox(width: 4),
+                        ],
+                        Text(e.value,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight:
+                                  isHost ? FontWeight.w700 : FontWeight.w500,
+                              color: isHost
+                                  ? Colors.amber.shade900
+                                  : theme.colorScheme.onPrimaryContainer,
+                            )),
+                      ]),
+                    );
+                  }).toList(),
+                ),
+              ),
             SizedBox(height: 16),
             Wrap(
               spacing: 28,
