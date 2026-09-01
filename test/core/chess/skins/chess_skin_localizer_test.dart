@@ -13,6 +13,7 @@
 // 目标目录结构：<tempRoot>/chess_skins/<skinId>/
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -124,10 +125,13 @@ void main() {
       expect(skin, isA<LocalChessSkin>());
       expect(skin.id, 't1');
 
-      // 目录内容：12 张棋子 + boardBackground.webp + .done = 14 个文件
+      // 目录内容：12 张棋子 + boardBackground.webp + .done + .skin-meta.json = 15 个文件
       final files = skinDir().listSync().toList();
-      expect(files, hasLength(14), reason: '12 棋子 + 棋盘底图 + done 哨兵');
+      expect(files, hasLength(15),
+          reason: '12 棋子 + 棋盘底图 + done 哨兵 + 缓存版本索引（Fix C）');
       expect(skinFile('.done').existsSync(), isTrue);
+      expect(skinFile('.skin-meta.json').existsSync(), isTrue,
+          reason: 'Fix C：下载成功必须写入缓存版本索引');
 
       for (final key in kChessSkin12PieceKeys) {
         final f = skinFile('$key.webp');
@@ -138,6 +142,34 @@ void main() {
 
       expect(await l.isCached('t1'), isTrue, reason: '下载完成后应命中缓存');
       expect(await l.isCached('nope'), isFalse, reason: '未下载皮肤不命中');
+    },
+  );
+
+  test(
+    'Fix C: download 成功后 .skin-meta.json 含 pieceKey → fileId 映射 + version + boardBackground',
+    () async {
+      final meta = makeMeta(
+        board: FileRef(
+          fileId: 'b' * 32,
+          fileName: 'board.webp',
+          sizeBytes: 2048,
+          contentType: 'image/webp',
+        ),
+      );
+      final l = makeLocalizer(client: okClient(), meta: meta);
+      await l.download(meta);
+
+      // 读 .skin-meta.json 验证内容
+      final raw = jsonDecode(skinFile('.skin-meta.json').readAsStringSync())
+          as Map<String, dynamic>;
+      for (final entry in meta.pieces.entries) {
+        expect(raw[entry.key], entry.value.fileId,
+            reason: '${entry.key} 应记录当前 fileId');
+      }
+      expect(raw['boardBackground'], meta.boardBackground!.fileId,
+          reason: '棋盘底图 fileId 应被记录');
+      expect(raw['version'], meta.version.toString(),
+          reason: 'meta.version 应被记录（便于未来按版本 GC 旧缓存）');
     },
   );
 
@@ -235,7 +267,8 @@ void main() {
         .map((e) => e.uri.pathSegments.last)
         .toList();
     expect(files.contains('stale.bin'), isFalse, reason: '重建目录应清掉残留');
-    expect(files, hasLength(13), reason: '12 棋子 + done（无棋盘底图）');
+    expect(files, hasLength(14),
+        reason: '12 棋子 + done + .skin-meta.json（Fix C，无棋盘底图）');
   });
 
   test('下载失败（HTTP 500）→ 抛异常 + 无部分缓存残留（isCached false）', () async {
@@ -332,8 +365,24 @@ void main() {
 
   // ─────────────── 静态同步判存（Fix B：本地文件优先渲染） ───────────────
 
-  group('ChessSkinLocalizer.cachedPieceFile（Fix B）', () {
+  group('ChessSkinLocalizer.cachedPieceFile（Fix B + Fix C）', () {
     late Directory cacheRoot;
+
+    /// 当前测试用 fileId（与 makeMeta 生成规则同步）。
+    String fId() => 'wK_fid'.padRight(32, 'a');
+
+    /// 把 `.skin-meta.json` 写入测试皮肤目录（Fix C 校验需要）。
+    /// 测试不需要包含全部 12 pieceKey；缺哪个视为不匹配（命中规则严格）。
+    void writeSkinMeta(String skinId, {Map<String, String>? pieces, bool include = true}) {
+      if (!include) return;
+      final dir = Directory('${cacheRoot.path}/chess_skins/$skinId');
+      if (!dir.existsSync()) dir.createSync(recursive: true);
+      final idx = <String, String>{
+        'wK': pieces?['wK'] ?? 'wK_fid'.padRight(32, 'a'),
+        'wQ': pieces?['wQ'] ?? 'wQ_fid'.padRight(32, 'a'),
+      };
+      File('${dir.path}/.skin-meta.json').writeAsStringSync(jsonEncode(idx));
+    }
 
     setUp(() {
       cacheRoot = Directory.systemTemp.createTempSync('chess_skin_cache_root_');
@@ -344,15 +393,18 @@ void main() {
       });
     });
 
-    test('根目录注入后：已有文件返回 File，缺失返回 null', () {
+    test('根目录注入后：已有文件 + fileId 匹配 → 返回 File', () {
       ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
       final skinDir =
           Directory('${cacheRoot.path}/chess_skins/t1')..createSync(recursive: true);
       File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+      writeSkinMeta('t1', pieces: {'wK': 'wK_fid'.padRight(32, 'a')});
 
-      final hit = ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp');
-      expect(hit, isNotNull, reason: '已落盘文件应判存命中');
-      // 路径分隔符不跨平台断言：只验证"同一文件 + 落在目标目录"。
+      final hit = ChessSkinLocalizer.cachedPieceFile(
+        't1', 'wK.webp',
+        expectedFileId: 'wK_fid'.padRight(32, 'a'),
+      );
+      expect(hit, isNotNull, reason: '已落盘 + fileId 匹配 → 应命中');
       expect(hit!.existsSync(), isTrue);
       expect(
         hit.path.replaceAll('\\', '/'),
@@ -360,20 +412,95 @@ void main() {
       );
 
       expect(
-        ChessSkinLocalizer.cachedPieceFile('t1', 'wQ.webp'),
+        ChessSkinLocalizer.cachedPieceFile(
+          't1', 'wQ.webp',
+          expectedFileId: 'wQ_fid'.padRight(32, 'a'),
+        ),
         isNull,
         reason: '未落盘文件返回 null（回退网络）',
       );
       expect(
-        ChessSkinLocalizer.cachedPieceFile('nope', 'wK.webp'),
+        ChessSkinLocalizer.cachedPieceFile(
+          'nope', 'wK.webp',
+          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+        ),
         isNull,
         reason: '未知皮肤目录返回 null',
       );
     });
 
+    // ─────────────── Fix C：缓存版本校验（核心 bug 修复） ───────────────
+
+    test(
+      'Fix C: 文件存在但 expectedFileId 与 .skin-meta.json 不匹配 → 返回 null',
+      () {
+        // 重现「换图不更新」bug：本地目录里有 wK.webp（旧图），
+        // .skin-meta.json 记录的是旧 fileId，但 current meta 期望新 fileId。
+        // 旧版 cachedPieceFile 会返回旧 File（导致 RemoteChessSkin 用旧图）；
+        // 新版必须返回 null → RemoteChessSkin 走网络拉新图。
+        ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+        final skinDir = Directory('${cacheRoot.path}/chess_skins/t1')
+          ..createSync(recursive: true);
+        File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+        // 索引里写的是旧 fileId
+        const oldFid = 'OLD_FILE_ID_OLD_FILE_ID_OLD_FILE_';
+        writeSkinMeta('t1', pieces: {'wK': oldFid});
+
+        // 期望新 fileId → 必须返回 null（视为未命中）
+        const newFid = 'NEW_FILE_ID_NEW_FILE_ID_NEW_FILE_';
+        final hit = ChessSkinLocalizer.cachedPieceFile(
+          't1', 'wK.webp',
+          expectedFileId: newFid,
+        );
+        expect(hit, isNull, reason: 'fileId 不一致 → 必须视作未命中');
+      },
+    );
+
+    test(
+      'Fix C: 文件存在但 .skin-meta.json 缺失 → 返回 null（迁移兼容）',
+      () {
+        // 旧设备首次遇到本修复：目录里只有图片没有索引 → 走网络重下（正确行为）。
+        ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+        final skinDir = Directory('${cacheRoot.path}/chess_skins/t1')
+          ..createSync(recursive: true);
+        File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+        // 不写 .skin-meta.json（模拟旧缓存）
+
+        final hit = ChessSkinLocalizer.cachedPieceFile(
+          't1', 'wK.webp',
+          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+        );
+        expect(hit, isNull, reason: '索引缺失 → 视作未命中（迁移到新机制）');
+      },
+    );
+
+    test(
+      'Fix C: .skin-meta.json 损坏 → 返回 null（防御）',
+      () {
+        ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+        final skinDir = Directory('${cacheRoot.path}/chess_skins/t1')
+          ..createSync(recursive: true);
+        File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+        File('${skinDir.path}/.skin-meta.json')
+            .writeAsStringSync('not a json {{{');
+
+        final hit = ChessSkinLocalizer.cachedPieceFile(
+          't1', 'wK.webp',
+          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+        );
+        expect(hit, isNull, reason: '损坏索引 → 走网络而非崩溃');
+      },
+    );
+
     test('根目录未初始化 → 恒 null（行为退化网络）', () {
       // 默认（/ 复位后）未注入根目录
-      expect(ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp'), isNull);
+      expect(
+        ChessSkinLocalizer.cachedPieceFile(
+          't1', 'wK.webp',
+          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+        ),
+        isNull,
+      );
     });
 
     test('download 落盘后静态判存立即可见（memo 失效生效）', () async {
@@ -388,21 +515,51 @@ void main() {
       );
 
       // 下载前判存 miss
-      expect(ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp'), isNull);
+      expect(
+        ChessSkinLocalizer.cachedPieceFile(
+          't1', 'wK.webp',
+          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+        ),
+        isNull,
+      );
 
-      await l.download(makeMeta(board: null));
+      final meta = makeMeta(board: null);
+      await l.download(meta);
 
       // 下载完成 → 同步判存命中（无需重新 await path_provider）
-      final hit = ChessSkinLocalizer.cachedPieceFile('t1', 'wK.webp');
+      final expectedFid = meta.pieces['wK']!.fileId;
+      final hit = ChessSkinLocalizer.cachedPieceFile(
+        't1', 'wK.webp',
+        expectedFileId: expectedFid,
+      );
       expect(hit, isNotNull, reason: 'download 后静态判存应立即命中');
       expect(hit!.existsSync(), isTrue);
     });
   });
 
-  // ─────────────── RemoteChessSkin 本地文件优先（Fix B） ───────────────
+  // ─────────────── RemoteChessSkin 本地文件优先（Fix B + Fix C） ───────────────
 
-  group('RemoteChessSkin 本地文件优先（Fix B）', () {
+  group('RemoteChessSkin 本地文件优先（Fix B + Fix C）', () {
     late Directory cacheRoot;
+
+    /// 模拟 download 完毕的皮肤目录（含 .skin-meta.json）。
+    /// fileId 默认用 makeMeta 的生成规则，保证匹配。
+    void setupCachedSkin(String skinId, {Map<String, String>? overrides}) {
+      final dir = Directory('${cacheRoot.path}/chess_skins/$skinId')
+        ..createSync(recursive: true);
+      final idx = <String, String>{
+        for (final k in kChessSkin12PieceKeys)
+          k: (overrides?[k]) ?? '${k}_fid'.padRight(32, 'a'),
+      };
+      File('${dir.path}/.skin-meta.json').writeAsStringSync(jsonEncode(idx));
+      // 12 张棋子文件全部落盘（piece key → ${key}.webp）
+      for (final k in kChessSkin12PieceKeys) {
+        File('${dir.path}/$k.webp').writeAsBytesSync(_tinyPng);
+      }
+    }
+
+    /// 当前测试用 meta → 拿它 key 实际 fileId 拼成 meta → RemoteChessSkin。
+    ChessSkinMeta currentMeta({FileRef? board}) => makeMeta(board: board);
 
     setUp(() {
       cacheRoot = Directory.systemTemp.createTempSync('chess_skin_remote_');
@@ -412,22 +569,69 @@ void main() {
       });
     });
 
-    test('本地已缓存 → pieces[key] 是 FileImage（零网络）', () {
+    test('本地已缓存 + fileId 全匹配 → pieces[key] 是 FileImage（零网络）',
+        () {
       ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
-      final skinDir =
-          Directory('${cacheRoot.path}/chess_skins/t1')..createSync(recursive: true);
-      File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+      setupCachedSkin('t1');
 
-      final s = RemoteChessSkin(meta: makeMeta(), fileResolver: _FakeResolver());
-      final img = s.pieces['wK']!;
-      expect(img, isA<FileImage>(), reason: '本地文件存在 → FileImage 渲染');
-      // 未缓存 key 仍走网络
-      expect(s.pieces['wQ'], isA<CachedNetworkImageProvider>());
+      final s = RemoteChessSkin(meta: currentMeta(), fileResolver: _FakeResolver());
+      for (final img in s.pieces.values) {
+        expect(img, isA<FileImage>(), reason: '缓存命中 → FileImage 渲染');
+      }
     });
+
+    test(
+      'Fix C: 本地有图但 .skin-meta.json 缺失 → 全部 CachedNetworkImageProvider',
+      () {
+        // 旧设备首次遇到本修复：本地目录只有图，没有索引 → 走网络重下
+        ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+        final dir = Directory('${cacheRoot.path}/chess_skins/t1')
+          ..createSync(recursive: true);
+        File('${dir.path}/wK.webp').writeAsBytesSync(_tinyPng);
+        // 不写 .skin-meta.json
+
+        final s = RemoteChessSkin(meta: currentMeta(), fileResolver: _FakeResolver());
+        for (final img in s.pieces.values) {
+          expect(img, isA<CachedNetworkImageProvider>(),
+              reason: '索引缺失 → 视为未缓存，走网络');
+        }
+      },
+    );
+
+    test(
+      'Fix C: 本地有图 + 索引存在但 wK 的 fileId 不一致 → 仅 wK 走网络，其余仍命中',
+      () {
+        // 端到端验证核心 bug 修复：服务端改了 wK 图（new fileId 发布），
+        // KV index 已更新；FR 本地缓存里 wK.webp 是旧图，且 .skin-meta.json 里
+        // wK 的 fileId 是旧的。其它 11 张图 fileId 未变 → 仍命中本地。
+        ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
+        final dir = Directory('${cacheRoot.path}/chess_skins/t1')
+          ..createSync(recursive: true);
+        // 12 张图全部落盘
+        for (final k in kChessSkin12PieceKeys) {
+          File('${dir.path}/$k.webp').writeAsBytesSync(_tinyPng);
+        }
+        // 索引里把 wK 标成 OLD，其余用当前 meta 的 fileId
+        final cur = currentMeta();
+        final idx = <String, String>{
+          for (final k in kChessSkin12PieceKeys)
+            k: k == 'wK' ? 'OLD_FILE_ID_OLD_FILE_ID_OLD_FILE_' : cur.pieces[k]!.fileId,
+        };
+        File('${dir.path}/.skin-meta.json').writeAsStringSync(jsonEncode(idx));
+
+        final s = RemoteChessSkin(meta: cur, fileResolver: _FakeResolver());
+        expect(s.pieces['wK'], isA<CachedNetworkImageProvider>(),
+            reason: 'wK fileId 不一致 → 走网络拉新图');
+        expect(s.pieces['wQ'], isA<FileImage>(),
+            reason: 'wQ fileId 一致 → 命中本地缓存');
+        expect(s.pieces['bp'], isA<FileImage>(),
+            reason: 'bp fileId 一致 → 命中本地缓存');
+      },
+    );
 
     test('无本地缓存 → 全部 CachedNetworkImageProvider', () {
       ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
-      final s = RemoteChessSkin(meta: makeMeta(), fileResolver: _FakeResolver());
+      final s = RemoteChessSkin(meta: currentMeta(), fileResolver: _FakeResolver());
       for (final img in s.pieces.values) {
         expect(img, isA<CachedNetworkImageProvider>(), reason: '未缓存 → 网络');
       }
@@ -442,14 +646,14 @@ void main() {
         sizeBytes: 2048,
         contentType: 'image/webp',
       );
-      final meta = makeMeta(board: board);
+      final meta = currentMeta(board: board);
       expect(
         RemoteChessSkin(meta: meta, fileResolver: _FakeResolver()).boardBackground,
         isA<CachedNetworkImageProvider>(),
       );
     });
 
-    test('boardBackground 本地已缓存 → FileImage', () {
+    test('boardBackground 本地已缓存 + 索引匹配 → FileImage', () {
       ChessSkinLocalizer.setBaseDirForTest(cacheRoot);
       final board = FileRef(
         fileId: 'b' * 32,
@@ -457,15 +661,19 @@ void main() {
         sizeBytes: 2048,
         contentType: 'image/webp',
       );
-      final meta = makeMeta(board: board);
-      // 先落盘 boardBackground.webp，再判存（无先前 miss 污染 memo）
-      final skinDir =
-          Directory('${cacheRoot.path}/chess_skins/t1')..createSync(recursive: true);
-      File('${skinDir.path}/boardBackground.webp').writeAsBytesSync(_tinyPng);
+      final meta = currentMeta(board: board);
+      final dir = Directory('${cacheRoot.path}/chess_skins/t1')
+        ..createSync(recursive: true);
+      File('${dir.path}/boardBackground.webp').writeAsBytesSync(_tinyPng);
+      // 索引里写 boardBackground → fileId 匹配
+      File('${dir.path}/.skin-meta.json').writeAsStringSync(jsonEncode({
+        for (final k in kChessSkin12PieceKeys) k: meta.pieces[k]!.fileId,
+        'boardBackground': board.fileId,
+      }));
       expect(
         RemoteChessSkin(meta: meta, fileResolver: _FakeResolver()).boardBackground,
         isA<FileImage>(),
-        reason: '底图已落盘 → 本地文件渲染',
+        reason: '底图已落盘 + 索引匹配 → 本地文件渲染',
       );
     });
   });

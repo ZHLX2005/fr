@@ -5,6 +5,7 @@
 // 目标目录：<app documents>/chess_skins/<skinId>/
 //   - 12 张棋子：wK.webp / wQ.webp / ... / bp.webp
 //   - 可选棋盘底图：boardBackground.webp|png|jpg
+//   - 缓存索引：.skin-meta.json（pieceKey → fileId；用于判定缓存是否匹配当前 meta）
 //   - done 标记文件：`.done`（全量下载完成的哨兵）
 //
 // 流程：
@@ -32,8 +33,24 @@
 // 静态判存（Fix B）：[cachedPieceFile] / [ensureBaseDirInit] /
 // [setBaseDirForTest] —— 供 RemoteChessSkin"本地文件优先渲染"同步查文件
 // （`<documents>/chess_skins/<skinId>/<fileName>`），带 memo 防每帧 IO。
+//
+// ─── 缓存版本校验（Fix C：meta 变了 → 自动失效旧缓存） ───────────────────────────
+//
+// 背景（2026-09-01）：服务端 KV `chess_skin:index` 同步后，meta 里的 piece.fileId
+// 可能整体或局部变更（例如运营改了一张图、重新上传得新 fileId 并 publish）。
+// 但本地磁盘缓存只看"文件存在"，旧版本图片永远命中 → 用户看不到新图。
+//
+// 修复：每次 download() 成功后写一份 `.skin-meta.json`：
+//   { "<pieceKey>": "<fileId>", ... , "boardBackground": "<fileId>(可选)" }
+// cachedPieceFile(skinId, fileName, expectedFileId: ...) 在命中文件后**额外校验**
+// 当前 meta 的 expectedFileId 与 .skin-meta.json 里该 pieceKey 对应的 fileId
+// 是否一致；不一致 → 视作未命中 → RemoteChessSkin 走网络。
+//
+// 副作用：旧设备首次遇到 KV 变更时会触发重下全套 12 张图（~120KB）；
+// 这是正确行为 —— 一次小代价换永久自动同步。
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
@@ -80,6 +97,9 @@ class ChessSkinLocalizer {
   /// 根目录名（`<documents>/chess_skins/`）。
   static const String kRootDirName = 'chess_skins';
 
+  /// 缓存索引文件名（pieceKey → fileId 映射，详见文件头注释）。
+  static const String kCachedMetaFileName = '.skin-meta.json';
+
   /// 全量下载完成的哨兵文件名。
   static const String kDoneMarker = '.done';
 
@@ -91,6 +111,9 @@ class ChessSkinLocalizer {
   //
   // RemoteChessSkin 每次 build 都会问"这个棋子本地有没有"，
   // 这里提供**同步**判存 + memo，避免每帧同步 IO。
+  //
+  // 缓存版本校验（Fix C）：cachedPieceFile 多接 [expectedFileId]，命中前校验
+  // `.skin-meta.json` 里 pieceKey 对应的 fileId 与之匹配 —— 不匹配视作 miss。
   // ─────────────────────────────────────────────────────────────
 
   /// 静态解析的缓存根目录（`<documents>`；[ensureBaseDirInit] 一次性缓存）。
@@ -99,11 +122,17 @@ class ChessSkinLocalizer {
   /// 一律返回 null，渲染退化为纯网络行为（与旧版一致，绝不少图）。
   static Directory? _baseDir;
 
-  /// (skinId, 文件名) → 存在性 memo（值可为 null = 已确认不存在）。
+  /// `(skinId, expectedFileId, fileName)` → 存在性 memo（值可为 null = 已确认不存在/不匹配）。
   ///
   /// 文件只会经 [download] 落盘 → download 成功后按 skinId 前缀清除即可，
-  /// 无需全量失效。
+  /// 无需全量失效。加 expectedFileId 维度避免不同 meta 共享误命中。
   static final Map<String, File?> _cachedFileMemo = {};
+
+  /// skinId → 已读入并校验过的 `.skin-meta.json`（null = 已确认缺失/格式错）。
+  ///
+  /// cachedPieceFile 校验 fileId 时复用此 memo，避免每帧同步 IO。
+  /// download / setBaseDirForTest 落盘或复位时按 skinId 前缀清除。
+  static final Map<String, Map<String, String>?> _cachedIndexMemo = {};
 
   /// 异步初始化静态根目录（幂等；path_provider 失败静默保持 null）。
   ///
@@ -125,31 +154,93 @@ class ChessSkinLocalizer {
   static void setBaseDirForTest(Directory? dir) {
     _baseDir = dir;
     _cachedFileMemo.clear();
+    _cachedIndexMemo.clear();
   }
 
-  /// 同步判存：`<documents>/chess_skins/<skinId>/<fileName>` 存在返回 [File]，
+  /// 同步判存：`<documents>/chess_skins/<skinId>/<fileName>` 存在且对应
+  /// `.skin-meta.json` 里的 fileId 与 [expectedFileId] 一致时返回 [File]，
   /// 否则 null（带 memo，不产生每帧 IO）。
   ///
   /// [fileName] 是精确叶子名（棋子 `'wK.webp'`、棋盘底图
   /// `'boardBackground.webp'|'png'|'jpg'`）。根目录未知（[_baseDir] 为 null）
   /// 时恒返回 null —— 行为等同未下载，走网络。
-  static File? cachedPieceFile(String skinId, String fileName) {
+  ///
+  /// **fileId 校验（Fix C）**：必须传 [expectedFileId] —— 通常是当前 meta 里
+  /// 该 piece 的 fileId。命中条件：
+  ///   1. 文件存在
+  ///   2. `.skin-meta.json` 里对应 pieceKey 的 fileId == [expectedFileId]
+  /// 任一不满足 → 返回 null（视作未缓存，调用方走网络重下）。
+  static File? cachedPieceFile(
+    String skinId,
+    String fileName, {
+    required String expectedFileId,
+  }) {
     if (kIsWeb) return null;
     final base = _baseDir;
     if (base == null) return null;
-    final memoKey = '$skinId/$fileName';
-    return _cachedFileMemo.putIfAbsent(memoKey, () {
+    // 1. 文件存在性检查
+    final memoKey = '$skinId|$expectedFileId|$fileName';
+    final file = _cachedFileMemo.putIfAbsent(memoKey, () {
       final f = File(
         '${base.path}${Platform.pathSeparator}$kRootDirName'
         '${Platform.pathSeparator}$skinId${Platform.pathSeparator}$fileName',
       );
       return f.existsSync() ? f : null;
     });
+    if (file == null) return null;
+    // 2. fileId 版本校验（Fix C）：索引缺失/不匹配 → 视作未命中
+    final index = _readCachedIndexSync(skinId);
+    if (index == null) return null;
+    final pieceKey = _pieceKeyFromFileName(fileName);
+    if (index[pieceKey] != expectedFileId) return null;
+    return file;
+  }
+
+  /// 把 [fileName]（含扩展名）反推为 pieceKey。
+  ///
+  /// 'wK.webp' → 'wK'；'boardBackground.png' → 'boardBackground'。
+  /// 仅取最后一个 `.` 之前的部分（防 fileName 含点号未来扩展）。
+  static String _pieceKeyFromFileName(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    return dot > 0 ? fileName.substring(0, dot) : fileName;
+  }
+
+  /// 同步读 `<dir>/<skinId>/.skin-meta.json` → `{pieceKey: fileId}` 映射。
+  ///
+  /// 缺失 / 解析失败 → 返回 null（cachedPieceFile 视为未命中，走网络）。
+  /// 结果按 skinId memo，同 skinId 不重复 IO。
+  static Map<String, String>? _readCachedIndexSync(String skinId) {
+    return _cachedIndexMemo.putIfAbsent(skinId, () {
+      if (kIsWeb) return null;
+      final base = _baseDir;
+      if (base == null) return null;
+      final f = File(
+        '${base.path}${Platform.pathSeparator}$kRootDirName'
+        '${Platform.pathSeparator}$skinId${Platform.pathSeparator}$kCachedMetaFileName',
+      );
+      if (!f.existsSync()) return null;
+      try {
+        final raw = jsonDecode(f.readAsStringSync());
+        if (raw is! Map) return null;
+        final out = <String, String>{};
+        for (final entry in raw.entries) {
+          final k = entry.key;
+          final v = entry.value;
+          if (k is String && v is String) {
+            out[k] = v;
+          }
+        }
+        return out.isEmpty ? null : out;
+      } catch (_) {
+        return null;
+      }
+    });
   }
 
   /// 按 [skinId] 前缀清掉判存 memo（[download] 落盘后调用，让新文件立即可见）。
   static void _invalidateMemo(String skinId) {
-    _cachedFileMemo.removeWhere((k, _) => k.startsWith('$skinId/'));
+    _cachedFileMemo.removeWhere((k, _) => k.startsWith('$skinId|'));
+    _cachedIndexMemo.remove(skinId);
   }
 
   /// 目标目录：`<documents>/chess_skins/<skinId>/`。
@@ -162,7 +253,11 @@ class ChessSkinLocalizer {
     return dir;
   }
 
-  /// 检查 [skinId] 是否已完整本地缓存（12 张棋子都在 + done 标记 + boardBackground 若声明）。
+  /// 检查 [skinId] 是否已完整本地缓存（12 张棋子都在 + done 标记 +
+  /// `.skin-meta.json` + boardBackground 若声明）。
+  ///
+  /// `.skin-meta.json` 是 Fix C 的版本校验索引 —— 缺失则视作"无法校验"，
+  /// 一律返回 false（与"旧设备首次 KV 变更"的迁移策略一致：触发重下）。
   ///
   /// Web 恒 false（不支持本地文件）。
   Future<bool> isCached(String skinId) async {
@@ -171,6 +266,12 @@ class ChessSkinLocalizer {
     if (!dir.existsSync()) return false;
     final meta = _metaById(skinId);
     if (meta == null) return false;
+    // 缓存版本索引必须存在（Fix C）
+    if (!File(
+      '${dir.path}${Platform.pathSeparator}$kCachedMetaFileName',
+    ).existsSync()) {
+      return false;
+    }
     // 12 张棋子必须全部存在
     for (final key in kChessSkin12PieceKeys) {
       final piece = meta.pieces[key];
@@ -204,8 +305,8 @@ class ChessSkinLocalizer {
   /// 缓存优先确保 [meta] 已本地化（"下载前先查缓存"，Fix）。
   ///
   /// 语义（设置页 / 对弈页点选皮肤时的默认路径）：
-  ///   · `isCached(meta.id)` 命中（12 棋子 + done 齐全）→ `fromCache` 直接返回
-  ///     —— **零网络、不删缓存**；
+  ///   · `isCached(meta.id)` 命中（12 棋子 + done + .skin-meta.json 齐全）→
+  ///     `fromCache` 直接返回 —— **零网络、不删缓存**；
   ///   · 未命中 / `fromCache` 构造失败 → `download(meta)` 全量下载补齐。
   ///
   /// 与 [download] 的区别：`download` 无条件清目录重下（用于 KV 换图等强刷场景）；
@@ -225,6 +326,12 @@ class ChessSkinLocalizer {
   ///
   /// 失败（网络不可达 / 非 200 / IO 错误）→ 删除部分文件 + rethrow，
   /// 由调用方决定重试或回退网络皮肤 / unicode。
+  ///
+  /// 写入顺序（防半缓存）：
+  ///   1. 12 张棋子
+  ///   2. 可选棋盘底图
+  ///   3. `.skin-meta.json`（缓存版本索引 —— Fix C 关键）
+  ///   4. `.done` 哨兵（最后写，避免半缓存被 isCached 误判为完成）
   Future<LocalChessSkin> download(ChessSkinMeta meta) async {
     if (!isSupported) {
       throw StateError('ChessSkinLocalizer 不支持 Web（无 dart:io）');
@@ -247,7 +354,20 @@ class ChessSkinLocalizer {
       if (bg != null) {
         await _downloadTo(bg, dir, LocalChessSkin.boardBackgroundFileName(bg));
       }
-      // 3. 下载完成哨兵（先写内容后写哨兵：避免半缓存被误判为完成）
+      // 3. 缓存版本索引（Fix C）—— pieceKey → fileId 映射 + version + boardBackground（若有）。
+      // 先于 .done 写入，避免半缓存被 isCached 误判为完成。
+      final index = <String, String>{
+        for (final entry in meta.pieces.entries)
+          entry.key: entry.value.fileId,
+      };
+      if (meta.boardBackground != null) {
+        index['boardBackground'] = meta.boardBackground!.fileId;
+      }
+      index['version'] = meta.version.toString();
+      await File(
+        '${dir.path}${Platform.pathSeparator}$kCachedMetaFileName',
+      ).writeAsString(jsonEncode(index), flush: true);
+      // 4. 下载完成哨兵（先写内容后写哨兵：避免半缓存被误判为完成）
       await File(
         '${dir.path}${Platform.pathSeparator}$kDoneMarker',
       ).writeAsString('ok\n', flush: true);

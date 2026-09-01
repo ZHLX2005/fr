@@ -62,9 +62,17 @@ class RemoteChessSkin implements ChessSkin {
   /// 单个资源 → 本地文件优先的 ImageProvider。
   ///
   /// [localFileName] 是缓存目录里的叶子文件名（`wK.webp` /
-  /// `boardBackground.webp`）；[fileId] 是网络回退用的 server 文件 id。
+  /// `boardBackground.webp`）；[fileId] 既用于本地缓存版本校验（Fix C：
+  /// 与 `.skin-meta.json` 里记录的 fileId 比对），也用于网络回退的 URL。
   ImageProvider _providerFor(String localFileName, String fileId) {
-    final local = ChessSkinLocalizer.cachedPieceFile(meta.id, localFileName);
+    final local = ChessSkinLocalizer.cachedPieceFile(
+      meta.id,
+      localFileName,
+      // Fix C：当前 meta 的 fileId 期望值 —— 不匹配视为缓存过期，
+      // 走 CachedNetworkImageProvider 拉取新图（仅当前 piece 的 fileId 变了
+      // 会触发，其他 piece 仍命中缓存，零浪费）。
+      expectedFileId: fileId,
+    );
     if (local != null) return FileImage(local);
     return CachedNetworkImageProvider(fileResolver.url(fileId));
   }
