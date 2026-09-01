@@ -1463,10 +1463,13 @@ class _LobbyZoneCard extends StatelessWidget {
                         slotSize: 56,
                         letter:
                             e.value.isNotEmpty ? e.value[0].toUpperCase() : '?',
-                        color: theme.colorScheme.outline,
+                        color: isHostAvatar
+                            ? Colors.amber.shade700
+                            : theme.colorScheme.outline,
                         isSpectator: true,
                         name: e.value,
-                        label: '旁观者',
+                        label: isHostAvatar ? '主持人' : '旁观者',
+                        showCrown: isHostAvatar,
                       ),
                     );
                   }
