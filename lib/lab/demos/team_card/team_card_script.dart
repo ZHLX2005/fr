@@ -154,12 +154,8 @@ on_join = function(c, p)
     c.zones[p.device_id] = "spectator"
   end
 
-  -- ★ 满即开：玩家区新到第 N 人 → 服务端自动 do_start
-  if c.zones[p.device_id] == "player"
-     and state == "lobby"
-     and player_zone_count(c) == c.player_slots then
-    do_start(c)
-  end
+  -- ❌ 取消"满即开"自动发牌：改由房主手动按 START
+  -- （房主可凑齐人后再点 START，或中途决定开/不开）
   return c
 end
 
