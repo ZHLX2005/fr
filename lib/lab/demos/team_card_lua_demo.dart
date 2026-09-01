@@ -74,7 +74,19 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
 
   void _onHostNeedsConfig() => setState(() => _phase = 'host_setup');
 
-  void _onHostConfigDone() => setState(() => _phase = 'playing');
+  /// SetupPage._create() 内部又调了一次 tryJoinOrCreate（用新随机 code），
+  /// 需要把新 handle + capacity 回传给父组件，替换掉房间A
+  void _onHostConfigDone(RoomHandle newHandle, int capacity) => setState(() {
+        // 关掉房间A（LobbyEntryPage 创建的占位房），避免 host 同时在两个房间
+        final old = _handle;
+        _handle = newHandle;
+        _playerSlots = capacity;
+        _phase = 'playing';
+        if (old != null && old.code != newHandle.code) {
+          // fire-and-forget：离开旧房
+          old.leave();
+        }
+      });
 
   Future<void> _disconnect() async {
     final h = _handle;
@@ -335,7 +347,9 @@ class HostPoolConfigView extends StatelessWidget {
     required this.onLeave,
   });
   final RoomHandle handle;
-  final VoidCallback onDone;
+  /// SetupPage 完成创建后回调：把新 handle + capacity 回传
+  /// （SetupPage 内部会再调 tryJoinOrCreate，用新 code 创建最终房间）
+  final void Function(RoomHandle newHandle, int capacity) onDone;
   final Future<void> Function() onLeave;
 
   @override
@@ -347,8 +361,8 @@ class HostPoolConfigView extends StatelessWidget {
           RoleDef(label: '平民', count: 5),
         ],
         onStarted: (h, capacity) {
-          // 进房即关闭配置页（SetupPage 是过渡页）
-          onDone();
+          // 把 SetupPage 创建的新 handle 回传给父组件（修复玩家区人数显示 bug）
+          onDone(h, capacity);
         },
       ),
       Positioned(
@@ -357,9 +371,20 @@ class HostPoolConfigView extends StatelessWidget {
         child: IconButton(
           icon: Icon(Icons.skip_next),
           tooltip: '使用默认池直接开始',
-          onPressed: onDone,
+          onPressed: () {
+            // 跳过 SetupPage：用当前 handle（房间A，player_slots=8）继续
+            onDone(handle, _extractCapacity(handle));
+          },
         ),
       ),
     ]);
+  }
+
+  /// 从 snapshot 读取房间实际 player_slots（用于跳过按钮）
+  int _extractCapacity(RoomHandle h) {
+    final snap = h.latest;
+    if (snap == null) return 8;
+    final p = snap.context['player_slots'];
+    return (p as num?)?.toInt() ?? 8;
   }
 }
