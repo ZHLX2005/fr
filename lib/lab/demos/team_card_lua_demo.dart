@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import '../../core/net_engine/relay_v3/relay_device_id.dart';
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Transport, RelayV3Exception;
+import '../../services/lua/lua_game_alias.dart';
 import '../lab_container.dart';
 import 'team_card/constants.dart';
 import 'team_card/engine.dart'
@@ -135,15 +136,33 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
   bool _busy = false;
   String? _error;
 
-  /// 第一层入口：玩家人数默认 8（大房间）
-  /// 房主进房后若想改可在 HostPoolConfigView 里调整
+  /// 第一层入口：玩家人数交给业务侧 SetupPage 配置；
+  /// 默认 8 仅作占位（房主在 HostPoolConfigView 可改）
   static const int _kDefaultPlayerSlots = 8;
 
   @override
+  void initState() {
+    super.initState();
+    // 使用全局共享 alias（与 gomoku/围棋/象棋/翻转 等所有 Lua 房间游戏同步）
+    final v = LuaGameAlias.value;
+    if (v.isNotEmpty) _aliasCtrl.text = v;
+    LuaGameAlias.notifier.addListener(_onAliasChanged);
+  }
+
+  @override
   void dispose() {
+    LuaGameAlias.notifier.removeListener(_onAliasChanged);
     _aliasCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
+  }
+
+  void _onAliasChanged() {
+    if (!mounted) return;
+    final v = LuaGameAlias.value;
+    if (v.isNotEmpty && _aliasCtrl.text != v) {
+      _aliasCtrl.text = v;
+    }
   }
 
   String _normalizeCode(String s) => s.trim().toUpperCase();
@@ -169,7 +188,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       setState(() => _error = '房间号 4-6 位大写字母+数字');
       return;
     }
-    await AliasPrefs.save(alias);
+    await LuaGameAlias.save(alias);
     setState(() {
       _busy = true;
       _error = null;
@@ -241,11 +260,12 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         TextField(
           controller: _aliasCtrl,
           decoration: InputDecoration(
-            labelText: '你的名字',
+            labelText: '你的名字（全局共享）',
             border:
                 OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             prefixIcon: Icon(Icons.person_outline),
           ),
+          onChanged: (v) => LuaGameAlias.save(v.trim()),
         ),
         SizedBox(height: 14),
         TextField(
