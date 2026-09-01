@@ -216,15 +216,19 @@ class _SetupPageState extends State<SetupPage> {
         deviceId: await RelayDeviceId.get(),
       );
       final roles = rolePool.map((r) => {'label': r.label, 'count': r.count}).toList();
-      final total = _playerSlots + _spectatorSlots;
-      final h = await TeamCardRoom.create(t,
+      // Commit 2 中间过渡：SetupPage 用 tryJoinOrCreate 路径
+      // （commit 3 会把 SetupPage/JoinPage 合并为单表单 LobbyEntryPage）
+      final code = _generateCode();
+      final h = await TeamCardRoom.tryJoinOrCreate(
+        t,
+        code: code,
         playerSlots: _playerSlots,
         spectatorSlots: _spectatorSlots,
         roles: roles,
         alias: alias,
       );
       if (!mounted) return;
-      widget.onStarted(h, total);
+      widget.onStarted(h, _playerSlots + _spectatorSlots);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -232,6 +236,13 @@ class _SetupPageState extends State<SetupPage> {
         _error = '$e';
       });
     }
+  }
+
+  /// 临时生成 6 位数字房间码（commit 3 后由 LobbyEntryPage 的输入框替代）
+  String _generateCode() {
+    final r = DateTime.now().millisecondsSinceEpoch;
+    final code = ((r % 900000) + 100000).toString();
+    return code;
   }
 
   @override
@@ -491,7 +502,14 @@ class _JoinPageState extends State<JoinPage> {
         alias: alias,
         deviceId: await RelayDeviceId.get(),
       );
-      final h = await TeamCardRoom.join(t, code: code);
+      // Commit 2 过渡：直接走 tryJoinOrCreate（已存在房间号走 join；不存在则创建失败）
+      final h = await TeamCardRoom.tryJoinOrCreate(
+        t,
+        code: code,
+        playerSlots: 6,
+        spectatorSlots: 0,
+        alias: alias,
+      );
       if (!mounted) return;
       widget.onStarted(h, 0);
     } catch (e) {
@@ -583,15 +601,12 @@ class _PlayingViewState extends State<PlayingView> {
   StreamSubscription<Snapshot>? _sub;
   Snapshot? _snap;
   late TeamCardRoom _engine;
-  bool _isHost = false;
-  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     _snap = widget.handle.latest;
     _engine = TeamCardRoom(widget.handle);
-    _isHost = _engine.isHost;
     _sub = widget.handle.snapshots.listen((s) {
       if (!mounted) return;
       setState(() => _snap = s);
@@ -604,20 +619,16 @@ class _PlayingViewState extends State<PlayingView> {
     super.dispose();
   }
 
-  bool get _amSpectator => myZone(_snap, widget.handle.transport.deviceId) == 'spectator';
-  bool get _isMeReady {
-    final s = _snap;
-    if (s == null) return false;
-    final ready = s.context['ready'];
-    if (ready is! Map) return false;
-    return ready[widget.handle.transport.deviceId] == true;
-  }
+  /// 服务端权威的房主判定（来自 snapshot.context['host_id']）
+  bool get _isHost => myIsHost(_snap, widget.handle.transport.deviceId);
 
-  /// 发牌：先起翻牌音效（fire-and-forget），再走引擎 DEAL。
-  Future<void> _onDeal() async {
+  String? get _hostId => hostIdOf(_snap);
+
+  /// 发牌：先起翻牌音效（fire-and-forget），再走引擎 START。
+  Future<void> _onStart() async {
     // ignore: discard_futures
     DealingCardsSound.play();
-    await _engine.deal();
+    await _engine.start();
   }
 
   @override
@@ -627,8 +638,23 @@ class _PlayingViewState extends State<PlayingView> {
     if (state == 'playing') {
       final role = myRole(_snap, widget.handle.transport.deviceId);
       final zone = myZone(_snap, widget.handle.transport.deviceId);
+      if (zone == 'host') {
+        return HostView(
+          players: extractStringMap(_snap, 'players'),
+          zoneMap: extractStringMap(_snap, 'zones'),
+          assignments: extractDynamicMap(_snap, 'assignments'),
+          hostMessages: extractHostMessages(_snap),
+          onSend: (to, text) => _engine.hostSend(to: to, text: text),
+          onLeave: widget.onLeave,
+        );
+      }
       if (zone == 'player' && role != null) {
-        return _IdentityCard(role: role, alias: widget.handle.transport.alias);
+        return PlayerPlayingView(
+          role: role,
+          alias: widget.handle.transport.alias,
+          hostMessages: myHostMessages(_snap, widget.handle.transport.deviceId),
+          onLeave: widget.onLeave,
+        );
       }
       if (zone == 'spectator') {
         return SpectatorView(
@@ -641,32 +667,27 @@ class _PlayingViewState extends State<PlayingView> {
       return Center(child: Text('已发牌'));
     }
 
-    // lobby / ready
+    // lobby
     return LobbyView(
       snap: s,
       isHost: _isHost,
-      busy: _busy,
-      onAck: _amSpectator ? null : _engine.ack,
-      onUnack: _amSpectator ? null : _engine.unack,
-      onDeal: _onDeal,
+      busy: false,
+      onStart: _onStart,
       onReset: _engine.reset,
-      onMoveZone: _amSpectator
-          ? () => _engine.sit(zone: 'player')
-          : () => _engine.sit(zone: 'spectator'),
+      onSit: (zone) => _engine.sit(zone: zone),
       onLeave: widget.onLeave,
       players: extractStringMap(_snap, 'players'),
       zoneMap: extractStringMap(_snap, 'zones'),
       playerSlots: extractInt(_snap, 'player_slots'),
       spectatorSlots: extractInt(_snap, 'spectator_slots'),
-      readyMap: extractReadyMap(_snap),
-      myReady: _isMeReady,
+      hostId: _hostId,
       myZone: myZone(_snap, widget.handle.transport.deviceId),
     );
   }
 }
 
 // ══════════════════════════════════════════════════════════════
-// Lobby View（大厅 + 双区）
+// Lobby View（大厅 + 三区：host/player/spectator）
 // ══════════════════════════════════════════════════════════════
 
 class LobbyView extends StatelessWidget {
@@ -675,32 +696,28 @@ class LobbyView extends StatelessWidget {
     required this.snap,
     required this.isHost,
     required this.busy,
-    required this.onAck,
-    required this.onUnack,
-    required this.onDeal,
+    required this.onStart,
     required this.onReset,
-    required this.onMoveZone,
+    required this.onSit,
     required this.onLeave,
     required this.players,
     required this.zoneMap,
     required this.playerSlots,
     required this.spectatorSlots,
-    required this.readyMap,
-    required this.myReady,
+    required this.hostId,
     required this.myZone,
   });
 
   final Snapshot? snap;
   final bool isHost, busy;
-  final VoidCallback? onAck, onUnack;
-  final Future<void> Function() onDeal, onReset;
-  final VoidCallback? onMoveZone;
+  final Future<void> Function() onStart, onReset;
+  /// SIT（换区）回调。参数是目标区名 host/player/spectator。
+  final void Function(String zone) onSit;
   final Future<void> Function() onLeave;
   final Map<String, String> players, zoneMap;
   final int playerSlots, spectatorSlots;
-  final Map<String, bool> readyMap;
-  final bool myReady;
-  /// 当前所在区 "player" / "spectator" / null
+  final String? hostId;
+  /// 当前所在区 "host" / "player" / "spectator" / null
   final String? myZone;
 
   @override
@@ -709,9 +726,7 @@ class LobbyView extends StatelessWidget {
     final code = snap?.roomCode ?? '------';
     final state = snap?.state ?? 'lobby';
     final pCount = zoneMap.values.where((z) => z == 'player').length;
-    final readyCount = readyMap.values.where((v) => v).length;
-    final allReady = state == 'ready';
-    final canDeal = isHost && allReady;
+    final canStart = isHost && pCount == playerSlots && state == 'lobby';
 
     return ListView(
       padding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -723,18 +738,18 @@ class LobbyView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                state == 'ready'
-                    ? '已就绪 · 房主可以开始'
+                state == 'playing'
+                    ? '游戏中 · 等待下一局'
                     : (pCount < playerSlots
                         ? '玩家区 $pCount / $playerSlots · 还差 ${playerSlots - pCount} 人'
-                        : (readyCount < pCount
-                            ? '等待 ${pCount - readyCount} 人准备…'
-                            : '等待房主开始…')),
+                        : '玩家区满 · 房主可开始'),
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: state == 'ready'
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.outline,
-                  fontWeight: state == 'ready' ? FontWeight.w600 : FontWeight.w400,
+                  color: state == 'playing'
+                      ? theme.colorScheme.tertiary
+                      : (canStart
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline),
+                  fontWeight: canStart ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
               SizedBox(height: 4),
@@ -744,141 +759,74 @@ class LobbyView extends StatelessWidget {
           ),
         ),
         SizedBox(height: 24),
-        // 玩家区卡片
+
+        // 主持区（容量 1，可空）
         _LobbyZoneCard(
-          title: '参与者',
+          title: '主持区',
+          icon: Icons.workspace_premium,
+          slots: 1,
+          players: players,
+          zoneMap: zoneMap,
+          zoneFilter: 'host',
+          hostId: hostId,
+        ),
+        SizedBox(height: 12),
+        // 玩家区（必须满员才能开局）
+        _LobbyZoneCard(
+          title: '玩家区',
           icon: Icons.people,
           slots: playerSlots,
           players: players,
           zoneMap: zoneMap,
           zoneFilter: 'player',
-          readyMap: readyMap,
+          hostId: hostId,
         ),
-        // 旁观区卡片
-        if (spectatorSlots > 0) ...[
-          SizedBox(height: 12),
-          _LobbyZoneCard(
-            title: '旁观区',
-            icon: Icons.remove_red_eye_outlined,
-            slots: spectatorSlots,
-            players: players,
-            zoneMap: zoneMap,
-            zoneFilter: 'spectator',
-            readyMap: readyMap,
-          ),
-        ],
+        SizedBox(height: 12),
+        // 旁观区（slots=0 表示无限）
+        _LobbyZoneCard(
+          title: '旁观区',
+          icon: Icons.remove_red_eye_outlined,
+          slots: spectatorSlots,
+          players: players,
+          zoneMap: zoneMap,
+          zoneFilter: 'spectator',
+          hostId: hostId,
+        ),
         SizedBox(height: 24),
-        // ——— 操作按钮 ———
-        if (onAck != null && onUnack != null) ...[
-          if (myReady)
-            OutlinedButton.icon(
-              onPressed: onUnack,
-              icon: Icon(Icons.cancel_outlined),
-              label: Text('取消准备'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                side: BorderSide(color: Theme.of(context).colorScheme.tertiary, width: 1.5),
-                foregroundColor: Theme.of(context).colorScheme.tertiary,
-              ),
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: onAck,
-              icon: Icon(Icons.check_circle_outlined),
-              label: Text('准备好了'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
-                foregroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          SizedBox(height: 12),
-        ],
-        // 换区按钮 — 目标区颜色 + 目标区图标 + 从哪来到哪去
-        if (onMoveZone != null && spectatorSlots > 0 && playerSlots > 0) ...[
-          Builder(builder: (_) {
-            final goingToPlayer = myZone != 'player';
-            final targetIcon = goingToPlayer ? Icons.people : Icons.remove_red_eye_outlined;
-            final targetLabel = goingToPlayer ? '去玩家区' : '去旁观区';
-            final currentLabel = myZone == 'player'
-                ? '当前：玩家'
-                : (myZone == 'spectator' ? '当前：旁观' : '未入座');
-            final tint = goingToPlayer ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.tertiary;
-            return Material(
-              color: tint.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                onTap: onMoveZone,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: tint.withValues(alpha: 0.5), width: 1.5),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: tint.withValues(alpha: 0.18),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(targetIcon, color: tint, size: 20),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              targetLabel,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                                color: tint,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              currentLabel,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: theme.colorScheme.outline,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.arrow_forward_rounded, color: tint, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-          SizedBox(height: 12),
-        ],
+
+        // ——— 换区按钮（房主：host ↔ player；玩家：player → spectator）———
+        if ((myZone == 'host' || myZone == 'player' || myZone == 'spectator') &&
+            state == 'lobby')
+          _SitButton(
+            myZone: myZone,
+            isHost: isHost,
+            playerFull: pCount >= playerSlots,
+            spectatorFull: spectatorSlots > 0 &&
+                zoneMap.values.where((z) => z == 'spectator').length >=
+                    spectatorSlots,
+            onSit: onSit,
+          ),
+
+        // ——— START 按钮（房主 + 玩家区满）——
         if (isHost)
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: canDeal && !busy ? onDeal : null,
+                  onPressed: canStart && !busy ? onStart : null,
                   icon: Icon(
                     busy ? null : Icons.style,
-                    color: canDeal && !busy ? theme.colorScheme.primary : null,
+                    color: canStart && !busy ? theme.colorScheme.primary : null,
                   ),
-                  label: Text(busy ? '发牌中…' : '开始发牌'),
+                  label: Text(busy
+                      ? '发牌中…'
+                      : (canStart ? '开始发牌' : '等待玩家区满员')),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape:
+                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     side: BorderSide(
-                      color: canDeal
+                      color: canStart
                           ? theme.colorScheme.primary
                           : theme.colorScheme.outlineVariant,
                       width: 1.5,
@@ -891,7 +839,8 @@ class LobbyView extends StatelessWidget {
                 onPressed: onReset,
                 style: OutlinedButton.styleFrom(
                   shape: const CircleBorder(),
-                  side: BorderSide(color: Theme.of(context).colorScheme.tertiary, width: 1.5),
+                  side: BorderSide(
+                      color: Theme.of(context).colorScheme.tertiary, width: 1.5),
                   foregroundColor: Theme.of(context).colorScheme.tertiary,
                   minimumSize: const Size(52, 52),
                 ),
@@ -918,72 +867,413 @@ class LobbyView extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 身份卡（发牌后玩家区自己看到）
+// 换区按钮（lobby 阶段，按规则显示可去的区）
 // ══════════════════════════════════════════════════════════════
 
-class _IdentityCard extends StatelessWidget {
-  const _IdentityCard({required this.role, required this.alias});
+class _SitButton extends StatelessWidget {
+  const _SitButton({
+    required this.myZone,
+    required this.isHost,
+    required this.playerFull,
+    required this.spectatorFull,
+    required this.onSit,
+  });
+  final String? myZone;
+  final bool isHost;
+  final bool playerFull;
+  final bool spectatorFull;
+  final void Function(String zone) onSit;
+
+  @override
+  Widget build(BuildContext context) {
+    // 房主可以 host ↔ player；其他人可以 player ↔ spectator
+    final targets = <(String zone, String label, IconData icon, Color tint)>[];
+    if (myZone == 'host') {
+      targets.add(('player', '去玩家区参与游戏', Icons.people,
+          Theme.of(context).colorScheme.primary));
+    } else if (myZone == 'player') {
+      if (isHost) {
+        targets.add(('host', '回到主持区', Icons.workspace_premium,
+            Colors.amber.shade700));
+      }
+      if (!spectatorFull) {
+        targets.add(('spectator', '去旁观区', Icons.remove_red_eye_outlined,
+            Theme.of(context).colorScheme.tertiary));
+      }
+    } else if (myZone == 'spectator') {
+      if (!playerFull) {
+        targets.add(('player', '回到玩家区', Icons.people,
+            Theme.of(context).colorScheme.primary));
+      }
+    }
+    if (targets.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: targets.map((t) {
+          return OutlinedButton.icon(
+            onPressed: () => onSit(t.$1),
+            icon: Icon(t.$3, size: 16, color: t.$4),
+            label: Text(t.$2,
+                style: TextStyle(color: t.$4, fontSize: 13, fontWeight: FontWeight.w600)),
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              side: BorderSide(color: t.$4.withValues(alpha: 0.5), width: 1.2),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 玩家游戏界面（发牌后看自己的身份 + 收主持人私信）
+// ══════════════════════════════════════════════════════════════
+
+class PlayerPlayingView extends StatelessWidget {
+  const PlayerPlayingView({
+    super.key,
+    required this.role,
+    required this.alias,
+    required this.hostMessages,
+    required this.onLeave,
+  });
   final String role;
   final String alias;
+  final List<Map<String, dynamic>> hostMessages;
+  final Future<void> Function() onLeave;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = roleColor(theme, role);
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.95, end: 1),
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutBack,
-          builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
-          child: SizedBox(
-            width: 280,
-            child: Card(
-              elevation: 0,
-              color: theme.colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-                side: BorderSide(color: color.withValues(alpha: 0.3), width: 2),
-              ),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(28, 32, 28, 32),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(24),
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            Row(children: [
+              IconButton(icon: Icon(Icons.arrow_back), onPressed: onLeave),
+              SizedBox(width: 4),
+              Text('你的身份',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ]),
+            SizedBox(height: 24),
+            Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.95, end: 1),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutBack,
+                builder: (_, scale, child) =>
+                    Transform.scale(scale: scale, child: child),
+                child: SizedBox(
+                  width: 280,
+                  child: Card(
+                    elevation: 0,
+                    color: theme.colorScheme.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      side: BorderSide(
+                          color: color.withValues(alpha: 0.3), width: 2),
                     ),
-                    child: Icon(Icons.style, size: 40, color: color),
-                  ),
-                  SizedBox(height: 24),
-                  Text('你的身份',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.outline, letterSpacing: 2)),
-                  SizedBox(height: 8),
-                  Text(role,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold, color: color, letterSpacing: 1)),
-                  SizedBox(height: 12),
-                  Container(
-                    height: 3,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(28, 32, 28, 32),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Icon(Icons.style, size: 40, color: color),
+                        ),
+                        SizedBox(height: 24),
+                        Text('你的身份',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.outline,
+                                letterSpacing: 2)),
+                        SizedBox(height: 8),
+                        Text(role,
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                                letterSpacing: 1)),
+                        SizedBox(height: 12),
+                        Container(
+                          height: 3,
+                          width: 44,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Text('玩家名：$alias',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.outline)),
+                      ]),
                     ),
                   ),
-                  SizedBox(height: 12),
-                  Text('只有你能看到这张卡',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.outline)),
-                ]),
+                ),
               ),
             ),
-          ),
+            if (hostMessages.isNotEmpty) ...[
+              SizedBox(height: 24),
+              _HostMessageList(messages: hostMessages),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HostMessageList extends StatelessWidget {
+  const _HostMessageList({required this.messages});
+  final List<Map<String, dynamic>> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.amber.shade300, width: 1.5),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.workspace_premium,
+                  size: 16, color: Colors.amber.shade700),
+              SizedBox(width: 6),
+              Text('主持人消息',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ]),
+            SizedBox(height: 8),
+            ...messages.map((m) => Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(m['text']?.toString() ?? '',
+                      style: theme.textTheme.bodyMedium),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 主持人界面（发牌后看所有身份 + 给玩家发私信）
+// ══════════════════════════════════════════════════════════════
+
+class HostView extends StatefulWidget {
+  const HostView({
+    super.key,
+    required this.players,
+    required this.zoneMap,
+    required this.assignments,
+    required this.hostMessages,
+    required this.onSend,
+    required this.onLeave,
+  });
+  final Map<String, String> players;
+  final Map<String, String> zoneMap;
+  final Map<String, dynamic> assignments;
+  final List<Map<String, dynamic>> hostMessages;
+  final Future<void> Function(String to, String text) onSend;
+  final Future<void> Function() onLeave;
+
+  @override
+  State<HostView> createState() => _HostViewState();
+}
+
+class _HostViewState extends State<HostView> {
+  String? _selectedDid;
+  final _msgCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _msgCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final to = _selectedDid;
+    final text = _msgCtrl.text.trim();
+    if (to == null || text.isEmpty) return;
+    await widget.onSend(to, text);
+    _msgCtrl.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final playerEntries = widget.players.entries
+        .where((e) => widget.zoneMap[e.key] == 'player')
+        .toList();
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            Row(children: [
+              IconButton(icon: Icon(Icons.arrow_back), onPressed: widget.onLeave),
+              SizedBox(width: 4),
+              Icon(Icons.workspace_premium,
+                  size: 18, color: Colors.amber.shade700),
+              SizedBox(width: 6),
+              Text('主持人视角 · 全部身份',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ]),
+            SizedBox(height: 12),
+            Text('你不在分配名单 — 共 ${playerEntries.length} 名玩家',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline)),
+            SizedBox(height: 16),
+            ...playerEntries.map((e) {
+              final role = widget.assignments[e.key]?.toString() ?? '?';
+              final color = roleColor(theme, role);
+              final isSelected = _selectedDid == e.key;
+              return Card(
+                elevation: 0,
+                margin: EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => setState(() => _selectedDid = e.key),
+                  child: Padding(
+                    padding: EdgeInsets.all(14),
+                    child: Row(children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            e.value.isNotEmpty ? e.value[0].toUpperCase() : '?',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, color: color),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e.value,
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w500)),
+                            SizedBox(height: 2),
+                            Text('身份: $role',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: color)),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(Icons.check_circle,
+                            color: theme.colorScheme.primary, size: 20),
+                    ]),
+                  ),
+                ),
+              );
+            }),
+            SizedBox(height: 16),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                    color: Colors.amber.shade300, width: 1.5),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.send,
+                          size: 16, color: Colors.amber.shade700),
+                      SizedBox(width: 6),
+                      Text('给玩家发私信',
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                    ]),
+                    SizedBox(height: 8),
+                    Text(
+                      _selectedDid == null
+                          ? '先在上方点选一名玩家'
+                          : '将发给：${widget.players[_selectedDid] ?? '?'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: _selectedDid == null
+                              ? theme.colorScheme.outline
+                              : theme.colorScheme.primary),
+                    ),
+                    SizedBox(height: 8),
+                    TextField(
+                      controller: _msgCtrl,
+                      enabled: _selectedDid != null,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: '悄悄话内容…',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        isDense: true,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed:
+                            _selectedDid == null ? null : _send,
+                        icon: Icon(Icons.send, size: 16),
+                        label: Text('发送'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.amber.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (widget.hostMessages.isNotEmpty) ...[
+              SizedBox(height: 16),
+              _HostMessageList(messages: widget.hostMessages),
+            ],
+          ],
         ),
       ),
     );
@@ -1099,20 +1389,25 @@ class _LobbyZoneCard extends StatelessWidget {
     required this.players,
     required this.zoneMap,
     required this.zoneFilter,
-    required this.readyMap,
+    required this.hostId,
   });
   final String title;
   final IconData icon;
+  /// 0 = 无限（旁观区）；>=1 = 槽位数（host=1, player=N）
   final int slots;
   final Map<String, String> players, zoneMap;
   final String zoneFilter;
-  final Map<String, bool> readyMap;
+  final String? hostId;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final zoneEntries = players.entries.where((e) => zoneMap[e.key] == zoneFilter).toList();
+    final zoneEntries =
+        players.entries.where((e) => zoneMap[e.key] == zoneFilter).toList();
     final isSpectator = zoneFilter == 'spectator';
+    final isHostZone = zoneFilter == 'host';
+    final isUnlimited = slots == 0;
+    final renderedCount = isUnlimited ? zoneEntries.length : slots;
 
     return Card(
       elevation: 0,
@@ -1131,15 +1426,21 @@ class _LobbyZoneCard extends StatelessWidget {
                     size: 14,
                     color: isSpectator
                         ? theme.colorScheme.outline
-                        : Theme.of(context).colorScheme.primary),
+                        : (isHostZone
+                            ? Colors.amber.shade700
+                            : theme.colorScheme.primary)),
                 SizedBox(width: 6),
                 Text(title,
                     style: theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w600)),
                 SizedBox(width: 6),
-                Text('${zoneEntries.length}/$slots',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline)),
+                Text(
+                  isUnlimited
+                      ? '${zoneEntries.length}'
+                      : '${zoneEntries.length}/$slots',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
               ],
             ),
             SizedBox(height: 16),
@@ -1147,17 +1448,21 @@ class _LobbyZoneCard extends StatelessWidget {
               spacing: 28,
               runSpacing: 20,
               alignment: WrapAlignment.center,
-              children: List.generate(slots, (i) {
+              children: List.generate(renderedCount, (i) {
                 if (i < zoneEntries.length) {
                   final e = zoneEntries[i];
-                  final color = context.teamAvatar.avatarColors[i % context.teamAvatar.avatarColors.length];
-                  final isReady = readyMap[e.key] == true;
+                  final isHostAvatar = e.key == hostId;
+                  final color = isHostAvatar
+                      ? Colors.amber.shade700
+                      : context.teamAvatar
+                          .avatarColors[i % context.teamAvatar.avatarColors.length];
                   if (isSpectator) {
                     return _AnimatedSlot(
                       delay: i * 60,
                       child: _MiniAvatar(
                         slotSize: 56,
-                        letter: e.value.isNotEmpty ? e.value[0].toUpperCase() : '?',
+                        letter:
+                            e.value.isNotEmpty ? e.value[0].toUpperCase() : '?',
                         color: theme.colorScheme.outline,
                         isSpectator: true,
                         name: e.value,
@@ -1169,11 +1474,12 @@ class _LobbyZoneCard extends StatelessWidget {
                     delay: i * 60,
                     child: _MiniAvatar(
                       slotSize: 56,
-                      letter: e.value.isNotEmpty ? e.value[0].toUpperCase() : '?',
+                      letter:
+                          e.value.isNotEmpty ? e.value[0].toUpperCase() : '?',
                       color: color,
-                      isReady: isReady,
                       name: e.value,
-                      label: isReady ? '已准备' : '未准备',
+                      label: isHostZone ? '主持人' : '玩家',
+                      showCrown: isHostAvatar,
                     ),
                   );
                 }
@@ -1196,83 +1502,124 @@ class _MiniAvatar extends StatelessWidget {
     required this.slotSize,
     required this.letter,
     required this.color,
-    this.isReady = false,
     this.isSpectator = false,
     required this.name,
     required this.label,
+    this.showCrown = false,
   });
   final double slotSize;
   final String letter;
   final Color color;
-  final bool isReady, isSpectator;
+  final bool isSpectator;
   final String name, label;
+  final bool showCrown;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final circle = Container(
+      width: slotSize,
+      height: slotSize,
+      decoration: BoxDecoration(
+        gradient: isSpectator
+            ? null
+            : RadialGradient(
+                colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.08)],
+              ),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: showCrown
+              ? Colors.amber.shade700
+              : (isSpectator
+                  ? theme.colorScheme.outlineVariant.withValues(alpha: 0.4)
+                  : color.withValues(alpha: 0.35)),
+          width: showCrown ? 2.5 : (isSpectator ? 1.5 : 2.0),
+        ),
+        boxShadow: showCrown
+            ? [
+                BoxShadow(
+                  color: Colors.amber.withValues(alpha: 0.45),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                )
+              ]
+            : [],
+      ),
+      child: isSpectator
+          ? Icon(Icons.person_outline,
+              size: slotSize * 0.45,
+              color: theme.colorScheme.outline.withValues(alpha: 0.5))
+          : Center(
+              child: Text(letter,
+                  style: TextStyle(
+                    fontSize: slotSize * 0.4,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  )),
+            ),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: slotSize,
-          height: slotSize,
-          decoration: BoxDecoration(
-            gradient: isSpectator
-                ? null
-                : RadialGradient(
-                    colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.08)],
-                  ),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isReady
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.9)
-                  : (isSpectator
-                      ? theme.colorScheme.outlineVariant.withValues(alpha: 0.4)
-                      : color.withValues(alpha: 0.35)),
-              width: isReady ? 3.5 : (isSpectator ? 1.5 : 2.0),
-            ),
-            boxShadow: isReady
-                ? [
-                    BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    )
-                  ]
-                : [],
-          ),
-          child: isSpectator
-              ? Icon(Icons.person_outline,
-                  size: slotSize * 0.45,
-                  color: theme.colorScheme.outline.withValues(alpha: 0.5))
-              : Center(
-                  child: Text(letter,
-                      style: TextStyle(
-                        fontSize: slotSize * 0.4,
-                        fontWeight: FontWeight.bold,
-                        color: isReady ? Theme.of(context).colorScheme.primary : color,
-                      )),
-                ),
+        Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.topRight,
+          children: [
+            circle,
+            if (showCrown) const _HostCrownBadge(),
+          ],
         ),
         SizedBox(height: 4),
         Text(name,
             style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: isReady
-                    ? Theme.of(context).colorScheme.primary
+                color: showCrown
+                    ? Colors.amber.shade800
                     : (isSpectator
                         ? theme.colorScheme.onSurface.withValues(alpha: 0.45)
                         : theme.colorScheme.onSurface.withValues(alpha: 0.6)))),
         Text(label,
             style: TextStyle(
                 fontSize: 9,
-                color: isReady
-                    ? Theme.of(context).colorScheme.primary
-                    : (isSpectator
-                        ? theme.colorScheme.outline.withValues(alpha: 0.6)
-                        : theme.colorScheme.outline))),
+                color: showCrown
+                    ? Colors.amber.shade700
+                    : theme.colorScheme.outline)),
       ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 房主皇冠角标（贴在 _MiniAvatar 右上方）
+// ══════════════════════════════════════════════════════════════
+
+class _HostCrownBadge extends StatelessWidget {
+  const _HostCrownBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: -6,
+      right: -6,
+      child: Container(
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          color: Colors.amber.shade400,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.amber.withValues(alpha: 0.6),
+              blurRadius: 6,
+              spreadRadius: 1,
+            ),
+          ],
+          border: Border.all(color: Colors.amber.shade50, width: 1.5),
+        ),
+        padding: const EdgeInsets.all(2),
+        child: const Icon(Icons.workspace_premium, size: 14, color: Colors.white),
+      ),
     );
   }
 }

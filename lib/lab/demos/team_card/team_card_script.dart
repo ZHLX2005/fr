@@ -5,44 +5,48 @@
 
 /// 团建卡牌 Lua 脚本（kTeamCardScript）
 ///
-/// 类似"谁是卧底""狼人杀"的身份分配。
-/// master 上传角色池 → 建房 → 玩家加入 → 选择入座玩家区 / 旁观区 →
-/// 玩家区全员 ACK → master 点 DEAL → 服务端洗牌 + 写 `c.assignments` → snapshot 广播。
-///
-/// ## 状态机
+/// ## 状态机（精简：去 ACK/单一 START/三区架构）
 ///
 /// ```
-///   CreateRoom  → state="lobby"     大厅等待，两区入座
-///   ACK         → state="ready"     玩家区玩家点"准备好了"
-///   DEAL        → state="playing"   服务端洗牌 + 发牌
-///   RESET       → state="lobby"     重新发牌（清空 ready）
-///   SIT         → state不变         玩家点击目标区空位入座（换区）
-///   UNACK       → state="lobby"     玩家撤回准备
-///   SET_ROLE_POOL → state="lobby"   房主上传角色池
+///   CreateRoom           → state="lobby"     大厅等待，三区入座
+///   on_join 玩家区满     → 自动调 do_start() → state="playing"
+///   on_action_START      → 房主一键发牌（玩家区必须满）
+///   on_action_RESET      → state="lobby"     房主清空身份 + 回大厅
+///   on_action_SET_ROLE_POOL → state="lobby"  房主上传角色池（lobby 阶段）
+///   on_action_SIT        → 换区（lobby 阶段）房主可坐到玩家区参与游戏
+///   on_action_HOST_MSG   → state="playing"  主持人给指定玩家发私信
 /// ```
+///
+/// 玩家区满后服务端自动跑发牌（不需要 ACK）。主持人也可以凑齐前手动按 START。
+///
+/// ## 三区（host / player / spectator）
+///
+///   - `host_zone`         : 容量 1 — 房主监控席（默认入座）
+///   - `player_zone`       : 容量 player_slots — 玩家（必须满员才能开局）
+///   - `spectator_zone`    : 容量 0=无限 或 N — 旁观者（只看不发牌）
+///
+/// 房主默认进 host_zone；其他人默认进 player_zone（有空位）或 spectator_zone。
+/// 房主可在 lobby 阶段用 SIT 把自己换到 player_zone 参与游戏；其他人可换到 spectator。
+///
+/// ## 主持人特权
+///
+///   - 发牌后，host_zone 的人可见 `c.assignments` 全部（其他区只看自己的）
+///   - 可用 on_action_HOST_MSG 给指定玩家发私信（state=playing 时）
+///   - 私信列表 `c.host_messages[]` 每条 `{from, to, text, at}`
 ///
 /// ## context 字段
 ///
-///   - `host_id`       : string, 房主 device_id
-///   - `roles`         : array of `{label, count}`, 上传的初始身份池
+///   - `host_id`       : string, 房主 device_id（服务端权威）
+///   - `roles`         : array of `{label, count}`, 上传的身份池
 ///   - `players`       : map device_id → alias
 ///   - `player_slots`  : int, 玩家区容量
-///   - `spectator_slots`: int, 旁观区容量
-///   - `zones`         : map device_id → "player"|"spectator"
-///   - `ready`         : map device_id → true (玩家已点准备)
+///   - `spectator_slots`: int, 旁观区容量（0 = 无限）
+///   - `zones`         : map device_id → "host"|"player"|"spectator"
 ///   - `assignments`   : map device_id → role（deal 后写入）
-///   - `max_players`   : player_slots + spectator_slots
-///
-/// ## API 调用
-///
-///   - `on_action_ACK`           params=`{}`  点准备 → 房主才能 DEAL
-///   - `on_action_UNACK`         params=`{}`  取消准备
-///   - `on_action_SIT`           params=`{zone: "player"|"spectator"}`  入座目标区
-///   - `on_action_DEAL`          params=`{}`  服务端洗牌并发牌 → state="playing"
-///   - `on_action_RESET`         params=`{}`  重新发牌 → state="lobby"
-///   - `on_action_SET_ROLE_POOL` params=`{roles: [...]}`  更新角色池（仅 host）
+///   - `host_messages` : array of `{from, to, text, at}`（主持人私信）
+///   - `max_players`   : 1 + player_slots + max(1, spectator_slots)
 const String kTeamCardScript = r'''
--- 工具函数：列出本局可发牌的玩家 device_id 列表（仅 player zone）
+-- 工具：列出本局可发牌的玩家 device_id 列表（仅 player zone）
 function eligible_players(c)
   local ids = {}
   for did, _ in pairs(c.players) do
@@ -53,21 +57,69 @@ function eligible_players(c)
   return ids
 end
 
--- 工具函数：检查玩家是否需要 ack（仅 player zone 且存在）
-function is_required(c, did)
-  if c.players[did] == nil then return false end
-  if c.zones[did] ~= "player" then return false end
-  return true
+-- 工具：各区人数
+function zone_counts(c)
+  local h, p, s = 0, 0, 0
+  for _, z in pairs(c.zones) do
+    if z == "host" then h = h + 1
+    elseif z == "player" then p = p + 1
+    elseif z == "spectator" then s = s + 1 end
+  end
+  return h, p, s
 end
 
--- 工具函数：所有 player zone 的人是否都已 ack
-function all_ready(c)
-  for did, _ in pairs(c.players) do
-    if is_required(c, did) and c.ready[did] ~= true then
-      return false
+-- 工具：玩家区容量
+function player_zone_count(c)
+  local _, p = zone_counts(c)
+  return p
+end
+
+-- 工具：核心发牌逻辑（洗牌 + 写 assignments + 切 playing）
+function do_start(c)
+  local pool = {}
+  for _, r in ipairs(c.roles) do
+    for i = 1, (r.count or 0) do
+      table.insert(pool, r.label)
     end
   end
-  return true
+  local playerIds = eligible_players(c)
+  while #pool < #playerIds do
+    if #c.roles == 0 then
+      table.insert(pool, "?")
+    else
+      table.insert(pool, c.roles[#c.roles].label)
+    end
+  end
+  if #pool >= 2 then
+    for i = #pool, 2, -1 do
+      local j = math.random(i)
+      pool[i], pool[j] = pool[j], pool[i]
+    end
+  end
+  c.assignments = {}
+  for i, did in ipairs(playerIds) do
+    c.assignments[did] = pool[i] or "?"
+  end
+  state = "playing"
+  return c
+end
+
+-- 工具：换区容量检查（host 区固定 1，spectator 区按 spectator_slots 或无限）
+function zone_has_room(c, target, exclude_did)
+  local _, p, s = zone_counts(c)
+  if target == "host" then
+    local h = 0
+    for did, z in pairs(c.zones) do
+      if z == "host" and did ~= exclude_did then h = h + 1 end
+    end
+    return h < 1
+  elseif target == "player" then
+    return p < c.player_slots
+  elseif target == "spectator" then
+    -- spectator_slots == 0 视为无限
+    return c.spectator_slots == 0 or s < c.spectator_slots
+  end
+  return false
 end
 
 on_init = function(c, p)
@@ -76,169 +128,124 @@ on_init = function(c, p)
   c.players[p.device_id] = p.alias
   c.roles = p.roles or {}
   if #c.roles == 0 then
-    c.roles = { { label = "平民", count = 4 } }
+    c.roles = { { label = "卧底", count = 1 }, { label = "平民", count = 5 } }
   end
-  c.player_slots = p.player_slots or 2
-  c.spectator_slots = p.spectator_slots or 0
-  c.max_players = c.player_slots + c.spectator_slots
+  c.player_slots = p.player_slots or 6
+  c.spectator_slots = p.spectator_slots or 0   -- 0 = 无限旁观
+  c.max_players = 1 + c.player_slots + math.max(c.spectator_slots, 1)
   c.zones = {}
-  -- 房主：有旁观区就默认进旁观区，否则进玩家区
-  if c.spectator_slots > 0 then
-    c.zones[p.device_id] = "spectator"
-  else
-    c.zones[p.device_id] = "player"
-  end
+  -- 房主默认入 host_zone（监控席；可 SIT 到 player_zone 参与游戏）
+  c.zones[p.device_id] = "host"
   c.assignments = {}
-  c.ready = {}
+  c.host_messages = {}
   state = "lobby"
   return c
 end
 
 on_join = function(c, p)
   c.players[p.device_id] = p.alias
-  c.ready[p.device_id] = nil
-  -- 统计两区人数
-  local pcount = 0
-  local scount = 0
-  for did, z in pairs(c.zones) do
-    if did ~= p.device_id then
-      if z == "player" then pcount = pcount + 1 else scount = scount + 1 end
-    end
-  end
-  -- 默认进有空间的区：优先玩家区，其次旁观区
+
+  -- 默认入座规则：玩家区有空位 → player；否则 → spectator
+  -- host 区不主动分配（只房主自己；房主想参加游戏用 SIT）
+  local _, pcount = zone_counts(c)
   if pcount < c.player_slots then
     c.zones[p.device_id] = "player"
-  elseif scount < c.spectator_slots then
+  else
     c.zones[p.device_id] = "spectator"
   end
-  -- 任意玩家 ready 被清 → 回退 lobby
-  if state == "ready" and not all_ready(c) then state = "lobby" end
+
+  -- ★ 满即开：玩家区新到第 N 人 → 服务端自动 do_start
+  if c.zones[p.device_id] == "player"
+     and state == "lobby"
+     and player_zone_count(c) == c.player_slots then
+    do_start(c)
+  end
   return c
 end
 
 on_leave = function(c, p)
   c.players[p.device_id] = nil
   c.zones[p.device_id] = nil
-  c.ready[p.device_id] = nil
-  if c.assignments ~= nil then c.assignments[p.device_id] = nil end
-  return c
-end
-
--- 玩家点"准备好了"
-on_action_ACK = function(c, p)
-  if state == "playing" then return c end
-  if c.players[p.device_id] == nil then return c end
-  c.ready[p.device_id] = true
-  -- 人数门槛：玩家区必须满员
-  local pcount = 0
-  for _, z in pairs(c.zones) do
-    if z == "player" then pcount = pcount + 1 end
-  end
-  if pcount < c.player_slots then return c end
-  if all_ready(c) and state == "lobby" then
-    state = "ready"
+  if c.assignments ~= nil then
+    c.assignments[p.device_id] = nil
   end
   return c
 end
 
--- 玩家取消准备（lobby/ready 阶段有效）
-on_action_UNACK = function(c, p)
-  if state == "playing" then return c end
-  if c.players[p.device_id] == nil then return c end
-  c.ready[p.device_id] = nil
-  if state == "ready" then state = "lobby" end
+-- 房主一键发牌（玩家区满 + state=lobby）
+on_action_START = function(c, p)
+  if c.host_id ~= p.device_id then return c end
+  if state ~= "lobby" then return c end
+  if player_zone_count(c) ~= c.player_slots then return c end
+  do_start(c)
   return c
 end
 
--- 玩家点击目标区空位入座
+-- 房主重置（清空 assignments + 回 lobby）
+on_action_RESET = function(c, p)
+  if c.host_id ~= p.device_id then return c end
+  c.assignments = {}
+  c.host_messages = {}
+  state = "lobby"
+  return c
+end
+
+-- 房主上传/更新身份池（仅 lobby 阶段有效）
+on_action_SET_ROLE_POOL = function(c, p)
+  if c.host_id ~= p.device_id then return c end
+  if state ~= "lobby" then return c end
+  if p.roles == nil or type(p.roles) ~= "table" then return c end
+  c.roles = p.roles
+  return c
+end
+
+-- 换区（lobby 阶段）：房主可从 host_zone 坐到 player_zone 参与游戏；
+-- 其他人可换到 spectator 旁观。
 on_action_SIT = function(c, p)
   if state == "playing" then return c end
   if c.players[p.device_id] == nil then return c end
   local target = p.zone
-  if target ~= "player" and target ~= "spectator" then return c end
-  -- 检查目标区是否有空位（排除自己当前占用的区槽）
-  local occupied = 0
-  for did, z in pairs(c.zones) do
-    if did ~= p.device_id and z == target then occupied = occupied + 1 end
+  if target ~= "host" and target ~= "player" and target ~= "spectator" then
+    return c
   end
-  local limit = target == "player" and c.player_slots or c.spectator_slots
-  if occupied >= limit then return c end
+  -- 房主可坐任何区；非房主不能坐 host_zone
+  if target == "host" and p.device_id ~= c.host_id then return c end
+  -- 目标区容量检查（排除自己当前占的区槽）
+  if not zone_has_room(c, target, p.device_id) then return c end
   c.zones[p.device_id] = target
-  -- 换区时清 ready
-  c.ready[p.device_id] = nil
-  if state == "ready" and not all_ready(c) then state = "lobby" end
   return c
 end
 
--- 房主发牌（必须 all_ready 且玩家区满员）
-on_action_DEAL = function(c, p)
-  if c.host_id ~= p.device_id then return c end
-  if not all_ready(c) then return c end
-
-  local total = 0
-  for _, r in ipairs(c.roles) do
-    total = total + (r.count or 0)
-  end
-
-  local pool = {}
-  for _, r in ipairs(c.roles) do
-    for i = 1, (r.count or 0) do table.insert(pool, r.label) end
-  end
-
-  local playerIds = eligible_players(c)
-  while #pool < #playerIds do
-    table.insert(pool, c.roles[#c.roles].label)
-  end
-
-  if #pool >= 2 then
-    for i = #pool, 2, -1 do
-      local j = math.random(i)
-      pool[i], pool[j] = pool[j], pool[i]
-    end
-  end
-
-  c.assignments = {}
-  for i, did in ipairs(playerIds) do
-    c.assignments[did] = pool[i] or "?"
-  end
-
-  state = "playing"
-  return c
-end
-
-on_action_RESET = function(c, p)
-  if c.host_id ~= p.device_id then return c end
-  c.assignments = {}
-  c.ready = {}
-  state = "lobby"
-  return c
-end
-
-on_action_SET_ROLE_POOL = function(c, p)
-  if c.host_id ~= p.device_id then return c end
-  if state ~= "lobby" and state ~= "ready" then return c end
-  if p.roles == nil or type(p.roles) ~= "table" then return c end
-  c.roles = p.roles
-  -- 不改 player_slots/spectator_slots
-  c.ready = {}
-  state = "lobby"
+-- 主持人私信（仅 state=playing；只能 host_id 发送）
+on_action_HOST_MSG = function(c, p)
+  if state ~= "playing" then return c end
+  if p.device_id ~= c.host_id then return c end
+  if p.to == nil or type(p.to) ~= "string" then return c end
+  if c.zones[p.to] ~= "player" then return c end  -- 只能发给玩家
+  if p.text == nil or type(p.text) ~= "string" or p.text == "" then return c end
+  if c.host_messages == nil then c.host_messages = {} end
+  table.insert(c.host_messages, {
+    from = p.device_id,
+    to = p.to,
+    text = p.text,
+    at = os.time(),
+  })
   return c
 end
 
 return {
   definition = { functions = {
     "on_init", "on_join", "on_leave",
-    "on_action_ACK", "on_action_UNACK", "on_action_SIT",
-    "on_action_DEAL", "on_action_RESET", "on_action_SET_ROLE_POOL",
+    "on_action_START", "on_action_RESET", "on_action_SET_ROLE_POOL",
+    "on_action_SIT", "on_action_HOST_MSG",
   }},
   on_init = on_init,
   on_join = on_join,
   on_leave = on_leave,
-  on_action_ACK = on_action_ACK,
-  on_action_UNACK = on_action_UNACK,
-  on_action_SIT = on_action_SIT,
-  on_action_DEAL = on_action_DEAL,
+  on_action_START = on_action_START,
   on_action_RESET = on_action_RESET,
   on_action_SET_ROLE_POOL = on_action_SET_ROLE_POOL,
+  on_action_SIT = on_action_SIT,
+  on_action_HOST_MSG = on_action_HOST_MSG,
 }
 ''';
