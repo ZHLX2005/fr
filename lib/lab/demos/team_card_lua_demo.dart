@@ -105,7 +105,6 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
               onLeave: _disconnect,
             )
           : LobbyEntryPage(
-              initialPlayerSlots: _playerSlots,
               onJoined: _onJoined,
               onHostNeedsConfig: _onHostNeedsConfig,
             ),
@@ -120,11 +119,9 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
 class LobbyEntryPage extends StatefulWidget {
   const LobbyEntryPage({
     super.key,
-    required this.initialPlayerSlots,
     required this.onJoined,
     required this.onHostNeedsConfig,
   });
-  final int initialPlayerSlots;
   final void Function(RoomHandle handle, int playerSlots) onJoined;
   final VoidCallback onHostNeedsConfig;
 
@@ -137,16 +134,10 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
   final _codeCtrl = TextEditingController();
   bool _busy = false;
   String? _error;
-  int _playerSlots = 6;
 
-  @override
-  void initState() {
-    super.initState();
-    _playerSlots = widget.initialPlayerSlots;
-    AliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
-    });
-  }
+  /// 第一层入口：玩家人数默认 8（大房间）
+  /// 房主进房后若想改可在 HostPoolConfigView 里调整
+  static const int _kDefaultPlayerSlots = 8;
 
   @override
   void dispose() {
@@ -192,7 +183,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       final h = await TeamCardRoom.tryJoinOrCreate(
         t,
         code: code,
-        playerSlots: _playerSlots,
+        playerSlots: _kDefaultPlayerSlots,
         spectatorSlots: 0, // 0 = 无限旁观
         alias: alias,
       );
@@ -200,7 +191,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
       // 服务端权威：检查 host_id 是否是我；是则进入 host_setup（配置角色池）
       // 否则直接进入 PlayingView
       final isHost = myIsHost(h.latest, t.deviceId);
-      widget.onJoined(h, _playerSlots);
+      widget.onJoined(h, _kDefaultPlayerSlots);
       if (isHost) {
         widget.onHostNeedsConfig();
       }
@@ -280,31 +271,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
           ],
           style: TextStyle(letterSpacing: 4, fontWeight: FontWeight.w600),
         ),
-        SizedBox(height: 12),
-        Row(children: [
-          Icon(Icons.people,
-              size: 18, color: theme.colorScheme.outline),
-          SizedBox(width: 8),
-          Text('玩家人数',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w500)),
-          Spacer(),
-          IconButton(
-            onPressed: _busy || _playerSlots <= 2
-                ? null
-                : () => setState(() => _playerSlots--),
-            icon: Icon(Icons.remove_circle_outline),
-          ),
-          Text('$_playerSlots',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          IconButton(
-            onPressed: _busy || _playerSlots >= 12
-                ? null
-                : () => setState(() => _playerSlots++),
-            icon: Icon(Icons.add_circle_outline),
-          ),
-        ]),
+        SizedBox(height: 18),
         if (_error != null)
           Padding(
             padding: EdgeInsets.only(top: 4),
