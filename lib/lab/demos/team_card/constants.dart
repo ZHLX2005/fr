@@ -9,18 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ── 持久化 key ──
 
 const String kTeamCardRelayUrl = 'http://47.110.80.47:8988';
-const String kTeamCardAliasKey = 'team_card_lua.alias';
 const String kTeamCardSetupKey = 'team_card_lua.setup_v2';       // 上次配置（int 数量 + 当前池）
 const String kTeamCardPresetsKey = 'team_card_lua.presets_v2';    // 命名预设库（Map<int, List<NamedPreset>>）
 
-// ── 别名持久化 ──
-
-class AliasPrefs {
-  static Future<String> load() =>
-      SharedPreferences.getInstance().then((p) => p.getString(kTeamCardAliasKey) ?? '');
-  static Future<void> save(String alias) =>
-      SharedPreferences.getInstance().then((p) => p.setString(kTeamCardAliasKey, alias));
-}
+// 注：alias 已改用全局共享 LuaGameAlias（lib/services/lua/lua_game_alias.dart），
+// 本 demo 的私有 AliasPrefs 已删除。
 
 // ── 角色定义 ──
 

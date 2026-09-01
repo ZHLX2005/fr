@@ -6,8 +6,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/game_audio/dealing_cards_sound.dart';
 
-import '../../../core/net_engine/relay_v3/relay_device_id.dart';
-
 import 'constants.dart';
 import 'engine.dart';
 import '../../../widgets/context_team_avatar_colors.dart';
@@ -20,13 +18,15 @@ class SetupPage extends StatefulWidget {
   const SetupPage({
     super.key,
     required this.initialRoles,
+    required this.handle,
     required this.onStarted,
-    this.initialAlias = '',
   });
   final List<RoleDef> initialRoles;
-  final void Function(RoomHandle, int capacity) onStarted;
-  /// 从 LobbyEntryPage 传进来的 alias（不再让用户重复输入）
-  final String initialAlias;
+  /// 已创建房间的 handle（LobbyEntryPage 创建的那一个）——
+  /// 配置通过 SET_* action 直接作用于本房间，**绝不二次创建**
+  final RoomHandle handle;
+  /// 配置完成并 OPEN 后回调（传回同一 handle + 玩家区容量）
+  final void Function(RoomHandle handle, int playerSlots) onStarted;
 
   @override State<SetupPage> createState() => _SetupPageState();
 }
@@ -199,35 +199,30 @@ class _SetupPageState extends State<SetupPage> {
     );
   }
 
+  /// 「开放房间」：对现有 handle 发 SET_PLAYER_SLOTS + SET_ROLE_POOL + OPEN。
+  /// 房间在 LobbyEntryPage 已创建（state=setup），这里只配置 + 开放，
+  /// **绝不二次创建**（历史 bug：二次 tryJoinOrCreate 导致双房间 + 配置失效）。
   Future<void> _create() async {
     for (final r in rolePool) {
       r.sync();
     }
-    // alias 从 LobbyEntryPage 传进来（initialAlias），不再让用户在此处重复输入
-    final alias = widget.initialAlias.isEmpty ? '房主' : widget.initialAlias;
     _persistSetup();
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final t = RelayV3Transport(
-        relayUrl: kTeamCardRelayUrl,
-        alias: alias,
-        deviceId: await RelayDeviceId.get(),
-      );
-      final roles = rolePool.map((r) => {'label': r.label, 'count': r.count}).toList();
-      final code = _generateCode();
-      final h = await TeamCardRoom.tryJoinOrCreate(
-        t,
-        code: code,
+      final engine = TeamCardRoom(widget.handle);
+      await engine.setPlayerSlots(
         playerSlots: _playerSlots,
         spectatorSlots: _spectatorSlots,
-        roles: roles,
-        alias: alias,
       );
+      await engine.setRolePool(
+        roles: rolePool.map((r) => {'label': r.label, 'count': r.count}).toList(),
+      );
+      await engine.open();
       if (!mounted) return;
-      widget.onStarted(h, _playerSlots + _spectatorSlots);
+      widget.onStarted(widget.handle, _playerSlots);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -235,13 +230,6 @@ class _SetupPageState extends State<SetupPage> {
         _error = '$e';
       });
     }
-  }
-
-  /// 临时生成 6 位数字房间码（commit 3 后由 LobbyEntryPage 的输入框替代）
-  String _generateCode() {
-    final r = DateTime.now().millisecondsSinceEpoch;
-    final code = ((r % 900000) + 100000).toString();
-    return code;
   }
 
   @override
@@ -414,18 +402,6 @@ class _SetupPageState extends State<SetupPage> {
           ),
         ),
         SizedBox(height: 4),
-        if (widget.initialAlias.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(children: [
-              Icon(Icons.person_outline,
-                  size: 16, color: theme.colorScheme.outline),
-              SizedBox(width: 6),
-              Text('你的名字：${widget.initialAlias}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline)),
-            ]),
-          ),
         if (_error != null)
           Padding(
             padding: EdgeInsets.only(top: 12),
@@ -439,7 +415,7 @@ class _SetupPageState extends State<SetupPage> {
               ? SizedBox(
                   width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : Icon(Icons.meeting_room),
-          label: Text(_busy ? '创建中…' : '创建房间'),
+          label: Text(_busy ? '开放中…' : '开放房间'),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -450,131 +426,12 @@ class _SetupPageState extends State<SetupPage> {
             foregroundColor: _busy ? theme.colorScheme.outline : theme.colorScheme.primary,
           ),
         ),
-      ],
-    );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// Join Page（玩家加入）
-// ══════════════════════════════════════════════════════════════
-
-class JoinPage extends StatefulWidget {
-  const JoinPage({super.key, required this.onStarted});
-  final void Function(RoomHandle, int capacity) onStarted;
-
-  @override State<JoinPage> createState() => _JoinPageState();
-}
-
-class _JoinPageState extends State<JoinPage> {
-  final _aliasCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    AliasPrefs.load().then((v) {
-      if (mounted && v.isNotEmpty) setState(() => _aliasCtrl.text = v);
-    });
-  }
-
-  @override
-  void dispose() {
-    _aliasCtrl.dispose();
-    _codeCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _join() async {
-    final alias = _aliasCtrl.text.trim().isEmpty ? '玩家' : _aliasCtrl.text.trim();
-    final code = _codeCtrl.text.trim();
-    if (code.length != 6) {
-      setState(() => _error = '房间码 6 位');
-      return;
-    }
-    await AliasPrefs.save(alias);
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final t = RelayV3Transport(
-        relayUrl: kTeamCardRelayUrl,
-        alias: alias,
-        deviceId: await RelayDeviceId.get(),
-      );
-      // Commit 2 过渡：直接走 tryJoinOrCreate（已存在房间号走 join；不存在则创建失败）
-      final h = await TeamCardRoom.tryJoinOrCreate(
-        t,
-        code: code,
-        playerSlots: 6,
-        spectatorSlots: 0,
-        alias: alias,
-      );
-      if (!mounted) return;
-      widget.onStarted(h, 0);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = '$e';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListView(
-      padding: EdgeInsets.fromLTRB(32, 32, 32, 32),
-      children: [
-        Icon(Icons.vpn_key_outlined,
-            size: 64, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-        SizedBox(height: 16),
-        Text('加入房间',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
-        SizedBox(height: 32),
-        TextField(
-          controller: _aliasCtrl,
-          decoration: InputDecoration(
-            labelText: '你的名字',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: Icon(Icons.person_outline),
-          ),
-        ),
-        SizedBox(height: 16),
-        TextField(
-          controller: _codeCtrl,
-          decoration: InputDecoration(
-            labelText: '房间码',
-            hintText: '6 位数字',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: Icon(Icons.tag),
-          ),
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-        ),
-        if (_error != null)
-          Text(_error!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
-        SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _join,
-          icon: _busy
-              ? SizedBox(
-                  width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : Icon(Icons.login),
-          label: Text(_busy ? '加入中…' : '加入'),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            side: BorderSide(
-              color: _busy ? theme.colorScheme.outlineVariant : theme.colorScheme.primary,
-              width: 1.5,
-            ),
-            foregroundColor: _busy ? theme.colorScheme.outline : theme.colorScheme.primary,
+        SizedBox(height: 8),
+        Center(
+          child: Text(
+            '开放后等待中的玩家将自动入座',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.outline),
           ),
         ),
       ],
@@ -590,11 +447,9 @@ class PlayingView extends StatefulWidget {
   const PlayingView({
     super.key,
     required this.handle,
-    required this.hostCapacity,
     required this.onLeave,
   });
   final RoomHandle handle;
-  final int hostCapacity;
   final Future<void> Function() onLeave;
 
   @override State<PlayingView> createState() => _PlayingViewState();
@@ -638,6 +493,16 @@ class _PlayingViewState extends State<PlayingView> {
   Widget build(BuildContext context) {
     final s = _snap;
     final state = s?.state ?? 'lobby';
+    // setup 阶段：非房主 = waiting 排队（UI 挂机等 OPEN 广播自动进大厅）；
+    // 房主理论上在 HostPoolConfigView，这里兜底显示等待页防呆。
+    if (state == 'setup') {
+      return _WaitingRoomView(
+        code: s?.roomCode ?? '------',
+        waitingCount:
+            extractStringMap(_snap, 'zones').values.where((z) => z == 'waiting').length,
+        onLeave: widget.onLeave,
+      );
+    }
     if (state == 'playing') {
       final role = myRole(_snap, widget.handle.transport.deviceId);
       final zone = myZone(_snap, widget.handle.transport.deviceId);
@@ -685,6 +550,82 @@ class _PlayingViewState extends State<PlayingView> {
       spectatorSlots: extractInt(_snap, 'spectator_slots'),
       hostId: _hostId,
       myZone: myZone(_snap, widget.handle.transport.deviceId),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 等待页（setup 阶段非房主：waiting 排队，OPEN 广播到达自动进大厅）
+// ══════════════════════════════════════════════════════════════
+
+class _WaitingRoomView extends StatelessWidget {
+  const _WaitingRoomView({
+    required this.code,
+    required this.waitingCount,
+    required this.onLeave,
+  });
+  final String code;
+  final int waitingCount;
+  final Future<void> Function() onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                  icon: Icon(Icons.exit_to_app), onPressed: onLeave),
+            ),
+            Spacer(),
+            SizedBox(
+              width: 56,
+              height: 56,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            SizedBox(height: 24),
+            Text('房主正在配置房间…',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+            SizedBox(height: 8),
+            Text('房间开放后你将自动入座',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.outline)),
+            SizedBox(height: 24),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.tag, size: 16, color: theme.colorScheme.primary),
+                SizedBox(width: 8),
+                Text(code,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      letterSpacing: 6,
+                      color: theme.colorScheme.primary,
+                    )),
+              ]),
+            ),
+            if (waitingCount > 1) ...[
+              SizedBox(height: 12),
+              Text('当前 $waitingCount 人等待中',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline)),
+            ],
+            Spacer(flex: 2),
+          ],
+        ),
+      ),
     );
   }
 }

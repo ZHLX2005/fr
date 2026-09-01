@@ -20,18 +20,20 @@ export 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
 
 /// 通过 Lua 状态机驱动团建卡牌房间的语义封装。
 ///
+/// 生命周期：create → state="setup"（房主配置）→ open() → "lobby"
+/// → start()（玩家区满）→ "playing" → reset() → "lobby"。
+///
 /// 用法（社交房间号模式）：
 /// ```dart
 /// final t = RelayV3Transport(relayUrl: ..., alias: 'Alice', deviceId: <stable>);
 /// final handle = await TeamCardRoom.tryJoinOrCreate(t, code: '666666');
 /// final engine = TeamCardRoom(handle);
-/// // host 上传角色池
-/// await engine.setRolePool(roles: [{label:'卧底',count:1},{label:'平民',count:3}]);
-/// // 玩家区满 → 服务端自动 do_start → state='playing'
-/// // 主持人给某个玩家发私信
-/// await engine.hostSend(to: 'some-device-id', text: '你的身份是卧底');
-/// // 重开
-/// await engine.reset();
+/// if (myIsHost(handle.latest, t.deviceId)) {
+///   await engine.setPlayerSlots(playerSlots: 3);
+///   await engine.setRolePool(roles: [...]);
+///   await engine.open();   // waiting 玩家自动入座，state=lobby
+/// }
+/// await engine.start();    // 玩家区满时发牌
 /// ```
 class TeamCardRoom {
   TeamCardRoom(this.handle);
@@ -40,23 +42,34 @@ class TeamCardRoom {
   /// 当前 device id（在 transport 里）
   String get myDeviceId => handle.transport.deviceId;
 
-  /// 房主一键发牌（玩家区满 + state=lobby 时才有效）
-  Future<void> start() => handle.applyAction(type: 'START', params: const {});
+  /// 房主开放房间（setup → lobby；waiting 集中入座）
+  Future<void> open() => handle.applyAction(type: 'OPEN', params: const {});
 
-  /// 房主重置（清空 assignments + 回 lobby）
-  Future<void> reset() => handle.applyAction(type: 'RESET', params: const {});
+  /// 房主设置玩家区/旁观区容量（setup + lobby；lobby 带人数保护）
+  Future<void> setPlayerSlots({
+    required int playerSlots,
+    int spectatorSlots = 0,
+  }) =>
+      handle.applyAction(type: 'SET_PLAYER_SLOTS', params: {
+        'player_slots': playerSlots,
+        'spectator_slots': spectatorSlots,
+      });
 
-  /// 房主上传/更新身份池（仅 lobby 阶段有效）
+  /// 房主上传/更新身份池（setup + lobby）
   Future<void> setRolePool({required List<Map<String, dynamic>> roles}) =>
       handle.applyAction(type: 'SET_ROLE_POOL', params: {'roles': roles});
 
+  /// 房主一键发牌（lobby + 玩家区满）
+  Future<void> start() => handle.applyAction(type: 'START', params: const {});
+
+  /// 房主重置（playing → lobby，连续开局）
+  Future<void> reset() => handle.applyAction(type: 'RESET', params: const {});
+
   /// 换区（lobby 阶段）。`zone` ∈ {'host','player','spectator'}。
-  /// 房主可在 host/player 间切换（想亲自参与游戏就坐到 player）；
-  /// 非房主不可换到 host。
   Future<void> sit({required String zone}) =>
       handle.applyAction(type: 'SIT', params: {'zone': zone});
 
-  /// 主持人给指定玩家发私信（仅 state=playing）
+  /// 主持人给指定玩家发私信（playing）
   Future<void> hostSend({required String to, required String text}) =>
       handle.applyAction(
         type: 'HOST_MSG',
@@ -66,32 +79,21 @@ class TeamCardRoom {
   // ── 工厂方法 ──
 
   /// 社交房间号模式：第一个输入未存在房间号的人自动成为房主（host），
-  /// 后续输入同号的人作为玩家/旁观加入。
+  /// 房间创建后 state="setup"（其他加入者 waiting 排队），房主 open() 后才入座。
   ///
-  /// 调用 transport.tryJoinOrCreate：404 → 创建（host）；200 → 加入（player/spectator）。
-  ///
-  /// - `playerSlots` 玩家区容量（默认 6）
-  /// - `spectatorSlots` 旁观区容量（默认 0 = 无限）
-  /// - 初始 `roles` 留空（默认），房主进房后用 `setRolePool` 上传
+  /// 房间总人数上限（默认 8，三区总和）由 Lua on_join 强制——
+  /// 后端 transport 不查 max_players，但创建时仍如实上报。
   static Future<RoomHandle> tryJoinOrCreate(
     RelayV3Transport transport, {
     required String code,
-    int playerSlots = 6,
-    int spectatorSlots = 0,
-    List<Map<String, dynamic>>? roles,
+    int maxPlayers = 8,
     String? alias,
   }) async {
     final params = <String, dynamic>{
       'device_id': transport.deviceId,
       'alias': alias ?? transport.alias,
-      'player_slots': playerSlots,
-      'spectator_slots': spectatorSlots,
-      'roles': roles ?? <Map<String, dynamic>>[],
+      'max_players': maxPlayers,
     };
-    // 旁观区无限时给 transport 层留大余量；有限时按实际值算（再加 1 个 host 槽）
-    final hostCount = 1;
-    final spectatorReserve = spectatorSlots == 0 ? 100 : spectatorSlots;
-    final maxPlayers = hostCount + playerSlots + spectatorReserve;
     return transport.tryJoinOrCreate(
       code: code,
       script: kTeamCardScript,

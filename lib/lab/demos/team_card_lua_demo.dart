@@ -3,9 +3,11 @@
 // 团建卡牌（v3 Lua 状态机版）— 入口文件
 // 组件在 team_card/ 子目录中分文件管理。
 //
-// 入口模式：社交房间号（tryJoinOrCreate）—— 第一个输入未存在房间号的人自动成为房主
-// 参考 chess_lobby_page.dart 的 `chess_lobby_page.dart:277-416` 入口模板。
-// 房主进房后先走 HostPoolConfigView 上传角色池，再进入 PlayingView。
+// 房间生命周期（设计文档 .claude/repo/_self/room-lifecycle-state-machine/）：
+//   LobbyEntryPage 创建/加入房间（唯一一次 CreateRoom）
+//   → state="setup"：房主走 HostPoolConfigView（SET_* + OPEN 配置现有房间）
+//   → state="lobby"：所有人进 PlayingView（waiting 玩家由 OPEN 广播自动入座）
+//   → state="playing"：START 发牌；RESET 回 lobby 连续开局
 
 import 'dart:async';
 
@@ -28,18 +30,12 @@ import 'team_card/widgets.dart' show SetupPage, PlayingView;
 
 class TeamCardLuaDemo extends DemoPage {
   TeamCardLuaDemo();
-  @override
-  String get title => '团建卡牌（联机）';
-  @override
-  String get slug => 'team-card-lua';
-  @override
-  String get description => '谁是卧底/狼人杀 · Lua 服务端权威 + 准备门';
-  @override
-  bool get preferFullScreen => true;
-  @override
-  DemoType get type => DemoType.game;
-  @override
-  Widget buildPage(BuildContext context) => const _TeamCardLuaDemoPage();
+  @override String get title => '团建卡牌（联机）';
+  @override String get slug => 'team-card-lua';
+  @override String get description => '谁是卧底/狼人杀 · Lua 服务端权威 + 三区大厅';
+  @override bool get preferFullScreen => true;
+  @override DemoType get type => DemoType.game;
+  @override Widget buildPage(BuildContext context) => const _TeamCardLuaDemoPage();
 }
 
 void registerTeamCardLuaDemo() => demoRegistry.register(TeamCardLuaDemo());
@@ -55,10 +51,9 @@ class _TeamCardLuaDemoPage extends StatefulWidget {
 }
 
 class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
-  /// 'entry' = 入口表单；'host_setup' = 房主配置角色池；'playing' = 进入房间
+  /// 'entry' = 入口表单；'host_setup' = 房主配置（setup 态）；'playing' = 房间内
   String _phase = 'entry';
   RoomHandle? _handle;
-  int _playerSlots = 6;
 
   @override
   void dispose() {
@@ -66,27 +61,16 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
     super.dispose();
   }
 
-  void _onJoined(RoomHandle handle, int playerSlots) => setState(() {
+  void _onJoined(RoomHandle handle) => setState(() {
         _handle = handle;
-        _playerSlots = playerSlots;
         _phase = 'playing';
       });
 
   void _onHostNeedsConfig() => setState(() => _phase = 'host_setup');
 
-  /// SetupPage._create() 内部又调了一次 tryJoinOrCreate（用新随机 code），
-  /// 需要把新 handle + capacity 回传给父组件，替换掉房间A
-  void _onHostConfigDone(RoomHandle newHandle, int capacity) => setState(() {
-        // 关掉房间A（LobbyEntryPage 创建的占位房），避免 host 同时在两个房间
-        final old = _handle;
-        _handle = newHandle;
-        _playerSlots = capacity;
-        _phase = 'playing';
-        if (old != null && old.code != newHandle.code) {
-          // fire-and-forget：离开旧房
-          old.leave();
-        }
-      });
+  /// 配置完成（或跳过）：同一房间，直接切到房间视图。
+  /// 房间只创建一次（LobbyEntryPage），这里不换 handle。
+  void _onHostConfigDone() => setState(() => _phase = 'playing');
 
   Future<void> _disconnect() async {
     final h = _handle;
@@ -99,28 +83,32 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_phase == 'playing' && _handle != null) {
+    final handle = _handle;
+    if (handle == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('团建卡牌（联机）')),
-        body: PlayingView(
-          handle: _handle!,
-          hostCapacity: _playerSlots,
+        body: LobbyEntryPage(
+          onJoined: _onJoined,
+          onHostNeedsConfig: _onHostNeedsConfig,
+        ),
+      );
+    }
+    if (_phase == 'host_setup') {
+      return Scaffold(
+        appBar: AppBar(title: const Text('团建卡牌（联机）')),
+        body: HostPoolConfigView(
+          handle: handle,
+          onDone: _onHostConfigDone,
           onLeave: _disconnect,
         ),
       );
     }
     return Scaffold(
       appBar: AppBar(title: const Text('团建卡牌（联机）')),
-      body: _phase == 'host_setup' && _handle != null
-          ? HostPoolConfigView(
-              handle: _handle!,
-              onDone: _onHostConfigDone,
-              onLeave: _disconnect,
-            )
-          : LobbyEntryPage(
-              onJoined: _onJoined,
-              onHostNeedsConfig: _onHostNeedsConfig,
-            ),
+      body: PlayingView(
+        handle: handle,
+        onLeave: _disconnect,
+      ),
     );
   }
 }
@@ -135,7 +123,7 @@ class LobbyEntryPage extends StatefulWidget {
     required this.onJoined,
     required this.onHostNeedsConfig,
   });
-  final void Function(RoomHandle handle, int playerSlots) onJoined;
+  final void Function(RoomHandle handle) onJoined;
   final VoidCallback onHostNeedsConfig;
 
   @override
@@ -148,14 +136,10 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
   bool _busy = false;
   String? _error;
 
-  /// 第一层入口：玩家人数交给业务侧 SetupPage 配置；
-  /// 默认 8 仅作占位（房主在 HostPoolConfigView 可改）
-  static const int _kDefaultPlayerSlots = 8;
-
   @override
   void initState() {
     super.initState();
-    // 使用全局共享 alias（与 gomoku/围棋/象棋/翻转 等所有 Lua 房间游戏同步）
+    // 全局共享 alias（与 gomoku/围棋/象棋 等所有 Lua 房间游戏同步）
     final v = LuaGameAlias.value;
     if (v.isNotEmpty) _aliasCtrl.text = v;
     LuaGameAlias.notifier.addListener(_onAliasChanged);
@@ -179,7 +163,8 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
 
   String _normalizeCode(String s) => s.trim().toUpperCase();
 
-  /// 生成 4 位易读房间号（排除 0/O/1/I/L）
+  /// 生成 4 位易读房间号（排除 0/O/1/I/L）——仅供"懒得想号"的房主一键填入，
+  /// 输入框内容仍是最终房间号（后端 requested_code 语义）。
   String _randomCode() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     final r = DateTime.now().millisecondsSinceEpoch;
@@ -211,34 +196,25 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
         alias: alias,
         deviceId: await RelayDeviceId.get(),
       );
-      final h = await TeamCardRoom.tryJoinOrCreate(
-        t,
-        code: code,
-        playerSlots: _kDefaultPlayerSlots,
-        spectatorSlots: 0, // 0 = 无限旁观
-        alias: alias,
-      );
+      // 房间只创建这一次；玩家区人数/身份池由房主在 setup 阶段配置
+      final h = await TeamCardRoom.tryJoinOrCreate(t, code: code, alias: alias);
       if (!mounted) return;
-      // 服务端权威：检查 host_id 是否是我；是则进入 host_setup（配置角色池）
-      // 否则直接进入 PlayingView
-      final isHost = myIsHost(h.latest, t.deviceId);
-      widget.onJoined(h, _kDefaultPlayerSlots);
-      if (isHost) {
+      widget.onJoined(h);
+      // 服务端权威：创建者（第一个输入未存在号码的人）→ 进配置页
+      if (myIsHost(h.latest, t.deviceId) && h.latest?.state == 'setup') {
         widget.onHostNeedsConfig();
       }
     } catch (e) {
       if (!mounted) return;
-      // 409/404 错误映射
       String msg = '$e';
-      final codeStr = code;
       if (e is RelayV3Exception) {
         final body = e.body.toLowerCase();
         if (e.statusCode == 409 && body.contains('code collision')) {
-          msg = '房间号 $codeStr 已被占用，请换一个';
+          msg = '房间号 $code 已被占用，请换一个';
         } else if (e.statusCode == 409 && body.contains('join rejected')) {
-          msg = '房间 $codeStr 已满员，无法加入';
+          msg = '房间已满（8 人上限），无法加入';
         } else if (e.statusCode == 404) {
-          msg = '房间号 $codeStr 不存在且创建失败';
+          msg = '房间号 $code 不存在且创建失败';
         } else {
           msg = '进入失败（${e.statusCode}）';
         }
@@ -264,7 +240,7 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
             style: theme.textTheme.headlineSmall
                 ?.copyWith(fontWeight: FontWeight.w700)),
         SizedBox(height: 6),
-        Text('输入同一号码即可对战，谁先到谁是房主',
+        Text('输入同一号码即可开局，谁先到谁是房主',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: theme.colorScheme.outline)),
@@ -335,8 +311,8 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
 }
 
 // ══════════════════════════════════════════════════════════════
-// Host Pool Config View（房主上传身份池后进入 PlayingView）
-// 复用 SetupPage 的角色池编辑逻辑
+// Host Pool Config View（房主配置现有房间：SET_* + OPEN）
+// 包一层 SetupPage（角色池编辑器复用）+ 跳过按钮
 // ══════════════════════════════════════════════════════════════
 
 class HostPoolConfigView extends StatelessWidget {
@@ -347,9 +323,7 @@ class HostPoolConfigView extends StatelessWidget {
     required this.onLeave,
   });
   final RoomHandle handle;
-  /// SetupPage 完成创建后回调：把新 handle + capacity 回传
-  /// （SetupPage 内部会再调 tryJoinOrCreate，用新 code 创建最终房间）
-  final void Function(RoomHandle newHandle, int capacity) onDone;
+  final VoidCallback onDone;
   final Future<void> Function() onLeave;
 
   @override
@@ -360,32 +334,26 @@ class HostPoolConfigView extends StatelessWidget {
           RoleDef(label: '卧底', count: 1),
           RoleDef(label: '平民', count: 5),
         ],
-        initialAlias: handle.transport.alias,
-        onStarted: (h, capacity) {
-          // 把 SetupPage 创建的新 handle 回传给父组件（修复玩家区人数显示 bug）
-          onDone(h, capacity);
-        },
+        handle: handle,
+        onStarted: (h, _) => onDone(),
       ),
       Positioned(
         top: 8,
         right: 8,
         child: IconButton(
           icon: Icon(Icons.skip_next),
-          tooltip: '使用默认池直接开始',
-          onPressed: () {
-            // 跳过 SetupPage：用当前 handle（房间A，player_slots=8）继续
-            onDone(handle, _extractCapacity(handle));
+          tooltip: '用默认配置直接开放房间',
+          onPressed: () async {
+            // 跳过详细配置：用默认池开放（waiting 玩家仍会自动入座）
+            try {
+              await TeamCardRoom(handle).open();
+            } catch (_) {
+              // best-effort：OPEN 失败也能进房间视图看现场
+            }
+            onDone();
           },
         ),
       ),
     ]);
-  }
-
-  /// 从 snapshot 读取房间实际 player_slots（用于跳过按钮）
-  int _extractCapacity(RoomHandle h) {
-    final snap = h.latest;
-    if (snap == null) return 8;
-    final p = snap.context['player_slots'];
-    return (p as num?)?.toInt() ?? 8;
   }
 }
