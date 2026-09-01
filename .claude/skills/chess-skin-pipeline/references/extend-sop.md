@@ -34,17 +34,27 @@
 ### 2.1 上传图片拿 file_id
 
 ```bash
-bash .claude/skills/chess-skin-pipeline/scripts/upload_pieces.sh <图片目录> <skinId>
+python .claude/skills/chess-skin-pipeline/scripts/add_skin.py <图片目录> <skinId>
 # 例：
-bash .claude/skills/chess-skin-pipeline/scripts/upload_pieces.sh D:/skins/neo neo
+python .claude/skills/chess-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
 ```
 
-- 逐张 `POST /api/v1/files`（multipart field=`file`，`accessLevel=public`，`key=chess/<skinId>/<pieceKey>`）。
+- 逐张 `POST /api/v1/files`（multipart field=`file`，`accessLevel=public`，`key=chess/<skinId>/<pieceKey>`，**`tags[]=['chess-skin', 'chess-skin:<id>', 'chess-skin:<id>:<pieceKey>']`** —— 三级 tag 见 architecture §5）。
 - 输出：`{ "<skinId>": { "wK": "<fileId>", … 12 项 } }` 到 stdout；**建议重定向存档**：
   ```bash
-  bash …/upload_pieces.sh D:/skins/neo neo | tee tool/upload_chess_skins/neo_file_ids.json
+  python …/add_skin.py D:/skins/neo neo | tee tool/upload_chess_skins/neo_file_ids.json
   ```
 - 任何一张失败 → 脚本非零退出并列出失败项；**重跑即可**（File 每次上传生成新 file_id，旧文件留着无害；把新输出整份替换旧映射即可）。
+
+### 2.2 一次性 retro-tag（仅历史数据需要）
+
+旧版 add_skin.py 没发 tags；如需为已上传的 84 张图补 tag（让 `GET /api/v1/kv/tags` 能看到 `chess-skin` facet、未来前端按 `chess-skin:<id>` 查询 12 张图），运行：
+
+```bash
+python .claude/skills/chess-skin-pipeline/scripts/retag_existing.py
+```
+
+脚本读 `tool/upload_chess_skins/chess_skins_file_ids.json`、PATCH 每个 file、最后把 KV `chess_skin:index` 重写带上 `tags=['chess-skin']`。支持 `--dry-run` 先预览。**只跑一次就够了**，后续新上传由新版 add_skin.py 自动带 tag。
 
 ### 2.2 拼 meta JSON
 
@@ -70,11 +80,15 @@ bash .claude/skills/chess-skin-pipeline/scripts/upload_pieces.sh D:/skins/neo ne
 
 ### 2.3 合并发布到 KV public
 
+新版 `add_skin.py` 已经把"上传 → 合并 → 发布"串成一步：
+
 ```bash
-bash .claude/skills/chess-skin-pipeline/scripts/publish_index.sh neo_meta.json
+python .claude/skills/chess-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
 ```
 
-脚本自动：拉旧 `chess_skin:index`（登录态标准 GET）→ 按 id 合并去重（新覆盖旧）→ 校验（12 key / id 唯一 / 32-hex）→ `POST /api/v1/kv` 写回（`visibility=public`，`groupId=190`）→ 匿名读回验证。
+脚本自动：拉旧 `chess_skin:index`（登录态标准 GET）→ 按 id 合并去重（新覆盖旧）→ 校验（12 key / id 唯一 / 32-hex）→ `POST /api/v1/kv` 写回（`visibility=public`，`groupId=190`，**`tags=['chess-skin']`**）→ 匿名读回验证。
+
+如需单独重发 KV（不动文件），可手动拉 `chess_skin:index` → 改 value → 用 `kvcli kv set` 带 `tags=['chess-skin']`。
 
 ### 2.4 客户端验证
 

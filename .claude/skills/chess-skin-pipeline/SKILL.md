@@ -12,8 +12,9 @@ description: 国际象棋皮肤管线 —— 从图片资源到客户端生效�
 | 场景 | 读/用 | 路径 |
 | --- | --- | --- |
 | **新增一套皮肤（端到端）** | [[extend-sop]] 全流程走一遍 | `references/extend-sop.md` |
-| 上传 12 张棋子图拿 file_id | 跑 `upload_pieces.sh` | `scripts/upload_pieces.sh` |
-| 把 meta JSON 发布到 KV public | 跑 `publish_index.sh` | `scripts/publish_index.sh` |
+| 上传 12 张棋子图拿 file_id | 跑 `add_skin.py` | `scripts/add_skin.py` |
+| 把 meta JSON 发布到 KV public | 跑 `add_skin.py`（含合并发布） | `scripts/add_skin.py` |
+| **一次性给已上传文件补 tag** | 跑 `retag_existing.py` | `scripts/retag_existing.py` |
 | 理解皮肤系统架构（本地兜底 + KV 覆盖 + File 图 + 本地缓存） | [[architecture]] | `references/architecture.md` |
 | 皮肤不生效 / 图 404 / KV 读不到 → 排查 | [[troubleshooting]]（extend-sop §5） | `references/extend-sop.md` §5 |
 
@@ -21,17 +22,41 @@ description: 国际象棋皮肤管线 —— 从图片资源到客户端生效�
 
 | 能力 | 接口 | 鉴权 |
 | --- | --- | --- |
-| 棋子图上传 | `POST /api/v1/files`（multipart，field=`file`，可带 `key`/`accessLevel=public`） | **需登录** |
+| 棋子图上传 | `POST /api/v1/files`（multipart，`file` 字段 + `key`/`accessLevel=public` + `tags[]`） | **需登录** |
 | 棋子图下载 | `GET /files/<fileId>` | **匿名 ✅** |
-| KV 写入 | `POST /api/v1/kv`（`visibility=public`, `groupId=190`） | **需登录** |
+| 棋子图补 tag | `PATCH /api/v1/files/<fileId>` body=`{tags: [...], groupId: N}`（replace 语义） | **需登录** |
+| KV 写入 | `POST /api/v1/kv`（`visibility=public`, `groupId=190`, `tags=[]` 可选） | **需登录** |
 | KV public 匿名读 | `GET /api/v1/kv/public/<key>?groupId=<gid>` | **匿名 ✅** |
 | KV 标准读 | `GET /api/v1/kv/<key>` | 需登录 ❌（勿用） |
 | KV share 访问 | `GET /api/v1/kv/share/<code>` | 需登录 ❌（勿用） |
+| KV tag facet | `GET /api/v1/kv/tags?groupId=<gid>` → `{tag, count}[]` | **需登录** |
 
-> 🚨 **三个实测踩坑，勿重蹈**：
+> 🚨 **四个实测踩坑，勿重蹈**：
 > 1. 上传路径是 `/api/v1/files`（multipart field 必须叫 `file`），**不是** `/api/v1/upload`（404）。
 > 2. KV 匿名读**必须**走 `/api/v1/kv/public/<key>?groupId=N`（N≥1，用 190 shared 公共组）；标准 `/api/v1/kv/<key>` 匿名一律 401。
-> 3. KV share（`/kv/share/:code`）在 MustAuth 组内，**不是**匿名通道。
+> 3. KV share（`/kv/share/:code`）在 MustAuth 组内，**不是**匿名通道，皮肤管线勿用。
+> 4. PATCH /files 的 `tags` 是 **replace 语义**（空数组 = 清空）；不要把整组 tags 误传成单个 tag 字符串。
+
+## Tag Schema（2026-09-01 起）
+
+文件与 KV 在后端 tag 维度对齐，前端/管理工具按 tag 维度查询：
+
+```
+File tags（multipart tags[]=）:
+  必带:   'chess-skin'
+  皮肤级:  'chess-skin:<id>'           # 例 chess-skin:3
+  棋子级:  'chess-skin:<id>:<pieceKey>' # 例 chess-skin:3:wK
+
+KV tags（kvV1.set tags=）:
+  chess_skin:index  → ['chess-skin']
+```
+
+**为什么是这套**：
+- KV/file 一致的 `chess-skin` 让 `GET /api/v1/kv/tags?groupId=190` 一眼能看到"我有多少皮肤相关条目"
+- `chess-skin:<id>` 让前端能 `GET /files?tags=chess-skin:3` 一次拉某皮肤 12 张图（已可用于预览/批量换图 UI）
+- `chess-skin:<id>:<pieceKey>` 粒度最细，未来按棋子增量更新直接定位 file
+
+**一次性 retro-tag**：已上传的 84 张图（旧 add_skin.py 未带 tags）通过 `scripts/retag_existing.py` 一键补打，运行后 `GET /api/v1/kv/tags` 应能看到 `chess-skin` facet。
 
 ## 管线总览
 
@@ -60,11 +85,11 @@ description: 国际象棋皮肤管线 —— 从图片资源到客户端生效�
 # 0) 登录（脚本从 ~/.kvcli/config.json 读 token）
 kvcli auth login
 
-# 1) 上传一套皮肤的 12 张棋子图（例如 D:/skins/neo/ 目录）
-bash .claude/skills/chess-skin-pipeline/scripts/upload_pieces.sh D:/skins/neo neo
+# 1) 端到端：上传 12 张棋子图 + 发布 KV（包含 tags）
+python .claude/skills/chess-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
 
-# 2) 按 stdout 输出拼 meta JSON（模板见 extend-sop §2），发布
-bash .claude/skills/chess-skin-pipeline/scripts/publish_index.sh ./neo_meta.json
+# 2) （一次性）已上传的 84 张图补 tag —— 后续新皮肤无需再跑
+python .claude/skills/chess-skin-pipeline/scripts/retag_existing.py
 
 # 3) 客户端重启 app → 新皮肤出现在换肤列表（无需发版）
 ```

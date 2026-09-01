@@ -13,8 +13,11 @@ add_skin.py —— 端到端：压缩 → 上传 → 更新 KV 一站式脚本�
 行为：
   1. 可选：Pillow 压缩 PNG（paletted + max compression）→ tmp 文件
   2. 登录态 POST /api/v1/files 上传 12 张图，拿 file_id
+     · multipart 同时携带 key=chess/<skinId>/<pieceKey>（路径化标签，旧依赖兼容）
+     · 与 tags[]=['chess-skin', 'chess-skin:<id>', 'chess-skin:<id>:<pieceKey>']
+       （后端 tag 维度，可按 list?tags= 查询，详见 references/architecture.md §5）
   3. 登录态 GET chess_skin:index（旧 index）→ 合并去重（新覆盖旧）→ 校验
-  4. POST /api/v1/kv 写回（public + groupId 190）
+  4. POST /api/v1/kv 写回（public + groupId 190 + tags=['chess-skin']）
   5. 匿名 GET /api/v1/kv/public/chess_skin:index 验证
 
 依赖：Python 3.8+，标准库 + Pillow（压缩用；缺则跳过压缩，行为等价）。
@@ -70,8 +73,14 @@ def load_token():
     die("token not found; run `kvcli auth login` first")
 
 
-def http_multipart_upload(base_url, token, file_bytes, file_name, key, content_type="image/png"):
-    """POST /api/v1/files — multipart form-data."""
+def http_multipart_upload(base_url, token, file_bytes, file_name, key, tags=None, content_type="image/png"):
+    """POST /api/v1/files — multipart form-data.
+
+    同时携带 `key`（路径化标签，与旧管线兼容）和 `tags[]`（后端 tag 维度，
+    见 references/architecture.md §5 Tag Schema：['chess-skin', 'chess-skin:<id>',
+    'chess-skin:<id>:<pieceKey>']）。两者并存,旧依赖 key 的查询不受影响,
+    新增的 tag 维度可用于 list?tags= 查询。
+    """
     boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
     body = []
     body.append(f"--{boundary}".encode())
@@ -82,6 +91,12 @@ def http_multipart_upload(base_url, token, file_bytes, file_name, key, content_t
     body.append(b'Content-Disposition: form-data; name="key"')
     body.append(b"")
     body.append(key.encode())
+    # tags[] 重复参数(replace 语义),后端会按 tag 维度入 facet
+    for t in (tags or []):
+        body.append(f"--{boundary}".encode())
+        body.append(b'Content-Disposition: form-data; name="tags[]"')
+        body.append(b"")
+        body.append(t.encode())
     body.append(f"--{boundary}".encode())
     body.append(f'Content-Disposition: form-data; name="file"; filename="{file_name}"'.encode())
     body.append(f"Content-Type: {content_type}".encode())
@@ -152,7 +167,9 @@ def upload_one(base_url, token, file_path, skin_id, piece_key):
         except Exception as e:
             log(f"  warn: compress failed for {file_path.name}: {e}; uploading raw")
     key = f"chess/{skin_id}/{piece_key}"
-    resp = http_multipart_upload(base_url, token, data, file_path.name, key)
+    # 三级 tag：通用 / 皮肤级 / 棋子级（对应 references/architecture.md §5）
+    tags = ["chess-skin", f"chess-skin:{skin_id}", f"chess-skin:{skin_id}:{piece_key}"]
+    resp = http_multipart_upload(base_url, token, data, file_path.name, key, tags=tags)
     fid = resp.get("data", {}).get("fileId", "")
     if not fid:
         raise RuntimeError(f"upload failed for {file_path.name}: {resp}")
@@ -173,12 +190,18 @@ def fetch_old_index(base_url, token, group_id):
 
 
 def publish_index(base_url, token, group_id, metas):
-    """登录态 POST /api/v1/kv 写回。"""
+    """登录态 POST /api/v1/kv 写回。
+
+    同时写入 tags=['chess-skin'] —— 后端 KV 与 file 在 tag 维度统一，
+    见 references/architecture.md §5 Tag Schema。KV 端不需要 skin/piece 级 tag，
+    因为 chess_skin:index 自身就是全量索引。
+    """
     body = {
         "key": "chess_skin:index",
         "value": json.dumps(metas, ensure_ascii=False),
         "visibility": "public",
         "groupId": group_id,
+        "tags": ["chess-skin"],
     }
     resp = http_post_json(base_url, "/api/v1/kv", token, body)
     if resp.get("code") != 0:

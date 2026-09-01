@@ -88,3 +88,28 @@ KV value = **JSON array**，每元素一套皮肤：
 - 皮肤（本管线）= **棋子图片**（+可选棋盘底图 boardBackground）。
 - 棋盘**格子颜色**走 `context.chessColors`（主题）或用户自定义 `BoardPalette`（优先级最高），与本管线正交。
 - 若 skin 带 `boardBackground`，则作为棋盘底图渲染在两色格之下。
+
+## 5. Tag Schema（2026-09-01 起，后端 tag 维度）
+
+文件与 KV 在后端 tag 维度对齐，前端/管理工具可按 tag 维度查询：
+
+```
+File tags（multipart tags[]=）:
+  必带:   'chess-skin'
+  皮肤级:  'chess-skin:<id>'           # 例 chess-skin:3
+  棋子级:  'chess-skin:<id>:<pieceKey>' # 例 chess-skin:3:wK
+
+KV tags（kvV1.set tags=）:
+  chess_skin:index  → ['chess-skin']
+```
+
+**设计动机**：
+- KV/file 一致的 `chess-skin` 让 `GET /api/v1/kv/tags?groupId=190` 一眼能看到"我有多少皮肤相关条目"
+- `chess-skin:<id>` 让前端能 `GET /files?tags=chess-skin:3` 一次拉某皮肤 12 张图（已可用于预览/批量换图 UI）
+- `chess-skin:<id>:<pieceKey>` 粒度最细，未来按棋子增量更新直接定位 file
+
+**配套脚本**：
+- 新上传：`add_skin.py` 自动带 tags（无需额外参数）
+- 一次性 retro-tag：`scripts/retag_existing.py` 把 tool/upload_chess_skins/chess_skins_file_ids.json 84 个 file_id 全部 PATCH 上 tags
+
+**ve 端使用方**：admin 组件（apps/showcase/src/components/ChessSkinAdmin.vue，dev+prod 都可见，按 `KvItem.myRole === 'owner'` 决定是否展示修改 UI）。
