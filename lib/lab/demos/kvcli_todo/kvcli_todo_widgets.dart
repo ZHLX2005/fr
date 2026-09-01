@@ -99,13 +99,16 @@ class KvTopicChip extends StatelessWidget {
   }
 }
 
-/// 任务卡片：信息列 + 编辑/删除 + （待办）完成按钮。
+/// 任务卡片：信息列 + 编辑/删除 + （待办）完成/冻结、（冻结）解冻。
 class KvTaskCard extends StatelessWidget {
   KvTaskCard({
     super.key,
     required this.task,
     required this.isOpen,
+    this.isFrozen = false,
     this.onDone,
+    this.onFreeze,
+    this.onUnfreeze,
     this.onEdit,
     this.onDelete,
     this.onClone,
@@ -113,7 +116,12 @@ class KvTaskCard extends StatelessWidget {
 
   final KvTask task;
   final bool isOpen;
+
+  /// 冻结区卡片：时间行显示「冻结于」，不显示完成/克隆入口。
+  final bool isFrozen;
   final VoidCallback? onDone;
+  final VoidCallback? onFreeze;
+  final VoidCallback? onUnfreeze;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onClone;
@@ -121,6 +129,9 @@ class KvTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = context.colors.scheme;
+    final timeLabel = isFrozen
+        ? '冻结于 ${task.frozenAt}'
+        : (isOpen ? '创建于 ${task.createdAt}' : '完成于 ${task.doneAt}');
     return Card(
       margin: EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -170,13 +181,13 @@ class KvTaskCard extends StatelessWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    isOpen ? '创建于 ${task.createdAt}' : '完成于 ${task.doneAt}',
+                    timeLabel,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 11,
                     ),
                   ),
-                  if (!isOpen && task.note.isNotEmpty) ...[
+                  if (!isOpen && !isFrozen && task.note.isNotEmpty) ...[
                     SizedBox(height: 4),
                     Text(
                       'note: ${task.note}',
@@ -197,6 +208,13 @@ class KvTaskCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (isOpen) ...[
+                      _IconAction(
+                        icon: Icons.ac_unit,
+                        tooltip: '冻结',
+                        onTap: onFreeze,
+                      ),
+                    ],
                     _IconAction(
                       icon: Icons.content_copy_outlined,
                       tooltip: '克隆',
@@ -225,6 +243,18 @@ class KvTaskCard extends StatelessWidget {
                     ),
                     icon: Icon(Icons.check, size: 16),
                     label: const Text('完成'),
+                  ),
+                ],
+                if (onUnfreeze != null) ...[
+                  SizedBox(height: 2),
+                  OutlinedButton.icon(
+                    onPressed: onUnfreeze,
+                    style: EmphasisButton.borderEmphasis(
+                      context,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    icon: Icon(Icons.ac_unit, size: 16),
+                    label: const Text('解冻'),
                   ),
                 ],
               ],

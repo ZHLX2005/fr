@@ -7,7 +7,7 @@
 //   - delete: DELETE /api/v1/kv/{key}
 //
 // KV 只提供快照存储：task 完整 CRUD、tag(topic) 仅添加+删除、prompt 不做。
-// 三把 key：todo:open / todo:done（Task[] JSON）、todo:topics（String[] JSON）。
+// 四把 key：todo:open / todo:done / todo:freeze（Task[] JSON）、todo:topics（String[] JSON）。
 // 无单条更新 API，所有写操作 = 读整把 key → 改数组 → 整把覆盖写回。
 //
 // 视觉骨架走 styles-skill → border-emphasis-style：
@@ -95,10 +95,11 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
 
   List<KvTask> _open = const [];
   List<KvTask> _done = const [];
+  List<KvTask> _freeze = const [];
   List<String> _topics = const [];
   List<KvGroup> _groups = const [];
   bool _loading = true;
-  int _tab = 0; // 0 = 待办，1 = 已完成
+  int _tab = 0; // 0 = 待办，1 = 已完成，2 = 冻结
 
   /// 写操作前的 refetch 期间为 true。避免并发点击叠加二次 refetch。
   bool _refreshing = false;
@@ -178,6 +179,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
       final groupRes = await widget.groups.list();
       final open = await _readTasks(KvCliTodoConst.keyOpen);
       final done = await _readTasks(KvCliTodoConst.keyDone);
+      final freeze = await _readTasks(KvCliTodoConst.keyFreeze);
       final topics = await _readTopics();
       if (!mounted) return;
       setState(() {
@@ -186,6 +188,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
             : const [];
         _open = open;
         _done = done;
+        _freeze = freeze;
         _topics = topics;
         _loading = false;
       });
@@ -196,7 +199,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     }
   }
 
-  /// 写操作前的 refetch：把本地 _open / _done / _topics 替换为 server 最新值。
+  /// 写操作前的 refetch：把本地 _open / _done / _freeze / _topics 替换为 server 最新值。
   /// 本地优先丢弃策略：本次操作将在 server 最新基础上叠加后再写回。
   /// 接受毫秒级竞态放弃（用户明确）。
   Future<void> _refreshLatest() async {
@@ -205,11 +208,13 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     try {
       final open = await _readTasks(KvCliTodoConst.keyOpen);
       final done = await _readTasks(KvCliTodoConst.keyDone);
+      final freeze = await _readTasks(KvCliTodoConst.keyFreeze);
       final topics = await _readTopics();
       if (!mounted) return;
       setState(() {
         _open = open;
         _done = done;
+        _freeze = freeze;
         _topics = topics;
       });
     } finally {
@@ -218,6 +223,17 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   // ── 操作层 ───────────────────────────────────────────────────────────
+
+  /// 下一个可用任务 id：扫 待办+冻结 取最大 +1。
+  /// 冻结任务保留原 id，若只扫待办，清空待办后新任务 id 会与冻结任务撞车，
+  /// 解冻时无法按 id 定位到正确任务。
+  int _nextTaskId() {
+    var maxId = 0;
+    for (final t in [..._open, ..._freeze]) {
+      if (t.id > maxId) maxId = t.id;
+    }
+    return maxId + 1;
+  }
 
   Future<void> _add() async {
     if (_refreshing || _loading) {
@@ -232,12 +248,8 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
       return;
     }
 
-    var maxId = 0;
-    for (final t in _open) {
-      if (t.id > maxId) maxId = t.id;
-    }
     final task = KvTask(
-      id: maxId + 1,
+      id: _nextTaskId(),
       topic: topic,
       text: text,
       createdAt: DateTime.now().toIso8601String(),
@@ -292,14 +304,78 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     });
   }
 
-  Future<void> _editTask(KvTask task, {required bool isDone}) async {
+  /// 冻结待办任务：从 todo:open 移入 todo:freeze，写入 frozenAt。
+  /// 两把 key 一起写，失败整单放弃（与 _markDone 同模式）。
+  Future<void> _freezeTask(KvTask task) async {
     if (_refreshing || _loading) {
       _toast('正在同步最新数据，请稍候');
       return;
     }
     await _refreshLatest();
     if (!mounted) return;
-    final r = await showKvTaskEditDialog(context, task: task, isDone: isDone);
+    final open = _open.where((t) => t.id != task.id).toList();
+    final frozen = task.frozen(DateTime.now().toIso8601String());
+    final freeze = [..._freeze, frozen];
+    try {
+      await _saveTasks(KvCliTodoConst.keyOpen, open);
+      await _saveTasks(KvCliTodoConst.keyFreeze, freeze);
+    } catch (e) {
+      _toast('冻结失败：${_errMsg(e)}');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _open = open;
+      _freeze = freeze;
+    });
+  }
+
+  /// 解冻：移回 todo:open 并清 frozenAt。id 与现有待办撞车时重分配新 id，
+  /// 避免按 id 编辑/删除命中错任务。
+  Future<void> _unfreezeTask(KvTask task) async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
+    if (!mounted) return;
+    final idTaken = _open.any((t) => t.id == task.id);
+    final restored = task.unfrozen(newId: idTaken ? _nextTaskId() : null);
+    final freeze = _freeze.where((t) => t.id != task.id).toList();
+    final open = [..._open, restored];
+    try {
+      await _saveTasks(KvCliTodoConst.keyFreeze, freeze);
+      await _saveTasks(KvCliTodoConst.keyOpen, open);
+    } catch (e) {
+      _toast('解冻失败：${_errMsg(e)}');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _freeze = freeze;
+      _open = open;
+    });
+    if (idTaken) _toast('id 冲突，已重分配为 #${restored.id}');
+  }
+
+  /// 编辑任务。isDone 改 text+note（topic 保留）；isFrozen / 待办改 topic+text。
+  Future<void> _editTask(
+    KvTask task, {
+    required bool isDone,
+    bool isFrozen = false,
+  }) async {
+    if (_refreshing || _loading) {
+      _toast('正在同步最新数据，请稍候');
+      return;
+    }
+    await _refreshLatest();
+    if (!mounted) return;
+    // 冻结任务走待办编辑形态（topic+text 可改）；done 走 note 形态。
+    final r = await showKvTaskEditDialog(
+      context,
+      task: task,
+      isDone: isDone,
+    );
     if (r == null) return;
     final updated = task.edited(topic: r.topic, text: r.text, note: r.note);
     try {
@@ -308,6 +384,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
         await _saveTasks(KvCliTodoConst.keyDone, done);
         if (!mounted) return;
         setState(() => _done = done);
+      } else if (isFrozen) {
+        final freeze =
+            _freeze.map((t) => t.id == task.id ? updated : t).toList();
+        await _saveTasks(KvCliTodoConst.keyFreeze, freeze);
+        if (!mounted) return;
+        setState(() => _freeze = freeze);
       } else {
         final open = _open.map((t) => t.id == task.id ? updated : t).toList();
         await _saveTasks(KvCliTodoConst.keyOpen, open);
@@ -319,7 +401,11 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     }
   }
 
-  Future<void> _deleteTask(KvTask task, {required bool isDone}) async {
+  Future<void> _deleteTask(
+    KvTask task, {
+    required bool isDone,
+    bool isFrozen = false,
+  }) async {
     if (_refreshing || _loading) {
       _toast('正在同步最新数据，请稍候');
       return;
@@ -334,6 +420,11 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
         await _saveTasks(KvCliTodoConst.keyDone, done);
         if (!mounted) return;
         setState(() => _done = done);
+      } else if (isFrozen) {
+        final freeze = _freeze.where((t) => t.id != task.id).toList();
+        await _saveTasks(KvCliTodoConst.keyFreeze, freeze);
+        if (!mounted) return;
+        setState(() => _freeze = freeze);
       } else {
         final open = _open.where((t) => t.id != task.id).toList();
         await _saveTasks(KvCliTodoConst.keyOpen, open);
@@ -352,12 +443,8 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
       return;
     }
     await _refreshLatest();
-    var maxId = 0;
-    for (final t in _open) {
-      if (t.id > maxId) maxId = t.id;
-    }
     final cloned = KvTask(
-      id: maxId + 1,
+      id: _nextTaskId(),
       topic: task.topic,
       text: task.text,
       createdAt: DateTime.now().toIso8601String(),
@@ -458,8 +545,10 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清空两把 key？'),
-        content: const Text('将删除 todo:open 与 todo:done 两个 key，无法撤销。'),
+        title: const Text('清空三把 key？'),
+        content: const Text(
+          '将删除 todo:open、todo:done 与 todo:freeze 三个 key，无法撤销。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -477,6 +566,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     try {
       await widget.kv.delete(KvCliTodoConst.keyOpen, groupId: _gid);
       await widget.kv.delete(KvCliTodoConst.keyDone, groupId: _gid);
+      await widget.kv.delete(KvCliTodoConst.keyFreeze, groupId: _gid);
     } catch (e) {
       _toast('清空失败：${_errMsg(e)}');
       return;
@@ -485,6 +575,7 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     setState(() {
       _open = const [];
       _done = const [];
+      _freeze = const [];
     });
   }
 
@@ -735,9 +826,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
             onPressed: _loading ? null : _loadAll,
           ),
           IconButton(
-            tooltip: '清空两把 key',
+            tooltip: '清空三把 key',
             icon: Icon(Icons.delete_outline),
-            onPressed: _open.isEmpty && _done.isEmpty ? null : _clearAll,
+            onPressed:
+                _open.isEmpty && _done.isEmpty && _freeze.isEmpty
+                    ? null
+                    : _clearAll,
           ),
         ],
         bottom: PreferredSize(
@@ -756,6 +850,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
                   label: '已完成 (${_done.length})',
                   selected: _tab == 1,
                   onTap: () => setState(() => _tab = 1),
+                ),
+                SizedBox(width: 8),
+                KvTabChip(
+                  label: '冻结 (${_freeze.length})',
+                  selected: _tab == 2,
+                  onTap: () => setState(() => _tab = 2),
                 ),
               ],
             ),
@@ -931,8 +1031,9 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   }
 
   Widget _buildList() {
-    final raw = _tab == 0 ? _open : _done;
     final isOpen = _tab == 0;
+    final isFrozenTab = _tab == 2;
+    final raw = _tab == 0 ? _open : (_tab == 1 ? _done : _freeze);
     final list = _applyFilter(raw);
     if (list.isEmpty) {
       final isFiltering = _filterTopics.isNotEmpty;
@@ -942,7 +1043,9 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
           child: Text(
             isFiltering
                 ? '当前筛选下无任务'
-                : (isOpen ? '暂无待办任务' : '暂无已完成任务'),
+                : (isOpen
+                    ? '暂无待办任务'
+                    : (isFrozenTab ? '暂无冻结任务' : '暂无已完成任务')),
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
@@ -950,7 +1053,23 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     }
     return Column(
       children: [
-        if (!isOpen) ...[
+        if (isFrozenTab) ...[
+          Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '冻结 ${_freeze.length} 条 · 次级需求停放区，解冻回待办再完成',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 4),
+        ],
+        if (_tab == 1) ...[
           Padding(
             padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Row(
@@ -980,10 +1099,21 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
               return KvTaskCard(
                 task: task,
                 isOpen: isOpen,
+                isFrozen: isFrozenTab,
                 onDone: isOpen ? () => _markDone(task) : null,
-                onEdit: () => _editTask(task, isDone: !isOpen),
-                onDelete: () => _deleteTask(task, isDone: !isOpen),
-                onClone: isOpen ? null : () => _cloneTask(task),
+                onFreeze: isOpen ? () => _freezeTask(task) : null,
+                onUnfreeze: isFrozenTab ? () => _unfreezeTask(task) : null,
+                onEdit: () => _editTask(
+                  task,
+                  isDone: _tab == 1,
+                  isFrozen: isFrozenTab,
+                ),
+                onDelete: () => _deleteTask(
+                  task,
+                  isDone: _tab == 1,
+                  isFrozen: isFrozenTab,
+                ),
+                onClone: _tab == 1 ? () => _cloneTask(task) : null,
               );
             },
           ),

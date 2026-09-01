@@ -16,6 +16,9 @@ class KvCliTodoConst {
   /// 快捷 topic（tag）快照 key（String[] JSON）
   static const String keyTopics = 'todo:topics';
 
+  /// 冻结任务快照 key（Task[] JSON）——次级需求停放区，解冻回待办
+  static const String keyFreeze = 'todo:freeze';
+
   /// 冷数据 key 前缀（已完成清理归档；app 只写不查）
   static const String keyDoneColdPrefix = 'todo:done:cold:';
 
