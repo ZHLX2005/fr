@@ -148,11 +148,18 @@ class ChessRoom {
     return (v == null || v.isEmpty) ? null : v;
   }
 
-  /// 先手方（'w'/'b'）。残局 v3：host 永远执先手方
-  /// （白先 host=白，黑先残局 host=黑）；null 兜底 'w'。
+  /// 先手方（'w'/'b'）。v5：first_moker 由服务端从 FEN 第 2 字段推，
+/// 与 host 执子色独立。null 兜底 'w'（白方永远先走是国际象棋硬规则）。
   static String initialSide(Snapshot? s) {
     final v = s?.context['initial_side']?.toString();
     return (v == 'b') ? 'b' : 'w';
+  }
+
+  /// v5：host 执子颜色（'w' / 'b'）。服务端在 on_init 时写入 c.host_color；
+  /// nil/缺省/非法值 → 从 initialSide 推（向后兼容旧房间无 host_color 字段）。
+  static String hostColor(Snapshot? s) {
+    final raw = (s?.context['host_color']?.toString()) ?? '';
+    return (raw == 'w' || raw == 'b') ? raw : initialSide(s);
   }
 
   /// 当前对局状态（"playing" / "check" / "checkmate" / ...）。

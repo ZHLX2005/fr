@@ -19,7 +19,7 @@ import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
 
 void main() {
   _undoGuards();
-  _v4HostColorGuards();
+  _v5HostColorGuards();
   group('kChessScript on_leave 静态守卫：断线不销毁房间', () {
     test('playing/ready 分支存在 disconnect 判因，且先于 host 销毁分支', () {
       final onLeave = _onLeaveBlock();
@@ -214,9 +214,9 @@ String _functionBlock(String marker) {
   return kChessScript.substring(start, start + 1 + next.first.start);
 }
 
-void _v4HostColorGuards() {
-  group('kChessScript v4 host_color + fen_flip 静态守卫', () {
-    test('on_init 必须读取 p.host_color 并把 c.initial_side 设为 requested', () {
+void _v5HostColorGuards() {
+  group('kChessScript v5 host_color 与 first_moker 解耦 静态守卫', () {
+    test('on_init 必须读取 p.host_color 并写入 c.host_color（不再写 c.initial_side）', () {
       final onInit = _functionBlock('on_init = function');
       // host_color 读取分支（'w' / 'b' / 'random'）。
       expect(onInit, contains('p.host_color'),
@@ -229,74 +229,69 @@ void _v4HostColorGuards() {
           reason: 'random 分支必须存在');
       expect(onInit, contains('math.random(2)'),
           reason: 'random 必须靠 math.random(2) 建房瞬间掷筛');
-      // host 永远是先手方：c.initial_side = requested。
+      // v5 关键：host_color 与 first_moker 解耦 —— c.host_color 是独立字段，
+      // c.initial_side 不再被 requested 覆盖。
+      expect(onInit, contains('c.host_color = "w"'),
+          reason: 'c.host_color 字段必须存在并默认 "w"');
       expect(
         onInit,
-        contains('c.initial_side = requested'),
-        reason: 'c.initial_side 必须直接 = requested，与 c.host_color 同源',
+        isNot(contains('c.initial_side = requested')),
+        reason: 'v5 已废弃把 host_color 当 initial_side 的写法',
       );
     });
 
-    test('强翻转：requested 与 fen_side 不一致 → 调 fen_flip(initial_fen)', () {
+    test('initial_side 必须从 FEN 第 2 字段推（first_moker = 棋规），不再被 host_color 翻转', () {
       final onInit = _functionBlock('on_init = function');
       expect(
         onInit,
-        contains('c.initial_fen = fen_flip(c.initial_fen)'),
-        reason: 'host_color 与残局 FEN side 不一致 → 必须整体翻转 FEN',
+        contains('fields[2] == "b"'),
+        reason: '原 FEN side 推导从 6 字段第 2 字段取（c.initial_side 来源）',
       );
       expect(
         onInit,
-        contains('fen_side = "b"'),
-        reason: '原 FEN side 推导必须从 6 字段第 2 字段取',
+        isNot(contains('c.initial_fen = fen_flip(c.initial_fen)')),
+        reason: 'v5 不再因 host_color 强翻转残局 FEN —— host 可执后手',
+      );
+      expect(
+        onInit,
+        isNot(contains('if requested == "b" then')),
+        reason: 'v5 fallback FEN 不再镜像 —— 标准开局无论 host_color 是什么都保持白先',
       );
     });
 
-    test('fallback FEN（无 initial_fen）也走 fen_flip：host_color=b → 黑下先手', () {
+    test('fallback FEN：标准开局保留 "w KQkq"，不再镜像黑方先手', () {
       final onInit = _functionBlock('on_init = function');
       expect(
         onInit,
         contains('"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"'),
-        reason: 'fallback 标准开局字符串保留（向后兼容）',
-      );
-      expect(
-        onInit,
-        contains('if requested == "b" then'),
-        reason: 'host_color=b 时 fallback 也必须镜像',
+        reason: 'fallback 标准开局字符串保留（白先，与 v3/v4 一致）',
       );
     });
 
-    test('fen_flip helper 5 字段全翻 + halfmove 保留 + 防御兜底', () {
+    test('role_check current_player 必须用 c.host_color 而非 c.initial_side 判 host', () {
+      final roleCheck = _functionBlock('function role_check(c, p, action)');
+      expect(roleCheck, contains('local host_side = c.host_color or "w"'),
+          reason: 'role_check 必须从 c.host_color 读 host 执子色（v5 关键修复）');
+      expect(
+        roleCheck,
+        isNot(contains('c.initial_side or "w"')),
+        reason: 'v5 已废弃 role_check 用 c.initial_side 判 host',
+      );
+    });
+
+    test('role_check non_current_player 同样用 c.host_color 判 host', () {
+      final roleCheck = _functionBlock('function role_check(c, p, action)');
+      // 两处 c.host_color or "w" —— current_player + non_current_player 各一次
+      expect(
+        RegExp('c\\.host_color or "w"').allMatches(roleCheck).length,
+        greaterThanOrEqualTo(2),
+        reason: 'current_player 与 non_current_player 分支都必须用 c.host_color',
+      );
+    });
+
+    test('fen_flip helper 仍存在（备用），但不调用', () {
       expect(kChessScript, contains('function fen_flip(fen)'),
-          reason: 'fen_flip 必须作为全局函数存在');
-      final block = _functionBlock('function fen_flip(fen)');
-
-      // board: 行号反转 + 字符大小写互换
-      expect(block, contains('swap_case'),
-          reason: '字符大小写互换函数必须存在');
-      expect(block, contains('flip_rank'),
-          reason: '行翻转函数必须存在');
-      expect(block, contains('table.concat(reverse_ranks'),
-          reason: 'board 必须行号反转后再拼回');
-
-      // side 互换
-      expect(block, contains('new_side = (fields[2] == "w")'),
-          reason: 'side 必须 w↔b 互换');
-
-      // castling 大小写互换
-      expect(block, contains('[KQkq]'),
-          reason: 'castling 必须对 4 个字母做大小写互换');
-
-      // en passant 行号翻转
-      expect(block, contains('9 - tonumber(row)'),
-          reason: 'en passant 行号必须 1↔8 翻转');
-
-      // halfmove 保留（非"重置 0"）
-      expect(block, contains('fields[5]'),
-          reason: 'halfmove 必须保留原值（位置属性而非路径属性）');
-
-      // 防御：结构非法 → 原样返回
-      expect(block, contains('return fen end'),
-          reason: '结构非法或入参非字符串必须兜底返回原 fen，不抛错');
+          reason: 'fen_flip helper 保留供未来扩展（v5 当前不调用）');
     });
   });
 }

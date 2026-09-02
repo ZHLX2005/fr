@@ -600,14 +600,14 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
   String _ruleText() {
     final e = widget.initialEndgame;
     if (e == null) {
-      // 标准开局：根据 host 选择不同文案
+      // 标准开局（v5 不再镜像 FEN；host 选黑时由棋规决定 guest 执白先走）：
       switch (_hostChoice) {
         case _HostColorChoice.white:
           return '与朋友约定同一房间号对战：你执白（先手），后到者执黑（后手）。'
               '谁先到谁是房主，对方加入时自动分配对方颜色。';
         case _HostColorChoice.black:
           return '与朋友约定同一房间号对战：你执黑（后手，对方先走），后到者执白（先手）。'
-              '谁先到谁是房主；服务端会镜像标准开局让黑方先走。';
+              '服务端不翻转局面；棋规白先由对方（执白者）走出第一步。';
         case _HostColorChoice.random:
           return '与朋友约定同一房间号对战：建房瞬间随机分配你的执子颜色，'
               '后到者执对方颜色。';
@@ -616,19 +616,20 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
           return '与朋友约定同一房间号对战。';
       }
     }
-    // 残局模式
+    // 残局模式（v5 不再强翻转残局 FEN；先手方由 FEN 第 2 字段决定，host 选执子色）
     switch (_hostChoice) {
       case _HostColorChoice.auto:
-        return '残局开局：房间从所选局面开始，先手方按残局 FEN 决定（服务端在房间内翻开）。'
+        return '残局开局：房间从所选局面开始，先手方按残局 FEN 第 2 字段决定。'
             '残局仅在"你创建房间"时生效 —— 若对方已用此号建房，你加入的是对方的房间。';
       case _HostColorChoice.white:
       case _HostColorChoice.black:
         final mine = _hostChoice == _HostColorChoice.white ? '白' : '黑';
-        return '残局开局：你强制选执$mine（无论残局原 FEN 是哪方先走）。'
-            '服务端会整体翻转残局 FEN 的棋子色与 side —— 残局教学意义会反转。';
+        return '残局开局：你选执$mine；服务端不翻转残局 FEN（残局原貌保留）。'
+            '先手方仍由残局 FEN 决定 —— 若你执$mine 且 FEN 是黑先，'
+            '对方（执对侧色）走第一步。';
       case _HostColorChoice.random:
         return '残局开局：建房瞬间随机决定你的执子颜色；'
-            '服务端可能同样翻转残局 FEN。';
+            '服务端不翻转残局 FEN（残局原貌保留）。';
     }
   }
 }

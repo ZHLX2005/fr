@@ -399,52 +399,66 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
-  /// 判定本地棋子颜色：host = 白，guest = 黑。
+  /// 判定本地棋子颜色：host 执 c.host_color，guest 执对侧（棋规）。
+  ///
+  /// v5：host_color 与 first_moker (initial_side) 完全解耦。
+  ///   · c.host_color   = host 执子色（用户决策；标准开局 / 残局都尊重）
+  ///   · c.initial_side = FEN 第 2 字段（first_moker；棋规本身）
+  ///   · host 是 first_moker 当且仅当 host_color == initial_side
+  /// Bug 1 修复：之前 v4 把 host_color 与 initial_side 合并为同一字段，
+  /// 导致 host 选 'b' 时被 role_check 误判为先手方。
   ///
   /// 身份 = 稳定登录 uid（transport.deviceId，见 chess_identity.dart），
   /// 与快照 context 里的 host_id / guest_id 同源 —— 断线重连 / 重新进房
-  /// 身份不丢，不会出现"我方执黑却被判定为白"的错视角（Bug 2 根因）。
+  /// 身份不丢。
   ///
-  /// 防御回退：host_id 缺失时用 guest_id 反推（我方 == guest_id → 黑）；
-  /// 仍无法判定 → 回退白方（棋盘照常渲染，走子合法性由服务端兜底），不崩溃。
+  /// 防御回退：host_id 缺失时用 guest_id 反推（我方 == guest_id → 对侧色）；
+  /// 仍无法判定 → 回退 host_color（棋盘照常渲染，走子合法性由服务端兜底），不崩溃。
   PieceColor? _resolveMyColor(Snapshot snap) {
     final myDeviceId = widget.handle.transport.deviceId;
     final hostId = snap.context['host_id']?.toString();
     final guestId = snap.context['guest_id']?.toString();
-    // 残局 v3 / host_color v4：host 永远执先手方，且执子色 = c.initial_side。
-    // 服务端在 on_init 把 c.initial_side 写成 p.host_color（'b' / 'w'），
-    // 与 FEN 不一致时整体翻转 FEN 让 host 的执子色 = 先手色。
-    final hostIsWhite = ChessRoom.initialSide(snap) == 'w';
+    final hostIsWhite = ChessRoom.hostColor(snap) == 'w';
     final hostColor =
         hostIsWhite ? PieceColor.white : PieceColor.black;
     final guestColor =
         hostIsWhite ? PieceColor.black : PieceColor.white;
-    if (myDeviceId.isEmpty) return hostColor; // 防御：身份空 → 先手方兜底
+    if (myDeviceId.isEmpty) return hostColor; // 防御：身份空 → host 执子色兜底
     if (myDeviceId == hostId) return hostColor;
     if (myDeviceId == guestId) return guestColor;
     if (hostId != null && hostId.isNotEmpty) return guestColor;
-    // host_id 缺失且我方不是 guest → 无法判定：先手方兜底（棋盘仍可渲染）。
+    // host_id 缺失且我方不是 guest → 无法判定：host 执子色兜底。
     return hostColor;
   }
 
-  // ── 阵营标签（lobby 卡片）：host 永远先手 / guest 永远后手 ──
+  // ── 阵营标签（lobby 卡片）：v5 host/guest 的"先手/后手"由 host_color
+  //   与 initial_side 的等价关系决定 —— chess 规则决定先手方。
+  //   · host_color == initial_side → host 是先手方；guest 是后手方
+  //   · host_color != initial_side → guest 是先手方；host 是后手方
+  //   标准开局（initial_side='w'）+ host_color='w' → host=执白先手（默认）
+  //   标准开局（initial_side='w'）+ host_color='b' → host=执黑后手（Bug 1 修复点）
 
-  String get _colorLabelHost =>
-      ChessRoom.initialSide(_snapshot) == 'b' ? '执黑（先手）' : '执白（先手）';
-  String get _colorLabelGuest =>
-      ChessRoom.initialSide(_snapshot) == 'b' ? '执白（后手）' : '执黑（后手）';
+  String get _colorLabelHost {
+    final hostIsFirst =
+        ChessRoom.hostColor(_snapshot) == ChessRoom.initialSide(_snapshot);
+    return hostIsFirst
+        ? (ChessRoom.hostColor(_snapshot) == 'w' ? '执白（先手）' : '执黑（先手）')
+        : (ChessRoom.hostColor(_snapshot) == 'w' ? '执白（后手）' : '执黑（后手）');
+  }
 
-  /// 残局标题（lobby 卡片 chip）：优先 widget 传入，回退快照 label 推导。
-  /// v4：当 host_color 与残局原 FEN 的 side 不一致（host 强制翻转残局），
-  /// 标题末尾加 "· 镜像" 让用户看见翻转痕迹。
+  String get _colorLabelGuest {
+    final hostIsFirst =
+        ChessRoom.hostColor(_snapshot) == ChessRoom.initialSide(_snapshot);
+    return hostIsFirst
+        ? (ChessRoom.hostColor(_snapshot) == 'w' ? '执黑（后手）' : '执白（后手）')
+        : (ChessRoom.hostColor(_snapshot) == 'w' ? '执黑（先手）' : '执白（先手）');
+  }
+
+  /// 残局标题（lobby 卡片 chip）：v5 不再"强翻转"残局 FEN，
+  /// 所有残局原貌保留，不再有"· 镜像"标记。
   String? get _endgameTitle {
     final e = widget.initialEndgame;
-    if (e != null) {
-      final originalSide = ChessEndgame.sideFromFen(e.fen);
-      final actualSide = ChessRoom.initialSide(_snapshot);
-      final mirrored = originalSide != actualSide;
-      return '残局：${e.label ?? '快照'}${mirrored ? ' · 镜像' : ''}';
-    }
+    if (e != null) return '残局：${e.label ?? '快照'}';
     // 换设备进房（widget 无残局信息）→ 服务端 initial_fen 存在 = 残局房。
     if (ChessRoom.initialFen(_snapshot) != null) return '残局对局';
     return null;
