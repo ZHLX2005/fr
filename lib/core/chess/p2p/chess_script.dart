@@ -105,16 +105,36 @@ on_init = function(c, p)
   if type(p.initial_fen) == "string" and is_valid_fen_structure(p.initial_fen) then
     c.initial_fen = p.initial_fen
   end
-  -- 先手方（'w'/'b'）：白先（默认）= host 执白；黑先残局 = host 执黑。
-  -- 客户端 initial_side 与 initial_fen 第 2 字段一致（LobbyPage 从 FEN 推出）。
-  c.initial_side = "w"
+  -- host_color 选身份（v4）：'w' / 'b' / 'random' / nil → default 'w'
+  --   'random' 建时掷筛（relay 假定已 seed；onsite 不再 seed，详见 fen_flip
+  --   上方注释）。建时一次决定，不再重摇。
+  local requested = "w"
+  if type(p.host_color) == "string" then
+    if p.host_color == "w" or p.host_color == "b" then
+      requested = p.host_color
+    elseif p.host_color == "random" then
+      requested = (math.random(2) == 1) and "w" or "b"
+    end
+  end
+  -- 原 FEN 的 side（不带 FEN 默认 'w'）。
+  local fen_side = "w"
   if c.initial_fen ~= nil then
     local fields = {}
-    for field in c.initial_fen:gmatch("%S+") do table.insert(fields, field) end
-    if fields[2] == "b" then c.initial_side = "b" end
+    for f in c.initial_fen:gmatch("%S+") do table.insert(fields, f) end
+    if fields[2] == "b" then fen_side = "b" end
   end
+  -- 强翻转（v4）：残局 FEN 的先手方与 host_color 不一致 → 整体翻转 FEN，
+  -- 让 host 永远执先手方。halfmove 保留（位置属性）。
+  if c.initial_fen ~= nil and fen_side ~= requested then
+    c.initial_fen = fen_flip(c.initial_fen)
+  end
+  c.initial_side = requested
+  -- 标准开局 fallback 也走镜像（host_color='b' 时黑方在下、先手）。
   if c.initial_fen == nil then
     c.initial_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    if requested == "b" then
+      c.initial_fen = fen_flip(c.initial_fen)
+    end
   end
   c.fen = c.initial_fen
   c.moves = {}
@@ -321,6 +341,60 @@ function is_valid_fen_structure(fen)
   local ranks = {}
   for r in fields[1]:gmatch("[^/]+") do table.insert(ranks, r) end
   return #ranks == 8
+end
+
+-- FEN 整体颜色翻转（v4：host_color 强压倒残局时用）：
+--   board:    字符大小写互换 (P↔p, R↔r, N↔n, B↔b, Q↔q, K↔k)，行号反转
+--             (rank 1↔8, 2↔7, 3↔6, 4↔5)。数字原样（每行 8 列的语义不变）。
+--   side:     'w' ↔ 'b'
+--   castling: K↔k, Q↔q 互换（'-' 透传）
+--   en passant: 文件不变，行号 1↔8（合法 ep 仅在 3/6 行；3↔6 自然对称）
+--   halfmove: 保留（位置属性而非路径属性，翻转后仍是有意义的"自上次兵/吃子以来的半步数"）
+--   fullmove: 不变
+--
+-- 输入结构非法（FEN 不是 6 字段、或 board 不是 8 段）→ 原样返回，不抛错。
+function fen_flip(fen)
+  if type(fen) ~= "string" then return fen end
+  local fields = {}
+  for field in fen:gmatch("%S+") do table.insert(fields, field) end
+  if #fields ~= 6 then return fen end
+  local ranks = {}
+  for r in fields[1]:gmatch("[^/]+") do table.insert(ranks, r) end
+  if #ranks ~= 8 then return fen end
+
+  local function swap_case(ch)
+    if ch:match("%l") then return ch:upper()
+    elseif ch:match("%u") then return ch:lower() end
+    return ch
+  end
+  local function flip_rank(rank)
+    return rank:gsub(".", swap_case)
+  end
+
+  -- board: 行号反转 + 每字符大小写互换
+  local reverse_ranks = {}
+  for i = 8, 1, -1 do
+    reverse_ranks[#reverse_ranks + 1] = flip_rank(ranks[i])
+  end
+  local new_board = table.concat(reverse_ranks, "/")
+
+  -- side 互换
+  local new_side = (fields[2] == "w") and "b" or "w"
+
+  -- castling 大小写互换
+  local new_castle = fields[3]:gsub("[KQkq]", swap_case)
+
+  -- en passant：行号 1↔8（仅 3 / 6 是合法 ep 行）
+  local new_ep = fields[4]
+  if new_ep ~= "-" and #new_ep == 2 then
+    local file, row = new_ep:sub(1, 1), new_ep:sub(2, 2)
+    if file:match("[a-h]") and row:match("[1-8]") then
+      new_ep = file .. tostring(9 - tonumber(row))
+    end
+  end
+
+  return new_board .. " " .. new_side .. " " .. new_castle
+            .. " " .. new_ep .. " " .. fields[5] .. " " .. fields[6]
 end
 
 -- 走子（MOVE）—— 仅当前走子方可发；结构校验 + FEN sideToMove 反证；不携带 status

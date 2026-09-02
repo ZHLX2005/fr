@@ -20,18 +20,23 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:xiaodouzi_fr/core/chess/endgame/chess_endgame.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_identity.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_lobby_page.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_device_id.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
-/// 记录 tryJoinOrCreate 调用（code + script + maxPlayers）。
+/// 记录 tryJoinOrCreate 调用（code + script + maxPlayers + initialParams）。
+///
+/// v4 加 initialParams 字段用于 host_color picker 路径测试 ——
+/// 老测试只用前 3 个字段，无破坏。
 class _JoinCall {
   final String code;
   final String script;
   final int maxPlayers;
-  _JoinCall(this.code, this.script, this.maxPlayers);
+  final Map<String, dynamic> initialParams;
+  _JoinCall(this.code, this.script, this.maxPlayers, this.initialParams);
 }
 
 /// 真实 RelayV3Transport + MockClient（不联网）；覆写 tryJoinOrCreate。
@@ -55,7 +60,7 @@ class RecordingTransport extends RelayV3Transport {
     required Map<String, dynamic> initialParams,
     int maxPlayers = 8,
   }) async {
-    joinCalls.add(_JoinCall(code, script, maxPlayers));
+    joinCalls.add(_JoinCall(code, script, maxPlayers, initialParams));
     final e = failWith;
     if (e != null) throw e;
     return handleToReturn!;
@@ -449,5 +454,182 @@ void main() {
     await tester.pump();
     await fillAndGo(tester);
     expect(transport.joinCalls, hasLength(2), reason: '同一稳定身份重进走 join');
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // v4: host_color 选择器（执白/执黑/随机/由残局决定）→ initialParams
+  // ══════════════════════════════════════════════════════════════
+
+  Future<void> fillAndGoWithEndgame(
+    WidgetTester tester, {
+    ChessEndgameSnapshot? endgame,
+  }) async {
+    await tester.enterText(find.byType(TextField).at(0), '小白');
+    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
+    // v4 表单加 picker + 规则提示，按钮可能在 viewport 外；
+    // 用 ensureVisible 滚动 + 等 stream listener / snapshot 推送多个 pump
+    await tester.ensureVisible(find.text('进入对局'));
+    await tester.tap(find.text('进入对局'));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
+  Widget hostWithEndgame({
+    required RecordingTransport transport,
+    required List<RoomHandle> joined,
+    ChessEndgameSnapshot? endgame,
+  }) {
+    return MaterialApp(
+      home: ChessLobbyPage(
+        relayUrl: 'http://fake',
+        onStarted: joined.add,
+        transportBuilder: (alias, deviceId) => transport,
+        initialEndgame: endgame,
+      ),
+    );
+  }
+
+  testWidgets('v4 默认（无 endgame）→ picker 含 3 chip：执白/执黑/随机；提交发 host_color=w', (
+    tester,
+  ) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final joined = <RoomHandle>[];
+    transport.handleToReturn = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby'),
+    );
+    await tester.pumpWidget(host(transport: transport, joined: joined));
+
+    // 应该看到 3 个按钮（无 endgame → 无"由残局决定"）。
+    expect(find.text('执白（先手）'), findsOneWidget);
+    expect(find.text('执黑（后手）'), findsOneWidget);
+    expect(find.text('随机'), findsOneWidget);
+    expect(find.text('由残局决定'), findsNothing);
+
+    await fillAndGo(tester);
+    expect(transport.joinCalls, hasLength(1));
+    final p = transport.joinCalls.first.initialParams;
+    expect(p['host_color'], 'w',
+        reason: '默认执白 → host_color="w"');
+  });
+
+  testWidgets('v4 切到"执黑" → initialParams.host_color == "b"', (tester) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final joined = <RoomHandle>[];
+    transport.handleToReturn = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby'),
+    );
+    await tester.pumpWidget(host(transport: transport, joined: joined));
+
+    await tester.tap(find.text('执黑（后手）'));
+    await tester.pump();
+    await fillAndGo(tester);
+    expect(transport.joinCalls, hasLength(1));
+    expect(transport.joinCalls.first.initialParams['host_color'], 'b');
+  });
+
+  testWidgets('v4 切到"随机" → initialParams.host_color == "random"', (tester) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final joined = <RoomHandle>[];
+    transport.handleToReturn = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby'),
+    );
+    await tester.pumpWidget(host(transport: transport, joined: joined));
+
+    await tester.tap(find.text('随机'));
+    await tester.pump();
+    await fillAndGo(tester);
+    expect(transport.joinCalls, hasLength(1));
+    expect(transport.joinCalls.first.initialParams['host_color'], 'random');
+  });
+
+  testWidgets(
+    'v4 带 endgame（白先） → 默认 chip 是"由残局决定"，提交发 host_color=w',
+    (tester) async {
+      final transport = RecordingTransport(deviceId: 'd-me');
+      final joined = <RoomHandle>[];
+      transport.handleToReturn = FakeLobbyHandle(
+        transport: transport,
+        code: 'ABCD',
+        initial: makeSnap(state: 'lobby'),
+      );
+      final endgame = ChessEndgameSnapshot(
+        label: '黑先残局',
+        // FEN 第 2 字段 = 'b' → sideFromFen 推 'b' → auto 解析成 'b'
+        fen: '1r1bk2r/5ppp/3p3n/p1p1p3/4P1PP/2BP2P1/PP2B3/2KR2NR b k - 3 21',
+      );
+      await tester.pumpWidget(hostWithEndgame(
+        transport: transport,
+        joined: joined,
+        endgame: endgame,
+      ));
+
+      expect(find.text('由残局决定'), findsOneWidget);
+      await fillAndGoWithEndgame(tester);
+      expect(transport.joinCalls, hasLength(1));
+      final p = transport.joinCalls.first.initialParams;
+      expect(p['initial_fen'], endgame.fen);
+      expect(p['host_color'], 'b',
+          reason: 'auto 解析 = sideFromFen(fen) = "b"，黑先残局');
+    },
+  );
+
+  testWidgets(
+    'v4 endgame + 强制"我执白"（黑先残局） → host_color=w',
+    (tester) async {
+      final transport = RecordingTransport(deviceId: 'd-me');
+      final joined = <RoomHandle>[];
+      transport.handleToReturn = FakeLobbyHandle(
+        transport: transport,
+        code: 'ABCD',
+        initial: makeSnap(state: 'lobby'),
+      );
+      final endgame = ChessEndgameSnapshot(
+        label: '黑先残局',
+        fen: '1r1bk2r/5ppp/3p3n/p1p1p3/4P1PP/2BP2P1/PP2B3/2KR2NR b k - 3 21',
+      );
+      await tester.pumpWidget(hostWithEndgame(
+        transport: transport,
+        joined: joined,
+        endgame: endgame,
+      ));
+
+      await tester.tap(find.text('执白（先手）'));
+      await tester.pump();
+      await fillAndGoWithEndgame(tester);
+      expect(transport.joinCalls, hasLength(1));
+      expect(transport.joinCalls.first.initialParams['host_color'], 'w',
+          reason: '强制 host 执白时 wire 上写 "w"（服务端会整体翻 FEN）');
+    },
+  );
+
+  testWidgets('v4 不再发送 initial_side（已废弃：服务端 dead code，由 host_color 取代）',
+      (tester) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final joined = <RoomHandle>[];
+    transport.handleToReturn = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby'),
+    );
+    final endgame = ChessEndgameSnapshot(
+      label: '测试残局',
+      fen: '8/8/8/4k3/8/8/4Q3/4K3 w - - 0 1',
+    );
+    await tester.pumpWidget(hostWithEndgame(
+      transport: transport,
+      joined: joined,
+      endgame: endgame,
+    ));
+    await fillAndGoWithEndgame(tester);
+    final p = transport.joinCalls.first.initialParams;
+    expect(p.containsKey('initial_side'), isFalse,
+        reason: 'initial_side 已废弃，不应再出现在 wire 上');
   });
 }

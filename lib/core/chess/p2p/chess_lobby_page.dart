@@ -37,6 +37,10 @@ import '../endgame/chess_endgame.dart';
 import 'chess_identity.dart';
 import 'chess_script.dart';
 
+/// 建房者执子选择（v4）：见 [ChessLobbyPageState._resolveHostColorParam] /
+/// [_hostChoice] 默认值逻辑。
+enum _HostColorChoice { white, black, random, auto }
+
 /// 社交房间号入口页 —— 单表单 + 过渡 loading + onStarted。
 class ChessLobbyPage extends StatefulWidget {
   const ChessLobbyPage({
@@ -98,9 +102,16 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
   /// onStarted 是否已触发（防快照风暴重复 push）。
   bool _started = false;
 
+  // v4：建房时 host 选执子身份。残局模式下多一个 `auto`（按 FEN 推断后解析）
+  // — 标准开局默认 `white`，残局默认 `auto`。
+  _HostColorChoice _hostChoice = _HostColorChoice.white;
+
   @override
   void initState() {
     super.initState();
+    _hostChoice = widget.initialEndgame != null
+        ? _HostColorChoice.auto
+        : _HostColorChoice.white;
     // 共享昵称（与其它 Lua 游戏通用）：load 回填 + 监听实时同步。
     LuaGameAlias.load().then((v) {
       if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
@@ -141,6 +152,26 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     return null;
   }
 
+  /// 把 UI 选项解析成服务端协议值：
+  ///   `white` / `black` / `random` → 直接透传
+  ///   `auto`                       → client 端用 FEN 推（仅残局模式可达），
+  ///                                   解析成具体 'w' 或 'b'；不带 FEN 返回 null
+  ///                                   （服务端看不到 'auto' 这种 wire 取值）
+  String? _resolveHostColorParam() {
+    switch (_hostChoice) {
+      case _HostColorChoice.white:
+        return 'w';
+      case _HostColorChoice.black:
+        return 'b';
+      case _HostColorChoice.random:
+        return 'random';
+      case _HostColorChoice.auto:
+        final e = widget.initialEndgame;
+        if (e == null) return null;
+        return ChessEndgame.sideFromFen(e.fen);
+    }
+  }
+
   /// 单表单智能匹配：先按输入的房间号尝试 join；不存在则用此号创建。
   /// 撞号（409 code collision）→ 房间号被占，提示换号；
   /// 满员（409 join rejected）→ guest 槽已占，kChessScript 拒绝。
@@ -171,9 +202,13 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
             deviceId: deviceId,
           );
       await LuaGameAlias.save(alias);
-      // 残局开局：initial_fen + initial_side（从 FEN 推；host 执先手方）。
-      // 仅建房（404 → createRoom）时服务端消费 initial_params；
-      // join 已存在房间时被忽略（服务端已有状态）。
+      // 残局开局（v4）：
+      //   · initial_fen 建房时服务端消费；join 已存在房间时被忽略
+      //   · host_color 决定 host 执子色（'w' / 'b' / 'random'）；
+      //     残局模式下与 FEN 不一致时服务端会"强翻转"残局 FEN，让 host 永远是先手方
+      //   · 'auto' 仅残局模式出现：客户端先解析成具体 'w' / 'b' 再发送
+      //     （服务端不识别 'auto' 这种 wire 取值）
+      // 已移除 v3 的 initial_side（服务端忽略，host_color 替代）。
       final endgame = widget.initialEndgame;
       final initialParams = <String, dynamic>{
         'device_id': t.deviceId,
@@ -181,8 +216,10 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
       };
       if (endgame != null) {
         initialParams['initial_fen'] = endgame.fen;
-        initialParams['initial_side'] =
-            ChessEndgame.sideFromFen(endgame.fen);
+      }
+      final hc = _resolveHostColorParam();
+      if (hc != null) {
+        initialParams['host_color'] = hc;
       }
       final h = await t.tryJoinOrCreate(
         code: code,
@@ -398,7 +435,44 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                   ),
                 ),
               ],
+              // 执子选择按钮（v4）：紧凑 OutlinedButton 行（无动画，
+// 单行 3-4 按钮，避免 Wrap 多行挤占 viewport；测试与小屏都友好）。
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _hostButton(
+                      label: '执白（先手）',
+                      value: _HostColorChoice.white,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _hostButton(
+                      label: '执黑（后手）',
+                      value: _HostColorChoice.black,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _hostButton(
+                      label: '随机',
+                      value: _HostColorChoice.random,
+                    ),
+                  ),
+                  if (widget.initialEndgame != null) ...[
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _hostButton(
+                        label: '由残局决定',
+                        value: _HostColorChoice.auto,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               // 规则提示（浅色块）：让用户预期"先到 = 房主 = 执先手方"
+              const SizedBox(height: 16),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -422,9 +496,7 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        widget.initialEndgame != null
-                            ? '残局开局：房间从所选局面开始，你（建房者）执先手方。残局仅在"你创建房间"时生效 —— 若对方已用此号建房，你加入的是对方的标准对局。'
-                            : '与朋友约定同一房间号即可对战：谁先到谁是房主（执先手方：默认白先；残局按局面轮走方），后到者执后手方。',
+                        _ruleText(),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.coordinateLabel,
                           height: 1.4,
@@ -485,6 +557,80 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     );
   }
 
+  /// 执子选择按钮（v4）：单选 OutlinedButton.Filled 风格（selected 视觉对齐 M3）。
+  /// 单行 Row + Expanded 分配，避免 Wrap 多行挤占 viewport。
+  Widget _hostButton({
+    required String label,
+    required _HostColorChoice value,
+  }) {
+    final selected = _hostChoice == value;
+    return OutlinedButton(
+      onPressed: () => setState(() => _hostChoice = value),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        minimumSize: const Size(0, 36),
+        backgroundColor:
+            selected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12) : null,
+        side: BorderSide(
+          color: selected
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.outlineVariant,
+          width: selected ? 1.6 : 1.0,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          color: selected
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+    );
+  }
+
+  /// 规则提示文案（v4）：根据是否带残局与执子选择动态输出。
+  String _ruleText() {
+    final e = widget.initialEndgame;
+    if (e == null) {
+      // 标准开局：根据 host 选择不同文案
+      switch (_hostChoice) {
+        case _HostColorChoice.white:
+          return '与朋友约定同一房间号对战：你执白（先手），后到者执黑（后手）。'
+              '谁先到谁是房主，对方加入时自动分配对方颜色。';
+        case _HostColorChoice.black:
+          return '与朋友约定同一房间号对战：你执黑（后手，对方先走），后到者执白（先手）。'
+              '谁先到谁是房主；服务端会镜像标准开局让黑方先走。';
+        case _HostColorChoice.random:
+          return '与朋友约定同一房间号对战：建房瞬间随机分配你的执子颜色，'
+              '后到者执对方颜色。';
+        case _HostColorChoice.auto:
+          // 标准开局不会到 auto，分支兜底
+          return '与朋友约定同一房间号对战。';
+      }
+    }
+    // 残局模式
+    switch (_hostChoice) {
+      case _HostColorChoice.auto:
+        return '残局开局：房间从所选局面开始，先手方按残局 FEN 决定（服务端在房间内翻开）。'
+            '残局仅在"你创建房间"时生效 —— 若对方已用此号建房，你加入的是对方的房间。';
+      case _HostColorChoice.white:
+      case _HostColorChoice.black:
+        final mine = _hostChoice == _HostColorChoice.white ? '白' : '黑';
+        return '残局开局：你强制选执$mine（无论残局原 FEN 是哪方先走）。'
+            '服务端会整体翻转残局 FEN 的棋子色与 side —— 残局教学意义会反转。';
+      case _HostColorChoice.random:
+        return '残局开局：建房瞬间随机决定你的执子颜色；'
+            '服务端可能同样翻转残局 FEN。';
+    }
+  }
 }
 
 enum _ChessLobbyPhase { entry, room }

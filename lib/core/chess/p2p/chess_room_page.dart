@@ -411,13 +411,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final myDeviceId = widget.handle.transport.deviceId;
     final hostId = snap.context['host_id']?.toString();
     final guestId = snap.context['guest_id']?.toString();
-    // 残局 v3：host 永远执先手方 —— 黑先残局（initial_side == 'b'）host 执黑、
-    // guest 执白；标准房间 initial_side == 'w' → host 执白（与旧逻辑一致）。
-    final firstIsWhite = ChessRoom.initialSide(snap) != 'b';
+    // 残局 v3 / host_color v4：host 永远执先手方，且执子色 = c.initial_side。
+    // 服务端在 on_init 把 c.initial_side 写成 p.host_color（'b' / 'w'），
+    // 与 FEN 不一致时整体翻转 FEN 让 host 的执子色 = 先手色。
+    final hostIsWhite = ChessRoom.initialSide(snap) == 'w';
     final hostColor =
-        firstIsWhite ? PieceColor.white : PieceColor.black;
+        hostIsWhite ? PieceColor.white : PieceColor.black;
     final guestColor =
-        firstIsWhite ? PieceColor.black : PieceColor.white;
+        hostIsWhite ? PieceColor.black : PieceColor.white;
     if (myDeviceId.isEmpty) return hostColor; // 防御：身份空 → 先手方兜底
     if (myDeviceId == hostId) return hostColor;
     if (myDeviceId == guestId) return guestColor;
@@ -426,17 +427,24 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     return hostColor;
   }
 
-  // ── 阵营标签（lobby 卡片）："执白"/"执黑"，残局黑先时角色化翻转 ──
+  // ── 阵营标签（lobby 卡片）：host 永远先手 / guest 永远后手 ──
 
   String get _colorLabelHost =>
-      ChessRoom.initialSide(_snapshot) == 'b' ? '执黑（先手）' : '执白';
+      ChessRoom.initialSide(_snapshot) == 'b' ? '执黑（先手）' : '执白（先手）';
   String get _colorLabelGuest =>
-      ChessRoom.initialSide(_snapshot) == 'b' ? '执白' : '执黑（先手）';
+      ChessRoom.initialSide(_snapshot) == 'b' ? '执白（后手）' : '执黑（后手）';
 
   /// 残局标题（lobby 卡片 chip）：优先 widget 传入，回退快照 label 推导。
+  /// v4：当 host_color 与残局原 FEN 的 side 不一致（host 强制翻转残局），
+  /// 标题末尾加 "· 镜像" 让用户看见翻转痕迹。
   String? get _endgameTitle {
     final e = widget.initialEndgame;
-    if (e != null) return '残局：${e.label ?? '快照'}';
+    if (e != null) {
+      final originalSide = ChessEndgame.sideFromFen(e.fen);
+      final actualSide = ChessRoom.initialSide(_snapshot);
+      final mirrored = originalSide != actualSide;
+      return '残局：${e.label ?? '快照'}${mirrored ? ' · 镜像' : ''}';
+    }
     // 换设备进房（widget 无残局信息）→ 服务端 initial_fen 存在 = 残局房。
     if (ChessRoom.initialFen(_snapshot) != null) return '残局对局';
     return null;

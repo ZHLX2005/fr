@@ -19,6 +19,7 @@ import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
 
 void main() {
   _undoGuards();
+  _v4HostColorGuards();
   group('kChessScript on_leave 静态守卫：断线不销毁房间', () {
     test('playing/ready 分支存在 disconnect 判因，且先于 host 销毁分支', () {
       final onLeave = _onLeaveBlock();
@@ -211,4 +212,91 @@ String _functionBlock(String marker) {
     return kChessScript.substring(start);
   }
   return kChessScript.substring(start, start + 1 + next.first.start);
+}
+
+void _v4HostColorGuards() {
+  group('kChessScript v4 host_color + fen_flip 静态守卫', () {
+    test('on_init 必须读取 p.host_color 并把 c.initial_side 设为 requested', () {
+      final onInit = _functionBlock('on_init = function');
+      // host_color 读取分支（'w' / 'b' / 'random'）。
+      expect(onInit, contains('p.host_color'),
+          reason: 'on_init 必须读取 initial_params.host_color');
+      expect(onInit, contains('p.host_color == "w"'),
+          reason: 'white 分支必须存在');
+      expect(onInit, contains('p.host_color == "b"'),
+          reason: 'black 分支必须存在');
+      expect(onInit, contains('p.host_color == "random"'),
+          reason: 'random 分支必须存在');
+      expect(onInit, contains('math.random(2)'),
+          reason: 'random 必须靠 math.random(2) 建房瞬间掷筛');
+      // host 永远是先手方：c.initial_side = requested。
+      expect(
+        onInit,
+        contains('c.initial_side = requested'),
+        reason: 'c.initial_side 必须直接 = requested，与 c.host_color 同源',
+      );
+    });
+
+    test('强翻转：requested 与 fen_side 不一致 → 调 fen_flip(initial_fen)', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(
+        onInit,
+        contains('c.initial_fen = fen_flip(c.initial_fen)'),
+        reason: 'host_color 与残局 FEN side 不一致 → 必须整体翻转 FEN',
+      );
+      expect(
+        onInit,
+        contains('fen_side = "b"'),
+        reason: '原 FEN side 推导必须从 6 字段第 2 字段取',
+      );
+    });
+
+    test('fallback FEN（无 initial_fen）也走 fen_flip：host_color=b → 黑下先手', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(
+        onInit,
+        contains('"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"'),
+        reason: 'fallback 标准开局字符串保留（向后兼容）',
+      );
+      expect(
+        onInit,
+        contains('if requested == "b" then'),
+        reason: 'host_color=b 时 fallback 也必须镜像',
+      );
+    });
+
+    test('fen_flip helper 5 字段全翻 + halfmove 保留 + 防御兜底', () {
+      expect(kChessScript, contains('function fen_flip(fen)'),
+          reason: 'fen_flip 必须作为全局函数存在');
+      final block = _functionBlock('function fen_flip(fen)');
+
+      // board: 行号反转 + 字符大小写互换
+      expect(block, contains('swap_case'),
+          reason: '字符大小写互换函数必须存在');
+      expect(block, contains('flip_rank'),
+          reason: '行翻转函数必须存在');
+      expect(block, contains('table.concat(reverse_ranks'),
+          reason: 'board 必须行号反转后再拼回');
+
+      // side 互换
+      expect(block, contains('new_side = (fields[2] == "w")'),
+          reason: 'side 必须 w↔b 互换');
+
+      // castling 大小写互换
+      expect(block, contains('[KQkq]'),
+          reason: 'castling 必须对 4 个字母做大小写互换');
+
+      // en passant 行号翻转
+      expect(block, contains('9 - tonumber(row)'),
+          reason: 'en passant 行号必须 1↔8 翻转');
+
+      // halfmove 保留（非"重置 0"）
+      expect(block, contains('fields[5]'),
+          reason: 'halfmove 必须保留原值（位置属性而非路径属性）');
+
+      // 防御：结构非法 → 原样返回
+      expect(block, contains('return fen end'),
+          reason: '结构非法或入参非字符串必须兜底返回原 fen，不抛错');
+    });
+  });
 }
