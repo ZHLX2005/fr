@@ -297,7 +297,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       // 阵营判定仍需（lobby 卡片显示"执白 / 执黑"标签）
       final myColor = _resolveMyColor(snap);
       _myColor = myColor;
-      _isHost = myColor == PieceColor.white && snap.context['host_id'] != null;
+      _isHost = _resolveIsHost(snap);
       _prevState = state;
       return;
     }
@@ -324,10 +324,10 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     //    （旧版 _lastMove 只在本地走子时更新，对手回合时残留本方上一步 → 污染）。
     _lastMove = _latestMoveFrom(snap);
 
-    // 2. 阵营：host = 白方，guest = 黑方（每次快照重算）。
+    // 2. 阵营：host 执 c.host_color，guest 执对侧（每次快照重算）。
     final myColor = _resolveMyColor(snap);
     _myColor = myColor;
-    _isHost = myColor == PieceColor.white && snap.context['host_id'] != null;
+    _isHost = _resolveIsHost(snap);
 
     // 3. 轮次：快照 sideToMove == 本地颜色 → 轮到我。
     final board = _board;
@@ -429,6 +429,21 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     if (hostId != null && hostId.isNotEmpty) return guestColor;
     // host_id 缺失且我方不是 guest → 无法判定：host 执子色兜底。
     return hostColor;
+  }
+
+  /// 判定本地是否房主：device_id 精确比对（身份判定，与执子色无关）。
+  ///
+  /// v6 修复：旧实现 `myColor == PieceColor.white` 用颜色判 host，在残局
+  /// host 执黑（host_color='b'）时误判 —— host 看不到"开始游戏"按钮，而
+  /// guest（执白）被误判为 host 但服务端 role_check 拒绝其 DEAL，出现
+  /// "guest 显示开始游戏但点击无响应" 的两端不一致。
+  ///
+  /// host_id 缺失（快照尚未到齐）→ false 兜底（lobby 卡片仍可渲染）。
+  bool _resolveIsHost(Snapshot snap) {
+    final myDeviceId = widget.handle.transport.deviceId;
+    final hostId = snap.context['host_id']?.toString();
+    if (hostId == null || hostId.isEmpty) return false;
+    return myDeviceId == hostId;
   }
 
   // ── 阵营标签（lobby 卡片）：v5 host/guest 的"先手/后手"由 host_color

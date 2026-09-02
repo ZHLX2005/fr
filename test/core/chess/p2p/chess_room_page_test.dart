@@ -172,6 +172,8 @@ Snapshot makeSnapshot({
   String state = 'playing',
   String? hostId,
   String? guestId,
+  String? hostColor,
+  String? initialSide,
   String? winner,
   List<dynamic> moves = const [],
   Map<String, dynamic> drawOffers = const {},
@@ -184,6 +186,8 @@ Snapshot makeSnapshot({
     context: {
       'host_id': hostId,
       'guest_id': guestId,
+      if (hostColor != null) 'host_color': hostColor,
+      if (initialSide != null) 'initial_side': initialSide,
       'players': <String, dynamic>{
         if (hostId != null) hostId: 'host',
         if (guestId != null) guestId: 'guest',
@@ -1124,5 +1128,89 @@ void main() {
     await tester.pump();
     expect(find.text('你执白'), findsOneWidget,
         reason: '重连后同一稳定 uid 仍识别为白方（Bug 2 根因修复）');
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // v6 _isHost 守卫：device_id 精确比对，不用执子色推断
+  // （修复：残局 host 执黑时 host 看不到开始游戏，guest 误判为 host 但
+  //   DEAL 被服务端 role_check 拒绝 → 点击无响应）
+  // ══════════════════════════════════════════════════════════════
+
+  testWidgets('v6 残局 host 执黑：host（device_id 匹配 host_id）→ 可见开始游戏', (
+    tester,
+  ) async {
+    final transport = FakeTransport(deviceId: 'uid-host-1');
+    final handle = FakeRoomHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnapshot(
+        code: 'ABCD',
+        fen: kStartingFen,
+        status: 'playing',
+        state: 'ready', // 双方已就绪 → host 应该看到开始游戏
+        hostId: 'uid-host-1',
+        guestId: 'uid-guest-1',
+        hostColor: 'b', // 残局 host 执黑（v6 支持）
+        initialSide: 'b',
+      ),
+    );
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // host 执黑但仍是 host → 应该看到开始游戏按钮（v6 修复前看不到）
+    expect(find.textContaining('开始游戏'), findsOneWidget,
+        reason: 'host（device_id 匹配 host_id）在 ready 态应看到开始游戏按钮，'
+            '即使执黑（残局 host_color=b）');
+  });
+
+  testWidgets('v6 guest 执白：guest（device_id 匹配 guest_id）→ 不可见开始游戏', (
+    tester,
+  ) async {
+    final transport = FakeTransport(deviceId: 'uid-guest-1');
+    final handle = FakeRoomHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnapshot(
+        code: 'ABCD',
+        fen: kStartingFen,
+        status: 'playing',
+        state: 'ready',
+        hostId: 'uid-host-1',
+        guestId: 'uid-guest-1',
+        hostColor: 'b',
+        initialSide: 'b',
+      ),
+    );
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // guest 执白（对侧色）但不是 host → 应该看到等待房主开始…，而非开始按钮
+    expect(find.textContaining('开始游戏'), findsNothing,
+        reason: 'guest 即使执白也不应误判为 host（v6 修复前会误判）');
+    expect(find.textContaining('等待房主'), findsOneWidget,
+        reason: 'guest 在 ready 态应显示等待房主开始');
+  });
+
+  testWidgets('v6 host_color=w 向后兼容：host 仍看到开始游戏', (tester) async {
+    final transport = FakeTransport(deviceId: 'uid-host-1');
+    final handle = FakeRoomHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnapshot(
+        code: 'ABCD',
+        fen: kStartingFen,
+        status: 'playing',
+        state: 'ready',
+        hostId: 'uid-host-1',
+        guestId: 'uid-guest-1',
+        hostColor: 'w', // 标准开局默认
+        initialSide: 'w',
+      ),
+    );
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    expect(find.textContaining('开始游戏'), findsOneWidget,
+        reason: '标准开局 host 执白 → 仍看到开始游戏（向后兼容）');
   });
 }
