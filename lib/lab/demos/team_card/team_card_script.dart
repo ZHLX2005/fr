@@ -138,17 +138,25 @@ on_init = function(c, p)
 end
 
 on_join = function(c, p)
-  -- 房间总人数门禁（三区总和，含主持；waiting 也算占房）
-  -- 后端 transport 不强制 max_players，容量规则由 Lua 把守
-  local count = 0
-  for _ in pairs(c.players) do count = count + 1 end
-  if count >= c.max_players then
-    c.rejected_join = c.rejected_join or {}
-    c.rejected_join[p.device_id] = true
-    return c
+  -- 房间总人数门禁只对新面孔生效（归来者本来就在名单里）
+  if c.players[p.device_id] == nil then
+    local count = 0
+    for _ in pairs(c.players) do count = count + 1 end
+    if count >= c.max_players then
+      c.rejected_join = c.rejected_join or {}
+      c.rejected_join[p.device_id] = true
+      return c
+    end
   end
 
   c.players[p.device_id] = p.alias
+  if c.offline ~= nil then c.offline[p.device_id] = nil end
+
+  -- ★ 归来者：座位还在 → 原样恢复（不再分配；防止撞进"含自己的满员
+  -- 玩家区"被误判成 spectator）
+  if c.zones[p.device_id] ~= nil then
+    return c
+  end
 
   if state == "setup" then
     -- 配置阶段：排队等待，不占三区席位（房主改 player_slots 无死锁）
@@ -158,17 +166,9 @@ on_join = function(c, p)
     return c
   end
 
+  -- 新人 playing 晚进：只旁观（未发过牌的人不干扰对局）
   if state == "playing" then
-    -- 掉线归来恢复（按 device_id）：房主回主持区；曾被发牌的玩家回玩家区
-    -- （assignments 从未清，身份直接恢复）；其余晚进者只旁观
-    if p.device_id == c.host_id then
-      c.zones[p.device_id] = "host"
-    elseif c.assignments ~= nil and c.assignments[p.device_id] ~= nil then
-      c.zones[p.device_id] = "player"
-    else
-      c.zones[p.device_id] = "spectator"
-    end
-    if c.offline ~= nil then c.offline[p.device_id] = nil end
+    c.zones[p.device_id] = "spectator"
     return c
   end
 
@@ -183,20 +183,12 @@ on_join = function(c, p)
 end
 
 on_leave = function(c, p)
-  -- playing 阶段：房主/已发牌玩家离开 → 只标 offline，座位与身份保留，
-  -- 同 device_id 重进即恢复（团建场景：掉线的人回来还能看到自己的牌）
-  if state == "playing"
-     and (p.device_id == c.host_id
-          or (c.assignments ~= nil and c.assignments[p.device_id] ~= nil)) then
-    c.offline = c.offline or {}
-    c.offline[p.device_id] = true
-    return c
-  end
-  c.players[p.device_id] = nil
-  c.zones[p.device_id] = nil
-  if c.assignments ~= nil then
-    c.assignments[p.device_id] = nil
-  end
+  -- ★ 离开只改状态标记：任何名单/座位/身份都不动。
+  -- 重连是常态（暂时退出/杀进程/切后台），凭 device_id 回来即恢复原位；
+  -- "暂时离线"仅作为玩家的展示状态。
+  -- 座位长期占用由房主 RESET 时释放（掉线未归者退场）。
+  c.offline = c.offline or {}
+  c.offline[p.device_id] = true
   return c
 end
 
