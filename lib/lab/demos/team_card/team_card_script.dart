@@ -132,6 +132,7 @@ on_init = function(c, p)
   c.zones[p.device_id] = "host"                -- 房主进主持区
   c.assignments = {}
   c.host_messages = {}
+  c.offline = {}                               -- playing 掉线标记（座位/身份保留）
   state = "setup"                              -- ★ 新：先配置，不直接进 lobby
   return c
 end
@@ -158,8 +159,16 @@ on_join = function(c, p)
   end
 
   if state == "playing" then
-    -- 游戏中晚进者：只旁观，不干扰对局
-    c.zones[p.device_id] = "spectator"
+    -- 掉线归来恢复（按 device_id）：房主回主持区；曾被发牌的玩家回玩家区
+    -- （assignments 从未清，身份直接恢复）；其余晚进者只旁观
+    if p.device_id == c.host_id then
+      c.zones[p.device_id] = "host"
+    elseif c.assignments ~= nil and c.assignments[p.device_id] ~= nil then
+      c.zones[p.device_id] = "player"
+    else
+      c.zones[p.device_id] = "spectator"
+    end
+    if c.offline ~= nil then c.offline[p.device_id] = nil end
     return c
   end
 
@@ -174,6 +183,15 @@ on_join = function(c, p)
 end
 
 on_leave = function(c, p)
+  -- playing 阶段：房主/已发牌玩家离开 → 只标 offline，座位与身份保留，
+  -- 同 device_id 重进即恢复（团建场景：掉线的人回来还能看到自己的牌）
+  if state == "playing"
+     and (p.device_id == c.host_id
+          or (c.assignments ~= nil and c.assignments[p.device_id] ~= nil)) then
+    c.offline = c.offline or {}
+    c.offline[p.device_id] = true
+    return c
+  end
   c.players[p.device_id] = nil
   c.zones[p.device_id] = nil
   if c.assignments ~= nil then
@@ -241,6 +259,14 @@ end
 on_action_RESET = function(c, p)
   if c.host_id ~= p.device_id then return c end
   if state ~= "playing" then return c end
+  -- 掉线未归者彻底退场（释放座位；归来的已在 on_join 清掉 offline 标记）
+  if c.offline ~= nil then
+    for did, _ in pairs(c.offline) do
+      c.players[did] = nil
+      c.zones[did] = nil
+    end
+    c.offline = {}
+  end
   c.assignments = {}
   c.host_messages = {}
   state = "lobby"

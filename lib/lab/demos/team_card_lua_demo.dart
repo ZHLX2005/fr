@@ -12,11 +12,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/net_engine/relay_v3/relay_device_id.dart';
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart'
     show RelayV3Transport, RelayV3Exception;
+import '../../core/surround_game/board_theme.dart';
 import '../../services/lua/lua_game_alias.dart';
 import '../lab_container.dart';
 import 'team_card/constants.dart';
@@ -84,12 +84,51 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
   @override
   Widget build(BuildContext context) {
     final handle = _handle;
+    // 棋盘主题暖色（与其他 Lua 游戏入口同款配色）
+    final theme = BoardTheme.of(context);
+    final bg = theme.boardSurface;
+    final panelText = theme.btnText;
     if (handle == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('团建卡牌（联机）')),
-        body: LobbyEntryPage(
-          onJoined: _onJoined,
-          onHostNeedsConfig: _onHostNeedsConfig,
+        backgroundColor: bg,
+        appBar: AppBar(
+          title: const Text('团建卡牌（联机）'),
+          backgroundColor: bg,
+          foregroundColor: panelText,
+          elevation: 0,
+        ),
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.panelBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: theme.panelBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
+                  child: LobbyEntryPage(
+                    onJoined: _onJoined,
+                    onHostNeedsConfig: _onHostNeedsConfig,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -104,7 +143,12 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('团建卡牌（联机）')),
+      // 房间内：内层视图（身份卡/主持/旁观/等待页）自带唯一返回按钮（走 onLeave
+      // 正确离开语义），外层 AppBar 不再自动加 leading，避免左上角双返回键
+      appBar: AppBar(
+        title: const Text('团建卡牌（联机）'),
+        automaticallyImplyLeading: false,
+      ),
       body: PlayingView(
         handle: handle,
         onLeave: _disconnect,
@@ -228,85 +272,152 @@ class _LobbyEntryPageState extends State<LobbyEntryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListView(
-      padding: EdgeInsets.fromLTRB(32, 24, 32, 32),
-      children: [
-        Icon(Icons.workspace_premium,
-            size: 56, color: Colors.amber.shade600.withValues(alpha: 0.85)),
-        SizedBox(height: 12),
-        Text('团建卡牌',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700)),
-        SizedBox(height: 6),
-        Text('输入同一号码即可开局，谁先到谁是房主',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline)),
-        SizedBox(height: 28),
-        TextField(
-          controller: _aliasCtrl,
-          decoration: InputDecoration(
-            labelText: '你的名字（全局共享）',
-            border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: Icon(Icons.person_outline),
+    final theme = BoardTheme.of(context);
+    // 圆角浅底输入框（聚焦时边框变粗变深）——与其他 Lua 游戏入口同款
+    InputDecoration inputDec(String hint) => InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          filled: true,
+          fillColor: theme.btnBg,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.panelBorder, width: 1),
           ),
-          onChanged: (v) => LuaGameAlias.save(v.trim()),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.panelBorder, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: theme.btnText, width: 1.6),
+          ),
+        );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // ── 昵称 ──
+      TextField(
+        controller: _aliasCtrl,
+        decoration: inputDec('昵称'),
+        style: TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w500, color: theme.btnText),
+        textAlignVertical: TextAlignVertical.center,
+        onChanged: (v) => LuaGameAlias.save(v.trim()),
+      ),
+      SizedBox(height: 12),
+
+      // ── 房间号 ──
+      TextField(
+        controller: _codeCtrl,
+        decoration: inputDec('房间号（4–6 位大写字母数字）').copyWith(
+          suffixIcon: IconButton(
+            icon: Icon(Icons.casino_outlined,
+                size: 20, color: theme.btnSub.withValues(alpha: 0.8)),
+            tooltip: '随机生成房间号（我是房主）',
+            onPressed:
+                _busy ? null : () => setState(() => _codeCtrl.text = _randomCode()),
+          ),
         ),
-        SizedBox(height: 14),
-        TextField(
-          controller: _codeCtrl,
-          textCapitalization: TextCapitalization.characters,
-          decoration: InputDecoration(
-            labelText: '房间号',
-            hintText: '4-6 位大写字母+数字',
-            border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: Icon(Icons.tag),
-            suffixIcon: IconButton(
-              icon: Icon(Icons.casino_outlined),
-              tooltip: '随机生成房间号（我是房主）',
-              onPressed: _busy
-                  ? null
-                  : () => setState(() => _codeCtrl.text = _randomCode()),
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: theme.btnText,
+          letterSpacing: 2,
+        ),
+        keyboardType: TextInputType.text,
+        textCapitalization: TextCapitalization.characters,
+        maxLength: 6,
+        onSubmitted: (_) => _busy ? null : _go(),
+      ),
+      SizedBox(height: 12),
+
+      // ── 提示行（浅灰块，左对齐）──
+      Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.btnText.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Text('◐',
+                style: TextStyle(color: theme.btnSub, fontSize: 13)),
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '输入同一号码即可开局，谁先到谁是房主；房主配置后其他人自动入座',
+              style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.4),
             ),
           ),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-            LengthLimitingTextInputFormatter(6),
-          ],
-          style: TextStyle(letterSpacing: 4, fontWeight: FontWeight.w600),
-        ),
-        SizedBox(height: 18),
-        if (_error != null)
-          Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text(_error!,
-                style: TextStyle(color: theme.colorScheme.error, fontSize: 13)),
+        ]),
+      ),
+
+      // ── 错误提示（暖红浅块）──
+      if (_error != null) ...[
+        SizedBox(height: 8),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
           ),
-        SizedBox(height: 16),
-        FilledButton.icon(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: EdgeInsets.only(top: 1),
+              child: Text('◉',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12)),
+            ),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _error!,
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 12,
+                    height: 1.4),
+              ),
+            ),
+          ]),
+        ),
+      ],
+
+      SizedBox(height: 20),
+
+      // ── 主按钮 ──
+      SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: FilledButton(
           onPressed: _busy ? null : _go,
-          icon: _busy
+          style: FilledButton.styleFrom(
+            backgroundColor: theme.btnText,
+            foregroundColor: theme.panelBg,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
+          ),
+          child: _busy
               ? SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : Icon(Icons.login),
-          label: Text(_busy ? '进入中…' : '进入对局'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(double.infinity, 52),
-            backgroundColor: Colors.amber.shade700,
-            foregroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
+                    strokeWidth: 2,
+                    color: theme.panelBg,
+                  ),
+                )
+              : const Text('进入对局',
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2)),
         ),
-      ],
-    );
+      ),
+    ]);
   }
 }
 
