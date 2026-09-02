@@ -26,6 +26,7 @@ import 'package:xiaodouzi_fr/core/chess/p2p/chess_room_page.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
+import 'package:xiaodouzi_fr/core/chess/widgets/chess_connection_status.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
@@ -972,19 +973,17 @@ void main() {
 
   // ─────────────── 合规修复：WS 状态条（RelayConnectionBar）存在 ───────────────
 
-  testWidgets('房间页底部渲染 RelayConnectionBar（WS 状态可见）', (tester) async {
+  testWidgets('连接状态只保留 AppBar 徽标一处（底部 RelayConnectionBar 已移除）', (tester) async {
     final handle = makeHostHandle();
     await tester.pumpWidget(host(handle));
     await tester.pump();
 
-    expect(find.byType(RelayConnectionBar), findsOneWidget);
-    // 测试环境无真实 WS：状态条存在即可（连接文案随 isConnected 变化）。
-    final texts = tester.widgetList<Text>(find.byType(Text));
-    final hasConn = texts.any(
-      (t) => t.data == '已连接' || t.data == '已断开 · 自动重连中',
-    );
-    expect(hasConn, isTrue);
-    expect(find.text('拉取最新快照'), findsOneWidget);
+    // v7 去重：底部 RelayConnectionBar 移除 —— AppBar 的 ChessConnectionStatusBadge
+    // 是唯一连接状态（旧版两处同时显示"已连接"造成冗余）。
+    expect(find.byType(RelayConnectionBar), findsNothing);
+    expect(find.byType(ChessConnectionStatusBadge), findsOneWidget);
+    // 手动刷新按钮仍在 AppBar（原底部条的"拉取最新快照"功能由它承担）。
+    expect(find.byTooltip('刷新快照'), findsOneWidget);
   });
 
   // ─────────────── 拖动（board-gesture-patterns）：松手合法目标 → 提交走法 ───────────────

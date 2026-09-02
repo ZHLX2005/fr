@@ -30,7 +30,6 @@ import 'package:flutter/material.dart';
 
 import '../../../widgets/context_chess_colors.dart';
 import '../../game_audio/piece_sound.dart';
-import '../../net_engine/relay_v3/relay_connection_bar.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
@@ -1889,8 +1888,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                       ],
                     ),
             ),
-            // WS 连接状态条（模板 §3.5 通用增强）：断线可见 + 手动拉取快照
-            RelayConnectionBar(handle: widget.handle),
           ],
         ),
         // 升变面板
