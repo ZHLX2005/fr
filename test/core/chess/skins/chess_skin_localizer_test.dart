@@ -18,7 +18,13 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/painting.dart' show FileImage;
+import 'package:flutter/painting.dart'
+    show
+        FileImage,
+        ImageConfiguration,
+        ImageStreamCompleter,
+        ImageStreamListener,
+        PaintingBinding;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -363,6 +369,7 @@ void main() {
     expect(await l.isCached('t1'), isFalse, reason: '缺 done 哨兵不得命中缓存');
   });
 
+
   // ─────────────── 静态同步判存（Fix B：本地文件优先渲染） ───────────────
 
   group('ChessSkinLocalizer.cachedPieceFile（Fix B + Fix C）', () {
@@ -677,4 +684,80 @@ void main() {
       );
     });
   });
+  // ─────────────── Fix C-2：KV 换图 → 旧缓存自动失效 ───────────────
+
+  test('isCached fileId 版本校验：meta 换 fileId → 旧缓存不命中（触发重下）', () async {
+    final oldMeta = makeMeta();
+    final l = makeLocalizer(client: okClient(), meta: oldMeta);
+    await l.download(oldMeta);
+    expect(await l.isCached('t1'), isTrue);
+
+    // KV 换图：同一 skinId 的新 meta，wK 的 fileId 变了
+    final newPieces = Map<String, FileRef>.of(oldMeta.pieces);
+    newPieces['wK'] = FileRef(
+      fileId: 'f' * 32, // 新 fileId
+      fileName: 'wK.webp',
+      sizeBytes: 200,
+      contentType: 'image/webp',
+    );
+    final newMeta = ChessSkinMeta(
+      id: oldMeta.id,
+      displayName: oldMeta.displayName,
+      pieces: newPieces,
+    );
+    final l2 = makeLocalizer(client: okClient(), meta: newMeta);
+    expect(
+      await l2.isCached('t1'),
+      isFalse,
+      reason: 'KV 换图（fileId 变更）后旧缓存必须失效 → ensureLocal 走 download 重下',
+    );
+
+    // 重下（download 用新 meta）→ 新索引写入 → isCached 重新命中
+    await l2.download(newMeta);
+    expect(await l2.isCached('t1'), isTrue);
+  });
+
+  test('isCached fileId 版本校验：.skin-meta.json 缺失/畸形 → false', () async {
+    final l = makeLocalizer(client: okClient());
+    await l.download(makeMeta());
+    expect(await l.isCached('t1'), isTrue);
+
+    // 删索引文件 → 无法校验版本 → false（迁移策略：触发重下）
+    skinFile('.skin-meta.json').deleteSync();
+    expect(await l.isCached('t1'), isFalse);
+
+    // 畸形索引（非法 JSON）→ false
+    skinFile('.skin-meta.json').writeAsStringSync('{not json');
+    expect(await l.isCached('t1'), isFalse);
+  });
+
+  test('download 后 evict ImageCache：FileImage.obtainKey 同路径 keys 相等（evict 生效前提）', () async {
+    final meta = makeMeta();
+    final l = makeLocalizer(client: okClient(), meta: meta);
+    await l.download(meta);
+
+    // FileImage 的 ImageCache key 按 path 相等 —— 生产的 _evictImageCache
+    // 用 FileImage(同 path).evict() 逐出旧缓存的前提是 keys 相等。
+    final keyA = await FileImage(skinFile('wK.webp')).obtainKey(ImageConfiguration.empty);
+    final keyB = await FileImage(skinFile('wK.webp')).obtainKey(ImageConfiguration.empty);
+    expect(keyA, keyB,
+        reason: '同路径 FileImage 的 keys 必须相等，否则生产的 _evictImageCache 失效');
+
+    // 验证 download 最新调用后，生产路径的 ImageCache evict 不抛错
+    PaintingBinding.instance.imageCache.putIfAbsent(keyA, () => InstantiationStub());
+    await l.download(meta);
+    expect(
+      () async => await FileImage(skinFile('wK.webp')).evict(),
+      returnsNormally,
+      reason: '重下后 evict 同路径 FileImage 不应抛错',
+    );
+  });
+}
+
+/// ImageCache.putIfAbsent 的最小 loader stub（不真正解码图片）。
+class InstantiationStub extends ImageStreamCompleter {
+  @override
+  void addListener(ImageStreamListener l) {}
+  @override
+  void removeListener(ImageStreamListener l) {}
 }

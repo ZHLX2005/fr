@@ -140,8 +140,16 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     // KV index（幂等；reader 内部自带 5s 超时，绝不阻塞导航），完成后 setState
     // —— 让入口按钮 / 之后 push 的设置页实时拿到 KV 新皮肤（设置页读 live
     // ChessSkinBundle.metas，Fix A）。
+    //
+    // Fix C-2（2026-09-03）：合入成功后对当前选中皮肤 re-prefetch ——
+    // initState 的首次预取可能与 KV 拉取竞态（用旧 const catalog meta 判缓存，
+    // 命中旧图写入 _localSkins）。KV 到位后 isCached 按新 fileId 比对 →
+    // 不匹配 → 重下 → _localSkins 被新皮肤覆盖。
     fetchAndMergeSkins().then((merged) {
-      if (!mounted || !merged) return;
+      if (!mounted) return;
+      if (merged) {
+        _prefetchSkin(_skinId);
+      }
       setState(() {});
     }).catchError((Object _) {
       // best-effort：任何异常都不影响入口（本地 catalog 已在 main() 注册兜底）。

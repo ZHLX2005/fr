@@ -54,6 +54,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
+import 'package:flutter/painting.dart' show FileImage;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
@@ -259,6 +260,12 @@ class ChessSkinLocalizer {
   /// `.skin-meta.json` 是 Fix C 的版本校验索引 —— 缺失则视作"无法校验"，
   /// 一律返回 false（与"旧设备首次 KV 变更"的迁移策略一致：触发重下）。
   ///
+  /// **fileId 版本校验（Fix C-2，2026-09-03）**：逐 pieceKey 比对
+  /// `.skin-meta.json` 里的 fileId 与当前 meta 是否一致 —— KV 换图后旧缓存
+  /// 自动失效触发重下。此前只校验"索引文件存在"，KV 换图（fileId 变更）
+  /// 后旧图永远命中，用户看不到新图（Fix C 只覆盖了 cachedPieceFile
+  /// 渲染路径，漏了 isCached/ensureLocal 点击皮肤路径）。
+  ///
   /// Web 恒 false（不支持本地文件）。
   Future<bool> isCached(String skinId) async {
     if (!isSupported) return false;
@@ -267,18 +274,48 @@ class ChessSkinLocalizer {
     final meta = _metaById(skinId);
     if (meta == null) return false;
     // 缓存版本索引必须存在（Fix C）
-    if (!File(
+    final indexFile = File(
       '${dir.path}${Platform.pathSeparator}$kCachedMetaFileName',
-    ).existsSync()) {
+    );
+    if (!indexFile.existsSync()) {
       return false;
     }
-    // 12 张棋子必须全部存在
+    // fileId 版本校验（Fix C-2）：解析索引，逐 key 与当前 meta 比对。
+    // 解析失败（畸形 JSON）→ 视作未命中 → 触发重下。
+    final Map<String, String>? index;
+    try {
+      final raw = jsonDecode(indexFile.readAsStringSync());
+      if (raw is! Map) {
+        return false;
+      }
+      index = {
+        for (final e in raw.entries)
+          if (e.key is String && e.value is String)
+            e.key as String: e.value as String,
+      };
+    } catch (_) {
+      return false;
+    }
+    // 12 张棋子：文件存在 + 索引 fileId == 当前 meta fileId
     for (final key in kChessSkin12PieceKeys) {
       final piece = meta.pieces[key];
       if (piece == null) continue; // 防御：meta 缺 key 时跳过
       if (!File('${dir.path}${Platform.pathSeparator}$key.webp').existsSync()) {
         return false;
       }
+      if (index[key] != piece.fileId) {
+        return false; // KV 换图 → 旧缓存失效
+      }
+    }
+    // 可选棋盘底图：声明了就必须文件存在 + fileId 匹配
+    final bg = meta.boardBackground;
+    if (bg != null) {
+      final bgFile = File(
+        '${dir.path}${Platform.pathSeparator}'
+        '${LocalChessSkin.boardBackgroundFileName(bg)}',
+      );
+      if (!bgFile.existsSync()) return false;
+      if (index['boardBackground'] != bg.fileId) return false;
     }
     // done 标记必须存在（下载完成哨兵）
     if (!File(
@@ -385,11 +422,36 @@ class ChessSkinLocalizer {
     // 判存 memo 失效：本次落盘的文件对 cachedPieceFile 立即可见
     // （RemoteChessSkin 本地文件优先渲染随之生效，零网络）。
     _invalidateMemo(meta.id);
+    // Flutter ImageCache 逐出（Fix C-2 配套）：文件路径不变
+    // （<skinId>/wK.webp），FileImage 的 == 基于 path —— KV 换图重下后
+    // ImageCache 仍命中旧 decoded image，UI 永远显示旧图。按同路径 evict
+    // 让下次 build 重新读文件。
+    _evictImageCache(dir, [
+      for (final key in meta.pieces.keys) '$key.webp',
+      if (meta.boardBackground != null)
+        LocalChessSkin.boardBackgroundFileName(meta.boardBackground!),
+    ]);
     final skin = LocalChessSkin.tryCreate(meta: meta, dir: dir);
     if (skin == null) {
       throw StateError('皮肤下载完成但无法构造本地皮肤: ${meta.id}');
     }
     return skin;
+  }
+
+  /// 按 [fileNames] 逐出 Flutter ImageCache 中同路径 FileImage 的旧缓存。
+  ///
+  /// evict 失败静默（仅残留旧图到下次重启；不掩盖下载成功）。
+  static void _evictImageCache(Directory dir, List<String> fileNames) {
+    if (kIsWeb) return;
+    for (final name in fileNames) {
+      try {
+        FileImage(File(
+          '${dir.path}${Platform.pathSeparator}$name',
+        )).evict();
+      } catch (_) {
+        // ImageCache 未初始化等场景 —— 忽略。
+      }
+    }
   }
 
   /// 下载单个 [FileRef] 写到 [dir]/[fileName]，校验 HTTP 200 后写盘。
