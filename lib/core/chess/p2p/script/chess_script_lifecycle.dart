@@ -49,7 +49,7 @@ function is_valid_uci(uci)
   local to = uci:sub(3, 4)
   if from:match("^[a-h][1-8]$") == nil then return false end
   if to:match("^[a-h][1-8]$") == nil then return false end
-  if #uci == 5 and uci:sub(5, 5):match("^[qrbn]$") == nil then return false end
+  if #uci == 5 and uci:sub(5, 5):lower():match("^[qrbn]$") == nil then return false end
   return true
 end
 

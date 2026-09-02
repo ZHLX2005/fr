@@ -180,10 +180,19 @@ void main() {
       expect(m.toUci(promotingColor: PieceColor.black), 'e7e8q');
     });
 
-    test('棋谱 U 升变是白方', () {
-      final m = Move(from: squareToIndex('a2'), to: squareToIndex('a1'),
+    test('棋谱 UCI 升变后缀永远小写（标准 UCI）', () {
+      // 白方升变（默认）→ 小写（如 e7e8q），黑方升变亦同
+      final whitePromo = Move(from: squareToIndex('a2'), to: squareToIndex('a1'),
           promotion: PieceType.rook);
-      expect(m.toUci(), 'a2a1R');
+      expect(whitePromo.toUci(), 'a2a1r',
+          reason: 'UCI 升变后缀永远小写，与执子颜色无关');
+      // 显式传 white/black 也不影响（promotingColor 已废弃）
+      expect(whitePromo.toUci(promotingColor: PieceColor.white), 'a2a1r');
+      expect(whitePromo.toUci(promotingColor: PieceColor.black), 'a2a1r');
+      // 黑方升变（起步与白方相同逻辑）
+      final blackPromo = Move(from: squareToIndex('e7'), to: squareToIndex('e8'),
+          promotion: PieceType.queen);
+      expect(blackPromo.toUci(), 'e7e8q');
     });
   });
 }

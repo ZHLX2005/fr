@@ -54,12 +54,16 @@ class Move {
     this.isCheckmate = false,
   });
 
-  /// UCI 格式（"e2e4", "e7e8q"）：走法表示的简化形式，永远白方视角
+  /// UCI 格式（"e2e4", "e7e8q"）：走法表示的简化形式
+  ///
+  /// 标准 UCI 要求升变后缀永远小写（如 `e7e8q`），与执子颜色无关。
+  /// [promotingColor] 已废弃：保留参数仅为向后兼容，传什么都不影响输出。
   String toUci({PieceColor promotingColor = PieceColor.white}) {
     final fromSq = indexToSquare(from);
     final toSq = indexToSquare(to);
     if (promotion == null) return '$fromSq$toSq';
-    final p = pieceToFenChar(promotion!, promotingColor);
+    // UCI 升变后缀永远小写（黑方本就小写，白方需显式转小写）
+    final p = pieceToFenChar(promotion!, PieceColor.black);
     return '$fromSq$toSq$p';
   }
 

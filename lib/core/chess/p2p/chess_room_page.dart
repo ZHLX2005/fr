@@ -686,7 +686,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await widget.handle.applyAction(
         type: 'MOVE',
         params: {
-          'uci': move.toUci(promotingColor: _myColor ?? PieceColor.white),
+          'uci': move.toUci(),
           'fen': FenCodec.toFen(newState),
           'ts': DateTime.now().millisecondsSinceEpoch,
         },
