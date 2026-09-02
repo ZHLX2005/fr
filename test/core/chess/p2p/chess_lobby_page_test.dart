@@ -145,6 +145,19 @@ Snapshot makeSnap({
   );
 }
 
+
+// Finder helper：匹配包含子串的 Text 或 RichText。config 页 chip 用
+// RichText 渲染（label + sublabel），find.textContaining 找不到子 span，
+// 所以用 byWidgetPredicate 遍历 widget tree 自己匹配。
+Finder _chipContaining(String s) => find.byWidgetPredicate((w) {
+  if (w is Text) return w.data?.contains(s) ?? false;
+  if (w is RichText) {
+    final span = w.text;
+    if (span is TextSpan) return span.toPlainText().contains(s);
+  }
+  return false;
+});
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({}); // legacy（RelayDeviceId）
@@ -171,7 +184,7 @@ void main() {
   Future<void> fillAndGo(WidgetTester tester) async {
     await tester.enterText(find.byType(TextField).at(0), '小白');
     await tester.enterText(find.byType(TextField).at(1), 'abcd');
-    await tester.tap(find.text('进入对局'));
+    await tester.tap(find.text("加入房间").last);
     await tester.pump();
     await tester.pump();
     await tester.pump();
@@ -184,7 +197,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), ' ');
     await tester.enterText(find.byType(TextField).at(1), 'ABCD');
-    await tester.tap(find.text('进入对局'));
+    await tester.tap(find.text("加入房间").last);
     await tester.pump();
 
     expect(find.text('请输入昵称'), findsOneWidget);
@@ -198,7 +211,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), '小白');
     await tester.enterText(find.byType(TextField).at(1), 'AB');
-    await tester.tap(find.text('进入对局'));
+    await tester.tap(find.text("加入房间").last);
     await tester.pump();
 
     expect(find.text('房间号为 4–6 位大写字母数字'), findsOneWidget);
@@ -212,7 +225,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(0), '小白');
     await tester.enterText(find.byType(TextField).at(1), 'AB0D');
-    await tester.tap(find.text('进入对局'));
+    await tester.tap(find.text("加入房间").last);
     await tester.pump();
 
     expect(find.textContaining('易混淆'), findsOneWidget);
@@ -253,7 +266,7 @@ void main() {
 
     // 换成满员错误重试
     transport.failWith = RelayV3Exception(409, 'join rejected by script');
-    await tester.tap(find.text('进入对局'));
+    await tester.tap(find.text("加入房间").last);
     await tester.pump();
     await tester.pump();
     await tester.pump();
@@ -456,24 +469,10 @@ void main() {
     expect(transport.joinCalls, hasLength(2), reason: '同一稳定身份重进走 join');
   });
 
-  // ══════════════════════════════════════════════════════════════
-  // v4: host_color 选择器（执白/执黑/随机/由残局决定）→ initialParams
-  // ══════════════════════════════════════════════════════════════
 
-  Future<void> fillAndGoWithEndgame(
-    WidgetTester tester, {
-    ChessEndgameSnapshot? endgame,
-  }) async {
-    await tester.enterText(find.byType(TextField).at(0), '小白');
-    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
-    // v4 表单加 picker + 规则提示，按钮可能在 viewport 外；
-    // 用 ensureVisible 滚动 + 等 stream listener / snapshot 推送多个 pump
-    await tester.ensureVisible(find.text('进入对局'));
-    await tester.tap(find.text('进入对局'));
-    for (var i = 0; i < 8; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-  }
+  // ══════════════════════════════════════════════════════════════
+  // v6: 双入口（创建房间 / 加入房间）+ ChessRoomConfigPage 配置
+  // ══════════════════════════════════════════════════════════════
 
   Widget hostWithEndgame({
     required RecordingTransport transport,
@@ -490,7 +489,7 @@ void main() {
     );
   }
 
-  testWidgets('v4 默认（无 endgame）→ picker 含 3 chip：执白/执黑/随机；提交发 host_color=w', (
+  testWidgets('v6 host 默认（无 endgame）→ initialParams.host_color=w + first_mover=w', (
     tester,
   ) async {
     final transport = RecordingTransport(deviceId: 'd-me');
@@ -502,20 +501,25 @@ void main() {
     );
     await tester.pumpWidget(host(transport: transport, joined: joined));
 
-    // 应该看到 3 个按钮（无 endgame → 无"由残局决定"）。
-    expect(find.text('执白（先手）'), findsOneWidget);
-    expect(find.text('执黑（后手）'), findsOneWidget);
-    expect(find.text('随机'), findsOneWidget);
-    expect(find.text('由残局决定'), findsNothing);
+    await tester.enterText(find.byType(TextField).at(0), '小白');
+    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
+    await tester.ensureVisible(find.text("创建房间").last);
+    await tester.tap(find.text("创建房间").last);
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text("创建房间").last);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-    await fillAndGo(tester);
     expect(transport.joinCalls, hasLength(1));
     final p = transport.joinCalls.first.initialParams;
-    expect(p['host_color'], 'w',
-        reason: '默认执白 → host_color="w"');
+    expect(p['host_color'], 'w');
+    expect(p['guest_color'], 'b');
+    expect(p['first_mover'], 'w');
   });
 
-  testWidgets('v4 切到"执黑" → initialParams.host_color == "b"', (tester) async {
+  testWidgets("v6 host 切到我执黑他执白 → host=b, guest=w", (tester) async {
     final transport = RecordingTransport(deviceId: 'd-me');
     final joined = <RoomHandle>[];
     transport.handleToReturn = FakeLobbyHandle(
@@ -525,14 +529,28 @@ void main() {
     );
     await tester.pumpWidget(host(transport: transport, joined: joined));
 
-    await tester.tap(find.text('执黑（后手）'));
+    await tester.enterText(find.byType(TextField).at(0), '小白');
+    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
+    await tester.ensureVisible(find.text("创建房间").last);
+    await tester.tap(find.text("创建房间").last);
     await tester.pump();
-    await fillAndGo(tester);
+    await tester.pump();
+    await tester.ensureVisible(_chipContaining("我执黑，他执白"));
+    await tester.tap(_chipContaining("我执黑，他执白"));
+    await tester.pump();
+    await tester.tap(find.text("创建房间").last);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
     expect(transport.joinCalls, hasLength(1));
-    expect(transport.joinCalls.first.initialParams['host_color'], 'b');
+    final p = transport.joinCalls.first.initialParams;
+    expect(p['host_color'], 'b');
+    expect(p['guest_color'], 'w');
+    expect(p['first_mover'], 'w');
   });
 
-  testWidgets('v4 切到"随机" → initialParams.host_color == "random"', (tester) async {
+  testWidgets("v6 host 切到随机掷筛 → host=random, guest=null", (tester) async {
     final transport = RecordingTransport(deviceId: 'd-me');
     final joined = <RoomHandle>[];
     transport.handleToReturn = FakeLobbyHandle(
@@ -542,74 +560,67 @@ void main() {
     );
     await tester.pumpWidget(host(transport: transport, joined: joined));
 
-    await tester.tap(find.text('随机'));
+    await tester.enterText(find.byType(TextField).at(0), '小白');
+    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
+    await tester.ensureVisible(find.text("创建房间").last);
+    await tester.tap(find.text("创建房间").last);
     await tester.pump();
-    await fillAndGo(tester);
+    await tester.pump();
+    await tester.ensureVisible(_chipContaining("随机掷筛"));
+    await tester.tap(_chipContaining("随机掷筛"));
+    await tester.pump();
+    await tester.tap(find.text("创建房间").last);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
     expect(transport.joinCalls, hasLength(1));
-    expect(transport.joinCalls.first.initialParams['host_color'], 'random');
+    final p = transport.joinCalls.first.initialParams;
+    expect(p['host_color'], 'random');
+    expect(p.containsKey('guest_color'), isFalse,
+        reason: 'random 时不带 guest_color（服务端掷筛决定）');
   });
 
   testWidgets(
-    'v4 带 endgame（白先） → 默认 chip 是"由残局决定"，提交发 host_color=w',
-    (tester) async {
-      final transport = RecordingTransport(deviceId: 'd-me');
-      final joined = <RoomHandle>[];
-      transport.handleToReturn = FakeLobbyHandle(
-        transport: transport,
-        code: 'ABCD',
-        initial: makeSnap(state: 'lobby'),
-      );
-      final endgame = ChessEndgameSnapshot(
-        label: '黑先残局',
-        // FEN 第 2 字段 = 'b' → sideFromFen 推 'b' → auto 解析成 'b'
-        fen: '1r1bk2r/5ppp/3p3n/p1p1p3/4P1PP/2BP2P1/PP2B3/2KR2NR b k - 3 21',
-      );
-      await tester.pumpWidget(hostWithEndgame(
-        transport: transport,
-        joined: joined,
-        endgame: endgame,
-      ));
+      'v6 endgame host 路径：默认 host=白/first_mover=黑 → host=w, first_mover=b', (
+    tester,
+  ) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final joined = <RoomHandle>[];
+    transport.handleToReturn = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby'),
+    );
+    final endgame = ChessEndgameSnapshot(
+      label: '黑先残局',
+      fen: '1r1bk2r/5ppp/3p3n/p1p1p3/4P1PP/2BP2P1/PP2B3/2KR2NR b k - 3 21',
+    );
+    await tester.pumpWidget(hostWithEndgame(
+      transport: transport,
+      joined: joined,
+      endgame: endgame,
+    ));
 
-      expect(find.text('由残局决定'), findsOneWidget);
-      await fillAndGoWithEndgame(tester);
-      expect(transport.joinCalls, hasLength(1));
-      final p = transport.joinCalls.first.initialParams;
-      expect(p['initial_fen'], endgame.fen);
-      expect(p['host_color'], 'b',
-          reason: 'auto 解析 = sideFromFen(fen) = "b"，黑先残局');
-    },
-  );
+    await tester.enterText(find.byType(TextField).at(0), '小白');
+    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
+    await tester.ensureVisible(find.text("创建房间").last);
+    await tester.tap(find.text("创建房间").last);
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text("创建房间").last);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-  testWidgets(
-    'v4 endgame + 强制"我执白"（黑先残局） → host_color=w',
-    (tester) async {
-      final transport = RecordingTransport(deviceId: 'd-me');
-      final joined = <RoomHandle>[];
-      transport.handleToReturn = FakeLobbyHandle(
-        transport: transport,
-        code: 'ABCD',
-        initial: makeSnap(state: 'lobby'),
-      );
-      final endgame = ChessEndgameSnapshot(
-        label: '黑先残局',
-        fen: '1r1bk2r/5ppp/3p3n/p1p1p3/4P1PP/2BP2P1/PP2B3/2KR2NR b k - 3 21',
-      );
-      await tester.pumpWidget(hostWithEndgame(
-        transport: transport,
-        joined: joined,
-        endgame: endgame,
-      ));
+    expect(transport.joinCalls, hasLength(1));
+    final p = transport.joinCalls.first.initialParams;
+    expect(p['initial_fen'], endgame.fen);
+    expect(p['host_color'], 'w');
+    expect(p['first_mover'], 'b');
+  });
 
-      await tester.tap(find.text('执白（先手）'));
-      await tester.pump();
-      await fillAndGoWithEndgame(tester);
-      expect(transport.joinCalls, hasLength(1));
-      expect(transport.joinCalls.first.initialParams['host_color'], 'w',
-          reason: '强制 host 执白时 wire 上写 "w"（服务端会整体翻 FEN）');
-    },
-  );
-
-  testWidgets('v4 不再发送 initial_side（已废弃：服务端 dead code，由 host_color 取代）',
+  testWidgets('v6 endgame host 切到 host=黑 + first_mover=黑 → host=b, first_mover=b',
       (tester) async {
     final transport = RecordingTransport(deviceId: 'd-me');
     final joined = <RoomHandle>[];
@@ -619,17 +630,70 @@ void main() {
       initial: makeSnap(state: 'lobby'),
     );
     final endgame = ChessEndgameSnapshot(
-      label: '测试残局',
-      fen: '8/8/8/4k3/8/8/4Q3/4K3 w - - 0 1',
+      label: '黑先残局',
+      fen: '1r1bk2r/5ppp/3p3n/p1p1p3/4P1PP/2BP2P1/PP2B3/2KR2NR b k - 3 21',
     );
     await tester.pumpWidget(hostWithEndgame(
       transport: transport,
       joined: joined,
       endgame: endgame,
     ));
-    await fillAndGoWithEndgame(tester);
+
+    await tester.enterText(find.byType(TextField).at(0), '小白');
+    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
+    await tester.ensureVisible(find.text("创建房间").last);
+    await tester.tap(find.text("创建房间").last);
+    await tester.pump();
+    await tester.pump();
+    await tester.ensureVisible(_chipContaining("我执黑，他执白"));
+    await tester.tap(_chipContaining("我执黑，他执白"));
+    await tester.pump();
+    await tester.tap(find.text("创建房间").last);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(transport.joinCalls, hasLength(1));
     final p = transport.joinCalls.first.initialParams;
-    expect(p.containsKey('initial_side'), isFalse,
-        reason: 'initial_side 已废弃，不应再出现在 wire 上');
+    expect(p['host_color'], 'b');
+    expect(p['guest_color'], 'w');
+    expect(p['first_mover'], 'b');
+  });
+
+  testWidgets('v6 加入房间路径：直接 tryJoinOrCreate，initialParams 最小', (
+    tester,
+  ) async {
+    final transport = RecordingTransport(deviceId: 'd-me');
+    final joined = <RoomHandle>[];
+    transport.handleToReturn = FakeLobbyHandle(
+      transport: transport,
+      code: 'ABCD',
+      initial: makeSnap(state: 'lobby'),
+    );
+    final endgame = ChessEndgameSnapshot(
+      label: '黑先残局',
+      fen: '1r1bk2r/5ppp/3p3n/p1p1p3/4P1PP/2BP2P1/PP2B3/2KR2NR b k - 3 21',
+    );
+    await tester.pumpWidget(hostWithEndgame(
+      transport: transport,
+      joined: joined,
+      endgame: endgame,
+    ));
+
+    await tester.enterText(find.byType(TextField).at(0), '小白');
+    await tester.enterText(find.byType(TextField).at(1), 'ABCD');
+    await tester.ensureVisible(find.text('加入房间'));
+    await tester.tap(find.text('加入房间'));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(transport.joinCalls, hasLength(1));
+    final p = transport.joinCalls.first.initialParams;
+    expect(p['device_id'], isNotNull);
+    expect(p['alias'], '小白');
+    expect(p.containsKey('initial_fen'), isFalse, reason: 'guest 路径忽略残局');
+    expect(p.containsKey('host_color'), isFalse);
+    expect(p.containsKey('first_mover'), isFalse);
   });
 }

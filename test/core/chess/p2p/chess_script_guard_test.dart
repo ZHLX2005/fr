@@ -20,6 +20,7 @@ import 'package:xiaodouzi_fr/core/chess/p2p/script/chess_script.dart';
 void main() {
   _undoGuards();
   _v5HostColorGuards();
+  _v6FirstMoverGuards();
   group('kChessScript on_leave 静态守卫：断线不销毁房间', () {
     test('playing/ready 分支存在 disconnect 判因，且先于 host 销毁分支', () {
       final onLeave = _onLeaveBlock();
@@ -292,6 +293,32 @@ void _v5HostColorGuards() {
     test('fen_flip helper 仍存在（备用），但不调用', () {
       expect(kChessScript, contains('function fen_flip(fen)'),
           reason: 'fen_flip helper 保留供未来扩展（v5 当前不调用）');
+    });
+  });
+}
+
+void _v6FirstMoverGuards() {
+  group('kChessScript v6 first_mover 显式参数 静态守卫', () {
+    test('on_init 必须读取 p.first_mover 并写入 c.initial_side（残局强制覆盖）', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(onInit, contains('p.first_mover'),
+          reason: 'on_init 必须读取 initial_params.first_mover');
+      expect(onInit, contains('p.first_mover == "w"'),
+          reason: 'first_mover 白先分支必须存在');
+      expect(onInit, contains('p.first_mover == "b"'),
+          reason: 'first_mover 黑先分支必须存在');
+      expect(
+        onInit,
+        contains('c.initial_side = p.first_mover'),
+        reason: '服务端信任 client 显式 first_mover → 写入 c.initial_side',
+      );
+    });
+
+    test('未传 first_mover 时（向后兼容）从 FEN 第 2 字段推', () {
+      final onInit = _functionBlock('on_init = function');
+      // p.first_mover 缺省时仍走 FEN 推导路径
+      expect(onInit, contains('fields[2] == "b"'),
+          reason: 'first_mover 缺省兑底路径：FEN 第 2 字段推导');
     });
   });
 }

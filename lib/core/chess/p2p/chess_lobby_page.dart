@@ -1,14 +1,21 @@
 // lib/core/chess/p2p/chess_lobby_page.dart
 //
-// 社交房间号入口页（social-room-code-pattern）—— 单表单加入/建房 + 过渡 loading。
+// 社交房间号入口页（social-room-code-pattern）—— v6：双入口分流。
 //
-// 与其它 Lua 游戏（gomoku / jungle / surround…）的 LobbyEntryPage 同构：
-//   双方输入同一房间号 + 昵称 → 点击"进入对局" →
-//   transport.tryJoinOrCreate：房间存在 → join；404 → 用此号建房
-//   （先到者 = 房主 = 白方先手，后到者执黑）。不再区分"创建/加入"两个按钮。
+// ## v6 流程改动（与 v5 对比）
+//
+// v5：单表单 + chip 行（执白/执黑/随机/由残局决定）+ 单一"进入对局"按钮
+// v6：单表单 + 双入口按钮 ——
+//   · "创建房间"（FilledButton，full width）→ push ChessRoomConfigPage →
+//     用户显式选 host/guest 角色与残局 first_moker → 拿到 ChessRoomConfig →
+//     tryJoinOrCreate(initialParams={host_color, first_mover, initial_fen?})
+//   · "加入房间"（OutlinedButton，full width）→ 直接 tryJoinOrCreate
+//     （不带 host_color / first_mover / initial_fen；服务端 join 路径忽略）
+//
+// 与其它 Lua 游戏（gomoku / jungle / surround…）的 LobbyEntryPage 同构。
 //
 // 阶段：
-//   entry  单表单（昵称 + 房间号 + 规则提示 + 错误提示）
+//   entry  单表单（昵称 + 房间号 + 残局 chip + 错误提示）
 //   room   过渡 loading（仅转圈 —— 房间号 / 玩家 / 准备卡片全由房间页渲染）
 //   服务端 state == "lobby"/"ready"/"playing"/"ended" → onStarted(handle)
 //   交给业务层接管（push ChessRoomPage）。
@@ -16,8 +23,6 @@
 // v2（READY 门）：服务端不再"双人到齐自动 playing"。进入房间后先停在
 //   state = "lobby"（准备阶段）—— 本页只显示 loading，随即 push
 //   ChessRoomPage，由房间页渲染准备卡片（"准备好了" → "开始游戏"）。
-//   导航时机放宽到 state ∈ (lobby, ready, playing, ended)，因为房间页
-//   自带 lobby/ready/playing/ended 四态 UI（v2 之前只等 playing 才 push）。
 //
 // 409 区分（服务端 message 关键词，per social-room-code-pattern）：
 //   "code collision" → 撞号（房间号被占，提示换一个）
@@ -35,13 +40,10 @@ import '../../../widgets/context_chess_colors.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../endgame/chess_endgame.dart';
 import 'chess_identity.dart';
+import 'chess_room_config_page.dart';
 import 'script/chess_script.dart';
 
-/// 建房者执子选择（v4）：见 [ChessLobbyPageState._resolveHostColorParam] /
-/// [_hostChoice] 默认值逻辑。
-enum _HostColorChoice { white, black, random, auto }
-
-/// 社交房间号入口页 —— 单表单 + 过渡 loading + onStarted。
+/// 社交房间号入口页 —— 单表单 + 双入口（创建/加入）+ 过渡 loading + onStarted。
 class ChessLobbyPage extends StatefulWidget {
   const ChessLobbyPage({
     super.key,
@@ -74,11 +76,8 @@ class ChessLobbyPage extends StatefulWidget {
   final RelayV3Transport Function(String alias, String deviceId)?
       transportBuilder;
 
-  /// 残局开局快照（非 null → 建房 initial_params 带 initial_fen，房间从
-  /// 该局面开始；host 执先手方）。null = 标准开局。
-  ///
-  /// 仅"你建房"时生效（tryJoinOrCreate join 已存在房间时服务端忽略
-  /// initial_params）—— 表单提示块说明这点。
+  /// 残局开局快照（建房时服务端消费 → 房间从该局面开始）。
+  /// 仅"你创建房间"时生效；"加入房间"路径忽略（join 已存在房间）。
   final ChessEndgameSnapshot? initialEndgame;
 
   /// 清除残局选择（chip X 按钮；调用方 setState 置空 initialEndgame）。
@@ -102,16 +101,9 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
   /// onStarted 是否已触发（防快照风暴重复 push）。
   bool _started = false;
 
-  // v4：建房时 host 选执子身份。残局模式下多一个 `auto`（按 FEN 推断后解析）
-  // — 标准开局默认 `white`，残局默认 `auto`。
-  _HostColorChoice _hostChoice = _HostColorChoice.white;
-
   @override
   void initState() {
     super.initState();
-    _hostChoice = widget.initialEndgame != null
-        ? _HostColorChoice.auto
-        : _HostColorChoice.white;
     // 共享昵称（与其它 Lua 游戏通用）：load 回填 + 监听实时同步。
     LuaGameAlias.load().then((v) {
       if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
@@ -139,7 +131,7 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     super.dispose();
   }
 
-  // ——— 单表单进入：join 优先，404 → 建房 ———
+  // ——— 输入校验 ———
 
   /// 房间号合法性：4–6 位大写字母数字，不含易混字符（0/O/1/I/L）。
   static const String _kConfusingChars = '0O1IL';
@@ -152,41 +144,69 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     return null;
   }
 
-  /// 把 UI 选项解析成服务端协议值：
-  ///   `white` / `black` / `random` → 直接透传
-  ///   `auto`                       → client 端用 FEN 推（仅残局模式可达），
-  ///                                   解析成具体 'w' 或 'b'；不带 FEN 返回 null
-  ///                                   （服务端看不到 'auto' 这种 wire 取值）
-  String? _resolveHostColorParam() {
-    switch (_hostChoice) {
-      case _HostColorChoice.white:
-        return 'w';
-      case _HostColorChoice.black:
-        return 'b';
-      case _HostColorChoice.random:
-        return 'random';
-      case _HostColorChoice.auto:
-        final e = widget.initialEndgame;
-        if (e == null) return null;
-        return ChessEndgame.sideFromFen(e.fen);
-    }
-  }
-
-  /// 单表单智能匹配：先按输入的房间号尝试 join；不存在则用此号创建。
-  /// 撞号（409 code collision）→ 房间号被占，提示换号；
-  /// 满员（409 join rejected）→ guest 槽已占，kChessScript 拒绝。
-  Future<void> _go() async {
+  /// 校验输入（昵称 + 房间号）；返回 (alias, code) 或 null + 写 _error。
+  ({String alias, String code})? _validateAndExtract() {
     final alias = _aliasCtrl.text.trim();
     if (alias.isEmpty) {
       setState(() => _error = '请输入昵称');
-      return;
+      return null;
     }
     final code = _codeCtrl.text.trim().toUpperCase();
     final codeError = _validateCode(code);
     if (codeError != null) {
       setState(() => _error = codeError);
-      return;
+      return null;
     }
+    return (alias: alias, code: code);
+  }
+
+  // ——— 双入口 ———
+
+  /// 创建房间（host 路径）：push 配置页 → 拿到 cfg → tryJoinOrCreate。
+  Future<void> _goAsHost() async {
+    final validated = _validateAndExtract();
+    if (validated == null) return;
+    final alias = validated.alias;
+    final code = validated.code;
+
+    // push ChessRoomConfigPage；返回 ChessRoomConfig（用户取消 → null）。
+    final cfg = await Navigator.of(context).push<ChessRoomConfig>(
+      MaterialPageRoute(
+        builder: (_) => ChessRoomConfigPage(
+          alias: alias,
+          code: code,
+          endgame: widget.initialEndgame,
+          relayUrl: widget.relayUrl,
+          transportBuilder: widget.transportBuilder,
+          onSubmit: (cfg) => Navigator.of(context).pop(cfg),
+        ),
+      ),
+    );
+    if (cfg == null) return; // 用户取消配置页
+    if (!mounted) return;
+    await _submitWithConfig(cfg, alias: alias, code: code);
+  }
+
+  /// 加入房间（guest 路径）：直接 tryJoinOrCreate。
+  /// 服务端 join 路径忽略 initialParams（v5 行为），残局选择不影响。
+  Future<void> _goAsGuest() async {
+    final validated = _validateAndExtract();
+    if (validated == null) return;
+    final alias = validated.alias;
+    final code = validated.code;
+    await _submitWithConfig(null, alias: alias, code: code);
+  }
+
+  /// 实际 tryJoinOrCreate。
+  ///
+  /// cfg = null → guest 路径（initialParams 不带 host_color / first_mover / initial_fen）
+  /// cfg != null → host 路径（initialParams 带 host_color + first_mover，残局模式
+  ///                  还带 initial_fen；服务端建房时消费这些字段）
+  Future<void> _submitWithConfig(
+    ChessRoomConfig? cfg, {
+    required String alias,
+    required String code,
+  }) async {
     setState(() {
       _busy = true;
       _error = null;
@@ -202,25 +222,28 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
             deviceId: deviceId,
           );
       await LuaGameAlias.save(alias);
-      // 残局开局（v4）：
-      //   · initial_fen 建房时服务端消费；join 已存在房间时被忽略
-      //   · host_color 决定 host 执子色（'w' / 'b' / 'random'）；
-      //     残局模式下与 FEN 不一致时服务端会"强翻转"残局 FEN，让 host 永远是先手方
-      //   · 'auto' 仅残局模式出现：客户端先解析成具体 'w' / 'b' 再发送
-      //     （服务端不识别 'auto' 这种 wire 取值）
-      // 已移除 v3 的 initial_side（服务端忽略，host_color 替代）。
-      final endgame = widget.initialEndgame;
+
       final initialParams = <String, dynamic>{
         'device_id': t.deviceId,
         'alias': alias,
       };
-      if (endgame != null) {
-        initialParams['initial_fen'] = endgame.fen;
+
+      // host 路径：注入 host_color + first_mover；残局时再带 initial_fen
+      if (cfg != null) {
+        initialParams['host_color'] = cfg.hostColor;
+        // guest_color：'random' 时不带（服务端掷筛决定）；具体值时也带上做冗余校验
+        if (cfg.guestColor != null) {
+          initialParams['guest_color'] = cfg.guestColor;
+        }
+        initialParams['first_mover'] = cfg.firstMover;
+        final endgame = widget.initialEndgame;
+        if (endgame != null) {
+          initialParams['initial_fen'] = endgame.fen;
+        }
       }
-      final hc = _resolveHostColorParam();
-      if (hc != null) {
-        initialParams['host_color'] = hc;
-      }
+      // guest 路径：initialParams 保持最小（只 device_id + alias）—— 服务端 join
+      // 时忽略所有 initialParams（v5 行为）。
+
       final h = await t.tryJoinOrCreate(
         code: code,
         script: kChessScript,
@@ -333,7 +356,7 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
     );
   }
 
-  /// 入口单表单：昵称 + 房间号 + 提示 + 错误 + "进入对局"。
+  /// 入口单表单：昵称 + 房间号 + 残局 chip + 错误 + "创建房间"/"加入房间"。
   Widget _buildEntry(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.chessColors;
@@ -387,10 +410,12 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                 ),
                 textCapitalization: TextCapitalization.characters,
                 maxLength: 6,
-                onSubmitted: (_) => _busy ? null : _go(),
+                onSubmitted: (_) => _busy ? null : _goAsGuest(),
               ),
               const SizedBox(height: 4),
               // 残局选择 chip（非 null 时显示；X 清除回标准开局）。
+              // 仅"创建房间"路径使用；"加入房间"忽略此选择（服务端 join 时
+              // 忽略 initial_fen）。
               if (widget.initialEndgame != null) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -435,44 +460,53 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                   ),
                 ),
               ],
-              // 执子选择按钮（v4）：紧凑 OutlinedButton 行（无动画，
-// 单行 3-4 按钮，避免 Wrap 多行挤占 viewport；测试与小屏都友好）。
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _hostButton(
-                      label: '执白（先手）',
-                      value: _HostColorChoice.white,
-                    ),
+              const SizedBox(height: 20),
+              // 双入口按钮（v6）：
+              // · "创建房间" → push ChessRoomConfigPage → 用户显式选 host/guest + first_moker
+              // · "加入房间" → 直接 tryJoinOrCreate（guest 看不到配置页）
+              FilledButton(
+                onPressed: _busy ? null : _goAsHost,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _hostButton(
-                      label: '执黑（后手）',
-                      value: _HostColorChoice.black,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _hostButton(
-                      label: '随机',
-                      value: _HostColorChoice.random,
-                    ),
-                  ),
-                  if (widget.initialEndgame != null) ...[
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _hostButton(
-                        label: '由残局决定',
-                        value: _HostColorChoice.auto,
+                ),
+                child: _busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
+                        '创建房间',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 2,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
               ),
-              // 规则提示（浅色块）：让用户预期"先到 = 房主 = 执先手方"
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: _busy ? null : _goAsGuest,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  '加入房间',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 提示文案（v6 简化）：建/加双入口的角色选择走配置页
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -496,7 +530,11 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _ruleText(),
+                        widget.initialEndgame != null
+                            ? '残局开局仅在"创建房间"时生效 —— 若对方已用此号建房，'
+                                '你点"加入房间"会进入对方的房间。'
+                            : '与朋友约定同一房间号："创建房间"是房主，'
+                                '"加入房间"是后到者。',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.coordinateLabel,
                           height: 1.4,
@@ -526,111 +564,11 @@ class ChessLobbyPageState extends State<ChessLobbyPage> {
                   ),
                 ),
               ],
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _busy ? null : _go,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text(
-                        '进入对局',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 2,
-                        ),
-                      ),
-              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  /// 执子选择按钮（v4）：单选 OutlinedButton.Filled 风格（selected 视觉对齐 M3）。
-  /// 单行 Row + Expanded 分配，避免 Wrap 多行挤占 viewport。
-  Widget _hostButton({
-    required String label,
-    required _HostColorChoice value,
-  }) {
-    final selected = _hostChoice == value;
-    return OutlinedButton(
-      onPressed: () => setState(() => _hostChoice = value),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        minimumSize: const Size(0, 36),
-        backgroundColor:
-            selected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12) : null,
-        side: BorderSide(
-          color: selected
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.outlineVariant,
-          width: selected ? 1.6 : 1.0,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          color: selected
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.onSurface,
-        ),
-      ),
-    );
-  }
-
-  /// 规则提示文案（v4）：根据是否带残局与执子选择动态输出。
-  String _ruleText() {
-    final e = widget.initialEndgame;
-    if (e == null) {
-      // 标准开局（v5 不再镜像 FEN；host 选黑时由棋规决定 guest 执白先走）：
-      switch (_hostChoice) {
-        case _HostColorChoice.white:
-          return '与朋友约定同一房间号对战：你执白（先手），后到者执黑（后手）。'
-              '谁先到谁是房主，对方加入时自动分配对方颜色。';
-        case _HostColorChoice.black:
-          return '与朋友约定同一房间号对战：你执黑（后手，对方先走），后到者执白（先手）。'
-              '服务端不翻转局面；棋规白先由对方（执白者）走出第一步。';
-        case _HostColorChoice.random:
-          return '与朋友约定同一房间号对战：建房瞬间随机分配你的执子颜色，'
-              '后到者执对方颜色。';
-        case _HostColorChoice.auto:
-          // 标准开局不会到 auto，分支兜底
-          return '与朋友约定同一房间号对战。';
-      }
-    }
-    // 残局模式（v5 不再强翻转残局 FEN；先手方由 FEN 第 2 字段决定，host 选执子色）
-    switch (_hostChoice) {
-      case _HostColorChoice.auto:
-        return '残局开局：房间从所选局面开始，先手方按残局 FEN 第 2 字段决定。'
-            '残局仅在"你创建房间"时生效 —— 若对方已用此号建房，你加入的是对方的房间。';
-      case _HostColorChoice.white:
-      case _HostColorChoice.black:
-        final mine = _hostChoice == _HostColorChoice.white ? '白' : '黑';
-        return '残局开局：你选执$mine；服务端不翻转残局 FEN（残局原貌保留）。'
-            '先手方仍由残局 FEN 决定 —— 若你执$mine 且 FEN 是黑先，'
-            '对方（执对侧色）走第一步。';
-      case _HostColorChoice.random:
-        return '残局开局：建房瞬间随机决定你的执子颜色；'
-            '服务端不翻转残局 FEN（残局原貌保留）。';
-    }
   }
 }
 

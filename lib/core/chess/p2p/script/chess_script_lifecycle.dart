@@ -187,12 +187,20 @@ on_init = function(c, p)
     c.initial_fen = p.initial_fen
   end
 
-  -- initial_side = first_moker：白方永远先走是棋规，残局保留 FEN 原 side 不动。
+  -- initial_side = first_moker：白方永远先走是棋规。
+  -- v6：用户可显式指定 first_mover（p.first_mover = 'w' / 'b'），
+  -- 残局房间被建房者强制覆盖；不指定则从 FEN 第 2 字段推（向后兼容）。
   c.initial_side = "w"
   if c.initial_fen ~= nil then
-    local fields = {}
-    for f in c.initial_fen:gmatch("%S+") do table.insert(fields, f) end
-    if fields[2] == "b" then c.initial_side = "b" end
+    if type(p.first_mover) == "string" and (p.first_mover == "w" or p.first_mover == "b") then
+      -- 用户强制：服务端信任 client（与 host_color 同模式）
+      c.initial_side = p.first_mover
+    else
+      -- 默认从 FEN 第 2 字段推
+      local fields = {}
+      for f in c.initial_fen:gmatch("%S+") do table.insert(fields, f) end
+      if fields[2] == "b" then c.initial_side = "b" end
+    end
   end
 
   -- 标准开局 fallback（host 选黑后手时仍保持白先；不再镜像）
