@@ -20,5 +20,5 @@ export 'engine/move_generator.dart';
 export 'engine/make_move.dart';
 export 'engine/chess_engine.dart';
 export 'engine/fen_codec.dart';
-export 'p2p/chess_script.dart';
+export 'p2p/script/chess_script.dart';
 export 'skins/chess_skin.dart';

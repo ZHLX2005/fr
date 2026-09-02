@@ -23,7 +23,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:xiaodouzi_fr/core/chess/endgame/chess_endgame.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_identity.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_lobby_page.dart';
-import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
+import 'package:xiaodouzi_fr/core/chess/p2p/script/chess_script.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_device_id.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 

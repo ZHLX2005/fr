@@ -15,7 +15,7 @@
 // reason），导致 host 想重连但房间已没」。本守卫确保该 bug 不再复现。
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/chess/p2p/chess_script.dart';
+import 'package:xiaodouzi_fr/core/chess/p2p/script/chess_script.dart';
 
 void main() {
   _undoGuards();

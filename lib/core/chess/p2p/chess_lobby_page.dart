@@ -35,7 +35,7 @@ import '../../../widgets/context_chess_colors.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../endgame/chess_endgame.dart';
 import 'chess_identity.dart';
-import 'chess_script.dart';
+import 'script/chess_script.dart';
 
 /// 建房者执子选择（v4）：见 [ChessLobbyPageState._resolveHostColorParam] /
 /// [_hostChoice] 默认值逻辑。

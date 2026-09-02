@@ -19,7 +19,7 @@
 
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
-export 'chess_script.dart' show kChessScript;
+export 'script/chess_script.dart' show kChessScript;
 export 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show Snapshot, RoomHandle, RelayV3Transport;
 
