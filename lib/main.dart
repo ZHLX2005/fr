@@ -25,7 +25,6 @@ import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
 import 'core/chess/chess.dart';
-import 'core/chess/skins/chess_skin_meta_sync.dart';
 
 /// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -49,12 +48,9 @@ void main() async {
 
   // 注册国际象棋皮肤（const catalog → RemoteChessSkin）。
   // 必须在任何 chess UI 构建之前调用；这里走"启动期一次性"语义。
+  // KV 覆盖不在启动期拉取（避免冷启动网络请求）：改为每次进入
+  // 换肤设置页时按需拉取（见 ChessSkinSettingsPage.initState）。
   ChessSkinBundle.registerHardcoded();
-
-  // ★ KV public 皮肤 meta 覆盖（"换肤免发版"）：启动期 fire-and-forget 拉一次
-  // /api/v1/kv/public/chess_skin:index?groupId=190，成功则覆盖/扩展注册表；
-  // 失败/缺失静默回退本地 catalog（best-effort，绝不阻塞冷启动 / 绝不 crash）。
-  unawaited(fetchAndMergeSkins());
 
   // ★ Layer-2 修复：FrNavigator.handle 内部依赖的 _navigatorKey static 字段
   // 必须由 setNavigatorKey() 显式注入,否则任何 FrNavigator.handle(...) 走到

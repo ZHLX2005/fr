@@ -148,8 +148,9 @@ abstract class ChessSkinBundle {
   /// [fileResolver] 用 [PublicFileResolver]（baseUrl 从 `reader.baseUrl` 来，
   /// 不要 hardcode host —— 见 file_resolver.dart 惯例）。
   ///
-  /// 调用时机：`main()` 启动期 `registerHardcoded()` 之后，由
-  /// `fetchAndMergeSkins()`（chess_skin_meta_sync.dart）fire-and-forget 触发。
+  /// 调用时机：换肤设置页 `initState` 每次进入时由
+  /// `fetchAndMergeSkins()`（chess_skin_meta_sync.dart）fire-and-forget 触发
+  /// （不在 `main()` 启动期拉取 — 2026-09-03 迁移）。
   /// 已渲染页面下次 `byId()` 查询实时拿到新皮肤（注册表是 live map）；
   /// 设置页遍历 [metas] 同样实时看到 KV 新皮肤（Fix A）。
   static void registerRemoteSkins(

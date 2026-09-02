@@ -33,6 +33,7 @@ import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
 import 'chess_skin.dart';
 import 'chess_skin_meta.dart';
+import 'chess_skin_meta_sync.dart';
 import 'local_chess_skin.dart';
 
 /// 全屏换肤设置页 — 左侧皮肤列表 + 自定义棋盘颜色 + 右侧实时棋盘预览。
@@ -91,11 +92,30 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
   /// 当前自定义棋盘配色（null = 跟随主题；点选预设/自定义色实时更新）。
   BoardPalette? _palette;
 
+  /// KV 皮肤加载状态：true=正在拉取 / false=已完成（成功或回退）。
+  bool _kvLoading = true;
+
   @override
   void initState() {
     super.initState();
     _selectedId = widget.initialSkinId;
     _palette = widget.initialPalette;
+    // 方案A：每次进入换肤页按需拉取 KV index（后台，5s 超时 best-effort）。
+    // 初始列表 7 套（const catalog）；KV 返回后 setState 追加新皮肤（"闪增"）。
+    // 不在 main/demo 启动期拉取，避免冷启动网络请求。
+    _fetchKvSkins();
+  }
+
+  Future<void> _fetchKvSkins() async {
+    final merged = await fetchAndMergeSkins().catchError((Object _) => false);
+    if (!mounted) return;
+    setState(() => _kvLoading = false);
+    // 若 KV 同 id 覆盖了当前选中皮肤，通知 demo 层 re-prefetch 新 fileId
+    // （旧缓存按新 fileId 校验会 miss → 重下新图）。
+    if (merged == true && widget.localSkins[_selectedId] == null) {
+      // 轻量 re-check：若 demo 层传入的 localSkins 未覆盖当前选中，触发一次下载。
+      widget.onRequestDownload?.call(_selectedId);
+    }
   }
 
   /// 返回箭头：把当前选中的皮肤 id 带回调用方（应用 + 持久化由调用方完成）。
@@ -136,6 +156,12 @@ class _ChessSkinSettingsPageState extends State<ChessSkinSettingsPage> {
           backgroundColor: Theme.of(context).colorScheme.surface,
           // 返回箭头：pop 携带当前选中皮肤 id（"选完即生效"）。
           leading: BackButton(onPressed: _popWithSelection),
+          bottom: _kvLoading
+              ? const PreferredSize(
+                  preferredSize: Size.fromHeight(2),
+                  child: LinearProgressIndicator(minHeight: 2),
+                )
+              : null,
         ),
         body: LayoutBuilder(
           builder: (context, constraints) {

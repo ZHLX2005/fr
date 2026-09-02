@@ -5,12 +5,13 @@
 // 背景（2026-08-29）：后端 KV public 读匿名可用（GET /api/v1/kv/public/:key
 // ?groupId=190，见 public_kv_reader.dart），图片走 /files/<fileId> 匿名下载
 // （file_resolver.dart）。于是 dart 端保留 7 套 const catalog 作基线，
-// 启动时 fire-and-forget 拉一次 KV index JSON：
+// 换肤设置页进入时 fire-and-forget 拉一次 KV index JSON：
 //   · 成功 → 解析成 List<ChessSkinMeta> → 覆盖/扩展 ChessSkinBundle
 //   · 失败 / 缺失 / 格式错 → 静默保留本地 catalog（零回归）
 //
-// 时序：main() 在 registerHardcoded() 之后调用 [fetchAndMergeSkins]()，
-// 不 await（unawaited）—— 绝不阻塞冷启动、绝不 crash。
+// 时序：ChessSkinSettingsPage.initState 调用 [fetchAndMergeSkins]()（见
+// chess_skin_settings_page.dart _fetchKvSkins），不阻塞列表初始渲染；
+// 不在 main() 启动期拉取（避免冷启动网络请求 — 2026-09-03 迁移）。
 //
 // 幂等：KV 反复拉取可重复调用；同 id 覆盖、新 id 追加、本地 id 不删。
 
@@ -30,7 +31,7 @@ import 'public_kv_reader.dart';
 /// 默认从 [PublicKvReader] 读索引、用 [PublicFileResolver] 拼 /files 图 URL。
 ///
 /// 返回 true 表示成功合入 KV 皮肤；false 表示回退本地（KV 缺失/失败/解析错）。
-/// 任何情况都**不抛异常** —— 这是启动期 best-effort 路径。
+/// 任何情况都**不抛异常** —— 这是换肤页 best-effort 路径。
 Future<bool> fetchAndMergeSkins({
   PublicKvReader? reader,
   FileResolver? resolver,
