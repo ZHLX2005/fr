@@ -294,6 +294,10 @@ on_action_RESET = function(c, p)
   c.status = "playing"
   c.winner = nil
   state = "lobby"
+  -- 清 emoji 历史（跨局不泄漏）
+  c.emojiRing = {}
+  c.emojiSeq = 0
+  c.lastEmojiAt = {}
   return c
 end
 

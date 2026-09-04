@@ -1,21 +1,22 @@
-// lib/core/chess/p2p/chess_script.dart
+// lib/core/chess/p2p/script/chess_script.dart
 //
-// 国际象棋的 net_p2p v3 Lua 状态机脚本（v5：生命周期物理拆分）。
+// 国际象棋的 net_p2p v3 Lua 状态机脚本（v5：生命周期物理拆分 + emoji 共享段）。
 //
 // ## v5 架构
 //
 // Lua 脚本按职责拆成 3 段，物理独立为 3 个文件，入口在这里拼接：
 //
-//   chess_script.dart            ← 本文件：const String kChessScript 入口
+//   chess_script.dart            ← 本文件：kChessScript 入口（经 assembler 组装）
 //   chess_script_lifecycle.dart  ← helpers + on_init/on_join/on_leave/state 机
-//   chess_script_actions.dart    ← 所有 on_action_* handler + 导出表
+//   chess_script_actions.dart    ← 所有 on_action_* handler（原导出表在此段末尾，现由 assembler 重建）
+//   game_kit/emoji/emoji_script.dart ← 共享 emoji 段（kEmojiScriptSegment）
 //
 // ## 拼接顺序（严格）
 //
-// 拼接顺序：lifecycle → actions。
+// 拼接顺序：lifecycle → actions → extraSegments(emoji)。
 // · Lua 全局查找发生在调用时而非定义时 —— helper / on_init / on_join /
 //   on_leave 在 actions handler 调用时必须已定义。
-// · 导出表 `return { definition, on_init, ... }` **绝对放最后一段**：
+// · 导出表 `return { definition, on_init, ... }` **由 assembler 统一生成放最后**：
 //   relay 服务端按导出表派发 handler；handler 写在 return 表里而非顶层全局
 //   会触发 CreateRoom 400（见 net-p2p-protocol-playbook）。
 // · 每段 const String 末尾必须以 `\n` 结尾，保持 `_functionBlock` regex
@@ -45,13 +46,22 @@
 //   UNDO_*      = "any"               悔棋流程任意一方发起
 //   CLAIM_END   = "non_current_player"  刚走完的一方声明将杀/僵局
 //   RESET       = "host"              终局后 host 可重开
+//   EMOJI       = "any"               表情（共享段，频控 1.5s + ring 16 + coalesce）
 
+import '../../../game_kit/emoji/emoji_script.dart' show kEmojiScriptSegment;
+import '../../../game_kit/emoji/lua_script_assembler.dart' show assembleLuaScript;
 import 'chess_script_actions.dart' show kChessScriptActions;
 import 'chess_script_lifecycle.dart' show kChessScriptLifecycle;
 
-/// 国际象棋 Lua 脚本（v5）。在 net_p2p v3 的 RelayV3Transport.createRoom()
+/// 国际象棋 Lua 脚本（v5 + emoji）。在 net_p2p v3 的 RelayV3Transport.createRoom()
 /// 创建一个对弈房时传入 —— 服务端按 sha256 缓存。
 ///
-/// 拼接顺序：lifecycle（helpers + on_init/on_join/on_leave/state 机）
-/// → actions（所有 on_action_* + 导出表）。段间 `'\n'` 保持 regex 块边界。
-const String kChessScript = '$kChessScriptLifecycle\n$kChessScriptActions\n';
+/// 拼接经由 [assembleLuaScript] 完成：lifecycle（helpers + on_init/on_join/on_leave/state 机）
+/// → actions（所有 on_action_*）→ 共享 emoji 段（kEmojiScriptSegment）→ assembler
+/// 统一生成的 `return { definition, on_init, … }` 导出表（自动含 on_action_EMOJI）。
+// ignore: prefer_const_declarations
+final String kChessScript = assembleLuaScript(
+  lifecycle: kChessScriptLifecycle,
+  actions: kChessScriptActions,
+  extraSegments: [kEmojiScriptSegment],
+);

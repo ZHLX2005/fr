@@ -9,6 +9,11 @@
 //   · 残局 chip（formExtras 插槽注入）
 //   · ChessIdentity（登录 uid 优先）身份通道
 //   · AppBar 残局库 + 换肤按钮（actionsBuilder 插槽）
+//
+// chess 的脚本经 LuaScriptAssembler 组装（lifecycle + actions + emoji），
+// 因此为 final（非 const）—— assembleLuaScript 在 runtime 做字符串拼接。
+// Lobby 侧标记 `const GameLobbySpec(..., script: kChessScript)` 的其余游戏
+// 仍可保持 const；chess 此处以 final 承载等效语义（单例，build 时一次性赋值）。
 
 import 'package:flutter/material.dart';
 
@@ -29,8 +34,8 @@ class _ChessIdentityResolver implements GameIdentityResolver {
   Future<String> resolve() => ChessIdentity.resolve();
 }
 
-/// chess 入口 spec const。
-const GameLobbySpec kChessLobbySpec = GameLobbySpec(
+/// chess 入口 spec（final，非 const — kChessScript 经 assembleLuaScript 组装为 final）。
+final GameLobbySpec kChessLobbySpec = GameLobbySpec(
   gameId: 'chess',
   title: '国际象棋（联机）',
   heroIcon: Icons.meeting_room_outlined,
@@ -45,14 +50,13 @@ const GameLobbySpec kChessLobbySpec = GameLobbySpec(
     secondaryBtnText: '加入房间',
     hintIcon: '◐',
     hintPosition: HintPosition.bottom,
-    hintText:
-        '与朋友约定同一房间号："创建房间"是房主，"加入房间"是后到者。',
+    hintText: '与朋友约定同一房间号："创建房间"是房主，"加入房间"是后到者。',
     aliasFieldHint: '如：小白',
     codeFieldHint: '4–6 位大写字母数字',
   ),
 );
 
-/// 构造 chess 用的 GameLobbySlots。
+/// 构造 chess 用的 GameLobbySlots.
 ///
 /// 两个外部依赖通过闭包注入：
 ///   · [initialEndgame] —— 残局快照（建房时注入 initial_fen）
@@ -95,17 +99,14 @@ GameLobbySlots buildChessLobbySlots({
     // 残局 chip（房间号字段之后插入）
     formExtras: (context) {
       if (initialEndgame == null) return const [];
-      return [_EndgameChip(
-        label: initialEndgame.label ?? '快照',
-        onClear: onClearEndgame,
-      )];
+      return [_EndgameChip(label: initialEndgame.label ?? '快照', onClear: onClearEndgame)];
     },
     // AppBar 残局库 + 换肤
     actionsBuilder: actionsBuilder,
   );
 }
 
-/// 残局 chip —— 显示当前选中的残局名 + X 清除按钮。
+/// 残局 chip —— 显示当前选中的残局名 + X 清除按钮.
 ///
 /// 颜色走 context.chessColors.lightSquare（chess 入口块色，入口页唯一保留的棋盘色通道）。
 class _EndgameChip extends StatelessWidget {
@@ -125,36 +126,24 @@ class _EndgameChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.lightSquare.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.3),
-          ),
+          border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.extension_outlined,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
+            Icon(Icons.extension_outlined, size: 18, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 '残局：$label',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
-                ),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             GestureDetector(
               onTap: onClear,
-              child: Icon(
-                Icons.close,
-                size: 18,
-                color: theme.colorScheme.primary,
-              ),
+              child: Icon(Icons.close, size: 18, color: theme.colorScheme.primary),
             ),
           ],
         ),

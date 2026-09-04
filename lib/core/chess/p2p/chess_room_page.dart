@@ -38,6 +38,9 @@ import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
 import '../endgame/chess_endgame.dart';
 import '../endgame/chess_endgame_store.dart';
+import '../../game_kit/emoji/emoji_bundle.dart';
+import '../../game_kit/emoji/emoji_button.dart';
+import '../../game_kit/emoji/emoji_overlay.dart';
 import '../models/board_state.dart';
 import '../models/game_status.dart';
 import '../models/move.dart';
@@ -223,6 +226,56 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 自动播放步进间隔（毫秒）。
   static const Duration _kReplayTickInterval = Duration(milliseconds: 800);
 
+  // ── Emoji（Track B）──
+  EmojiBundle _emojiBundle = EmojiBundle.builtin();
+  bool _emojiBundleLoading = false;
+
+  List<SnapshotEmojiEvent> get _emojiEvents {
+    final snap = _snapshot;
+    if (snap == null) return const [];
+    // 兼容多种字段名：emojiRing（Lua 段标准）/ emojis / emoji_events
+    final ctx = snap.context;
+    for (final key in ['emojiRing', 'emojis', 'emoji_events', 'recent_emojis']) {
+      final raw = ctx[key];
+      if (raw is List && raw.isNotEmpty) {
+        final out = <SnapshotEmojiEvent>[];
+        for (final item in raw) {
+          if (item is! Map) continue;
+          try {
+            final e = SnapshotEmojiEvent.fromJson(
+                Map<String, dynamic>.from(item as Map<String, dynamic>));
+            if (e.emojiId.isEmpty) continue;
+            out.add(e);
+          } catch (_) {}
+        }
+        if (out.isNotEmpty) return out;
+      }
+    }
+    // 也兼容单条 recent_emoji 字段
+    final single = ctx['recent_emoji'];
+    if (single is Map) {
+      try {
+        final e = SnapshotEmojiEvent.fromJson(
+            Map<String, dynamic>.from(single as Map<String, dynamic>));
+        if (e.emojiId.isNotEmpty) return [e];
+      } catch (_) {}
+    }
+    return const [];
+  }
+
+  Future<void> _ensureEmojiBundle() async {
+    if (_emojiBundleLoading) return;
+    if (_emojiBundle.packs.isNotEmpty) return;
+    _emojiBundleLoading = true;
+    try {
+      final b = await EmojiBundle.forGame('chess');
+      if (!mounted) return;
+      setState(() => _emojiBundle = b);
+    } finally {
+      _emojiBundleLoading = false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -238,6 +291,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     _closeSub = widget.handle.closeEvents.listen(_onCloseEvent);
     // 预加载落子音，消除首次落子的加载延迟（PieceSound 单例跨页复用）
     PieceSound.instance.preload();
+    // 惰性加载 emoji bundle（common + chess，失败回退 builtin 24）
+    _ensureEmojiBundle();
   }
 
   @override
@@ -1098,7 +1153,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 导出当前回放局面为残局快照（ChessReplayBar 保存按钮）：
   ///   fen = 重演局面子序列在当前 index 的 FEN
   ///   lineage.moves = 初始局面走到当前 index 的 UCI 序列
-  ///   id = eg-<房间号>-m<N>（同 (房间, 手数) 幂等 —— 重复导出提示已保存）
+  ///   id = eg-房间号-mN（同 房间 手数 幂等 —— 重复导出提示已保存）
   /// 保存到 <documents>/chess_endgames/ → SnackBar 提供分享入口。
   Future<void> _exportCurrentReplayPosition() async {
     if (!_replayMode) return;
@@ -1315,6 +1370,10 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
         leading: ChessConnectionStatusBadge(handle: widget.handle),
         title: Text('房间 ${snap.roomCode}'),
         actions: [
+          EmojiButton(
+            applyAction: ({required String type, required Map<String, dynamic> params}) =>
+                widget.handle.applyAction(type: type, params: params),
+          ),
           // 手动刷新按钮：强制拉一次最新快照（带 UI 反馈）。心跳已经在跑，
           // 这里只暴露给"我怀疑卡了"的应急场景。
           IconButton(
@@ -1346,6 +1405,15 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               child: LinearProgressIndicator(minHeight: 2),
             ),
           body,
+          // Emoji 飞行层（快照 emojis 去重后 2s 飞行，锚点按发送方）
+          Positioned.fill(
+            child: EmojiOverlay(
+              emojis: _emojiEvents,
+              myDeviceId: widget.handle.transport.deviceId,
+              bundle: _emojiBundle,
+              myColorIsWhite: _myColor == null ? null : _myColor == PieceColor.white,
+            ),
+          ),
           if (_wsOffline) _buildWsOfflineOverlay(),
           if (_isMeDisconnected && state == 'playing') _buildMeOfflineBanner(),
         ],

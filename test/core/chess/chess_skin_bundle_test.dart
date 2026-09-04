@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/file_resolver.dart';
-import 'package:xiaodouzi_fr/core/chess/skins/remote_chess_skin.dart';
+import 'package:xiaodouzi_fr/core/game_kit/skin/remote_game_skin.dart';
 
 class _FakeResolver implements FileResolver {
   @override
@@ -42,14 +42,14 @@ void main() {
       expect(kChessSkinsCatalog.length, 7);
       for (final meta in kChessSkinsCatalog) {
         final s = ChessSkinBundle.byId(meta.id);
-        expect(s, isA<RemoteChessSkin>());
+        expect(s, isA<RemoteGameSkin>());
         expect(s.id, meta.id);
       }
     });
 
     test('RemoteChessSkin 拼 URL 用 chess_skin_meta 的 baseUrl 默认值', () {
       ChessSkinBundle.registerHardcoded();
-      final s = ChessSkinBundle.byId('1') as RemoteChessSkin;
+      final s = ChessSkinBundle.byId('1') as RemoteGameSkin;
       // pieces 第一项 URL 必须以 default baseUrl 起
       final firstUrl = (s.pieces['wK']! as CachedNetworkImageProvider).url;
       expect(firstUrl.startsWith('http://'), true);

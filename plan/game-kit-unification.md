@@ -87,18 +87,24 @@ ve 端对应：`game-skin-admin`（单组件 + 游戏切换器）、`emoji-pack-
 ### Phase 2：皮肤系统泛化
 
 **子任务：**
-1. [ ] 抽 `lib/core/game_kit/skin/` 机制层（bundle/localizer/meta/remote/local/kv_reader/file_resolver）
-2. [ ] `GameSkinSpec.forGame(gameId)`：所有命名派生
-3. [ ] chess skins 改为注册实例（KV key/cache dir/prefs key 全部不变 → 零回归）
-4. [ ] 通用 `GameSkinSettingsPage`（列表+预览+棋盘颜色自定义，调色板角色由 spec 声明）
-5. [ ] 上传脚本 `add_skin.py --game <id>` 参数化（PIECE_KEYS/tag 前缀/KV key/文件名）
-6. [ ] ve `game-skin-admin`：抽 `useSkinAdmin(config)` 工厂 + GAME_SKIN_REGISTRY + scope 切换器
-7. [ ] gomoku 第二条线验证（棋盘渲染接入贴图 + BoardPalette 调色板声明）
-8. [ ] flutter analyze + ve pnpm lint + showcase build；commit + push
+### Phase 2：皮肤系统泛化 — DONE（merged #90 fff66b9c + ve #29 b2263c0）
 
-### Phase 3：表情包通路
+- [x] `lib/core/game_kit/skin/` 机制层（10 文件：spec/bundle/meta/remote/local/localizer/kv_reader/file_resolver + prefs/meta_sync）
+- [x] `GameSkinSpec.forGame(gameId)`：gameId => kvIndexKey/kvTag/cacheDir/prefsKey/groupId 190，chess 7×12 catalog 保留，gomoku {black,white,board}
+- [x] chess skins 改为 thin-compat wrappers（零回归，chess KV/cache/prefs 全保留）
+- [x] 上传脚本 `add_skin.py --game <id>`（GAME_ASSET_KEYS + GAME_FILE_MAPS + resolve_game_config）
+- [x] ve `game-skin-admin`：rename chess-skin-admin -> game-skin-admin（git mv history），两级导航 Games|Emoji + GameDetail 三tab
+- [x] 验：flutter analyze 0 issues；flutter test 291 绿；ve lint 0 + vite 31-43s 绿
 
-**子任务：**
+**测试兼容修复（本会话）**：`test/core/chess/{chess_skin_bundle,chess_skin_meta_sync}_test.dart` 的
+`isA<RemoteChessSkin>` / `as RemoteChessSkin` 改为 `isA<RemoteGameSkin>` / 通过
+`ChessSkinBundle.bundle.metas` 断言 displayName（bundle 实际存 RemoteGameSkin，
+
+### Phase 3：表情包通路 — IN PROGRESS
+
+## Phases (continued)
+
+### Phase 3 子任务：
 1. [ ] `kEmojiScriptSegment`（共享 Lua 段，含频控 + 环形缓冲）
 2. [ ] `LuaScriptAssembler`：从 handlers 列表自动生成导出表（解决当前「手写 return」痛点）
 3. [ ] chess script 改走 assembler + 拼 emoji 段 + chess 首跑端到端

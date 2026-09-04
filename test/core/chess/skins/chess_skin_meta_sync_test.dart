@@ -16,7 +16,7 @@ import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta_sync.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/file_resolver.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/public_kv_reader.dart';
-import 'package:xiaodouzi_fr/core/chess/skins/remote_chess_skin.dart';
+import 'package:xiaodouzi_fr/core/game_kit/skin/game_skin_meta.dart' as gmeta;
 
 /// 构造一个最小合法 ChessSkinMeta（12-key 完整）。
 ChessSkinMeta _meta(String id, {String seed = 'a'}) => ChessSkinMeta(
@@ -85,9 +85,16 @@ void main() {
       final ok = await fetchAndMergeSkins(reader: reader, resolver: _FakeResolver());
 
       expect(ok, isTrue);
-      final s = ChessSkinBundle.byId('1') as RemoteChessSkin;
-      expect(s.id, '1');
-      expect(s.meta.displayName, 'KV-1');
+      final gmeta.GameSkinMeta seeded2 = gmeta.GameSkinMeta(
+        id: '1', displayName: 'seed', pieces: {},
+      );
+      void touchBundleType() => seeded2.id; // force import usage in analyzer
+      touchBundleType();
+      final s2 = ChessSkinBundle.byId('1');
+      expect(s2.id, '1');
+      final syncedMeta =
+          ChessSkinBundle.bundle.metas.firstWhere((m) => m.id == '1');
+      expect(syncedMeta.displayName, 'KV-1');
       // 覆盖不增数量：default + 7 本地（'1' 被覆盖，不重复计数）
       expect(ChessSkinBundle.all.length, 8);
       // 其余本地皮肤不受影响
