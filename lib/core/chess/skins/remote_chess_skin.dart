@@ -1,79 +1,50 @@
 // lib/core/chess/skins/remote_chess_skin.dart
 //
-// 把 ChessSkinMeta + FileResolver 组合成一个 ChessSkin：
-//   · pieces 12 个 key 全部映射成 ImageProvider（**本地文件优先**，Fix B）
-//   · boardBackground 可选；null 时 UI 走主题双格色
-//   · 网络路径用 CachedNetworkImageProvider（内部缓存由 cached_network_image
-//     自带，默认 7 天磁盘）
-//
-// 本地文件优先（Fix B —— 干掉"已下载皮肤仍每帧走网络"）：
-//   · ChessSkinLocalizer.download() 把皮肤落盘到
-//     `<documents>/chess_skins/<id>/<pieceKey>.webp` 后，本类的
-//     pieces/boardBackground 立即改供 FileImage（零网络、离线可用）；
-//   · 判存走 ChessSkinLocalizer.cachedPieceFile（同步 + memo，无每帧 IO）；
-//   · 根目录未初始化 / 文件缺失 → 回退网络（与旧版行为一致）。
-//
-// 注：cached_network_image 3.x 中 `CachedNetworkImage` 是 Widget，
-// ImageProvider 实现是 `CachedNetworkImageProvider(url)`（构造第一个位置参数即 url）。
+// Thin compat wrapper over game_kit/skin/remote_game_skin.dart.
 
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/painting.dart' show FileImage, ImageProvider;
+import 'package:flutter/painting.dart' show ImageProvider;
 
+import '../../game_kit/skin/file_resolver.dart';
+import '../../game_kit/skin/game_skin_meta.dart' as gmeta;
+import '../../game_kit/skin/local_game_skin.dart' as g;
+import '../../game_kit/skin/remote_game_skin.dart' as gremote;
 import 'chess_skin.dart';
-import 'chess_skin_localizer.dart';
 import 'chess_skin_meta.dart';
-import 'file_resolver.dart';
-import 'local_chess_skin.dart';
 
 class RemoteChessSkin implements ChessSkin {
-  final ChessSkinMeta meta;
-  final FileResolver fileResolver;
-
-  const RemoteChessSkin({
+  RemoteChessSkin({
     required this.meta,
     required this.fileResolver,
-  });
+  }) : _inner = gremote.RemoteGameSkin(
+          meta: gmeta.GameSkinMeta(
+            id: meta.id,
+            displayName: meta.displayName,
+            pieces: meta.pieces,
+            boardBackground: meta.boardBackground,
+            author: meta.author,
+            description: meta.description,
+            version: meta.version,
+            colorStyle: meta.colorStyle,
+            createdAt: meta.createdAt,
+            updatedAt: meta.updatedAt,
+          ),
+          fileResolver: fileResolver,
+          boardBackgroundFileNameOf: g.LocalGameSkin.boardBackgroundFileName,
+        );
 
-  /// 皮肤 id / 显示名直接来自 metadata（spec §3.3 注册表按 meta.id 建键）
+  final ChessSkinMeta meta;
+  final FileResolver fileResolver;
+  final gremote.RemoteGameSkin _inner;
+
   @override
   String get id => meta.id;
 
   @override
   String get displayName => meta.displayName;
 
-  /// 12 个 piece → ImageProvider（本地文件优先；未缓存回退网络）
-  ///
-  /// 懒计算：首次访问时构造 12 个 provider；本地判存带 memo
-  /// （ChessSkinLocalizer.cachedPieceFile），不产生每帧同步 IO。
   @override
-  Map<String, ImageProvider> get pieces => {
-        for (final entry in meta.pieces.entries)
-          entry.key: _providerFor('${entry.key}.webp', entry.value.fileId),
-      };
+  Map<String, ImageProvider> get pieces => _inner.pieces;
 
-  /// 棋盘底图（可选；本地文件优先，null 时 UI 走主题双格色）
   @override
-  ImageProvider? get boardBackground {
-    final bg = meta.boardBackground;
-    if (bg == null) return null;
-    return _providerFor(LocalChessSkin.boardBackgroundFileName(bg), bg.fileId);
-  }
-
-  /// 单个资源 → 本地文件优先的 ImageProvider。
-  ///
-  /// [localFileName] 是缓存目录里的叶子文件名（`wK.webp` /
-  /// `boardBackground.webp`）；[fileId] 既用于本地缓存版本校验（Fix C：
-  /// 与 `.skin-meta.json` 里记录的 fileId 比对），也用于网络回退的 URL。
-  ImageProvider _providerFor(String localFileName, String fileId) {
-    final local = ChessSkinLocalizer.cachedPieceFile(
-      meta.id,
-      localFileName,
-      // Fix C：当前 meta 的 fileId 期望值 —— 不匹配视为缓存过期，
-      // 走 CachedNetworkImageProvider 拉取新图（仅当前 piece 的 fileId 变了
-      // 会触发，其他 piece 仍命中缓存，零浪费）。
-      expectedFileId: fileId,
-    );
-    if (local != null) return FileImage(local);
-    return CachedNetworkImageProvider(fileResolver.url(fileId));
-  }
+  ImageProvider? get boardBackground => _inner.boardBackground;
 }

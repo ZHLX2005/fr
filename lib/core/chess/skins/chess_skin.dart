@@ -1,40 +1,27 @@
 // lib/core/chess/skins/chess_skin.dart
 //
-// 国际象棋皮肤接口合约 + 内置 default stub + Bundle 注册表。
-//
-// 本文件是 chess 模块皮肤侧的"接口层"：UI 端通过 [ChessSkinBundle.byId] 拿 [ChessSkin]，
-// 不同来源的 [RemoteChessSkin]（File API public download + const catalog）通过注册
-// 表挂入，统一对外行为。
-//
-// 设计要点（参见 docs/superpowers/specs/2026-08-29-chess-skin-kv-design.md §6）：
-//   - [ChessSkin] 接口：UI 只依赖此抽象（实现方不变）
-//   - [ChessDefaultSkin]：fallback，`pieces == {}` → UI 走 unicode 字符
-//   - [ChessSkinBundle]：mutable 注册表，默认含 'default'；启动期调 registerHardcoded()
-//     装入 const catalog（N 套皮肤由 spec §2 kChessSkinsCatalog 决定）
-//   - 后续版本：可加 RegisterRemoteSkins() 从 KV/JSON 动态注入
+// Thin compat wrapper over game_kit/skin.
+// Preserves: ChessSkin, ChessDefaultSkin, ChessSkinBundle, kDefaultChessSkinBaseUrl,
+//            kChessSkinKeys, chessSkinKeyOf, chessSkinIsComplete.
 
 import 'dart:async' show unawaited;
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
-import 'package:flutter/widgets.dart' show ImageProvider;
-
+import '../../game_kit/skin/file_resolver.dart';
+import '../../game_kit/skin/game_skin_bundle.dart' as g;
+import '../../game_kit/skin/game_skin_localizer.dart';
+import '../../game_kit/skin/game_skin_meta.dart' as gmeta;
+import '../../game_kit/skin/game_skin_spec.dart';
 import '../models/piece.dart';
-import 'chess_skin_localizer.dart';
 import 'chess_skin_meta.dart';
-import 'file_resolver.dart';
-import 'remote_chess_skin.dart';
 
 /// 内置 skin 远端 baseUrl 默认值。
-///
-/// equals ApiConfig.production().baseUrl default; future: read from ApiConfig
 const String kDefaultChessSkinBaseUrl = 'http://47.110.80.47:8988';
 
-/// 12 个 piece key 集合（与 chess_skin_meta 共用；保留别名供旧代码引用）
+/// 12 个 piece key 集合（compat 别名）.
 const Set<String> kChessSkinKeys = kChessSkin12PieceKeys;
 
-/// (color, type) → 12 个 key 之一
 String chessSkinKeyOf(PieceColor color, PieceType type) {
-  const whiteBack = ['wK', 'wQ', 'wR', 'wB', 'wN']; // by type.index 0..4
+  const whiteBack = ['wK', 'wQ', 'wR', 'wB', 'wN'];
   const blackBack = ['bK', 'bQ', 'bR', 'bB', 'bN'];
   if (type == PieceType.pawn) {
     return color == PieceColor.white ? 'wp' : 'bp';
@@ -43,134 +30,55 @@ String chessSkinKeyOf(PieceColor color, PieceType type) {
   return arr[type.index];
 }
 
-/// 检查 [skin] 是否覆盖了所有 12 个棋子
 bool chessSkinIsComplete(ChessSkin skin) =>
     skin.pieces.length == kChessSkinKeys.length &&
         kChessSkinKeys.every(skin.pieces.containsKey);
 
-/// 一套皮肤的接口（UI 端唯一依赖；与"皮肤来源"解耦）
-abstract class ChessSkin {
-  /// 皮肤唯一 ID（编译时常量），用于 Provider key + 持久化设置
-  String get id;
+/// 兼容类型别名（旧代码 import ChessSkin）.
+typedef ChessSkin = g.GameSkin;
+typedef ChessDefaultSkin = g.GameDefaultSkin;
 
-  /// 皮肤显示名（用于设置 UI）：'默认精灵 / Staunty / 古朴木纹 ...'
-  String get displayName;
-
-  /// 棋盘底图（可为 null，由 theme.surface 兜底）
-  /// 推荐 png / jpg 1:1 正方形；NULL = 棋盘用纯两色格
-  ImageProvider? get boardBackground;
-
-  /// 12 个棋子图像
-  ///
-  /// key 格式：`[w/b][type]` — 例如：
-  ///   'wK' = 白方 King，'bQ' = 黑方 Queen，'wp' = 白兵，'bp' = 黑兵
-  /// 完整 12 个组合见 `kChessSkinKeys` 集合。
-  Map<String, ImageProvider> get pieces;
-}
-
-/// 默认（fallback）皮肤声明 —— `pieces == {}` → UI 端回退到 unicode。
-///
-/// 永远注册在 bundle 里，byId 兜底。
-class ChessDefaultSkin implements ChessSkin {
-  const ChessDefaultSkin();
-
-  @override
-  String get id => 'default';
-
-  @override
-  String get displayName => '默认（unicode 回退）';
-
-  @override
-  ImageProvider? get boardBackground => null;
-
-  @override
-  Map<String, ImageProvider> get pieces => const {};
-}
-
-/// 皮肤注册表
-///
-/// 启动期 `ChessSkinBundle.registerHardcoded()` 一次性装入 const catalog。
-/// 后续 v2: 可加 `RegisterRemoteSkins(List<ChessSkinMeta>)` 从远端 KV 注入。
+/// Thin static facade over a singleton GameSkinBundle(chess spec).
 abstract class ChessSkinBundle {
-  static final Map<String, ChessSkin> _registry = <String, ChessSkin>{
-    'default': const ChessDefaultSkin(),
-  };
+  static final g.GameSkinBundle _bundle = g.GameSkinBundle(kChessSkinSpec);
 
-  /// live 元数据注册表（id → meta）—— UI 皮肤列表的数据源（Fix A）。
-  ///
-  /// 顺序约定：catalog 顺序在前，KV 新 id 按注册顺序追加；
-  /// 同 id 覆盖保持原位（Dart LinkedHashMap 赋值语义）。
-  static final Map<String, ChessSkinMeta> _metas = <String, ChessSkinMeta>{};
+  static Map<String, ChessSkin> get all => _bundle.all;
+  static List<gmeta.GameSkinMeta> get metas =>
+      _bundle.metas.cast<gmeta.GameSkinMeta>();
+  static int get metaCount => _bundle.metaCount;
+  static ChessSkin byId(String id) => _bundle.byId(id);
 
-  static Map<String, ChessSkin> get all => Map.unmodifiable(_registry);
+  static g.GameSkinBundle get bundle => _bundle;
 
-  /// 当前可见的皮肤元数据（live，含 KV 合入的新皮肤）。
-  ///
-  /// UI 列表（设置页 / 入口条）应遍历本列表而非 `kChessSkinsCatalog`
-  /// —— 后者是 const 编译期快照，看不到 KV 覆盖/追加的皮肤。
-  static List<ChessSkinMeta> get metas => List.unmodifiable(_metas.values);
-
-  /// metas 数量（等价 `metas.length`，测试断言便捷）。
-  static int get metaCount => _metas.length;
-
-  static ChessSkin byId(String id) => _registry[id] ?? _registry['default']!;
-
-  /// 把 [kChessSkinsCatalog] 的 N 套皮肤装入注册表。
-  /// 每套用 [PublicFileResolver] 拼 `/files/<id>` URL。
-  ///
-  /// 调用时机：`main()` 启动期；多调幂等（已存在的 id 会被覆盖；
-  /// metas 会被重置为本地基线 —— 生产只在启动调一次）。
   static void registerHardcoded() {
-    // 本地文件优先渲染（Fix B）：尽早解析静态缓存根目录，让
-    // RemoteChessSkin 的同步判存可用。fire-and-forget，不阻塞启动。
-    unawaited(ChessSkinLocalizer.ensureBaseDirInit());
-    _metas
-      ..clear()
-      ..addAll({for (final m in kChessSkinsCatalog) m.id: m});
-    for (final meta in kChessSkinsCatalog) {
-      _registry[meta.id] = RemoteChessSkin(
-        meta: meta,
-        fileResolver: const PublicFileResolver(
-          baseUrl: kDefaultChessSkinBaseUrl,
-        ),
-      );
-    }
+    unawaited(GameSkinLocalizer.ensureBaseDirInitFor(kChessSkinSpec));
+    final catalog = kChessSkinsCatalog
+        .map((m) => gmeta.GameSkinMeta(
+              id: m.id,
+              displayName: m.displayName,
+              pieces: m.pieces,
+              boardBackground: m.boardBackground,
+              author: m.author,
+              description: m.description,
+              version: m.version,
+              colorStyle: m.colorStyle,
+              createdAt: m.createdAt,
+              updatedAt: m.updatedAt,
+            ))
+        .toList();
+    _bundle.registerHardcoded(
+      catalog,
+      fileResolver: const PublicFileResolver(baseUrl: kDefaultChessSkinBaseUrl),
+    );
   }
 
-  /// 把远端 KV 载入的 [metas] 覆盖/扩展进注册表（"换肤免发版"）。
-  ///
-  /// 语义（与 registerHardcoded 一致：mutable 注册表，幂等）：
-  ///   · 已存在的 id → **覆盖**（同 id 远端版本优先；metas 同步覆盖、保位）
-  ///   · 新 id → **追加**（metas 追加到列表末尾）
-  ///   · 不删除任何本地 id —— 本地 7 套永远在（KV 缺失/失败时兜底）
-  ///   · 绝不触碰 'default'（default 是 unicode 回退，永远存在）
-  ///
-  /// [fileResolver] 用 [PublicFileResolver]（baseUrl 从 `reader.baseUrl` 来，
-  /// 不要 hardcode host —— 见 file_resolver.dart 惯例）。
-  ///
-  /// 调用时机：换肤设置页 `initState` 每次进入时由
-  /// `fetchAndMergeSkins()`（chess_skin_meta_sync.dart）fire-and-forget 触发
-  /// （不在 `main()` 启动期拉取 — 2026-09-03 迁移）。
-  /// 已渲染页面下次 `byId()` 查询实时拿到新皮肤（注册表是 live map）；
-  /// 设置页遍历 [metas] 同样实时看到 KV 新皮肤（Fix A）。
   static void registerRemoteSkins(
-    List<ChessSkinMeta> metas, {
+    List<gmeta.GameSkinMeta> metas, {
     required FileResolver fileResolver,
   }) {
-    for (final meta in metas) {
-      _metas[meta.id] = meta; // 同 id 覆盖保位；新 id 追加
-      _registry[meta.id] = RemoteChessSkin(
-        meta: meta,
-        fileResolver: fileResolver,
-      );
-    }
+    _bundle.registerRemoteSkins(metas, fileResolver: fileResolver);
   }
 
-  /// 测试 reset 钩子 — 仅 unit test 用；生产调用 registerHardcoded 替代
-  @visibleForTesting
-  static void resetForTest() {
-    _registry.clear();
-    _registry['default'] = const ChessDefaultSkin();
-    _metas.clear();
-  }
+  // ignore: invalid_use_of_visible_for_testing_member
+  static void resetForTest() => _bundle.resetForTest();
 }

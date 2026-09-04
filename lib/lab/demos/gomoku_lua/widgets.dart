@@ -23,6 +23,7 @@ import 'board.dart' show GomokuBoardWidget;
 import '../../../widgets/context_board_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
+import 'package:xiaodouzi_fr/core/gomoku/skins/gomoku_skin.dart' show GomokuSkin, GomokuSkinBundle;
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page
@@ -38,9 +39,14 @@ class OnlineGamePage extends StatefulWidget {
     super.key,
     required this.handle,
     required this.onLeave,
+    this.skinId,
+    this.skin,
   });
   final RoomHandle handle;
   final Future<void> Function() onLeave;
+  /// 可选皮肤：skin 优先，其次 skinId 解析 Bundle，再次回退 null（彩色圆）
+  final String? skinId;
+  final GomokuSkin? skin;
 
   @override State<OnlineGamePage> createState() => _OnlineGamePageState();
 }
@@ -213,6 +219,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       _winDeclared = true;
       _room.declareWin(last.isBlack ? 'black' : 'white');
     }
+  }
+
+  GomokuSkin? get _resolvedSkin {
+    if (widget.skin != null) return widget.skin;
+    final id = widget.skinId;
+    if (id != null && id != "default") {
+      final s = GomokuSkinBundle.byId(id);
+      // default stub has empty pieces -> treat as no skin (fallback to colors)
+      if (s.id != "default" || s.pieces.isNotEmpty) return s;
+      // allow KV-registered skin that still happens to be default id
+      if (GomokuSkinBundle.metas.any((m) => m.id == id)) return s;
+      return s.pieces.isNotEmpty || s.boardBackground != null ? s : null;
+    }
+    return null;
   }
 
   void _showResignConfirm() async {
@@ -494,8 +514,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               onTapDown: (d) => _setPending(d.localPosition, side),
               child: GomokuBoardWidget(
                 board: _board,
+                skin: _resolvedSkin,
                 lastMove: _moves.isEmpty ? null : (_moves.last.x, _moves.last.y),
-                // 待确认时显示半透明预览子（仅当前回合方）
                 previewPoint: (_isMyTurn && _pendingPoint != null) ? _pendingPoint : null,
                 previewIsBlack: _imBlack,
               ),
@@ -649,6 +669,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         Center(child: LayoutBuilder(builder: (context, constraints) {
           return GomokuBoardWidget(
             board: _board,
+            skin: _resolvedSkin,
             lastMove: _moves.isEmpty ? null : (_moves.last.x, _moves.last.y),
           );
         })),
