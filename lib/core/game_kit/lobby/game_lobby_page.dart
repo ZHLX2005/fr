@@ -138,7 +138,11 @@ class GameLobbyPageState extends State<GameLobbyPage> {
       _handle = h;
       _started = true;
       setState(() => _busy = false);
-      widget.onStarted(h, const LobbyStartedCtx());
+      // smartMatch：handler 在 onStarted 前向 ctx 注入附加字段
+      // （team_card: needsConfig 等基于 snapshot 的判断）
+      final ctx = LobbyStartedCtx();
+      widget.slots.onStartedExtras?.call(ctx, h);
+      widget.onStarted(h, ctx);
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
       setState(() {
@@ -254,7 +258,7 @@ class GameLobbyPageState extends State<GameLobbyPage> {
               snap.state == 'ended')) {
         _started = true;
         final ctx = LobbyStartedCtx();
-        widget.slots.onStartedExtras?.call(ctx);
+        widget.slots.onStartedExtras?.call(ctx, h);
         widget.onStarted(h, ctx);
       }
     });
@@ -333,6 +337,7 @@ class GameLobbyPageState extends State<GameLobbyPage> {
       error: _error,
       showSecondaryButton: false,
       formExtras: widget.slots.formExtras,
+      trailingEntry: widget.slots.trailingEntry,
       onPrimary: _busy ? () {} : _goSmartMatch,
     );
   }

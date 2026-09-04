@@ -12,12 +12,17 @@
 //   - host 端 y 方向翻转后渲染（host 自身在下方）
 //   - guest 端直接渲染
 //   - 触摸坐标也相应翻转（保留 role-aware-board-mirror 特化逻辑）
+//
+// 入口：GameLobbyPage（lib/core/game_kit/lobby）—— 单表单 smartMatch。
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'surround_game_lua/engine.dart' show RoomHandle;
-import 'surround_game_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
+import 'surround_game_lua/widgets.dart' show OnlineGamePage;
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
+import '../../core/surround_game/lobby/surround_lobby_spec.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -51,11 +56,23 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
 
   @override
   void dispose() { _handle?.dispose(); super.dispose(); }
-  void _onJoined(RoomHandle h, bool isHostSide) =>
-      setState(() { _handle = h; _isHostSide = isHostSide; });
+
+  /// GameLobbyPage 回调：snapshot.host_id == 我的 deviceId ⇒ 我是 host（top）。
+  void _onStarted(RoomHandle h, LobbyStartedCtx ctx) {
+    final hostId = h.latest?.context['host_id']?.toString();
+    final isHostSide = hostId != null && hostId == h.transport.deviceId;
+    setState(() {
+      _handle = h;
+      _isHostSide = isHostSide;
+    });
+  }
+
   Future<void> _disconnect() async {
     final h = _handle;
-    setState(() => _handle = null);
+    setState(() {
+      _handle = null;
+      _isHostSide = false;
+    });
     if (h != null) await h.leave();
   }
 
@@ -63,7 +80,6 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
     final bg = theme.boardSurface;
-    final panelText = theme.btnText;
     if (_handle != null) {
       // 进入房间后，外层不再重复 AppBar，由 OnlineGamePage 内部 Scaffold 唯一提供返回按钮 + 标题
       return Scaffold(
@@ -73,53 +89,10 @@ class _SurroundGameLuaPageState extends State<SurroundGameLuaPage> {
         ),
       );
     }
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        title: const Text('围追堵截（联机）'),
-        backgroundColor: bg,
-        foregroundColor: panelText,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ── 主卡片 ──
-                  Container(
-                    decoration: BoxDecoration(
-                      color: theme.panelBg,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: theme.panelBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // 表单（页面标题由 AppBar 唯一承载，避免卡片再渲染"围追堵截"重复）
-                        LobbyEntryPage(onJoined: _onJoined),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return GameLobbyPage(
+      spec: kSurroundLobbySpec,
+      slots: kSurroundLobbySlots,
+      onStarted: _onStarted,
     );
   }
 }

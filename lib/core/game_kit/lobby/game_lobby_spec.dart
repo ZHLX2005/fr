@@ -148,16 +148,22 @@ class LobbySubmitData {
 ///
 /// chess 之外的差异（如 surround 的 isHostSide、team_card 的「需要 host 配置」）
 /// 通过 [GameLobbySlots.onStartedExtras] 注入扩展，避免污染基类。
+///
+/// extras 默认 mutable（不写死 const 空 Map）—— slots.onStartedExtras
+/// 会在调用前拿到此 ctx 并按需写入 `extras['xxx'] = true`，demo 端再读。
+/// 若 default 设为 const 空 Map，runtime 写入会抛
+/// "Cannot modify unmodifiable Map"。
 class LobbyStartedCtx {
   final bool? isHostSide;
 
-  /// 由 slots 写入的任意附加字段（如 isHostNeedsConfig）
+  /// 由 slots 写入的任意附加字段（如 needsConfig）。
+  /// 默认 mutable（非 const），handler 可安全写入。
   final Map<String, dynamic> extras;
 
-  const LobbyStartedCtx({
+  LobbyStartedCtx({
     this.isHostSide,
-    this.extras = const {},
-  });
+    Map<String, dynamic>? extras,
+  }) : extras = extras ?? <String, dynamic>{};
 }
 
 /// RoomCodeRules —— 房间号校验（共享默认实现，游戏可覆盖）。

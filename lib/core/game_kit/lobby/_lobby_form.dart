@@ -40,6 +40,9 @@ class LobbyForm extends StatefulWidget {
   final bool showSecondaryButton;
   final List<Widget> Function(BuildContext)? formExtras;
 
+  /// 表单下方追加的次要入口（cowrite: 「查看本地参考」等 demo 卡片外按钮）。
+  final Widget Function(BuildContext)? trailingEntry;
+
   final TextEditingController aliasCtrl;
   final TextEditingController codeCtrl;
   final bool busy;
@@ -61,6 +64,7 @@ class LobbyForm extends StatefulWidget {
     required this.onPrimary,
     this.onSecondary,
     this.formExtras,
+    this.trailingEntry,
     this.showSecondaryButton = false,
   });
 
@@ -279,6 +283,12 @@ class _LobbyFormState extends State<LobbyForm> {
                     ),
                   ),
                 ),
+              ],
+
+              // demo 卡片外次要入口（cowrite: 「查看本地参考」等）
+              if (widget.trailingEntry != null) ...[
+                const SizedBox(height: 12),
+                widget.trailingEntry!(context),
               ],
             ],
           ),

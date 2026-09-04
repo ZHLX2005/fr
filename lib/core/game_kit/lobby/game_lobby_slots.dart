@@ -39,7 +39,16 @@ typedef LobbyTransportBuilder = RelayV3Transport Function(
 
 typedef LobbyTrailingEntryBuilder = Widget Function(BuildContext context);
 
-typedef LobbyOnStartedExtrasBuilder = void Function(LobbyStartedCtx ctx);
+/// onStartedExtras —— 补充 LobbyStartedCtx 字段（surround / team_card）。
+///
+/// handler 收到 [ctx] 与 [handle] 两份上下文：
+///   · ctx —— 写入 ctx.extras['needsConfig'] 等任意键
+///   · handle —— 读 handle.latest（snapshot）+ handle.transport.deviceId
+///     做服务端权威判断（host / state / alias ...）。
+typedef LobbyOnStartedExtrasBuilder = void Function(
+  LobbyStartedCtx ctx,
+  RoomHandle handle,
+);
 
 class GameLobbySlots {
   /// 「创建房间」前置配置页（chess 用：弹 ChessRoomConfigPage 拿 host_color 等）；
