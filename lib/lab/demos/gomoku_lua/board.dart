@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import '../../../widgets/context_board_colors.dart';
 import 'constants.dart' show kGomokuSize;
 import 'engine.dart' show GomokuBoard;
+import '../../../core/gomoku/skins/gomoku_skin.dart' show GomokuSkin;
 
 /// 五子棋棋盘绘制（网格线 + 星位 + 落子 + 最后一步标记 + 落点提示）。
 ///
@@ -34,6 +35,7 @@ class GomokuBoardWidget extends StatelessWidget {
     this.validMoves = const <(int, int)>{},
     this.previewPoint,
     this.previewIsBlack = true,
+    this.skin,
   });
 
   final GomokuBoard board;
@@ -41,6 +43,7 @@ class GomokuBoardWidget extends StatelessWidget {
   final Set<(int, int)> validMoves;
   final (int, int)? previewPoint;
   final bool previewIsBlack;
+  final GomokuSkin? skin;
 
   // 棋盘视觉参数
   static const double _padding = 16.0;
@@ -69,22 +72,20 @@ class GomokuBoardWidget extends StatelessWidget {
         width: side,
         height: side,
         child: Stack(clipBehavior: Clip.none, children: [
-          // 棋盘背景（圆角米白 = boardColors.background）
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: bc.background,
+          // 棋盘背景：skin 有 boardBackground → 贴图；否则走 BoardColorStrategy 背景色
+          if (skin?.boardBackground != null)
+            Positioned.fill(
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: shadow,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                child: Image(
+                  image: skin!.boardBackground!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _boardFallback(bc, shadow),
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            Positioned.fill(child: _boardFallback(bc, shadow)),
           // 网格线 + 星位
           CustomPaint(
             size: Size.infinite,
@@ -136,47 +137,108 @@ class GomokuBoardWidget extends StatelessWidget {
     final bc = context.boardColors;
     final cx = _padding + x * step;
     final cy = _padding + y * step;
-    // 黑白两色跟主题：player1Stone（深）/ player2Stone（浅），zen 米底也清晰
-    final color = isBlack ? bc.player1Stone : bc.player2Stone;
+    // 皮肤贴图优先：skin.pieces['black'/'white'] 有图 → Image；否则回退彩色圆
+    final skinImage = skin?.pieces[isBlack ? 'black' : 'white'];
+    final Widget stoneBody;
+    if (skinImage != null) {
+      stoneBody = ClipOval(
+        child: Image(
+          image: skinImage,
+          width: radius * 2,
+          height: radius * 2,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _stoneFallback(
+            bc, isBlack, radius, stoneShadow, stoneRim, isPreview, isLast),
+        ),
+      );
+    } else {
+      stoneBody = _stoneFallback(
+          bc, isBlack, radius, stoneShadow, stoneRim, isPreview, isLast);
+    }
     return Positioned(
       left: cx - radius,
       top: cy - radius,
       child: Opacity(
         opacity: isPreview ? 0.45 : 1.0,
-        child: Container(
+        child: SizedBox(
           width: radius * 2,
           height: radius * 2,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isBlack ? stoneShadow : stoneRim,
-              width: isBlack ? 0.5 : 1.5,
-            ),
-            boxShadow: isPreview ? [] : [
-              BoxShadow(
-                color: stoneShadow,
-                blurRadius: 2,
-                offset: const Offset(1, 1),
-              ),
-            ],
-          ),
-          child: isLast
-              ? Center(
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 棋子本体（贴图或彩色圆）
+              Positioned.fill(child: stoneBody),
+              // 阴影（仅非预览）
+              if (!isPreview)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: stoneShadow, blurRadius: 2, offset: const Offset(1, 1)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              // 最后一步红点标记（贴图棋子上也叠加，保持与 _stoneFallback 内一致）
+              if (isLast && skinImage != null)
+                Center(
                   child: Container(
                     width: radius * 0.5,
                     height: radius * 0.5,
-                    decoration: BoxDecoration(
-                      color: bc.lastMove,
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: BoxDecoration(color: bc.lastMove, shape: BoxShape.circle),
                   ),
-                )
-              : null,
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _stoneFallback(
+    dynamic bc,
+    bool isBlack,
+    double radius,
+    Color stoneShadow,
+    Color stoneRim,
+    bool isPreview,
+    bool isLast,
+  ) {
+    final color = isBlack ? bc.player1Stone as Color : bc.player2Stone as Color;
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isBlack ? stoneShadow : stoneRim,
+          width: isBlack ? 0.5 : 1.5,
+        ),
+        boxShadow: isPreview ? [] : [
+          BoxShadow(color: stoneShadow, blurRadius: 2, offset: const Offset(1, 1)),
+        ],
+      ),
+      child: isLast
+          ? Center(
+              child: Container(
+                width: radius * 0.5,
+                height: radius * 0.5,
+                decoration: BoxDecoration(color: bc.lastMove as Color, shape: BoxShape.circle),
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _boardFallback(dynamic bc, Color shadow) => Container(
+        decoration: BoxDecoration(
+          color: bc.background as Color,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [BoxShadow(color: shadow, blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+      );
 
   Widget _buildHintDot(int x, int y, double step, Color color, double radius) {
     final cx = _padding + x * step;

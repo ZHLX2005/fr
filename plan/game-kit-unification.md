@@ -122,4 +122,20 @@ ve 端对应：`game-skin-admin`（单组件 + 游戏切换器）、`emoji-pack-
 
 ## Status
 
-**Currently in Phase 1.0** —— scaffolding + 核心类型定义。
+**Phase 1 COMPLETE** (CI 验证中)：
+
+- ✅ **1.0 scaffolding** —— `lib/core/game_kit/lobby/` 5 文件：identity / spec / slots / page / form
+- ✅ **1.1 GameLobbyPage 壳** —— smartMatch + dualEntry 两个一等 LobbyFlowType 渲染器
+- ✅ **1.2 chess 迁移** —— const spec + slots builder；删 chess_lobby_page.dart（576 行）；PR commit 1
+- ✅ **1.3 8 Lua 游戏批量迁移** —— gomoku/go/jungle/tetris/surround/reversi/coup/cowrite，每个 const spec + demo rewire；删 LobbyEntryPage 复制（每游戏 ~200 行）；PR commit 2
+- ✅ **1.4 team_card 迁移** —— random code 按钮（`LobbyCopy.randomCodeEnabled` 内置支持）+ `onHostNeedsConfig` via `slots.onStartedExtras`；删除 demo 内的旧 LobbyEntryPage（259 行）
+- ✅ **1.5 收口** —— `trailingEntry` 插槽接线（cowrite 弃用 Column 绕过）；`LobbyStartedCtx.extras` 改 mutable（handler 写入不抛 const-modify 异常）；`LobbyOnStartedExtrasBuilder` 签名加 `RoomHandle` 参数；smartMatch 也调 onStartedExtras；删除 `test/core/chess/p2p/chess_lobby_page_test.dart`
+
+**PR #88** 已开启跟踪（commits: `3b65d5a9` chess, `cfc229fa` 8-game + cleanup）。Chess commit CI run #33853584296 **PASSED**；全量提交 CI 验证中。
+
+**API 扩展（迁移过程中确认为必要）**：
+- `LobbyStartedCtx.extras` 改 non-const ctor —— handler 写入 `ctx.extras['key'] = value` 不抛 `Cannot modify unmodifiable Map`
+- `LobbyOnStartedExtrasBuilder` 加 `RoomHandle` 参数 —— handler 可读 `handle.latest`（snapshot）+ `handle.transport.deviceId` 做服务端权威判断
+- `GameLobbyPage._goSmartMatch` 也调 `onStartedExtras`（原本仅 dualEntry 调）—— smartMatch 流也支持 ctx 注入（needsConfig / isHostSide 等）
+
+**Phase 2 待开工**：皮肤泛化（fr GameSkinSpec + ve game-skin-admin）。等用户拍板。
