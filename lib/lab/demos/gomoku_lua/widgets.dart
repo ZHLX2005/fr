@@ -1,5 +1,8 @@
 // lib/lab/demos/gomoku_lua/widgets.dart
-// 五子棋 Lua 版 — UI 组件：SetupPage / JoinPage / OnlineGamePage
+// 五子棋 Lua 版 — UI 组件：OnlineGamePage
+//
+// 入口（LobbyEntryPage）已迁移到 GameLobbyPage +
+// kGomokuLobbySpec（lib/core/gomoku/lobby/gomoku_lobby_spec.dart）。
 //
 // 布局与 surround_game_lua 一致，差异：
 //   - 棋盘用 GomokuBoardWidget（网格线 + 交点落子）
@@ -10,251 +13,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/net_engine/relay_v3/relay_device_id.dart';
 import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 
-import 'constants.dart';
 import 'engine.dart' show
-    GomokuRoom, GomokuMove, GomokuBoard, kGomokuScript,
-    Snapshot, RoomHandle, RelayV3Transport, kGomokuSize;
-import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
-    show RelayV3Exception;
+    GomokuRoom, GomokuMove, GomokuBoard,
+    Snapshot, RoomHandle, kGomokuSize;
+import 'constants.dart' show kGomokuTurnBarHeight, kGomokuConfirmBarHeight;
 import 'board.dart' show GomokuBoardWidget;
 import '../../../widgets/context_board_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
-import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
-
-// ══════════════════════════════════════════════════════════════
-// Lobby Entry Page（单表单：输入昵称 + 房间码，按按钮即尝试加入/创建）
-// ══════════════════════════════════════════════════════════════
-
-class LobbyEntryPage extends StatefulWidget {
-  const LobbyEntryPage({super.key, required this.onJoined});
-  final void Function(RoomHandle) onJoined;
-  @override State<LobbyEntryPage> createState() => _LobbyEntryPageState();
-}
-
-class _LobbyEntryPageState extends State<LobbyEntryPage> {
-  final _aliasCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    // 共享昵称（4 个 Lua 游戏通用）：load 回填 + 监听实时同步
-    LuaGameAlias.load().then((v) {
-      if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
-        setState(() => _aliasCtrl.text = v);
-      }
-    });
-    LuaGameAlias.notifier.addListener(_onAliasChanged);
-  }
-
-  /// 跨游戏昵称同步：别处改了昵称 → 实时回填到本页输入框。
-  void _onAliasChanged() {
-    if (!mounted) return;
-    final v = LuaGameAlias.value;
-    if (v != _aliasCtrl.text) {
-      setState(() => _aliasCtrl.text = v);
-    }
-  }
-
-  @override
-  void dispose() {
-    LuaGameAlias.notifier.removeListener(_onAliasChanged);
-    _aliasCtrl.dispose();
-    _codeCtrl.dispose();
-    super.dispose();
-  }
-
-  /// 单表单智能匹配：先按输入的房间码尝试 join；不存在则用此号创建。
-  /// 撞号（409）→ 房间已存在（已有别人是房主），提示换个号。
-  Future<void> _go() async {
-    final alias = _aliasCtrl.text.trim();
-    if (alias.isEmpty) {
-      setState(() => _error = '请输入昵称');
-      return;
-    }
-    final code = _codeCtrl.text.trim().toUpperCase();
-    if (code.length < 4 || code.length > 6) {
-      setState(() => _error = '房间码为 4–6 位大写字母数字');
-      return;
-    }
-    setState(() { _busy = true; _error = null; });
-    try {
-      final t = RelayV3Transport(
-        relayUrl: kGomokuRelayUrl,
-        alias: alias,
-        deviceId: await RelayDeviceId.get(),
-      );
-      await LuaGameAlias.save(alias);
-      final h = await t.tryJoinOrCreate(
-        code: code,
-        script: kGomokuScript,
-        initialParams: {'device_id': t.deviceId, 'alias': alias},
-        maxPlayers: 2,
-      );
-      if (!mounted) return;
-      widget.onJoined(h);
-    } on RelayV3Exception catch (e) {
-      if (!mounted) return;
-      // 服务端两种 409：
-      //   - "code collision" → 创建撞号（已被别人创建，tryJoinOrCreate 会回退或重试）
-      //   - "join rejected"  → 房间已满（rejected_join 触发）
-      final body = e.body.toLowerCase();
-      final String msg;
-      if (e.statusCode == 409 && body.contains('code collision')) {
-        msg = '房间号 $code 已被占用，请换一个';
-      } else if (e.statusCode == 409 && body.contains('join rejected')) {
-        msg = '房间 $code 已满员，无法加入';
-      } else if (e.statusCode == 404) {
-        msg = '房间号 $code 不存在且创建失败';
-      } else {
-        msg = '进入失败（${e.statusCode}）';
-      }
-      setState(() { _busy = false; _error = msg; });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() { _busy = false; _error = '$e'; });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    // 圆角浅底输入框（聚焦时边框变粗变深）
-    InputDecoration inputDec(String hint) => InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          filled: true,
-          fillColor: theme.btnBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.panelBorder, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.panelBorder, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.btnText, width: 1.6),
-          ),
-        );
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // ── 昵称 ──
-      TextField(
-        controller: _aliasCtrl,
-        decoration: inputDec('昵称（如：黑方）'),
-        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: theme.btnText),
-        textAlignVertical: TextAlignVertical.center,
-        onChanged: LuaGameAlias.save,
-      ),
-      SizedBox(height: 12),
-
-      // ── 房间号 ──
-      TextField(
-        controller: _codeCtrl,
-        decoration: inputDec('房间号（4–6 位大写字母数字）'),
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: theme.btnText,
-          letterSpacing: 2,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-        keyboardType: TextInputType.text,
-        textCapitalization: TextCapitalization.characters,
-        maxLength: 6,
-        onSubmitted: (_) => _busy ? null : _go(),
-      ),
-      SizedBox(height: 12),
-
-      // ── 提示行（浅灰块，左对齐） ──
-      Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: theme.btnText.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Text('◐',
-                style: TextStyle(color: theme.btnSub, fontSize: 13)),
-          ),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '输入同一号码即可对战，谁先到谁是房主',
-              style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.4),
-            ),
-          ),
-        ]),
-      ),
-
-      // ── 错误提示（暖红浅块） ──
-      if (_error != null) ...[
-        SizedBox(height: 8),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(
-              padding: EdgeInsets.only(top: 1),
-              child: Text('◉', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
-            ),
-            SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12, height: 1.4),
-              ),
-            ),
-          ]),
-        ),
-      ],
-
-      SizedBox(height: 20),
-
-      // ── 主按钮 ──
-      SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: FilledButton(
-          onPressed: _busy ? null : _go,
-          style: FilledButton.styleFrom(
-            backgroundColor: theme.btnText,
-            foregroundColor: theme.panelBg,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            elevation: 0,
-          ),
-          child: _busy
-              ? SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: theme.panelBg,
-                  ),
-                )
-              : const Text('进入对局',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 2)),
-        ),
-      ),
-    ]);
-  }
-}
-
-// 暖红色（错误提示，避免纯红）
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page
@@ -967,5 +735,3 @@ class _ReadyAvatar extends StatelessWidget {
     );
   }
 }
-
-

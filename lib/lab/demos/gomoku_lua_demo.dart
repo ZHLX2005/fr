@@ -12,13 +12,20 @@
 //   - 无房主区分：先进入=黑方（先手），后进入=白方
 //   - 房间号由玩家口口相传，撞号时给提示换号
 //   - 胜负 = 连五，客户端本地判定后发 WIN
+//
+// 入口迁移：原 LobbyEntryPage（lib/lab/demos/gomoku_lua/widgets.dart）
+//   → GameLobbyPage + kGomokuLobbySpec（lib/core/gomoku/lobby/gomoku_lobby_spec.dart）。
+//   「开局学习」入口移到 AppBar actionsBuilder（与 chess 残局库一致位置）。
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'gomoku_lua/engine.dart' show RoomHandle;
-import 'gomoku_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
+import 'gomoku_lua/widgets.dart' show OnlineGamePage;
 import 'gomoku_lua/opening/gomoku_opening_player.dart';
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_slots.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
+import '../../core/gomoku/lobby/gomoku_lobby_spec.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -48,102 +55,63 @@ class GomokuLuaPage extends StatefulWidget {
 }
 
 class _GomokuLuaPageState extends State<GomokuLuaPage> {
-  RoomHandle? _handle;
+  /// 大厅页 key：对弈页 pop 后调用 resetToEntry 回到入口表单。
+  final GlobalKey<GameLobbyPageState> _lobbyKey =
+      GlobalKey<GameLobbyPageState>();
+
+  /// 「开局学习」开关（true → 替换为 GomokuOpeningPlayer 全屏页面）。
   bool _showOpeningStudy = false;
+
+  /// 对弈页 → 大厅重置句柄（push 前快照，pop 后用 resetToEntry 回到表单）。
+  RoomHandle? _activeHandle;
+
+  /// 进入对局：push OnlineGamePage；pop 后 resetToEntry。
+  Future<void> _onStarted(RoomHandle handle, LobbyStartedCtx ctx) async {
+    _activeHandle = handle;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OnlineGamePage(
+          handle: handle,
+          onLeave: () async {
+            await handle.leave();
+          },
+        ),
+      ),
+    );
+    _activeHandle = null;
+    if (!mounted) return;
+    _lobbyKey.currentState?.exposed.resetToEntry();
+  }
 
   @override
   void dispose() {
-    _handle?.dispose();
+    _activeHandle?.dispose();
     super.dispose();
-  }
-
-  void _onJoined(RoomHandle h) => setState(() => _handle = h);
-  Future<void> _disconnect() async {
-    final h = _handle;
-    setState(() => _handle = null);
-    if (h != null) await h.leave();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 用棋盘主题色（暖色），与游戏内色调一致
-    final theme = BoardTheme.of(context);
-    final bg = theme.boardSurface;
-    final panelText = theme.btnText;
-    if (_handle != null) {
-      // 进入房间后，外层不再重复 AppBar，由 OnlineGamePage 内部 Scaffold 唯一提供返回按钮 + 标题
-      return Scaffold(
-        backgroundColor: bg,
-        body: OnlineGamePage(handle: _handle!, onLeave: _disconnect),
+    // 「开局学习」全屏页（与入口互斥，与原版一致）。
+    if (_showOpeningStudy) {
+      return GomokuOpeningPlayer(
+        onBack: () => setState(() => _showOpeningStudy = false),
       );
     }
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        title: const Text('五子棋（联机）'),
-        backgroundColor: bg,
-        foregroundColor: panelText,
-        elevation: 0,
-      ),
-      body: _showOpeningStudy
-          ? GomokuOpeningPlayer(
-              onBack: () => setState(() => _showOpeningStudy = false),
-            )
-          : SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── 主卡片 ──
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.panelBg,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: theme.panelBorder),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // 表单（页面标题由 AppBar 唯一承载，避免卡片再渲染"五子棋"重复）
-                          LobbyEntryPage(onJoined: _onJoined),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    // ── 卡片外次要入口 ──
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: () =>
-                            setState(() => _showOpeningStudy = true),
-                        style: TextButton.styleFrom(
-                          foregroundColor: theme.btnSub,
-                        ),
-                        icon: Icon(Icons.school_outlined, size: 18),
-                        label: const Text('开局学习',
-                            style: TextStyle(letterSpacing: 1)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    // 通用入口页（自带 Scaffold + AppBar + 表单）。
+    // AppBar 加「开局学习」按钮（与原版卡片外的 TextButton 同语义）。
+    return GameLobbyPage(
+      key: _lobbyKey,
+      spec: kGomokuLobbySpec,
+      slots: GameLobbySlots(
+        actionsBuilder: (context) => [
+          IconButton(
+            icon: const Icon(Icons.school_outlined),
+            tooltip: '开局学习',
+            onPressed: () => setState(() => _showOpeningStudy = true),
           ),
-        ),
+        ],
+      ),
+      onStarted: _onStarted,
     );
   }
 }
-
-// （_EntryCard 已废弃 —— 改为无边框布局后不再需要）

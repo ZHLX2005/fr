@@ -26,7 +26,7 @@ import '../lab_container.dart';
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart' show RoomHandle;
 import '../../core/chess/endgame/chess_endgame.dart';
 import '../../core/chess/endgame/chess_endgame_list_page.dart';
-import '../../core/chess/p2p/chess_lobby_page.dart';
+import '../../core/chess/lobby/chess_lobby_spec.dart';
 import '../../core/chess/p2p/chess_room_page.dart';
 import '../../core/chess/skins/chess_skin.dart';
 import '../../core/chess/skins/chess_skin_localizer.dart';
@@ -37,6 +37,8 @@ import '../../core/chess/skins/file_resolver.dart';
 import '../../core/chess/skins/local_chess_skin.dart';
 import '../../core/chess/widgets/board_color_prefs.dart';
 import '../../core/chess/widgets/board_palette.dart';
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -76,12 +78,9 @@ class ChessOnlinePage extends StatefulWidget {
 }
 
 class _ChessOnlinePageState extends State<ChessOnlinePage> {
-  /// Relay 服务地址（与其它 Lua 游戏同源的 relay 部署）。
-  static const String kRelayUrl = 'http://47.110.80.47:8988';
-
   /// 大厅页 key：对弈页 pop 后调用 resetToEntry 回到入口表单。
-  final GlobalKey<ChessLobbyPageState> _lobbyKey =
-      GlobalKey<ChessLobbyPageState>();
+  final GlobalKey<GameLobbyPageState> _lobbyKey =
+      GlobalKey<GameLobbyPageState>();
 
   /// 当前选中的皮肤 id（默认 catalog 第一套 '1'；initState 从 SharedPreferences 加载）。
   String _skinId = kChessSkinsCatalog.first.id;
@@ -222,11 +221,11 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     return null;
   }
 
-  /// 大厅 state=="playing" 时触发，把房间句柄交给对弈房间页。
+  /// 大厅 state 推进时触发，把房间句柄交给对弈房间页。
   /// 传入当前选中的 [skinId] + 已本地化的 [localSkin]（若可用）+ 自定义棋盘配色，
   /// 对弈页优先用本地文件渲染 —— 零网络、离线可用。
   /// 对弈页 pop 回来后 → 大厅重置回入口表单（同一房间号可重开新局）。
-  Future<void> _onStarted(RoomHandle handle) async {
+  Future<void> _onStarted(RoomHandle handle, LobbyStartedCtx ctx) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChessRoomPage(
@@ -239,7 +238,7 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
       ),
     );
     if (!mounted) return;
-    _lobbyKey.currentState?.resetToEntry();
+    _lobbyKey.currentState?.exposed.resetToEntry();
   }
 
   /// 打开残局库：选快照 → 注入 LobbyPage 建房参数（initial_fen）；
@@ -298,30 +297,31 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
 
   @override
   Widget build(BuildContext context) {
-    // 社交房间号入口（ChessLobbyPage 自带 Scaffold + AppBar）：
+    // 社交房间号入口（GameLobbyPage 自带 Scaffold + AppBar）：
     // 单表单（昵称 + 房间号）→ 等待房 → playing 后由 onStarted push
     // ChessRoomPage 接管界面；对弈页 pop 回来 → resetToEntry 回入口。
-    return ChessLobbyPage(
+    return GameLobbyPage(
       key: _lobbyKey,
-      relayUrl: kRelayUrl,
-      title: '国际象棋（联机）',
+      spec: kChessLobbySpec,
+      slots: buildChessLobbySlots(
+        initialEndgame: _selectedEndgame,
+        onClearEndgame: () => setState(() => _selectedEndgame = null),
+        actionsBuilder: (context) => [
+          // 残局库按钮：选残局快照 → 建房从该局面开始（先手方）。
+          IconButton(
+            icon: const Icon(Icons.extension_outlined),
+            tooltip: '残局',
+            onPressed: _openEndgameList,
+          ),
+          // 换肤设置按钮：打开全屏换肤设置页（所有阶段可见，无害）。
+          IconButton(
+            icon: const Icon(Icons.palette_outlined),
+            tooltip: '换肤',
+            onPressed: _openSkinSettings,
+          ),
+        ],
+      ),
       onStarted: _onStarted,
-      initialEndgame: _selectedEndgame,
-      onClearEndgame: () => setState(() => _selectedEndgame = null),
-      actionsBuilder: (context) => [
-        // 残局库按钮：选残局快照 → 建房从该局面开始（先手方）。
-        IconButton(
-          icon: const Icon(Icons.extension_outlined),
-          tooltip: '残局',
-          onPressed: _openEndgameList,
-        ),
-        // 换肤设置按钮：打开全屏换肤设置页（所有阶段可见，无害）。
-        IconButton(
-          icon: const Icon(Icons.palette_outlined),
-          tooltip: '换肤',
-          onPressed: _openSkinSettings,
-        ),
-      ],
     );
   }
 }

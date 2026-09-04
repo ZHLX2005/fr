@@ -8,12 +8,17 @@
 //   → 回合制：每回合选 7 个动作之一（INCOME/TAX/EXCHANGE/STEAL/ASSASSINATE/COUP/FOREIGN_AID）
 //   → 其他玩家可质疑 / 通过 / 阻断（按 c.cur_phase 决定何时显示）
 //   → 失去 2 张卡的玩家淘汰；最后存活者胜
+//
+// 入口：GameLobbyPage（lib/core/game_kit/lobby）—— 单表单 smartMatch。
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'coup_lua/engine.dart' show RoomHandle;
-import 'coup_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
+import 'coup_lua/widgets.dart' show OnlineGamePage;
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
+import '../../core/coup/lobby/coup_lobby_spec.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -57,7 +62,8 @@ class _CoupLuaPageState extends State<CoupLuaPage> {
     super.dispose();
   }
 
-  void _onJoined(RoomHandle h) => setState(() => _handle = h);
+  void _onStarted(RoomHandle h, LobbyStartedCtx ctx) =>
+      setState(() => _handle = h);
 
   Future<void> _disconnect() async {
     final h = _handle;
@@ -69,7 +75,6 @@ class _CoupLuaPageState extends State<CoupLuaPage> {
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
     final bg = theme.boardSurface;
-    final panelText = theme.btnText;
     if (_handle != null) {
       // 进入房间后，外层不再重复 AppBar，由 OnlineGamePage 内部 Scaffold 唯一提供返回按钮 + 标题
       return Scaffold(
@@ -77,47 +82,10 @@ class _CoupLuaPageState extends State<CoupLuaPage> {
         body: OnlineGamePage(handle: _handle!, onLeave: _disconnect),
       );
     }
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        title: const Text('政变（联机）'),
-        backgroundColor: bg,
-        foregroundColor: panelText,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.panelBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.panelBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 表单（页面标题由 AppBar 唯一承载，避免卡片再渲染"政变"重复）
-                    LobbyEntryPage(onJoined: _onJoined),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return GameLobbyPage(
+      spec: kCoupLobbySpec,
+      slots: kCoupLobbySlots,
+      onStarted: _onStarted,
     );
   }
 }

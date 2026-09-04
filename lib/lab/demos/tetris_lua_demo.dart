@@ -8,12 +8,18 @@
 //   - 单表单智能匹配：昵称 + 房间号 + 「进入对局」→ tryJoinOrCreate
 //   - 谁先到谁是房主；服务端 host_id 权威
 //   - lobby / ready 同一张卡片，按钮三态原地切换（准备好了 / 已准备 / 开始游戏）
+//
+// 入口迁移：原 LobbyEntryPage（lib/lab/demos/tetris_lua/widgets.dart）
+//   → GameLobbyPage + kTetrisLobbySpec（lib/core/tetris/lobby/tetris_lobby_spec.dart）。
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'tetris_lua/engine.dart' show RoomHandle;
-import 'tetris_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
+import 'tetris_lua/widgets.dart' show OnlineGamePage;
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_slots.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
+import '../../core/tetris/lobby/tetris_lobby_spec.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -49,75 +55,44 @@ class TetrisLuaPage extends StatefulWidget {
 }
 
 class _TetrisLuaPageState extends State<TetrisLuaPage> {
-  RoomHandle? _handle;
+  /// 大厅页 key：对弈页 pop 后调用 resetToEntry 回到入口表单。
+  final GlobalKey<GameLobbyPageState> _lobbyKey =
+      GlobalKey<GameLobbyPageState>();
+
+  /// 对弈页句柄（dispose 时清理）。
+  RoomHandle? _activeHandle;
+
+  /// 进入对局：push OnlineGamePage；pop 后 resetToEntry。
+  Future<void> _onStarted(RoomHandle handle, LobbyStartedCtx ctx) async {
+    _activeHandle = handle;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OnlineGamePage(
+          handle: handle,
+          onLeave: () async {
+            await handle.leave();
+          },
+        ),
+      ),
+    );
+    _activeHandle = null;
+    if (!mounted) return;
+    _lobbyKey.currentState?.exposed.resetToEntry();
+  }
 
   @override
   void dispose() {
-    _handle?.dispose();
+    _activeHandle?.dispose();
     super.dispose();
-  }
-
-  void _onJoined(RoomHandle h) => setState(() => _handle = h);
-
-  Future<void> _disconnect() async {
-    final h = _handle;
-    setState(() => _handle = null);
-    if (h != null) await h.leave();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    final bg = theme.boardSurface;
-    final panelText = theme.btnText;
-    if (_handle != null) {
-      // 进入房间后，外层不再重复 AppBar，由 OnlineGamePage 内部 Scaffold 唯一提供返回按钮 + 标题
-      return Scaffold(
-        backgroundColor: bg,
-        body: OnlineGamePage(handle: _handle!, onLeave: _disconnect),
-      );
-    }
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        title: const Text('俄罗斯方块（联机）'),
-        backgroundColor: bg,
-        foregroundColor: panelText,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.panelBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.panelBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 表单（页面标题由 AppBar 唯一承载，避免卡片再渲染"俄罗斯方块"重复）
-                    LobbyEntryPage(onJoined: _onJoined),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return GameLobbyPage(
+      key: _lobbyKey,
+      spec: kTetrisLobbySpec,
+      slots: const GameLobbySlots(),
+      onStarted: _onStarted,
     );
   }
 }
