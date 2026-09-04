@@ -39,8 +39,8 @@ import '../engine/make_move.dart';
 import '../endgame/chess_endgame.dart';
 import '../endgame/chess_endgame_store.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
-import '../../game_kit/emoji/emoji_button.dart';
 import '../../game_kit/emoji/emoji_overlay.dart';
+import '../../game_kit/emoji/emoji_panel.dart';
 import '../models/board_state.dart';
 import '../models/game_status.dart';
 import '../models/move.dart';
@@ -1073,6 +1073,20 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
+  // ─────────────────────────── 动作：表情 ───────────────────────────
+
+  Future<void> _showEmojiPanel() async {
+    if (_sendLock) return;
+    await showEmojiPanel(
+      context,
+      bundle: _emojiBundle,
+      onPick: (emojiId) => widget.handle.applyAction(
+        type: 'EMOJI',
+        params: {'emoji_id': emojiId},
+      ),
+    );
+  }
+
   // ─────────────────────────── 回放（复盘） ───────────────────────────
 
   /// 服务端棋谱是否有可回放的走法（终局卡片"复盘"按钮的显隐条件：
@@ -1370,10 +1384,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
         leading: ChessConnectionStatusBadge(handle: widget.handle),
         title: Text('房间 ${snap.roomCode}'),
         actions: [
-          EmojiButton(
-            applyAction: ({required String type, required Map<String, dynamic> params}) =>
-                widget.handle.applyAction(type: type, params: params),
-          ),
           // 手动刷新按钮：强制拉一次最新快照（带 UI 反馈）。心跳已经在跑，
           // 这里只暴露给"我怀疑卡了"的应急场景。
           IconButton(
@@ -1940,6 +1950,11 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                             runSpacing: 8,
                             alignment: WrapAlignment.center,
                             children: [
+                              OutlinedButton.icon(
+                                onPressed: gameOver ? null : _showEmojiPanel,
+                                icon: const Icon(Icons.mood_outlined, size: 18),
+                                label: const Text('表情'),
+                              ),
                               OutlinedButton.icon(
                                 onPressed: gameOver ? null : _resign,
                                 icon: const Icon(Icons.flag, size: 18),
