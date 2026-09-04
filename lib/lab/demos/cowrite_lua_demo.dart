@@ -10,14 +10,20 @@
 //   - 单方可"占用广播权" → 把自己视图首行行号广播给对方
 //   - 对方开启"自动对齐" → 滚动位置跟随
 //   - "保存参考"按钮 → SharedPreferences 存当前内容（按 roomCode 分 key）
+//
+// 入口：GameLobbyPage（lib/core/game_kit/lobby）—— 单表单 smartMatch。
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'cowrite_lua/cowrite_engine.dart' show RoomHandle;
+import 'cowrite_lua/cowrite_widgets.dart' show OnlineCoWritePage;
 import 'cowrite_lua/cowrite_save_reference.dart';
-import 'cowrite_lua/cowrite_widgets.dart' show LobbyEntryPage, OnlineCoWritePage;
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_slots.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
+import '../../core/cowrite/lobby/cowrite_lobby_spec.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -67,7 +73,8 @@ class _CoWriteLuaPageState extends State<CoWriteLuaPage> {
     super.dispose();
   }
 
-  void _onJoined(RoomHandle h) => setState(() => _handle = h);
+  void _onStarted(RoomHandle h, LobbyStartedCtx ctx) =>
+      setState(() => _handle = h);
 
   Future<void> _disconnect() async {
     final h = _handle;
@@ -79,7 +86,6 @@ class _CoWriteLuaPageState extends State<CoWriteLuaPage> {
   Widget build(BuildContext context) {
     final theme = BoardTheme.of(context);
     final bg = theme.boardSurface;
-    final panelText = theme.btnText;
     if (_handle != null) {
       return Scaffold(
         backgroundColor: bg,
@@ -92,7 +98,7 @@ class _CoWriteLuaPageState extends State<CoWriteLuaPage> {
         appBar: AppBar(
           title: const Text('本地参考'),
           backgroundColor: bg,
-          foregroundColor: panelText,
+          foregroundColor: theme.btnText,
           elevation: 0,
         ),
         body: SafeArea(child: _ReferencesView(onBack: () {
@@ -100,69 +106,37 @@ class _CoWriteLuaPageState extends State<CoWriteLuaPage> {
         })),
       );
     }
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        title: const Text('协作笔记（联机）'),
-        backgroundColor: bg,
-        foregroundColor: panelText,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ── 主卡片：进入协作 ──
-                  Container(
-                    decoration: BoxDecoration(
-                      color: theme.panelBg,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: theme.panelBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+    return Column(
+      children: [
+        Expanded(
+          child: GameLobbyPage(
+            spec: kCoWriteLobbySpec,
+            // trailingEntry 不能 const —— 运行时构造 slots
+            slots: GameLobbySlots(
+              trailingEntry: (context) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _showReferences = true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.btnSub,
                     ),
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-                    child: LobbyEntryPage(onJoined: _onJoined),
+                    icon: const Icon(Icons.bookmarks_outlined, size: 18),
+                    label: const Text('查看本地参考',
+                        style: TextStyle(letterSpacing: 1)),
                   ),
-                  const SizedBox(height: 20),
-                  // ── 卡片外次要入口：本地参考 ──
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () =>
-                          setState(() => _showReferences = true),
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.btnSub,
-                      ),
-                      icon: const Icon(Icons.bookmarks_outlined, size: 18),
-                      label: const Text('查看本地参考',
-                          style: TextStyle(letterSpacing: 1)),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
+            onStarted: _onStarted,
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
-// �═════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 // 本地参考列表视图
 // ══════════════════════════════════════════════════════════════
 

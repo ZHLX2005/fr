@@ -4,20 +4,25 @@
 // 组件在 team_card/ 子目录中分文件管理。
 //
 // 房间生命周期（设计文档 .claude/repo/_self/room-lifecycle-state-machine/）：
-//   LobbyEntryPage 创建/加入房间（唯一一次 CreateRoom）
+//   GameLobbyPage 创建/加入房间（唯一一次 CreateRoom）
 //   → state="setup"：房主走 HostPoolConfigView（SET_* + OPEN 配置现有房间）
 //   → state="lobby"：所有人进 PlayingView（waiting 玩家由 OPEN 广播自动入座）
 //   → state="playing"：START 发牌；RESET 回 lobby 连续开局
+//
+// 形态特殊点：
+//   · kTeamCardLobbySpec.copy.randomCodeEnabled = true —— _lobby_form 内置随机号按钮
+//   · slots.onStartedExtras 注入 ctx.extras['needsConfig'] ——
+//     snapshot 服务端权威判断「我是 host 且 state==setup」
+//   · _onStarted 读 ctx.extras['needsConfig'] 决定 phase 进 host_setup 还是 playing
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/net_engine/relay_v3/relay_device_id.dart';
-import '../../core/net_engine/relay_v3/relay_v3_transport.dart'
-    show RelayV3Transport, RelayV3Exception;
-import '../../core/surround_game/board_theme.dart';
-import '../../services/lua/lua_game_alias.dart';
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_slots.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart';
+import '../../core/team_card/lobby/team_card_lobby_spec.dart';
 import '../lab_container.dart';
 import 'team_card/constants.dart';
 import 'team_card/engine.dart'
@@ -61,15 +66,21 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
     super.dispose();
   }
 
-  void _onJoined(RoomHandle handle) => setState(() {
-        _handle = handle;
-        _phase = 'playing';
-      });
-
-  void _onHostNeedsConfig() => setState(() => _phase = 'host_setup');
+  /// GameLobbyPage 回调：服务端权威判断 → 决定进 host_setup 还是直接 playing。
+  ///
+  /// slots.onStartedExtras 已基于 snapshot + deviceId 写入 ctx.extras['needsConfig']：
+  ///   · host + state=='setup' → true  → 进 HostPoolConfigView（SET_* + OPEN）
+  ///   · 否则 → false                    → 直接进 PlayingView（lobby 等待房）
+  void _onStarted(RoomHandle handle, LobbyStartedCtx ctx) {
+    final needsConfig = ctx.extras['needsConfig'] == true;
+    setState(() {
+      _handle = handle;
+      _phase = needsConfig ? 'host_setup' : 'playing';
+    });
+  }
 
   /// 配置完成（或跳过）：同一房间，直接切到房间视图。
-  /// 房间只创建一次（LobbyEntryPage），这里不换 handle。
+  /// 房间只创建一次（GameLobbyPage），这里不换 handle。
   void _onHostConfigDone() => setState(() => _phase = 'playing');
 
   Future<void> _disconnect() async {
@@ -84,52 +95,15 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
   @override
   Widget build(BuildContext context) {
     final handle = _handle;
-    // 棋盘主题暖色（与其他 Lua 游戏入口同款配色）
-    final theme = BoardTheme.of(context);
-    final bg = theme.boardSurface;
-    final panelText = theme.btnText;
     if (handle == null) {
-      return Scaffold(
-        backgroundColor: bg,
-        appBar: AppBar(
-          title: const Text('团建卡牌（联机）'),
-          backgroundColor: bg,
-          foregroundColor: panelText,
-          elevation: 0,
+      // 入口表单：GameLobbyPage 自带 Scaffold + AppBar + 主题适配
+      return GameLobbyPage(
+        spec: kTeamCardLobbySpec,
+        slots: const GameLobbySlots(
+          // 服务端权威「我是 host 且 state=='setup'」→ 进 SetupPage 配置页
+          onStartedExtras: _injectHostNeedsConfig,
         ),
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.panelBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: theme.panelBorder),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.06),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
-                  child: LobbyEntryPage(
-                    onJoined: _onJoined,
-                    onHostNeedsConfig: _onHostNeedsConfig,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        onStarted: _onStarted,
       );
     }
     if (_phase == 'host_setup') {
@@ -155,269 +129,19 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
       ),
     );
   }
-}
 
-// ══════════════════════════════════════════════════════════════
-// Lobby Entry Page（社交房间号：alias + code → tryJoinOrCreate）
-// ══════════════════════════════════════════════════════════════
-
-class LobbyEntryPage extends StatefulWidget {
-  const LobbyEntryPage({
-    super.key,
-    required this.onJoined,
-    required this.onHostNeedsConfig,
-  });
-  final void Function(RoomHandle handle) onJoined;
-  final VoidCallback onHostNeedsConfig;
-
-  @override
-  State<LobbyEntryPage> createState() => _LobbyEntryPageState();
-}
-
-class _LobbyEntryPageState extends State<LobbyEntryPage> {
-  final _aliasCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    // 全局共享 alias（与 gomoku/围棋/象棋 等所有 Lua 房间游戏同步）
-    final v = LuaGameAlias.value;
-    if (v.isNotEmpty) _aliasCtrl.text = v;
-    LuaGameAlias.notifier.addListener(_onAliasChanged);
-  }
-
-  @override
-  void dispose() {
-    LuaGameAlias.notifier.removeListener(_onAliasChanged);
-    _aliasCtrl.dispose();
-    _codeCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onAliasChanged() {
-    if (!mounted) return;
-    final v = LuaGameAlias.value;
-    if (v.isNotEmpty && _aliasCtrl.text != v) {
-      _aliasCtrl.text = v;
+  /// slots.onStartedExtras 实现：基于 snapshot 服务端权威判断
+  /// 「我是房主（deviceId == snapshot.context['host_id']）且房间 state=='setup'」
+  /// → 写入 ctx.extras['needsConfig'] = true，demo 端 _onStarted 据此切换 phase。
+  ///
+  /// 注意：handler 在 GameLobbyPage._goSmartMatch 里 tryJoinOrCreate 成功之后
+  /// 立即调用，handle.latest 在 transport.createRoom/tryJoinOrCreate 返回时已赋值。
+  static void _injectHostNeedsConfig(LobbyStartedCtx ctx, RoomHandle handle) {
+    final isHost = myIsHost(handle.latest, handle.transport.deviceId);
+    final stateSetup = handle.latest?.state == 'setup';
+    if (isHost && stateSetup) {
+      ctx.extras['needsConfig'] = true;
     }
-  }
-
-  String _normalizeCode(String s) => s.trim().toUpperCase();
-
-  /// 生成 4 位易读房间号（排除 0/O/1/I/L）——仅供"懒得想号"的房主一键填入，
-  /// 输入框内容仍是最终房间号（后端 requested_code 语义）。
-  String _randomCode() {
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    final r = DateTime.now().millisecondsSinceEpoch;
-    final buf = StringBuffer();
-    int seed = r;
-    for (int i = 0; i < 4; i++) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      buf.write(chars[seed % chars.length]);
-    }
-    return buf.toString();
-  }
-
-  Future<void> _go() async {
-    final alias = _aliasCtrl.text.trim().isEmpty ? '玩家' : _aliasCtrl.text.trim();
-    final code = _normalizeCode(_codeCtrl.text);
-    final rx = RegExp(r'^[A-Z0-9]{4,6}$');
-    if (!rx.hasMatch(code)) {
-      setState(() => _error = '房间号 4-6 位大写字母+数字');
-      return;
-    }
-    await LuaGameAlias.save(alias);
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final t = RelayV3Transport(
-        relayUrl: kTeamCardRelayUrl,
-        alias: alias,
-        deviceId: await RelayDeviceId.get(),
-      );
-      // 房间只创建这一次；玩家区人数/身份池由房主在 setup 阶段配置
-      final h = await TeamCardRoom.tryJoinOrCreate(t, code: code, alias: alias);
-      if (!mounted) return;
-      widget.onJoined(h);
-      // 服务端权威：创建者（第一个输入未存在号码的人）→ 进配置页
-      if (myIsHost(h.latest, t.deviceId) && h.latest?.state == 'setup') {
-        widget.onHostNeedsConfig();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      String msg = '$e';
-      if (e is RelayV3Exception) {
-        final body = e.body.toLowerCase();
-        if (e.statusCode == 409 && body.contains('code collision')) {
-          msg = '房间号 $code 已被占用，请换一个';
-        } else if (e.statusCode == 409 && body.contains('join rejected')) {
-          msg = '房间已满（8 人上限），无法加入';
-        } else if (e.statusCode == 404) {
-          msg = '房间号 $code 不存在且创建失败';
-        } else {
-          msg = '进入失败（${e.statusCode}）';
-        }
-      }
-      setState(() {
-        _busy = false;
-        _error = msg;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    // 圆角浅底输入框（聚焦时边框变粗变深）——与其他 Lua 游戏入口同款
-    InputDecoration inputDec(String hint) => InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          filled: true,
-          fillColor: theme.btnBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.panelBorder, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.panelBorder, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.btnText, width: 1.6),
-          ),
-        );
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // ── 昵称 ──
-      TextField(
-        controller: _aliasCtrl,
-        decoration: inputDec('昵称'),
-        style: TextStyle(
-            fontSize: 15, fontWeight: FontWeight.w500, color: theme.btnText),
-        textAlignVertical: TextAlignVertical.center,
-        onChanged: (v) => LuaGameAlias.save(v.trim()),
-      ),
-      SizedBox(height: 12),
-
-      // ── 房间号 ──
-      TextField(
-        controller: _codeCtrl,
-        decoration: inputDec('房间号（4–6 位大写字母数字）').copyWith(
-          suffixIcon: IconButton(
-            icon: Icon(Icons.casino_outlined,
-                size: 20, color: theme.btnSub.withValues(alpha: 0.8)),
-            tooltip: '随机生成房间号（我是房主）',
-            onPressed:
-                _busy ? null : () => setState(() => _codeCtrl.text = _randomCode()),
-          ),
-        ),
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: theme.btnText,
-          letterSpacing: 2,
-        ),
-        keyboardType: TextInputType.text,
-        textCapitalization: TextCapitalization.characters,
-        maxLength: 6,
-        onSubmitted: (_) => _busy ? null : _go(),
-      ),
-      SizedBox(height: 12),
-
-      // ── 提示行（浅灰块，左对齐）──
-      Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: theme.btnText.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Text('◐',
-                style: TextStyle(color: theme.btnSub, fontSize: 13)),
-          ),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '输入同一号码即可开局，谁先到谁是房主；房主配置后其他人自动入座',
-              style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.4),
-            ),
-          ),
-        ]),
-      ),
-
-      // ── 错误提示（暖红浅块）──
-      if (_error != null) ...[
-        SizedBox(height: 8),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(
-              padding: EdgeInsets.only(top: 1),
-              child: Text('◉',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 12)),
-            ),
-            SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                _error!,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontSize: 12,
-                    height: 1.4),
-              ),
-            ),
-          ]),
-        ),
-      ],
-
-      SizedBox(height: 20),
-
-      // ── 主按钮 ──
-      SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: FilledButton(
-          onPressed: _busy ? null : _go,
-          style: FilledButton.styleFrom(
-            backgroundColor: theme.btnText,
-            foregroundColor: theme.panelBg,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            elevation: 0,
-          ),
-          child: _busy
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: theme.panelBg,
-                  ),
-                )
-              : const Text('进入对局',
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2)),
-        ),
-      ),
-    ]);
   }
 }
 

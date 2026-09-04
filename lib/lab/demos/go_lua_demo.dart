@@ -7,12 +7,18 @@
 //   → 双方均进入后 ACK × 2 → 自动进入 playing
 //   → 服务端权威算落子（提子/打劫/自杀），客户端纯渲染
 //   → 双方连过 → 数子终局
+//
+// 入口迁移：原 LobbyEntryPage（lib/lab/demos/go_lua/widgets.dart）
+//   → GameLobbyPage + kGoLobbySpec（lib/core/go/lobby/go_lobby_spec.dart）。
 
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'go_lua/go_engine.dart' show RoomHandle;
-import 'go_lua/widgets.dart' show LobbyEntryPage, OnlineGamePage;
+import 'go_lua/widgets.dart' show OnlineGamePage;
+import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/game_kit/lobby/game_lobby_slots.dart';
+import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
+import '../../core/go/lobby/go_lobby_spec.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Demo 注册
@@ -40,74 +46,44 @@ class GoLuaPage extends StatefulWidget {
 }
 
 class _GoLuaPageState extends State<GoLuaPage> {
-  RoomHandle? _handle;
+  /// 大厅页 key：对弈页 pop 后调用 resetToEntry 回到入口表单。
+  final GlobalKey<GameLobbyPageState> _lobbyKey =
+      GlobalKey<GameLobbyPageState>();
+
+  /// 对弈页句柄（dispose 时清理）。
+  RoomHandle? _activeHandle;
+
+  /// 进入对局：push OnlineGamePage；pop 后 resetToEntry。
+  Future<void> _onStarted(RoomHandle handle, LobbyStartedCtx ctx) async {
+    _activeHandle = handle;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OnlineGamePage(
+          handle: handle,
+          onLeave: () async {
+            await handle.leave();
+          },
+        ),
+      ),
+    );
+    _activeHandle = null;
+    if (!mounted) return;
+    _lobbyKey.currentState?.exposed.resetToEntry();
+  }
 
   @override
   void dispose() {
-    _handle?.dispose();
+    _activeHandle?.dispose();
     super.dispose();
-  }
-
-  void _onJoined(RoomHandle h) => setState(() => _handle = h);
-  Future<void> _disconnect() async {
-    final h = _handle;
-    setState(() => _handle = null);
-    if (h != null) await h.leave();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    final bg = theme.boardSurface;
-    final panelText = theme.btnText;
-    if (_handle != null) {
-      return Scaffold(
-        backgroundColor: bg,
-        body: OnlineGamePage(handle: _handle!, onLeave: _disconnect),
-      );
-    }
-    return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        title: const Text('围棋（联机）'),
-        backgroundColor: bg,
-        foregroundColor: panelText,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: theme.panelBg,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: theme.panelBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
-                          blurRadius: 16, offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [LobbyEntryPage(onJoined: _onJoined)],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return GameLobbyPage(
+      key: _lobbyKey,
+      spec: kGoLobbySpec,
+      slots: const GameLobbySlots(),
+      onStarted: _onStarted,
     );
   }
 }

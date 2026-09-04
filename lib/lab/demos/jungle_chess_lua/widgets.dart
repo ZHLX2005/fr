@@ -1,6 +1,9 @@
 // lib/lab/demos/jungle_chess_lua/widgets.dart
 //
-// 斗兽棋 Lua 版 — UI 组件：LobbyEntryPage + OnlineGamePage。
+// 斗兽棋 Lua 版 — UI 组件：OnlineGamePage。
+//
+// 入口（LobbyEntryPage）已迁移到 GameLobbyPage +
+// kJungleLobbySpec（lib/core/jungle/lobby/jungle_lobby_spec.dart）。
 //
 // 关键差异（与五子棋对比）：
 //   - **棋盘对称翻转**：host 端（top）整体 Transform.flip(flipY: true)，
@@ -10,7 +13,7 @@
 //   - **终局消息用角色**：`_imTop == winner` 推"我方/对方"。
 //   - **大小写棋谱**：调试 / 教程时用大写=红 / 小写=蓝；运行时棋盘自动判别。
 //
-// 共享昵称：LuaGameAlias（4 个 Lua 游戏共用）。
+// 共享昵称：LuaGameAlias（4 个 Lua 游戏共用，由 GameLobbyPage 接管）。
 //
 // 引擎与 Lua：
 //   - JungleEngine（纯函数规则引擎，client-side 验证走法）
@@ -32,257 +35,10 @@ import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_player_panel.dart'
 import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_touch_controller.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
-import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_device_id.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
-import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
-    show RelayV3Exception;
-import 'package:xiaodouzi_fr/services/lua/lua_game_alias.dart';
 
-import 'jungle_constants.dart';
 import 'jungle_engine.dart';
-
-// ══════════════════════════════════════════════════════════════
-// LobbyEntryPage — 单表单智能匹配（与五子棋共用模式）
-// ══════════════════════════════════════════════════════════════
-
-class LobbyEntryPage extends StatefulWidget {
-  const LobbyEntryPage({super.key, required this.onJoined});
-  final void Function(RoomHandle) onJoined;
-
-  @override
-  State<LobbyEntryPage> createState() => _LobbyEntryPageState();
-}
-
-class _LobbyEntryPageState extends State<LobbyEntryPage> {
-  final _aliasCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    LuaGameAlias.load().then((v) {
-      if (mounted && v.isNotEmpty && _aliasCtrl.text.isEmpty) {
-        setState(() => _aliasCtrl.text = v);
-      }
-    });
-    LuaGameAlias.notifier.addListener(_onAliasChanged);
-  }
-
-  void _onAliasChanged() {
-    if (!mounted) return;
-    final v = LuaGameAlias.value;
-    if (v != _aliasCtrl.text) setState(() => _aliasCtrl.text = v);
-  }
-
-  @override
-  void dispose() {
-    LuaGameAlias.notifier.removeListener(_onAliasChanged);
-    _aliasCtrl.dispose();
-    _codeCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _go() async {
-    final alias = _aliasCtrl.text.trim();
-    if (alias.isEmpty) {
-      setState(() => _error = '请输入昵称');
-      return;
-    }
-    final code = _codeCtrl.text.trim().toUpperCase();
-    if (code.length < 4 || code.length > 6) {
-      setState(() => _error = '房间码为 4–6 位大写字母数字');
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final t = RelayV3Transport(
-        relayUrl: kJungleLuaRelayUrl,
-        alias: alias,
-        deviceId: await RelayDeviceId.get(),
-      );
-      await LuaGameAlias.save(alias);
-      final h = await t.tryJoinOrCreate(
-        code: code,
-        script: kJungleChessScript,
-        initialParams: {'device_id': t.deviceId, 'alias': alias},
-        maxPlayers: 2,
-      );
-      if (!mounted) return;
-      widget.onJoined(h);
-    } on RelayV3Exception catch (e) {
-      if (!mounted) return;
-      final body = e.body.toLowerCase();
-      final String msg;
-      if (e.statusCode == 409 && body.contains('code collision')) {
-        msg = '房间号 $code 已被占用，请换一个';
-      } else if (e.statusCode == 409 && body.contains('join rejected')) {
-        msg = '房间 $code 已满员，无法加入';
-      } else if (e.statusCode == 404) {
-        msg = '房间号 $code 不存在且创建失败';
-      } else {
-        msg = '进入失败（${e.statusCode}）';
-      }
-      setState(() {
-        _busy = false;
-        _error = msg;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = '$e';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    InputDecoration inputDec(String hint) => InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: theme.btnSub.withValues(alpha: 0.6)),
-          isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          filled: true,
-          fillColor: theme.btnBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.panelBorder, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.panelBorder, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: theme.btnText, width: 1.6),
-          ),
-        );
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // ── 提示行（浅灰块，左对齐）──
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: theme.btnText.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: Text('◐',
-                style: TextStyle(color: theme.btnSub, fontSize: 13)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '输入同一号码即可对战，红方（host）先手',
-              style: TextStyle(color: theme.btnSub, fontSize: 12, height: 1.4),
-            ),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 14),
-
-      // ── 昵称 ──
-      TextField(
-        controller: _aliasCtrl,
-        decoration: inputDec('昵称（如：红方 / 蓝方）'),
-        style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: theme.btnText),
-        textAlignVertical: TextAlignVertical.center,
-        onChanged: LuaGameAlias.save,
-      ),
-      const SizedBox(height: 12),
-
-      // ── 房间号 ──
-      TextField(
-        controller: _codeCtrl,
-        decoration: inputDec('房间号（4–6 位大写字母数字）'),
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: theme.btnText,
-          letterSpacing: 2,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-        keyboardType: TextInputType.text,
-        textCapitalization: TextCapitalization.characters,
-        maxLength: 6,
-        onSubmitted: (_) => _busy ? null : _go(),
-      ),
-
-      // ── 错误提示 ──
-      if (_error != null) ...[
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Text('◉',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 12)),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(_error!,
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 12,
-                      height: 1.4)),
-            ),
-          ]),
-        ),
-      ],
-
-      const SizedBox(height: 20),
-
-      // ── 主按钮 ──
-      SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: FilledButton(
-          onPressed: _busy ? null : _go,
-          style: FilledButton.styleFrom(
-            backgroundColor: theme.btnText,
-            foregroundColor: theme.panelBg,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            elevation: 0,
-          ),
-          child: _busy
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: theme.panelBg,
-                  ),
-                )
-              : const Text('进入对局',
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2)),
-        ),
-      ),
-    ]);
-  }
-}
+import 'jungle_constants.dart' show kJungleLuaTurnBarHeight;
 
 // ══════════════════════════════════════════════════════════════
 // OnlineGamePage — 棋盘 + 准备 / 对战 / 终局
@@ -970,7 +726,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
     // 触摸层只在 JungleBoard 自己挂载它时才生效：
     //   - JungleBoard 内部 GestureDetector 的 localPosition 已经是 board-local
-    //     （不受外层 Transform.flip 影响），因此 row/col 直接是规范坐标。
+    //     （不受外层 Transform.flip 影响），所以），因此 row/col 直接是规范坐标。
     //   - 我们不再额外加外层 GestureDetector，避免双触发 + 坐标系错乱。
     final canTouch = _canMountTouchView();
 
@@ -1060,69 +816,67 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
     return Scaffold(
       backgroundColor: theme.boardSurface,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // 棋盘背景（保留终局棋面，host 端已镜像）
-            Center(
-              child: AspectRatio(
-                aspectRatio: 7 / 9,
-                child: JungleBoardFrame(
-                  child: _buildBoardWithMirror(),
-                ),
+      body: SafeArea(child: Stack(
+        children: [
+          // 棋盘背景（保留终局棋面，host 端已镜像）
+          Center(
+            child: AspectRatio(
+              aspectRatio: 7 / 9,
+              child: JungleBoardFrame(
+                child: _buildBoardWithMirror(),
               ),
             ),
-            Container(
-              color: Theme.of(context).colorScheme.scrim,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 28),
-                  decoration: BoxDecoration(
-                    color: theme.panelBg,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.emoji_events,
-                          size: 48, color: winColor),
-                      const SizedBox(height: 12),
-                      Text(msg,
+          ),
+          Container(
+            color: Theme.of(context).colorScheme.scrim,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 32, vertical: 28),
+                decoration: BoxDecoration(
+                  color: theme.panelBg,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.emoji_events,
+                        size: 48, color: winColor),
+                    const SizedBox(height: 12),
+                    Text(msg,
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: winColor)),
+                    if (reason.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(reason,
                           style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: winColor)),
-                      if (reason.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(reason,
-                            style: TextStyle(
-                                color: theme.btnSub, fontSize: 13)),
-                      ],
-                      const SizedBox(height: 16),
-                      if (_canPerform('RESET'))
-                        OutlinedButton(
-                          onPressed: _reset,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: winColor,
-                            side: BorderSide(color: winColor),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24)),
-                          ),
-                          child: const Text('再来一局'),
-                        )
-                      else
-                        Text('等待房主开始下一局…',
-                            style: TextStyle(
-                                color: theme.btnSub, fontSize: 13)),
+                              color: theme.btnSub, fontSize: 13)),
                     ],
-                  ),
+                    const SizedBox(height: 16),
+                    if (_canPerform('RESET'))
+                      OutlinedButton(
+                        onPressed: _reset,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: winColor,
+                          side: BorderSide(color: winColor),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24)),
+                        ),
+                        child: const Text('再来一局'),
+                      )
+                    else
+                      Text('等待房主开始下一局…',
+                          style: TextStyle(
+                              color: theme.btnSub, fontSize: 13)),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        ],
+      )),
     );
   }
 }
