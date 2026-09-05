@@ -47,21 +47,22 @@
 //   CLAIM_END   = "non_current_player"  刚走完的一方声明将杀/僵局
 //   RESET       = "host"              终局后 host 可重开
 //   EMOJI       = "any"               表情（共享段，频控 1.5s + ring 16 + coalesce）
+//   CHAT        = "any"               文字（共享段，频控 1.5s + ring 16 + ≤80 字）
 
+import '../../../game_kit/chat/chat_script.dart' show kChatScriptSegment;
 import '../../../game_kit/emoji/emoji_script.dart' show kEmojiScriptSegment;
 import '../../../game_kit/emoji/lua_script_assembler.dart' show assembleLuaScript;
 import 'chess_script_actions.dart' show kChessScriptActions;
 import 'chess_script_lifecycle.dart' show kChessScriptLifecycle;
 
-/// 国际象棋 Lua 脚本（v5 + emoji）。在 net_p2p v3 的 RelayV3Transport.createRoom()
+/// 国际象棋 Lua 脚本（v5 + emoji + chat）。在 net_p2p v3 的 RelayV3Transport.createRoom()
 /// 创建一个对弈房时传入 —— 服务端按 sha256 缓存。
 ///
-/// 拼接经由 [assembleLuaScript] 完成：lifecycle（helpers + on_init/on_join/on_leave/state 机）
-/// → actions（所有 on_action_*）→ 共享 emoji 段（kEmojiScriptSegment）→ assembler
-/// 统一生成的 `return { definition, on_init, … }` 导出表（自动含 on_action_EMOJI）。
+/// 拼接经由 [assembleLuaScript] 完成：lifecycle → actions → emoji → chat →
+/// assembler 统一生成的 `return { definition, on_init, … }` 导出表。
 // ignore: prefer_const_declarations
 final String kChessScript = assembleLuaScript(
   lifecycle: kChessScriptLifecycle,
   actions: kChessScriptActions,
-  extraSegments: [kEmojiScriptSegment],
+  extraSegments: [kEmojiScriptSegment, kChatScriptSegment],
 );
