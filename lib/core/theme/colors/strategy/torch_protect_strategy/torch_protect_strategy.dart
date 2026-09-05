@@ -1,7 +1,7 @@
 // Layer 2.5: 灯具护眼色策略契约。
 //
-// 4 个保护色（暖黄/暖橙/中性/冷白）+ 10 个护眼色预设——
-// 从 ColorScheme 派生，跟主题协调（不同主题下护眼色环境色不同）。
+// 4 个保护色（暖黄/暖橙/中性/冷白）从 ColorScheme 派生；
+// 10 个补光预设为实际输出色（主题豁免，固定 hex，见 TorchColors.protectPresets）。
 
 import 'package:flutter/material.dart';
 
@@ -16,7 +16,7 @@ abstract class TorchProtectStrategy {
   Color get protectNeutral;
   Color get protectCoolWhite;
 
-  /// 10 种护眼色预设（torch 灯具选择）
+  /// 10 种护眼色预设（torch 灯具选择，固定补光色）
   List<Color> get protectPresets;
 
   /// 10 种护眼色名称（与 protectPresets 一一对应）

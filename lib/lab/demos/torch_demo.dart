@@ -1,6 +1,4 @@
 import 'dart:async';
-import '../../widgets/context_colors.dart';
-import '../../widgets/context_torch_protect_colors.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +6,7 @@ import 'package:torch_light/torch_light.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../widgets/context_colors.dart';
 import '../lab_container.dart';
 import 'torch/const_torch.dart';
 
@@ -50,11 +49,8 @@ class _TorchPageState extends State<_TorchPage>
   double _savedBrightness = 0.5;
   bool _keepScreenOn = false;
 
-  // 颜色状态 - 索引指向 context.torchProtect.protectPresets 的某个护眼色
-  // _customColor 存 HSV 微调后的色（null 时用 preset）
-  int _selectedPresetIndex = 0;
-  Color? _customColor;
-  Color get _selectedColor => _customColor ?? context.torchProtect.protectPresets[_selectedPresetIndex];
+  // 颜色状态 - 默认护眼黄（补光实际输出色，主题豁免）
+  Color _selectedColor = EyeProtectionColors.warmYellow;
 
   // 模式: 0=手电筒, 1=屏幕光
   int _currentMode = 0;
@@ -282,7 +278,7 @@ class _TorchPageState extends State<_TorchPage>
   void _onHueChanged(double hue) {
     final hsv = HSVColor.fromColor(_selectedColor);
     setState(() {
-      _customColor = HSVColor.fromAHSV(
+      _selectedColor = HSVColor.fromAHSV(
         1.0,
         hue,
         hsv.saturation,
@@ -295,7 +291,7 @@ class _TorchPageState extends State<_TorchPage>
   void _onSaturationChanged(double saturation) {
     final hsv = HSVColor.fromColor(_selectedColor);
     setState(() {
-      _customColor = HSVColor.fromAHSV(
+      _selectedColor = HSVColor.fromAHSV(
         1.0,
         hsv.hue,
         saturation.clamp(0.0, 1.0),
@@ -305,10 +301,9 @@ class _TorchPageState extends State<_TorchPage>
     _resetHideTimer();
   }
 
-  void _onPresetColorSelected(int index) {
+  void _onPresetColorSelected(Color color) {
     setState(() {
-      _selectedPresetIndex = index;
-      _customColor = null;  // 重置回 preset
+      _selectedColor = color;
     });
     _resetHideTimer();
   }
@@ -523,9 +518,10 @@ class _TorchPageState extends State<_TorchPage>
                       child: Icon(
                         Icons.light_mode,
                         size: 70,
+                        // 主题豁免：叠在补光色上的对比色，需随亮度切换黑/白
                         color: _getDisplayColor().computeLuminance() > 0.5
-                            ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38)
-                            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
+                            ? Colors.black38
+                            : Colors.white38,
                       ),
                     ),
                   ),
@@ -572,67 +568,91 @@ class _TorchPageState extends State<_TorchPage>
 
   // 颜色控制区域（非全屏模式）
   Widget _buildColorControlArea(ColorScheme theme) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 20),
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.outline, width: 1),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '灯光颜色',
-                style: TextStyle(
-                  color: theme.onSurface,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragStart: (_) {},
+      onVerticalDragUpdate: (_) {},
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.outline, width: 1),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '灯光颜色',
+                  style: TextStyle(
+                    color: theme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _getPureColor(),
-                  border: Border.all(color: theme.outline),
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _getPureColor(),
+                    border: Border.all(color: theme.outline),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-          // 色相环
-          _buildHueRing(size: 160),
-          SizedBox(height: 12),
-          // 饱和度滑块
-          _buildSaturationSlider(theme),
-          SizedBox(height: 12),
-          // 预设颜色
-          _buildPresetColors(theme),
-        ],
+              ],
+            ),
+            SizedBox(height: 12),
+            // 色相环
+            _buildHueRing(size: 160),
+            SizedBox(height: 12),
+            // 饱和度滑块
+            _buildSaturationSlider(theme),
+            SizedBox(height: 12),
+            // 预设颜色
+            _buildPresetColors(theme),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHueRing({double size = 160}) {
     final hsv = HSVColor.fromColor(_selectedColor);
+    // Listener 直接吃 pointer；外层空 Drag 认领竞技场，挡住 ScrollView / 全屏亮度拖动
     return GestureDetector(
-      onPanDown: (details) => _handleHuePan(details.localPosition, size),
-      onPanUpdate: (details) => _handleHuePan(details.localPosition, size),
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragStart: (_) {},
+      onVerticalDragUpdate: (_) {},
+      onHorizontalDragStart: (_) {},
+      onHorizontalDragUpdate: (_) {},
       child: SizedBox(
         width: size,
         height: size,
-        child: CustomPaint(
-          painter: _HueRingPainter(
-            scheme: Theme.of(context).colorScheme,
-            selectedHue: hsv.hue,
-            saturation: hsv.saturation,
-          ),
+        child: LayoutBuilder(
+          builder: (context, _) {
+            void handlePointer(Offset globalPosition) {
+              final box = context.findRenderObject() as RenderBox?;
+              if (box == null || !box.hasSize) return;
+              _handleHuePan(box.globalToLocal(globalPosition), size);
+            }
+
+            return Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (e) => handlePointer(e.position),
+              onPointerMove: (e) => handlePointer(e.position),
+              child: CustomPaint(
+                painter: _HueRingPainter(
+                  scheme: Theme.of(context).colorScheme,
+                  selectedHue: hsv.hue,
+                  saturation: hsv.saturation,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -644,11 +664,11 @@ class _TorchPageState extends State<_TorchPage>
     final dy = localPosition.dy - center.dy;
     final distance = sqrt(dx * dx + dy * dy);
     final outerRadius = size / 2;
-    final innerRadius = outerRadius * 0.55;
 
-    if (distance >= innerRadius - 15 && distance <= outerRadius + 15) {
-      var angle = atan2(dy, dx);
-      var hue = ((angle * 180 / pi) + 360) % 360;
+    // 中心圆与环带均可取色，避免必须精确点在细环上
+    if (distance <= outerRadius + 15) {
+      final angle = atan2(dy, dx);
+      final hue = ((angle * 180 / pi) + 360) % 360;
       _onHueChanged(hue);
     }
   }
@@ -698,8 +718,8 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColors(ColorScheme theme) {
-    final presets = context.torchProtect.protectPresets;
-    final names = context.torchProtect.protectPresetNames;
+    final presets = EyeProtectionColors.presets;
+    final names = EyeProtectionColors.presetNames;
 
     // 分两行，平衡数量
     final half = (presets.length / 2).ceil();
@@ -728,7 +748,7 @@ class _TorchPageState extends State<_TorchPage>
         final name = names[index];
         final isSelected = _selectedColor == color;
         return GestureDetector(
-          onTap: () => _onPresetColorSelected(index),
+          onTap: () => _onPresetColorSelected(color),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -739,7 +759,9 @@ class _TorchPageState extends State<_TorchPage>
                   shape: BoxShape.circle,
                   color: color,
                   border: Border.all(
-                    color: isSelected ? theme.onSurface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                    color: isSelected
+                        ? theme.onSurface
+                        : theme.surface.withValues(alpha: 0.0),
                     width: 2,
                   ),
                 ),
@@ -873,13 +895,17 @@ class _TorchPageState extends State<_TorchPage>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _resetHideTimer,
-        onVerticalDragUpdate: (details) {
-          _resetHideTimer();
-          _setScreenBrightness(
-            _screenBrightness -
-                details.delta.dy / TorchConst.brightnessSwipeSensitivity,
-          );
-        },
+        // 调色面板展开时禁用全屏亮度拖动，避免抢走色相环/滑块触控
+        onVerticalDragUpdate: _showColorPanel
+            ? null
+            : (details) {
+                _resetHideTimer();
+                _setScreenBrightness(
+                  _screenBrightness -
+                      details.delta.dy /
+                          TorchConst.brightnessSwipeSensitivity,
+                );
+              },
         child: Container(
           color: displayColor,
           child: AnimatedOpacity(
@@ -981,31 +1007,38 @@ class _TorchPageState extends State<_TorchPage>
                         AnimatedSize(
                           duration: const Duration(milliseconds: 300),
                           child: _showColorPanel
-                              ? Container(
-                                  margin: EdgeInsets.only(top: 16),
-                                  padding: EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: isLight
-                                        ? Theme.of(context).colorScheme.onSurface.withValues(
-                                            alpha: 0.15,
-                                          )
-                                        : Theme.of(context).colorScheme.onSurface.withValues(
-                                            alpha: 0.15,
-                                          ),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _buildHueRing(size: 140),
-                                      SizedBox(height: 12),
-                                      SizedBox(
-                                        width: 240,
-                                        child: _buildSaturationSlider(theme),
-                                      ),
-                                      SizedBox(height: 8),
-                                      _buildPresetColorsCompact(theme),
-                                    ],
+                              ? GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onVerticalDragStart: (_) {},
+                                  onVerticalDragUpdate: (_) {},
+                                  child: Container(
+                                    margin: EdgeInsets.only(top: 16),
+                                    padding: EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: isLight
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.15)
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _buildHueRing(size: 140),
+                                        SizedBox(height: 12),
+                                        SizedBox(
+                                          width: 240,
+                                          child: _buildSaturationSlider(theme),
+                                        ),
+                                        SizedBox(height: 8),
+                                        _buildPresetColorsCompact(theme),
+                                      ],
+                                    ),
                                   ),
                                 )
                               : SizedBox.shrink(),
@@ -1121,7 +1154,7 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColorsCompact(ColorScheme theme) {
-    final presets = context.torchProtect.protectPresets;
+    final presets = EyeProtectionColors.presets;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -1130,7 +1163,7 @@ class _TorchPageState extends State<_TorchPage>
         final color = presets[index];
         final isSelected = _selectedColor == color;
         return GestureDetector(
-          onTap: () => _onPresetColorSelected(index),
+          onTap: () => _onPresetColorSelected(color),
           child: Container(
             width: 32,
             height: 32,
@@ -1138,7 +1171,9 @@ class _TorchPageState extends State<_TorchPage>
               shape: BoxShape.circle,
               color: color,
               border: Border.all(
-                color: isSelected ? theme.onSurface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+                color: isSelected
+                    ? theme.onSurface
+                    : theme.surface.withValues(alpha: 0.0),
                 width: 2,
               ),
             ),
@@ -1261,7 +1296,8 @@ class _HueRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _HueRingPainter oldDelegate) {
     return oldDelegate.selectedHue != selectedHue ||
-        oldDelegate.saturation != saturation;
+        oldDelegate.saturation != saturation ||
+        oldDelegate.scheme != scheme;
   }
 }
 

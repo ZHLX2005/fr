@@ -1,6 +1,6 @@
 // BuildContext 扩展：`context.torchProtect` 快捷访问 TorchProtectStrategy。
 //
-//   context.torchProtect → 灯具护眼色（4 保护色 + 10 预设，跟主题）
+//   context.torchProtect → 灯具护眼色（4 环境保护色跟主题 + 10 固定补光预设）
 
 import 'package:flutter/material.dart';
 
