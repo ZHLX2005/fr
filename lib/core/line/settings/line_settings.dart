@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/constants.dart';
 import '../domain/particle.dart';
+import 'offset_calibrate_page.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // 演示动画绘制器：只绘制中间列单个圆圈 + 判定线 + 炸开粒子
@@ -654,6 +655,25 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () async {
+              final v = await Navigator.of(context).push<int>(
+                MaterialPageRoute(
+                  builder: (_) => OffsetCalibratePage(
+                    primaryColor: widget.primaryColor,
+                  ),
+                ),
+              );
+              if (v != null && mounted) {
+                setState(() => _inputOffsetMs = v.toDouble());
+              }
+            },
+            child: Text(
+              '节拍校准向导',
+              style: TextStyle(color: widget.primaryColor),
+            ),
           ),
           const SizedBox(height: 12),
           SwitchListTile.adaptive(

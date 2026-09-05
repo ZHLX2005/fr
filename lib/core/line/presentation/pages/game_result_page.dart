@@ -12,12 +12,14 @@ class GameResultPage extends StatefulWidget {
   final GameResult result;
   final ChartData chart;
   final String? audioPath;
+  final String songId;
 
   const GameResultPage({
     super.key,
     required this.result,
     required this.chart,
     this.audioPath,
+    this.songId = '',
   });
 
   @override
@@ -60,6 +62,9 @@ class _GameResultPageState extends State<GameResultPage>
         builder: (_) => GamePage(
           chart: widget.chart,
           audioPath: widget.audioPath,
+          songId: widget.songId.isNotEmpty
+              ? widget.songId
+              : widget.result.songId,
         ),
       ),
     );
@@ -140,6 +145,22 @@ class _GameResultPageState extends State<GameResultPage>
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                     ),
                   ),
+                  if (result.isAllPerfect ||
+                      result.isFullCombo ||
+                      result.cleared) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      result.isAllPerfect
+                          ? 'ALL PERFECT'
+                          : (result.isFullCombo ? 'FULL COMBO' : 'CLEAR'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 2,
+                        color: Color(result.gradeArgb).withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
 
                   // 分数

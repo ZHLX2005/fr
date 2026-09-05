@@ -17,6 +17,13 @@ class FallingNote {
   int holdPressTime;
   double holdFadeOut;
 
+  /// Hold：头已判定（按住中，尚未结算）
+  bool holdHeadLocked;
+  JudgeResult? holdHeadResult;
+  int holdTicksHit;
+  int holdTicksExpected;
+  int holdNextTickAt;
+
   FallingNote({
     required this.event,
     required this.controller,
@@ -28,7 +35,11 @@ class FallingNote {
         holdJudgeDiff = 0,
         holdPressTime = 0,
         holdFadeOut = 0.0,
-        spawnElapsed = 0;
+        spawnElapsed = 0,
+        holdHeadLocked = false,
+        holdTicksHit = 0,
+        holdTicksExpected = 0,
+        holdNextTickAt = 0;
 }
 
 /// 炸开动画状态
@@ -39,6 +50,7 @@ class ExplodeAnimation {
   final List<Particle> particles;
   final double radius;
   final bool weak;
+  final JudgeResultLabel? label;
 
   ExplodeAnimation({
     required this.controller,
@@ -47,6 +59,7 @@ class ExplodeAnimation {
     required this.particles,
     required this.radius,
     this.weak = false,
+    this.label,
   });
 }
 

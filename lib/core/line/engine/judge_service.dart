@@ -88,6 +88,60 @@ JudgeResult judge(int signedDiffMs, double timingScale) {
   );
 }
 
+/// 按最终档位生成结果（Hold 头/身/尾合成用）
+JudgeResult judgeFromLabel(
+  JudgeResultLabel label,
+  double timingScale, {
+  int signedDiffMs = 0,
+}) {
+  final healthScale = 1.0 / timingScale;
+  TimingHint hint = TimingHint.none;
+  if (label != JudgeResultLabel.perfect && signedDiffMs != 0) {
+    hint = signedDiffMs < 0 ? TimingHint.early : TimingHint.late;
+  }
+  switch (label) {
+    case JudgeResultLabel.perfect:
+      return JudgeResult(
+        label: label,
+        text: 'Perfect',
+        points: 3,
+        healthChange: 0.05 * healthScale,
+        alpha: 0.95,
+        signedDiffMs: signedDiffMs,
+      );
+    case JudgeResultLabel.great:
+      return JudgeResult(
+        label: label,
+        text: 'Great',
+        points: 2,
+        healthChange: 0.02 * healthScale,
+        alpha: 0.85,
+        hint: hint,
+        signedDiffMs: signedDiffMs,
+      );
+    case JudgeResultLabel.good:
+      return JudgeResult(
+        label: label,
+        text: 'Good',
+        points: 1,
+        healthChange: 0.0,
+        alpha: 0.7,
+        hint: hint,
+        signedDiffMs: signedDiffMs,
+      );
+    case JudgeResultLabel.miss:
+      return JudgeResult(
+        label: label,
+        text: 'Miss',
+        points: 0,
+        healthChange: -0.15 * healthScale,
+        alpha: 0.75,
+        hint: hint,
+        signedDiffMs: signedDiffMs,
+      );
+  }
+}
+
 /// 连击倍率：combo 从 0 起，命中后 combo 增加前用当前 combo 计算。
 double comboMultiplier(int comboBeforeHit) {
   final m = 1.0 + comboBeforeHit * comboMultiplierPerHit;

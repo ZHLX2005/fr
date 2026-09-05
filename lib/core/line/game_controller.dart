@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'domain/chart_data.dart';
@@ -9,6 +10,8 @@ import 'domain/constants.dart';
 import 'domain/game_result.dart';
 import 'domain/note_event.dart';
 import 'domain/particle.dart';
+import 'domain/song_medal.dart';
+import 'engine/game_clock.dart';
 import 'engine/game_engine.dart';
 import 'engine/hit_feedback.dart';
 import 'engine/judge_service.dart';
@@ -46,22 +49,28 @@ class GameController {
     required this.screenHeight,
     required this.themeColor,
     required this.onGameOver,
+    this.songId = '',
   });
 
   // ── 构造参数 ──
   final ChartData chart;
   final String? audioPath;
   final TickerProvider vsync;
-  final double screenWidth;
-  final double screenHeight;
+  double screenWidth;
+  double screenHeight;
   final Color themeColor;
   final void Function(GameResult) onGameOver;
+  final String songId;
   VoidCallback? onStateChanged;
 
-  double get radius => screenWidth / columnCount * noteSizeRatio;
-  double get judgeY => screenHeight * judgeLineRatio;
+  bool get isLandscape => screenWidth > screenHeight;
+  double get shortSide =>
+      screenWidth < screenHeight ? screenWidth : screenHeight;
+  double get radius => shortSide / columnCount * noteSizeRatio;
+  double get judgeY =>
+      screenHeight * (isLandscape ? 0.82 : judgeLineRatio);
   double get _judgeProgressRatio =>
-      (screenHeight * judgeLineRatio + radius) / (screenHeight + 2 * radius);
+      (judgeY + radius) / (screenHeight + 2 * radius);
 
   // ── 水动画状态 ──
   bool isWaterEntering = true;
@@ -71,7 +80,10 @@ class GameController {
 
   // ── 游戏状态 ──
   int nextNoteIndex = 0;
-  final Stopwatch gameStopwatch = Stopwatch();
+  final GameClock _clock = GameClock();
+  int _clockMs = 0;
+  bool isPaused = false;
+  int get clockMs => _clockMs;
   final List<List<FallingNote>> notes = List.generate(columnCount, (_) => []);
   final List<ExplodeAnimation> explodes = [];
   final List<JudgeFeedback> judgeFeedbacks = [];
@@ -109,13 +121,6 @@ class GameController {
   final Map<int, _PointerState> _pointers = {};
   final Set<int> holdCompletedColumns = {};
 
-  /// 权威游戏时钟（ms）：优先音频进度 + 输入偏移；无音频则 Stopwatch。
-  int get clockMs {
-    final audio = _audioService?.positionMs;
-    final base = audio ?? gameStopwatch.elapsedMilliseconds;
-    return base + inputOffsetMs;
-  }
-
   // ── 生命周期 ──
 
   Future<void> init() async {
@@ -125,7 +130,7 @@ class GameController {
       _audioService = AudioService(audioPath: audioPath!);
       await _audioService!.init();
       _audioService!.onCompletion = () {
-        if (!isExiting) _gameOver();
+        if (!isExiting) _gameOver(cleared: true);
       };
     }
     clearAll();
@@ -154,7 +159,7 @@ class GameController {
   }
 
   void dispose() {
-    gameStopwatch.stop();
+    _clock.stop();
     _audioService?.dispose();
     unawaited(_hitFeedback.dispose());
     for (final col in notes) {
@@ -174,6 +179,22 @@ class GameController {
     onStateChanged = null;
   }
 
+  void updateScreenSize(double w, double h) {
+    screenWidth = w;
+    screenHeight = h;
+  }
+
+  /// 每帧由 game_page ticker 调用
+  void tick() {
+    if (judgeLineFlash > 0) {
+      judgeLineFlash = (judgeLineFlash - 0.08).clamp(0.0, 1.0);
+    }
+    if (isExiting || isCountingDown || isPaused) return;
+    _clockMs = _clock.sample(_audioService?.positionMs);
+    spawnPendingNotes();
+    _updateActiveHolds();
+  }
+
   // ── 设置持久化 ──
 
   Future<void> _loadSettings() async {
@@ -182,6 +203,7 @@ class GameController {
     timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
     scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
     inputOffsetMs = prefs.getInt(lineInputOffsetKey) ?? 0;
+    _clock.inputOffsetMs = inputOffsetMs;
     _hitFeedback.hapticsEnabled = prefs.getBool(lineHapticsKey) ?? true;
     _hitFeedback.sfxEnabled = prefs.getBool(lineHitSfxKey) ?? true;
     showEarlyLate = prefs.getBool(lineShowEarlyLateKey) ?? true;
@@ -214,15 +236,16 @@ class GameController {
   // ── 游戏流程 ──
 
   void startGame() {
+    _clock.inputOffsetMs = inputOffsetMs;
+    _clock.start();
     nextNoteIndex = 0;
-    gameStopwatch.reset();
-    gameStopwatch.start();
+    _clockMs = _clock.sample(_audioService?.positionMs);
     spawnPendingNotes();
     _audioService?.play();
   }
 
   void stopGame() {
-    gameStopwatch.stop();
+    _clock.stop();
     _audioService?.pause();
     for (final col in notes) {
       for (final note in col) {
@@ -243,6 +266,7 @@ class GameController {
     onStateChanged?.call();
     if (remaining <= 0) {
       isCountingDown = false;
+      isPaused = false;
       _resumeFromSnapshot();
       return;
     }
@@ -253,12 +277,15 @@ class GameController {
   }
 
   void _resumeFromSnapshot() {
+    isPaused = false;
     if (!wasGameRunning) {
       startGame();
       return;
     }
-    gameStopwatch.start();
-    _audioService?.seek(Duration(milliseconds: gameStopwatch.elapsedMilliseconds));
+    final seekMs = (_clockMs - inputOffsetMs).clamp(0, 1 << 30);
+    _audioService?.seek(Duration(milliseconds: seekMs));
+    _clock.inputOffsetMs = inputOffsetMs;
+    _clock.start();
     _audioService?.play();
     for (final col in notes) {
       for (final note in col) {
@@ -289,17 +316,6 @@ class GameController {
       } else {
         break;
       }
-    }
-
-    if (nextNoteIndex < chart.notes.length && !isExiting) {
-      final nextEvent = chart.notes[nextNoteIndex];
-      final nextActualDropMs = dropMs / scrollSpeed;
-      final nextSpawnTime =
-          nextEvent.time - (nextActualDropMs * _judgeProgressRatio).round();
-      final delayMs = (nextSpawnTime - elapsed).clamp(1, 100);
-      Future.delayed(Duration(milliseconds: delayMs), () {
-        if (!isExiting) spawnPendingNotes();
-      });
     }
   }
 
@@ -333,32 +349,6 @@ class GameController {
           if (col >= 0) onNoteMissed(col, note);
         }
       }
-
-      if (event.type == NoteType.hold && note.holding && !note.judged) {
-        final heldTime = elapsed - note.holdPressTime;
-        note.holdProgress =
-            (heldTime / event.holdDuration!).clamp(0.0, 1.0);
-        if (note.holdProgress >= 1.0) {
-          judgeNote(event.column, note, note.holdJudgeDiff);
-          note.holding = false;
-          holdCompletedColumns.add(event.column);
-        }
-        return;
-      }
-
-      if (!note.judged && event.type == NoteType.hold && !note.holding) {
-        final missThreshold = event.time + (missWindow * timingScale).round();
-        if (elapsed > missThreshold) {
-          final col = notes.indexWhere((col) => col.contains(note));
-          if (col >= 0) {
-            onNoteMissed(col, note);
-          }
-        }
-      }
-
-      if (judgeLineFlash > 0) {
-        judgeLineFlash = (judgeLineFlash - 0.08).clamp(0.0, 1.0);
-      }
     });
 
     notes[event.column].add(note);
@@ -378,42 +368,100 @@ class GameController {
     });
   }
 
+  void _updateActiveHolds() {
+    final elapsed = _clockMs;
+    for (var col = 0; col < notes.length; col++) {
+      for (final note in List<FallingNote>.from(notes[col])) {
+        if (note.event.type != NoteType.hold || note.judged) continue;
+        final duration = note.event.holdDuration ?? 0;
+        if (duration <= 0) continue;
+
+        if (note.holding) {
+          final heldTime = elapsed - note.holdPressTime;
+          note.holdProgress = (heldTime / duration).clamp(0.0, 1.0);
+
+          while (elapsed >= note.holdNextTickAt && note.holding) {
+            note.holdTicksHit++;
+            note.holdNextTickAt += holdTickIntervalMs;
+          }
+
+          if (elapsed >= note.event.time + duration) {
+            final head = note.holdHeadResult ??
+                judge(note.holdJudgeDiff, timingScale);
+            final composed = composeHoldResult(
+              head: head,
+              ticksHit: note.holdTicksHit,
+              ticksExpected: note.holdTicksExpected,
+              tail: judge(0, timingScale),
+              timingScale: timingScale,
+            );
+            heldColumns.remove(col);
+            holdCompletedColumns.add(col);
+            note.holding = false;
+            finalizeHold(col, note, composed);
+          }
+          continue;
+        }
+
+        if (!note.holdHeadLocked) {
+          final missThreshold =
+              note.event.time + (missWindow * timingScale).round();
+          if (elapsed > missThreshold) {
+            onNoteMissed(col, note);
+          }
+        }
+      }
+    }
+  }
+
   // ── 手势处理 ──
 
   void handlePointerDown(PointerDownEvent event) {
-    if (isExiting || isCountingDown) return;
-    final col = columnFromX(event.localPosition.dx, screenWidth, columnCount);
+    handlePressAt(event.pointer, event.localPosition, event.position);
+  }
+
+  void handlePressAt(int pointer, Offset localPosition, Offset globalPosition) {
+    if (isExiting || isCountingDown || isPaused) return;
+    final col = columnFromX(localPosition.dx, screenWidth, columnCount);
     if (col == null) return;
 
     final state = _PointerState(
-      pointerId: event.pointer,
+      pointerId: pointer,
       column: col,
-      startPosition: event.position,
-      lastPosition: event.position,
+      startPosition: globalPosition,
+      lastPosition: globalPosition,
       pressClockMs: clockMs,
     );
-    _pointers[event.pointer] = state;
+    _pointers[pointer] = state;
 
-    // Tap：按下即判（手感关键）
     if (_tryJudgeTap(col)) {
       state.tapHandled = true;
       return;
     }
 
-    // Hold：按下起按
     _handleColumnPress(col);
   }
 
   void handlePointerMove(PointerMoveEvent event) {
-    final state = _pointers[event.pointer];
+    handleMoveAt(event.pointer, event.position);
+  }
+
+  void handleMoveAt(int pointer, Offset globalPosition) {
+    final state = _pointers[pointer];
     if (state == null) return;
-    state.lastPosition = event.position;
+    state.lastPosition = globalPosition;
 
     if (state.tapHandled || state.slideHandled) return;
     if (heldColumns.contains(state.column)) return;
 
-    final delta = event.position - state.startPosition;
-    final dir = swipeDirection(delta.dx, delta.dy);
+    final delta = globalPosition - state.startPosition;
+    final dtSec = (clockMs - state.pressClockMs) / 1000.0;
+    final velocity = delta.distance / math.max(0.001, dtSec);
+    final dir = swipeDirection(
+      delta.dx,
+      delta.dy,
+      velocityPxPerSec: velocity,
+    );
     if (dir == null) return;
 
     if (_tryJudgeSlide(state.column, dir)) {
@@ -434,7 +482,13 @@ class GameController {
 
     // 兜底：若 move 未触发 swipe，抬手时用总位移再试一次
     final delta = event.position - state.startPosition;
-    final dir = swipeDirection(delta.dx, delta.dy);
+    final dtSec = (clockMs - state.pressClockMs) / 1000.0;
+    final velocity = delta.distance / math.max(0.001, dtSec);
+    final dir = swipeDirection(
+      delta.dx,
+      delta.dy,
+      velocityPxPerSec: velocity,
+    );
     if (dir != null) {
       _tryJudgeSlide(col, dir);
     }
@@ -491,10 +545,22 @@ class GameController {
     }
 
     if (foundNote != null) {
+      final signed = elapsed - foundNote.event.time;
+      final head = judge(signed, timingScale);
       foundNote.holding = true;
-      foundNote.holdJudgeDiff = elapsed - foundNote.event.time;
+      foundNote.holdHeadResult = head;
+      foundNote.holdHeadLocked = true;
+      foundNote.holdJudgeDiff = signed;
       foundNote.holdPressTime = elapsed;
+      foundNote.holdTicksExpected =
+          expectedHoldTicks(foundNote.event.holdDuration ?? 0);
+      foundNote.holdTicksHit = 0;
+      foundNote.holdNextTickAt = elapsed + holdTickIntervalMs;
       heldColumns.add(col);
+      if (head.label == JudgeResultLabel.perfect &&
+          _hitFeedback.hapticsEnabled) {
+        HapticFeedback.lightImpact();
+      }
       onStateChanged?.call();
     }
   }
@@ -512,14 +578,27 @@ class GameController {
       if (!note.holding || note.judged) continue;
       if (note.event.type != NoteType.hold) continue;
 
+      final duration = note.event.holdDuration ?? 0;
       final heldTime = elapsed - note.holdPressTime;
-      if (heldTime >= note.event.holdDuration! * 0.8) {
-        judgeNote(col, note, note.holdJudgeDiff);
-      } else {
-        // 提前松手 → 明确 Miss
-        onNoteMissed(col, note, showFeedback: true);
-      }
       note.holding = false;
+
+      if (heldTime < duration * holdEarlyReleaseRatio) {
+        onNoteMissed(col, note, showFeedback: true);
+        return;
+      }
+
+      final endTime = note.event.time + duration;
+      final tail = judge(elapsed - endTime, timingScale);
+      final head =
+          note.holdHeadResult ?? judge(note.holdJudgeDiff, timingScale);
+      final composed = composeHoldResult(
+        head: head,
+        ticksHit: note.holdTicksHit,
+        ticksExpected: note.holdTicksExpected,
+        tail: tail,
+        timingScale: timingScale,
+      );
+      finalizeHold(col, note, composed);
       return;
     }
   }
@@ -550,6 +629,15 @@ class GameController {
     return false;
   }
 
+  /// Hold 最终结算（头/身/尾已合成）
+  void finalizeHold(int col, FallingNote note, JudgeResult composed) {
+    if (note.judged) return;
+    note.judged = true;
+    note.holding = false;
+    note.removeMe = false;
+    _applyJudgeResult(col, note, composed);
+  }
+
   /// [signedDiffMs] = clock - note.time
   void judgeNote(int col, FallingNote note, int signedDiffMs) {
     if (note.judged) return;
@@ -557,8 +645,22 @@ class GameController {
     note.removeMe = true;
 
     final result = judge(signedDiffMs, timingScale);
+    _applyJudgeResult(col, note, result);
+    if (isExiting) return;
+
+    if (note.event.type == NoteType.hold) {
+      note.removeMe = false;
+    } else {
+      note.controller.stop();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        notes[col].remove(note);
+        note.controller.dispose();
+      });
+    }
+  }
+
+  void _applyJudgeResult(int col, FallingNote note, JudgeResult result) {
     if (result.label == JudgeResultLabel.miss) {
-      // 窗口内太偏：走 miss 语义
       _engine.applyJudge(result);
       _showMissFeedback(col, note);
       _hitFeedback.play(
@@ -573,23 +675,46 @@ class GameController {
         noteType: note.event.type,
       );
       judgeLineFlash = 1.0;
+      _maybeComboMilestone();
     }
 
     if (_engine.isGameOver) {
-      _gameOver();
+      _gameOver(cleared: false);
       return;
     }
     onStateChanged?.call();
+  }
 
-    if (note.event.type == NoteType.hold) {
-      note.removeMe = false;
-    } else {
-      note.controller.stop();
-      Future.delayed(const Duration(milliseconds: 300), () {
-        notes[col].remove(note);
-        note.controller.dispose();
-      });
-    }
+  void _maybeComboMilestone() {
+    final combo = currentCombo;
+    if (combo != 50 && combo != 100) return;
+    final cx = screenWidth / 2;
+    final cy = screenHeight / 2;
+    createExplode(
+      0,
+      cx,
+      cy,
+      label: JudgeResultLabel.perfect,
+    );
+    final feedbackController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: vsync,
+    );
+    final feedback = JudgeFeedback(
+      text: '$combo',
+      x: cx,
+      y: cy - radius * 2,
+      color: const Color(0xFFFFD54F),
+      baseAlpha: 0.95,
+      fontScale: 1.5,
+      controller: feedbackController,
+      label: JudgeResultLabel.perfect,
+    );
+    judgeFeedbacks.add(feedback);
+    feedbackController.forward().then((_) {
+      feedbackController.dispose();
+      judgeFeedbacks.remove(feedback);
+    });
   }
 
   void onNoteMissed(
@@ -599,6 +724,7 @@ class GameController {
   }) {
     if (note.judged) return;
     note.judged = true;
+    note.holding = false;
     _engine.applyMiss(timingScale);
     if (showFeedback) {
       _showMissFeedback(col, note);
@@ -606,7 +732,7 @@ class GameController {
     }
     onStateChanged?.call();
     if (_engine.isGameOver) {
-      _gameOver();
+      _gameOver(cleared: false);
       return;
     }
     if (note.event.type == NoteType.hold) {
@@ -701,6 +827,7 @@ class GameController {
       centerX,
       note.currentY,
       weak: result.label == JudgeResultLabel.good,
+      label: result.label,
     );
   }
 
@@ -726,7 +853,13 @@ class GameController {
       feedbackController.dispose();
       judgeFeedbacks.remove(feedback);
     });
-    createExplode(col, centerX, note.currentY, weak: true);
+    createExplode(
+      col,
+      centerX,
+      note.currentY,
+      weak: true,
+      label: JudgeResultLabel.miss,
+    );
   }
 
   void createExplode(
@@ -734,6 +867,7 @@ class GameController {
     double x,
     double y, {
     bool weak = false,
+    JudgeResultLabel? label,
   }) {
     final explodeController = AnimationController(
       duration: Duration(milliseconds: weak ? 220 : 320),
@@ -743,9 +877,13 @@ class GameController {
       controller: explodeController,
       x: x,
       y: y,
-      particles: _generateParticles(weak: weak),
+      particles: _generateParticles(
+        weak: weak,
+        perfect: label == JudgeResultLabel.perfect,
+      ),
       radius: radius,
       weak: weak,
+      label: label,
     );
     explodes.add(explode);
     explodeController.forward().then((_) {
@@ -754,29 +892,40 @@ class GameController {
     });
   }
 
-  List<Particle> _generateParticles({bool weak = false}) {
+  List<Particle> _generateParticles({
+    bool weak = false,
+    bool perfect = false,
+  }) {
     final rng = math.Random();
-    final count = weak ? 3 + rng.nextInt(2) : 6 + rng.nextInt(3);
+    final count = weak
+        ? 3 + rng.nextInt(2)
+        : perfect
+            ? 10 + rng.nextInt(4)
+            : 6 + rng.nextInt(3);
+    final baseDist = perfect ? 22.0 : (weak ? 10.0 : 18.0);
+    final step = perfect ? 6.0 : (weak ? 3.0 : 5.0);
+    final baseAlpha = perfect ? 0.8 : (weak ? 0.35 : 0.65);
     return List.generate(count, (i) {
       final angle =
           (2 * math.pi * i / count) + (rng.nextDouble() - 0.5) * 0.6;
       return Particle(
         angle: angle,
-        distance: (weak ? 10.0 : 18.0) + i * (weak ? 3.0 : 5.0) + rng.nextDouble() * 5,
-        initialAlpha: (weak ? 0.35 : 0.65) - i * 0.05,
+        distance: baseDist + i * step + rng.nextDouble() * 5,
+        initialAlpha: baseAlpha - i * 0.04,
       );
     });
   }
 
   // ── 游戏结束 ──
 
-  void _gameOver() {
+  void _gameOver({required bool cleared}) {
     if (isExiting) return;
     stopGame();
     saveHighScore();
 
     final result = GameResult(
       songName: chart.name,
+      songId: songId,
       score: score,
       highScore: highScore,
       perfectCount: perfectCount,
@@ -785,7 +934,10 @@ class GameController {
       missCount: missCount,
       maxCombo: maxCombo,
       totalNotes: chart.notes.length,
+      cleared: cleared,
     );
+
+    unawaited(SongMedalStore.record(songId, result));
 
     isExiting = true;
     onGameOver(result);
@@ -803,6 +955,7 @@ class GameController {
   void showSpeedSettings() {
     wasGameRunning = !isExiting && !isCountingDown;
     isCountingDown = false;
+    isPaused = true;
     stopGame();
     for (final col in notes) {
       for (final note in col) {

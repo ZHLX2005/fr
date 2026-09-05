@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/song_data.dart';
+import '../../domain/song_medal.dart';
 import '../../io/chart_repository.dart';
 import 'rotating_cover.dart';
 import 'song_list_tile.dart';
@@ -118,6 +119,7 @@ class LineDensityPicker extends StatelessWidget {
 /// 歌曲详情面板
 class SongDetailPanel extends StatefulWidget {
   final SongData song;
+  final SongMedal medal;
   final GameBorderStyle borderStyle;
   final LineDensity lineDensity;
   final ValueChanged<GameBorderStyle> onBorderStyleChanged;
@@ -127,6 +129,7 @@ class SongDetailPanel extends StatefulWidget {
   const SongDetailPanel({
     super.key,
     required this.song,
+    this.medal = SongMedal.none,
     required this.borderStyle,
     required this.lineDensity,
     required this.onBorderStyleChanged,
@@ -279,6 +282,19 @@ class _SongDetailPanelState extends State<SongDetailPanel>
             ),
             textAlign: TextAlign.center,
           ),
+          if (widget.medal != SongMedal.none) ...[
+            const SizedBox(height: 6),
+            Text(
+              widget.medal.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 1.5,
+                color: color.withValues(alpha: 0.55),
+              ),
+            ),
+          ],
           const SizedBox(height: 6),
           // 艺术家
           Text(

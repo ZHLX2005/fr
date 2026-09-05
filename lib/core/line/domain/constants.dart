@@ -12,6 +12,12 @@ const int greatWindow = 100;
 const int goodWindow = 150;
 const int missWindow = 200;
 
+/// Hold 身段 tick 间隔（ms）
+const int holdTickIntervalMs = 200;
+
+/// Hold 尾判：相对 (time + holdDuration) 的窗口仍用 missWindow
+const double holdEarlyReleaseRatio = 0.75;
+
 // ── 手势阈值 ──
 /// 滑动判定：位移超过此值即判为 swipe（px）
 const double swipeDistanceThreshold = 48.0;

@@ -3,7 +3,9 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/song_data.dart';
+import '../../domain/song_medal.dart';
 import '../../io/chart_repository.dart';
+import '../../io/line_orientation.dart';
 import '../../settings/line_settings.dart';
 import '../widgets/song_detail_panel.dart';
 import 'game_page.dart' show GamePage;
@@ -19,15 +21,17 @@ class SongSelectPage extends StatefulWidget {
 class _SongSelectPageState extends State<SongSelectPage> {
   List<SongData> _songs = [];
   SongData? _selectedSong;
+  Map<String, SongMedal> _medals = {};
   GameBorderStyle _borderStyle = GameBorderStyle.solid;
   LineDensity _lineDensity = LineDensity.normal;
   bool _isLoading = true;
   late FixedExtentScrollController _scrollController;
-  static const int _loopMultiplier = 10000; // 循环倍数，用于无限滚动
+  static const int _loopMultiplier = 10000;
 
   @override
   void initState() {
     super.initState();
+    unawaited(LineOrientation.enableAll());
     _scrollController = FixedExtentScrollController();
     _loadSongs();
   }
@@ -40,13 +44,14 @@ class _SongSelectPageState extends State<SongSelectPage> {
 
   Future<void> _loadSongs() async {
     final songs = await ChartRepository.loadAllSongs();
+    final medals = await SongMedalStore.loadMany(songs.map((s) => s.id));
     if (mounted) {
       setState(() {
         _songs = songs;
+        _medals = medals;
         _selectedSong = songs.isNotEmpty ? songs.first : null;
         _isLoading = false;
       });
-      // 跳转到中间位置，实现无限循环
       if (songs.isNotEmpty) {
         final middleItem = (songs.length * _loopMultiplier / 2).round();
         _scrollController.jumpToItem(middleItem);
@@ -67,8 +72,8 @@ class _SongSelectPageState extends State<SongSelectPage> {
       notes: selected.notes,
     );
 
-    // 优先本地缓存音频（KV File 下载后的路径）；否则回退远程 URL
-    String? audioPath = selected.audioPath.isNotEmpty ? selected.audioPath : null;
+    String? audioPath =
+        selected.audioPath.isNotEmpty ? selected.audioPath : null;
     final record = await ChartRepository.loadSongRecord(selected.id);
     if (record != null) {
       final local = await ChartRepository.cachedAudioPath(record);
@@ -81,6 +86,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
         builder: (context) => GamePage(
           chart: chart,
           audioPath: audioPath,
+          songId: selected.id,
         ),
       ),
     );
@@ -90,7 +96,10 @@ class _SongSelectPageState extends State<SongSelectPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme.primary;
-    final navHeight = MediaQuery.of(context).padding.top + 56;
+    final size = MediaQuery.of(context).size;
+    final landscape = size.width > size.height;
+    final navHeight = MediaQuery.of(context).padding.top + (landscape ? 44 : 56);
+    final wheelWidth = size.width * (landscape ? 0.28 : 0.3);
 
     if (_isLoading) {
       return Scaffold(
@@ -172,11 +181,11 @@ class _SongSelectPageState extends State<SongSelectPage> {
               children: [
                 // 左侧歌曲滚轮 (30%) — 圆筒循环滚动，只显示3个
                 SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.3,
+                  width: wheelWidth,
                   child: Align(
                     alignment: const Alignment(0, -0.2),
                     child: SizedBox(
-                      height: 48 * 3, // 恰好显示3个 item
+                      height: 48 * 3,
                       child: ListWheelScrollView.useDelegate(
                         controller: _scrollController,
                         itemExtent: 48,
@@ -201,27 +210,53 @@ class _SongSelectPageState extends State<SongSelectPage> {
                                 : distance;
                             final isSelected = minDistance == 0;
                             final isNeighbor = minDistance == 1;
+                            final medal = _medals[song.id] ?? SongMedal.none;
 
                             return Center(
                               child: Padding(
-                                padding: const EdgeInsets.only(right: 32),
-                                child: Text(
-                                  song.name,
-                                  style: TextStyle(
-                                    fontSize: isSelected
-                                        ? 22
-                                        : (isNeighbor ? 16 : 12),
-                                    fontWeight: FontWeight.w200,
-                                    color: isSelected
-                                        ? color
-                                        : (isNeighbor
-                                              ? color.withValues(alpha: 0.5)
-                                              : color.withValues(alpha: 0.25)),
-                                    letterSpacing: isSelected ? 4 : 2,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                padding: const EdgeInsets.only(right: 24),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    if (medal != SongMedal.none) ...[
+                                      Text(
+                                        medal.label,
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: 0.5,
+                                          color: isSelected
+                                              ? color.withValues(alpha: 0.7)
+                                              : color.withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Flexible(
+                                      child: Text(
+                                        song.name,
+                                        style: TextStyle(
+                                          fontSize: isSelected
+                                              ? 22
+                                              : (isNeighbor ? 16 : 12),
+                                          fontWeight: FontWeight.w200,
+                                          color: isSelected
+                                              ? color
+                                              : (isNeighbor
+                                                    ? color.withValues(
+                                                        alpha: 0.5,
+                                                      )
+                                                    : color.withValues(
+                                                        alpha: 0.25,
+                                                      )),
+                                          letterSpacing: isSelected ? 4 : 2,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             );
@@ -236,6 +271,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
                   child: _selectedSong != null
                       ? SongDetailPanel(
                           song: _selectedSong!,
+                          medal: _medals[_selectedSong!.id] ?? SongMedal.none,
                           borderStyle: _borderStyle,
                           lineDensity: _lineDensity,
                           onBorderStyleChanged: (style) {

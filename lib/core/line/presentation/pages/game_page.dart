@@ -4,18 +4,24 @@ import 'package:flutter/material.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/constants.dart';
 import '../../domain/game_result.dart';
+import '../../game_controller.dart';
+import '../../io/line_orientation.dart';
+import '../../settings/line_settings.dart';
 import '../painters/game_painter.dart';
 import '../painters/water_effect_painter.dart';
-import '../../game_controller.dart';
 import 'game_result_page.dart';
 import 'song_select_page.dart';
-import '../../settings/line_settings.dart';
 
 class _LineDemoPage extends StatefulWidget {
   final ChartData chart;
   final String? audioPath;
+  final String songId;
 
-  const _LineDemoPage({required this.chart, this.audioPath});
+  const _LineDemoPage({
+    required this.chart,
+    this.audioPath,
+    this.songId = '',
+  });
 
   @override
   State<_LineDemoPage> createState() => _LineDemoPageState();
@@ -23,7 +29,6 @@ class _LineDemoPage extends StatefulWidget {
 
 class _LineDemoPageState extends State<_LineDemoPage>
     with TickerProviderStateMixin {
-  // ── 水入场动画（UI 专属，非游戏逻辑） ──
   bool _isWaterEntering = true;
   bool _didInit = false;
 
@@ -37,6 +42,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
   @override
   void initState() {
     super.initState();
+    unawaited(LineOrientation.enableAll());
 
     _exitController = AnimationController(
       duration: const Duration(milliseconds: 1400),
@@ -54,12 +60,22 @@ class _LineDemoPageState extends State<_LineDemoPage>
       duration: const Duration(milliseconds: 16),
       vsync: this,
     )..repeat();
+    _renderTicker.addListener(_onTick);
+  }
+
+  void _onTick() {
+    if (!_didInit) return;
+    _controller.tick();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_didInit) return;
+    if (_didInit) {
+      final size = MediaQuery.of(context).size;
+      _controller.updateScreenSize(size.width, size.height);
+      return;
+    }
     _didInit = true;
 
     final screenSize = MediaQuery.of(context).size;
@@ -67,6 +83,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
     _controller = GameController(
       chart: widget.chart,
       audioPath: widget.audioPath,
+      songId: widget.songId,
       vsync: this,
       screenWidth: screenSize.width,
       screenHeight: screenSize.height,
@@ -98,6 +115,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
             result: result,
             chart: widget.chart,
             audioPath: widget.audioPath,
+            songId: widget.songId,
           ),
         ),
       );
@@ -119,6 +137,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
 
   @override
   void dispose() {
+    _renderTicker.removeListener(_onTick);
     _exitController.dispose();
     _enterController.dispose();
     _healthController.dispose();
@@ -133,26 +152,30 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final screenSize = MediaQuery.of(context).size;
     final w = screenSize.width;
     final h = screenSize.height;
-    final colWidth = w / columnCount;
-    final radius = colWidth * noteSizeRatio;
-    final judgeY = h * judgeLineRatio;
-
+    final landscape = w > h;
     final c = _controller;
 
-    final allControllers = <AnimationController>[];
-    for (final col in c.notes) {
-      for (final note in col) {
-        allControllers.add(note.controller);
-      }
+    // 横屏：游玩区居中，宽度不超过短边*1.15
+    final layoutW = landscape ? (h * 1.15).clamp(0.0, w) : w;
+    final playLeft = landscape ? (w - layoutW) / 2 : 0.0;
+    final radius = (landscape ? h : w) / columnCount * noteSizeRatio;
+    final judgeY = h * (landscape ? 0.82 : judgeLineRatio);
+
+    if (_didInit) {
+      c.updateScreenSize(layoutW, h);
     }
-    for (final e in c.explodes) {
-      allControllers.add(e.controller);
-    }
-    for (final fb in c.judgeFeedbacks) {
-      allControllers.add(fb.controller);
-    }
-    allControllers.add(_healthController);
-    allControllers.add(_renderTicker);
+
+    final allControllers = <Listenable>[
+      _healthController,
+      _renderTicker,
+      for (final col in c.notes)
+        for (final note in col) note.controller,
+      for (final e in c.explodes) e.controller,
+      for (final fb in c.judgeFeedbacks) fb.controller,
+    ];
+
+    final padTop = MediaQuery.of(context).padding.top;
+    final padLeft = MediaQuery.of(context).padding.left;
 
     return PopScope(
       canPop: false,
@@ -164,10 +187,19 @@ class _LineDemoPageState extends State<_LineDemoPage>
         body: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (e) {
-            c.handlePointerDown(e);
+            final local = e.localPosition;
+            final dx = landscape ? local.dx - playLeft : local.dx;
+            if (landscape && (dx < 0 || dx > layoutW)) return;
+            c.handlePressAt(
+              e.pointer,
+              Offset(dx, local.dy),
+              e.position,
+            );
             setState(() {});
           },
-          onPointerMove: c.handlePointerMove,
+          onPointerMove: (e) {
+            c.handleMoveAt(e.pointer, e.position);
+          },
           onPointerUp: (e) {
             c.handlePointerUp(e);
             setState(() {});
@@ -178,8 +210,11 @@ class _LineDemoPageState extends State<_LineDemoPage>
           },
           child: Stack(
             children: [
-              // ── 游戏渲染 ──
-              Positioned.fill(
+              Positioned(
+                left: playLeft,
+                top: 0,
+                width: layoutW,
+                height: h,
                 child: AnimatedBuilder(
                   animation: Listenable.merge(allControllers),
                   builder: (context, _) {
@@ -189,7 +224,7 @@ class _LineDemoPageState extends State<_LineDemoPage>
                         explodes: c.explodes,
                         color: theme.colorScheme.primary,
                         radius: radius,
-                        screenWidth: w,
+                        screenWidth: layoutW,
                         screenHeight: h,
                         columnCount: columnCount,
                         judgeY: judgeY,
@@ -208,48 +243,45 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-              // ── 返回按钮 ──
               Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
+                top: padTop + (landscape ? 8 : 16),
+                left: padLeft + 8,
                 child: IconButton(
                   icon: Icon(
                     Icons.arrow_back_ios_new,
                     color: theme.colorScheme.primary,
-                    size: 24,
+                    size: landscape ? 20 : 24,
                   ),
                   onPressed: _handleExit,
                 ),
               ),
 
-              // ── 分数 ──
               Positioned(
-                top: MediaQuery.of(context).padding.top + 18,
+                top: padTop + (landscape ? 10 : 18),
                 left: 0,
                 right: 0,
                 child: Center(
                   child: Text(
                     '${c.score}/${c.highScore}',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: landscape ? 18 : 24,
                       fontWeight: FontWeight.w200,
                       color: theme.colorScheme.primary.withValues(alpha: 0.6),
-                      fontFeatures: [const FontFeature.tabularFigures()],
+                      fontFeatures: const [FontFeature.tabularFigures()],
                       letterSpacing: 3,
                     ),
                   ),
                 ),
               ),
 
-              // ── 设置按钮 ──
               Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                right: 16,
+                top: padTop + (landscape ? 8 : 16),
+                right: MediaQuery.of(context).padding.right + 8,
                 child: IconButton(
                   icon: Icon(
                     Icons.settings_outlined,
                     color: theme.colorScheme.primary,
-                    size: 24,
+                    size: landscape ? 20 : 24,
                   ),
                   onPressed: c.isExiting || c.isCountingDown
                       ? null
@@ -274,14 +306,13 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
-              // ── 倒计时 ──
               if (c.isCountingDown)
                 Positioned.fill(
                   child: Center(
                     child: Text(
                       '${c.countdownValue}',
                       style: TextStyle(
-                        fontSize: 120 * w / 750,
+                        fontSize: (landscape ? 80 : 120) * (landscape ? h : w) / 750,
                         fontWeight: FontWeight.w100,
                         color: theme.colorScheme.primary.withValues(alpha: 0.4),
                         height: 1,
@@ -291,7 +322,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
                   ),
                 ),
 
-              // ── 水入场动画 ──
               if (_isWaterEntering)
                 Positioned.fill(
                   child: AnimatedBuilder(
@@ -307,7 +337,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
                   ),
                 ),
 
-              // ── 水退场动画 ──
               if (c.isExiting)
                 Positioned.fill(
                   child: AnimatedBuilder(
@@ -334,11 +363,21 @@ class _LineDemoPageState extends State<_LineDemoPage>
 class GamePage extends StatelessWidget {
   final ChartData chart;
   final String? audioPath;
+  final String songId;
 
-  const GamePage({super.key, required this.chart, this.audioPath});
+  const GamePage({
+    super.key,
+    required this.chart,
+    this.audioPath,
+    this.songId = '',
+  });
 
   @override
   Widget build(BuildContext context) {
-    return _LineDemoPage(chart: chart, audioPath: audioPath);
+    return _LineDemoPage(
+      chart: chart,
+      audioPath: audioPath,
+      songId: songId,
+    );
   }
 }

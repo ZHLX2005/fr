@@ -1,6 +1,7 @@
 /// 游戏结果数据（不可变）
 class GameResult {
   final String songName;
+  final String songId;
   final int score;
   final int highScore;
   final int perfectCount;
@@ -9,9 +10,11 @@ class GameResult {
   final int missCount;
   final int maxCombo;
   final int totalNotes;
+  final bool cleared;
 
   const GameResult({
     required this.songName,
+    this.songId = '',
     required this.score,
     required this.highScore,
     required this.perfectCount,
@@ -20,6 +23,7 @@ class GameResult {
     required this.missCount,
     required this.maxCombo,
     required this.totalNotes,
+    this.cleared = true,
   });
 
   /// 准确率 0~100
@@ -30,10 +34,18 @@ class GameResult {
         100;
   }
 
+  bool get isFullCombo => missCount == 0 && totalNotes > 0 && cleared;
+
+  bool get isAllPerfect =>
+      isFullCombo &&
+      greatCount == 0 &&
+      goodCount == 0 &&
+      perfectCount >= totalNotes;
+
   /// 等级字母
   String get grade {
+    if (isAllPerfect) return 'P';
     final a = accuracy;
-    if (a >= 100) return 'P';
     if (a >= 95) return 'S';
     if (a >= 85) return 'A';
     if (a >= 70) return 'B';
@@ -41,10 +53,8 @@ class GameResult {
     return 'D';
   }
 
-  /// 是否新纪录
   bool get isNewRecord => score > highScore;
 
-  /// 等级对应 ARGB 色值
   int get gradeArgb {
     switch (grade) {
       case 'P':
@@ -62,6 +72,5 @@ class GameResult {
     }
   }
 
-  /// 是否使用渐变（仅 P 和 S）
   bool get usesGradient => grade == 'P' || grade == 'S';
 }
