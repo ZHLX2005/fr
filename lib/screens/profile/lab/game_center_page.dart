@@ -3,7 +3,7 @@
 // 结构（CustomScrollView，自上而下）：
 //   ① 透明 AppBar（滚动后标题+底色淡入，返回键始终可点）
 //   ② 渐变 Hero 头部：标题 + "N 款游戏 / M 款联机 / K 收藏"统计
-//   ③ 精选联机横滑（仅"全部"筛选下出现）
+//   ③ 收藏轮播横滑（仅"全部"筛选下出现；收藏为空显示空态引导）
 //   ④ 分类过滤 chip（border-emphasis，带数量）
 //   ⑤ 自适应列数网格（MaxCrossAxisExtent，平板自动多列）
 //
@@ -13,9 +13,12 @@
 // 添加新游戏：demo `override type => DemoType.game` + 在 kGameMeta 里登记一条即可，
 // 本文件无需改动。
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../lab/lab_container.dart';
 import 'demo_detail_page.dart';
 import 'game_center/const_game_center.dart';
@@ -62,6 +65,10 @@ class _GameCenterPageState extends State<GameCenterPage>
 
     _scrollController.addListener(_onScroll);
     _provider.addListener(_onProviderChanged);
+
+    // 拉取游戏中心封面索引（best-effort：网络失败静默回退程序化封面）。
+    // 封面管线：ve game-skin-admin 上传 → KV public game-center_skin:index → 这里合入。
+    unawaited(fetchAndMergeGameCenterSkins());
   }
 
   @override
@@ -91,8 +98,17 @@ class _GameCenterPageState extends State<GameCenterPage>
 
   // ── 数据 ────────────────────────────────────────────────────
 
-  List<DemoPage> get _featured =>
-      _games.where((d) => gameMetaOf(d.slug).isOnline).toList();
+  /// 轮播数据源：收藏的游戏（按 Lab 面板的收藏顺序），不再按"联机"硬编码。
+  List<DemoPage> get _featured {
+    final order = _provider.getFavoritesOrder();
+    final list = _games
+        .where((d) => _provider.isFavorite(d.title))
+        .toList();
+    list.sort(
+      (a, b) => order.indexOf(a.title).compareTo(order.indexOf(b.title)),
+    );
+    return list;
+  }
 
   List<DemoPage> _bucket(String category) {
     if (category == GameCategory.all) return _games;
@@ -124,7 +140,7 @@ class _GameCenterPageState extends State<GameCenterPage>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final list = _bucket(_selected);
-    final showFeatured = _selected == GameCategory.all && _featured.isNotEmpty;
+    final showFeatured = _selected == GameCategory.all;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -174,12 +190,15 @@ class _GameCenterPageState extends State<GameCenterPage>
           if (showFeatured) ...[
             SliverToBoxAdapter(
               child: _SectionTitle(
-                title: '精选联机',
-                subtitle: '与好友同房对战',
-                icon: Icons.wifi_tethering_rounded,
+                title: '我的收藏',
+                subtitle: _featured.isEmpty ? '收藏的游戏会自动展示在这里' : '${_featured.length} 款 · 点星标管理',
+                icon: Icons.star_rounded,
               ),
             ),
-            SliverToBoxAdapter(child: _buildFeatured()),
+            if (_featured.isEmpty)
+              const SliverToBoxAdapter(child: _EmptyFeatured())
+            else
+              SliverToBoxAdapter(child: _buildFeatured()),
           ],
           SliverToBoxAdapter(child: _buildCategoryBar()),
           if (list.isEmpty)
@@ -225,7 +244,8 @@ class _GameCenterPageState extends State<GameCenterPage>
   Widget _buildHeader(ThemeData theme) {
     final scheme = theme.colorScheme;
     final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
-    final onlineCount = _featured.length;
+    final onlineCount =
+        _games.where((d) => gameMetaOf(d.slug).isOnline).length;
     final favCount = _games.where((d) => _provider.isFavorite(d.title)).length;
 
     return Container(
@@ -285,6 +305,8 @@ class _GameCenterPageState extends State<GameCenterPage>
 
   Widget _buildFeatured() {
     final featured = _featured;
+    final safeIndex =
+        featured.isEmpty ? 0 : _featuredIndex.clamp(0, featured.length - 1);
     return Column(
       children: [
         SizedBox(
@@ -316,11 +338,11 @@ class _GameCenterPageState extends State<GameCenterPage>
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _featuredIndex ? 18 : 6,
+                  width: i == safeIndex ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary.withValues(
-                      alpha: i == _featuredIndex ? 0.9 : 0.25,
+                      alpha: i == safeIndex ? 0.9 : 0.25,
                     ),
                     borderRadius: BorderRadius.circular(3),
                   ),
@@ -470,6 +492,53 @@ class _Blob extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Theme.of(context).colorScheme.surface.withValues(alpha: alpha),
+      ),
+    );
+  }
+}
+
+/// 收藏轮播空态引导（无收藏时展示在"我的收藏"区块）
+class _EmptyFeatured extends StatelessWidget {
+  const _EmptyFeatured();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: kGcPagePadding),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 26),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(kGcCardRadius),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.star_border_rounded,
+              size: 38,
+              color: theme.colorScheme.outline,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '收藏的游戏会出现在这里',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '点卡片右上角的星标即可收藏',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

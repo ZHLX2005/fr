@@ -1,9 +1,11 @@
 // 游戏中心 — 程序化封面
 //
-// 项目没有美术资源，但"每张卡长一样"正是 demo 感的来源。这里用
-// 「专属渐变 + 装饰图案 + 主图标」给每款游戏生成可辨识的封面；
-// 用户若在 Lab 里给该 demo 设过自定义背景图（LabCardProvider），
-// 则优先用图片 + 压暗蒙版，保证标题文字始终可读。
+// 封面三层优先级（2026-09-05 起接入皮肤管线）：
+//   ① remoteCover（KV 远程封面，ve game-skin-admin 上传，见 game_center_skin_spec.dart）
+//   ② backgroundPath（用户在 Lab 里给该 demo 设的自定义背景图）
+//   ③ 程序化「专属渐变 + 装饰图案 + 主图标」兜底
+// 图片层统一走"图片 + 压暗蒙版"，保证标题文字始终可读；
+// 任意图片加载失败时露出下层渐变，不白屏。
 //
 // 配色 / 图标 / 图案的登记表在 const_game_center.dart。
 
@@ -19,6 +21,7 @@ class GameArtwork extends StatelessWidget {
     super.key,
     required this.meta,
     this.backgroundPath,
+    this.remoteCover,
     this.iconSize = 44,
     this.showIcon = true,
   });
@@ -28,17 +31,25 @@ class GameArtwork extends StatelessWidget {
   /// 用户自定义背景（本地绝对路径或 http URL），null 表示用程序化封面
   final String? backgroundPath;
 
+  /// KV 远程封面（皮肤管线），优先级高于 [backgroundPath]。
+  /// 由调用方从 gameCenterCoverOf(slug, small|large) 取得。
+  final ImageProvider? remoteCover;
+
   final double iconSize;
   final bool showIcon;
 
   bool get _hasImage => backgroundPath != null && backgroundPath!.isNotEmpty;
+
+  bool get _hasCover => remoteCover != null;
+
+  bool get _usePhoto => _hasCover || _hasImage;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 底：渐变（自定义图加载失败时也不会露白）
+        // 底：渐变（图片加载失败时也不会露白）
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -48,7 +59,17 @@ class GameArtwork extends StatelessWidget {
             ),
           ),
         ),
-        if (_hasImage)
+        if (_hasCover)
+          // 远程封面：CachedNetworkImageProvider 由调用方构造（game_center_skin_spec.dart）。
+          // 失败/加载中 → 透明（露出下层渐变，与 DemoCoverImage.transparentFallback 同语义）
+          Positioned.fill(
+            child: Image(
+              image: remoteCover!,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
+          )
+        else if (_hasImage)
           // 透明兜底：加载中/失败时露出下层专属渐变，不需要占位底色
           Positioned.fill(
             child: DemoCoverImage(
@@ -68,14 +89,14 @@ class GameArtwork extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _hasImage ? 0.28 : 0.06),
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _hasImage ? 0.55 : 0.30),
+                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _usePhoto ? 0.28 : 0.06),
+                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _usePhoto ? 0.55 : 0.30),
                 ],
               ),
             ),
           ),
         ),
-        if (showIcon && !_hasImage)
+        if (showIcon && !_usePhoto)
           Center(
             child: Icon(
               meta.icon,

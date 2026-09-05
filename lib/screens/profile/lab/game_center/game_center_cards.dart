@@ -10,6 +10,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../../lab/lab_container.dart';
 import '../providers/lab_card_provider.dart';
 import 'const_game_center.dart';
@@ -83,6 +84,10 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
                 GameArtwork(
                   meta: meta,
                   backgroundPath: _provider.getBackground(widget.demo.title),
+                  remoteCover: gameCenterCoverOf(
+                    widget.demo.slug,
+                    kGameCenterSkinLarge,
+                  ),
                   iconSize: 72,
                 ),
                 // 底部信息条：再压一层深色渐变，保证长描述也可读
@@ -246,6 +251,10 @@ class _GameGridCardState extends State<GameGridCard> {
                       meta: meta,
                       backgroundPath: _provider.getBackground(
                         widget.demo.title,
+                      ),
+                      remoteCover: gameCenterCoverOf(
+                        widget.demo.slug,
+                        kGameCenterSkinSmall,
                       ),
                     ),
                     if (meta.isOnline)
