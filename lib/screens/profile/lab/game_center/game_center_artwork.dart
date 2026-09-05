@@ -49,8 +49,10 @@ class GameArtwork extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Stack(
       fit: StackFit.expand,
+      // 不在此裁切：让图片微外扩到卡片 Clip，吃掉圆角发丝缝
+      clipBehavior: Clip.none,
       children: [
-        // 底色：有图用纯黑垫底（加载中/透明边也不透程序化配色）；无图才用专属渐变
+        // 底色：有图用纯黑垫底；无图才用专属渐变
         if (_usePhoto)
           const ColoredBox(color: Color(0xFF000000))
         else
@@ -64,30 +66,43 @@ class GameArtwork extends StatelessWidget {
             ),
           ),
         if (_hasCover)
-          Positioned.fill(
-            child: Image(
-              image: remoteCover!,
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              gaplessPlayback: true,
-              // 失败时保持黑底，不回退到程序化配色
-              errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF000000)),
+          // DecorationImage 按盒子铺 cover；微外扩吃掉圆角 Clip 发丝缝
+          Positioned(
+            left: -1.5,
+            top: -1.5,
+            right: -1.5,
+            bottom: -1.5,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFF000000),
+                image: DecorationImage(
+                  image: remoteCover!,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
             ),
           )
         else if (_hasImage)
-          Positioned.fill(
+          Positioned(
+            left: -1.5,
+            top: -1.5,
+            right: -1.5,
+            bottom: -1.5,
             child: DemoCoverImage(
               path: backgroundPath!,
               fit: BoxFit.cover,
-              // 透明占位：露出上方纯黑垫底，不透程序化配色
               transparentFallback: true,
             ),
           )
         else
           Positioned.fill(
-            child: CustomPaint(painter: _ArtPatternPainter(meta.pattern, scheme: scheme)),
+            child: CustomPaint(
+              painter: _ArtPatternPainter(meta.pattern, scheme: scheme),
+            ),
           ),
-        // 压暗蒙版：让上层白色文字/角标在任何底色上都可读
+        // 压暗蒙版：保证标题/角标可读
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(

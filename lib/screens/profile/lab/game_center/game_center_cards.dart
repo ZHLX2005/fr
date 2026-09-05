@@ -75,6 +75,7 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
         curve: Curves.easeOut,
         child: Container(
           decoration: BoxDecoration(
+            color: hasPhoto ? const Color(0xFF000000) : null,
             borderRadius: BorderRadius.circular(kGcCardRadius + 4),
             boxShadow: [
               BoxShadow(
@@ -87,17 +88,16 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(kGcCardRadius + 4),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                GameArtwork(
-                  meta: meta,
-                  backgroundPath: bgPath,
-                  remoteCover: remoteCover,
-                  iconSize: 72,
-                ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GameArtwork(
+                meta: meta,
+                backgroundPath: bgPath,
+                remoteCover: remoteCover,
+                iconSize: 72,
+              ),
                 // 底部信息条：再压一层深色渐变，保证长描述也可读
                 Positioned(
                   left: 0,
@@ -177,8 +177,7 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -221,6 +220,13 @@ class _GameGridCardState extends State<GameGridCard> {
     final theme = Theme.of(context);
     final meta = gameMetaOf(widget.demo.slug);
     final scheme = theme.colorScheme;
+    final remoteCover = gameCenterCoverOf(
+      widget.demo.slug,
+      kGameCenterSkinSmall,
+    );
+    final bgPath = _provider.getBackground(widget.demo.title);
+    final hasPhoto = remoteCover != null ||
+        (bgPath != null && bgPath.isNotEmpty);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -234,14 +240,15 @@ class _GameGridCardState extends State<GameGridCard> {
         curve: Curves.easeOut,
         child: Container(
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
+            // 有封面时底色用黑，避免圆角发丝缝透出 surface 色
+            color: hasPhoto ? const Color(0xFF000000) : scheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(kGcCardRadius),
             border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
+              color: scheme.outlineVariant.withValues(alpha: hasPhoto ? 0.25 : 0.5),
             ),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
+                color: scheme.onSurface.withValues(alpha: 0.06),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -257,13 +264,8 @@ class _GameGridCardState extends State<GameGridCard> {
                   children: [
                     GameArtwork(
                       meta: meta,
-                      backgroundPath: _provider.getBackground(
-                        widget.demo.title,
-                      ),
-                      remoteCover: gameCenterCoverOf(
-                        widget.demo.slug,
-                        kGameCenterSkinSmall,
-                      ),
+                      backgroundPath: bgPath,
+                      remoteCover: remoteCover,
                     ),
                     if (meta.isOnline)
                       Positioned(
@@ -286,30 +288,34 @@ class _GameGridCardState extends State<GameGridCard> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.demo.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+              // 标题区：有封面时也盖一层实底，避免透出黑
+              ColoredBox(
+                color: scheme.surfaceContainerLow,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.demo.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _subtitleOf(meta),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                      const SizedBox(height: 3),
+                      Text(
+                        _subtitleOf(meta),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

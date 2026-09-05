@@ -90,39 +90,47 @@ class _DemoCoverImageState extends State<DemoCoverImage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    late final Widget image;
     if (!DemoCoverImage.isLocalPath(widget.path)) {
-      return Image.network(
+      image = Image.network(
         widget.path,
         fit: widget.fit,
+        width: double.infinity,
+        height: double.infinity,
         errorBuilder: (_, _, _) => _errorWidget(theme),
         loadingBuilder: (_, child, progress) =>
             progress == null ? child : _loadingWidget(theme),
       );
-    }
-
-    if (_thumbnailBytes != null) {
-      return Image.memory(
+    } else if (_thumbnailBytes != null) {
+      image = Image.memory(
         _thumbnailBytes!,
         fit: widget.fit,
+        width: double.infinity,
+        height: double.infinity,
         gaplessPlayback: true,
         errorBuilder: (_, _, _) => _errorWidget(theme),
       );
+    } else {
+      image = Image.file(
+        File(widget.path),
+        fit: widget.fit,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => _errorWidget(theme),
+        frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded) return child;
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+            child: child,
+          );
+        },
+      );
     }
 
-    return Image.file(
-      File(widget.path),
-      fit: widget.fit,
-      gaplessPlayback: true,
-      errorBuilder: (_, _, _) => _errorWidget(theme),
-      frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          child: child,
-        );
-      },
-    );
+    // 强制吃满父约束，避免 Image 按固有尺寸留下空隙
+    return SizedBox.expand(child: image);
   }
 }
