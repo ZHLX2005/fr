@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../domain/note_event.dart';
 import '../domain/particle.dart';
+import '../engine/judge_service.dart';
 
 /// 下落中的音符（运行时，含 AnimationController）
 class FallingNote {
@@ -37,6 +38,7 @@ class ExplodeAnimation {
   final double y;
   final List<Particle> particles;
   final double radius;
+  final bool weak;
 
   ExplodeAnimation({
     required this.controller,
@@ -44,17 +46,21 @@ class ExplodeAnimation {
     required this.y,
     required this.particles,
     required this.radius,
+    this.weak = false,
   });
 }
 
 /// 判定文字反馈
 class JudgeFeedback {
   final String text;
+  final String? hintText;
   final double x;
   final double y;
   final Color color;
   final double baseAlpha;
+  final double fontScale;
   final AnimationController controller;
+  final JudgeResultLabel label;
 
   JudgeFeedback({
     required this.text,
@@ -63,5 +69,8 @@ class JudgeFeedback {
     required this.color,
     required this.baseAlpha,
     required this.controller,
+    required this.label,
+    this.hintText,
+    this.fontScale = 1.0,
   });
 }

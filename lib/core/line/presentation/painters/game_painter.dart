@@ -19,7 +19,9 @@ class GamePainter extends CustomPainter {
   final double health; // 0.0 - 1.0
   final double dropDuration;
   final double scrollSpeed;
-  final int gameElapsed; // 用于脉冲动画
+  final int gameElapsed; // 用于脉冲动画 / 音符位置（权威时钟）
+  final double judgeLineFlash; // 0~1 命中闪白
+  final int currentCombo;
 
   /// 主题色板（CustomPainter 无 BuildContext，由 build() 注入）
   final ColorScheme scheme;
@@ -40,6 +42,8 @@ class GamePainter extends CustomPainter {
     required this.scrollSpeed,
     required this.gameElapsed,
     required this.scheme,
+    this.judgeLineFlash = 0.0,
+    this.currentCombo = 0,
   });
 
   @override
@@ -75,10 +79,15 @@ class GamePainter extends CustomPainter {
     _paintHealthBar(canvas, w);
 
     // 3. 判定线
+    final flash = judgeLineFlash.clamp(0.0, 1.0);
     final judgePaint = Paint()
-      ..color = color.withValues(alpha: 0.25)
+      ..color = Color.lerp(
+        color.withValues(alpha: 0.25),
+        scheme.onSurface.withValues(alpha: 0.9),
+        flash,
+      )!
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 2.0 + flash * 2.5;
     canvas.drawLine(Offset(0, judgeY), Offset(w, judgeY), judgePaint);
 
     // 4. 音符
@@ -106,20 +115,20 @@ class GamePainter extends CustomPainter {
       final alpha = fb.baseAlpha * (1.0 - progress);
       if (alpha <= 0.01) continue;
 
-      // 上浮效果：从原始位置向上移动 20px
-      final floatOffset = progress * 20.0 * screenWidth / 750;
+      final floatOffset = progress * 36.0 * screenWidth / 750;
+      final pop = 1.0 + (1.0 - progress) * 0.18 * fb.fontScale;
 
       final textSpan = TextSpan(
         text: fb.text,
         style: TextStyle(
-          fontSize: (10 + 2 * (1.0 - progress)) * screenWidth / 750, // 渐变缩小
-          fontWeight: FontWeight.w300,
+          fontSize: (14 + 4 * fb.fontScale) * pop * screenWidth / 750,
+          fontWeight: FontWeight.w600,
           color: fb.color.withValues(alpha: alpha),
-          letterSpacing: 2,
+          letterSpacing: 1.5,
         ),
       );
       final tp = TextPainter(
-        text: TextSpan(children: [textSpan]),
+        text: textSpan,
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(
@@ -127,6 +136,63 @@ class GamePainter extends CustomPainter {
         Offset(fb.x - tp.width / 2, fb.y - floatOffset - tp.height / 2),
       );
       tp.dispose();
+
+      if (fb.hintText != null && fb.hintText!.isNotEmpty) {
+        final hint = TextPainter(
+          text: TextSpan(
+            text: fb.hintText,
+            style: TextStyle(
+              fontSize: 9 * screenWidth / 750,
+              fontWeight: FontWeight.w400,
+              color: fb.color.withValues(alpha: alpha * 0.7),
+              letterSpacing: 1.2,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        hint.paint(
+          canvas,
+          Offset(
+            fb.x - hint.width / 2,
+            fb.y - floatOffset - tp.height / 2 - hint.height - 2,
+          ),
+        );
+        hint.dispose();
+      }
+    }
+
+    // 7. 连击数（中央偏上）
+    if (currentCombo >= 2) {
+      final comboTp = TextPainter(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '$currentCombo',
+              style: TextStyle(
+                fontSize: 22 * screenWidth / 750,
+                fontWeight: FontWeight.w300,
+                color: color.withValues(alpha: 0.55),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            TextSpan(
+              text: ' COMBO',
+              style: TextStyle(
+                fontSize: 10 * screenWidth / 750,
+                fontWeight: FontWeight.w200,
+                color: color.withValues(alpha: 0.35),
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      comboTp.paint(
+        canvas,
+        Offset(w / 2 - comboTp.width / 2, judgeY * 0.42),
+      );
+      comboTp.dispose();
     }
   }
 
@@ -490,6 +556,7 @@ class GamePainter extends CustomPainter {
   void _paintExplode(Canvas canvas, ExplodeAnimation explode, double w) {
     final progress = explode.controller.value;
     final paint = Paint()..style = PaintingStyle.stroke;
+    final baseAlpha = explode.weak ? 0.18 : 0.3;
 
     if (progress <= 0.08) {
       final t = progress / 0.08;
@@ -497,8 +564,8 @@ class GamePainter extends CustomPainter {
       final currentRadius = explode.radius * (1.0 - easedT);
 
       if (currentRadius > 0.1) {
-        paint.color = color.withValues(alpha: 0.3);
-        paint.strokeWidth = 1.65;
+        paint.color = color.withValues(alpha: baseAlpha);
+        paint.strokeWidth = explode.weak ? 1.2 : 1.65;
         canvas.drawCircle(Offset(explode.x, explode.y), currentRadius, paint);
       }
     }

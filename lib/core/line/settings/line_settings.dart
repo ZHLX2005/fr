@@ -5,14 +5,6 @@ import '../domain/constants.dart';
 import '../domain/particle.dart';
 
 // ═══════════════════════════════════════════════════════════════
-// 持久化 key
-// ═══════════════════════════════════════════════════════════════
-
-const String lineTimingScaleKey = 'line_demo_timing_scale';
-const String lineBackgroundKey = 'line_demo_background';
-const String lineScrollSpeedKey = 'line_demo_scroll_speed';
-
-// ═══════════════════════════════════════════════════════════════
 // 演示动画绘制器：只绘制中间列单个圆圈 + 判定线 + 炸开粒子
 // ═══════════════════════════════════════════════════════════════
 
@@ -236,6 +228,15 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   static const double _minTimingScale = 0.5;
   static const double _maxTimingScale = 2.0;
 
+  // 输入偏移（ms）：正=判定更晚（补偿耳机延迟）
+  double _inputOffsetMs = 0;
+  static const double _minOffset = -150;
+  static const double _maxOffset = 150;
+
+  bool _haptics = true;
+  bool _hitSfx = true;
+  bool _showEarlyLate = true;
+
   // 流速
   double _scrollSpeed = 1.0;
   static const double _minScrollSpeed = 0.5;
@@ -281,6 +282,10 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
       setState(() {
         _timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
         _scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
+        _inputOffsetMs = (prefs.getInt(lineInputOffsetKey) ?? 0).toDouble();
+        _haptics = prefs.getBool(lineHapticsKey) ?? true;
+        _hitSfx = prefs.getBool(lineHitSfxKey) ?? true;
+        _showEarlyLate = prefs.getBool(lineShowEarlyLateKey) ?? true;
         final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
         _backgroundStyle = BackgroundStyle
             .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
@@ -296,6 +301,16 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   Future<void> _saveScrollSpeed(double value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(lineScrollSpeedKey, value);
+  }
+
+  Future<void> _saveInputOffset(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(lineInputOffsetKey, value.round());
+  }
+
+  Future<void> _saveBool(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
   }
 
   Future<void> _saveBackground(BackgroundStyle style) async {
@@ -529,64 +544,153 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   }
 
   Widget _buildTimingControls(ThemeData theme, double Function(double) rpx) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          '判定缩放',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            '判定缩放',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          '${_timingScale.toStringAsFixed(1)}x',
-          style: TextStyle(
-            fontSize: rpx(32),
-            fontWeight: FontWeight.w100,
-            color: widget.primaryColor.withValues(alpha: 0.4),
-            fontFeatures: [const FontFeature.tabularFigures()],
+          const SizedBox(height: 8),
+          Text(
+            '${_timingScale.toStringAsFixed(1)}x',
+            style: TextStyle(
+              fontSize: rpx(28),
+              fontWeight: FontWeight.w100,
+              color: widget.primaryColor.withValues(alpha: 0.4),
+              fontFeatures: [const FontFeature.tabularFigures()],
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 1.5,
-            thumbShape: const LineThumbShape(thumbRadius: 4),
-            overlayShape: SliderComponentShape.noOverlay,
-            activeTrackColor: widget.primaryColor,
-            inactiveTrackColor: theme.colorScheme.outlineVariant,
-            thumbColor: widget.primaryColor,
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 1.5,
+              thumbShape: const LineThumbShape(thumbRadius: 4),
+              overlayShape: SliderComponentShape.noOverlay,
+              activeTrackColor: widget.primaryColor,
+              inactiveTrackColor: theme.colorScheme.outlineVariant,
+              thumbColor: widget.primaryColor,
+            ),
+            child: Slider(
+              value: _timingScale,
+              min: _minTimingScale,
+              max: _maxTimingScale,
+              onChanged: (v) {
+                setState(() => _timingScale = v);
+                _saveTimingScale(v);
+              },
+            ),
           ),
-          child: Slider(
-            value: _timingScale,
-            min: _minTimingScale,
-            max: _maxTimingScale,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '精准',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                '宽容',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            '输入偏移',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_inputOffsetMs >= 0 ? '+' : ''}${_inputOffsetMs.round()} ms',
+            style: TextStyle(
+              fontSize: rpx(24),
+              fontWeight: FontWeight.w200,
+              color: widget.primaryColor.withValues(alpha: 0.5),
+              fontFeatures: [const FontFeature.tabularFigures()],
+            ),
+          ),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 1.5,
+              thumbShape: const LineThumbShape(thumbRadius: 4),
+              overlayShape: SliderComponentShape.noOverlay,
+              activeTrackColor: widget.primaryColor,
+              inactiveTrackColor: theme.colorScheme.outlineVariant,
+              thumbColor: widget.primaryColor,
+            ),
+            child: Slider(
+              value: _inputOffsetMs,
+              min: _minOffset,
+              max: _maxOffset,
+              divisions: 60,
+              onChanged: (v) {
+                setState(() => _inputOffsetMs = v);
+                _saveInputOffset(v);
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '偏早补偿',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                '偏晚补偿',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile.adaptive(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text('触感反馈', style: theme.textTheme.bodySmall),
+            value: _haptics,
+            activeThumbColor: widget.primaryColor,
             onChanged: (v) {
-              setState(() => _timingScale = v);
-              _saveTimingScale(v);
+              setState(() => _haptics = v);
+              _saveBool(lineHapticsKey, v);
             },
           ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '精准',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              '宽容',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ],
+          SwitchListTile.adaptive(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text('击打音效', style: theme.textTheme.bodySmall),
+            value: _hitSfx,
+            activeThumbColor: widget.primaryColor,
+            onChanged: (v) {
+              setState(() => _hitSfx = v);
+              _saveBool(lineHitSfxKey, v);
+            },
+          ),
+          SwitchListTile.adaptive(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text('显示 EARLY / LATE', style: theme.textTheme.bodySmall),
+            value: _showEarlyLate,
+            activeThumbColor: widget.primaryColor,
+            onChanged: (v) {
+              setState(() => _showEarlyLate = v);
+              _saveBool(lineShowEarlyLateKey, v);
+            },
+          ),
+        ],
+      ),
     );
   }
 

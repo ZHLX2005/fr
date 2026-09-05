@@ -1,5 +1,8 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import '../../domain/chart_data.dart';
+import '../../domain/constants.dart';
 import '../../domain/game_result.dart';
 import '../painters/game_painter.dart';
 import '../painters/water_effect_painter.dart';
@@ -72,14 +75,16 @@ class _LineDemoPageState extends State<_LineDemoPage>
     )..onStateChanged = () {
         if (mounted) setState(() {});
       };
-    _controller.init();
 
     _enterController.value = 1.0;
-    _enterController.reverse().then((_) {
+    unawaited(() async {
+      await _controller.init();
+      if (!mounted) return;
+      await _enterController.reverse();
       if (!mounted) return;
       setState(() => _isWaterEntering = false);
       _controller.startCountdown();
-    });
+    }());
   }
 
   void _onGameOver(GameResult result) {
@@ -128,9 +133,9 @@ class _LineDemoPageState extends State<_LineDemoPage>
     final screenSize = MediaQuery.of(context).size;
     final w = screenSize.width;
     final h = screenSize.height;
-    final colWidth = w / GameController.columnCount;
-    final radius = colWidth * GameController.noteSizeRatio;
-    final judgeY = h * GameController.judgeLineRatio;
+    final colWidth = w / columnCount;
+    final radius = colWidth * noteSizeRatio;
+    final judgeY = h * judgeLineRatio;
 
     final c = _controller;
 
@@ -186,15 +191,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
                         radius: radius,
                         screenWidth: w,
                         screenHeight: h,
-                        columnCount: GameController.columnCount,
+                        columnCount: columnCount,
                         judgeY: judgeY,
                         judgeFeedbacks: c.judgeFeedbacks,
                         backgroundStyle: c.backgroundStyle,
                         health: c.health,
                         dropDuration: widget.chart.dropDuration.toDouble(),
                         scrollSpeed: c.scrollSpeed,
-                        gameElapsed: c.gameStopwatch.elapsedMilliseconds,
+                        gameElapsed: c.clockMs,
                         scheme: theme.colorScheme,
+                        judgeLineFlash: c.judgeLineFlash,
+                        currentCombo: c.currentCombo,
                       ),
                     );
                   },

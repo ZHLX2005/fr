@@ -14,32 +14,44 @@ class GameEngine {
   int goodCount = 0;
   int missCount = 0;
 
-  /// 应用判定结果
+  /// 应用判定结果（命中或窗口内 miss 字样）
   void applyJudge(JudgeResult result) {
     switch (result.label) {
       case JudgeResultLabel.perfect:
         perfectCount++;
+        final mult = comboMultiplier(combo);
         combo++;
+        score += (result.points * mult).round();
+        health = (health + result.healthChange).clamp(0.0, 1.0);
       case JudgeResultLabel.great:
         greatCount++;
+        final mult = comboMultiplier(combo);
         combo++;
+        score += (result.points * mult).round();
+        health = (health + result.healthChange).clamp(0.0, 1.0);
       case JudgeResultLabel.good:
         goodCount++;
+        final mult = comboMultiplier(combo);
         combo++;
+        score += (result.points * mult).round();
+        health = (health + result.healthChange).clamp(0.0, 1.0);
       case JudgeResultLabel.miss:
-        break;
+        // 窗口内「按下但太偏」也走 miss：断连击 + 扣血，不加分
+        applyMissHealth(result.healthChange.abs());
     }
     maxCombo = math.max(maxCombo, combo);
-    score += result.points;
-    health = (health + result.healthChange).clamp(0.0, 1.0);
   }
 
-  /// 应用 Miss（断连击、扣血）
+  /// 超时 Miss（断连击、扣血）
   void applyMiss(double timingScale) {
+    final healthScale = 1.0 / timingScale;
+    applyMissHealth(0.15 * healthScale);
+  }
+
+  void applyMissHealth(double amount) {
     missCount++;
     combo = 0;
-    final healthScale = 1.0 / timingScale;
-    health = (health - 0.15 * healthScale).clamp(0.0, 1.0);
+    health = (health - amount).clamp(0.0, 1.0);
   }
 
   /// 游戏是否结束

@@ -1,56 +1,27 @@
 import 'dart:async';
-import 'package:just_audio/just_audio.dart';
 import 'dart:io' show File;
 
-/// 音频与游戏同步器 — 定期校准 Stopwatch 消除漂移
-class _AudioSyncGuard {
-  final AudioPlayer player;
-  final Stopwatch stopwatch;
-  Timer? _timer;
-  int _lastCorrectionTarget = -1;
+import 'package:just_audio/just_audio.dart';
 
-  _AudioSyncGuard({required this.player, required this.stopwatch});
-
-  void start() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) => _correct());
-  }
-
-  void stop() {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  void _correct() {
-    final audioMs = player.position.inMilliseconds;
-    final swMs = stopwatch.elapsedMilliseconds;
-    final diff = audioMs - swMs;
-    if (diff.abs() > 50 && _lastCorrectionTarget != swMs) {
-      player.seek(Duration(milliseconds: swMs));
-      _lastCorrectionTarget = swMs;
-    }
-  }
-
-  void dispose() {
-    stop();
-  }
-}
-
-/// 音频服务 — 管理音频播放、完成回调、同步校准
+/// 音频服务 — 播放 BGM；[positionMs] 作为游戏权威时钟源。
 class AudioService {
-  final Stopwatch gameStopwatch;
   final String audioPath;
   AudioPlayer? _player;
   StreamSubscription? _completionSub;
-  _AudioSyncGuard? _syncGuard;
 
   /// 音频播放完成回调
   void Function()? onCompletion;
 
-  AudioService({
-    required this.gameStopwatch,
-    required this.audioPath,
-  });
+  AudioService({required this.audioPath});
+
+  /// 当前播放进度（ms）。未就绪时返回 null。
+  int? get positionMs {
+    final p = _player;
+    if (p == null) return null;
+    return p.position.inMilliseconds;
+  }
+
+  bool get isReady => _player != null;
 
   Future<void> init() async {
     _player = AudioPlayer();
@@ -74,15 +45,9 @@ class AudioService {
         onCompletion?.call();
       }
     });
-    if (_player != null) {
-      _syncGuard?.dispose();
-      _syncGuard = _AudioSyncGuard(player: _player!, stopwatch: gameStopwatch);
-      _syncGuard!.start();
-    }
   }
 
   void pause() {
-    _syncGuard?.stop();
     _player?.pause();
   }
 
@@ -92,7 +57,6 @@ class AudioService {
 
   void dispose() {
     _completionSub?.cancel();
-    _syncGuard?.dispose();
     _player?.dispose();
     _player = null;
   }
