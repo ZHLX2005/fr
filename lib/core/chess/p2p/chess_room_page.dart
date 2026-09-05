@@ -38,9 +38,11 @@ import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
 import '../endgame/chess_endgame.dart';
 import '../endgame/chess_endgame_store.dart';
+import '../../../api/goframe/goframe_config.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
 import '../../game_kit/emoji/emoji_overlay.dart';
 import '../../game_kit/emoji/emoji_panel.dart';
+import '../../game_kit/skin/file_resolver.dart';
 import '../models/board_state.dart';
 import '../models/game_status.dart';
 import '../models/move.dart';
@@ -226,9 +228,12 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 自动播放步进间隔（毫秒）。
   static const Duration _kReplayTickInterval = Duration(milliseconds: 800);
 
-  // ── Emoji（Track B）──
-  EmojiBundle _emojiBundle = EmojiBundle.builtin();
+  // ── Emoji（Track B：仅 KV 上传表情，无 unicode 兜底）──
+  EmojiBundle _emojiBundle = EmojiBundle.empty();
+  final FileResolver _emojiFileResolver =
+      const PublicFileResolver(baseUrl: GoframeConfig.baseUrl);
   bool _emojiBundleLoading = false;
+  bool _emojiBundleLoaded = false;
 
   List<SnapshotEmojiEvent> get _emojiEvents {
     final snap = _snapshot;
@@ -264,13 +269,24 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   }
 
   Future<void> _ensureEmojiBundle() async {
-    if (_emojiBundleLoading) return;
-    if (_emojiBundle.packs.isNotEmpty) return;
+    if (_emojiBundleLoading || _emojiBundleLoaded) return;
     _emojiBundleLoading = true;
     try {
-      final b = await EmojiBundle.forGame('chess');
+      final b = await EmojiBundle.forGame(
+        'chess',
+        defaultBaseUrl: GoframeConfig.baseUrl,
+        fileResolver: _emojiFileResolver,
+      );
       if (!mounted) return;
-      setState(() => _emojiBundle = b);
+      setState(() {
+        _emojiBundle = b;
+        _emojiBundleLoaded = true;
+      });
+      // 后台预取图片，面板/气泡优先走本地缓存。
+      unawaited(b.prefetchToCache(
+        resolver: _emojiFileResolver,
+        baseUrl: GoframeConfig.baseUrl,
+      ));
     } finally {
       _emojiBundleLoading = false;
     }
@@ -291,7 +307,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     _closeSub = widget.handle.closeEvents.listen(_onCloseEvent);
     // 预加载落子音，消除首次落子的加载延迟（PieceSound 单例跨页复用）
     PieceSound.instance.preload();
-    // 惰性加载 emoji bundle（common + chess，失败回退 builtin 24）
+    // 惰性加载 emoji bundle（common + chess，仅 KV 上传图）
     _ensureEmojiBundle();
   }
 
@@ -1076,14 +1092,30 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   // ─────────────────────────── 动作：表情 ───────────────────────────
 
   Future<void> _showEmojiPanel() async {
-    if (_sendLock) return;
+    // EMOJI 走服务端 1.5s 限流，不需要复用游戏的 _sendLock（避免和
+    // MOVE/UNDO/DRAW 串行化，让表情完全并行）。
+    if (!_emojiBundleLoaded) {
+      await _ensureEmojiBundle();
+    }
+    if (!mounted) return;
     await showEmojiPanel(
       context,
       bundle: _emojiBundle,
-      onPick: (emojiId) => widget.handle.applyAction(
-        type: 'EMOJI',
-        params: {'emoji_id': emojiId},
-      ),
+      fileResolver: _emojiFileResolver,
+      onPick: (emojiId) async {
+        if (_emojiBundle.byId[emojiId] == null) return;
+        try {
+          await widget.handle.applyAction(
+            type: 'EMOJI',
+            params: {'emoji_id': emojiId},
+          );
+        } on RelayV3Exception catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('表情发送失败: ${e.statusCode} ${e.body}')),
+          );
+        }
+      },
     );
   }
 
@@ -1415,13 +1447,13 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               child: LinearProgressIndicator(minHeight: 2),
             ),
           body,
-          // Emoji 飞行层（快照 emojis 去重后 2s 飞行，锚点按发送方）
+          // Emoji 对话框气泡（对方顶部左侧 / 自己底部右侧，无飞行动画）
           Positioned.fill(
             child: EmojiOverlay(
               emojis: _emojiEvents,
               myDeviceId: widget.handle.transport.deviceId,
               bundle: _emojiBundle,
-              myColorIsWhite: _myColor == null ? null : _myColor == PieceColor.white,
+              fileResolver: _emojiFileResolver,
             ),
           ),
           if (_wsOffline) _buildWsOfflineOverlay(),

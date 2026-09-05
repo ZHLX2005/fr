@@ -1,6 +1,7 @@
 // lib/core/game_kit/emoji/emoji_panel.dart
 //
-// Emoji grid picker — 从 AppBar 按钮弹出，走 p2p 发送 EMOJI。
+// Emoji grid picker — 从操作条按钮弹出，走 p2p 发送 EMOJI。
+// 只展示 KV 发布的上传图（无 unicode）。
 
 import 'dart:async';
 
@@ -9,7 +10,7 @@ import 'package:flutter/material.dart';
 import '../skin/file_resolver.dart';
 import 'emoji_bundle.dart';
 
-/// 表情面板（网格选择器，BottomSheet / Dialog 内使用）。
+/// 表情面板（网格选择器，BottomSheet 内使用）。
 ///
 /// 点击后走 [onPick]（内部做节流），由外层发 p2p：
 /// `handle.applyAction(type: 'EMOJI', params: {'emoji_id': id})`
@@ -51,8 +52,6 @@ class _EmojiPanelState extends State<EmojiPanel> {
     });
     try {
       await widget.onPick(emojiId);
-      if (!mounted) return;
-      // 轻反馈：发送成功后短暂高亮（由外层 SnackBar / 飞行 overlay 接管视觉）
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,7 +65,6 @@ class _EmojiPanelState extends State<EmojiPanel> {
   @override
   Widget build(BuildContext context) {
     final entries = widget.bundle.entries;
-    // 紧凑网格：4 列，方形格
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
@@ -99,27 +97,6 @@ class _EmojiPanelState extends State<EmojiPanel> {
               ],
             ),
             const SizedBox(height: 8),
-            Flexible(
-              child: GridView.builder(
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1,
-                ),
-                itemCount: entries.length,
-                itemBuilder: (context, i) {
-                  final e = entries[i];
-                  return _EmojiCell(
-                    entry: e,
-                    fileResolver: widget.fileResolver,
-                    onTap: () => _pick(e.id),
-                    enabled: !_sending,
-                  );
-                },
-              ),
-            ),
             if (entries.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -128,6 +105,28 @@ class _EmojiPanelState extends State<EmojiPanel> {
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.outline,
                   ),
+                ),
+              )
+            else
+              Flexible(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 6,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: entries.length,
+                  itemBuilder: (context, i) {
+                    final e = entries[i];
+                    return _EmojiCell(
+                      entry: e,
+                      fileResolver: widget.fileResolver,
+                      onTap: () => _pick(e.id),
+                      enabled: !_sending,
+                    );
+                  },
                 ),
               ),
           ],
@@ -153,15 +152,22 @@ class _EmojiCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final img = entry.imageProvider(fileResolver);
-    final Widget content;
-    if (img != null) {
-      content = Image(image: img, fit: BoxFit.contain);
-    } else {
-      final ch = entry.unicode ?? '\u{2728}';
-      content = Text(ch, style: const TextStyle(fontSize: 26, height: 1));
-    }
+    final Widget content = img == null
+        ? const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Image(
+            image: img,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) =>
+                const Icon(Icons.broken_image, size: 20),
+          );
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
           .withValues(alpha: 0.6),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
@@ -191,7 +197,7 @@ Future<void> showEmojiPanel(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (ctx) => DraggableScrollableSheet(
-      initialChildSize: 0.5,
+      initialChildSize: 0.45,
       minChildSize: 0.3,
       maxChildSize: 0.85,
       expand: false,
