@@ -38,6 +38,7 @@ class _GameCenterPageState extends State<GameCenterPage>
     with TickerProviderStateMixin {
   final _provider = LabCardProvider();
   final _scrollController = ScrollController();
+  final _chipScrollController = ScrollController();
   final _featuredController = PageController(viewportFraction: 0.88);
   late final AnimationController _revealController;
 
@@ -100,6 +101,7 @@ class _GameCenterPageState extends State<GameCenterPage>
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _chipScrollController.dispose();
     _featuredController.dispose();
     _revealController.dispose();
     _provider.removeListener(_onProviderChanged);
@@ -156,6 +158,37 @@ class _GameCenterPageState extends State<GameCenterPage>
     if (_selected == category) return;
     setState(() => _selected = category);
     _revealController.forward(from: 0.0);
+    _scrollChipIntoView(category);
+  }
+
+  /// 左右滑切换分类：左滑下一档，右滑上一档（与 chip 顺序一致）。
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    final v = details.primaryVelocity ?? 0;
+    if (v.abs() < 280) return;
+    final tabs = kGameCategoryTabs;
+    final i = tabs.indexWhere((t) => t.category == _selected);
+    if (i < 0) return;
+    final next = i + (v < 0 ? 1 : -1);
+    if (next < 0 || next >= tabs.length) return;
+    HapticFeedback.selectionClick();
+    _select(tabs[next].category);
+  }
+
+  void _scrollChipIntoView(String category) {
+    final i = kGameCategoryTabs.indexWhere((t) => t.category == category);
+    if (i < 0 || !_chipScrollController.hasClients) return;
+    // chip 宽约不一，用近似步进保证选中项大致入屏
+    final target = (i * 100.0).clamp(
+      0.0,
+      _chipScrollController.position.maxScrollExtent,
+    );
+    unawaited(
+      _chipScrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      ),
+    );
   }
 
   // ── 构建 ────────────────────────────────────────────────────
@@ -205,63 +238,70 @@ class _GameCenterPageState extends State<GameCenterPage>
         ),
         title: Opacity(opacity: _titleReveal, child: const Text('游戏中心')),
       ),
-      body: CustomScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader(theme)),
-          if (showFeatured) ...[
-            SliverToBoxAdapter(
-              child: _SectionTitle(
-                title: '我的收藏',
-                subtitle: _featured.isEmpty ? '收藏的游戏会自动展示在这里' : '${_featured.length} 款 · 点星标管理',
-                icon: Icons.star_rounded,
-              ),
-            ),
-            if (_featured.isEmpty)
-              const SliverToBoxAdapter(child: _EmptyFeatured())
-            else
-              SliverToBoxAdapter(child: _buildFeatured()),
-          ],
-          SliverToBoxAdapter(child: _buildCategoryBar()),
-          if (list.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _EmptyBucket(category: _selected),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                kGcPagePadding,
-                4,
-                kGcPagePadding,
-                28,
-              ),
-              sliver: SliverGrid.builder(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: kGcGridMaxExtent,
-                  childAspectRatio: kGcGridAspectRatio,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
+      body: GestureDetector(
+        // 垂直列表仍走 CustomScrollView；水平甩动切换分类 tab。
+        // 收藏轮播 PageView / chip 横滑条在手势竞技场中优先，不抢它们的横向滑动。
+        onHorizontalDragEnd: _onHorizontalDragEnd,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          slivers: [
+            SliverToBoxAdapter(child: _buildHeader(theme)),
+            if (showFeatured) ...[
+              SliverToBoxAdapter(
+                child: _SectionTitle(
+                  title: '我的收藏',
+                  subtitle: _featured.isEmpty
+                      ? '收藏的游戏会自动展示在这里'
+                      : '${_featured.length} 款 · 点星标管理',
+                  icon: Icons.star_rounded,
                 ),
-                itemCount: list.length,
-                itemBuilder: (context, index) {
-                  final demo = list[index];
-                  return RevealItem(
-                    index: index,
-                    controller: _revealController,
-                    delayStep: kGcRevealDelayStep,
-                    maxDelay: kGcRevealMaxDelay,
-                    itemDuration: kGcRevealItemDuration,
-                    translateY: kGcRevealTranslateY,
-                    child: GameGridCard(demo: demo, onTap: () => _open(demo)),
-                  );
-                },
               ),
-            ),
-        ],
+              if (_featured.isEmpty)
+                const SliverToBoxAdapter(child: _EmptyFeatured())
+              else
+                SliverToBoxAdapter(child: _buildFeatured()),
+            ],
+            SliverToBoxAdapter(child: _buildCategoryBar()),
+            if (list.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyBucket(category: _selected),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  kGcPagePadding,
+                  4,
+                  kGcPagePadding,
+                  28,
+                ),
+                sliver: SliverGrid.builder(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: kGcGridMaxExtent,
+                    childAspectRatio: kGcGridAspectRatio,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                  ),
+                  itemCount: list.length,
+                  itemBuilder: (context, index) {
+                    final demo = list[index];
+                    return RevealItem(
+                      index: index,
+                      controller: _revealController,
+                      delayStep: kGcRevealDelayStep,
+                      maxDelay: kGcRevealMaxDelay,
+                      itemDuration: kGcRevealItemDuration,
+                      translateY: kGcRevealTranslateY,
+                      child: GameGridCard(demo: demo, onTap: () => _open(demo)),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -393,6 +433,7 @@ class _GameCenterPageState extends State<GameCenterPage>
         SizedBox(
           height: 46,
           child: ListView.separated(
+            controller: _chipScrollController,
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: kGcPagePadding),
