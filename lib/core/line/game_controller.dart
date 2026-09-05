@@ -374,6 +374,7 @@ class GameController {
 
   void _updateActiveHolds() {
     final elapsed = _clockMs;
+    final scaledMiss = (missWindow * timingScale).round();
     for (var col = 0; col < notes.length; col++) {
       for (final note in List<FallingNote>.from(notes[col])) {
         if (note.event.type != NoteType.hold || note.judged) continue;
@@ -381,35 +382,28 @@ class GameController {
         if (duration <= 0) continue;
 
         if (note.holding) {
-          final heldTime = elapsed - note.holdPressTime;
-          note.holdProgress = (heldTime / duration).clamp(0.0, 1.0);
+          final endTime = note.event.time + duration;
+          // 进度按谱面时间填，与尾判时刻对齐
+          note.holdProgress =
+              ((elapsed - note.event.time) / duration).clamp(0.0, 1.0);
 
-          while (elapsed >= note.holdNextTickAt && note.holding) {
+          // 身段 tick：仅在尾点之前累计
+          while (elapsed >= note.holdNextTickAt &&
+              note.holding &&
+              note.holdNextTickAt <= endTime) {
             note.holdTicksHit++;
             note.holdNextTickAt += holdTickIntervalMs;
           }
 
-          if (elapsed >= note.event.time + duration) {
-            final head = note.holdHeadResult ??
-                judge(note.holdJudgeDiff, timingScale);
-            final composed = composeHoldResult(
-              head: head,
-              ticksHit: note.holdTicksHit,
-              ticksExpected: note.holdTicksExpected,
-              tail: judge(0, timingScale),
-              timingScale: timingScale,
-            );
-            heldColumns.remove(col);
-            holdCompletedColumns.add(col);
-            note.holding = false;
-            finalizeHold(col, note, composed);
+          // 超过尾窗仍未抬手 → 尾 Miss（必须有尾判，禁止假 Perfect）
+          if (elapsed > endTime + scaledMiss) {
+            _finalizeHoldWithTail(col, note, elapsed - endTime);
           }
           continue;
         }
 
         if (!note.holdHeadLocked) {
-          final missThreshold =
-              note.event.time + (missWindow * timingScale).round();
+          final missThreshold = note.event.time + scaledMiss;
           if (elapsed > missThreshold) {
             onNoteMissed(col, note);
           }
@@ -578,33 +572,47 @@ class GameController {
     holdCompletedColumns.remove(col);
 
     final elapsed = clockMs;
+    final scaledMiss = (missWindow * timingScale).round();
     for (final note in notes[col]) {
       if (!note.holding || note.judged) continue;
       if (note.event.type != NoteType.hold) continue;
 
       final duration = note.event.holdDuration ?? 0;
-      final heldTime = elapsed - note.holdPressTime;
+      final endTime = note.event.time + duration;
       note.holding = false;
 
-      if (heldTime < duration * holdEarlyReleaseRatio) {
+      // 过早抬手（尾点前超出 miss 窗，或未到 earlyRelease 比例）→ Miss
+      final tooEarlyByWindow = elapsed < endTime - scaledMiss;
+      final heldTime = elapsed - note.holdPressTime;
+      final tooEarlyByRatio = heldTime < duration * holdEarlyReleaseRatio;
+      if (tooEarlyByWindow || tooEarlyByRatio) {
         onNoteMissed(col, note, showFeedback: true);
         return;
       }
 
-      final endTime = note.event.time + duration;
-      final tail = judge(elapsed - endTime, timingScale);
-      final head =
-          note.holdHeadResult ?? judge(note.holdJudgeDiff, timingScale);
-      final composed = composeHoldResult(
-        head: head,
-        ticksHit: note.holdTicksHit,
-        ticksExpected: note.holdTicksExpected,
-        tail: tail,
-        timingScale: timingScale,
-      );
-      finalizeHold(col, note, composed);
+      // 尾判：相对谱面结束时刻的抬手误差
+      _finalizeHoldWithTail(col, note, elapsed - endTime);
       return;
     }
+  }
+
+  /// 用尾点误差合成最终 Hold 判定并结算
+  void _finalizeHoldWithTail(int col, FallingNote note, int tailSignedDiffMs) {
+    if (note.judged) return;
+    final head =
+        note.holdHeadResult ?? judge(note.holdJudgeDiff, timingScale);
+    final tail = judge(tailSignedDiffMs, timingScale);
+    final composed = composeHoldResult(
+      head: head,
+      ticksHit: note.holdTicksHit,
+      ticksExpected: note.holdTicksExpected,
+      tail: tail,
+      timingScale: timingScale,
+    );
+    heldColumns.remove(col);
+    holdCompletedColumns.add(col);
+    note.holding = false;
+    finalizeHold(col, note, composed);
   }
 
   bool _tryJudgeSlide(int col, SlideDirection direction) {

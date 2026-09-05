@@ -77,10 +77,10 @@ class _DemoPainter extends CustomPainter {
     );
 
     // 判定区域可视化（设置页面演示用）
-    final perfectWindow = 50.0 * timingScale;
-    final greatWindow = 100.0 * timingScale;
-    final goodWindow = 150.0 * timingScale;
-    final missWindow = 200.0 * timingScale;
+    final perfectWindow = 70.0 * timingScale;
+    final greatWindow = 130.0 * timingScale;
+    final goodWindow = 200.0 * timingScale;
+    final missWindow = 280.0 * timingScale;
 
     // 音符经过判定线的速度：pixels/ms
     final pixelsPerMs = size.height * judgeYRatio / 2500;

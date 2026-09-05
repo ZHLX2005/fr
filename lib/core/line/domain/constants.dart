@@ -6,24 +6,24 @@ const int columnCount = 3;
 const double noteSizeRatio = 0.168;
 const double judgeLineRatio = 0.75;
 
-// ── 判定窗口（ms） ──
-const int perfectWindow = 50;
-const int greatWindow = 100;
-const int goodWindow = 150;
-const int missWindow = 200;
+// ── 判定窗口（ms）——偏宽容，优先手感与可玩性 ──
+const int perfectWindow = 70;
+const int greatWindow = 130;
+const int goodWindow = 200;
+const int missWindow = 280;
 
 /// Hold 身段 tick 间隔（ms）
 const int holdTickIntervalMs = 200;
 
 /// Hold 尾判：相对 (time + holdDuration) 的窗口仍用 missWindow
-const double holdEarlyReleaseRatio = 0.75;
+const double holdEarlyReleaseRatio = 0.62;
 
 // ── 手势阈值 ──
 /// 滑动判定：位移超过此值即判为 swipe（px）
-const double swipeDistanceThreshold = 48.0;
+const double swipeDistanceThreshold = 28.0;
 
 /// 滑动判定：速度超过此值（px/s）辅助确认
-const double swipeVelocityThreshold = 280.0;
+const double swipeVelocityThreshold = 150.0;
 
 // ── 计分 ──
 /// 连击倍率上限（base × min(1 + combo*k, max)）

@@ -27,14 +27,16 @@ class AudioService {
     _player = AudioPlayer();
     if (audioPath.startsWith('http://') || audioPath.startsWith('https://')) {
       await _player!.setUrl(audioPath);
-      return;
+    } else {
+      final file = File(audioPath);
+      if (await file.exists()) {
+        await _player!.setFilePath(audioPath);
+      } else {
+        await _player!.setAsset(audioPath);
+      }
     }
-    final file = File(audioPath);
-    if (await file.exists()) {
-      await _player!.setFilePath(audioPath);
-      return;
-    }
-    await _player!.setAsset(audioPath);
+    // 略降 BGM，让击打音效更突出
+    await _player!.setVolume(0.72);
   }
 
   void play() {

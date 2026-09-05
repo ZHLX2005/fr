@@ -104,8 +104,11 @@ class HitFeedback {
         _slide!.setAsset(slideAsset),
         _hold!.setAsset(holdAsset),
       ]);
-      // 预热：seek 到头，确保首击可立刻 play
+      // 打击音尽量打满；BGM 在 AudioService 里略降，避免盖住击打
       await Future.wait([
+        _tap!.setVolume(1.0),
+        _slide!.setVolume(1.0),
+        _hold!.setVolume(1.0),
         _tap!.seek(Duration.zero),
         _slide!.seek(Duration.zero),
         _hold!.seek(Duration.zero),

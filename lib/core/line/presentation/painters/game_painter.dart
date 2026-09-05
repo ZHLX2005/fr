@@ -308,7 +308,7 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  /// Hold：头圆 + 轨道体 + 尾帽，进度自头向尾填充，语义=「按住」
+  /// Hold：更宽轨道 + 实心头尾，语义=「按住」
   void _paintHoldNote(Canvas canvas, double cx, FallingNote note) {
     final travelPerMs = _travelPerMs();
     final headY = _noteTravelY(note);
@@ -323,8 +323,9 @@ class GamePainter extends CustomPainter {
     final minVisibleY = -radius * 2;
     if (tailY < minVisibleY) tailY = minVisibleY;
 
-    final bodyHalf = radius * 0.55;
-    final headR = radius * 0.92;
+    // 轨道接近列宽，头圆略大于 tap，更「大气」
+    final bodyHalf = radius * 0.92;
+    final headR = radius * 1.12;
 
     double progress = 0.0;
     if (note.holdFadeOut > 0) {
@@ -336,16 +337,16 @@ class GamePainter extends CustomPainter {
 
     double alpha;
     if (note.holdFadeOut > 0) {
-      alpha = 0.48 * (1.0 - note.holdFadeOut * 0.35);
+      alpha = 0.62 * (1.0 - note.holdFadeOut * 0.35);
     } else if (note.holding) {
-      alpha = 0.55 * (1.0 - progress * 0.35).clamp(0.25, 1.0);
+      alpha = 0.78 * (1.0 - progress * 0.28).clamp(0.35, 1.0);
     } else {
-      alpha = 0.42;
+      alpha = 0.62;
     }
     if (alpha < 0.01) return;
 
-    final bodyTop = tailY + headR * 0.35;
-    final bodyBottom = headY - headR * 0.35;
+    final bodyTop = tailY + headR * 0.28;
+    final bodyBottom = headY - headR * 0.28;
     final bodyH = (bodyBottom - bodyTop).clamp(0.0, double.infinity);
 
     // ── 轨道外轮廓 ──
@@ -357,27 +358,26 @@ class GamePainter extends CustomPainter {
       canvas.drawRRect(
         track,
         Paint()
-          ..color = color.withValues(alpha: alpha * 0.55)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5,
+          ..color = color.withValues(alpha: alpha * 0.22)
+          ..style = PaintingStyle.fill,
       );
-      // 轨道淡底
       canvas.drawRRect(
         track,
         Paint()
-          ..color = color.withValues(alpha: alpha * 0.06)
-          ..style = PaintingStyle.fill,
+          ..color = color.withValues(alpha: alpha * 0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.6,
       );
 
-      // 侧刻度（暗示持续时长）
+      // 侧刻度
       final tickPaint = Paint()
-        ..color = color.withValues(alpha: alpha * 0.22)
-        ..strokeWidth = 1.0;
-      final tickStep = math.max(18.0, radius * 0.85);
+        ..color = color.withValues(alpha: alpha * 0.35)
+        ..strokeWidth = 1.4;
+      final tickStep = math.max(16.0, radius * 0.75);
       for (double ty = bodyBottom - tickStep; ty > bodyTop + 4; ty -= tickStep) {
         canvas.drawLine(
-          Offset(cx - bodyHalf * 0.55, ty),
-          Offset(cx + bodyHalf * 0.55, ty),
+          Offset(cx - bodyHalf * 0.62, ty),
+          Offset(cx + bodyHalf * 0.62, ty),
           tickPaint,
         );
       }
@@ -395,52 +395,59 @@ class GamePainter extends CustomPainter {
       canvas.drawRRect(
         fillRect,
         Paint()
-          ..color = color.withValues(alpha: alpha * 0.35)
+          ..color = color.withValues(alpha: alpha * 0.45)
           ..maskFilter = MaskFilter.blur(
             BlurStyle.normal,
-            6.0 + 10.0 * progress,
+            8.0 + 14.0 * progress,
           ),
       );
       canvas.drawRRect(
         fillRect,
         Paint()
-          ..color = color.withValues(alpha: alpha * (0.35 + 0.25 * progress))
+          ..color = color.withValues(alpha: alpha * (0.45 + 0.3 * progress))
           ..style = PaintingStyle.fill,
       );
 
       if (progress < 1.0) {
         canvas.drawLine(
-          Offset(cx - bodyHalf * 0.85, fillTop),
-          Offset(cx + bodyHalf * 0.85, fillTop),
+          Offset(cx - bodyHalf * 0.9, fillTop),
+          Offset(cx + bodyHalf * 0.9, fillTop),
           Paint()
-            ..color = scheme.surface.withValues(alpha: alpha * 0.75)
-            ..strokeWidth = 2.0
+            ..color = scheme.surface.withValues(alpha: alpha * 0.85)
+            ..strokeWidth = 3.0
             ..strokeCap = StrokeCap.round,
         );
       }
     }
 
     // ── 尾帽（释放点）──
-    final tailCenter = Offset(cx, tailY + headR * 0.15);
+    final tailCenter = Offset(cx, tailY + headR * 0.12);
     canvas.drawCircle(
       tailCenter,
-      headR * 0.38,
+      headR * 0.52,
       Paint()
-        ..color = color.withValues(alpha: alpha * 0.7)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6,
+        ..color = color.withValues(alpha: alpha * 0.2)
+        ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       tailCenter,
-      headR * 0.12,
+      headR * 0.52,
       Paint()
-        ..color = color.withValues(alpha: alpha * 0.55)
+        ..color = color.withValues(alpha: alpha * 0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4,
+    );
+    canvas.drawCircle(
+      tailCenter,
+      headR * 0.16,
+      Paint()
+        ..color = color.withValues(alpha: alpha * 0.75)
         ..style = PaintingStyle.fill,
     );
 
     // ── 头圆（按下点）──
     final headPulse = note.holding
-        ? 1.0 + 0.05 * math.sin(gameElapsed / 70.0 * math.pi)
+        ? 1.0 + 0.06 * math.sin(gameElapsed / 70.0 * math.pi)
         : 1.0;
     final headCenter = Offset(cx, headY);
     final hr = headR * headPulse;
@@ -449,33 +456,32 @@ class GamePainter extends CustomPainter {
       headCenter,
       hr,
       Paint()
-        ..color = color.withValues(alpha: alpha * (note.holding ? 0.9 : 0.7))
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = note.holding ? 2.6 : 2.1,
+        ..color = color.withValues(alpha: alpha * (note.holding ? 0.28 : 0.16))
+        ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       headCenter,
-      hr * 0.55,
+      hr,
       Paint()
-        ..color = color.withValues(alpha: alpha * (note.holding ? 0.22 : 0.1))
+        ..color = color.withValues(alpha: alpha * (note.holding ? 1.0 : 0.88))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = note.holding ? 3.4 : 2.8,
+    );
+    canvas.drawCircle(
+      headCenter,
+      hr * 0.48,
+      Paint()
+        ..color = color.withValues(alpha: alpha * (note.holding ? 0.35 : 0.18))
         ..style = PaintingStyle.fill,
     );
     // 头内十字微标（与 tap 双环区分）
     final cross = Paint()
-      ..color = color.withValues(alpha: alpha * 0.45)
-      ..strokeWidth = 1.2
+      ..color = color.withValues(alpha: alpha * 0.65)
+      ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
-    final c = hr * 0.22;
-    canvas.drawLine(
-      Offset(cx - c, headY),
-      Offset(cx + c, headY),
-      cross,
-    );
-    canvas.drawLine(
-      Offset(cx, headY - c),
-      Offset(cx, headY + c),
-      cross,
-    );
+    final c = hr * 0.28;
+    canvas.drawLine(Offset(cx - c, headY), Offset(cx + c, headY), cross);
+    canvas.drawLine(Offset(cx, headY - c), Offset(cx, headY + c), cross);
 
     if (note.holdFadeOut > 0) {
       _paintHoldNoteParticles(canvas, cx, headY, alpha, note.holdFadeOut);
@@ -523,30 +529,31 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  /// Slide：菱形框 + 虚线环 + 方向箭头，语义=「滑动」
+  /// Slide：放大菱形 + 粗箭头，语义=「滑动」
   void _paintSlideNote(Canvas canvas, double cx, FallingNote note) {
     if (note.judged || note.removeMe) return;
     final y = _noteTravelY(note);
     if (y < -radius || y > screenHeight + radius) return;
 
-    final alpha = _pastJudgeFade(y, base: 0.48);
+    final alpha = _pastJudgeFade(y, base: 0.72);
     if (alpha <= 0.01) return;
 
     final dir = note.event.direction ?? SlideDirection.up;
     final center = Offset(cx, y);
-    final r = radius * 1.02;
+    // 明显大于 tap，避免「看不见」
+    final r = radius * 1.38;
 
     // 菱形外框
     final diamond = Path()
       ..moveTo(cx, y - r)
-      ..lineTo(cx + r * 0.78, y)
+      ..lineTo(cx + r * 0.82, y)
       ..lineTo(cx, y + r)
-      ..lineTo(cx - r * 0.78, y)
+      ..lineTo(cx - r * 0.82, y)
       ..close();
     canvas.drawPath(
       diamond,
       Paint()
-        ..color = color.withValues(alpha: alpha * 0.12)
+        ..color = color.withValues(alpha: alpha * 0.22)
         ..style = PaintingStyle.fill,
     );
     canvas.drawPath(
@@ -554,31 +561,31 @@ class GamePainter extends CustomPainter {
       Paint()
         ..color = color.withValues(alpha: alpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
+        ..strokeWidth = 3.2
         ..strokeJoin = StrokeJoin.round,
     );
 
-    // 内虚线圆（真正虚线）
+    // 内虚线圆
     _drawDashedCircle(
       canvas,
       center,
-      r * 0.58,
+      r * 0.55,
       Paint()
-        ..color = color.withValues(alpha: alpha * 0.55)
+        ..color = color.withValues(alpha: alpha * 0.7)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.35,
-      dashCount: 12,
-      dashRatio: 0.45,
+        ..strokeWidth = 2.0,
+      dashCount: 10,
+      dashRatio: 0.5,
     );
 
-    // 方向箭头
+    // 方向箭头（更大）
     _drawArrow(
       canvas,
       cx,
       y,
-      r * 0.48,
+      r * 0.58,
       dir,
-      Paint()..color = color.withValues(alpha: alpha * 0.92),
+      Paint()..color = color.withValues(alpha: alpha * 0.98),
     );
   }
 

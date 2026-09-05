@@ -22,7 +22,7 @@ SlideDirection? swipeDirection(
   final fastEnough = velocityPxPerSec >= velocityThreshold;
   if (!farEnough && !fastEnough) return null;
   // 速度够但位移不够时仍要求最小位移，避免微抖
-  final minDist = distanceThreshold * 0.45;
+  final minDist = distanceThreshold * 0.35;
   if (dx.abs() < minDist && dy.abs() < minDist) return null;
   if (dx.abs() > dy.abs()) {
     return dx > 0 ? SlideDirection.right : SlideDirection.left;
