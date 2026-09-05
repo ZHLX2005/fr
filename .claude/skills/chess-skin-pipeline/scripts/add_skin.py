@@ -20,6 +20,7 @@ add_skin.py —— 端到端：压缩 → 上传 → 更新 KV 一站式脚本�
   3. 登录态 GET <game>_skin:index（旧 index）→ 合并去重（新覆盖旧）→ 校验
   4. POST /api/v1/kv 写回（public + groupId 190 + tags=['<game>-skin']）
   5. 匿名 GET /api/v1/kv/public/<game>_skin:index 验证
+  6. 同 id 覆盖时：best-effort DELETE 旧 pieces/boardBackground 源文件（防 File 冗余）
 
 多游戏参数化（--game）：
   --game 派生：kvIndexKey=<game>_skin:index, tagPrefix=<game>-skin,
@@ -289,6 +290,65 @@ def publish_index(base_url, token, group_id, metas, kv_index_key, common_tag):
         raise RuntimeError(f"publish failed: {resp}")
 
 
+def collect_file_ids(meta):
+    """从一套 skin meta 收集 pieces + boardBackground 的 fileId（去重保序）。"""
+    out = []
+    seen = set()
+    pieces = meta.get("pieces") if isinstance(meta, dict) else None
+    if isinstance(pieces, dict):
+        for p in pieces.values():
+            if isinstance(p, dict):
+                fid = p.get("fileId")
+                if isinstance(fid, str) and fid and fid not in seen:
+                    seen.add(fid)
+                    out.append(fid)
+    bg = meta.get("boardBackground") if isinstance(meta, dict) else None
+    if isinstance(bg, dict):
+        fid = bg.get("fileId")
+        if isinstance(fid, str) and fid and fid not in seen:
+            seen.add(fid)
+            out.append(fid)
+    return out
+
+
+def delete_file(base_url, token, file_id, group_id):
+    """登录态 DELETE /api/v1/files/<fileId>?groupId=…；失败抛异常。"""
+    qs = urllib.parse.urlencode({"groupId": group_id})
+    req = urllib.request.Request(
+        f"{base_url}/api/v1/files/{urllib.parse.quote(file_id)}?{qs}",
+        method="DELETE",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as r:
+        body = r.read()
+        if not body:
+            return
+        try:
+            resp = json.loads(body)
+        except Exception:
+            return
+        if isinstance(resp, dict) and "code" in resp and resp.get("code") != 0:
+            raise RuntimeError(f"delete file failed: {resp}")
+
+
+def cleanup_orphaned_files(base_url, token, group_id, old_meta, new_meta):
+    """同 id 覆盖后：删除旧 meta 中不再被新 meta 引用的源文件（best-effort）。"""
+    keep = set(collect_file_ids(new_meta))
+    orphans = [fid for fid in collect_file_ids(old_meta) if fid not in keep]
+    if not orphans:
+        return
+    cleaned, failed = 0, 0
+    for fid in orphans:
+        try:
+            delete_file(base_url, token, fid, group_id)
+            cleaned += 1
+            log(f"  cleaned orphan file {fid[:8]}…")
+        except Exception as e:
+            failed += 1
+            log(f"  warn: orphan delete {fid[:8]}… failed: {e}")
+    log(f"  orphan cleanup: cleaned={cleaned} failed={failed}")
+
+
 def anon_verify(base_url, group_id, expect_n, kv_index_key):
     """匿名 GET 验证条数 + 关键 id 都在。"""
     qs = urllib.parse.urlencode({"groupId": group_id})
@@ -380,18 +440,26 @@ def main():
         "pieces": pieces,
     }
 
-    log(f"[2/4] fetching old index {kv_index_key} from {args.base} (groupId={args.group})")
+    log(f"[2/5] fetching old index {kv_index_key} from {args.base} (groupId={args.group})")
     old = fetch_old_index(args.base, token, args.group, kv_index_key)
     log(f"  old index: {len(old)} skins")
     # merge: 同 id 覆盖；新 id 追加
     by_id = {m["id"]: m for m in old}
+    prev_meta = by_id.get(args.skin_id)
     by_id[args.skin_id] = meta
     merged = list(by_id.values())
-    log(f"[3/4] publishing {len(merged)} skins (added/updated: {args.skin_id}) kv={kv_index_key} tag={tag_prefix}")
+    log(f"[3/5] publishing {len(merged)} skins (added/updated: {args.skin_id}) kv={kv_index_key} tag={tag_prefix}")
     publish_index(args.base, token, args.group, merged, kv_index_key, tag_prefix)
 
-    log(f"[4/4] anon verify {kv_index_key}")
+    log(f"[4/5] anon verify {kv_index_key}")
     anon_verify(args.base, args.group, len(merged), kv_index_key)
+
+    # 同 id 覆盖：KV 已指向新 fileId 后，再清旧源文件，避免 File 存储冗余
+    if prev_meta is not None:
+        log(f"[5/5] cleaning orphaned files for replaced skin '{args.skin_id}'")
+        cleanup_orphaned_files(args.base, token, args.group, prev_meta, meta)
+    else:
+        log("[5/5] no previous skin → skip orphan cleanup")
 
     log(f"OK: skin '{args.skin_id}' game={args.game} published. total {len(merged)} skins at {args.base} kv={kv_index_key}.")
     # 输出 meta JSON 到 stdout（便于 pipe 到 git add / CI）
