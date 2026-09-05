@@ -75,9 +75,6 @@ dependencies:
   # UUID Generation
   uuid: ^4.5.1
 
-  # Supabase
-  supabase_flutter: ^2.5.0
-
   # Network Info
   network_info_plus: ^6.1.1
 

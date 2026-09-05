@@ -54,6 +54,14 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final meta = gameMetaOf(widget.demo.slug);
+    final remoteCover = gameCenterCoverOf(
+      widget.demo.slug,
+      kGameCenterSkinLarge,
+    );
+    final bgPath = _provider.getBackground(widget.demo.title);
+    final hasPhoto = remoteCover != null ||
+        (bgPath != null && bgPath.isNotEmpty);
+    final scheme = theme.colorScheme;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -70,7 +78,10 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
             borderRadius: BorderRadius.circular(kGcCardRadius + 4),
             boxShadow: [
               BoxShadow(
-                color: meta.gradient.last.withValues(alpha: 0.28),
+                // 有封面时用中性阴影，避免程序化配色光晕透出
+                color: hasPhoto
+                    ? scheme.onSurface.withValues(alpha: 0.22)
+                    : meta.gradient.last.withValues(alpha: 0.28),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -83,11 +94,8 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
               children: [
                 GameArtwork(
                   meta: meta,
-                  backgroundPath: _provider.getBackground(widget.demo.title),
-                  remoteCover: gameCenterCoverOf(
-                    widget.demo.slug,
-                    kGameCenterSkinLarge,
-                  ),
+                  backgroundPath: bgPath,
+                  remoteCover: remoteCover,
                   iconSize: 72,
                 ),
                 // 底部信息条：再压一层深色渐变，保证长描述也可读

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -74,16 +75,26 @@ class _RotatingCoverState extends State<RotatingCover>
   }
 
   Widget _buildImage() {
-    // 判断是远程 URL 还是本地 assets
-    if (widget.imagePath.startsWith('http://') || widget.imagePath.startsWith('https://')) {
+    final path = widget.imagePath;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
       return Image.network(
-        widget.imagePath,
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _placeholder(),
+      );
+    }
+    // 本地缓存绝对路径（KV 下载后）
+    if (path.startsWith('/') ||
+        (path.length > 2 && path[1] == ':') ||
+        path.startsWith(r'\\')) {
+      return Image.file(
+        File(path),
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _placeholder(),
       );
     }
     return Image.asset(
-      widget.imagePath,
+      path,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => _placeholder(),
     );

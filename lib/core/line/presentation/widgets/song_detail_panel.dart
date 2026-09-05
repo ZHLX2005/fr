@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/song_data.dart';
 import '../../io/chart_repository.dart';
-import '../../cache/line_cache_manager.dart';
 import 'rotating_cover.dart';
 import 'song_list_tile.dart';
 
@@ -193,37 +192,28 @@ class _SongDetailPanelState extends State<SongDetailPanel>
     });
 
     try {
-      // 检查是否已缓存
-      final cached = await ChartRepository.isSongCached(widget.song.id);
+      final record = await ChartRepository.loadSongRecord(widget.song.id);
+      if (record == null) {
+        throw StateError('song not in line_song:index');
+      }
 
+      final cached = await ChartRepository.isSongCached(record);
       if (!cached) {
-        // 未缓存，先下载
-        final record = await ChartRepository.loadSongRecord(widget.song.id);
-        if (record != null) {
-          // 下载音频
-          final audioFile = record.audioUrl.split('/').last;
-          await LineCacheManager().downloadFile(
-            record.audioUrl,
-            'audio',
-            audioFile,
-            onProgress: (p) {
-              if (!mounted) return;
-              setState(() => _downloadProgress = p * 0.8);
-            },
-          );
-
-          // 下载谱面
-          if (!mounted) return;
-          await LineCacheManager().downloadFile(
-            record.chartUrl,
-            'charts',
-            '${widget.song.id}.json',
-            onProgress: (p) {
-              if (!mounted) return;
-              setState(() => _downloadProgress = 0.8 + p * 0.2);
-            },
-          );
-        }
+        await ChartRepository.downloadAudio(
+          record,
+          onProgress: (p) {
+            if (!mounted) return;
+            setState(() => _downloadProgress = p * 0.8);
+          },
+        );
+        if (!mounted) return;
+        await ChartRepository.downloadChart(
+          record,
+          onProgress: (p) {
+            if (!mounted) return;
+            setState(() => _downloadProgress = 0.8 + p * 0.2);
+          },
+        );
       }
 
       if (!mounted) return;

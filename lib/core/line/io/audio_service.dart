@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
+import 'dart:io' show File;
 
 /// 音频与游戏同步器 — 定期校准 Stopwatch 消除漂移
 class _AudioSyncGuard {
@@ -55,9 +56,14 @@ class AudioService {
     _player = AudioPlayer();
     if (audioPath.startsWith('http://') || audioPath.startsWith('https://')) {
       await _player!.setUrl(audioPath);
-    } else {
-      await _player!.setAsset(audioPath);
+      return;
     }
+    final file = File(audioPath);
+    if (await file.exists()) {
+      await _player!.setFilePath(audioPath);
+      return;
+    }
+    await _player!.setAsset(audioPath);
   }
 
   void play() {

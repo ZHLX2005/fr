@@ -9,6 +9,8 @@ export 'domain/song_data.dart';
 export 'domain/particle.dart';
 export 'domain/game_result.dart';
 export 'domain/song_record.dart';
+export 'io/line_song_spec.dart';
+export 'io/chart_repository.dart';
 export 'presentation/falling_note.dart';
 export 'presentation/painters/game_painter.dart';
 export 'presentation/painters/water_effect_painter.dart';

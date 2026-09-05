@@ -4,8 +4,8 @@
 //   ① remoteCover（KV 远程封面，ve game-skin-admin 上传，见 game_center_skin_spec.dart）
 //   ② backgroundPath（用户在 Lab 里给该 demo 设的自定义背景图）
 //   ③ 程序化「专属渐变 + 装饰图案 + 主图标」兜底
-// 图片层统一走"图片 + 压暗蒙版"，保证标题文字始终可读；
-// 任意图片加载失败时露出下层渐变，不白屏。
+// 有图时：BoxFit.cover 铺满 + 不透明底，绝不透出程序化配色；
+// 无图时：专属渐变兜底。压暗蒙版保证标题可读。
 //
 // 配色 / 图标 / 图案的登记表在 const_game_center.dart。
 
@@ -46,40 +46,46 @@ class GameArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 底：渐变（图片加载失败时也不会露白）
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: meta.gradient,
+        // 底色：有图用纯黑垫底（加载中/透明边也不透程序化配色）；无图才用专属渐变
+        if (_usePhoto)
+          const ColoredBox(color: Color(0xFF000000))
+        else
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: meta.gradient,
+              ),
             ),
           ),
-        ),
         if (_hasCover)
-          // 远程封面：CachedNetworkImageProvider 由调用方构造（game_center_skin_spec.dart）。
-          // 失败/加载中 → 透明（露出下层渐变，与 DemoCoverImage.transparentFallback 同语义）
           Positioned.fill(
             child: Image(
               image: remoteCover!,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              alignment: Alignment.center,
+              gaplessPlayback: true,
+              // 失败时保持黑底，不回退到程序化配色
+              errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF000000)),
             ),
           )
         else if (_hasImage)
-          // 透明兜底：加载中/失败时露出下层专属渐变，不需要占位底色
           Positioned.fill(
             child: DemoCoverImage(
               path: backgroundPath!,
+              fit: BoxFit.cover,
+              // 透明占位：露出上方纯黑垫底，不透程序化配色
               transparentFallback: true,
             ),
           )
         else
           Positioned.fill(
-            child: CustomPaint(painter: _ArtPatternPainter(meta.pattern, scheme: Theme.of(context).colorScheme)),
+            child: CustomPaint(painter: _ArtPatternPainter(meta.pattern, scheme: scheme)),
           ),
         // 压暗蒙版：让上层白色文字/角标在任何底色上都可读
         Positioned.fill(
@@ -89,8 +95,8 @@ class GameArtwork extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _usePhoto ? 0.28 : 0.06),
-                  Theme.of(context).colorScheme.onSurface.withValues(alpha: _usePhoto ? 0.55 : 0.30),
+                  scheme.onSurface.withValues(alpha: _usePhoto ? 0.28 : 0.06),
+                  scheme.onSurface.withValues(alpha: _usePhoto ? 0.55 : 0.30),
                 ],
               ),
             ),
@@ -101,7 +107,7 @@ class GameArtwork extends StatelessWidget {
             child: Icon(
               meta.icon,
               size: iconSize,
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+              color: scheme.surface.withValues(alpha: 0.92),
             ),
           ),
       ],

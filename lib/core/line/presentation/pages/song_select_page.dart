@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/song_data.dart';
@@ -54,21 +56,31 @@ class _SongSelectPageState extends State<SongSelectPage> {
 
   void _onStart() {
     if (_selectedSong == null) return;
+    unawaited(_startGame(_selectedSong!));
+  }
 
+  Future<void> _startGame(SongData selected) async {
     final chart = ChartData(
-      name: _selectedSong!.name,
-      bpm: _selectedSong!.bpm,
-      dropDuration: _selectedSong!.dropDuration,
-      notes: _selectedSong!.notes,
+      name: selected.name,
+      bpm: selected.bpm,
+      dropDuration: selected.dropDuration,
+      notes: selected.notes,
     );
 
-    Navigator.of(context).pushReplacement(
+    // 优先本地缓存音频（KV File 下载后的路径）；否则回退远程 URL
+    String? audioPath = selected.audioPath.isNotEmpty ? selected.audioPath : null;
+    final record = await ChartRepository.loadSongRecord(selected.id);
+    if (record != null) {
+      final local = await ChartRepository.cachedAudioPath(record);
+      if (local != null) audioPath = local;
+    }
+
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => GamePage(
           chart: chart,
-          audioPath: _selectedSong!.audioPath.isNotEmpty
-              ? _selectedSong!.audioPath
-              : null,
+          audioPath: audioPath,
         ),
       ),
     );

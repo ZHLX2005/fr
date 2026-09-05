@@ -134,6 +134,31 @@ dart run tool/publish_game_center_index.dart
 
 发布后 ve game-skin-admin `?tab=covers` 即可看到新列表。
 
+## 音游「线」曲库（line_song，2026-09-05 起）
+
+从 Supabase `music` 表 + Storage 迁到 KV/File（与封面/皮肤同构）：
+
+| 项 | 值 |
+| --- | --- |
+| KV key | `line_song:index` |
+| tag | `line-song` / `line-song:<songId>` / `line-song:<songId>:<asset>` |
+| 资产 | `audio` / `cover` / `chart`（谱面 JSON 走 File，不进 KV body） |
+| groupId | 190 public |
+| fr | `ChartRepository` ← `PublicKvReader` + `/files/<fileId>` + `line_cache` |
+
+**迁移（已登录 kvcli）**：
+
+```bash
+# 预览（不上传）
+python .claude/skills/chess-skin-pipeline/scripts/migrate_line_from_supabase.py --dry-run
+
+# 正式迁移
+python .claude/skills/chess-skin-pipeline/scripts/migrate_line_from_supabase.py
+# 可选：--limit 1 --base http://host:port --group 190
+```
+
+同 id 覆盖会 best-effort 删除旧 fileId。客户端进游戏中心 →「线」选歌即可。
+
 ## 引用索引
 
 | ref | 何时读取 | 路径 |
