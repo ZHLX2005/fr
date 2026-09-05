@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../domain/constants.dart';
 import '../../domain/song_data.dart';
 import '../../domain/song_medal.dart';
+import '../../engine/hit_feedback.dart';
 import '../../io/chart_repository.dart';
 import 'rotating_cover.dart';
 import 'song_list_tile.dart';
@@ -206,7 +208,7 @@ class _SongDetailPanelState extends State<SongDetailPanel>
           record,
           onProgress: (p) {
             if (!mounted) return;
-            setState(() => _downloadProgress = p * 0.8);
+            setState(() => _downloadProgress = p * 0.7);
           },
         );
         if (!mounted) return;
@@ -214,10 +216,22 @@ class _SongDetailPanelState extends State<SongDetailPanel>
           record,
           onProgress: (p) {
             if (!mounted) return;
-            setState(() => _downloadProgress = 0.8 + p * 0.2);
+            setState(() => _downloadProgress = 0.7 + p * 0.15);
           },
         );
+      } else if (mounted) {
+        setState(() => _downloadProgress = 0.85);
       }
+
+      // 打击音效须在进局前解码完成（mp3 asset → AudioPlayer）
+      if (!mounted) return;
+      setState(() => _downloadProgress = 0.9);
+      final prefs = await SharedPreferences.getInstance();
+      await HitFeedback.ensureLoaded(
+        hapticsEnabled: prefs.getBool(lineHapticsKey) ?? true,
+        sfxEnabled: prefs.getBool(lineHitSfxKey) ?? true,
+        strict: true,
+      );
 
       if (!mounted) return;
       setState(() => _downloadProgress = 1.0);
@@ -226,7 +240,7 @@ class _SongDetailPanelState extends State<SongDetailPanel>
       if (!mounted) return;
       setState(() {
         _isStarting = false;
-        _downloadError = '下载失败';
+        _downloadError = '资源加载失败';
       });
     }
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/song_data.dart';
 import '../../domain/song_medal.dart';
+import '../../engine/hit_feedback.dart';
 import '../../io/chart_repository.dart';
 import '../../io/line_orientation.dart';
 import '../../settings/line_settings.dart';
@@ -40,6 +41,12 @@ class _SongSelectPageState extends State<SongSelectPage> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onBack() {
+    // 返回上级才释放；进局用 pushReplacement 也会 dispose，不能在 dispose 里释放
+    unawaited(HitFeedback.releaseSession());
+    Navigator.of(context).pop();
   }
 
   Future<void> _loadSongs() async {
@@ -151,7 +158,7 @@ class _SongSelectPageState extends State<SongSelectPage> {
                       color: color,
                       size: 24,
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: _onBack,
                   ),
                 ),
                 const Spacer(),

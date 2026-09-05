@@ -93,7 +93,8 @@ class GameController {
 
   int highScore = 0;
   final GameEngine _engine = GameEngine();
-  final HitFeedback _hitFeedback = HitFeedback();
+  /// 由 [init] 里 [HitFeedback.ensureLoaded] 赋值（选曲页已预加载则秒就绪）
+  late HitFeedback _hitFeedback;
 
   int get score => _engine.score;
   double get health => _engine.health;
@@ -125,7 +126,6 @@ class GameController {
 
   Future<void> init() async {
     await _loadSettings();
-    await _hitFeedback.init();
     if (audioPath != null) {
       _audioService = AudioService(audioPath: audioPath!);
       await _audioService!.init();
@@ -161,7 +161,7 @@ class GameController {
   void dispose() {
     _clock.stop();
     _audioService?.dispose();
-    unawaited(_hitFeedback.dispose());
+    // 音效会话由选曲页 / HitFeedback.releaseSession 释放，此处不 dispose
     for (final col in notes) {
       for (final note in col) {
         note.controller.dispose();
@@ -204,13 +204,17 @@ class GameController {
     scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
     inputOffsetMs = prefs.getInt(lineInputOffsetKey) ?? 0;
     _clock.inputOffsetMs = inputOffsetMs;
-    _hitFeedback.hapticsEnabled = prefs.getBool(lineHapticsKey) ?? true;
-    _hitFeedback.sfxEnabled = prefs.getBool(lineHitSfxKey) ?? true;
     showEarlyLate = prefs.getBool(lineShowEarlyLateKey) ?? true;
     highScore = prefs.getInt(highScoreKey) ?? 0;
     final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
     backgroundStyle = BackgroundStyle
         .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
+    // 进局前须已预加载；此处复用会话并同步开关
+    _hitFeedback = await HitFeedback.ensureLoaded(
+      hapticsEnabled: prefs.getBool(lineHapticsKey) ?? true,
+      sfxEnabled: prefs.getBool(lineHitSfxKey) ?? true,
+      strict: true,
+    );
     onStateChanged?.call();
   }
 

@@ -75,7 +75,6 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
         curve: Curves.easeOut,
         child: Container(
           decoration: BoxDecoration(
-            color: hasPhoto ? meta.gradient.first : null,
             borderRadius: BorderRadius.circular(kGcCardRadius + 4),
             boxShadow: [
               BoxShadow(
@@ -239,8 +238,8 @@ class _GameGridCardState extends State<GameGridCard> {
         curve: Curves.easeOut,
         child: Container(
           decoration: BoxDecoration(
-            // 有封面时用游戏渐变首色垫底，禁止纯黑
-            color: hasPhoto ? meta.gradient.first : scheme.surfaceContainerLow,
+            // 有封面：透明垫底；无封面：surface 底
+            color: hasPhoto ? null : scheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(kGcCardRadius),
             border: Border.all(
               color: scheme.outlineVariant.withValues(alpha: hasPhoto ? 0.25 : 0.5),

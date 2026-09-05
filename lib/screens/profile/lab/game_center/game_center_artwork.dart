@@ -4,7 +4,7 @@
 //   ① remoteCover（KV 远程封面，ve game-skin-admin 上传，见 game_center_skin_spec.dart）
 //   ② backgroundPath（用户在 Lab 里给该 demo 设的自定义背景图）
 //   ③ 程序化「专属渐变 + 装饰图案 + 主图标」兜底
-// 有图时：BoxFit.cover 铺满；垫底用该游戏渐变（禁止纯黑）。
+// 有图时：BoxFit.cover 铺满；垫底透明（不露游戏渐变色边）。
 // 无图时：专属渐变兜底。压暗蒙版保证标题可读。
 //
 // 配色 / 图标 / 图案的登记表在 const_game_center.dart。
@@ -64,8 +64,9 @@ class GameArtwork extends StatelessWidget {
       // 不在此裁切：让图片微外扩到卡片 Clip，吃掉圆角发丝缝
       clipBehavior: Clip.none,
       children: [
-        // 垫底：永远是游戏渐变，禁止纯黑
-        _gradientBase(),
+        // 有图：垫底透明，避免圆角/发丝缝露出品牌渐变
+        // 无图：专属渐变兜底
+        if (!_usePhoto) _gradientBase(),
         if (_hasCover)
           Positioned(
             left: -2,
@@ -80,7 +81,6 @@ class GameArtwork extends StatelessWidget {
               height: double.infinity,
               gaplessPlayback: true,
               filterQuality: FilterQuality.medium,
-              // 失败：露出下层渐变，绝不回退成黑块
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           )

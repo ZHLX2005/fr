@@ -1,51 +1,136 @@
 #!/usr/bin/env python3
 """
-音游打击音效生成器 — 合成 tap / slide / hold 三种不同音色的 WAV。
+音游打击音效生成器 — 基于真实采样（非合成）。
 
-仅依赖 numpy + 标准库 wave。用法：
+为什么不用纯合成：简单方波/噪底很难做出 Phigros 那种采样质感。
+本脚本从 Sonic Pi 官方样本库拉取 CC0 真实镲片/刮碟采样，裁剪、淡出、归一化后写出：
+
+  tap   ← 闭镲 one-shot（脆「哧」）
+  slide ← vinyl scratch（打碟「唰」）
+  hold  ← 短开镲/金属镲（持续「嘶」）
+
+许可：Creative Commons Zero（可商用、可再分发，无需署名）。
+来源：https://github.com/sonic-pi-net/sonic-pi/tree/main/etc/samples
+原 Freesound 链接见该目录 README。
+
+依赖：numpy + soundfile（pip install soundfile）
 
   python scripts/generate_line_sfx.py
-  python scripts/generate_line_sfx.py -o assets/line/sfx
+  python scripts/generate_line_sfx.py --offline   # 只用本地缓存，不联网
 """
 
 from __future__ import annotations
 
 import argparse
-import math
+import urllib.request
 import wave
 from pathlib import Path
 
 import numpy as np
 
+try:
+    import soundfile as sf
+except ImportError as e:  # pragma: no cover
+    raise SystemExit(
+        "需要 soundfile：pip install soundfile\n" + str(e)
+    ) from e
+
 SAMPLE_RATE = 44100
+SONIC_PI_RAW = (
+    "https://raw.githubusercontent.com/sonic-pi-net/sonic-pi/main/etc/samples"
+)
+
+# 角色 → 源文件（CC0）
+SOURCES = {
+    "tap": "drum_cymbal_closed.flac",  # 经典闭镲，短脆
+    "slide": "vinyl_scratch.flac",  # 打碟刮擦
+    "hold": "hat_zild.flac",  # 金属镲短持续
+}
+
+# 各角色目标时长 / 淡出
+SHAPE = {
+    "tap": dict(max_ms=70, fade_ms=18, peak=0.82, gain=1.15),
+    "slide": dict(max_ms=160, fade_ms=40, peak=0.78, gain=1.0),
+    "hold": dict(max_ms=260, fade_ms=70, peak=0.76, gain=1.05),
+}
 
 
-def _fade(n: int, attack: float, release: float) -> np.ndarray:
-    """线性 attack / release 包络，长度 n 采样。"""
-    env = np.ones(n, dtype=np.float64)
-    a = max(1, int(n * attack))
-    r = max(1, int(n * release))
-    env[:a] *= np.linspace(0.0, 1.0, a, endpoint=False)
-    env[-r:] *= np.linspace(1.0, 0.0, r, endpoint=False)
-    return env
+def _cache_dir(root: Path) -> Path:
+    d = root / ".tmp" / "line_sfx_src"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
-def _exp_decay(n: int, tau_ms: float, sr: int = SAMPLE_RATE) -> np.ndarray:
-    t = np.arange(n, dtype=np.float64) / sr
-    return np.exp(-t / (tau_ms / 1000.0))
+def _download(name: str, cache: Path, offline: bool) -> Path:
+    dest = cache / name
+    if dest.exists() and dest.stat().st_size > 0:
+        return dest
+    if offline:
+        raise FileNotFoundError(f"离线模式缺少缓存: {dest}")
+    url = f"{SONIC_PI_RAW}/{name}"
+    print(f"  download {name} …")
+    urllib.request.urlretrieve(url, dest)
+    return dest
 
 
-def _to_pcm16(samples: np.ndarray, peak: float = 0.85) -> np.ndarray:
-    x = np.asarray(samples, dtype=np.float64)
+def _to_mono(data: np.ndarray) -> np.ndarray:
+    x = np.asarray(data, dtype=np.float64)
+    if x.ndim > 1:
+        x = x.mean(axis=1)
+    return x
+
+
+def _resample_linear(x: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
+    if sr_in == sr_out:
+        return x
+    n_out = int(round(len(x) * sr_out / sr_in))
+    t_in = np.linspace(0.0, 1.0, num=len(x), endpoint=False)
+    t_out = np.linspace(0.0, 1.0, num=n_out, endpoint=False)
+    return np.interp(t_out, t_in, x).astype(np.float64)
+
+
+def _trim_silence(x: np.ndarray, thr: float = 0.008) -> np.ndarray:
+    absx = np.abs(x)
+    idx = np.where(absx > thr)[0]
+    if len(idx) == 0:
+        return x
+    start = max(0, int(idx[0]) - 8)
+    end = min(len(x), int(idx[-1]) + 32)
+    return x[start:end]
+
+
+def _shape(
+    x: np.ndarray,
+    sr: int,
+    *,
+    max_ms: float,
+    fade_ms: float,
+    peak: float,
+    gain: float,
+) -> np.ndarray:
+    x = _trim_silence(x * gain)
+    max_n = int(sr * max_ms / 1000.0)
+    if len(x) > max_n:
+        x = x[:max_n].copy()
+
+    fade_n = min(len(x), int(sr * fade_ms / 1000.0))
+    if fade_n > 1:
+        x[-fade_n:] *= np.linspace(1.0, 0.0, fade_n, endpoint=True) ** 1.35
+
+    # 起音微抬，增加「脆」
+    atk = min(len(x), int(sr * 0.002))
+    if atk > 1:
+        x[:atk] *= np.linspace(0.55, 1.0, atk, endpoint=False)
+
     m = np.max(np.abs(x))
     if m > 1e-12:
         x = x / m * peak
-    return np.clip(x * 32767.0, -32768, 32767).astype(np.int16)
+    return x.astype(np.float64)
 
 
-def write_wav(path: Path, samples: np.ndarray, sr: int = SAMPLE_RATE) -> None:
+def _write_wav(path: Path, samples: np.ndarray, sr: int = SAMPLE_RATE) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    pcm = _to_pcm16(samples)
+    pcm = np.clip(samples * 32767.0, -32768, 32767).astype(np.int16)
     with wave.open(str(path), "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
@@ -53,131 +138,64 @@ def write_wav(path: Path, samples: np.ndarray, sr: int = SAMPLE_RATE) -> None:
         wf.writeframes(pcm.tobytes())
 
 
-# ---------------------------------------------------------------------------
-# tap — 短促清脆点击（木块 + 高音叮）
-# ---------------------------------------------------------------------------
-def synth_tap(sr: int = SAMPLE_RATE) -> np.ndarray:
-    duration = 0.09
-    n = int(sr * duration)
-    t = np.arange(n, dtype=np.float64) / sr
+def _write_attribution(out_dir: Path) -> None:
+    text = """# Line SFX 来源说明
 
-    # 主体：中高频短促正弦，指数衰减
-    body = (
-        0.7 * np.sin(2 * math.pi * 1850 * t)
-        + 0.35 * np.sin(2 * math.pi * 3700 * t)
-    ) * _exp_decay(n, tau_ms=28, sr=sr)
+本目录 wav 由 `scripts/generate_line_sfx.py` 从 Sonic Pi 样本库裁剪生成。
 
-    # 瞬态：很短的噪声 burst，增加“敲击感”
-    noise = np.random.default_rng(42).uniform(-1.0, 1.0, n)
-    click = noise * _exp_decay(n, tau_ms=6, sr=sr) * 0.45
+- 许可：Creative Commons Zero (CC0)
+- 上游：https://github.com/sonic-pi-net/sonic-pi/tree/main/etc/samples
+- 映射：
+  - tap.wav   ← drum_cymbal_closed.flac
+  - slide.wav ← vinyl_scratch.flac
+  - hold.wav  ← hat_zild.flac
 
-    # 低频垫底，避免过于尖锐
-    thud = 0.25 * np.sin(2 * math.pi * 220 * t) * _exp_decay(n, tau_ms=40, sr=sr)
-
-    out = (body + click + thud) * _fade(n, attack=0.01, release=0.25)
-    return out
+Phigros 等商业音游音效受版权保护，不可直接使用；本方案用公开域真实采样逼近「脆镲 / 打碟」手感。
+"""
+    (out_dir / "SOURCES.md").write_text(text, encoding="utf-8")
 
 
-# ---------------------------------------------------------------------------
-# slide — 空气感扫音（噪声 whoosh + 频率扫频）
-# ---------------------------------------------------------------------------
-def synth_slide(sr: int = SAMPLE_RATE) -> np.ndarray:
-    duration = 0.22
-    n = int(sr * duration)
-    t = np.arange(n, dtype=np.float64) / sr
-    rng = np.random.default_rng(7)
-
-    # 上升扫频：像手指划过
-    f0, f1 = 420.0, 2400.0
-    phase = 2 * math.pi * (f0 * t + (f1 - f0) * t * t / (2 * duration))
-    chirp = 0.35 * np.sin(phase)
-
-    # 带通式噪声 whoosh：用积分噪声做简单高通后再包络
-    white = rng.normal(0.0, 1.0, n)
-    # 一阶差分 ≈ 高通，再平滑一点
-    whoosh = np.diff(white, prepend=white[0])
-    whoosh = np.convolve(whoosh, np.ones(32) / 32.0, mode="same")
-    # 中心能量在中段偏前
-    whoosh_env = np.sin(math.pi * np.clip(t / duration, 0, 1)) ** 1.4
-    whoosh = whoosh / (np.max(np.abs(whoosh)) + 1e-12) * whoosh_env * 0.55
-
-    # 轻微谐波扫频，增加“滑轨”质感
-    f2 = 800.0 + 1600.0 * (t / duration)
-    shimmer = 0.18 * np.sin(2 * math.pi * np.cumsum(f2) / sr)
-
-    out = (chirp + whoosh + shimmer) * _fade(n, attack=0.08, release=0.35)
-    return out
-
-
-# ---------------------------------------------------------------------------
-# hold — 柔和起音 + 可感知持续感（双音 pad）
-# ---------------------------------------------------------------------------
-def synth_hold(sr: int = SAMPLE_RATE) -> np.ndarray:
-    duration = 0.45
-    n = int(sr * duration)
-    t = np.arange(n, dtype=np.float64) / sr
-
-    # 根音 + 五度，温暖持续
-    root = 0.45 * np.sin(2 * math.pi * 392.0 * t)  # G4
-    fifth = 0.28 * np.sin(2 * math.pi * 587.33 * t)  # D5
-    octave = 0.12 * np.sin(2 * math.pi * 784.0 * t)  # G5
-
-    # 轻微振幅颤音，避免死板
-    vibrato = 1.0 + 0.04 * np.sin(2 * math.pi * 5.5 * t)
-    pad = (root + fifth + octave) * vibrato
-
-    # 起音叮：短高音提示“按住了”
-    attack_n = int(sr * 0.08)
-    attack_t = t[:attack_n]
-    ding = np.zeros(n, dtype=np.float64)
-    ding[:attack_n] = (
-        0.4 * np.sin(2 * math.pi * 1568 * attack_t) * _exp_decay(attack_n, tau_ms=55, sr=sr)
-    )
-
-    # 慢起快收：适合作为 hold 开始音；尾部淡出避免爆音
-    env = _fade(n, attack=0.12, release=0.4)
-    # 中段保持电平
-    sustain = np.ones(n, dtype=np.float64)
-    sustain[-int(n * 0.35) :] *= np.linspace(1.0, 0.15, int(n * 0.35), endpoint=False)
-    out = (pad * env * sustain + ding) * _fade(n, attack=0.02, release=0.15)
-    return out
-
-
-GENERATORS = {
-    "tap": synth_tap,
-    "slide": synth_slide,
-    "hold": synth_hold,
-}
+def build_one(role: str, cache: Path, offline: bool) -> np.ndarray:
+    src_name = SOURCES[role]
+    path = _download(src_name, cache, offline=offline)
+    data, sr = sf.read(str(path), always_2d=False)
+    x = _to_mono(data)
+    x = _resample_linear(x, int(sr), SAMPLE_RATE)
+    return _shape(x, SAMPLE_RATE, **SHAPE[role])
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="生成音游 tap/slide/hold 打击音效 WAV")
+    parser = argparse.ArgumentParser(description="从 CC0 真实采样生成 line 打击音效")
+    parser.add_argument("-o", "--output", type=Path, default=Path("assets/line/sfx"))
     parser.add_argument(
-        "-o",
-        "--output",
+        "--repo-root",
         type=Path,
-        default=Path("assets/line/sfx"),
-        help="输出目录（默认 assets/line/sfx）",
+        default=Path(__file__).resolve().parents[1],
+        help="仓库根（用于 .tmp 缓存）",
     )
     parser.add_argument(
-        "--sr",
-        type=int,
-        default=SAMPLE_RATE,
-        help=f"采样率（默认 {SAMPLE_RATE}）",
+        "--offline",
+        action="store_true",
+        help="不联网，只用 .tmp/line_sfx_src 缓存",
     )
     args = parser.parse_args()
 
+    cache = _cache_dir(args.repo_root)
     out_dir: Path = args.output
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, gen in GENERATORS.items():
-        samples = gen(sr=args.sr)
-        path = out_dir / f"{name}.wav"
-        write_wav(path, samples, sr=args.sr)
-        ms = len(samples) / args.sr * 1000
-        print(f"  wrote {path}  ({ms:.0f} ms, {args.sr} Hz)")
+    for role in ("tap", "slide", "hold"):
+        samples = build_one(role, cache, offline=args.offline)
+        path = out_dir / f"{role}.wav"
+        _write_wav(path, samples)
+        print(
+            f"  wrote {path}  ({len(samples) / SAMPLE_RATE * 1000:.0f} ms)"
+            f"  ← {SOURCES[role]}"
+        )
 
+    _write_attribution(out_dir)
     print(f"done → {out_dir.resolve()}")
+    print("提示：完整重启 app 才能刷新 asset 缓存。")
 
 
 if __name__ == "__main__":
