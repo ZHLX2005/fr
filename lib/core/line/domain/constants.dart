@@ -15,7 +15,8 @@ const int missWindow = 280;
 /// Hold 身段 tick 间隔（ms）
 const int holdTickIntervalMs = 200;
 
-/// Hold 尾判：相对 (time + holdDuration) 的窗口仍用 missWindow
+/// Hold 尾判：相对 (time + holdDuration) —— 当前机制**不启用尾判**，
+/// 仅用此比例判断「过早松手」是否 Miss。
 const double holdEarlyReleaseRatio = 0.62;
 
 // ── 手势阈值 ──

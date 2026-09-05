@@ -345,7 +345,7 @@ class GamePainter extends CustomPainter {
     }
     if (alpha < 0.01) return;
 
-    final bodyTop = tailY + headR * 0.28;
+    final bodyTop = tailY;
     final bodyBottom = headY - headR * 0.28;
     final bodyH = (bodyBottom - bodyTop).clamp(0.0, double.infinity);
 
@@ -420,30 +420,7 @@ class GamePainter extends CustomPainter {
       }
     }
 
-    // ── 尾帽（释放点）──
-    final tailCenter = Offset(cx, tailY + headR * 0.12);
-    canvas.drawCircle(
-      tailCenter,
-      headR * 0.52,
-      Paint()
-        ..color = color.withValues(alpha: alpha * 0.2)
-        ..style = PaintingStyle.fill,
-    );
-    canvas.drawCircle(
-      tailCenter,
-      headR * 0.52,
-      Paint()
-        ..color = color.withValues(alpha: alpha * 0.9)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4,
-    );
-    canvas.drawCircle(
-      tailCenter,
-      headR * 0.16,
-      Paint()
-        ..color = color.withValues(alpha: alpha * 0.75)
-        ..style = PaintingStyle.fill,
-    );
+    // 无尾盘：轨道顶端圆角即结束，不画释放点圆盘
 
     // ── 头圆（按下点）──
     final headPulse = note.holding

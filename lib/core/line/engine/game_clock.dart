@@ -68,7 +68,7 @@ int expectedHoldTicks(int holdDurationMs) {
   return (holdDurationMs / holdTickIntervalMs).floor().clamp(0, 64);
 }
 
-/// 合成头/身/尾为一次最终判定
+/// 合成头/身为一次最终判定（[tail] 保留参数兼容，机制上 Hold 无尾判，应传 null）
 JudgeResult composeHoldResult({
   required JudgeResult head,
   required int ticksHit,
@@ -90,10 +90,6 @@ JudgeResult composeHoldResult({
     }
   }
 
-  if (tail != null) {
-    label = worseLabel(label, tail.label);
-    signed = tail.signedDiffMs;
-  }
-
+  // 机制无尾判：忽略 tail（即使传入也不并入）
   return judgeFromLabel(label, timingScale, signedDiffMs: signed);
 }

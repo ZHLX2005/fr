@@ -383,11 +383,10 @@ class GameController {
 
         if (note.holding) {
           final endTime = note.event.time + duration;
-          // 进度按谱面时间填，与尾判时刻对齐
+          // 进度按谱面时间填充（无尾判，按满即结）
           note.holdProgress =
               ((elapsed - note.event.time) / duration).clamp(0.0, 1.0);
 
-          // 身段 tick：仅在尾点之前累计
           while (elapsed >= note.holdNextTickAt &&
               note.holding &&
               note.holdNextTickAt <= endTime) {
@@ -395,9 +394,9 @@ class GameController {
             note.holdNextTickAt += holdTickIntervalMs;
           }
 
-          // 超过尾窗仍未抬手 → 尾 Miss（必须有尾判，禁止假 Perfect）
-          if (elapsed > endTime + scaledMiss) {
-            _finalizeHoldWithTail(col, note, elapsed - endTime);
+          // 机制：Hold 无尾判 / 无尾盘；按住到终点即结算（头+身）
+          if (elapsed >= endTime) {
+            _finalizeHoldHeadBody(col, note);
           }
           continue;
         }
@@ -572,41 +571,35 @@ class GameController {
     holdCompletedColumns.remove(col);
 
     final elapsed = clockMs;
-    final scaledMiss = (missWindow * timingScale).round();
     for (final note in notes[col]) {
       if (!note.holding || note.judged) continue;
       if (note.event.type != NoteType.hold) continue;
 
       final duration = note.event.holdDuration ?? 0;
-      final endTime = note.event.time + duration;
+      final heldTime = elapsed - note.holdPressTime;
       note.holding = false;
 
-      // 过早抬手（尾点前超出 miss 窗，或未到 earlyRelease 比例）→ Miss
-      final tooEarlyByWindow = elapsed < endTime - scaledMiss;
-      final heldTime = elapsed - note.holdPressTime;
-      final tooEarlyByRatio = heldTime < duration * holdEarlyReleaseRatio;
-      if (tooEarlyByWindow || tooEarlyByRatio) {
+      // 无尾判：未按满足够比例就松 → Miss；已够则按头+身结算
+      if (heldTime < duration * holdEarlyReleaseRatio) {
         onNoteMissed(col, note, showFeedback: true);
         return;
       }
 
-      // 尾判：相对谱面结束时刻的抬手误差
-      _finalizeHoldWithTail(col, note, elapsed - endTime);
+      _finalizeHoldHeadBody(col, note);
       return;
     }
   }
 
-  /// 用尾点误差合成最终 Hold 判定并结算
-  void _finalizeHoldWithTail(int col, FallingNote note, int tailSignedDiffMs) {
+  /// Hold 结算：仅头判 + 身段 tick，**不含尾判**（机制上无尾盘）
+  void _finalizeHoldHeadBody(int col, FallingNote note) {
     if (note.judged) return;
     final head =
         note.holdHeadResult ?? judge(note.holdJudgeDiff, timingScale);
-    final tail = judge(tailSignedDiffMs, timingScale);
     final composed = composeHoldResult(
       head: head,
       ticksHit: note.holdTicksHit,
       ticksExpected: note.holdTicksExpected,
-      tail: tail,
+      tail: null,
       timingScale: timingScale,
     );
     heldColumns.remove(col);
@@ -641,7 +634,7 @@ class GameController {
     return false;
   }
 
-  /// Hold 最终结算（头/身/尾已合成）
+  /// Hold 最终结算（头 + 身；机制无尾判）
   void finalizeHold(int col, FallingNote note, JudgeResult composed) {
     if (note.judged) return;
     note.judged = true;
