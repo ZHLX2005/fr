@@ -75,13 +75,12 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
         curve: Curves.easeOut,
         child: Container(
           decoration: BoxDecoration(
-            color: hasPhoto ? const Color(0xFF000000) : null,
+            color: hasPhoto ? meta.gradient.first : null,
             borderRadius: BorderRadius.circular(kGcCardRadius + 4),
             boxShadow: [
               BoxShadow(
-                // 有封面时用中性阴影，避免程序化配色光晕透出
                 color: hasPhoto
-                    ? scheme.onSurface.withValues(alpha: 0.22)
+                    ? scheme.onSurface.withValues(alpha: 0.18)
                     : meta.gradient.last.withValues(alpha: 0.28),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
@@ -240,8 +239,8 @@ class _GameGridCardState extends State<GameGridCard> {
         curve: Curves.easeOut,
         child: Container(
           decoration: BoxDecoration(
-            // 有封面时底色用黑，避免圆角发丝缝透出 surface 色
-            color: hasPhoto ? const Color(0xFF000000) : scheme.surfaceContainerLow,
+            // 有封面时用游戏渐变首色垫底，禁止纯黑
+            color: hasPhoto ? meta.gradient.first : scheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(kGcCardRadius),
             border: Border.all(
               color: scheme.outlineVariant.withValues(alpha: hasPhoto ? 0.25 : 0.5),
@@ -288,7 +287,7 @@ class _GameGridCardState extends State<GameGridCard> {
                   ],
                 ),
               ),
-              // 标题区：有封面时也盖一层实底，避免透出黑
+              // 标题区：实底，避免透出封面垫色
               ColoredBox(
                 color: scheme.surfaceContainerLow,
                 child: Padding(

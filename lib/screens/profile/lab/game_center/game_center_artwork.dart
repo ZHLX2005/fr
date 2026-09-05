@@ -4,7 +4,7 @@
 //   ① remoteCover（KV 远程封面，ve game-skin-admin 上传，见 game_center_skin_spec.dart）
 //   ② backgroundPath（用户在 Lab 里给该 demo 设的自定义背景图）
 //   ③ 程序化「专属渐变 + 装饰图案 + 主图标」兜底
-// 有图时：BoxFit.cover 铺满 + 不透明底，绝不透出程序化配色；
+// 有图时：BoxFit.cover 铺满；垫底用该游戏渐变（禁止纯黑）。
 // 无图时：专属渐变兜底。压暗蒙版保证标题可读。
 //
 // 配色 / 图标 / 图案的登记表在 const_game_center.dart。
@@ -44,6 +44,18 @@ class GameArtwork extends StatelessWidget {
 
   bool get _usePhoto => _hasCover || _hasImage;
 
+  Widget _gradientBase() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: meta.gradient,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -52,44 +64,32 @@ class GameArtwork extends StatelessWidget {
       // 不在此裁切：让图片微外扩到卡片 Clip，吃掉圆角发丝缝
       clipBehavior: Clip.none,
       children: [
-        // 底色：有图用纯黑垫底；无图才用专属渐变
-        if (_usePhoto)
-          const ColoredBox(color: Color(0xFF000000))
-        else
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: meta.gradient,
-              ),
-            ),
-          ),
+        // 垫底：永远是游戏渐变，禁止纯黑
+        _gradientBase(),
         if (_hasCover)
-          // DecorationImage 按盒子铺 cover；微外扩吃掉圆角 Clip 发丝缝
           Positioned(
-            left: -1.5,
-            top: -1.5,
-            right: -1.5,
-            bottom: -1.5,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF000000),
-                image: DecorationImage(
-                  image: remoteCover!,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  filterQuality: FilterQuality.medium,
-                ),
-              ),
+            left: -2,
+            top: -2,
+            right: -2,
+            bottom: -2,
+            child: Image(
+              image: remoteCover!,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+              filterQuality: FilterQuality.medium,
+              // 失败：露出下层渐变，绝不回退成黑块
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           )
         else if (_hasImage)
           Positioned(
-            left: -1.5,
-            top: -1.5,
-            right: -1.5,
-            bottom: -1.5,
+            left: -2,
+            top: -2,
+            right: -2,
+            bottom: -2,
             child: DemoCoverImage(
               path: backgroundPath!,
               fit: BoxFit.cover,
@@ -110,8 +110,8 @@ class GameArtwork extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  scheme.onSurface.withValues(alpha: _usePhoto ? 0.28 : 0.06),
-                  scheme.onSurface.withValues(alpha: _usePhoto ? 0.55 : 0.30),
+                  scheme.onSurface.withValues(alpha: _usePhoto ? 0.22 : 0.06),
+                  scheme.onSurface.withValues(alpha: _usePhoto ? 0.48 : 0.30),
                 ],
               ),
             ),
