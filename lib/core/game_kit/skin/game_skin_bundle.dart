@@ -77,6 +77,7 @@ class GameSkinBundle {
         meta: meta,
         fileResolver: fileResolver,
         boardBackgroundFileNameOf: LocalGameSkin.boardBackgroundFileName,
+        spec: spec,
       );
     }
   }
@@ -91,6 +92,7 @@ class GameSkinBundle {
         meta: meta,
         fileResolver: fileResolver,
         boardBackgroundFileNameOf: LocalGameSkin.boardBackgroundFileName,
+        spec: spec,
       );
     }
   }

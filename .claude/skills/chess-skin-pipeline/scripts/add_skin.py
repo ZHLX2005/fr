@@ -51,6 +51,8 @@ GAME_ASSET_KEYS = {
     "chess": ["wK", "wQ", "wR", "wB", "wN", "wp", "bK", "bQ", "bR", "bB", "bN", "bp"],
     # gomoku: 黑/白子 + 棋盘底图（如需棋盘颜色自定义，另走 BoardPalette，不在 skin file 集内）
     "gomoku": ["black", "white", "board"],
+    # game-center: 游戏中心封面（skinId = fr demo.slug；small 卡片小图 / large 轮播大图）
+    "game-center": ["small", "large"],
 }
 
 # 每游戏文件名映射（pieceKey → 期望文件名；chess 保留 00_* 历史命名，gomoku 用语义名）
@@ -63,10 +65,14 @@ _CHESS_NAME_BY_KEY = {
 _GOMOKU_NAME_BY_KEY = {
     "black": "black.png", "white": "white.png", "board": "board.png",
 }
+_GAME_CENTER_NAME_BY_KEY = {
+    "small": "small.webp", "large": "large.webp",
+}
 
 GAME_FILE_MAPS = {
     "chess": _CHESS_NAME_BY_KEY,
     "gomoku": _GOMOKU_NAME_BY_KEY,
+    "game-center": _GAME_CENTER_NAME_BY_KEY,
 }
 
 # ── 向后兼容：保留旧顶层常量（旧调用/外部引用不受影响） ──

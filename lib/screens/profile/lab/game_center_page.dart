@@ -18,6 +18,7 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../lab/lab_container.dart';
 import 'demo_detail_page.dart';
@@ -58,6 +59,25 @@ class _GameCenterPageState extends State<GameCenterPage>
         .where(seen.add)
         .toList();
 
+    // debug 校验：目录（KV 事实源，ve 管理端消费）与当前注册表 / kGameMeta 一致，
+    // 防止发布工具把过期列表发上 KV。不一致在 debug 构建直接崩（发布前必现）。
+    assert(() {
+      final slugs = _games.map((d) => d.slug).toSet();
+      for (final e in kGameCenterCatalog) {
+        assert(
+          slugs.contains(e.slug),
+          'game-center catalog slug "${e.slug}" is not registered as DemoType.game; '
+          'add it to kGameCenterCatalog / demo, or drop it from the catalog',
+        );
+        assert(
+          kGameMeta.containsKey(e.slug),
+          'game-center catalog slug "${e.slug}" missing in kGameMeta; '
+          'add a GameMeta entry in const_game_center.dart',
+        );
+      }
+      return true;
+    }());
+
     _revealController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -68,7 +88,12 @@ class _GameCenterPageState extends State<GameCenterPage>
 
     // 拉取游戏中心封面索引（best-effort：网络失败静默回退程序化封面）。
     // 封面管线：ve game-skin-admin 上传 → KV public game-center_skin:index → 这里合入。
-    unawaited(fetchAndMergeGameCenterSkins());
+    // 成功后必须 setState：卡片在 build 时读 gameCenterCoverOf，否则首屏一直停在程序化兜底。
+    unawaited(
+      fetchAndMergeGameCenterSkins().then((ok) {
+        if (ok && mounted) setState(() {});
+      }),
+    );
   }
 
   @override

@@ -94,6 +94,46 @@ python .claude/skills/chess-skin-pipeline/scripts/retag_existing.py
 # 3) 客户端重启 app → 新皮肤出现在换肤列表（无需发版）
 ```
 
+## 游戏中心封面（game-center，2026-09-05 起）
+
+游戏中心把**每款游戏的封面**当皮肤资产管理（`ve game-skin-admin → KV public → fr 客户端免发版`）：
+
+- **skinId = fr demo.slug**（如 `gomoku-lua`、`game-2048`），与 `kGameMeta` / `GameDefinition.slug` 字符级一致
+- **每款游戏 2 个资产**：
+  | assetKey | 用途 | 建议尺寸 |
+  | --- | --- | --- |
+  | `small` | 游戏中心网格卡封面 | 1.2:1（如 512×432） |
+  | `large` | 收藏轮播大卡封面 | 16:9（如 960×540） |
+- KV key：`game-center_skin:index`（groupId 190）；tag：`game-center-skin`；file key：`game-center/<slug>/<assetKey>`
+- fr 客户端：`GameCenterPage.initState` 拉取，`GameArtwork` 按 远程封面 > 用户自定义背景 > 程序化 渲染；未上传封面自动回退程序化，不崩
+
+**上传一款游戏封面**（已登录 kvcli）：
+
+```bash
+python .claude/skills/chess-skin-pipeline/scripts/add_skin.py <封面目录> <slug> --game game-center --name "<游戏名>"
+# 例：python .../add_skin.py D:/covers/gomoku gomoku-lua --game game-center --name "五子棋（联机）"
+```
+
+目录只需 2 个文件：`small.webp` + `large.webp`（允许 png/jpg 互换，脚本按 stem 兜底）。
+发布后重启 app 进游戏中心即可看到新封面；换图只需重传同 slug（version+1）。
+
+### 游戏中心目录（game-center_catalog，2026-09-05 起）
+
+ve 的「游戏封面」tab **游戏列表来自 fr 发布的 KV 目录**，不手维护：
+
+- KV key：`game-center_catalog:index`（groupId 190）；tag：`game-center-catalog`；value = JSON array（每项 slug/title/description/mode/categories/isOnline）
+- 事实源：`lib/core/game_kit/game_center_catalog.dart` 的 `kGameCenterCatalog`（slug 必须与 `DemoPage.slug`、`kGameMeta` 一致；`GameCenterPage.initState` 有 debug 断言防漂移）
+- **新增/下线游戏**：改 `kGameCenterCatalog`（+ 对应 demo 注册 / kGameMeta）后重发即可，ve 侧零改动
+
+**发布目录**（已登录 kvcli）：
+
+```bash
+dart run tool/publish_game_center_index.dart
+# 可选：--base <url> --group <n>（默认 http://47.110.80.47:8988 / 190）
+```
+
+发布后 ve game-skin-admin `?tab=covers` 即可看到新列表。
+
 ## 引用索引
 
 | ref | 何时读取 | 路径 |

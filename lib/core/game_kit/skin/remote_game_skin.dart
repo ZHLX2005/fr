@@ -10,16 +10,21 @@ import 'file_resolver.dart';
 import 'game_skin_bundle.dart';
 import 'game_skin_localizer.dart';
 import 'game_skin_meta.dart';
+import 'game_skin_spec.dart';
 
 class RemoteGameSkin implements GameSkin {
   final GameSkinMeta meta;
   final FileResolver fileResolver;
   final String Function(FileRef bg) boardBackgroundFileNameOf;
 
+  /// 本地缓存分区（chess / gomoku / game-center）；缺省 chess 兼容旧调用。
+  final GameSkinSpec spec;
+
   const RemoteGameSkin({
     required this.meta,
     required this.fileResolver,
     required this.boardBackgroundFileNameOf,
+    this.spec = kChessSkinSpec,
   });
 
   @override
@@ -42,7 +47,8 @@ class RemoteGameSkin implements GameSkin {
   }
 
   ImageProvider _providerFor(String localFileName, String fileId) {
-    final local = GameSkinLocalizer.cachedPieceFile(
+    final local = GameSkinLocalizer.cachedPieceFileFor(
+      spec,
       meta.id,
       localFileName,
       expectedFileId: fileId,
