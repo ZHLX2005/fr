@@ -32,9 +32,12 @@ class HitFeedback {
   AudioPlayer? _tap;
   AudioPlayer? _slide;
   AudioPlayer? _hold;
+  /// Hold 身段脉冲（同素材、更轻），与起手可重叠
+  AudioPlayer? _holdPulse;
   AndroidLoudnessEnhancer? _tapBoost;
   AndroidLoudnessEnhancer? _slideBoost;
   AndroidLoudnessEnhancer? _holdBoost;
+  AndroidLoudnessEnhancer? _holdPulseBoost;
   bool _ready = false;
 
   bool get isReady => _ready;
@@ -104,9 +107,12 @@ class HitFeedback {
       _tap?.setVolume(playerVol) ?? Future.value(),
       _slide?.setVolume(playerVol) ?? Future.value(),
       _hold?.setVolume(playerVol) ?? Future.value(),
+      // 身段脉冲约为起手的 40%，形成「咚、咚咚咚」层次
+      _holdPulse?.setVolume(playerVol * 0.4) ?? Future.value(),
       _applyBoost(_tapBoost, gainDb),
       _applyBoost(_slideBoost, gainDb),
       _applyBoost(_holdBoost, gainDb),
+      _applyBoost(_holdPulseBoost, gainDb * 0.5),
     ]);
   }
 
@@ -134,23 +140,28 @@ class HitFeedback {
       final tapPair = await _createPlayer();
       final slidePair = await _createPlayer();
       final holdPair = await _createPlayer();
+      final holdPulsePair = await _createPlayer();
       _tap = tapPair.$1;
       _tapBoost = tapPair.$2;
       _slide = slidePair.$1;
       _slideBoost = slidePair.$2;
       _hold = holdPair.$1;
       _holdBoost = holdPair.$2;
+      _holdPulse = holdPulsePair.$1;
+      _holdPulseBoost = holdPulsePair.$2;
 
       await Future.wait([
         _tap!.setAsset(tapAsset),
         _slide!.setAsset(slideAsset),
         _hold!.setAsset(holdAsset),
+        _holdPulse!.setAsset(holdAsset),
       ]);
       await setVolume(_volume);
       await Future.wait([
         _tap!.seek(Duration.zero),
         _slide!.seek(Duration.zero),
         _hold!.seek(Duration.zero),
+        _holdPulse!.seek(Duration.zero),
       ]);
       _ready = true;
     } catch (e, st) {
@@ -180,6 +191,19 @@ class HitFeedback {
     _playSfx(noteType);
   }
 
+  /// Hold 起手：完整「咚」
+  void playHoldStart(JudgeResultLabel label) {
+    play(label: label, noteType: NoteType.hold);
+  }
+
+  /// Hold 身段脉冲：更轻的「咚」，按住期间周期触发
+  void playHoldPulse() {
+    if (!sfxEnabled || !_ready || _volume <= 0.001) return;
+    final player = _holdPulse;
+    if (player == null) return;
+    player.seek(Duration.zero).then((_) => player.play()).catchError((_) {});
+  }
+
   void playMiss() {
     if (hapticsEnabled) {
       HapticFeedback.vibrate();
@@ -202,12 +226,15 @@ class HitFeedback {
       _tap?.dispose() ?? Future.value(),
       _slide?.dispose() ?? Future.value(),
       _hold?.dispose() ?? Future.value(),
+      _holdPulse?.dispose() ?? Future.value(),
     ]);
     _tap = null;
     _slide = null;
     _hold = null;
+    _holdPulse = null;
     _tapBoost = null;
     _slideBoost = null;
     _holdBoost = null;
+    _holdPulseBoost = null;
   }
 }

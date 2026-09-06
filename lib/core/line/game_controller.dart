@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'domain/chart_data.dart';
@@ -401,6 +400,7 @@ class GameController {
               note.holdNextTickAt <= endTime) {
             note.holdTicksHit++;
             note.holdNextTickAt += holdTickIntervalMs;
+            _hitFeedback.playHoldPulse();
           }
 
           // 机制：Hold 无尾判 / 无尾盘；按住到终点即结算（头+身）
@@ -563,10 +563,7 @@ class GameController {
       foundNote.holdTicksHit = 0;
       foundNote.holdNextTickAt = elapsed + holdTickIntervalMs;
       heldColumns.add(col);
-      if (head.label == JudgeResultLabel.perfect &&
-          _hitFeedback.hapticsEnabled) {
-        HapticFeedback.lightImpact();
-      }
+      _hitFeedback.playHoldStart(head.label);
       onStateChanged?.call();
     }
   }
@@ -684,10 +681,13 @@ class GameController {
     } else {
       _engine.applyJudge(result);
       _showHitFeedback(col, note, result);
-      _hitFeedback.play(
-        label: result.label,
-        noteType: note.event.type,
-      );
+      // Hold：起手 + 身段脉冲已播「咚咚咚」，结算不再重复
+      if (note.event.type != NoteType.hold) {
+        _hitFeedback.play(
+          label: result.label,
+          noteType: note.event.type,
+        );
+      }
       judgeLineFlash = 1.0;
       _maybeComboMilestone();
     }

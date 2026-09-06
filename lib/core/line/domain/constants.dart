@@ -44,7 +44,7 @@ const String lineSfxVolumeKey = 'line_demo_sfx_volume';
 const String lineBgmVolumeKey = 'line_demo_bgm_volume';
 
 /// 默认击打音量 / BGM 音量（用户偏好；音效可到 [lineSfxVolumeMax]）
-const double lineDefaultSfxVolume = 0.65;
+const double lineDefaultSfxVolume = 0.7;
 const double lineDefaultBgmVolume = 0.7;
 
 /// 音效音量滑条上限（>1 为轻度额外增益）
