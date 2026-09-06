@@ -536,6 +536,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   }
 
   Future<void> _openCatalog(NovelCanvasReaderController controller) async {
+    final entries = controller.tocEntries;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -544,13 +545,15 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
         return SafeArea(
           child: Column(
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: Row(
                   children: [
                     Text(
-                      'Pages',
-                      style: TextStyle(
+                      entries.any((e) => e.progressLabel == null)
+                          ? 'Contents'
+                          : 'Jump',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF4B3728),
@@ -562,11 +565,19 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: controller.pageConfigs.length,
+                  itemCount: entries.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
-                    final config = controller.pageConfigs[index];
-                    final selected = index == controller.currentPageIndex;
+                    final entry = entries[index];
+                    final currentOffset = controller.pageConfigs.isEmpty
+                        ? 0
+                        : controller
+                            .pageConfigs[controller.currentPageIndex]
+                            .startOffset;
+                    final selected = index == entries.length - 1
+                        ? currentOffset >= entry.startOffset
+                        : currentOffset >= entry.startOffset &&
+                            currentOffset < entries[index + 1].startOffset;
                     return Material(
                       color: selected
                           ? Theme.of(context).colorScheme.tertiary
@@ -577,21 +588,23 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         title: Text(
-                          'Page ${index + 1}',
+                          entry.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
-                            color: selected
-                                ? Theme.of(context).colorScheme.error
-                                : Theme.of(context).colorScheme.error,
+                            color: Theme.of(context).colorScheme.error,
                           ),
                         ),
-                        subtitle: Text(
-                          'Offset ${config.startOffset}-${config.endOffset}',
-                          style: TextStyle(color: Color(0xFF7A5D47)),
-                        ),
+                        subtitle: entry.progressLabel == null
+                            ? Text(
+                                'Offset ${entry.startOffset}',
+                                style: const TextStyle(color: Color(0xFF7A5D47)),
+                              )
+                            : null,
                         onTap: () async {
                           Navigator.of(context).pop();
-                          await controller.goToPage(index);
+                          await controller.goToOffset(entry.startOffset);
                         },
                       ),
                     );
@@ -846,8 +859,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                       opacity: _chromeVisible ? 1 : 0,
                       child: _ReaderTopBar(
                         title: widget.book.title,
-                        pageLabel:
-                            '${controller.currentDisplayPage} / ${controller.totalDisplayPages}',
+                        pageLabel: controller.progressLabel,
                       ),
                     ),
                   ),
@@ -863,13 +875,12 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                       child: _ReaderBottomBar(
                         canGoPrevious: controller.isCanGoPre(),
                         canGoNext: controller.isCanGoNext(),
-                        currentPage: controller.currentDisplayPage,
-                        totalPages: controller.totalDisplayPages,
-                        pageLabel:
-                            '${controller.currentDisplayPage} / ${controller.totalDisplayPages}',
+                        progress: controller.progressRatio,
+                        pageLabel: controller.progressLabel,
                         onCatalog: () => _openCatalog(controller),
                         onSettings: () => _openSettings(controller),
-                        onSeek: (page) => controller.goToPage(page),
+                        onSeekProgress: (ratio) =>
+                            controller.goToProgress(ratio),
                         onPrevious: controller.isCanGoPre()
                             ? () async => controller.prePage()
                             : null,
@@ -1395,24 +1406,22 @@ class _ReaderBottomBar extends StatelessWidget {
   const _ReaderBottomBar({
     required this.canGoPrevious,
     required this.canGoNext,
-    required this.currentPage,
-    required this.totalPages,
+    required this.progress,
     required this.pageLabel,
     required this.onCatalog,
     required this.onSettings,
-    required this.onSeek,
+    required this.onSeekProgress,
     required this.onPrevious,
     required this.onNext,
   });
 
   final bool canGoPrevious;
   final bool canGoNext;
-  final int currentPage;
-  final int totalPages;
+  final double progress;
   final String pageLabel;
   final VoidCallback onCatalog;
   final VoidCallback onSettings;
-  final ValueChanged<int> onSeek;
+  final ValueChanged<double> onSeekProgress;
   final Future<void> Function()? onPrevious;
   final Future<void> Function()? onNext;
 
@@ -1471,16 +1480,9 @@ class _ReaderBottomBar extends StatelessWidget {
                 inactiveTrackColor: Theme.of(context).colorScheme.tertiary,
                 overlayColor: Color(0x337A5339),
               ),
-              child: Slider(
-                value: totalPages <= 1
-                    ? 0
-                    : (currentPage - 1).clamp(0, totalPages - 1).toDouble(),
-                min: 0,
-                max: totalPages <= 1 ? 1 : (totalPages - 1).toDouble(),
-                divisions: totalPages <= 1 ? 1 : totalPages - 1,
-                onChanged: totalPages <= 1
-                    ? null
-                    : (value) => onSeek(value.round()),
+              child: _ProgressSeekSlider(
+                progress: progress,
+                onSeekProgress: onSeekProgress,
               ),
             ),
             Row(
@@ -1519,6 +1521,39 @@ class _ReaderBottomBar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProgressSeekSlider extends StatefulWidget {
+  const _ProgressSeekSlider({
+    required this.progress,
+    required this.onSeekProgress,
+  });
+
+  final double progress;
+  final ValueChanged<double> onSeekProgress;
+
+  @override
+  State<_ProgressSeekSlider> createState() => _ProgressSeekSliderState();
+}
+
+class _ProgressSeekSliderState extends State<_ProgressSeekSlider> {
+  double? _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    return Slider(
+      value: (_dragging ?? widget.progress).clamp(0.0, 1.0),
+      min: 0,
+      max: 1,
+      onChanged: (value) {
+        setState(() => _dragging = value);
+      },
+      onChangeEnd: (value) {
+        setState(() => _dragging = null);
+        widget.onSeekProgress(value);
+      },
     );
   }
 }

@@ -6,19 +6,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-class NovelCanvasPageConfig {
-  NovelCanvasPageConfig({
-    required this.pageIndex,
-    required this.startOffset,
-    required this.endOffset,
-    required this.paragraphContents,
-  });
+import 'novel_page_window.dart';
 
-  final int pageIndex;
-  final int startOffset;
-  final int endOffset;
-  final List<String> paragraphContents;
-}
+export 'novel_page_window.dart'
+    show NovelCanvasPageConfig, NovelTocEntry, buildNovelToc;
 
 class NovelCanvasPageData {
   NovelCanvasPageData({
@@ -41,213 +32,10 @@ class NovelCanvasPageData {
       image: image ?? this.image,
     );
   }
-}
 
-class _ParagraphChunk {
-  _ParagraphChunk({
-    required this.text,
-    required this.startOffset,
-  });
-
-  String text;
-  int startOffset;
-}
-
-class _IncrementalPaginationSession {
-  _IncrementalPaginationSession({
-    required String text,
-    required this.height,
-    required this.width,
-    required this.fontSize,
-    required this.lineHeight,
-    required this.paragraphSpacing,
-  }) : _painter = TextPainter(textDirection: TextDirection.ltr) {
-    final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    var cursor = 0;
-    for (final paragraph in normalized.split('\n')) {
-      _chunks.add(_ParagraphChunk(text: paragraph, startOffset: cursor));
-      cursor += paragraph.length + 1;
-    }
-  }
-
-  final double height;
-  final double width;
-  final int fontSize;
-  final int lineHeight;
-  final int paragraphSpacing;
-  final TextPainter _painter;
-  final List<_ParagraphChunk> _chunks = <_ParagraphChunk>[];
-  int _pageIndex = 0;
-
-  bool get isComplete => _chunks.isEmpty;
-
-  NovelCanvasPageConfig? nextPage() {
-    if (_chunks.isEmpty) return null;
-
-    final pageParagraphs = <String>[];
-    int? pageStartOffset;
-    var pageEndOffset = 0;
-    var currentHeight = 0.0;
-
-    while (currentHeight < height && _chunks.isNotEmpty) {
-      if (currentHeight + lineHeight >= height) {
-        break;
-      }
-
-      final currentChunk = _chunks.first;
-      pageStartOffset ??= currentChunk.startOffset;
-
-      if (currentChunk.text.isEmpty) {
-        pageParagraphs.add('');
-        pageEndOffset = currentChunk.startOffset;
-        _chunks.removeAt(0);
-        currentHeight += lineHeight + paragraphSpacing;
-        continue;
-      }
-
-      _painter.text = TextSpan(
-        text: currentChunk.text,
-        style: TextStyle(
-          fontSize: fontSize.toDouble(),
-          height: lineHeight / fontSize,
-        ),
-      );
-      _painter.layout(maxWidth: width);
-
-      var endOffset = _painter
-          .getPositionForOffset(Offset(width, height - currentHeight - lineHeight))
-          .offset;
-      if (endOffset <= 0) {
-        endOffset = math.min(currentChunk.text.length, 1);
-      }
-
-      var pageText = currentChunk.text;
-      final lineMetrics = _painter.computeLineMetrics();
-      if (endOffset < currentChunk.text.length) {
-        pageText = currentChunk.text.substring(0, endOffset);
-        currentChunk.text = currentChunk.text.substring(endOffset);
-        pageEndOffset = currentChunk.startOffset + endOffset;
-        currentChunk.startOffset = pageEndOffset;
-        currentHeight = height;
-      } else {
-        _chunks.removeAt(0);
-        pageEndOffset = currentChunk.startOffset + pageText.length;
-        currentHeight += lineHeight * lineMetrics.length;
-        currentHeight += paragraphSpacing;
-      }
-
-      pageParagraphs.add(pageText);
-    }
-
-    if (pageParagraphs.isEmpty) return null;
-
-    final page = NovelCanvasPageConfig(
-      pageIndex: _pageIndex,
-      startOffset: pageStartOffset ?? 0,
-      endOffset: pageEndOffset,
-      paragraphContents: pageParagraphs,
-    );
-    _pageIndex += 1;
-    return page;
-  }
-}
-
-class NovelCanvasPaginator {
-  const NovelCanvasPaginator();
-
-  List<NovelCanvasPageConfig> paginate({
-    required String text,
-    required double height,
-    required double width,
-    required int fontSize,
-    required int lineHeight,
-    required int paragraphSpacing,
-  }) {
-    final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final chunks = <_ParagraphChunk>[];
-    var cursor = 0;
-    for (final paragraph in normalized.split('\n')) {
-      chunks.add(_ParagraphChunk(text: paragraph, startOffset: cursor));
-      cursor += paragraph.length + 1;
-    }
-
-    final pageConfigs = <NovelCanvasPageConfig>[];
-    final painter = TextPainter(textDirection: TextDirection.ltr);
-    var currentHeight = 0.0;
-    var pageIndex = 0;
-
-    while (chunks.isNotEmpty) {
-      final pageParagraphs = <String>[];
-      int? pageStartOffset;
-      var pageEndOffset = 0;
-
-      while (currentHeight < height && chunks.isNotEmpty) {
-        if (currentHeight + lineHeight >= height) {
-          break;
-        }
-
-        final currentChunk = chunks.first;
-      pageStartOffset ??= currentChunk.startOffset;
-
-        if (currentChunk.text.isEmpty) {
-          pageParagraphs.add('');
-          pageEndOffset = currentChunk.startOffset;
-          chunks.removeAt(0);
-          currentHeight += lineHeight + paragraphSpacing;
-          continue;
-        }
-
-        painter.text = TextSpan(
-          text: currentChunk.text,
-          style: TextStyle(
-            fontSize: fontSize.toDouble(),
-            height: lineHeight / fontSize,
-          ),
-        );
-        painter.layout(maxWidth: width);
-
-        var endOffset = painter
-            .getPositionForOffset(Offset(width, height - currentHeight - lineHeight))
-            .offset;
-        if (endOffset <= 0) {
-          endOffset = math.min(currentChunk.text.length, 1);
-        }
-
-        var pageText = currentChunk.text;
-        final lineMetrics = painter.computeLineMetrics();
-        if (endOffset < currentChunk.text.length) {
-          pageText = currentChunk.text.substring(0, endOffset);
-          currentChunk.text = currentChunk.text.substring(endOffset);
-          pageEndOffset = currentChunk.startOffset + endOffset;
-          currentChunk.startOffset = pageEndOffset;
-          currentHeight = height;
-        } else {
-          chunks.removeAt(0);
-          pageEndOffset = currentChunk.startOffset + pageText.length;
-          currentHeight += lineHeight * lineMetrics.length;
-          currentHeight += paragraphSpacing;
-        }
-
-        pageParagraphs.add(pageText);
-      }
-
-      if (pageParagraphs.isEmpty) {
-        break;
-      }
-
-      pageConfigs.add(
-        NovelCanvasPageConfig(
-          pageIndex: pageIndex,
-          startOffset: pageStartOffset ?? 0,
-          endOffset: pageEndOffset,
-          paragraphContents: pageParagraphs,
-        ),
-      );
-      currentHeight = 0;
-      pageIndex += 1;
-    }
-
-    return pageConfigs;
+  void dispose() {
+    image?.dispose();
+    picture?.dispose();
   }
 }
 
@@ -271,6 +59,18 @@ class NovelCanvasReaderController extends ChangeNotifier {
   static const int _bottomTipHeight = 22;
   static const int _bottomTipFontSize = 14;
 
+  /// Pages within this radius of current are rasterized and kept in cache.
+  static const int _rasterWindowRadius = 3;
+
+  /// Prefer immediate raster for current ± this radius (page-curl neighbors).
+  static const int _rasterPriorityRadius = 1;
+
+  /// Keep paragraph bodies only near the reading position.
+  static const int _contentWindowRadius = 12;
+
+  /// Mark UI ready once current + this many following pages exist.
+  static const int _readyAheadPages = 2;
+
   final String title;
   final NovelCanvasProgressChanged? onProgressChanged;
 
@@ -287,6 +87,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
 
   String? _bookText;
   List<NovelCanvasPageConfig> _pageConfigs = <NovelCanvasPageConfig>[];
+  List<NovelTocEntry> _tocEntries = const <NovelTocEntry>[];
   Size _pageSize = Size.zero;
   int _currentPageIndex = 0;
   int _fontSize = _defaultFontSize;
@@ -298,14 +99,38 @@ class NovelCanvasReaderController extends ChangeNotifier {
   bool _disposed = false;
   bool _initialised = false;
   bool _repaginating = false;
+  bool _paginationComplete = false;
   int _paginationGeneration = 0;
 
   int get currentPageIndex => _currentPageIndex;
   int get currentDisplayPage => _pageConfigs.isEmpty ? 0 : _currentPageIndex + 1;
+
+  /// Exact total when background scan finished; otherwise discovered count.
   int get totalDisplayPages => _pageConfigs.length;
+
+  bool get isPaginationComplete => _paginationComplete;
+
+  /// 0..1 reading progress by character offset (stable across reflow).
+  double get progressRatio {
+    final text = _bookText;
+    final config = _safePageConfig(_currentPageIndex);
+    if (text == null || text.isEmpty || config == null) return 0;
+    return (config.startOffset / text.length).clamp(0.0, 1.0);
+  }
+
+  String get progressLabel {
+    final percent = (progressRatio * 100).clamp(0, 100).round();
+    if (_paginationComplete && _pageConfigs.isNotEmpty) {
+      return '$currentDisplayPage / $totalDisplayPages · $percent%';
+    }
+    if (_pageConfigs.isEmpty) return '$percent%';
+    return '$currentDisplayPage · $percent%';
+  }
+
   bool get isReady => _initialised;
   bool get isRepaginating => _repaginating;
   List<NovelCanvasPageConfig> get pageConfigs => List.unmodifiable(_pageConfigs);
+  List<NovelTocEntry> get tocEntries => List.unmodifiable(_tocEntries);
   int get fontSize => _fontSize;
   int get lineHeight => _lineHeight;
   NovelReaderTheme get theme => _theme;
@@ -315,10 +140,13 @@ class NovelCanvasReaderController extends ChangeNotifier {
   NovelCanvasPageData? get prePageData =>
       _currentPageIndex > 0 ? _pageDataMap[_currentPageIndex - 1] : null;
   NovelCanvasPageData? get nextPageData =>
-      _currentPageIndex + 1 < _pageConfigs.length ? _pageDataMap[_currentPageIndex + 1] : null;
+      _currentPageIndex + 1 < _pageConfigs.length
+          ? _pageDataMap[_currentPageIndex + 1]
+          : null;
 
   bool isCanGoNext() =>
-      _currentPageIndex + 1 < _pageConfigs.length && nextPageData?.picture != null;
+      _currentPageIndex + 1 < _pageConfigs.length &&
+      nextPageData?.picture != null;
 
   bool isCanGoPre() =>
       _currentPageIndex > 0 && prePageData?.picture != null;
@@ -337,6 +165,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
       ..style = PaintingStyle.fill
       ..color = _theme.pageColor;
     _bookText = text;
+    _tocEntries = buildNovelToc(text);
     _savedPageIndex = initialPageIndex;
     _savedPageOffset = initialPageOffset;
     _initialised = true;
@@ -377,7 +206,11 @@ class NovelCanvasReaderController extends ChangeNotifier {
   }
 
   Future<void> goToPage(int pageIndex) async {
-    if (pageIndex < 0 || pageIndex >= _pageConfigs.length) return;
+    if (pageIndex < 0) return;
+    if (!_paginationComplete && pageIndex >= _pageConfigs.length) {
+      await _waitUntilPageDiscovered(pageIndex);
+    }
+    if (pageIndex >= _pageConfigs.length) return;
     if (pageIndex == _currentPageIndex) return;
     _currentPageIndex = pageIndex;
     _queuePagesAroundCurrent();
@@ -385,12 +218,68 @@ class NovelCanvasReaderController extends ChangeNotifier {
     await _persistProgress();
   }
 
+  Future<void> goToProgress(double ratio) async {
+    final text = _bookText;
+    if (text == null || text.isEmpty) return;
+    final offset =
+        (text.length * ratio.clamp(0.0, 1.0)).floor().clamp(0, text.length - 1);
+    await goToOffset(offset);
+  }
+
+  Future<void> goToOffset(int offset) async {
+    final text = _bookText;
+    if (text == null || text.isEmpty) return;
+    final target = offset.clamp(0, text.length - 1);
+
+    final existing = _findPageIndexForOffset(target);
+    if (existing != null) {
+      await goToPage(existing);
+      return;
+    }
+
+    if (!_paginationComplete) {
+      final generation = _paginationGeneration;
+      while (!_disposed &&
+          generation == _paginationGeneration &&
+          !_paginationComplete) {
+        final found = _findPageIndexForOffset(target);
+        if (found != null) {
+          await goToPage(found);
+          return;
+        }
+        if (_pageConfigs.isNotEmpty &&
+            _pageConfigs.last.endOffset >= target) {
+          final nearest = _findNearestPageIndex(target);
+          if (nearest != null) await goToPage(nearest);
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+      }
+    }
+
+    final afterScan = _findPageIndexForOffset(target) ??
+        _findNearestPageIndex(target);
+    if (afterScan != null) {
+      await goToPage(afterScan);
+      return;
+    }
+
+    _savedPageOffset = target;
+    _savedPageIndex = null;
+    await _repaginate();
+  }
+
   Future<void> setFontSize(int value) async {
     final clamped = value.clamp(14, 30);
     if (clamped == _fontSize) return;
+    final anchor = _safePageConfig(_currentPageIndex)?.startOffset;
     _fontSize = clamped;
     if (_lineHeight < _fontSize + 8) {
       _lineHeight = _fontSize + 8;
+    }
+    if (anchor != null) {
+      _savedPageOffset = anchor;
+      _savedPageIndex = null;
     }
     await _repaginate();
   }
@@ -398,7 +287,12 @@ class NovelCanvasReaderController extends ChangeNotifier {
   Future<void> setLineHeight(int value) async {
     final clamped = value.clamp(_fontSize + 6, 46);
     if (clamped == _lineHeight) return;
+    final anchor = _safePageConfig(_currentPageIndex)?.startOffset;
     _lineHeight = clamped;
+    if (anchor != null) {
+      _savedPageOffset = anchor;
+      _savedPageIndex = null;
+    }
     await _repaginate();
   }
 
@@ -406,44 +300,51 @@ class NovelCanvasReaderController extends ChangeNotifier {
     if (value == _theme) return;
     _theme = value;
     bgPaint.color = value.pageColor;
-    _pageDataMap.clear();
+    _clearPageCache();
     _queuePagesAroundCurrent();
     notifyListeners();
   }
 
-  Future<void> _repaginate() async {
-    final text = _bookText;
-    if (text == null || _pageSize == Size.zero) return;
-
-    final generation = ++_paginationGeneration;
-    _repaginating = true;
-    _pageDataMap.clear();
-    _pageConfigs = <NovelCanvasPageConfig>[];
-    _microParseQueue.clear();
-    _parseQueue.clear();
-    notifyListeners();
-
+  NovelPageLayoutMetrics? _currentLayout() {
+    if (_pageSize == Size.zero) return null;
     final contentHeight = _pageSize.height -
         _contentPadding.vertical -
         _bottomTipHeight -
         _titleHeight;
     final contentWidth = _pageSize.width - _contentPadding.horizontal;
-
-    final session = _IncrementalPaginationSession(
-      text: text,
+    if (contentHeight <= 0 || contentWidth <= 0) return null;
+    return NovelPageLayoutMetrics(
       height: contentHeight,
       width: contentWidth,
       fontSize: _fontSize,
       lineHeight: _lineHeight,
       paragraphSpacing: _paragraphSpacing,
     );
+  }
+
+  Future<void> _repaginate() async {
+    final text = _bookText;
+    final layout = _currentLayout();
+    if (text == null || layout == null) return;
+
+    final generation = ++_paginationGeneration;
+    _repaginating = true;
+    _paginationComplete = false;
+    _clearPageCache();
+    _pageConfigs = <NovelCanvasPageConfig>[];
+    _microParseQueue.clear();
+    _parseQueue.clear();
+    notifyListeners();
+
+    final session = NovelIncrementalPaginator(text: text, layout: layout);
 
     var initialPageResolved = false;
+    var readyNotified = false;
+
     while (!_disposed && generation == _paginationGeneration) {
-      final nextPage = session.nextPage();
-      if (nextPage == null) {
-        break;
-      }
+      // Skeleton-only during bulk scan; hydrate near the reading window on demand.
+      final nextPage = session.nextPage(includeContents: false);
+      if (nextPage == null) break;
       _pageConfigs.add(nextPage);
 
       if (!initialPageResolved && _shouldUseAsInitialPage(nextPage)) {
@@ -466,7 +367,19 @@ class NovelCanvasReaderController extends ChangeNotifier {
         }
       }
 
-      if (nextPage.pageIndex <= _currentPageIndex + 3) {
+      if (initialPageResolved && !readyNotified) {
+        final ahead = nextPage.pageIndex - _currentPageIndex;
+        if (ahead >= _readyAheadPages || session.isComplete) {
+          _hydrateContentWindow();
+          _queuePagesAroundCurrent();
+          _repaginating = false;
+          readyNotified = true;
+          notifyListeners();
+          unawaited(_persistProgress());
+        }
+      } else if (readyNotified &&
+          nextPage.pageIndex <= _currentPageIndex + _rasterWindowRadius) {
+        _hydrateContentWindow();
         _queuePagesAroundCurrent();
         notifyListeners();
       }
@@ -478,15 +391,27 @@ class NovelCanvasReaderController extends ChangeNotifier {
       return;
     }
 
+    _paginationComplete = true;
     if (_pageConfigs.isEmpty) {
       _currentPageIndex = 0;
     } else {
       _currentPageIndex = math.min(_currentPageIndex, _pageConfigs.length - 1);
+      _hydrateContentWindow();
       _queuePagesAroundCurrent();
     }
     _repaginating = false;
     notifyListeners();
     unawaited(_persistProgress());
+  }
+
+  Future<void> _waitUntilPageDiscovered(int pageIndex) async {
+    final generation = _paginationGeneration;
+    while (!_disposed &&
+        generation == _paginationGeneration &&
+        !_paginationComplete &&
+        pageIndex >= _pageConfigs.length) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
   }
 
   bool _shouldUseAsInitialPage(NovelCanvasPageConfig config) {
@@ -500,20 +425,83 @@ class NovelCanvasReaderController extends ChangeNotifier {
     return config.pageIndex == 0;
   }
 
+  int? _findPageIndexForOffset(int offset) {
+    for (var i = 0; i < _pageConfigs.length; i += 1) {
+      final page = _pageConfigs[i];
+      final end = i + 1 < _pageConfigs.length
+          ? _pageConfigs[i + 1].startOffset
+          : page.endOffset;
+      if (offset >= page.startOffset && offset < end) return i;
+      if (offset >= page.startOffset && offset <= page.endOffset) return i;
+    }
+    return null;
+  }
+
+  int? _findNearestPageIndex(int offset) {
+    if (_pageConfigs.isEmpty) return null;
+    var best = 0;
+    var bestDist = (offset - _pageConfigs[0].startOffset).abs();
+    for (var i = 1; i < _pageConfigs.length; i += 1) {
+      final dist = (offset - _pageConfigs[i].startOffset).abs();
+      if (dist < bestDist) {
+        best = i;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
+
+  void _hydrateContentWindow() {
+    final text = _bookText;
+    final layout = _currentLayout();
+    if (text == null || layout == null || _pageConfigs.isEmpty) return;
+
+    final start = math.max(0, _currentPageIndex - _contentWindowRadius);
+    final end =
+        math.min(_pageConfigs.length - 1, _currentPageIndex + _contentWindowRadius);
+    for (var i = start; i <= end; i += 1) {
+      final page = _pageConfigs[i];
+      if (page.hasContents) continue;
+      _pageConfigs[i] = hydratePageAtOffset(
+        text: text,
+        layout: layout,
+        pageIndex: page.pageIndex,
+        startOffset: page.startOffset,
+      );
+    }
+    stripPageContentsOutsideWindow(
+      pages: _pageConfigs,
+      currentIndex: _currentPageIndex,
+      radius: _contentWindowRadius,
+    );
+  }
+
   void _queuePagesAroundCurrent() {
     _microParseQueue.clear();
     _parseQueue.clear();
     if (_pageConfigs.isEmpty) return;
 
-    final microStart = math.max(0, _currentPageIndex - 3);
-    final microEnd = math.min(_pageConfigs.length - 1, _currentPageIndex + 3);
-    for (var index = microStart; index <= microEnd; index += 1) {
+    _hydrateContentWindow();
+
+    final windowStart = math.max(0, _currentPageIndex - _rasterWindowRadius);
+    final windowEnd =
+        math.min(_pageConfigs.length - 1, _currentPageIndex + _rasterWindowRadius);
+    final priorityStart =
+        math.max(0, _currentPageIndex - _rasterPriorityRadius);
+    final priorityEnd = math.min(
+      _pageConfigs.length - 1,
+      _currentPageIndex + _rasterPriorityRadius,
+    );
+
+    for (var index = priorityStart; index <= priorityEnd; index += 1) {
       _enqueuePage(index, micro: true);
     }
-    for (var index = 0; index < _pageConfigs.length; index += 1) {
-      if (index >= microStart && index <= microEnd) continue;
+    for (var index = windowStart; index <= windowEnd; index += 1) {
+      if (index >= priorityStart && index <= priorityEnd) continue;
       _enqueuePage(index, micro: false);
     }
+
+    _evictPagesOutsideWindow(windowStart, windowEnd);
   }
 
   void _enqueuePage(int index, {required bool micro}) {
@@ -522,13 +510,43 @@ class NovelCanvasReaderController extends ChangeNotifier {
     (micro ? _microParseQueue : _parseQueue).add(index);
   }
 
+  bool _isInsideRasterWindow(int index) {
+    if (_pageConfigs.isEmpty) return false;
+    final windowStart = math.max(0, _currentPageIndex - _rasterWindowRadius);
+    final windowEnd =
+        math.min(_pageConfigs.length - 1, _currentPageIndex + _rasterWindowRadius);
+    return index >= windowStart && index <= windowEnd;
+  }
+
+  void _evictPagesOutsideWindow(int windowStart, int windowEnd) {
+    final staleKeys = <int>[];
+    for (final key in _pageDataMap.keys) {
+      if (key < windowStart || key > windowEnd) {
+        staleKeys.add(key);
+      }
+    }
+    for (final key in staleKeys) {
+      _pageDataMap.remove(key)?.dispose();
+    }
+  }
+
+  void _clearPageCache() {
+    for (final data in _pageDataMap.values) {
+      data.dispose();
+    }
+    _pageDataMap.clear();
+  }
+
   void _startParseLooper() {
     if (_loopRunning) return;
     _loopRunning = true;
     Future<void>(() async {
       while (!_disposed) {
         await Future<void>.delayed(const Duration(milliseconds: 50));
-        if (_disposed || _repaginating || _pageSize == Size.zero || _pageConfigs.isEmpty) {
+        if (_disposed ||
+            _repaginating ||
+            _pageSize == Size.zero ||
+            _pageConfigs.isEmpty) {
           continue;
         }
         if (_microParseQueue.isNotEmpty) {
@@ -547,13 +565,24 @@ class NovelCanvasReaderController extends ChangeNotifier {
 
   Future<void> _parseAndCachePage(int index) async {
     if (_disposed || _pageSize == Size.zero) return;
+    if (!_isInsideRasterWindow(index)) return;
     if (_pageDataMap[index]?.picture != null) return;
+    if (index < 0 || index >= _pageConfigs.length) return;
+
+    _hydrateContentWindow();
+    if (!_pageConfigs[index].hasContents) return;
+
     final picture = _drawPage(index);
     final image = await picture.toImage(
       _pageSize.width.ceil(),
       _pageSize.height.ceil(),
     );
-    if (_disposed) return;
+    if (_disposed || !_isInsideRasterWindow(index)) {
+      image.dispose();
+      picture.dispose();
+      return;
+    }
+    _pageDataMap[index]?.dispose();
     _pageDataMap[index] = NovelCanvasPageData(
       pageIndex: index,
       picture: picture,
@@ -562,6 +591,18 @@ class NovelCanvasReaderController extends ChangeNotifier {
     if ((index - _currentPageIndex).abs() <= 1) {
       notifyListeners();
     }
+  }
+
+  String _footerText(int index) {
+    final text = _bookText;
+    final page = _safePageConfig(index);
+    final percent = (text == null || text.isEmpty || page == null)
+        ? 0
+        : ((page.startOffset / text.length) * 100).clamp(0, 100).round();
+    if (_paginationComplete) {
+      return '${index + 1}/${_pageConfigs.length}';
+    }
+    return '${index + 1} · $percent%';
   }
 
   ui.Picture _drawPage(int index) {
@@ -603,11 +644,11 @@ class NovelCanvasReaderController extends ChangeNotifier {
     );
     _titlePainter.text = TextSpan(
       text: title,
-        style: TextStyle(
-          color: _theme.titleColor,
-          fontWeight: FontWeight.w700,
-          fontSize: _titleFontSize.toDouble(),
-          height: _titleHeight / _titleFontSize,
+      style: TextStyle(
+        color: _theme.titleColor,
+        fontWeight: FontWeight.w700,
+        fontSize: _titleFontSize.toDouble(),
+        height: _titleHeight / _titleFontSize,
       ),
     );
     _titlePainter.layout(maxWidth: _pageSize.width - _contentPadding.horizontal);
@@ -641,7 +682,7 @@ class NovelCanvasReaderController extends ChangeNotifier {
     }
 
     _footerPainter.text = TextSpan(
-      text: '${index + 1}/${_pageConfigs.length}',
+      text: _footerText(index),
       style: TextStyle(
         color: _theme.titleColor,
         fontSize: _bottomTipFontSize.toDouble(),
@@ -670,6 +711,9 @@ class NovelCanvasReaderController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _microParseQueue.clear();
+    _parseQueue.clear();
+    _clearPageCache();
     super.dispose();
   }
 }
