@@ -29,8 +29,11 @@ class KvEndpoint implements KvOps {
     required String value,
     int? ttl,
     int? groupId,
+    List<String>? tags,
+    String? visibility,
   }) {
     final includeGid = groupId != null && groupId > 0;
+    final vis = visibility?.trim();
     return _client.request<void>(
       method: 'POST',
       path: '/api/v1/kv',
@@ -39,6 +42,8 @@ class KvEndpoint implements KvOps {
         'value': value,
         if (ttl != null) 'ttl': ttl,
         if (includeGid) 'groupId': groupId,
+        if (tags != null) 'tags': tags,
+        if (vis != null && vis.isNotEmpty) 'visibility': vis,
       },
     );
   }
@@ -74,13 +79,23 @@ class KvItem {
   final String key;
   final String value;
   final String? expiresAt;
+  final List<String> tags;
 
-  const KvItem({required this.key, required this.value, this.expiresAt});
+  const KvItem({
+    required this.key,
+    required this.value,
+    this.expiresAt,
+    this.tags = const [],
+  });
 
   factory KvItem.fromJson(Map<String, dynamic> json) => KvItem(
         key: json['key'] as String? ?? '',
         value: json['value'] as String? ?? '',
-        expiresAt: json['expires_at'] as String?,
+        expiresAt: json['expires_at'] as String? ?? json['expiresAt'] as String?,
+        tags: (json['tags'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
       );
 }
 

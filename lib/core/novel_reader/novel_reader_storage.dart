@@ -7,7 +7,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'novel_reader_catalog.dart';
 import 'novel_reader_constants.dart';
+import 'novel_reader_models.dart';
+import 'novel_reader_sync_hook.dart';
+
+export 'novel_reader_models.dart';
 
 class DownloadResult {
   const DownloadResult({required this.text, required this.file});
@@ -16,57 +21,17 @@ class DownloadResult {
   final File file;
 }
 
-enum NovelBookSource { builtIn, imported }
-
-class NovelBookEntry {
-  const NovelBookEntry({
-    required this.id,
-    required this.title,
-    required this.fileName,
-    required this.source,
-    this.remoteUrl,
-    this.importedAt,
-  });
-
-  final String id;
-  final String title;
-  final String fileName;
-  final NovelBookSource source;
-  final String? remoteUrl;
-  final int? importedAt;
-
-  bool get isBuiltIn => source == NovelBookSource.builtIn;
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'id': id,
-      'title': title,
-      'fileName': fileName,
-      'source': source.name,
-      'remoteUrl': remoteUrl,
-      'importedAt': importedAt,
-    };
-  }
-
-  factory NovelBookEntry.fromJson(Map<String, dynamic> json) {
-    final sourceName = json['source'] as String? ?? NovelBookSource.imported.name;
-    final source = NovelBookSource.values.firstWhere(
-      (value) => value.name == sourceName,
-      orElse: () => NovelBookSource.imported,
-    );
-    return NovelBookEntry(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      fileName: json['fileName'] as String,
-      source: source,
-      remoteUrl: json['remoteUrl'] as String?,
-      importedAt: json['importedAt'] as int?,
-    );
-  }
-}
-
 class NovelReaderStorage {
+  NovelReaderStorage({NovelReaderSyncHook? sync}) : _sync = sync;
+
   static const Uuid _uuid = Uuid();
+
+  NovelReaderSyncHook? _sync;
+
+  /// Optional personal-cloud sync (set after construction to avoid cycles).
+  set sync(NovelReaderSyncHook? value) => _sync = value;
+
+  NovelReaderSyncHook? get sync => _sync;
 
   Future<Directory> _getBooksDirectory() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -84,48 +49,71 @@ class NovelReaderStorage {
     return File('${folder.path}${Platform.pathSeparator}${book.fileName}');
   }
 
-  Future<List<NovelBookEntry>> getLibrary() async {
+  /// Load shelf. When [mergeCatalog] is true, refresh built-ins from public KV.
+  Future<List<NovelBookEntry>> getLibrary({bool mergeCatalog = true}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(NovelReaderConstants.libraryKey);
-    final books = <NovelBookEntry>[];
+    final local = <NovelBookEntry>[];
 
     if (raw != null && raw.isNotEmpty) {
       try {
-        final decoded = jsonDecode(raw) as List<dynamic>;
-        for (final item in decoded) {
-          if (item is Map<String, dynamic>) {
-            books.add(NovelBookEntry.fromJson(item));
-          } else if (item is Map) {
-            books.add(
-              NovelBookEntry.fromJson(Map<String, dynamic>.from(item)),
-            );
-          }
-        }
+        local.addAll(NovelBookEntry.decodeLibraryJson(raw));
       } catch (_) {
         // Ignore invalid persisted payload and rebuild from defaults.
       }
     }
 
-    final builtIn = _builtInEntry;
-    books.removeWhere((book) => book.id == builtIn.id);
-    final normalized = <NovelBookEntry>[builtIn, ...books];
-    await _saveLibrary(normalized);
-    return normalized;
+    final imported =
+        local.where((b) => b.source == NovelBookSource.imported).toList();
+
+    List<NovelBookEntry> builtIns;
+    if (mergeCatalog) {
+      final catalog = await fetchNovelCatalog();
+      builtIns = catalog.isNotEmpty ? catalog : <NovelBookEntry>[novelFallbackBuiltIn()];
+    } else {
+      final existingBuiltIns =
+          local.where((b) => b.source == NovelBookSource.builtIn).toList();
+      builtIns = existingBuiltIns.isNotEmpty
+          ? existingBuiltIns
+          : <NovelBookEntry>[novelFallbackBuiltIn()];
+    }
+
+    final byId = <String, NovelBookEntry>{
+      for (final b in builtIns) b.id: b,
+      for (final b in imported) b.id: b,
+    };
+    // Preserve built-in order from catalog, then imports.
+    final normalized = <NovelBookEntry>[
+      ...builtIns,
+      ...imported.where((b) => !builtIns.any((c) => c.id == b.id)),
+    ];
+    // Drop accidental dupes while keeping order.
+    final seen = <String>{};
+    final deduped = <NovelBookEntry>[];
+    for (final b in normalized) {
+      if (seen.add(b.id)) deduped.add(byId[b.id] ?? b);
+    }
+
+    await _saveLibrary(deduped, sync: false);
+    return deduped;
   }
 
-  Future<void> _saveLibrary(List<NovelBookEntry> books) async {
+  /// Replace local library JSON without catalog merge (used by sync pull).
+  Future<void> replaceLibrary(List<NovelBookEntry> books) async {
+    await _saveLibrary(books, sync: false);
+  }
+
+  Future<void> _saveLibrary(
+    List<NovelBookEntry> books, {
+    bool sync = true,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = jsonEncode(books.map((book) => book.toJson()).toList());
     await prefs.setString(NovelReaderConstants.libraryKey, raw);
+    if (sync) {
+      _sync?.onLocalChanged(NovelSyncTopic.library);
+    }
   }
-
-  NovelBookEntry get _builtInEntry => const NovelBookEntry(
-    id: NovelReaderConstants.builtInBookId,
-    title: NovelReaderConstants.bookTitle,
-    fileName: NovelReaderConstants.builtInFileName,
-    source: NovelBookSource.builtIn,
-    remoteUrl: NovelReaderConstants.remoteUrl,
-  );
 
   Future<bool> isDownloaded(NovelBookEntry book) async {
     final file = await getBookFile(book);
@@ -274,12 +262,14 @@ class NovelReaderStorage {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(NovelReaderConstants.progressKey(book.id));
     await prefs.remove(NovelReaderConstants.progressOffsetKey(book.id));
+    await prefs.remove(_progressTsKey(book.id));
 
     final selectedId = prefs.getString(NovelReaderConstants.selectedBookKey);
     if (selectedId == book.id) {
-      await prefs.setString(
-        NovelReaderConstants.selectedBookKey,
-        NovelReaderConstants.builtInBookId,
+      await setSelectedBookId(
+        books.isNotEmpty
+            ? books.first.id
+            : NovelReaderConstants.builtInBookId,
       );
     }
   }
@@ -289,6 +279,14 @@ class NovelReaderStorage {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  String _progressTsKey(String bookId) =>
+      '${NovelReaderConstants.progressKeyPrefix}.ts.$bookId';
+
+  Future<int?> getProgressTimestamp(String bookId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_progressTsKey(bookId));
   }
 
   Future<int> getLastPageIndex(String bookId) async {
@@ -301,20 +299,41 @@ class NovelReaderStorage {
     return prefs.getInt(NovelReaderConstants.progressOffsetKey(bookId));
   }
 
-  Future<void> setLastPageIndex(String bookId, int index) async {
+  Future<void> setLastPageIndex(
+    String bookId,
+    int index, {
+    bool sync = true,
+    int? timestampMs,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(NovelReaderConstants.progressKey(bookId), index);
+    await prefs.setInt(
+      _progressTsKey(bookId),
+      timestampMs ?? DateTime.now().millisecondsSinceEpoch,
+    );
+    if (sync) {
+      _sync?.onLocalChanged(NovelSyncTopic.progress, bookId: bookId);
+    }
   }
 
-  Future<void> setLastPageOffset(String bookId, int offset) async {
+  Future<void> setLastPageOffset(
+    String bookId,
+    int offset, {
+    bool sync = true,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(NovelReaderConstants.progressOffsetKey(bookId), offset);
+    if (sync) {
+      _sync?.onLocalChanged(NovelSyncTopic.progress, bookId: bookId);
+    }
   }
 
   Future<void> clearProgress(String bookId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(NovelReaderConstants.progressKey(bookId));
     await prefs.remove(NovelReaderConstants.progressOffsetKey(bookId));
+    await prefs.remove(_progressTsKey(bookId));
+    _sync?.onLocalChanged(NovelSyncTopic.progress, bookId: bookId);
   }
 
   Future<String?> getSelectedBookId() async {
@@ -322,9 +341,12 @@ class NovelReaderStorage {
     return prefs.getString(NovelReaderConstants.selectedBookKey);
   }
 
-  Future<void> setSelectedBookId(String bookId) async {
+  Future<void> setSelectedBookId(String bookId, {bool sync = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(NovelReaderConstants.selectedBookKey, bookId);
+    if (sync) {
+      _sync?.onLocalChanged(NovelSyncTopic.selected);
+    }
   }
 
   Future<int?> getFontSize() async {
@@ -342,19 +364,22 @@ class NovelReaderStorage {
     return prefs.getString(NovelReaderConstants.themeKey);
   }
 
-  Future<void> setFontSize(int value) async {
+  Future<void> setFontSize(int value, {bool sync = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(NovelReaderConstants.fontSizeKey, value);
+    if (sync) _sync?.onLocalChanged(NovelSyncTopic.prefs);
   }
 
-  Future<void> setLineHeight(int value) async {
+  Future<void> setLineHeight(int value, {bool sync = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(NovelReaderConstants.lineHeightKey, value);
+    if (sync) _sync?.onLocalChanged(NovelSyncTopic.prefs);
   }
 
-  Future<void> setTheme(String value) async {
+  Future<void> setTheme(String value, {bool sync = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(NovelReaderConstants.themeKey, value);
+    if (sync) _sync?.onLocalChanged(NovelSyncTopic.prefs);
   }
 
   Future<bool?> getVolumeKeyTurnEnabled() async {
@@ -362,9 +387,10 @@ class NovelReaderStorage {
     return prefs.getBool(NovelReaderConstants.volumeKeyTurnKey);
   }
 
-  Future<void> setVolumeKeyTurnEnabled(bool value) async {
+  Future<void> setVolumeKeyTurnEnabled(bool value, {bool sync = true}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(NovelReaderConstants.volumeKeyTurnKey, value);
+    if (sync) _sync?.onLocalChanged(NovelSyncTopic.prefs);
   }
 
   String _normalize(String text) {

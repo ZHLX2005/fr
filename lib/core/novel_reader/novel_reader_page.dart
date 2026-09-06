@@ -10,6 +10,8 @@ import 'canvas_reader_engine.dart';
 import '../design/emphasis_button.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
+import 'novel_reader_sync.dart';
+import 'novel_reader_sync_attach.dart';
 import 'novel_volume_key_turn.dart';
 
 // 主题豁免：本文件其余 `Color(0xFF...)` 都是"纸质书视觉风格"识别色
@@ -26,6 +28,7 @@ class NovelReaderBookshelfPage extends StatefulWidget {
 
 class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
   final NovelReaderStorage _storage = NovelReaderStorage();
+  NovelReaderSync? _sync;
 
   List<NovelBookEntry> _books = const <NovelBookEntry>[];
   int _currentIndex = 0;
@@ -47,11 +50,20 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
   @override
   void initState() {
     super.initState();
+    _sync = attachNovelReaderSync(_storage);
     _refreshState();
+  }
+
+  @override
+  void dispose() {
+    _sync?.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshState() async {
     try {
+      // Best-effort personal pull before shelf render (no-op if logged out).
+      await _sync?.pullAll();
       final books = await _storage.getLibrary();
       final selectedId = await _storage.getSelectedBookId();
       var currentIndex = 0;
@@ -397,6 +409,7 @@ class NovelReaderPage extends StatefulWidget {
 
 class _NovelReaderPageState extends State<NovelReaderPage> {
   final NovelReaderStorage _storage = NovelReaderStorage();
+  NovelReaderSync? _sync;
 
   bool _loadingBook = true;
   bool _chromeVisible = false;
@@ -422,6 +435,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
   @override
   void initState() {
     super.initState();
+    _sync = attachNovelReaderSync(_storage);
     unawaited(_initVolumeKeyTurn());
     _loadBook();
   }
@@ -437,6 +451,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
 
   @override
   void dispose() {
+    _sync?.dispose();
     unawaited(_volumeKeyTurnBridge.deactivate());
     _readerController?.dispose();
     super.dispose();
