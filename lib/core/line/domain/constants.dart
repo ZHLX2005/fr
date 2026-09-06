@@ -43,6 +43,13 @@ const String lineShowEarlyLateKey = 'line_demo_show_early_late';
 const String lineSfxVolumeKey = 'line_demo_sfx_volume';
 const String lineBgmVolumeKey = 'line_demo_bgm_volume';
 
-/// 默认击打音量 / BGM 音量（0~1）
+/// 默认击打音量 / BGM 音量（用户偏好；音效可到 [lineSfxVolumeMax]）
 const double lineDefaultSfxVolume = 1.0;
 const double lineDefaultBgmVolume = 0.7;
+
+/// 音效音量滑条上限（>1 为额外增益，平台能力内尽量拉响）
+const double lineSfxVolumeMax = 2.0;
+
+/// 下落速度倍率范围
+const double lineScrollSpeedMin = 0.5;
+const double lineScrollSpeedMax = 5.0;

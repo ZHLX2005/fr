@@ -203,7 +203,8 @@ class GameController {
     final prefs = await SharedPreferences.getInstance();
     highScoreKey = 'line_high_score_${chart.name.hashCode}';
     timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
-    scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
+    scrollSpeed = (prefs.getDouble(lineScrollSpeedKey) ?? 1.0)
+        .clamp(lineScrollSpeedMin, lineScrollSpeedMax);
     inputOffsetMs = prefs.getInt(lineInputOffsetKey) ?? 0;
     _clock.inputOffsetMs = inputOffsetMs;
     showEarlyLate = prefs.getBool(lineShowEarlyLateKey) ?? true;
@@ -212,8 +213,10 @@ class GameController {
     backgroundStyle = BackgroundStyle
         .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
     // 进局前须已预加载；此处复用会话并同步开关 / 音量
-    final sfxVol = prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume;
-    final bgmVol = prefs.getDouble(lineBgmVolumeKey) ?? lineDefaultBgmVolume;
+    final sfxVol = (prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume)
+        .clamp(0.0, lineSfxVolumeMax);
+    final bgmVol = (prefs.getDouble(lineBgmVolumeKey) ?? lineDefaultBgmVolume)
+        .clamp(0.0, 1.0);
     _hitFeedback = await HitFeedback.ensureLoaded(
       hapticsEnabled: prefs.getBool(lineHapticsKey) ?? true,
       sfxEnabled: prefs.getBool(lineHitSfxKey) ?? true,

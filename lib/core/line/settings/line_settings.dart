@@ -242,8 +242,8 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
 
   // 流速
   double _scrollSpeed = 1.0;
-  static const double _minScrollSpeed = 0.5;
-  static const double _maxScrollSpeed = 2.0;
+  static const double _minScrollSpeed = lineScrollSpeedMin;
+  static const double _maxScrollSpeed = lineScrollSpeedMax;
 
   // 背景
   BackgroundStyle _backgroundStyle = BackgroundStyle.none;
@@ -284,13 +284,16 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     if (mounted) {
       setState(() {
         _timingScale = prefs.getDouble(lineTimingScaleKey) ?? 1.0;
-        _scrollSpeed = prefs.getDouble(lineScrollSpeedKey) ?? 1.0;
+        _scrollSpeed = (prefs.getDouble(lineScrollSpeedKey) ?? 1.0)
+            .clamp(_minScrollSpeed, _maxScrollSpeed);
         _inputOffsetMs = (prefs.getInt(lineInputOffsetKey) ?? 0).toDouble();
         _haptics = prefs.getBool(lineHapticsKey) ?? true;
         _hitSfx = prefs.getBool(lineHitSfxKey) ?? true;
         _showEarlyLate = prefs.getBool(lineShowEarlyLateKey) ?? true;
-        _sfxVolume = prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume;
-        _bgmVolume = prefs.getDouble(lineBgmVolumeKey) ?? lineDefaultBgmVolume;
+        _sfxVolume = (prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume)
+            .clamp(0.0, lineSfxVolumeMax);
+        _bgmVolume = (prefs.getDouble(lineBgmVolumeKey) ?? lineDefaultBgmVolume)
+            .clamp(0.0, 1.0);
         final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
         _backgroundStyle = BackgroundStyle
             .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
@@ -725,8 +728,8 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
             child: Slider(
               value: _sfxVolume,
               min: 0,
-              max: 1,
-              divisions: 20,
+              max: lineSfxVolumeMax,
+              divisions: 40,
               onChanged: _hitSfx
                   ? (v) {
                       setState(() => _sfxVolume = v);
@@ -816,6 +819,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
             value: _scrollSpeed,
             min: _minScrollSpeed,
             max: _maxScrollSpeed,
+            divisions: 45,
             onChanged: (v) {
               setState(() => _scrollSpeed = v);
               _saveScrollSpeed(v);

@@ -230,7 +230,8 @@ class _SongDetailPanelState extends State<SongDetailPanel>
       await HitFeedback.ensureLoaded(
         hapticsEnabled: prefs.getBool(lineHapticsKey) ?? true,
         sfxEnabled: prefs.getBool(lineHitSfxKey) ?? true,
-        volume: prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume,
+        volume: (prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume)
+            .clamp(0.0, lineSfxVolumeMax),
         strict: true,
       );
 

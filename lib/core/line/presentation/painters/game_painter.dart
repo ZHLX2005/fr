@@ -308,7 +308,7 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  /// Hold：更宽轨道 + 实心头尾，语义=「按住」
+  /// Hold：接近列宽的连续长条（无头圆/侧刻度），语义=「按住」
   void _paintHoldNote(Canvas canvas, double cx, FallingNote note) {
     final travelPerMs = _travelPerMs();
     final headY = _noteTravelY(note);
@@ -323,9 +323,12 @@ class GamePainter extends CustomPainter {
     final minVisibleY = -radius * 2;
     if (tailY < minVisibleY) tailY = minVisibleY;
 
-    // 轨道接近列宽，头圆更大更醒目
-    final bodyHalf = radius * 0.98;
-    final headR = radius * 1.18;
+    final colW = screenWidth / columnCount;
+    // 长条：占列宽约 86%，圆角偏小，读成「条」而不是「圆头+轨道」
+    final halfW = colW * 0.43;
+    final corner = halfW * 0.28;
+    final barH = (headY - tailY).clamp(0.0, double.infinity);
+    if (barH < 2) return;
 
     double progress = 0.0;
     if (note.holdFadeOut > 0) {
@@ -337,128 +340,81 @@ class GamePainter extends CustomPainter {
 
     double alpha;
     if (note.holdFadeOut > 0) {
-      alpha = 0.7 * (1.0 - note.holdFadeOut * 0.35);
+      alpha = 0.78 * (1.0 - note.holdFadeOut * 0.4);
     } else if (note.holding) {
-      alpha = 0.88 * (1.0 - progress * 0.22).clamp(0.4, 1.0);
+      alpha = 0.95 * (1.0 - progress * 0.12).clamp(0.55, 1.0);
     } else {
-      alpha = 0.72;
+      alpha = 0.82;
     }
     if (alpha < 0.01) return;
 
-    final bodyTop = tailY;
-    final bodyBottom = headY - headR * 0.22;
-    final bodyH = (bodyBottom - bodyTop).clamp(0.0, double.infinity);
+    final barRect = Rect.fromLTRB(cx - halfW, tailY, cx + halfW, headY);
+    final bar = RRect.fromRectAndRadius(barRect, Radius.circular(corner));
 
-    // ── 轨道外轮廓 ──
-    if (bodyH > 2) {
-      final track = RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - bodyHalf, bodyTop, bodyHalf * 2, bodyH),
-        Radius.circular(bodyHalf),
-      );
-      canvas.drawRRect(
-        track,
+    // 底色长条
+    canvas.drawRRect(
+      bar,
+      Paint()
+        ..color = color.withValues(alpha: alpha * 0.38)
+        ..style = PaintingStyle.fill,
+    );
+
+    // 按住时从头部向上吞没填充
+    if (note.holdPressTime > 0 && progress > 0) {
+      final fillH = barH * progress;
+      final fillTop = headY - fillH;
+      canvas.save();
+      canvas.clipRRect(bar);
+      final fillRect = Rect.fromLTRB(cx - halfW, fillTop, cx + halfW, headY);
+      canvas.drawRect(
+        fillRect,
         Paint()
-          ..color = color.withValues(alpha: alpha * 0.28)
+          ..color = color.withValues(alpha: alpha * (0.55 + 0.25 * progress))
           ..style = PaintingStyle.fill,
       );
-      canvas.drawRRect(
-        track,
-        Paint()
-          ..color = color.withValues(alpha: alpha * 0.92)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.2,
-      );
-
-      // 侧刻度
-      final tickPaint = Paint()
-        ..color = color.withValues(alpha: alpha * 0.35)
-        ..strokeWidth = 1.4;
-      final tickStep = math.max(16.0, radius * 0.75);
-      for (double ty = bodyBottom - tickStep; ty > bodyTop + 4; ty -= tickStep) {
-        canvas.drawLine(
-          Offset(cx - bodyHalf * 0.62, ty),
-          Offset(cx + bodyHalf * 0.62, ty),
-          tickPaint,
+      if (note.holding) {
+        canvas.drawRect(
+          fillRect,
+          Paint()
+            ..color = color.withValues(alpha: alpha * 0.35)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
         );
       }
-    }
-
-    // ── 进度填充（从头向上）──
-    if (note.holdPressTime > 0 && progress > 0 && bodyH > 2) {
-      final fillH = bodyH * progress;
-      final fillTop = bodyBottom - fillH;
-      final fillRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - bodyHalf, fillTop, bodyHalf * 2, fillH),
-        Radius.circular(bodyHalf),
-      );
-
-      canvas.drawRRect(
-        fillRect,
-        Paint()
-          ..color = color.withValues(alpha: alpha * 0.45)
-          ..maskFilter = MaskFilter.blur(
-            BlurStyle.normal,
-            8.0 + 14.0 * progress,
-          ),
-      );
-      canvas.drawRRect(
-        fillRect,
-        Paint()
-          ..color = color.withValues(alpha: alpha * (0.45 + 0.3 * progress))
-          ..style = PaintingStyle.fill,
-      );
-
       if (progress < 1.0) {
         canvas.drawLine(
-          Offset(cx - bodyHalf * 0.9, fillTop),
-          Offset(cx + bodyHalf * 0.9, fillTop),
+          Offset(cx - halfW * 0.92, fillTop),
+          Offset(cx + halfW * 0.92, fillTop),
           Paint()
-            ..color = scheme.surface.withValues(alpha: alpha * 0.85)
-            ..strokeWidth = 3.0
+            ..color = scheme.surface.withValues(alpha: alpha * 0.9)
+            ..strokeWidth = 2.5
             ..strokeCap = StrokeCap.round,
         );
       }
+      canvas.restore();
     }
 
-    // 无尾盘：轨道顶端圆角即结束，不画释放点圆盘
-
-    // ── 头圆（按下点）──
-    final headPulse = note.holding
-        ? 1.0 + 0.06 * math.sin(gameElapsed / 70.0 * math.pi)
-        : 1.0;
-    final headCenter = Offset(cx, headY);
-    final hr = headR * headPulse;
-
-    canvas.drawCircle(
-      headCenter,
-      hr,
+    // 外描边
+    canvas.drawRRect(
+      bar,
       Paint()
-        ..color = color.withValues(alpha: alpha * (note.holding ? 0.28 : 0.16))
-        ..style = PaintingStyle.fill,
-    );
-    canvas.drawCircle(
-      headCenter,
-      hr,
-      Paint()
-        ..color = color.withValues(alpha: alpha * (note.holding ? 1.0 : 0.88))
+        ..color = color.withValues(alpha: alpha * (note.holding ? 1.0 : 0.95))
         ..style = PaintingStyle.stroke
-        ..strokeWidth = note.holding ? 3.4 : 2.8,
+        ..strokeWidth = note.holding ? 3.6 : 3.0,
     );
-    canvas.drawCircle(
-      headCenter,
-      hr * 0.48,
+
+    // 头部强调带（条底端，按下点）——仍是长条一部分，不是独立圆盘
+    final bandH = math.min(halfW * 0.9, barH * 0.22).clamp(6.0, halfW * 1.2);
+    canvas.save();
+    canvas.clipRRect(bar);
+    canvas.drawRect(
+      Rect.fromLTRB(cx - halfW, headY - bandH, cx + halfW, headY),
       Paint()
-        ..color = color.withValues(alpha: alpha * (note.holding ? 0.35 : 0.18))
+        ..color = color.withValues(
+          alpha: alpha * (note.holding ? 0.55 : 0.32),
+        )
         ..style = PaintingStyle.fill,
     );
-    // 头内十字微标（与 tap 双环区分）
-    final cross = Paint()
-      ..color = color.withValues(alpha: alpha * 0.65)
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-    final c = hr * 0.28;
-    canvas.drawLine(Offset(cx - c, headY), Offset(cx + c, headY), cross);
-    canvas.drawLine(Offset(cx, headY - c), Offset(cx, headY + c), cross);
+    canvas.restore();
 
     if (note.holdFadeOut > 0) {
       _paintHoldNoteParticles(canvas, cx, headY, alpha, note.holdFadeOut);

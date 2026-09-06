@@ -15,7 +15,7 @@ class HitFeedback {
     this.hapticsEnabled = true,
     this.sfxEnabled = true,
     double volume = lineDefaultSfxVolume,
-  }) : _volume = volume.clamp(0.0, 1.0);
+  }) : _volume = volume.clamp(0.0, lineSfxVolumeMax);
 
   static const String tapAsset = 'assets/line/sfx/tap.mp3';
   static const String slideAsset = 'assets/line/sfx/slide.mp3';
@@ -32,10 +32,16 @@ class HitFeedback {
   AudioPlayer? _tap;
   AudioPlayer? _slide;
   AudioPlayer? _hold;
+  AndroidLoudnessEnhancer? _tapBoost;
+  AndroidLoudnessEnhancer? _slideBoost;
+  AndroidLoudnessEnhancer? _holdBoost;
   bool _ready = false;
 
   bool get isReady => _ready;
   double get volume => _volume;
+
+  static bool get _useAndroidBoost =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   /// 进游戏前调用：加载并解码三路音效；已就绪则直接返回。
   static Future<HitFeedback> ensureLoaded({
@@ -89,29 +95,62 @@ class HitFeedback {
   }
 
   Future<void> setVolume(double v) async {
-    _volume = v.clamp(0.0, 1.0);
+    _volume = v.clamp(0.0, lineSfxVolumeMax);
+    // Android：player 0~1 + LoudnessEnhancer(dB)；其它平台直接把偏好当增益传入（可 >1）
+    final playerVol = _useAndroidBoost ? _volume.clamp(0.0, 1.0) : _volume;
+    // 100% 起给基础增益，200% 再额外拉高（setTargetGain 单位是 dB）
+    final baseDb = _volume.clamp(0.0, 1.0) * 6.0;
+    final extraDb = (_volume - 1.0).clamp(0.0, 1.0) * 12.0;
+    final gainDb = baseDb + extraDb;
+
     await Future.wait([
-      _tap?.setVolume(_volume) ?? Future.value(),
-      _slide?.setVolume(_volume) ?? Future.value(),
-      _hold?.setVolume(_volume) ?? Future.value(),
+      _tap?.setVolume(playerVol) ?? Future.value(),
+      _slide?.setVolume(playerVol) ?? Future.value(),
+      _hold?.setVolume(playerVol) ?? Future.value(),
+      _applyBoost(_tapBoost, gainDb),
+      _applyBoost(_slideBoost, gainDb),
+      _applyBoost(_holdBoost, gainDb),
     ]);
+  }
+
+  Future<void> _applyBoost(AndroidLoudnessEnhancer? boost, double gainDb) async {
+    if (boost == null) return;
+    await boost.setEnabled(gainDb > 0.01);
+    await boost.setTargetGain(gainDb);
+  }
+
+  Future<(AudioPlayer, AndroidLoudnessEnhancer?)> _createPlayer() async {
+    if (_useAndroidBoost) {
+      final boost = AndroidLoudnessEnhancer();
+      final player = AudioPlayer(
+        audioPipeline: AudioPipeline(androidAudioEffects: [boost]),
+      );
+      await boost.setEnabled(true);
+      return (player, boost);
+    }
+    return (AudioPlayer(), null);
   }
 
   Future<void> _loadPlayers() async {
     if (_ready) return;
     try {
-      _tap = AudioPlayer();
-      _slide = AudioPlayer();
-      _hold = AudioPlayer();
+      final tapPair = await _createPlayer();
+      final slidePair = await _createPlayer();
+      final holdPair = await _createPlayer();
+      _tap = tapPair.$1;
+      _tapBoost = tapPair.$2;
+      _slide = slidePair.$1;
+      _slideBoost = slidePair.$2;
+      _hold = holdPair.$1;
+      _holdBoost = holdPair.$2;
+
       await Future.wait([
         _tap!.setAsset(tapAsset),
         _slide!.setAsset(slideAsset),
         _hold!.setAsset(holdAsset),
       ]);
+      await setVolume(_volume);
       await Future.wait([
-        _tap!.setVolume(_volume),
-        _slide!.setVolume(_volume),
-        _hold!.setVolume(_volume),
         _tap!.seek(Duration.zero),
         _slide!.seek(Duration.zero),
         _hold!.seek(Duration.zero),
@@ -170,5 +209,8 @@ class HitFeedback {
     _tap = null;
     _slide = null;
     _hold = null;
+    _tapBoost = null;
+    _slideBoost = null;
+    _holdBoost = null;
   }
 }
