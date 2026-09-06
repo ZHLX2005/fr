@@ -76,7 +76,7 @@ const Map<int, List<List<int>>> kPieceMatrices = {
 /// 之前这里有 const Map kPieceColors，已删除（自我豁免硬编码 → 零硬编码）。
 
 /// 强调色（与 I 块同色青），用于建房/加入表单的焦点色与标题图标。
-const Color kTetrisAccent = Color(0xFF22D3EE); // 主题豁免：tetris 品牌青色
+const Color kTetrisAccent = Color(0xFF2AD4E0); // 主题豁免：Charcoal I 糖果青
 
 /// 空格颜色码（grid 里 0 = 空）。
 const int kEmptyCell = 0;

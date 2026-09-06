@@ -1,20 +1,23 @@
 // lib/lab/demos/tetris_lua/board.dart
-// 俄罗斯方块 — 棋盘与方块预览渲染
+// 俄罗斯方块 — 棋盘与方块预览渲染（Charcoal）
 //
 //   [TetrisBoardView]   主棋盘：堆积 + 下落块 + ghost 落点预览
 //   [TetrisMiniBoard]   对方迷你预览：只画堆积（复用主棋盘，无 current/ghost）
 //   [TetrisPiecePreview] 单方块预览：Hold / Next 槽用
 //
-// 所有颜色从 ColorScheme + 主题策略派生：
-//   - 棋盘角色（背景/网格/方块顶亮面/方块识别色）→ TetrisColorsStrategy（tetris 专属）
-//   - ghost 落点                            → pieceColor + 固定 alpha 派生（动态跟随 piece 色）
+// 颜色：
+//   - 棋盘角色（背景/网格/方块顶亮面/方块识别色）→ TetrisColorsStrategy（跨主题锁定）
+//   - 井竖向灰黑渐变 → TetrisColors.wellLift / wellMid / pieceBackground
+//   - ghost 落点 → pieceColor + 固定 alpha 派生
 
 import 'dart:math' as math show min;
+import 'dart:ui' as ui show Gradient;
 
 import 'package:flutter/material.dart';
 
 import '../../../widgets/context_tetris_colors.dart';
 import '../../../core/theme/colors/strategy/tetris_colors_strategy/tetris_colors_strategy.dart';
+import '../../../core/theme/tokens/color/tetris/tetris.dart';
 import 'constants.dart';
 import 'engine.dart' show TetrisPiece;
 
@@ -42,7 +45,6 @@ class TetrisBoardView extends StatelessWidget {
           height: w / ratio,
           child: CustomPaint(
             painter: _BoardPainter(
-              scheme: Theme.of(ctx).colorScheme,
               tc: ctx.tetrisColors,
               pieceColors: ctx.tetrisColors.pieceColors,
               grid: grid,
@@ -67,14 +69,12 @@ class TetrisMiniBoard extends StatelessWidget {
 
 class _BoardPainter extends CustomPainter {
   _BoardPainter({
-    required this.scheme,
     required this.tc,
     required this.pieceColors,
     required this.grid,
     this.current,
     this.ghost = 0,
   });
-  final ColorScheme scheme;
   final TetrisColorsStrategy tc;
   final Map<int, Color> pieceColors;
   final List<List<int>> grid;
@@ -85,12 +85,36 @@ class _BoardPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cellW = size.width / kTetrisCols;
     final cellH = size.height / kTetrisRows;
+    final boardRect = Offset.zero & size;
 
-    // 背景走 tc.pieceBackground，网格线走 tc.pieceGridLine（tetris 棋盘策略）
+    // 炭灰井竖向渐变 + 顶部微光（非纯黑）
     canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = tc.pieceBackground,
+      boardRect,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width * 0.5, 0),
+          Offset(size.width * 0.5, size.height),
+          const [
+            TetrisColors.wellLift,
+            TetrisColors.wellMid,
+            TetrisColors.pieceBackground,
+          ],
+          const [0.0, 0.48, 1.0],
+        ),
     );
+    canvas.drawRect(
+      boardRect,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width * 0.5, 0),
+          Offset(size.width * 0.5, size.height * 0.42),
+          const [
+            Color(0x12FFFFFF), // 主题豁免：井顶微光叠层
+            Color(0x00FFFFFF),
+          ],
+        ),
+    );
+
     final linePaint = Paint()
       ..color = tc.pieceGridLine
       ..strokeWidth = 1;
@@ -115,7 +139,15 @@ class _BoardPainter extends CustomPainter {
       for (var x = 0; x < row.length && x < kTetrisCols; x++) {
         final t = row[x];
         if (t != kEmptyCell) {
-          _drawCell(canvas, cellW * x, cellH * y, cellW, cellH, pieceColors[t]!);
+          _paintJewelCell(
+            canvas,
+            cellW * x,
+            cellH * y,
+            cellW,
+            cellH,
+            pieceColors[t]!,
+            tc.cellHighlight,
+          );
         }
       }
     }
@@ -131,7 +163,14 @@ class _BoardPainter extends CustomPainter {
           if (cur.matrix[i][j] == 0) continue;
           final gy = cur.y + i + ghost;
           if (gy < 0 || gy >= kTetrisRows) continue;
-          _drawGhost(canvas, cellW * (cur.x + j), cellH * gy, cellW, cellH, color);
+          _paintGhost(
+            canvas,
+            cellW * (cur.x + j),
+            cellH * gy,
+            cellW,
+            cellH,
+            color,
+          );
         }
       }
     }
@@ -143,45 +182,88 @@ class _BoardPainter extends CustomPainter {
         if (cur.matrix[i][j] == 0) continue;
         final gy = cur.y + i;
         if (gy < 0 || gy >= kTetrisRows) continue;
-        _drawCell(canvas, cellW * (cur.x + j), cellH * gy, cellW, cellH, color);
+        _paintJewelCell(
+          canvas,
+          cellW * (cur.x + j),
+          cellH * gy,
+          cellW,
+          cellH,
+          color,
+          tc.cellHighlight,
+        );
       }
     }
-  }
-
-  void _drawCell(Canvas c, double x, double y, double w, double h, Color color) {
-    final r = RRect.fromRectAndRadius(
-      Rect.fromLTWH(x + 1, y + 1, w - 2, h - 2),
-      Radius.circular(math.min(w, h) * 0.14),
-    );
-    c.drawRRect(r, Paint()..color = color);
-    c.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(x + 2.5, y + 2.5, w - 5, (h - 5) * 0.32),
-        const Radius.circular(2),
-      ),
-      Paint()..color = tc.cellHighlight,
-    );
-  }
-
-  void _drawGhost(Canvas c, double x, double y, double w, double h, Color color) {
-    final r = RRect.fromRectAndRadius(
-      Rect.fromLTWH(x + 2, y + 2, w - 4, h - 4),
-      const Radius.circular(3),
-    );
-    c.drawRRect(r, Paint()..color = color.withValues(alpha: 0.16));
-    c.drawRRect(
-      r,
-      Paint()
-        ..color = color.withValues(alpha: 0.5)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
   }
 
   // grid 是 engine 内部 mutate 的同一引用；中途变化引用不变 → 用内容快照不可靠。
   // 俄罗斯方块每秒重绘几次、仅 200 格，直接恒重绘，零漏帧。
   @override
   bool shouldRepaint(covariant _BoardPainter old) => true;
+}
+
+/// Charcoal 糖果格：斜向渐变 + 薄高光条。
+void _paintJewelCell(
+  Canvas c,
+  double x,
+  double y,
+  double w,
+  double h,
+  Color color,
+  Color highlight,
+) {
+  final radius = Radius.circular(math.min(w, h) * 0.16);
+  final r = RRect.fromRectAndRadius(
+    Rect.fromLTWH(x + 1.2, y + 1.2, w - 2.4, h - 2.4),
+    radius,
+  );
+  final bounds = r.outerRect;
+  c.drawRRect(
+    r,
+    Paint()
+      ..shader = ui.Gradient.linear(
+        bounds.topLeft,
+        bounds.bottomRight,
+        [
+          Color.lerp(color, Colors.white, 0.32)!,
+          color,
+          Color.lerp(color, Colors.black, 0.22)!,
+        ],
+        const [0.0, 0.42, 1.0],
+      ),
+  );
+  // 顶部薄高光
+  final hiH = (h - 5) * 0.24;
+  if (hiH > 1) {
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + w * 0.18, y + 2.8, w * 0.64, hiH),
+        const Radius.circular(99),
+      ),
+      Paint()..color = highlight,
+    );
+  }
+}
+
+void _paintGhost(
+  Canvas c,
+  double x,
+  double y,
+  double w,
+  double h,
+  Color color,
+) {
+  final r = RRect.fromRectAndRadius(
+    Rect.fromLTWH(x + 2, y + 2, w - 4, h - 4),
+    Radius.circular(math.min(w, h) * 0.14),
+  );
+  c.drawRRect(r, Paint()..color = color.withValues(alpha: 0.14));
+  c.drawRRect(
+    r,
+    Paint()
+      ..color = Color.lerp(color, Colors.white, 0.25)!.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5,
+  );
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -198,7 +280,6 @@ class TetrisPiecePreview extends StatelessWidget {
       aspectRatio: 1,
       child: CustomPaint(
         painter: _PiecePreviewPainter(
-          scheme: Theme.of(context).colorScheme,
           tc: context.tetrisColors,
           pieceColors: context.tetrisColors.pieceColors,
           type: type,
@@ -210,27 +291,52 @@ class TetrisPiecePreview extends StatelessWidget {
 
 class _PiecePreviewPainter extends CustomPainter {
   _PiecePreviewPainter({
-    required this.scheme,
     required this.tc,
     required this.pieceColors,
     required this.type,
   });
-  final ColorScheme scheme;
   final TetrisColorsStrategy tc;
   final Map<int, Color> pieceColors;
   final int? type;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
-      Paint()..color = tc.pieceBackground,
+    final slot = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(12),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8)),
+      slot,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width * 0.5, 0),
+          Offset(size.width * 0.5, size.height),
+          const [
+            TetrisColors.wellLift,
+            TetrisColors.wellMid,
+            TetrisColors.pieceBackground,
+          ],
+          const [0.0, 0.48, 1.0],
+        ),
+    );
+    canvas.drawRRect(
+      slot,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width * 0.5, 0),
+          Offset(size.width * 0.5, size.height * 0.5),
+          const [
+            Color(0x12FFFFFF), // 主题豁免：预览槽顶微光
+            Color(0x00FFFFFF),
+          ],
+        ),
+    );
+    canvas.drawRRect(
+      slot,
       Paint()
         ..color = tc.pieceGridLine
-        ..style = PaintingStyle.stroke,
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
     );
 
     final t = type;
@@ -258,16 +364,17 @@ class _PiecePreviewPainter extends CustomPainter {
     final oy = (size.height - boxH) / 2 - minR * cell;
 
     final color = pieceColors[t]!;
-    final paint = Paint()..color = color;
     for (var i = 0; i < matLen; i++) {
       for (var j = 0; j < matrix[i].length; j++) {
         if (matrix[i][j] == 0) continue;
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(ox + j * cell + 1, oy + i * cell + 1, cell - 2, cell - 2),
-            Radius.circular(cell * 0.14),
-          ),
-          paint,
+        _paintJewelCell(
+          canvas,
+          ox + j * cell,
+          oy + i * cell,
+          cell,
+          cell,
+          color,
+          tc.cellHighlight,
         );
       }
     }

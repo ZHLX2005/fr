@@ -167,7 +167,7 @@ const Map<String, GameMeta> kGameMeta = {
   'tetris-lua': GameMeta(
     categories: {GameCategory.multiplayer, GameCategory.arcade},
     icon: Icons.grid_view_rounded,
-    gradient: [Color(0xFF0F172A), Color(0xFF22D3EE)],
+    gradient: [Color(0xFF1C1F24), Color(0xFF2AD4E0)], // 主题豁免：tetris Charcoal
     mode: '联机双人',
     pattern: GameArtPattern.grid,
   ),

@@ -1,7 +1,7 @@
 // BuildContext 扩展：`context.tetrisColors` 快捷访问 TetrisColorsStrategy。
 //
-// 俄罗斯方块统一通道（含棋盘环境 + 方块识别色）：
-//   context.tetrisColors.cellHighlight / pieceBackground / pieceGridLine  ← 跟主题
+// 俄罗斯方块统一通道（Charcoal，含棋盘环境 + 方块识别色）：
+//   context.tetrisColors.cellHighlight / pieceBackground / pieceGridLine  ← 跨主题锁定
 //   context.tetrisColors.pieceColors[i]                                    ← 跨主题锁定
 
 import 'package:flutter/material.dart';
