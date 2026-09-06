@@ -237,6 +237,8 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   bool _haptics = true;
   bool _hitSfx = true;
   bool _showEarlyLate = true;
+  double _sfxVolume = lineDefaultSfxVolume;
+  double _bgmVolume = lineDefaultBgmVolume;
 
   // 流速
   double _scrollSpeed = 1.0;
@@ -287,6 +289,8 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
         _haptics = prefs.getBool(lineHapticsKey) ?? true;
         _hitSfx = prefs.getBool(lineHitSfxKey) ?? true;
         _showEarlyLate = prefs.getBool(lineShowEarlyLateKey) ?? true;
+        _sfxVolume = prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume;
+        _bgmVolume = prefs.getDouble(lineBgmVolumeKey) ?? lineDefaultBgmVolume;
         final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
         _backgroundStyle = BackgroundStyle
             .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
@@ -307,6 +311,11 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   Future<void> _saveInputOffset(double value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(lineInputOffsetKey, value.round());
+  }
+
+  Future<void> _saveDouble(String key, double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(key, value);
   }
 
   Future<void> _saveBool(String key, bool value) async {
@@ -698,6 +707,61 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
               _saveBool(lineHitSfxKey, v);
             },
           ),
+          Text(
+            '音效音量  ${(_sfxVolume * 100).round()}%',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 1.5,
+              thumbShape: const LineThumbShape(thumbRadius: 4),
+              overlayShape: SliderComponentShape.noOverlay,
+              activeTrackColor: widget.primaryColor,
+              inactiveTrackColor: theme.colorScheme.outlineVariant,
+              thumbColor: widget.primaryColor,
+            ),
+            child: Slider(
+              value: _sfxVolume,
+              min: 0,
+              max: 1,
+              divisions: 20,
+              onChanged: _hitSfx
+                  ? (v) {
+                      setState(() => _sfxVolume = v);
+                      _saveDouble(lineSfxVolumeKey, v);
+                    }
+                  : null,
+            ),
+          ),
+          Text(
+            '音乐音量  ${(_bgmVolume * 100).round()}%',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 1.5,
+              thumbShape: const LineThumbShape(thumbRadius: 4),
+              overlayShape: SliderComponentShape.noOverlay,
+              activeTrackColor: widget.primaryColor,
+              inactiveTrackColor: theme.colorScheme.outlineVariant,
+              thumbColor: widget.primaryColor,
+            ),
+            child: Slider(
+              value: _bgmVolume,
+              min: 0,
+              max: 1,
+              divisions: 20,
+              onChanged: (v) {
+                setState(() => _bgmVolume = v);
+                _saveDouble(lineBgmVolumeKey, v);
+              },
+            ),
+          ),
+          const SizedBox(height: 4),
           SwitchListTile.adaptive(
             dense: true,
             contentPadding: EdgeInsets.zero,

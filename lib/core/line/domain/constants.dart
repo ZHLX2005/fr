@@ -3,7 +3,8 @@ enum BackgroundStyle { none, grid, lines }
 
 // ── 布局常量 ──
 const int columnCount = 3;
-const double noteSizeRatio = 0.168;
+/// 音符相对列宽半径比例（越大音符越大）
+const double noteSizeRatio = 0.22;
 const double judgeLineRatio = 0.75;
 
 // ── 判定窗口（ms）——偏宽容，优先手感与可玩性 ──
@@ -39,3 +40,9 @@ const String lineInputOffsetKey = 'line_demo_input_offset_ms';
 const String lineHapticsKey = 'line_demo_haptics';
 const String lineHitSfxKey = 'line_demo_hit_sfx';
 const String lineShowEarlyLateKey = 'line_demo_show_early_late';
+const String lineSfxVolumeKey = 'line_demo_sfx_volume';
+const String lineBgmVolumeKey = 'line_demo_bgm_volume';
+
+/// 默认击打音量 / BGM 音量（0~1）
+const double lineDefaultSfxVolume = 1.0;
+const double lineDefaultBgmVolume = 0.7;

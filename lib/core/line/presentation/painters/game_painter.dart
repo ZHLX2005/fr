@@ -121,8 +121,8 @@ class GamePainter extends CustomPainter {
       final textSpan = TextSpan(
         text: fb.text,
         style: TextStyle(
-          fontSize: (14 + 4 * fb.fontScale) * pop * screenWidth / 750,
-          fontWeight: FontWeight.w600,
+          fontSize: (32 + 10 * fb.fontScale) * pop * screenWidth / 750,
+          fontWeight: FontWeight.w700,
           color: fb.color.withValues(alpha: alpha),
           letterSpacing: 1.5,
         ),
@@ -142,9 +142,9 @@ class GamePainter extends CustomPainter {
           text: TextSpan(
             text: fb.hintText,
             style: TextStyle(
-              fontSize: 9 * screenWidth / 750,
-              fontWeight: FontWeight.w400,
-              color: fb.color.withValues(alpha: alpha * 0.7),
+              fontSize: 14 * screenWidth / 750,
+              fontWeight: FontWeight.w500,
+              color: fb.color.withValues(alpha: alpha * 0.75),
               letterSpacing: 1.2,
             ),
           ),
@@ -154,7 +154,7 @@ class GamePainter extends CustomPainter {
           canvas,
           Offset(
             fb.x - hint.width / 2,
-            fb.y - floatOffset - tp.height / 2 - hint.height - 2,
+            fb.y - floatOffset - tp.height / 2 - hint.height - 4,
           ),
         );
         hint.dispose();
@@ -169,18 +169,18 @@ class GamePainter extends CustomPainter {
             TextSpan(
               text: '$currentCombo',
               style: TextStyle(
-                fontSize: 22 * screenWidth / 750,
+                fontSize: 52 * screenWidth / 750,
                 fontWeight: FontWeight.w300,
-                color: color.withValues(alpha: 0.55),
+                color: color.withValues(alpha: 0.7),
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
             TextSpan(
               text: ' COMBO',
               style: TextStyle(
-                fontSize: 10 * screenWidth / 750,
-                fontWeight: FontWeight.w200,
-                color: color.withValues(alpha: 0.35),
+                fontSize: 18 * screenWidth / 750,
+                fontWeight: FontWeight.w300,
+                color: color.withValues(alpha: 0.45),
                 letterSpacing: 1.5,
               ),
             ),
@@ -190,7 +190,7 @@ class GamePainter extends CustomPainter {
       )..layout();
       comboTp.paint(
         canvas,
-        Offset(w / 2 - comboTp.width / 2, judgeY * 0.42),
+        Offset(w / 2 - comboTp.width / 2, judgeY * 0.38),
       );
       comboTp.dispose();
     }
@@ -260,7 +260,7 @@ class GamePainter extends CustomPainter {
     final y = _noteTravelY(note);
     if (y < -radius || y > screenHeight + radius) return;
 
-    final alpha = _pastJudgeFade(y, base: 0.42);
+    final alpha = _pastJudgeFade(y, base: 0.55);
     if (alpha <= 0.01) return;
 
     final approach = (1.0 - ((judgeY - y).abs() / (screenHeight * 0.35)))
@@ -277,7 +277,7 @@ class GamePainter extends CustomPainter {
       Paint()
         ..color = color.withValues(alpha: alpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4,
+        ..strokeWidth = 3.0,
     );
     // 内环（更细、更淡）
     canvas.drawCircle(
@@ -323,9 +323,9 @@ class GamePainter extends CustomPainter {
     final minVisibleY = -radius * 2;
     if (tailY < minVisibleY) tailY = minVisibleY;
 
-    // 轨道接近列宽，头圆略大于 tap，更「大气」
-    final bodyHalf = radius * 0.92;
-    final headR = radius * 1.12;
+    // 轨道接近列宽，头圆更大更醒目
+    final bodyHalf = radius * 0.98;
+    final headR = radius * 1.18;
 
     double progress = 0.0;
     if (note.holdFadeOut > 0) {
@@ -337,16 +337,16 @@ class GamePainter extends CustomPainter {
 
     double alpha;
     if (note.holdFadeOut > 0) {
-      alpha = 0.62 * (1.0 - note.holdFadeOut * 0.35);
+      alpha = 0.7 * (1.0 - note.holdFadeOut * 0.35);
     } else if (note.holding) {
-      alpha = 0.78 * (1.0 - progress * 0.28).clamp(0.35, 1.0);
+      alpha = 0.88 * (1.0 - progress * 0.22).clamp(0.4, 1.0);
     } else {
-      alpha = 0.62;
+      alpha = 0.72;
     }
     if (alpha < 0.01) return;
 
     final bodyTop = tailY;
-    final bodyBottom = headY - headR * 0.28;
+    final bodyBottom = headY - headR * 0.22;
     final bodyH = (bodyBottom - bodyTop).clamp(0.0, double.infinity);
 
     // ── 轨道外轮廓 ──
@@ -358,15 +358,15 @@ class GamePainter extends CustomPainter {
       canvas.drawRRect(
         track,
         Paint()
-          ..color = color.withValues(alpha: alpha * 0.22)
+          ..color = color.withValues(alpha: alpha * 0.28)
           ..style = PaintingStyle.fill,
       );
       canvas.drawRRect(
         track,
         Paint()
-          ..color = color.withValues(alpha: alpha * 0.85)
+          ..color = color.withValues(alpha: alpha * 0.92)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.6,
+          ..strokeWidth = 3.2,
       );
 
       // 侧刻度
@@ -512,13 +512,13 @@ class GamePainter extends CustomPainter {
     final y = _noteTravelY(note);
     if (y < -radius || y > screenHeight + radius) return;
 
-    final alpha = _pastJudgeFade(y, base: 0.72);
+    final alpha = _pastJudgeFade(y, base: 0.8);
     if (alpha <= 0.01) return;
 
     final dir = note.event.direction ?? SlideDirection.up;
     final center = Offset(cx, y);
-    // 明显大于 tap，避免「看不见」
-    final r = radius * 1.38;
+    // 明显大于 tap
+    final r = radius * 1.42;
 
     // 菱形外框
     final diamond = Path()

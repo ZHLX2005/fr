@@ -127,7 +127,9 @@ class GameController {
   Future<void> init() async {
     await _loadSettings();
     if (audioPath != null) {
-      _audioService = AudioService(audioPath: audioPath!);
+      final prefs = await SharedPreferences.getInstance();
+      final bgmVol = prefs.getDouble(lineBgmVolumeKey) ?? lineDefaultBgmVolume;
+      _audioService = AudioService(audioPath: audioPath!, volume: bgmVol);
       await _audioService!.init();
       _audioService!.onCompletion = () {
         if (!isExiting) _gameOver(cleared: true);
@@ -209,12 +211,16 @@ class GameController {
     final bgIndex = prefs.getInt(lineBackgroundKey) ?? 0;
     backgroundStyle = BackgroundStyle
         .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
-    // 进局前须已预加载；此处复用会话并同步开关
+    // 进局前须已预加载；此处复用会话并同步开关 / 音量
+    final sfxVol = prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume;
+    final bgmVol = prefs.getDouble(lineBgmVolumeKey) ?? lineDefaultBgmVolume;
     _hitFeedback = await HitFeedback.ensureLoaded(
       hapticsEnabled: prefs.getBool(lineHapticsKey) ?? true,
       sfxEnabled: prefs.getBool(lineHitSfxKey) ?? true,
+      volume: sfxVol,
       strict: true,
     );
+    await _audioService?.setVolume(bgmVol);
     onStateChanged?.call();
   }
 

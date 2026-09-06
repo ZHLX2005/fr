@@ -3,16 +3,21 @@ import 'dart:io' show File;
 
 import 'package:just_audio/just_audio.dart';
 
+import '../domain/constants.dart';
+
 /// 音频服务 — 播放 BGM；[positionMs] 作为游戏权威时钟源。
 class AudioService {
   final String audioPath;
   AudioPlayer? _player;
   StreamSubscription? _completionSub;
+  double _volume = lineDefaultBgmVolume;
 
   /// 音频播放完成回调
   void Function()? onCompletion;
 
-  AudioService({required this.audioPath});
+  AudioService({required this.audioPath, double? volume}) {
+    if (volume != null) _volume = volume.clamp(0.0, 1.0);
+  }
 
   /// 当前播放进度（ms）。未就绪时返回 null。
   int? get positionMs {
@@ -22,6 +27,8 @@ class AudioService {
   }
 
   bool get isReady => _player != null;
+
+  double get volume => _volume;
 
   Future<void> init() async {
     _player = AudioPlayer();
@@ -35,8 +42,12 @@ class AudioService {
         await _player!.setAsset(audioPath);
       }
     }
-    // 略降 BGM，让击打音效更突出
-    await _player!.setVolume(0.72);
+    await _player!.setVolume(_volume);
+  }
+
+  Future<void> setVolume(double v) async {
+    _volume = v.clamp(0.0, 1.0);
+    await _player?.setVolume(_volume);
   }
 
   void play() {

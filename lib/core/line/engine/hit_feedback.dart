@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../domain/constants.dart';
 import '../domain/note_event.dart';
 import 'judge_service.dart';
 
@@ -13,7 +14,8 @@ class HitFeedback {
   HitFeedback({
     this.hapticsEnabled = true,
     this.sfxEnabled = true,
-  });
+    double volume = lineDefaultSfxVolume,
+  }) : _volume = volume.clamp(0.0, 1.0);
 
   static const String tapAsset = 'assets/line/sfx/tap.mp3';
   static const String slideAsset = 'assets/line/sfx/slide.mp3';
@@ -25,6 +27,7 @@ class HitFeedback {
 
   bool hapticsEnabled;
   bool sfxEnabled;
+  double _volume;
 
   AudioPlayer? _tap;
   AudioPlayer? _slide;
@@ -32,19 +35,20 @@ class HitFeedback {
   bool _ready = false;
 
   bool get isReady => _ready;
+  double get volume => _volume;
 
   /// 进游戏前调用：加载并解码三路音效；已就绪则直接返回。
-  ///
-  /// [strict] 为 true 时加载失败抛错（选曲开始应阻断进局）。
   static Future<HitFeedback> ensureLoaded({
     bool hapticsEnabled = true,
     bool sfxEnabled = true,
+    double volume = lineDefaultSfxVolume,
     bool strict = true,
   }) async {
     final existing = _session;
     if (existing != null && existing._ready) {
       existing.hapticsEnabled = hapticsEnabled;
       existing.sfxEnabled = sfxEnabled;
+      await existing.setVolume(volume);
       return existing;
     }
 
@@ -63,6 +67,7 @@ class HitFeedback {
       final fb = await _loading!;
       fb.hapticsEnabled = hapticsEnabled;
       fb.sfxEnabled = sfxEnabled;
+      await fb.setVolume(volume);
       return fb;
     } catch (e, st) {
       _loading = null;
@@ -83,14 +88,13 @@ class HitFeedback {
     await s?.dispose();
   }
 
-  Future<void> init() async {
-    // 对局内：优先复用会话预加载结果
-    if (_session != null && identical(this, _session) && _ready) return;
-    if (_session != null && _session!._ready && !identical(this, _session)) {
-      // 不应走到：GameController 应直接持有 ensureLoaded 返回值
-      return;
-    }
-    await _loadPlayers();
+  Future<void> setVolume(double v) async {
+    _volume = v.clamp(0.0, 1.0);
+    await Future.wait([
+      _tap?.setVolume(_volume) ?? Future.value(),
+      _slide?.setVolume(_volume) ?? Future.value(),
+      _hold?.setVolume(_volume) ?? Future.value(),
+    ]);
   }
 
   Future<void> _loadPlayers() async {
@@ -104,11 +108,10 @@ class HitFeedback {
         _slide!.setAsset(slideAsset),
         _hold!.setAsset(holdAsset),
       ]);
-      // 打击音尽量打满；BGM 在 AudioService 里略降，避免盖住击打
       await Future.wait([
-        _tap!.setVolume(1.0),
-        _slide!.setVolume(1.0),
-        _hold!.setVolume(1.0),
+        _tap!.setVolume(_volume),
+        _slide!.setVolume(_volume),
+        _hold!.setVolume(_volume),
         _tap!.seek(Duration.zero),
         _slide!.seek(Duration.zero),
         _hold!.seek(Duration.zero),
@@ -137,6 +140,7 @@ class HitFeedback {
       }
     }
     if (!sfxEnabled || !_ready || label == JudgeResultLabel.miss) return;
+    if (_volume <= 0.001) return;
     _playSfx(noteType);
   }
 
@@ -153,7 +157,6 @@ class HitFeedback {
       NoteType.hold => _hold,
     };
     if (player == null) return;
-    // 快速连击：从头重播，允许打断上一发同类型
     player.seek(Duration.zero).then((_) => player.play()).catchError((_) {});
   }
 
