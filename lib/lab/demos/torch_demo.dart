@@ -622,28 +622,29 @@ class _TorchPageState extends State<_TorchPage>
 
   Widget _buildHueRing({double size = 160}) {
     final hsv = HSVColor.fromColor(_selectedColor);
-    // Listener 直接吃 pointer；外层空 Drag 认领竞技场，挡住 ScrollView / 全屏亮度拖动
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragStart: (_) {},
-      onVerticalDragUpdate: (_) {},
-      onHorizontalDragStart: (_) {},
-      onHorizontalDragUpdate: (_) {},
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: LayoutBuilder(
-          builder: (context, _) {
-            void handlePointer(Offset globalPosition) {
-              final box = context.findRenderObject() as RenderBox?;
-              if (box == null || !box.hasSize) return;
-              _handleHuePan(box.globalToLocal(globalPosition), size);
-            }
+    // onPan 认领竞技场，挡住 ScrollView / 全屏亮度拖动；指示点按绘制坐标系跟手
+    return SizedBox(
+      width: size,
+      height: size,
+      child: LayoutBuilder(
+        builder: (context, _) {
+          void handleLocal(Offset local) => _handleHuePan(local, size);
+          void handleGlobal(Offset global) {
+            final box = context.findRenderObject() as RenderBox?;
+            if (box == null || !box.hasSize) return;
+            handleLocal(box.globalToLocal(global));
+          }
 
-            return Listener(
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (d) => handleLocal(d.localPosition),
+            onPanUpdate: (d) => handleLocal(d.localPosition),
+            onTapDown: (d) => handleLocal(d.localPosition),
+            // 兜底：个别机型 pan 未认领时仍跟手
+            child: Listener(
               behavior: HitTestBehavior.opaque,
-              onPointerDown: (e) => handlePointer(e.position),
-              onPointerMove: (e) => handlePointer(e.position),
+              onPointerDown: (e) => handleGlobal(e.position),
+              onPointerMove: (e) => handleGlobal(e.position),
               child: CustomPaint(
                 painter: _HueRingPainter(
                   scheme: Theme.of(context).colorScheme,
@@ -651,9 +652,9 @@ class _TorchPageState extends State<_TorchPage>
                   saturation: hsv.saturation,
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -662,15 +663,14 @@ class _TorchPageState extends State<_TorchPage>
     final center = Offset(size / 2, size / 2);
     final dx = localPosition.dx - center.dx;
     final dy = localPosition.dy - center.dy;
-    final distance = sqrt(dx * dx + dy * dy);
-    final outerRadius = size / 2;
+    // 正中心角度无定义，其余位置均按角度取色（含环外），保证指示点跟手
+    if (dx * dx + dy * dy < 1) return;
 
-    // 中心圆与环带均可取色，避免必须精确点在细环上
-    if (distance <= outerRadius + 15) {
-      final angle = atan2(dy, dx);
-      final hue = ((angle * 180 / pi) + 360) % 360;
-      _onHueChanged(hue);
-    }
+    // 与 _HueRingPainter 一致：hue 0 在正上方，顺时针增大
+    // painter: angle = hue/360 * 2π - π/2
+    final angle = atan2(dy, dx);
+    final hue = ((angle * 180 / pi) + 90 + 360) % 360;
+    _onHueChanged(hue);
   }
 
   Widget _buildSaturationSlider(ColorScheme theme) {
