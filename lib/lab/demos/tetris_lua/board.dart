@@ -1,13 +1,13 @@
 // lib/lab/demos/tetris_lua/board.dart
-// 俄罗斯方块 — 棋盘与方块预览渲染（Charcoal）
+// 俄罗斯方块 — 棋盘与方块预览渲染（Ash flat well）
 //
 //   [TetrisBoardView]   主棋盘：堆积 + 下落块 + ghost 落点预览
 //   [TetrisMiniBoard]   对方迷你预览：只画堆积（复用主棋盘，无 current/ghost）
 //   [TetrisPiecePreview] 单方块预览：Hold / Next 槽用
 //
 // 颜色：
-//   - 棋盘角色（背景/网格/方块顶亮面/方块识别色）→ TetrisColorsStrategy（跨主题锁定）
-//   - 井竖向灰黑渐变 → TetrisColors.wellLift / wellMid / pieceBackground
+//   - 棋盘井纯色（无渐变）/ 网格 / 高光 / 方块识别色 → TetrisColorsStrategy
+//   - 方块格保留斜向立体高光
 //   - ghost 落点 → pieceColor + 固定 alpha 派生
 
 import 'dart:math' as math show min;
@@ -17,7 +17,6 @@ import 'package:flutter/material.dart';
 
 import '../../../widgets/context_tetris_colors.dart';
 import '../../../core/theme/colors/strategy/tetris_colors_strategy/tetris_colors_strategy.dart';
-import '../../../core/theme/tokens/color/tetris/tetris.dart';
 import 'constants.dart';
 import 'engine.dart' show TetrisPiece;
 
@@ -87,33 +86,8 @@ class _BoardPainter extends CustomPainter {
     final cellH = size.height / kTetrisRows;
     final boardRect = Offset.zero & size;
 
-    // 炭灰井竖向渐变 + 顶部微光（非纯黑）
-    canvas.drawRect(
-      boardRect,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(size.width * 0.5, 0),
-          Offset(size.width * 0.5, size.height),
-          const [
-            TetrisColors.wellLift,
-            TetrisColors.wellMid,
-            TetrisColors.pieceBackground,
-          ],
-          const [0.0, 0.48, 1.0],
-        ),
-    );
-    canvas.drawRect(
-      boardRect,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(size.width * 0.5, 0),
-          Offset(size.width * 0.5, size.height * 0.42),
-          const [
-            Color(0x12FFFFFF), // 主题豁免：井顶微光叠层
-            Color(0x00FFFFFF),
-          ],
-        ),
-    );
+    // Ash 中灰井：纯色平面，无渐变
+    canvas.drawRect(boardRect, Paint()..color = tc.pieceBackground);
 
     final linePaint = Paint()
       ..color = tc.pieceGridLine
@@ -201,7 +175,7 @@ class _BoardPainter extends CustomPainter {
   bool shouldRepaint(covariant _BoardPainter old) => true;
 }
 
-/// Charcoal 糖果格：斜向渐变 + 薄高光条。
+/// 糖果立体格：斜向渐变 + 薄高光条（井底保持纯色）。
 void _paintJewelCell(
   Canvas c,
   double x,
@@ -305,32 +279,8 @@ class _PiecePreviewPainter extends CustomPainter {
       Offset.zero & size,
       const Radius.circular(12),
     );
-    canvas.drawRRect(
-      slot,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(size.width * 0.5, 0),
-          Offset(size.width * 0.5, size.height),
-          const [
-            TetrisColors.wellLift,
-            TetrisColors.wellMid,
-            TetrisColors.pieceBackground,
-          ],
-          const [0.0, 0.48, 1.0],
-        ),
-    );
-    canvas.drawRRect(
-      slot,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(size.width * 0.5, 0),
-          Offset(size.width * 0.5, size.height * 0.5),
-          const [
-            Color(0x12FFFFFF), // 主题豁免：预览槽顶微光
-            Color(0x00FFFFFF),
-          ],
-        ),
-    );
+    // Hold/Next 槽：与主井同色纯色平面
+    canvas.drawRRect(slot, Paint()..color = tc.pieceBackground);
     canvas.drawRRect(
       slot,
       Paint()
