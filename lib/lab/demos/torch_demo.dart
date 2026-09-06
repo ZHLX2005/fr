@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:torch_light/torch_light.dart';
@@ -556,54 +557,49 @@ class _TorchPageState extends State<_TorchPage>
 
   // 颜色控制区域（非全屏模式）
   Widget _buildColorControlArea(ColorScheme theme) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onVerticalDragStart: (_) {},
-      onVerticalDragUpdate: (_) {},
-      child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 20),
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.outline, width: 1),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '灯光颜色',
-                  style: TextStyle(
-                    color: theme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.outline, width: 1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '灯光颜色',
+                style: TextStyle(
+                  color: theme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _getLightColor(),
-                    border: Border.all(color: theme.outline),
-                  ),
+              ),
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _getLightColor(),
+                  border: Border.all(color: theme.outline),
                 ),
-              ],
-            ),
-            SizedBox(height: 12),
-            // 色相环
-            _buildHueRing(size: 160),
-            SizedBox(height: 12),
-            // 饱和度滑块
-            _buildSaturationSlider(theme),
-            SizedBox(height: 12),
-            // 预设颜色
-            _buildPresetColors(theme),
-          ],
-        ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          // 色相环
+          _buildHueRing(size: 160),
+          SizedBox(height: 12),
+          // 饱和度滑块
+          _buildSaturationSlider(theme),
+          SizedBox(height: 12),
+          // 预设颜色
+          _buildPresetColors(theme),
+        ],
       ),
     );
   }
@@ -960,38 +956,33 @@ class _TorchPageState extends State<_TorchPage>
                         AnimatedSize(
                           duration: const Duration(milliseconds: 300),
                           child: _showColorPanel
-                              ? GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onVerticalDragStart: (_) {},
-                                  onVerticalDragUpdate: (_) {},
-                                  child: Container(
-                                    margin: EdgeInsets.only(top: 16),
-                                    padding: EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: isLight
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .onSurface
-                                              .withValues(alpha: 0.15)
-                                          : Theme.of(context)
-                                              .colorScheme
-                                              .onSurface
-                                              .withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _buildHueRing(size: 140),
-                                        SizedBox(height: 12),
-                                        SizedBox(
-                                          width: 240,
-                                          child: _buildSaturationSlider(theme),
-                                        ),
-                                        SizedBox(height: 8),
-                                        _buildPresetColorsCompact(theme),
-                                      ],
-                                    ),
+                              ? Container(
+                                  margin: EdgeInsets.only(top: 16),
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: isLight
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.15)
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
+                                            .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _buildHueRing(size: 140),
+                                      SizedBox(height: 12),
+                                      SizedBox(
+                                        width: 240,
+                                        child: _buildSaturationSlider(theme),
+                                      ),
+                                      SizedBox(height: 8),
+                                      _buildPresetColorsCompact(theme),
+                                    ],
                                   ),
                                 )
                               : SizedBox.shrink(),
@@ -1137,8 +1128,8 @@ class _TorchPageState extends State<_TorchPage>
   }
 }
 
-/// 色相环触控：扩大命中区 + pointer 跟手（含环外拖动）
-class _HueRingTouch extends StatefulWidget {
+/// 色相环触控：扩大命中区；按下即认领 pan，避免被 ScrollView / 空 Drag 取消跟手
+class _HueRingTouch extends StatelessWidget {
   final double ringSize;
   final double hitSize;
   final double selectedHue;
@@ -1157,19 +1148,8 @@ class _HueRingTouch extends StatefulWidget {
     required this.onHue,
   });
 
-  @override
-  State<_HueRingTouch> createState() => _HueRingTouchState();
-}
-
-class _HueRingTouchState extends State<_HueRingTouch> {
-  final GlobalKey _boxKey = GlobalKey();
-  int? _activePointer;
-
-  void _updateHue(Offset globalPosition) {
-    final box = _boxKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return;
-    final local = box.globalToLocal(globalPosition);
-    final center = Offset(widget.hitSize / 2, widget.hitSize / 2);
+  void _updateFromLocal(Offset local) {
+    final center = Offset(hitSize / 2, hitSize / 2);
     final dx = local.dx - center.dx;
     final dy = local.dy - center.dy;
     if (dx * dx + dy * dy < 1) return;
@@ -1177,47 +1157,54 @@ class _HueRingTouchState extends State<_HueRingTouch> {
     // 与 _HueRingPainter 一致：hue 0 在正上方，顺时针增大
     final angle = atan2(dy, dx);
     final hue = ((angle * 180 / pi) + 90 + 360) % 360;
-    widget.onHue(hue);
+    onHue(hue);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      key: _boxKey,
+    return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
-      onPointerDown: (e) {
-        _activePointer = e.pointer;
-        _updateHue(e.position);
+      gestures: <Type, GestureRecognizerFactory>{
+        _EagerPanGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<_EagerPanGestureRecognizer>(
+          () => _EagerPanGestureRecognizer(),
+          (_EagerPanGestureRecognizer instance) {
+            instance.onDown = (details) {
+              _updateFromLocal(details.localPosition);
+            };
+            instance.onStart = (details) {
+              _updateFromLocal(details.localPosition);
+            };
+            instance.onUpdate = (details) {
+              _updateFromLocal(details.localPosition);
+            };
+          },
+        ),
       },
-      onPointerMove: (e) {
-        if (e.pointer != _activePointer) return;
-        _updateHue(e.position);
-      },
-      onPointerUp: (e) {
-        if (e.pointer == _activePointer) _activePointer = null;
-      },
-      onPointerCancel: (e) {
-        if (e.pointer == _activePointer) _activePointer = null;
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        // 认领竞技场，挡住 ScrollView / 全屏亮度拖动
-        onVerticalDragStart: (_) {},
-        onVerticalDragUpdate: (_) {},
-        onHorizontalDragStart: (_) {},
-        onHorizontalDragUpdate: (_) {},
-        child: CustomPaint(
-          painter: _HueRingPainter(
-            scheme: widget.scheme,
-            ringSize: widget.ringSize,
-            selectedHue: widget.selectedHue,
-            saturation: widget.saturation,
-            selectedColor: widget.selectedColor,
-          ),
+      child: CustomPaint(
+        size: Size(hitSize, hitSize),
+        painter: _HueRingPainter(
+          scheme: scheme,
+          ringSize: ringSize,
+          selectedHue: selectedHue,
+          saturation: saturation,
+          selectedColor: selectedColor,
         ),
       ),
     );
   }
+}
+
+/// 按下即赢下竞技场，防止父级 ScrollView / 亮度拖动中途 PointerCancel
+class _EagerPanGestureRecognizer extends PanGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
+
+  @override
+  String get debugDescription => 'eager pan';
 }
 
 // ===== 环形色相选择器绘制器 =====
