@@ -323,10 +323,9 @@ class GamePainter extends CustomPainter {
     final minVisibleY = -radius * 2;
     if (tailY < minVisibleY) tailY = minVisibleY;
 
-    final colW = screenWidth / columnCount;
-    // 长条：占列宽约 86%，圆角偏小，读成「条」而不是「圆头+轨道」
-    final halfW = colW * 0.43;
-    final corner = halfW * 0.28;
+    // 长条宽度对齐 tap 半径，略窄一点和其他音符升格
+    final halfW = radius * 0.88;
+    final corner = halfW * 0.55;
     final barH = (headY - tailY).clamp(0.0, double.infinity);
     if (barH < 2) return;
 

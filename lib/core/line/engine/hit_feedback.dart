@@ -96,12 +96,9 @@ class HitFeedback {
 
   Future<void> setVolume(double v) async {
     _volume = v.clamp(0.0, lineSfxVolumeMax);
-    // Android：player 0~1 + LoudnessEnhancer(dB)；其它平台直接把偏好当增益传入（可 >1）
-    final playerVol = _useAndroidBoost ? _volume.clamp(0.0, 1.0) : _volume;
-    // 100% 起给基础增益，200% 再额外拉高（setTargetGain 单位是 dB）
-    final baseDb = _volume.clamp(0.0, 1.0) * 6.0;
-    final extraDb = (_volume - 1.0).clamp(0.0, 1.0) * 12.0;
-    final gainDb = baseDb + extraDb;
+    // 线性 0~1 直接对应播放器；>1 仅 Android 轻度增强，避免刺耳
+    final playerVol = _volume.clamp(0.0, 1.0);
+    final gainDb = (_volume - 1.0).clamp(0.0, 0.5) * 6.0; // 最多约 +3dB
 
     await Future.wait([
       _tap?.setVolume(playerVol) ?? Future.value(),

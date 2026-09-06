@@ -2,7 +2,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/constants.dart';
+import '../domain/note_event.dart';
 import '../domain/particle.dart';
+import '../engine/hit_feedback.dart';
+import '../engine/judge_service.dart';
 import 'offset_calibrate_page.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -147,9 +150,9 @@ class _DemoPainter extends CustomPainter {
       canvas.drawCircle(Offset(cx, actualCircleY), radius, circlePaint);
     }
 
-    // 炸开动画
+    // 炸开动画（落在判定线上）
     if (showExplode) {
-      _paintExplode(canvas, cx, actualJudgeY * 0.7, w);
+      _paintExplode(canvas, cx, actualJudgeY, w);
     }
   }
 
@@ -256,12 +259,17 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
   late AnimationController _fallController;
   late AnimationController _explodeController;
 
-  static const double _targetYRatio = 0.525;
+  /// 设置页预览用打击音效（复用会话 HitFeedback）
+  HitFeedback? _previewSfx;
+
+  /// 预览落点对齐判定线（与 painter 的 judgeYRatio 一致）
+  static const double _targetYRatio = 0.75;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _preparePreviewSfx();
 
     _fallController = AnimationController(
       duration: const Duration(milliseconds: 2500), // Fixed demo duration
@@ -277,6 +285,27 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
     _explodeController.addListener(_onExplodeTick);
 
     _startFall();
+  }
+
+  Future<void> _preparePreviewSfx() async {
+    final prefs = await SharedPreferences.getInstance();
+    final fb = await HitFeedback.ensureLoaded(
+      hapticsEnabled: false,
+      sfxEnabled: prefs.getBool(lineHitSfxKey) ?? true,
+      volume: (prefs.getDouble(lineSfxVolumeKey) ?? lineDefaultSfxVolume)
+          .clamp(0.0, lineSfxVolumeMax),
+      strict: false,
+    );
+    if (!mounted) return;
+    _previewSfx = fb;
+  }
+
+  Future<void> _syncPreviewSfx() async {
+    final fb = _previewSfx;
+    if (fb == null) return;
+    fb.hapticsEnabled = false;
+    fb.sfxEnabled = _hitSfx;
+    await fb.setVolume(_sfxVolume);
   }
 
   Future<void> _loadSettings() async {
@@ -298,6 +327,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
         _backgroundStyle = BackgroundStyle
             .values[bgIndex.clamp(0, BackgroundStyle.values.length - 1)];
       });
+      _syncPreviewSfx();
     }
   }
 
@@ -356,6 +386,19 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
       _explodeParticles = _generateDemoParticles();
     });
     _explodeController.forward(from: 0.0);
+    _playPreviewHit();
+  }
+
+  void _playPreviewHit() {
+    if (!_hitSfx) return;
+    final fb = _previewSfx;
+    if (fb == null || !fb.isReady) return;
+    fb.hapticsEnabled = false;
+    fb.sfxEnabled = true;
+    fb.play(
+      label: JudgeResultLabel.perfect,
+      noteType: NoteType.tap,
+    );
   }
 
   void _onExplodeTick() {
@@ -708,6 +751,7 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
             onChanged: (v) {
               setState(() => _hitSfx = v);
               _saveBool(lineHitSfxKey, v);
+              _syncPreviewSfx();
             },
           ),
           Text(
@@ -729,11 +773,12 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
               value: _sfxVolume,
               min: 0,
               max: lineSfxVolumeMax,
-              divisions: 40,
+              divisions: 30,
               onChanged: _hitSfx
                   ? (v) {
                       setState(() => _sfxVolume = v);
                       _saveDouble(lineSfxVolumeKey, v);
+                      _syncPreviewSfx();
                     }
                   : null,
             ),
