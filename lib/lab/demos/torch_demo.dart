@@ -209,13 +209,13 @@ class _TorchPageState extends State<_TorchPage>
   Future<void> _turnOnScreenLight() async {
     try {
       _savedBrightness = await ScreenBrightness().current;
-      await ScreenBrightness().setScreenBrightness(1.0);
+      // 亮度只走系统背光；色块始终用 _selectedColor，保证预览=全屏
+      await ScreenBrightness().setScreenBrightness(_screenBrightness);
       if (_keepScreenOn) {
         await WakelockPlus.enable();
       }
       setState(() {
         _isScreenLightOn = true;
-        _screenBrightness = 1.0;
         _showScreenLightOverlay = true;
         _showControls = true;
       });
@@ -260,20 +260,8 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   // ===== 颜色 =====
-  Color _getDisplayColor() {
-    final hsv = HSVColor.fromColor(_selectedColor);
-    return HSVColor.fromAHSV(
-      1.0,
-      hsv.hue,
-      hsv.saturation,
-      hsv.value * _screenBrightness,
-    ).toColor();
-  }
-
-  Color _getPureColor() {
-    final hsv = HSVColor.fromColor(_selectedColor);
-    return HSVColor.fromAHSV(1.0, hsv.hue, hsv.saturation, 1.0).toColor();
-  }
+  /// 补光实际输出色（预览圆 / 色环中心 / 全屏覆盖层共用，不再二次压暗 V）
+  Color _getLightColor() => _selectedColor;
 
   void _onHueChanged(double hue) {
     final hsv = HSVColor.fromColor(_selectedColor);
@@ -509,7 +497,7 @@ class _TorchPageState extends State<_TorchPage>
                       height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _getDisplayColor(),
+                        color: _getLightColor(),
                         border: Border.all(
                           color: theme.outline,
                           width: 2.4,
@@ -519,7 +507,7 @@ class _TorchPageState extends State<_TorchPage>
                         Icons.light_mode,
                         size: 70,
                         // 主题豁免：叠在补光色上的对比色，需随亮度切换黑/白
-                        color: _getDisplayColor().computeLuminance() > 0.5
+                        color: _getLightColor().computeLuminance() > 0.5
                             ? Colors.black38
                             : Colors.white38,
                       ),
@@ -599,7 +587,7 @@ class _TorchPageState extends State<_TorchPage>
                   height: 24,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _getPureColor(),
+                    color: _getLightColor(),
                     border: Border.all(color: theme.outline),
                   ),
                 ),
@@ -622,55 +610,20 @@ class _TorchPageState extends State<_TorchPage>
 
   Widget _buildHueRing({double size = 160}) {
     final hsv = HSVColor.fromColor(_selectedColor);
-    // onPan 认领竞技场，挡住 ScrollView / 全屏亮度拖动；指示点按绘制坐标系跟手
+    final hitSize = size + TorchConst.hueRingHitPadding * 2;
     return SizedBox(
-      width: size,
-      height: size,
-      child: LayoutBuilder(
-        builder: (context, _) {
-          void handleLocal(Offset local) => _handleHuePan(local, size);
-          void handleGlobal(Offset global) {
-            final box = context.findRenderObject() as RenderBox?;
-            if (box == null || !box.hasSize) return;
-            handleLocal(box.globalToLocal(global));
-          }
-
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: (d) => handleLocal(d.localPosition),
-            onPanUpdate: (d) => handleLocal(d.localPosition),
-            onTapDown: (d) => handleLocal(d.localPosition),
-            // 兜底：个别机型 pan 未认领时仍跟手
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (e) => handleGlobal(e.position),
-              onPointerMove: (e) => handleGlobal(e.position),
-              child: CustomPaint(
-                painter: _HueRingPainter(
-                  scheme: Theme.of(context).colorScheme,
-                  selectedHue: hsv.hue,
-                  saturation: hsv.saturation,
-                ),
-              ),
-            ),
-          );
-        },
+      width: hitSize,
+      height: hitSize,
+      child: _HueRingTouch(
+        ringSize: size,
+        hitSize: hitSize,
+        selectedHue: hsv.hue,
+        saturation: hsv.saturation,
+        selectedColor: _selectedColor,
+        scheme: Theme.of(context).colorScheme,
+        onHue: _onHueChanged,
       ),
     );
-  }
-
-  void _handleHuePan(Offset localPosition, double size) {
-    final center = Offset(size / 2, size / 2);
-    final dx = localPosition.dx - center.dx;
-    final dy = localPosition.dy - center.dy;
-    // 正中心角度无定义，其余位置均按角度取色（含环外），保证指示点跟手
-    if (dx * dx + dy * dy < 1) return;
-
-    // 与 _HueRingPainter 一致：hue 0 在正上方，顺时针增大
-    // painter: angle = hue/360 * 2π - π/2
-    final angle = atan2(dy, dx);
-    final hue = ((angle * 180 / pi) + 90 + 360) % 360;
-    _onHueChanged(hue);
   }
 
   Widget _buildSaturationSlider(ColorScheme theme) {
@@ -700,7 +653,7 @@ class _TorchPageState extends State<_TorchPage>
         SizedBox(height: 8),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: _getPureColor(),
+            activeTrackColor: _getLightColor(),
             inactiveTrackColor: theme.outline,
             thumbColor: theme.onSurface,
             overlayColor: theme.onSurface.withValues(alpha: 0.1),
@@ -888,7 +841,7 @@ class _TorchPageState extends State<_TorchPage>
 
   // --- 全屏覆盖层 ---
   Widget _buildScreenLightOverlay(ColorScheme theme) {
-    final displayColor = _getDisplayColor();
+    final displayColor = _getLightColor();
     final isLight = displayColor.computeLuminance() > 0.5;
 
     return Positioned.fill(
@@ -971,7 +924,7 @@ class _TorchPageState extends State<_TorchPage>
                                   height: 20,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: _getPureColor(),
+                                    color: _getLightColor(),
                                     border: Border.all(
                                       color: isLight
                                           ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.26)
@@ -1184,22 +1137,109 @@ class _TorchPageState extends State<_TorchPage>
   }
 }
 
-// ===== 环形色相选择器绘制器 =====
-class _HueRingPainter extends CustomPainter {
+/// 色相环触控：扩大命中区 + pointer 跟手（含环外拖动）
+class _HueRingTouch extends StatefulWidget {
+  final double ringSize;
+  final double hitSize;
   final double selectedHue;
   final double saturation;
+  final Color selectedColor;
+  final ColorScheme scheme;
+  final ValueChanged<double> onHue;
+
+  const _HueRingTouch({
+    required this.ringSize,
+    required this.hitSize,
+    required this.selectedHue,
+    required this.saturation,
+    required this.selectedColor,
+    required this.scheme,
+    required this.onHue,
+  });
+
+  @override
+  State<_HueRingTouch> createState() => _HueRingTouchState();
+}
+
+class _HueRingTouchState extends State<_HueRingTouch> {
+  final GlobalKey _boxKey = GlobalKey();
+  int? _activePointer;
+
+  void _updateHue(Offset globalPosition) {
+    final box = _boxKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final local = box.globalToLocal(globalPosition);
+    final center = Offset(widget.hitSize / 2, widget.hitSize / 2);
+    final dx = local.dx - center.dx;
+    final dy = local.dy - center.dy;
+    if (dx * dx + dy * dy < 1) return;
+
+    // 与 _HueRingPainter 一致：hue 0 在正上方，顺时针增大
+    final angle = atan2(dy, dx);
+    final hue = ((angle * 180 / pi) + 90 + 360) % 360;
+    widget.onHue(hue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      key: _boxKey,
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (e) {
+        _activePointer = e.pointer;
+        _updateHue(e.position);
+      },
+      onPointerMove: (e) {
+        if (e.pointer != _activePointer) return;
+        _updateHue(e.position);
+      },
+      onPointerUp: (e) {
+        if (e.pointer == _activePointer) _activePointer = null;
+      },
+      onPointerCancel: (e) {
+        if (e.pointer == _activePointer) _activePointer = null;
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        // 认领竞技场，挡住 ScrollView / 全屏亮度拖动
+        onVerticalDragStart: (_) {},
+        onVerticalDragUpdate: (_) {},
+        onHorizontalDragStart: (_) {},
+        onHorizontalDragUpdate: (_) {},
+        child: CustomPaint(
+          painter: _HueRingPainter(
+            scheme: widget.scheme,
+            ringSize: widget.ringSize,
+            selectedHue: widget.selectedHue,
+            saturation: widget.saturation,
+            selectedColor: widget.selectedColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ===== 环形色相选择器绘制器 =====
+class _HueRingPainter extends CustomPainter {
+  final double ringSize;
+  final double selectedHue;
+  final double saturation;
+  final Color selectedColor;
   final ColorScheme scheme;
 
   _HueRingPainter({
     required this.scheme,
+    required this.ringSize,
     required this.selectedHue,
     required this.saturation,
+    required this.selectedColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final outerRadius = size.width / 2;
+    final outerRadius = ringSize / 2;
     final innerRadius = outerRadius * 0.55;
 
     const segments = 120;
@@ -1269,18 +1309,12 @@ class _HueRingPainter extends CustomPainter {
         ..strokeWidth = 2,
     );
 
-    // 中心圆显示当前颜色
-    final centerColor = HSVColor.fromAHSV(
-      1.0,
-      selectedHue,
-      saturation,
-      1.0,
-    ).toColor();
+    // 中心圆 = 实际补光色（与预览/全屏一致，不强制 V=1）
     canvas.drawCircle(
       center,
       innerRadius * 0.9,
       Paint()
-        ..color = centerColor
+        ..color = selectedColor
         ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
@@ -1295,8 +1329,10 @@ class _HueRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HueRingPainter oldDelegate) {
-    return oldDelegate.selectedHue != selectedHue ||
+    return oldDelegate.ringSize != ringSize ||
+        oldDelegate.selectedHue != selectedHue ||
         oldDelegate.saturation != saturation ||
+        oldDelegate.selectedColor != selectedColor ||
         oldDelegate.scheme != scheme;
   }
 }

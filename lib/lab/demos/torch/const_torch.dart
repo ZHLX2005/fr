@@ -17,6 +17,9 @@ class TorchConst {
   static const double minBrightness = 0.1;
   static const double maxBrightness = 1.0;
   static const double brightnessSwipeSensitivity = 200.0;
+
+  /// 色相环可视半径外的额外触控边距，便于环外拖动跟手
+  static const double hueRingHitPadding = 36.0;
 }
 
 /// 护眼颜色预设（屏幕补光实际输出色）。
