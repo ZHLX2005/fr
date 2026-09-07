@@ -54,8 +54,8 @@ import '../widgets/chess_connection_status.dart';
 import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 import 'chess_net.dart';
+import 'widgets/board_chat_overlay.dart';
 import 'widgets/chat_sheet.dart';
-import 'widgets/chat_speech_bubbles.dart';
 import 'widgets/player_strip.dart';
 
 /// 快照驱动的在线对弈房间页（v3 Relay + kChessScript）。
@@ -239,8 +239,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   bool _chatSheetOpen = false;
   int _chatUnread = 0;
   String? _lastSeenChatKey;
-  bool _oppSpeaking = false;
-  bool _meSpeaking = false;
 
   List<ChatEvent> get _chatEvents {
     final snap = _snapshot;
@@ -358,8 +356,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       // RESET 回 lobby：清对话未读游标（跨局不泄漏角标）
       _chatUnread = 0;
       _lastSeenChatKey = null;
-      _oppSpeaking = false;
-      _meSpeaking = false;
       return;
     }
 
@@ -1132,41 +1128,42 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
         bundle: _emojiBundle,
         fileResolver: _emojiFileResolver,
         enabled: !gameOver,
-        onSendText: (text) async {
-          try {
-            await widget.handle.applyAction(
-              type: 'CHAT',
-              params: {
-                'text': text,
-                'alias': widget.handle.transport.alias,
-              },
-            );
-          } on RelayV3Exception catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-            );
-            rethrow;
-          }
-        },
-        onSendEmoji: (emojiId) async {
-          if (_emojiBundle.byId[emojiId] == null) return;
-          try {
-            await widget.handle.applyAction(
-              type: 'EMOJI',
-              params: {'emoji_id': emojiId},
-            );
-          } on RelayV3Exception catch (e) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('表情发送失败: ${e.statusCode} ${e.body}')),
-            );
-            rethrow;
-          }
-        },
+        onSendText: _handleSendText,
+        onSendEmoji: _handleSendEmoji,
       );
     } finally {
       if (mounted) setState(() => _chatSheetOpen = false);
+    }
+  }
+
+  /// 共用：发送文字（BoardChatOverlay + ChatSheet 都走这里）
+  /// 注意：仅做网络层，不 toast；UI 反馈交给调用方（widget 捕获异常后自行 toast，避免双弹）。
+  Future<void> _handleSendText(String text) async {
+    try {
+      await widget.handle.applyAction(
+        type: 'CHAT',
+        params: {
+          'text': text,
+          'alias': widget.handle.transport.alias,
+        },
+      );
+    } on RelayV3Exception catch (e) {
+      debugPrint('chat_room_page: CHAT send failed: ${e.statusCode} ${e.body}');
+      rethrow;
+    }
+  }
+
+  /// 共用：发送 emoji（BoardChatOverlay + ChatSheet 都走这里）
+  Future<void> _handleSendEmoji(String emojiId) async {
+    if (_emojiBundle.byId[emojiId] == null) return;
+    try {
+      await widget.handle.applyAction(
+        type: 'EMOJI',
+        params: {'emoji_id': emojiId},
+      );
+    } on RelayV3Exception catch (e) {
+      debugPrint('chat_room_page: EMOJI send failed: ${e.statusCode} ${e.body}');
+      rethrow;
     }
   }
 
@@ -1938,59 +1935,66 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       children: [
         Column(
           children: [
-            // 对方头像条 + 贴头像气泡
+            // 对方头像条（无 avatar 圆，对话浮层在 board 区域，详见 BoardChatOverlay）
             PlayerStrip(
               alias: oppAlias,
               color: oppColor,
               subtitle: oppSubtitle(),
               isMe: false,
-              speaking: _oppSpeaking,
-              speech: ChatSpeechBubbles(
-                events: chatEvents,
-                myDeviceId: myIdForChat,
-                forMe: false,
-                bundle: _emojiBundle,
-                fileResolver: _emojiFileResolver,
-                onSpeakingChanged: (v) {
-                  if (_oppSpeaking == v) return;
-                  setState(() => _oppSpeaking = v);
-                },
-              ),
             ),
-            // 棋盘（占满剩余空间）
+            // 棋盘（居中，320×320 不动）+ 对话浮层（absolute，覆盖 padding 区）
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                child: ChessBoard(
-                  // 回放中渲染缓存局面子序列；平时渲染实况棋盘（快照 fen）。
-                  state: displayBoard,
-                  skin: skin,
-                  sideToMove: displayBoard.sideToMove,
-                  flipped: flipped,
-                  // 回放中棋盘只读：选中 / 合法目标清空 + 输入回调全部
-                  // 断开（tap 与拖动手势层都不挂载）。
-                  selectedSquare: replayOn ? null : _selectedSquare,
-                  legalTargets: replayOn ? const <int>{} : _legalTargets,
-                  lastMove: displayLastMove,
-                  onSquareTap: replayOn ? null : _handleTap,
-                  onDragSquareStart: replayOn ? null : _handleDragStart,
-                  onDragSquareUpdate: replayOn ? null : _handleDragUpdate,
-                  onDragSquareEnd: replayOn ? null : _handleDragEnd,
-                  draggingSquare: replayOn ? null : _draggingSquare,
-                  dragFingerPos: replayOn ? null : _dragFingerPos,
-                  dragHoverSquare: replayOn ? null : _dragHoverSquare,
-                  // 用户自定义棋盘配色（null = 跟随主题）
-                  boardPalette: widget.boardPalette,
+                child: Stack(
+                  children: [
+                    Center(
+                      child: SizedBox(
+                        width: 320,
+                        height: 320,
+                        child: ChessBoard(
+                          // 回放中渲染缓存局面子序列；平时渲染实况棋盘（快照 fen）。
+                          state: displayBoard,
+                          skin: skin,
+                          sideToMove: displayBoard.sideToMove,
+                          flipped: flipped,
+                          // 回放中棋盘只读：选中 / 合法目标清空 + 输入回调全部
+                          // 断开（tap 与拖动手势层都不挂载）。
+                          selectedSquare: replayOn ? null : _selectedSquare,
+                          legalTargets: replayOn ? const <int>{} : _legalTargets,
+                          lastMove: displayLastMove,
+                          onSquareTap: replayOn ? null : _handleTap,
+                          onDragSquareStart: replayOn ? null : _handleDragStart,
+                          onDragSquareUpdate: replayOn ? null : _handleDragUpdate,
+                          onDragSquareEnd: replayOn ? null : _handleDragEnd,
+                          draggingSquare: replayOn ? null : _draggingSquare,
+                          dragFingerPos: replayOn ? null : _dragFingerPos,
+                          dragHoverSquare: replayOn ? null : _dragHoverSquare,
+                          // 用户自定义棋盘配色（null = 跟随主题）
+                          boardPalette: widget.boardPalette,
+                        ),
+                      ),
+                    ),
+                    if (!replayOn)
+                      BoardChatOverlay(
+                        events: chatEvents,
+                        myDeviceId: myIdForChat,
+                        emojiBundle: _emojiBundle,
+                        fileResolver: _emojiFileResolver,
+                        enabled: !gameOver,
+                        onSendEmoji: (id) => _handleSendEmoji(id),
+                        onSendText: (text) => _handleSendText(text),
+                      ),
+                  ],
                 ),
               ),
             ),
-            // 己方头像条 + 对话 FAB + 贴头像气泡
+            // 己方头像条 + 历史 FAB（详细聊天走 ChatSheet）
             PlayerStrip(
               alias: myAlias,
               color: myColor,
               subtitle: meSubtitle(),
               isMe: true,
-              speaking: _meSpeaking,
               trailing: replayOn
                   ? null
                   : _ChatFab(
@@ -1998,17 +2002,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                       hidden: _chatSheetOpen,
                       onPressed: gameOver ? null : _showChatSheet,
                     ),
-              speech: ChatSpeechBubbles(
-                events: chatEvents,
-                myDeviceId: myIdForChat,
-                forMe: true,
-                bundle: _emojiBundle,
-                fileResolver: _emojiFileResolver,
-                onSpeakingChanged: (v) {
-                  if (_meSpeaking == v) return;
-                  setState(() => _meSpeaking = v);
-                },
-              ),
             ),
             // 操作条：回放中 → 回放控制条；平时 → 投降 / 悔棋 / 议和。
             // 对话入口已迁到己方条 FAB（不再放 Wrap）。

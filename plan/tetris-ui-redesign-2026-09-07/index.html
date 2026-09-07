@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Tetris UI 重设 · 5套原型对比</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F2EE;
+    --ink: #16181C;
+    --ink-sub: rgba(22,24,28,0.65);
+    --ink-faint: rgba(22,24,28,0.40);
+    --rule: rgba(22,24,28,0.10);
+    --accent: #16181C;
+  }
+  html, body { margin: 0; padding: 0; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--ink); }
+  body { padding: 40px 24px 80px; }
+  .wrap { max-width: 1320px; margin: 0 auto; }
+
+  header { margin-bottom: 32px; }
+  header h1 {
+    font-size: 36px; font-weight: 800; letter-spacing: -0.02em;
+    margin: 0 0 8px;
+  }
+  header .sub {
+    font-size: 14px; color: var(--ink-sub); line-height: 1.55;
+    max-width: 720px;
+  }
+  header .sub b { color: var(--ink); font-weight: 600; }
+
+  .meta-row {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--ink-sub);
+  }
+  .meta-row .pill {
+    background: white; padding: 6px 12px;
+    border: 1px solid var(--rule); border-radius: 99px;
+  }
+  .meta-row .pill b { color: var(--ink); font-weight: 600; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 28px;
+    margin-top: 32px;
+  }
+
+  .card {
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .card .frame {
+    background: #E5E1DA;
+    aspect-ratio: 375 / 812;
+    overflow: hidden;
+    position: relative;
+  }
+  .card .frame iframe {
+    border: 0; width: 375px; height: 812px;
+    transform-origin: top left;
+  }
+  .card .info {
+    padding: 18px 20px 20px;
+    border-top: 1px solid var(--rule);
+  }
+  .card .label {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .card .label .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.16em;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  .card .label .name {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .card .desc {
+    font-size: 13px; line-height: 1.55; color: var(--ink-sub);
+  }
+  .card .tags {
+    margin-top: 12px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .card .tags span {
+    font-size: 10px; padding: 3px 8px;
+    background: rgba(0,0,0,0.05); border-radius: 99px;
+    color: var(--ink-sub); letter-spacing: 0.04em;
+  }
+  .card .open {
+    margin-top: 14px;
+    font-size: 12px; color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .card .open:hover { text-decoration: underline; }
+
+  .note-box {
+    margin-top: 36px;
+    padding: 20px 24px;
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    font-size: 13px; line-height: 1.6;
+    color: var(--ink-sub);
+  }
+  .note-box h3 { font-size: 14px; font-weight: 700; color: var(--ink); margin: 0 0 8px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .note-box ul { margin: 0; padding-left: 18px; }
+  .note-box li { margin-bottom: 4px; }
+  .note-box b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Tetris UI 重设 · 5 套原型</h1>
+    <div class="sub">
+      围绕 <b>HUD 信息层次</b> 与 <b>外围 chrome 视觉风格</b> 重做。棋盘内部
+      <b>糖果七色 + Ash 中灰井 + 白50% 顶高光</b> 在所有原型中保持一致，
+      便于把视觉差异隔离在 HUD / 控制栏 / 对手栏。
+    </div>
+    <div class="meta-row">
+      <span class="pill">375 × 812</span>
+      <span class="pill">10 × 20 井</span>
+      <span class="pill">candy 7 + Ash #3A414C</span>
+      <span class="pill">活动块 T (violet) · Ghost · 底部栈 J/L/S/O/T/Z</span>
+      <span class="pill">对手 Neko 12,840 · L36 · +120</span>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="frame">
+        <iframe src="proto-1-minimal.html" scrolling="no"></iframe>
+      </div>
+      <div class="info">
+        <div class="label">
+          <span class="num">PROTO 01</span>
+          <span class="name">极简白纸</span>
+        </div>
+        <div class="desc">奶白底 + 极薄白卡 + 等宽数字 + 圆形 icon-only 控制。无装饰线，靠阴影与字重拉层次。最克制的留白方案。</div>
+        <div class="tags">
+          <span>白底</span><span>Inter / JetBrains Mono</span><span>圆形 icon-only</span><span>低密度</span>
+        </div>
+        <a class="open" href="proto-1-minimal.html" target="_blank">在新页打开 →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="frame">
+        <iframe src="proto-2-editorial.html" scrolling="no"></iframe>
+      </div>
+      <div class="info">
+        <div class="label">
+          <span class="num">PROTO 02</span>
+          <span class="name">编辑设计</span>
+        </div>
+        <div class="desc">米色杂志纸感。粗体 Playfair 衬线数字 + 等宽 N° 编号 + 细线分隔 + 阴影硬边棋盘。文字优先于图形。</div>
+        <div class="tags">
+          <span>米底</span><span>Playfair Display + IBM Plex Mono</span><span>硬阴影棋盘</span><span>中低密度</span>
+        </div>
+        <a class="open" href="proto-2-editorial.html" target="_blank">在新页打开 →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="frame">
+        <iframe src="proto-3-cyber.html" scrolling="no"></iframe>
+      </div>
+      <div class="info">
+        <div class="label">
+          <span class="num">PROTO 03</span>
+          <span class="name">霓虹赛博</span>
+        </div>
+        <div class="desc">暗底 + Orbitron 数字荧光 + 扫描线遮罩 + 霓虹边框。仅在 HUD chrome 发光，井内仍是干净的 Ash。</div>
+        <div class="tags">
+          <span>黑底</span><span>Orbitron + JetBrains Mono</span><span>扫描线 / 辉光</span><span>中密度</span>
+        </div>
+        <a class="open" href="proto-3-cyber.html" target="_blank">在新页打开 →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="frame">
+        <iframe src="proto-4-soft.html" scrolling="no"></iframe>
+      </div>
+      <div class="info">
+        <div class="label">
+          <span class="num">PROTO 04</span>
+          <span class="name">柔圆治愈</span>
+        </div>
+        <div class="desc">奶油米色面板 + 22-44px 大圆角 + 柔和长投影 + emoji 控制图标 + Nunito 圆胖字体。最友好、最不像电子游戏。</div>
+        <div class="tags">
+          <span>奶油底</span><span>Nunito + Quicksand</span><span>大圆角 / emoji</span><span>低密度</span>
+        </div>
+        <a class="open" href="proto-4-soft.html" target="_blank">在新页打开 →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="frame">
+        <iframe src="proto-5-dense.html" scrolling="no"></iframe>
+      </div>
+      <div class="info">
+        <div class="label">
+          <span class="num">PROTO 05</span>
+          <span class="name">信息密集</span>
+        </div>
+        <div class="desc">顶置 HUD 横排：左 HOLD · 中 NEXT · 右 SCORE/LINES/LV/PPS/TIME 五连格；底部状态条加 pending / last clear / ping。控制栏 6 键横排。</div>
+        <div class="tags">
+          <span>黑底</span><span>Inter + JetBrains Mono</span><span>顶置 HUD 五连格</span><span>高密度</span>
+        </div>
+        <a class="open" href="proto-5-dense.html" target="_blank">在新页打开 →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note-box">
+    <h3>建议对比维度</h3>
+    <ul>
+      <li><b>HUD 信息密度</b>：proto-5 信息全在顶层；proto-1 / proto-4 极简留白；proto-2 / proto-3 中段</li>
+      <li><b>控制栏可读性</b>：proto-1 圆形 icon-only（最省空间但新手最弱）；proto-4 emoji（最友好但最不像游戏）；proto-5 横排 6 键（最多操作但挤）</li>
+      <li><b>对手栏权重</b>：proto-1 / proto-2 让对手低调（次要信息）；proto-3 / proto-4 给对手同等卡片（友好）；proto-5 强行顶置右对齐（信息流）</li>
+      <li><b>风格极性</b>：proto-1 / proto-2 偏「印刷 / 编辑」；proto-3 偏「电玩 / 赛博」；proto-4 偏「治愈 / 玩具」；proto-5 偏「工具 / 仪表盘」</li>
+      <li><b>与原代码契合度</b>：proto-1 / proto-5 改动量最小（保留 scrim 顶色 + 结构）；proto-3 与 scrim 最契合；proto-2 与 scrim 反差最大</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

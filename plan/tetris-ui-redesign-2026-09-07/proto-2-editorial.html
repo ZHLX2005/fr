@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Proto 2 · 编辑设计</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ash: #3A414C;
+    --ash-grid: rgba(255,255,255,0.07);
+    --paper: #ECE6DA;
+    --ink: #1A1814;
+    --ink-sub: rgba(26,24,20,0.65);
+    --ink-faint: rgba(26,24,20,0.40);
+    --rule: rgba(26,24,20,0.18);
+
+    --T: #A56BFF; --O: #F5C518; --I: #2AD4E0;
+    --S: #3DD68C; --Z: #FF5A7A; --J: #4B7BFF; --L: #FF9A3D;
+  }
+
+  html, body { margin: 0; padding: 0; background: var(--paper); font-family: 'IBM Plex Sans', sans-serif; color: var(--ink); }
+  body { display: flex; justify-content: center; min-height: 100vh; padding: 24px 0; }
+
+  .phone {
+    width: 375px; height: 812px;
+    background: var(--paper);
+    border-radius: 36px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.10);
+    display: flex; flex-direction: column;
+    padding: 12px 16px 14px;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Header — magazine masthead */
+  .mast {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+  }
+  .mast .title { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 22px; letter-spacing: -0.02em; }
+  .mast .meta { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.16em; color: var(--ink-sub); text-transform: uppercase; }
+
+  /* Opponent — article-style lede */
+  .opp {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .opp .badge {
+    width: 36px; height: 36px;
+    border: 1px solid var(--ink);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: 'Playfair Display', serif; font-weight: 700; font-size: 16px;
+  }
+  .opp .meta { flex: 1; }
+  .opp .name { font-weight: 600; font-size: 14px; }
+  .opp .sub { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ink-sub); letter-spacing: 0.10em; text-transform: uppercase; margin-top: 1px; }
+  .opp .delta { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .opp .delta.up { color: #166534; }
+  .opp .delta.down { color: #991B1B; }
+
+  /* Main */
+  .play {
+    flex: 1; display: flex; gap: 12px; padding-top: 14px;
+  }
+
+  .side {
+    width: 92px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .panel {
+    border-top: 1px solid var(--rule);
+    padding-top: 8px;
+  }
+  .panel .lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px; letter-spacing: 0.18em; font-weight: 600;
+    color: var(--ink-sub); text-transform: uppercase;
+    display: flex; justify-content: space-between;
+  }
+  .panel .lbl .n { color: var(--ink-faint); }
+
+  .minip {
+    margin-top: 6px;
+    display: grid; gap: 2px;
+    background: var(--ash);
+    padding: 4px;
+  }
+  .minip .c {
+    width: 11px; height: 11px;
+    background: var(--ash);
+  }
+  .minip .c.f { box-shadow: inset 0 1px 0 rgba(255,255,255,0.30); }
+
+  .stats { display: flex; flex-direction: column; gap: 10px; flex: 1; padding-top: 4px; }
+  .stat .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.18em; font-weight: 600; color: var(--ink-sub); text-transform: uppercase; display: flex; justify-content: space-between; }
+  .stat .lbl .n { color: var(--ink-faint); }
+  .stat .val {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700; font-size: 26px; line-height: 1;
+    margin-top: 2px;
+    letter-spacing: -0.01em;
+  }
+
+  /* Board — editorial: framed with thin border */
+  .board-wrap { flex: 1; display: flex; flex-direction: column; }
+  .board-cap { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-sub); border-bottom: 1px solid var(--rule); }
+  .board {
+    flex: 1;
+    background: var(--ash);
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(20, 1fr);
+    aspect-ratio: 10 / 20;
+    overflow: hidden;
+    margin-top: 6px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .board .c { position: relative; background: var(--ash); outline: 1px solid var(--ash-grid); }
+  .board .c.f { box-shadow: inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.18); }
+  .board .c.g { box-shadow: inset 0 0 0 1px rgba(165,107,255,0.6); background: rgba(165,107,255,0.12); }
+
+  .c.T { background: var(--T); }
+  .c.O { background: var(--O); }
+  .c.I { background: var(--I); }
+  .c.S { background: var(--S); }
+  .c.Z { background: var(--Z); }
+  .c.J { background: var(--J); }
+  .c.L { background: var(--L); }
+
+  /* Controls — rectangular chips */
+  .ctrl {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+  }
+  .btn {
+    aspect-ratio: 1.6;
+    border: 1px solid var(--ink);
+    background: transparent;
+    display: grid; place-items: center;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .btn .ic { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .btn .ic svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+  .btn .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.16em; }
+  .btn.acc { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .footnote { margin-top: 8px; display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.16em; color: var(--ink-sub); text-transform: uppercase; }
+
+  .switch {
+    position: absolute; right: -8px; top: 50%;
+    transform: translateX(100%) translateY(-50%);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .switch button {
+    background: var(--paper); border: 1px solid var(--ink);
+    border-radius: 0; padding: 4px 10px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink);
+  }
+  .switch button.on { background: var(--ink); color: var(--paper); }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="mast">
+    <span class="title">TETRIS</span>
+    <span class="meta">Vol. 04 · Round 12</span>
+  </div>
+
+  <div class="opp">
+    <div class="badge">N</div>
+    <div class="meta">
+      <div class="name">Neko</div>
+      <div class="sub">12,840 PTS · 36 LINES</div>
+    </div>
+    <div class="delta up">+120</div>
+  </div>
+
+  <div class="play">
+    <aside class="side">
+      <div class="panel">
+        <div class="lbl"><span>HOLD</span><span class="n">N° 02</span></div>
+        <div class="minip" style="grid-template-columns:repeat(4,11px);grid-template-rows:repeat(4,11px);">
+          <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c f L"></div><div class="c"></div><div class="c"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="lbl"><span>NEXT</span><span class="n">N° 03</span></div>
+        <div class="minip" style="grid-template-columns:repeat(4,11px);grid-template-rows:repeat(4,11px);">
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="lbl"><span>SCORE</span><span class="n">N° 01</span></div>
+          <div class="val">8,420</div>
+        </div>
+        <div class="stat">
+          <div class="lbl"><span>LINES</span><span class="n">N° 02</span></div>
+          <div class="val">24</div>
+        </div>
+        <div class="stat">
+          <div class="lbl"><span>LEVEL</span><span class="n">N° 03</span></div>
+          <div class="val">4</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="board-wrap">
+      <div class="board-cap"><span>Playing field</span><span>10×20</span></div>
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+  <div class="ctrl">
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg><span class="lbl">LEFT</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg><span class="lbl">SOFT</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg><span class="lbl">RIGHT</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="7 13 12 8 17 13" transform="rotate(180 12 12)"/><polyline points="7 11 12 6 17 11" transform="rotate(180 12 12)"/></svg><span class="lbl">CCW</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="7 11 12 16 17 11" transform="rotate(180 12 12)"/><polyline points="7 13 12 18 17 13" transform="rotate(180 12 12)"/></svg><span class="lbl">CW</span></div></button>
+    <button class="btn acc"><div class="ic"><svg viewBox="0 0 24 24"><line x1="12" y1="4" x2="12" y2="20"/><polyline points="5 12 12 19 19 12"/></svg><span class="lbl">HARD</span></div></button>
+  </div>
+
+  <div class="footnote">
+    <span>II PAUSE</span>
+    <span>1P · B-A84K</span>
+  </div>
+
+  <div class="switch">
+    <button class="on">Normal</button>
+    <button>Pause</button>
+    <button>GG</button>
+  </div>
+</div>
+
+<script>
+  const board = document.getElementById('board');
+  const W = 10, H = 20;
+  const placed = {};
+  [[0,'J'],[1,'L'],[2,'L'],[3,'S'],[4,'S'],[5,'O'],[6,'T'],[7,'T'],[8,'S'],[9,'Z']].forEach(([c,p])=>{ placed[c+',18']=p; });
+  [[0,'J'],[1,'J'],[2,'L'],[3,'S'],[4,'O'],[5,'O'],[6,'T'],[7,'S'],[8,'Z'],[9,'Z']].forEach(([c,p])=>{ placed[c+',19']=p; });
+  const ghost = {'5,16':1,'4,17':1,'5,17':1,'6,17':1};
+  const active = {'5,2':1,'4,3':1,'5,3':1,'6,3':1};
+  let html = '';
+  for (let r=0; r<H; r++) for (let c=0; c<W; c++) {
+    const k = c+','+r;
+    let cls = 'c';
+    if (active[k]) cls += ' f T';
+    else if (ghost[k]) cls += ' g';
+    else if (placed[k]) cls += ' f ' + placed[k];
+    html += `<div class="${cls}"></div>`;
+  }
+  board.innerHTML = html;
+</script>
+</body>
+</html>
