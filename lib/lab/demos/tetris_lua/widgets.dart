@@ -15,6 +15,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'engine.dart';
 import 'board.dart';
@@ -637,6 +638,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Column(
             children: [
+              _buildTopBar(),
               _buildOpponentBar(oppId, opp),
               Expanded(
                 child: eng == null
@@ -668,9 +670,73 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       ),
               ),
               _buildControls(),
+              _buildFooter(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Cyber 顶栏：左 neon 标题「▣ TETRIS / MATCH」，右比赛时间 + 回合号。
+  Widget _buildTopBar() {
+    final round = TetrisRoom.sequence(_snap).length; // 用序列长度代替回合号（弱占位）
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '▣ TETRIS / MATCH',
+            style: GoogleFonts.orbitron(
+              color: _cNeon,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
+              shadows: [Shadow(color: _cLineStrong, blurRadius: 6)],
+            ),
+          ),
+          Text(
+            '09:41 · MATCH ${round.clamp(1, 99)}',
+            style: TextStyle(
+              color: _cInkSub,
+              fontSize: 9,
+              letterSpacing: 1.8,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Cyber 底栏：左 ‖ PAUSE，右 1P · SVR-A84K。
+  Widget _buildFooter() {
+    return Padding(
+      padding: EdgeInsets.only(top: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '‖ PAUSE',
+            style: TextStyle(
+              color: _cNeon,
+              fontSize: 9,
+              letterSpacing: 1.8,
+              fontWeight: FontWeight.bold,
+              shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
+            ),
+          ),
+          Text(
+            '1P · SVR-A84K',
+            style: TextStyle(
+              color: _cInkSub,
+              fontSize: 9,
+              letterSpacing: 1.8,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -716,44 +782,46 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final alias = oppId == null
         ? '?'
         : (TetrisRoom.players(_snap)[oppId] ?? '对手');
+    final initial = alias.isNotEmpty ? alias[0].toUpperCase() : '?';
+    final isDead = opp != null && !opp.alive;
     return Padding(
-      padding: EdgeInsets.only(top: 4, bottom: 6),
-      child: SizedBox(
-        height: 84,
+      padding: EdgeInsets.only(top: 4, bottom: 8),
+      child: Container(
+        padding: EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: _cLine)),
+        ),
         child: Row(
           children: [
-            // 对手 mini 板：cyber 边框
-            SizedBox(
-              width: 42,
-              height: 84,
-              child: opp == null
-                  ? Container(
-                      decoration: BoxDecoration(
-                        color: _cPanel,
-                        border: Border.all(color: _cLine),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.person_outline,
-                          color: _cInkSub,
-                        ),
-                      ),
-                    )
-                  : Container(
-                      decoration: BoxDecoration(
-                        color: _cPanel,
-                        border: Border.all(color: _cLine),
-                        borderRadius: BorderRadius.circular(3),
-                        boxShadow: [
-                          BoxShadow(color: _cLine, blurRadius: 8),
-                        ],
-                      ),
-                      clipBehavior: Clip.hardEdge,
-                      child: TetrisMiniBoard(board: opp.board),
-                    ),
+            // Cyber avatar：36×36 方块 + 首字母 + neon 边框 + glow
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _cPanel,
+                border: Border.all(color: _cLineStrong),
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(color: _cLine, blurRadius: 10),
+                  BoxShadow(
+                    color: _cLineStrong.withValues(alpha: 0.5),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              child: Text(
+                initial,
+                style: GoogleFonts.orbitron(
+                  color: _cNeon,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  shadows: [Shadow(color: _cLineStrong, blurRadius: 6)],
+                ),
+              ),
             ),
             SizedBox(width: 10),
+            // Meta：姓名 + 分数·消行合写
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -765,47 +833,62 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: _cInk,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      letterSpacing: 0.08,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    '分数 ${opp?.score ?? 0}',
-                    style: TextStyle(
-                      color: _cInkSub,
                       fontSize: 12,
-                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
                     ),
                   ),
                   SizedBox(height: 2),
                   Text(
-                    '消行 ${opp?.lines ?? 0}',
+                    '${opp?.score ?? 0} · L${opp?.lines ?? 0}',
                     style: TextStyle(
                       color: _cInkSub,
-                      fontSize: 11,
+                      fontSize: 9,
+                      letterSpacing: 1.6,
                       fontFamily: 'monospace',
                     ),
                   ),
                 ],
               ),
             ),
-            if (opp != null && !opp.alive)
+            // 状态 pill：dead 显示「已 GG」，live 显示 delta
+            if (isDead)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0x33FF5A7A),
-                  borderRadius: BorderRadius.circular(3),
+                  color: _cPanel,
                   border: Border.all(color: const Color(0xFFFF5A7A)),
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF5A7A).withValues(alpha: 0.35),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
                 child: Text(
                   '已 GG',
-                  style: TextStyle(
+                  style: GoogleFonts.orbitron(
                     color: const Color(0xFFFF5A7A),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.10,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _cPanel,
+                  border: Border.all(color: _cLineStrong),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '+${opp?.score ?? 0}',
+                  style: GoogleFonts.orbitron(
+                    color: _cInkSub,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -822,6 +905,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         animation: eng,
         builder: (context, _) => Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 点击 HOLD 预览框 = 触发 hold（侧栏交互，不占控制栏位置）
             GestureDetector(
@@ -834,17 +918,17 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             _cyberPanel(
               child: _infoBlock('NEXT', TetrisPiecePreview(type: eng.nextType)),
             ),
-            _cyberPanel(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _stat('SCORE', '${eng.score}', _cNeon),
-                  SizedBox(height: 6),
-                  _stat('LINES', '${eng.lines}', _cInk),
-                  SizedBox(height: 6),
-                  _stat('LEVEL', '${eng.level}', _cNeon2),
-                ],
-              ),
+            // Stats — 自由排列，不包 panel；Orbitron 24px 全 neon + glow
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _stat('SCORE', '${eng.score}'),
+                SizedBox(height: 8),
+                _stat('LINES', '${eng.lines}'),
+                SizedBox(height: 8),
+                _stat('LEVEL', eng.level.toString().padLeft(2, '0')),
+              ],
             ),
           ],
         ),
@@ -878,44 +962,48 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _infoBlock(String label, Widget child) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: _cInkSub,
-              fontSize: 9,
-              letterSpacing: 0.20,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '> $label',
+                style: TextStyle(
+                  color: _cInkSub,
+                  fontSize: 9,
+                  letterSpacing: 1.8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 4),
+          SizedBox(height: 6),
           SizedBox(width: 56, height: 56, child: child),
         ],
       );
 
-  Widget _stat(String label, String value, Color color) => Column(
+  /// Cyber 大数字 (Orbitron 24px neon + glow) — 自由排版，无 panel。
+  Widget _stat(String label, String value) => Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            '> $label',
             style: TextStyle(
-              color: _cInkFaint,
-              fontSize: 8,
-              letterSpacing: 0.20,
+              color: _cInkSub,
+              fontSize: 9,
+              letterSpacing: 1.8,
               fontWeight: FontWeight.bold,
             ),
           ),
+          SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
-              shadows: color == _cNeon
-                  ? [Shadow(color: _cLineStrong, blurRadius: 8)]
-                  : color == _cNeon2
-                      ? [Shadow(color: const Color(0x8CFF2BD6), blurRadius: 8)]
-                      : null,
+            style: GoogleFonts.orbitron(
+              color: _cNeon,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              shadows: [Shadow(color: _cLineStrong, blurRadius: 8)],
             ),
           ),
         ],
