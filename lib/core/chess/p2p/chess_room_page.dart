@@ -1941,6 +1941,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               color: oppColor,
               subtitle: oppSubtitle(),
               isMe: false,
+              showAvatar: false,
             ),
             // 棋盘（居中，320×320 不动）+ 对话浮层（absolute，覆盖 padding 区）
             Expanded(
@@ -1995,6 +1996,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               color: myColor,
               subtitle: meSubtitle(),
               isMe: true,
+              showAvatar: false,
               trailing: replayOn
                   ? null
                   : _ChatFab(

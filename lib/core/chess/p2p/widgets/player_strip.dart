@@ -17,6 +17,10 @@ class PlayerStrip extends StatelessWidget {
   final Widget? trailing;
   final Widget? speech;
 
+  /// 是否显示圆形头像。F2 设计为 false（只有色点 + 名字 + 计时）。
+  /// 保留默认 true 以兼容其它调用点（jungle_chess 等）。
+  final bool showAvatar;
+
   const PlayerStrip({
     super.key,
     required this.alias,
@@ -26,6 +30,7 @@ class PlayerStrip extends StatelessWidget {
     this.speaking = false,
     this.trailing,
     this.speech,
+    this.showAvatar = true,
   });
 
   String get _initial {
@@ -40,14 +45,33 @@ class PlayerStrip extends StatelessWidget {
 
     final row = Row(
       children: [
-        _Avatar(
-          initial: _initial,
-          isMe: isMe,
-          color: color,
-          speaking: speaking,
-          scheme: scheme,
-        ),
-        const SizedBox(width: 10),
+        if (showAvatar) ...[
+          _Avatar(
+            initial: _initial,
+            isMe: isMe,
+            color: color,
+            speaking: speaking,
+            scheme: scheme,
+          ),
+          const SizedBox(width: 10),
+        ] else if (color != null) ...[
+          // 无 avatar 模式：执子色点作为 strip 开头的小圆点（F2 设计）
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color == PieceColor.white
+                  ? const Color(0xFFF7F4EE)
+                  : const Color(0xFF2C261F),
+              border: Border.all(
+                color: scheme.outlineVariant,
+                width: 1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,12 +107,13 @@ class PlayerStrip extends StatelessWidget {
       ],
     );
 
-    // 气泡贴头像侧：对方在条下方、己方在条上方（仍在 strip 布局内）
+    // 气泡贴头像侧：对方在条下方、己方在条上方（仍在 strip 布局内）。
+    // 无头像时气泡缩进从 50 改为 0（直接贴左边）。
     final speechPad = speech == null
         ? null
         : Padding(
             padding: EdgeInsets.only(
-              left: 50,
+              left: showAvatar ? 50 : 0,
               top: isMe ? 0 : 6,
               bottom: isMe ? 6 : 0,
               right: 8,

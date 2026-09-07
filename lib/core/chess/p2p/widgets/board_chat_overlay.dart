@@ -341,22 +341,41 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
               onTap: _openComposer,
             ),
           ),
-        // composer 打开时：右下角 composer 面板
+        // composer 打开时：右下角 composer 面板（带 fade + scale + slide 入场）
         if (_composerOpen)
           Positioned(
             right: 16,
             bottom: 16,
-            child: _Composer(
-              emojiBundle: widget.emojiBundle,
-              fileResolver: widget.fileResolver,
-              enabled: widget.enabled,
-              sending: _sending,
-              textController: _textController,
-              focusNode: _focusNode,
-              onTextChanged: _onComposerTextChanged,
-              onSendEmoji: _sendEmoji,
-              onSendText: _sendText,
-              onClose: _closeComposer,
+            child: TweenAnimationBuilder<double>(
+              // 首次构建 t=0→1；后续 composer 关闭再打开时也会重新构建
+              // （if 条件让 _Composer 卸载/重建），故每次打开都播一次入场动画
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 180),
+              curve: const Cubic(0.2, 0.9, 0.3, 1.2),
+              builder: (ctx, t, child) {
+                return Opacity(
+                  opacity: t,
+                  child: Transform.translate(
+                    offset: Offset(0, 8 * (1 - t)),
+                    child: Transform.scale(
+                      scale: 0.96 + 0.04 * t,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: _Composer(
+                emojiBundle: widget.emojiBundle,
+                fileResolver: widget.fileResolver,
+                enabled: widget.enabled,
+                sending: _sending,
+                textController: _textController,
+                focusNode: _focusNode,
+                onTextChanged: _onComposerTextChanged,
+                onSendEmoji: _sendEmoji,
+                onSendText: _sendText,
+                onClose: _closeComposer,
+              ),
             ),
           ),
       ],
@@ -446,67 +465,70 @@ class _ChatCard extends StatefulWidget {
   State<_ChatCard> createState() => _ChatCardState();
 }
 
-class _ChatCardState extends State<_ChatCard> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scaleAnim;
-  late final Animation<double> _opacityAnim;
-  late final Animation<double> _rotationAnim;
-  bool _dismissingStarted = false;
+class _ChatCardState extends State<_ChatCard> with TickerProviderStateMixin {
+  // 入场：TweenSequence 三关键帧（scale 0.3→1.1→1.0、rotation -10°→+2°→0°）
+  // 与原型 F2 keyframe 严格对齐
+  late final AnimationController _entryCtrl;
+  late final Animation<double> _entryScale;
+  late final Animation<double> _entryOpacity;
+  late final Animation<double> _entryRot;
+
+  // 退场：scale 1→0.5、rotation 0°→+8°、opacity 1→0
+  late final AnimationController _dismissCtrl;
+  late final Animation<double> _dismissScale;
+  late final Animation<double> _dismissOpacity;
+  late final Animation<double> _dismissRot;
+
   bool _onDismissedFired = false;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
+    _entryCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 420),
+      duration: const Duration(milliseconds: 400),
     );
-    // entry 曲线：cubic-bezier(.2,.9,.3,1.4) → 落点弹性
-    final entryCurve = CurvedAnimation(
-      parent: _ctrl,
-      curve: const Cubic(0.2, 0.9, 0.3, 1.4),
-      reverseCurve: const Cubic(0.4, 0.0, 0.6, 1.0), // dismiss 用 ease-out
+    // bouncy 3-stop entry：60% 时 bouncy peak、40% 收尾
+    const bouncy = Cubic(0.2, 0.9, 0.3, 1.4);
+    _entryScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.3, end: 1.1), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 40),
+    ]).animate(CurvedAnimation(parent: _entryCtrl, curve: bouncy));
+    _entryOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(_entryCtrl);
+    _entryRot = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: -10.0, end: 2.0), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 2.0, end: 0.0), weight: 40),
+    ]).animate(_entryCtrl);
+    _entryCtrl.forward();
+
+    _dismissCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
     );
-    _scaleAnim = Tween<double>(begin: 0.4, end: 1.0).animate(entryCurve);
-    _opacityAnim = Tween<double>(begin: 0.0, end: 1.0).animate(entryCurve);
-    // entry: -10° → +2° → 0°（bouncy settle）；dismiss: 0° → +8°
-    _rotationAnim = Tween<double>(begin: -10, end: 0).animate(entryCurve);
-    _ctrl.forward();
+    _dismissScale = Tween<double>(begin: 1.0, end: 0.5).animate(
+      CurvedAnimation(parent: _dismissCtrl, curve: Curves.easeIn),
+    );
+    _dismissOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(_dismissCtrl);
+    _dismissRot = Tween<double>(begin: 0.0, end: 8.0).animate(_dismissCtrl);
   }
 
   @override
   void didUpdateWidget(_ChatCard old) {
     super.didUpdateWidget(old);
-    if (widget.isDismissing && !old.isDismissing) {
-      _startDismiss();
+    if (widget.isDismissing && !old.isDismissing && !_dismissCtrl.isAnimating) {
+      _dismissCtrl.forward().then((_) {
+        if (mounted && !_onDismissedFired) {
+          _onDismissedFired = true;
+          widget.onDismissed();
+        }
+      });
     }
-  }
-
-  void _startDismiss() {
-    if (_dismissingStarted) return;
-    _dismissingStarted = true;
-    // dismiss 时重新构造 Tween，让目标值指向"缩小 + 旋转 +8°"
-    _scaleAnim = Tween<double>(begin: _scaleAnim.value, end: 0.5).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
-    );
-    _opacityAnim = Tween<double>(begin: _opacityAnim.value, end: 0.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
-    );
-    _rotationAnim = Tween<double>(begin: _rotationAnim.value, end: 8).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn),
-    );
-    _ctrl.duration = const Duration(milliseconds: 320);
-    _ctrl.reverse(from: 1.0).then((_) {
-      if (mounted && !_onDismissedFired) {
-        _onDismissedFired = true;
-        widget.onDismissed();
-      }
-    });
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _entryCtrl.dispose();
+    _dismissCtrl.dispose();
     super.dispose();
   }
 
@@ -548,50 +570,78 @@ class _ChatCardState extends State<_ChatCard> with SingleTickerProviderStateMixi
       );
     }
 
-    // 层叠：越旧越缩、越淡、轻微旋转
+    // depth-based base 值（旧卡缩、淡、转）
     final baseScale = 1.0 - widget.depth * 0.04;
     final baseOpacity = 1.0 - widget.depth * 0.18;
-    final baseRot = (widget.depth.isEven ? 1 : -1) * widget.depth * 1.5; // degrees
+    final baseRot = (widget.depth.isEven ? 1 : -1) * widget.depth * 1.5; // 度
 
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (ctx, child) {
-        return Opacity(
-          opacity: _opacityAnim.value * baseOpacity,
-          child: Transform.rotate(
-            angle: (_rotationAnim.value + baseRot) * 3.1415926 / 180,
-            child: Transform.scale(
-              scale: _scaleAnim.value * baseScale,
-              child: child,
-            ),
+    // depth-based transform matrix（position + base scale + base rot）
+    // 用 TweenAnimationBuilder 实现"被新卡挤下来时的 tuck 过渡"
+    final baseMatrix = Matrix4.identity()
+      ..translateByDouble(widget.depth * 6.0, widget.depth * 6.0, 0, 1)
+      ..rotateZ(baseRot * 3.1415926 / 180)
+      ..scaleByDouble(baseScale, baseScale, 1, 1);
+
+    return TweenAnimationBuilder<Matrix4>(
+      tween: Matrix4Tween(begin: Matrix4.identity(), end: baseMatrix),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      builder: (ctx, matrix, child) {
+        return Transform(
+          transform: matrix,
+          alignment: Alignment.center,
+          child: AnimatedOpacity(
+            opacity: baseOpacity,
+            duration: const Duration(milliseconds: 300),
+            child: child,
           ),
         );
       },
-      child: Material(
-        color: scheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: scheme.outlineVariant),
-        ),
-        elevation: 1,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            content,
-            // 发送方色点
-            Positioned(
-              top: 5,
-              left: 5,
-              child: Container(
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: widget.isMe ? const Color(0xFF2A6FDB) : const Color(0xFFC2410C),
-                  shape: BoxShape.circle,
-                ),
+      // 在 base transform 之上叠加入场/退场动画
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_entryCtrl, _dismissCtrl]),
+        builder: (ctx, child) {
+          return Opacity(
+            opacity: _entryOpacity.value * _dismissOpacity.value,
+            child: Transform.rotate(
+              angle: (_entryRot.value + _dismissRot.value) * 3.1415926 / 180,
+              child: Transform.scale(
+                scale: _entryScale.value * _dismissScale.value,
+                child: child,
               ),
             ),
-          ],
+          );
+        },
+        child: Material(
+          color: scheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+          // 原型 box-shadow 0 3px 10px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06)
+          elevation: 1,
+          shadowColor: Colors.black.withValues(alpha: 0.10),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              content,
+              // 发送方色点
+              Positioned(
+                top: 5,
+                left: 5,
+                child: Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: widget.isMe
+                        ? const Color(0xFF2A6FDB)
+                        : const Color(0xFFC2410C),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -600,29 +650,64 @@ class _ChatCardState extends State<_ChatCard> with SingleTickerProviderStateMixi
 
 /// 右下角圆形 FAB（棋盘 quick-send 入口）
 /// 命名：区别于 chess_room_page.dart 的 _ChatFab（PlayerStrip 上的"详细历史"入口）
-class _BoardChatFab extends StatelessWidget {
+/// 视觉对齐 F2 原型：圆形、黑色边、💬 图标、hover/active scale 反馈
+class _BoardChatFab extends StatefulWidget {
   final bool enabled;
   final VoidCallback onTap;
   const _BoardChatFab({required this.enabled, required this.onTap});
 
   @override
+  State<_BoardChatFab> createState() => _BoardChatFabState();
+}
+
+class _BoardChatFabState extends State<_BoardChatFab> {
+  bool _hover = false;
+  bool _active = false;
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      shape: const CircleBorder(side: BorderSide(color: Color(0xFF1A1A1A))),
-      elevation: 2,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: enabled ? onTap : null,
-        child: Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          child: Icon(
-            Icons.chat_bubble_outline_rounded,
-            size: 20,
-            color: scheme.onSurface.withValues(alpha: enabled ? 1.0 : 0.4),
+    // scale: 1.0 → 1.05 (hover) → 0.95 (active)
+    final scale = _active ? 0.95 : (_hover ? 1.05 : 1.0);
+    return MouseRegion(
+      cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() {
+        _hover = false;
+        _active = false;
+      }),
+      child: Listener(
+        onPointerDown: (_) {
+          if (widget.enabled) setState(() => _active = true);
+        },
+        onPointerUp: (_) {
+          if (mounted) setState(() => _active = false);
+        },
+        onPointerCancel: (_) {
+          if (mounted) setState(() => _active = false);
+        },
+        child: AnimatedScale(
+          scale: scale,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          child: Material(
+            color: scheme.surface,
+            shape: const CircleBorder(side: BorderSide(color: Color(0xFF1A1A1A))),
+            elevation: _hover ? 3 : 2,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: widget.enabled ? widget.onTap : null,
+              child: Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 20,
+                  color: scheme.onSurface.withValues(alpha: widget.enabled ? 1.0 : 0.4),
+                ),
+              ),
+            ),
           ),
         ),
       ),
