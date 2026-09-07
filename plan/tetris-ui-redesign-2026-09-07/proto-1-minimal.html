@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Proto 1 · 极简白纸</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ash: #3A414C;
+    --ash-grid: rgba(255,255,255,0.07);
+    --bg: #F4F2EE;
+    --card: rgba(255,255,255,0.92);
+    --card-border: rgba(0,0,0,0.06);
+    --ink: #16181C;
+    --ink-sub: rgba(22,24,28,0.55);
+    --ink-faint: rgba(22,24,28,0.30);
+    --accent: #16181C;
+
+    --T: #A56BFF; --O: #F5C518; --I: #2AD4E0;
+    --S: #3DD68C; --Z: #FF5A7A; --J: #4B7BFF; --L: #FF9A3D;
+  }
+
+  html, body { margin: 0; padding: 0; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--ink); }
+  body { display: flex; justify-content: center; min-height: 100vh; padding: 24px 0; }
+
+  /* Phone */
+  .phone {
+    width: 375px; height: 812px;
+    background: var(--bg);
+    border-radius: 36px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05);
+    display: flex; flex-direction: column;
+    padding: 12px 14px 14px;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Status bar */
+  .status { display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; font-weight: 600; padding: 4px 8px 12px; }
+  .status .right { display: flex; gap: 6px; align-items: center; }
+
+  /* Opponent bar — minimal: just initials + score */
+  .opp {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 4px 10px;
+  }
+  .opp .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--card); border: 1px solid var(--card-border);
+    display: grid; place-items: center;
+    font-weight: 600; font-size: 12px; color: var(--ink-sub);
+  }
+  .opp .meta { flex: 1; line-height: 1.2; }
+  .opp .name { font-weight: 600; font-size: 13px; }
+  .opp .score { font-size: 11px; color: var(--ink-sub); margin-top: 1px; font-family: 'JetBrains Mono', monospace; }
+  .opp .delta { font-size: 10px; color: var(--ink-sub); padding: 2px 8px; border-radius: 99px; background: var(--card); border: 1px solid var(--card-border); font-family: 'JetBrains Mono', monospace; }
+  .opp .delta.up { color: #16A34A; }
+  .opp .delta.down { color: #DC2626; }
+
+  /* Main row: side panel + board */
+  .play {
+    flex: 1;
+    display: flex; gap: 10px; align-items: stretch;
+    padding: 0;
+  }
+
+  /* Side panel — minimal: tiny stack of mini-cards */
+  .side {
+    width: 84px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 8px 8px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  }
+  .panel .lbl {
+    font-size: 9px; letter-spacing: 0.14em; font-weight: 700;
+    color: var(--ink-faint); text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .panel.mini { display: flex; flex-direction: column; align-items: center; }
+  .panel.mini .lbl { margin-bottom: 4px; }
+
+  /* Mini piece grid */
+  .minip {
+    display: grid; gap: 2px;
+    background: var(--ash);
+    border-radius: 6px; padding: 4px;
+  }
+  .minip .c {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    background: var(--ash);
+  }
+  .minip .c.f { box-shadow: inset 0 1px 0 rgba(255,255,255,0.30); }
+
+  /* Stats panel */
+  .stats { display: flex; flex-direction: column; gap: 8px; flex: 1; padding: 12px 8px; }
+  .stat { display: flex; flex-direction: column; }
+  .stat .lbl { font-size: 9px; letter-spacing: 0.14em; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; }
+  .stat .val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; line-height: 1.05; letter-spacing: -0.02em; color: var(--ink); }
+
+  /* Board */
+  .board {
+    flex: 1;
+    background: var(--ash);
+    border-radius: 14px;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(20, 1fr);
+    aspect-ratio: 10 / 20;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    position: relative;
+  }
+  .board .c {
+    position: relative;
+    background: var(--ash);
+    outline: 1px solid var(--ash-grid);
+  }
+  .board .c.f { box-shadow: inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.18); }
+  .board .c.g { background: transparent; box-shadow: inset 0 0 0 1px rgba(165,107,255,0.55); }
+  .board .c.g::after {
+    content:''; position:absolute; inset: 1px;
+    background: rgba(165,107,255,0.18);
+    border-radius: 1px;
+  }
+
+  /* T */
+  .c.T { background: var(--T); }
+  .c.O { background: var(--O); }
+  .c.I { background: var(--I); }
+  .c.S { background: var(--S); }
+  .c.Z { background: var(--Z); }
+  .c.J { background: var(--J); }
+  .c.L { background: var(--L); }
+
+  /* Controls — 2x3 grid of icon-only circles */
+  .ctrl {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .btn {
+    aspect-ratio: 1.6;
+    border-radius: 14px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    display: grid; place-items: center;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+    cursor: pointer;
+  }
+  .btn.acc {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .btn.acc svg { stroke: white; }
+
+  .legend {
+    margin-top: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; color: var(--ink-faint); padding: 0 4px;
+  }
+  .legend .pause { letter-spacing: 0.14em; font-weight: 700; text-transform: uppercase; }
+
+  /* Switch row */
+  .switch {
+    position: absolute; right: -8px; top: 50%;
+    transform: translateX(100%) translateY(-50%);
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 10px; color: var(--ink-sub);
+  }
+  .switch button {
+    background: white; border: 1px solid var(--card-border);
+    border-radius: 99px; padding: 4px 10px;
+    font-size: 10px; cursor: pointer; color: var(--ink-sub);
+  }
+  .switch button.on { background: var(--accent); color: white; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="status">
+    <span>9:41</span>
+    <span class="right">
+      <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><rect x="0" y="6" width="2" height="4" rx="1" fill="currentColor"/><rect x="4" y="4" width="2" height="6" rx="1" fill="currentColor"/><rect x="8" y="2" width="2" height="8" rx="1" fill="currentColor"/></svg>
+      <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M7 9 L12 4 L9 4 L9 1 L5 1 L5 4 L2 4 Z" fill="currentColor"/></svg>
+    </span>
+  </div>
+
+  <!-- Opponent -->
+  <div class="opp">
+    <div class="avatar">N</div>
+    <div class="meta">
+      <div class="name">Neko · 等级 6</div>
+      <div class="score">12,840 · 消行 36</div>
+    </div>
+    <div class="delta up">+120</div>
+  </div>
+
+  <!-- Play: side + board -->
+  <div class="play">
+
+    <aside class="side">
+      <div class="panel mini">
+        <div class="lbl">HOLD</div>
+        <!-- L-piece mini (4×4 to fit L) -->
+        <div class="minip" style="grid-template-columns:repeat(10,10px);grid-template-rows:repeat(10,10px);">
+          <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c f L"></div><div class="c"></div><div class="c"></div>
+        </div>
+      </div>
+
+      <div class="panel mini">
+        <div class="lbl">NEXT</div>
+        <div class="minip" style="grid-template-columns:repeat(10,10px);grid-template-rows:repeat(10,10px);">
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+        </div>
+      </div>
+
+      <div class="panel stats">
+        <div class="stat"><span class="lbl">SCORE</span><span class="val">8,420</span></div>
+        <div class="stat"><span class="lbl">LINES</span><span class="val">24</span></div>
+        <div class="stat"><span class="lbl">LEVEL</span><span class="val">4</span></div>
+      </div>
+    </aside>
+
+    <div class="board" id="board">
+      <!-- 200 cells: generated -->
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="ctrl">
+    <button class="btn"><svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg></button>
+    <button class="btn"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+    <button class="btn"><svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg></button>
+    <button class="btn"><svg viewBox="0 0 24 24"><polyline points="7 13 12 8 17 13" transform="rotate(180 12 12)"/><polyline points="7 11 12 6 17 11" transform="rotate(180 12 12)"/></svg></button>
+    <button class="btn"><svg viewBox="0 0 24 24"><polyline points="7 11 12 16 17 11" transform="rotate(180 12 12)"/><polyline points="7 13 12 18 17 13" transform="rotate(180 12 12)"/></svg></button>
+    <button class="btn acc"><svg viewBox="0 0 24 24"><line x1="12" y1="4" x2="12" y2="20"/><polyline points="5 12 12 19 19 12"/></svg></button>
+  </div>
+
+  <div class="legend">
+    <span class="pause">II 暂停</span>
+    <span>1P · 回合 12</span>
+  </div>
+
+  <div class="switch">
+    <button class="on">正常</button>
+    <button>暂停</button>
+    <button>GG</button>
+  </div>
+</div>
+
+<script>
+  // Build board
+  const board = document.getElementById('board');
+  // 10 cols × 20 rows; mark cells as T (active), g (ghost), or piece letter (placed)
+  // Active T: row2 col5; row3 col4-6
+  // Ghost T: row16 col5; row17 col4-6
+  // Bottom row18, row19
+  const W = 10, H = 20;
+  const placed = {};
+  // row 18
+  [[0,'J'],[1,'L'],[2,'L'],[3,'S'],[4,'S'],[5,'O'],[6,'T'],[7,'T'],[8,'S'],[9,'Z']].forEach(([c,p])=>{ placed[c+',18']=p; });
+  [[0,'J'],[1,'J'],[2,'L'],[3,'S'],[4,'O'],[5,'O'],[6,'T'],[7,'S'],[8,'Z'],[9,'Z']].forEach(([c,p])=>{ placed[c+',19']=p; });
+
+  const ghost = {};
+  ghost['5,16']=1; ghost['4,17']=1; ghost['5,17']=1; ghost['6,17']=1;
+  const active = {};
+  active['5,2']=1; active['4,3']=1; active['5,3']=1; active['6,3']=1;
+
+  let html = '';
+  for (let r=0; r<H; r++) {
+    for (let c=0; c<W; c++) {
+      const k = c+','+r;
+      let cls = 'c';
+      if (active[k]) cls += ' f T';
+      else if (ghost[k]) cls += ' g';
+      else if (placed[k]) cls += ' f ' + placed[k];
+      html += `<div class="${cls}"></div>`;
+    }
+  }
+  board.innerHTML = html;
+</script>
+</body>
+</html>

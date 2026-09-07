@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Proto 3 · 霓虹赛博</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ash: #3A414C;
+    --ash-grid: rgba(255,255,255,0.07);
+    --bg: #0B0D11;
+    --panel: #11141A;
+    --line: rgba(0,229,255,0.22);
+    --line-strong: rgba(0,229,255,0.55);
+    --neon: #00E5FF;
+    --neon-2: #FF2BD6;
+    --ink: #DCE3EC;
+    --ink-sub: rgba(220,227,236,0.55);
+    --ink-faint: rgba(220,227,236,0.28);
+
+    --T: #A56BFF; --O: #F5C518; --I: #2AD4E0;
+    --S: #3DD68C; --Z: #FF5A7A; --J: #4B7BFF; --L: #FF9A3D;
+  }
+
+  html, body { margin: 0; padding: 0; background: #050709; font-family: 'JetBrains Mono', monospace; color: var(--ink); }
+  body { display: flex; justify-content: center; min-height: 100vh; padding: 24px 0; }
+
+  .phone {
+    width: 375px; height: 812px;
+    background: var(--bg);
+    border-radius: 36px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,229,255,0.18);
+    display: flex; flex-direction: column;
+    padding: 12px 14px 14px;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+  }
+  .phone::before {
+    content:''; position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(0,229,255,0.08), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(255,43,214,0.06), transparent 40%);
+    pointer-events: none;
+  }
+
+  /* Header */
+  .top {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    font-size: 9px; letter-spacing: 0.2em; color: var(--ink-sub);
+  }
+  .top .title { color: var(--neon); text-shadow: 0 0 6px rgba(0,229,255,0.6); }
+
+  /* Opponent */
+  .opp {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .opp .avatar {
+    width: 36px; height: 36px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    display: grid; place-items: center;
+    background: var(--panel);
+    color: var(--neon);
+    font-family: 'Orbitron', sans-serif; font-weight: 700;
+    box-shadow: 0 0 10px rgba(0,229,255,0.18), inset 0 0 8px rgba(0,229,255,0.08);
+  }
+  .opp .meta { flex: 1; line-height: 1.3; }
+  .opp .name { font-weight: 700; font-size: 12px; color: var(--ink); letter-spacing: 0.08em; }
+  .opp .sub { font-size: 9px; color: var(--ink-sub); letter-spacing: 0.16em; margin-top: 2px; }
+  .opp .delta {
+    font-family: 'Orbitron', sans-serif; font-weight: 700;
+    font-size: 14px; padding: 4px 8px; border-radius: 4px;
+    border: 1px solid var(--line-strong);
+    background: var(--panel);
+  }
+  .opp .delta.up { color: #3DD68C; border-color: #3DD68C; box-shadow: 0 0 8px rgba(61,214,140,0.35); }
+  .opp .delta.down { color: #FF5A7A; border-color: #FF5A7A; box-shadow: 0 0 8px rgba(255,90,122,0.35); }
+
+  /* Main */
+  .play { flex: 1; display: flex; gap: 10px; padding-top: 12px; position: relative; z-index: 1; }
+
+  .side {
+    width: 88px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 8px 8px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 12px rgba(0,229,255,0.04);
+  }
+  .panel .lbl {
+    font-size: 9px; letter-spacing: 0.20em; color: var(--ink-sub);
+    text-transform: uppercase; margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  .panel .lbl::before { content: '> '; color: var(--neon); }
+
+  .minip {
+    display: grid; gap: 1px;
+    background: rgba(255,255,255,0.06);
+    padding: 3px;
+  }
+  .minip .c { width: 11px; height: 11px; background: var(--ash); }
+  .minip .c.f { box-shadow: inset 0 1px 0 rgba(255,255,255,0.32); }
+
+  .stats { display: flex; flex-direction: column; gap: 10px; flex: 1; padding-top: 4px; }
+  .stat .lbl { font-size: 9px; letter-spacing: 0.20em; color: var(--ink-sub); text-transform: uppercase; }
+  .stat .lbl::before { content: '> '; color: var(--neon); }
+  .stat .val {
+    font-family: 'Orbitron', sans-serif; font-weight: 700;
+    font-size: 24px; line-height: 1;
+    color: var(--neon);
+    text-shadow: 0 0 8px rgba(0,229,255,0.55);
+    margin-top: 2px;
+  }
+
+  /* Board */
+  .board-wrap {
+    flex: 1;
+    border: 1px solid var(--line-strong);
+    background: var(--ash);
+    box-shadow: 0 0 18px rgba(0,229,255,0.18), inset 0 0 18px rgba(0,0,0,0.4);
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(20, 1fr);
+    aspect-ratio: 10 / 20;
+    overflow: hidden;
+    position: relative;
+  }
+  .board-wrap::after {
+    /* scanline overlay */
+    content:''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 3px);
+    pointer-events: none;
+  }
+  .board-wrap .c { position: relative; background: var(--ash); outline: 1px solid var(--ash-grid); }
+  .board-wrap .c.f { box-shadow: inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.18); }
+  .board-wrap .c.g {
+    box-shadow: inset 0 0 0 1px rgba(165,107,255,0.7);
+    background: rgba(165,107,255,0.18);
+  }
+  .c.T { background: var(--T); }
+  .c.O { background: var(--O); }
+  .c.I { background: var(--I); }
+  .c.S { background: var(--S); }
+  .c.Z { background: var(--Z); }
+  .c.J { background: var(--J); }
+  .c.L { background: var(--L); }
+
+  /* Controls */
+  .ctrl {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    position: relative; z-index: 1;
+  }
+  .btn {
+    aspect-ratio: 1.6;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display: grid; place-items: center;
+    color: var(--ink-sub);
+    cursor: pointer;
+    box-shadow: inset 0 0 8px rgba(0,229,255,0.04);
+  }
+  .btn:hover { border-color: var(--line-strong); color: var(--neon); }
+  .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+  .btn .lbl { font-size: 8px; letter-spacing: 0.18em; margin-top: 2px; }
+  .btn .ic { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .btn.acc { border-color: var(--neon-2); color: var(--neon-2); box-shadow: 0 0 12px rgba(255,43,214,0.35), inset 0 0 8px rgba(255,43,214,0.1); }
+
+  .foot {
+    margin-top: 10px;
+    display: flex; justify-content: space-between;
+    font-size: 9px; letter-spacing: 0.20em; color: var(--ink-sub);
+    text-transform: uppercase;
+  }
+  .foot .pause { color: var(--neon); }
+
+  .switch {
+    position: absolute; right: -8px; top: 50%;
+    transform: translateX(100%) translateY(-50%);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .switch button {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 4px; padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-sub);
+  }
+  .switch button.on { background: var(--neon); color: var(--bg); border-color: var(--neon); }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="top">
+    <span class="title">▣ TETRIS / MATCH</span>
+    <span>09:41 · MATCH 12</span>
+  </div>
+
+  <div class="opp">
+    <div class="avatar">N</div>
+    <div class="meta">
+      <div class="name">NEKO</div>
+      <div class="sub">12840 · L36</div>
+    </div>
+    <div class="delta up">+120</div>
+  </div>
+
+  <div class="play">
+    <aside class="side">
+      <div class="panel">
+        <div class="lbl"><span>HOLD</span><span>02</span></div>
+        <div class="minip" style="grid-template-columns:repeat(4,11px);grid-template-rows:repeat(4,11px);">
+          <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+          <div class="c f L"></div><div class="c f L"></div><div class="c"></div><div class="c"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="lbl"><span>NEXT</span><span>03</span></div>
+        <div class="minip" style="grid-template-columns:repeat(4,11px);grid-template-rows:repeat(4,11px);">
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+          <div class="c"></div><div class="c f I"></div><div class="c"></div><div class="c"></div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="lbl">SCORE</div>
+          <div class="val">8420</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">LINES</div>
+          <div class="val">24</div>
+        </div>
+        <div class="stat">
+          <div class="lbl">LEVEL</div>
+          <div class="val">04</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="board-wrap" id="board"></div>
+  </div>
+
+  <div class="ctrl">
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg><span class="lbl">L</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg><span class="lbl">SD</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg><span class="lbl">R</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="7 13 12 8 17 13" transform="rotate(180 12 12)"/><polyline points="7 11 12 6 17 11" transform="rotate(180 12 12)"/></svg><span class="lbl">CCW</span></div></button>
+    <button class="btn"><div class="ic"><svg viewBox="0 0 24 24"><polyline points="7 11 12 16 17 11" transform="rotate(180 12 12)"/><polyline points="7 13 12 18 17 13" transform="rotate(180 12 12)"/></svg><span class="lbl">CW</span></div></button>
+    <button class="btn acc"><div class="ic"><svg viewBox="0 0 24 24"><line x1="12" y1="4" x2="12" y2="20"/><polyline points="5 12 12 19 19 12"/></svg><span class="lbl">HD</span></div></button>
+  </div>
+
+  <div class="foot">
+    <span class="pause">‖ PAUSE</span>
+    <span>1P · SVR-A84K</span>
+  </div>
+
+  <div class="switch">
+    <button class="on">NORMAL</button>
+    <button>PAUSE</button>
+    <button>GG</button>
+  </div>
+</div>
+
+<script>
+  const board = document.getElementById('board');
+  const W = 10, H = 20;
+  const placed = {};
+  [[0,'J'],[1,'L'],[2,'L'],[3,'S'],[4,'S'],[5,'O'],[6,'T'],[7,'T'],[8,'S'],[9,'Z']].forEach(([c,p])=>{ placed[c+',18']=p; });
+  [[0,'J'],[1,'J'],[2,'L'],[3,'S'],[4,'O'],[5,'O'],[6,'T'],[7,'S'],[8,'Z'],[9,'Z']].forEach(([c,p])=>{ placed[c+',19']=p; });
+  const ghost = {'5,16':1,'4,17':1,'5,17':1,'6,17':1};
+  const active = {'5,2':1,'4,3':1,'5,3':1,'6,3':1};
+  let html = '';
+  for (let r=0; r<H; r++) for (let c=0; c<W; c++) {
+    const k = c+','+r;
+    let cls = 'c';
+    if (active[k]) cls += ' f T';
+    else if (ghost[k]) cls += ' g';
+    else if (placed[k]) cls += ' f ' + placed[k];
+    html += `<div class="${cls}"></div>`;
+  }
+  board.innerHTML = html;
+</script>
+</body>
+</html>
