@@ -25,6 +25,24 @@ import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 /// 断线重连连续失败的判定次数（join 失败按 0.5s·2^n 退避重试）
 const int kMaxRecoverAttempts = 5;
 
+// ════════════════════════════════════════════════════════════════════
+// Cyber v2 主题令牌（proto-3-cyber-v2 落地）
+//
+// 替换 _buildPlaying 内部使用的 ColorScheme / kTetrisAccent 系列硬编码，
+// 改用赛博朋克配色 + neon 边框 + CRT 方括号 + 扫描线。Lobby / Finished
+// 不受影响（继续走 BoardTheme），只覆盖 playing 这一屏。
+// ════════════════════════════════════════════════════════════════════
+const Color _cBg = Color(0xFF0B0D11);
+const Color _cPanel = Color(0xFF11141A);
+const Color _cLine = Color(0x3800E5FF); // neon cyan @ 22%
+const Color _cLineStrong = Color(0x8C00E5FF); // neon cyan @ 55%
+const Color _cNeon = Color(0xFF00E5FF);
+const Color _cNeon2 = Color(0xFFFF2BD6); // hard drop accent
+const Color _cInk = Color(0xFFDCE3EC);
+const Color _cInkSub = Color(0x8CDCE3EC);
+const Color _cInkFaint = Color(0x47DCE3EC);
+const Color _cScanline = Color(0x14000000);
+
 class OnlineGamePage extends StatefulWidget {
   const OnlineGamePage({
     super.key,
@@ -606,24 +624,25 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  // ── playing 阶段：对手预览 + 主棋盘 + 控制按钮 ──
+  // ── playing 阶段：cyber v2 外壳（对手预览 + 主棋盘 + 控制按钮） ──
 
   Widget _buildPlaying() {
-    final theme = BoardTheme.of(context);
     final oppId = TetrisRoom.opponentId(_snap, _room.deviceId);
     final opp = oppId == null ? null : TetrisRoom.stateOf(_snap, oppId);
     final eng = _engine;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.scrim,
+      backgroundColor: _cBg,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Column(
             children: [
-              _buildOpponentBar(theme, oppId, opp),
+              _buildOpponentBar(oppId, opp),
               Expanded(
                 child: eng == null
-                    ? Center(child: CircularProgressIndicator())
+                    ? Center(
+                        child: CircularProgressIndicator(color: _cNeon),
+                      )
                     : Stack(
                         fit: StackFit.expand,
                         children: [
@@ -636,18 +655,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                 Expanded(
                                   child: AnimatedBuilder(
                                     animation: eng,
-                                    builder: (context, _) => TetrisBoardView(
-                                      grid: eng.grid,
-                                      current: eng.current,
-                                      ghostOffset: eng.ghostOffset(),
-                                    ),
+                                    builder: (context, _) =>
+                                        _buildCyberBoard(eng),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           // 自己已 BUST：叠等待遮罩，看对手实时分数
-                          if (!eng.alive) _buildBustWaiting(theme, oppId, opp),
+                          if (!eng.alive) _buildBustWaiting(opp),
                         ],
                       ),
               ),
@@ -659,8 +675,41 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
+  /// Cyber 棋盘外壳（neon 边框 + 扫描线遮罩）+ 原 TetrisBoardView。
+  Widget _buildCyberBoard(TetrisEngine eng) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: _cLineStrong, width: 1),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(
+            color: _cLineStrong,
+            blurRadius: 18,
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: const Color(0x66000000),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          TetrisBoardView(
+            grid: eng.grid,
+            current: eng.current,
+            ghostOffset: eng.ghostOffset(),
+          ),
+          const _ScanlineOverlay(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOpponentBar(
-    BoardThemeData theme,
     String? oppId,
     TetrisPlayerState? opp,
   ) {
@@ -673,20 +722,36 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         height: 84,
         child: Row(
           children: [
+            // 对手 mini 板：cyber 边框
             SizedBox(
               width: 42,
               height: 84,
               child: opp == null
                   ? Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      decoration: BoxDecoration(
+                        color: _cPanel,
+                        border: Border.all(color: _cLine),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                       child: Center(
                         child: Icon(
                           Icons.person_outline,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
+                          color: _cInkSub,
                         ),
                       ),
                     )
-                  : TetrisMiniBoard(board: opp.board),
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: _cPanel,
+                        border: Border.all(color: _cLine),
+                        borderRadius: BorderRadius.circular(3),
+                        boxShadow: [
+                          BoxShadow(color: _cLine, blurRadius: 8),
+                        ],
+                      ),
+                      clipBehavior: Clip.hardEdge,
+                      child: TetrisMiniBoard(board: opp.board),
+                    ),
             ),
             SizedBox(width: 10),
             Expanded(
@@ -699,20 +764,29 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary,
+                      color: _cInk,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
+                      letterSpacing: 0.08,
                     ),
                   ),
                   SizedBox(height: 4),
                   Text(
                     '分数 ${opp?.score ?? 0}',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.70), fontSize: 12),
+                    style: TextStyle(
+                      color: _cInkSub,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
                   ),
                   SizedBox(height: 2),
                   Text(
                     '消行 ${opp?.lines ?? 0}',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.54), fontSize: 11),
+                    style: TextStyle(
+                      color: _cInkSub,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ],
               ),
@@ -721,11 +795,18 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.20),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0x33FF5A7A),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: const Color(0xFFFF5A7A)),
                 ),
                 child: Text(
-                  '已 GG', style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 11),
+                  '已 GG',
+                  style: TextStyle(
+                    color: const Color(0xFFFF5A7A),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.10,
+                  ),
                 ),
               ),
           ],
@@ -736,7 +817,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   Widget _buildSidePanel(TetrisEngine eng) {
     return SizedBox(
-      width: 72,
+      width: 88,
       child: AnimatedBuilder(
         animation: eng,
         builder: (context, _) => Column(
@@ -746,21 +827,51 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _hold,
-              child: _infoBlock('HOLD', TetrisPiecePreview(type: eng.holdType)),
+              child: _cyberPanel(
+                child: _infoBlock('HOLD', TetrisPiecePreview(type: eng.holdType)),
+              ),
             ),
-            _infoBlock('NEXT', TetrisPiecePreview(type: eng.nextType)),
-            Column(
-              children: [
-                _stat('分数', '${eng.score}', kTetrisAccent),
-                SizedBox(height: 6),
-                _stat('消行', '${eng.lines}', Theme.of(context).colorScheme.primary),
-                SizedBox(height: 6),
-                _stat('等级', '${eng.level}', Theme.of(context).colorScheme.tertiary),
-              ],
+            _cyberPanel(
+              child: _infoBlock('NEXT', TetrisPiecePreview(type: eng.nextType)),
+            ),
+            _cyberPanel(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _stat('SCORE', '${eng.score}', _cNeon),
+                  SizedBox(height: 6),
+                  _stat('LINES', '${eng.lines}', _cInk),
+                  SizedBox(height: 6),
+                  _stat('LEVEL', '${eng.level}', _cNeon2),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Cyber 侧栏小面板：panel 底 + neon 边框 + CRT 方括号 + 内发光。
+  Widget _cyberPanel({required Widget child}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _cPanel,
+            border: Border.all(color: _cLine),
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(color: _cLine, blurRadius: 8),
+              BoxShadow(color: const Color(0x66000000), blurRadius: 4, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: child,
+        ),
+        const Positioned.fill(child: _CyberBrackets(color: _cLineStrong, size: 5, thickness: 1)),
+      ],
     );
   }
 
@@ -770,9 +881,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           Text(
             label,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
-              fontSize: 10,
-              letterSpacing: 1,
+              color: _cInkSub,
+              fontSize: 9,
+              letterSpacing: 0.20,
+              fontWeight: FontWeight.bold,
             ),
           ),
           SizedBox(height: 4),
@@ -783,75 +895,157 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _stat(String label, String value, Color color) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.6), fontSize: 9)),
+          Text(
+            label,
+            style: TextStyle(
+              color: _cInkFaint,
+              fontSize: 8,
+              letterSpacing: 0.20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
+              fontFamily: 'monospace',
+              shadows: color == _cNeon
+                  ? [Shadow(color: _cLineStrong, blurRadius: 8)]
+                  : color == _cNeon2
+                      ? [Shadow(color: const Color(0x8CFF2BD6), blurRadius: 8)]
+                      : null,
             ),
           ),
         ],
       );
 
   Widget _buildControls() {
-    final eng = _engine;
-    final dead = eng != null && !eng.alive;
+    final dead = _engine != null && !_engine!.alive;
     return Padding(
-      padding: EdgeInsets.only(top: 4, bottom: 6),
-      child: Row(
+      padding: EdgeInsets.only(top: 8, bottom: 6),
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // 左半：方向键（左移 / 软降 / 右移，长按连发）
-          Expanded(
+          // wrapper：neon 边框 + 四角大括号
+          Container(
+            padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x0A00E5FF), Color(0x0000E5FF)],
+              ),
+              border: Border.all(color: _cLine),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(color: _cLine, blurRadius: 12)],
+            ),
             child: Row(
               children: [
-                _padButton(
-                  Icons.arrow_left_rounded,
-                  '左',
-                  repeat: () => _move(-1),
-                  dim: dead,
+                // 左半：MOVE（长按连发）
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ctrlHalfLabel('MOVE', '⟳ hold'),
+                      SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _padButton(
+                            Icons.arrow_left_rounded,
+                            '左',
+                            repeat: () => _move(-1),
+                            dim: dead,
+                          ),
+                          _padButton(
+                            Icons.arrow_downward_rounded,
+                            '软降',
+                            repeat: _softDrop,
+                            dim: dead,
+                          ),
+                          _padButton(
+                            Icons.arrow_right_rounded,
+                            '右',
+                            repeat: () => _move(1),
+                            dim: dead,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                _padButton(
-                  Icons.arrow_downward_rounded,
-                  '软降',
-                  repeat: _softDrop,
-                  dim: dead,
-                ),
-                _padButton(
-                  Icons.arrow_right_rounded,
-                  '右',
-                  repeat: () => _move(1),
-                  dim: dead,
+                SizedBox(width: 10),
+                // 右半：ACTION（单次）
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ctrlHalfLabel('ACTION', 'tap'),
+                      SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _padButton(
+                            Icons.rotate_left_rounded,
+                            '左旋',
+                            onTap: _rotateCCW,
+                            dim: dead,
+                          ),
+                          _padButton(
+                            Icons.rotate_right_rounded,
+                            '右旋',
+                            onTap: _rotateCW,
+                            dim: dead,
+                          ),
+                          _padButton(
+                            Icons.vertical_align_bottom_rounded,
+                            '硬降',
+                            onTap: _hardDrop,
+                            accent: true,
+                            dim: dead,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          SizedBox(width: 4),
-          // 右半：动作键（左旋 / 右旋 / 硬降，单次）
-          Expanded(
-            child: Row(
-              children: [
-                _padButton(
-                  Icons.rotate_left_rounded,
-                  '左旋',
-                  onTap: _rotateCCW,
-                  dim: dead,
-                ),
-                _padButton(
-                  Icons.rotate_right_rounded,
-                  '右旋',
-                  onTap: _rotateCW,
-                  dim: dead,
-                ),
-                _padButton(
-                  Icons.vertical_align_bottom_rounded,
-                  '硬降',
-                  onTap: _hardDrop,
-                  accent: true,
-                  dim: dead,
-                ),
-              ],
+          // wrapper 四角大括号
+          const Positioned(top: -1, left: -1, child: _CornerBracketTL(color: _cNeon)),
+          const Positioned(top: -1, right: -1, child: _CornerBracketTR(color: _cNeon)),
+          const Positioned(bottom: -1, left: -1, child: _CornerBracketBL(color: _cNeon)),
+          const Positioned(bottom: -1, right: -1, child: _CornerBracketBR(color: _cNeon)),
+        ],
+      ),
+    );
+  }
+
+  /// 控制区左右半的 chip 标签。
+  Widget _ctrlHalfLabel(String left, String right) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            left,
+            style: TextStyle(
+              color: _cInkFaint,
+              fontSize: 8,
+              letterSpacing: 0.20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            right,
+            style: TextStyle(
+              color: _cNeon,
+              fontSize: 8,
+              letterSpacing: 0.16,
+              fontWeight: FontWeight.bold,
+              shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
             ),
           ),
         ],
@@ -860,7 +1054,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   /// 控制按钮：onTap 单次；repeat 长按连发（左/右/软降）。
-  /// dead=true 半透明（自己已 GG，按钮失效）；accent=true 强调色（硬降主操作）。
+  /// dead=true 半透明（自己已 GG，按钮失效）；accent=true 强调色（硬降主操作，neon2 粉）。
   Widget _padButton(
     IconData icon,
     String label, {
@@ -869,6 +1063,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     bool accent = false,
     bool dim = false,
   }) {
+    final borderColor = accent ? _cNeon2 : _cLine;
+    final iconColor = accent ? _cNeon2 : _cInkSub;
+    final bgColor = accent ? const Color(0x14FF2BD6) : _cPanel;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -876,40 +1073,56 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         onTapDown: repeat == null ? null : (_) => _beginRepeat(repeat),
         onTapUp: repeat == null ? null : (_) => _endRepeat(),
         onTapCancel: repeat == null ? null : _endRepeat,
-        child: Container(
-          margin: EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-          height: 58,
-          decoration: BoxDecoration(
-            color: accent
-                ? kTetrisAccent.withValues(alpha: 0.18)
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: accent
-                  ? kTetrisAccent.withValues(alpha: 0.6)
-                  : Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.08),
-            ),
-          ),
-          child: Opacity(
-            opacity: dim ? 0.35 : 1,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onSurface,
-                  size: 24,
+        child: Opacity(
+          opacity: dim ? 0.35 : 1,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                height: 56,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  border: Border.all(color: borderColor),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: accent
+                      ? [
+                          BoxShadow(color: const Color(0x59FF2BD6), blurRadius: 14),
+                          BoxShadow(color: const Color(0x33FF2BD6), blurRadius: 4, offset: const Offset(0, 0)),
+                        ]
+                      : [
+                          BoxShadow(color: const Color(0x66000000), blurRadius: 4, offset: const Offset(0, 2)),
+                        ],
                 ),
-                SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: accent ? kTetrisAccent : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
-                    fontSize: 9,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: iconColor,
+                      size: 22,
+                      shadows: accent
+                          ? [Shadow(color: const Color(0x8CFF2BD6), blurRadius: 6)]
+                          : null,
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: iconColor,
+                        fontSize: 9,
+                        letterSpacing: 0.06,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              // CRT 四角小方括号
+              _CyberBrackets(color: accent ? _cNeon2 : _cLine, size: 5, thickness: 1.5),
+              // 长按连发 ⟳ 标记
+              if (repeat != null)
+                _RepeatBadge(color: _cNeon),
+            ],
           ),
         ),
       ),
@@ -1042,36 +1255,38 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   /// 自己已 BUST、对方仍在玩：叠在主棋盘上的等待遮罩。
-  Widget _buildBustWaiting(
-    BoardThemeData theme,
-    String? oppId,
-    TetrisPlayerState? opp,
-  ) {
+  Widget _buildBustWaiting(TetrisPlayerState? opp) {
     return Positioned.fill(
       child: Container(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+        color: const Color(0x99000000),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.hourglass_top,
-                color: Theme.of(context).colorScheme.tertiary,
+                color: _cNeon,
                 size: 40,
+                shadows: [Shadow(color: _cLineStrong, blurRadius: 12)],
               ),
               SizedBox(height: 12),
               Text(
                 '你已 GG，等待对手完成…',
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  color: _cInk,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 0.08,
                 ),
               ),
               SizedBox(height: 8),
               Text(
                 '对手当前分数 ${opp?.score ?? 0}',
-                style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.70), fontSize: 13),
+                style: TextStyle(
+                  color: _cInkSub,
+                  fontSize: 13,
+                  fontFamily: 'monospace',
+                ),
               ),
             ],
           ),
@@ -1140,6 +1355,174 @@ class _ReadyAvatar extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Cyber v2 小部件：CRT 方括号 / 扫描线遮罩 / ⟳ 重复标记 / wrapper 角括号
+// ══════════════════════════════════════════════════════════════════
+
+/// 边框四角的小方括号，赛博 CRT 风。
+/// 仅视觉，不接收命中（不阻挡按钮事件）。
+class _CyberBrackets extends StatelessWidget {
+  const _CyberBrackets({
+    this.color = const Color(0xFF00E5FF),
+    this.size = 6,
+    this.thickness = 1.5,
+  });
+  final Color color;
+  final double size;
+  final double thickness;
+
+  @override
+  Widget build(BuildContext context) {
+    final side = BorderSide(color: color, width: thickness);
+    return IgnorePointer(
+      child: SizedBox.expand(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              top: 0, left: 0,
+              child: Container(
+                width: size, height: size,
+                decoration: BoxDecoration(border: Border(top: side, left: side)),
+              ),
+            ),
+            Positioned(
+              bottom: 0, right: 0,
+              child: Container(
+                width: size, height: size,
+                decoration: BoxDecoration(border: Border(bottom: side, right: side)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 棋盘 / 容器上的水平扫描线遮罩（CRT 复古）。
+class _ScanlineOverlay extends StatelessWidget {
+  const _ScanlineOverlay();
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(painter: _ScanlinePainter()),
+      ),
+    );
+  }
+}
+
+class _ScanlinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = _cScanline;
+    for (double y = 0; y < size.height; y += 3) {
+      canvas.drawRect(Rect.fromLTWH(0, y, size.width, 1), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanlinePainter oldDelegate) => false;
+}
+
+/// 按钮内右上角的 ⟳ 小标记，提示长按连发。
+class _RepeatBadge extends StatelessWidget {
+  const _RepeatBadge({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 3, right: 5,
+      child: IgnorePointer(
+        child: Text(
+          '⟳',
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            height: 1,
+            shadows: [Shadow(color: color, blurRadius: 4)],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// wrapper 容器外侧的四角大括号（12×12，neon + glow）。
+class _CornerBracketTL extends StatelessWidget {
+  const _CornerBracketTL({this.color = const Color(0xFF00E5FF)});
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    final side = BorderSide(color: color, width: 2);
+    return IgnorePointer(
+      child: Container(
+        width: 12, height: 12,
+        decoration: BoxDecoration(
+          border: Border(top: side, left: side),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)],
+        ),
+      ),
+    );
+  }
+}
+
+class _CornerBracketTR extends StatelessWidget {
+  const _CornerBracketTR({this.color = const Color(0xFF00E5FF)});
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    final side = BorderSide(color: color, width: 2);
+    return IgnorePointer(
+      child: Container(
+        width: 12, height: 12,
+        decoration: BoxDecoration(
+          border: Border(top: side, right: side),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)],
+        ),
+      ),
+    );
+  }
+}
+
+class _CornerBracketBL extends StatelessWidget {
+  const _CornerBracketBL({this.color = const Color(0xFF00E5FF)});
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    final side = BorderSide(color: color, width: 2);
+    return IgnorePointer(
+      child: Container(
+        width: 12, height: 12,
+        decoration: BoxDecoration(
+          border: Border(left: side, bottom: side),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)],
+        ),
+      ),
+    );
+  }
+}
+
+class _CornerBracketBR extends StatelessWidget {
+  const _CornerBracketBR({this.color = const Color(0xFF00E5FF)});
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    final side = BorderSide(color: color, width: 2);
+    return IgnorePointer(
+      child: Container(
+        width: 12, height: 12,
+        decoration: BoxDecoration(
+          border: Border(right: side, bottom: side),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)],
+        ),
       ),
     );
   }
