@@ -34,31 +34,44 @@ class TetrisBoardView extends StatelessWidget {
     required this.grid,
     this.current,
     this.ghostOffset = 0,
+    this.expand = false,
   });
 
   final List<List<int>> grid;
   final TetrisPiece? current;
   final int ghostOffset;
 
+  /// true：填满父约束（父已算好 10:20）；false：在父约束内自算最大 10:20。
+  final bool expand;
+
   @override
   Widget build(BuildContext context) {
+    final tc = context.tetrisColors;
+    final painter = _BoardPainter(
+      tc: tc,
+      pieceColors: tc.pieceColors,
+      grid: grid,
+      current: current,
+      ghost: ghostOffset,
+    );
+    if (expand) {
+      return CustomPaint(painter: painter, child: const SizedBox.expand());
+    }
     // 自适应：在父约束内取最大且不溢出的尺寸（宽高比 cols:rows = 1:2）
     return LayoutBuilder(
       builder: (ctx, c) {
+        final maxW = c.maxWidth;
+        final maxH = c.maxHeight;
+        if (!maxW.isFinite || !maxH.isFinite || maxW <= 0 || maxH <= 0) {
+          return const SizedBox.shrink();
+        }
         final ratio = kTetrisCols / kTetrisRows;
-        final w = math.min(c.maxWidth, c.maxHeight * ratio);
+        var w = math.min(maxW, maxH * ratio);
+        if (w <= 0) return const SizedBox.shrink();
         return SizedBox(
           width: w,
           height: w / ratio,
-          child: CustomPaint(
-            painter: _BoardPainter(
-              tc: ctx.tetrisColors,
-              pieceColors: ctx.tetrisColors.pieceColors,
-              grid: grid,
-              current: current,
-              ghost: ghostOffset,
-            ),
-          ),
+          child: CustomPaint(painter: painter),
         );
       },
     );
@@ -70,8 +83,12 @@ class TetrisMiniBoard extends StatelessWidget {
   const TetrisMiniBoard({super.key, required this.board});
   final List<List<int>> board;
   @override
-  Widget build(BuildContext context) =>
-      TetrisBoardView(grid: board, current: null, ghostOffset: 0);
+  Widget build(BuildContext context) => TetrisBoardView(
+        grid: board,
+        current: null,
+        ghostOffset: 0,
+        expand: true,
+      );
 }
 
 class _BoardPainter extends CustomPainter {

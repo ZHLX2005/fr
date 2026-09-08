@@ -660,48 +660,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // proto .phone::before — 角落氛氛围径向光
             const IgnorePointer(child: _AmbientWash()),
             Padding(
-              // proto .phone：padding 12 14 14
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              // 顶/对手/控制/底栏固高；只有中间 play 可伸缩，避免操作键被挤没
               child: Column(
                 children: [
                   _buildTopBar(),
                   _buildOpponentBar(oppId, opp),
                   Expanded(
                     child: eng == null
-                        ? Center(
+                        ? const Center(
                             child: CircularProgressIndicator(color: _cNeon),
                           )
-                        : Stack(
-                            // 侧栏/棋盘溢出不得盖住下方操作键
-                            clipBehavior: Clip.hardEdge,
-                            fit: StackFit.expand,
-                            children: [
-                              // proto .play：gap 10 + padding-top 12
-                              Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Row(
-                                  // stretch：侧栏吃满中间区高度，stats 才能 flex 铺开且不溢出
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _buildSidePanel(eng),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: AnimatedBuilder(
-                                        animation: eng,
-                                        builder: (context, _) =>
-                                            _buildCyberBoard(eng),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // 自己已 BUST：叠等待遮罩，看对手实时分数
-                              if (!eng.alive) _buildBustWaiting(opp),
-                            ],
-                          ),
+                        : _buildPlayArea(eng, opp),
                   ),
                   _buildControls(),
                   _buildFooter(),
@@ -711,6 +683,42 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// 中间对局区：侧栏固有高度可滚动，棋盘按 10:20 吃满剩余宽高。
+  /// 禁止侧栏再用 Expanded（矮屏会布局失败 → 整片黑）。
+  Widget _buildPlayArea(TetrisEngine eng, TetrisPlayerState? opp) {
+    return Stack(
+      clipBehavior: Clip.hardEdge,
+      fit: StackFit.expand,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 88,
+                    height: constraints.maxHeight,
+                    child: _buildSidePanel(eng),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: AnimatedBuilder(
+                      animation: eng,
+                      builder: (context, _) => _buildCyberBoard(eng),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        if (!eng.alive) _buildBustWaiting(opp),
+      ],
     );
   }
 
@@ -779,36 +787,57 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  /// Cyber 棋盘外壳（neon 边框 + 内嵌暗角 + 扫描线遮罩）+ 原 TetrisBoardView。
-  /// proto .board-wrap：aspect-ratio 10/20，勿纵向拉满整列（否则矮屏上侧栏溢出/空框抢高）。
+  /// Cyber 棋盘外壳：在父约束内取最大 10:20 矩形（AspectRatio），保证非 0 尺寸。
   Widget _buildCyberBoard(TetrisEngine eng) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: _cLineStrong, width: 1),
-          // proto：外辉光 rgba(0,229,255,0.18)
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x2E00E5FF),
-              blurRadius: 18,
-              spreadRadius: 0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth;
+        final maxH = constraints.maxHeight;
+        if (!maxW.isFinite || !maxH.isFinite || maxW <= 0 || maxH <= 0) {
+          return const SizedBox.shrink();
+        }
+        const ratio = kTetrisCols / kTetrisRows; // 0.5
+        var w = maxW;
+        var h = w / ratio;
+        if (h > maxH) {
+          h = maxH;
+          w = h * ratio;
+        }
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: w,
+            height: h,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A414C), // ash well，空盘也可见
+                border: Border.all(color: _cLineStrong, width: 1),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x2E00E5FF),
+                    blurRadius: 18,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  TetrisBoardView(
+                    grid: eng.grid,
+                    current: eng.current,
+                    ghostOffset: eng.ghostOffset(),
+                    expand: true,
+                  ),
+                  const _BoardInnerShade(),
+                  const _ScanlineOverlay(),
+                ],
+              ),
             ),
-          ],
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Stack(
-          children: [
-            TetrisBoardView(
-              grid: eng.grid,
-              current: eng.current,
-              ghostOffset: eng.ghostOffset(),
-            ),
-            const _BoardInnerShade(),
-            const _ScanlineOverlay(),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -821,18 +850,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         : (TetrisRoom.players(_snap)[oppId] ?? '对手');
     final isDead = opp != null && !opp.alive;
     return Container(
-      // proto .opp：padding 12px 0 + border-bottom
-      // 功能保留：左侧迷你棋盘（proto 用字母头像占位，对战必须看对手盘面）
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      // 迷你井改小：32×64，给中间 play / 操作键留垂直空间
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: _cLine)),
       ),
       child: Row(
         children: [
-          // 对手迷你井：10×20，42×84，neon 边框
           SizedBox(
-            width: 42,
-            height: 84,
+            width: 32,
+            height: 64,
             child: opp == null
                 ? Container(
                     decoration: BoxDecoration(
@@ -841,12 +868,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       borderRadius: BorderRadius.circular(3),
                     ),
                     child: const Center(
-                      child: Icon(Icons.person_outline, color: _cInkSub, size: 22),
+                      child: Icon(Icons.person_outline, color: _cInkSub, size: 18),
                     ),
                   )
                 : Container(
                     decoration: BoxDecoration(
-                      color: _cPanel,
+                      color: const Color(0xFF3A414C),
                       border: Border.all(color: _cLineStrong),
                       borderRadius: BorderRadius.circular(3),
                       boxShadow: const [
@@ -858,7 +885,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   ),
           ),
           const SizedBox(width: 10),
-          // Meta：姓名 + 分数·消行合写
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,7 +898,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     color: _cInk,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.96, // 0.08em × 12
+                    letterSpacing: 0.96,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -881,13 +907,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   style: GoogleFonts.jetBrainsMono(
                     color: _cInkSub,
                     fontSize: 9,
-                    letterSpacing: 1.44, // proto 0.16em × 9px
+                    letterSpacing: 1.44,
                   ),
                 ),
               ],
             ),
           ),
-          // 状态 pill：dead 显示「已 GG」，live 显示最近一次分数 delta（无变化则不渲染）
           if (isDead)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -927,16 +952,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   Widget _buildSidePanel(TetrisEngine eng) {
-    return SizedBox(
-      width: 88,
-      child: AnimatedBuilder(
-        animation: eng,
-        // proto .side：HOLD/NEXT 顶置 gap8；.stats { flex:1 } 沿棋盘高度铺开。
-        // 必须吃满 Row 拉伸高度，否则 Column 固有高度溢出会盖住操作键。
-        builder: (context, _) => Column(
+    return AnimatedBuilder(
+      animation: eng,
+      // 可滚动：矮屏也不用嵌套 Expanded，避免布局失败整片黑
+      builder: (context, _) => SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 点击 HOLD 预览框 = 触发 hold（侧栏交互，不占控制栏位置）
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _hold,
@@ -958,21 +981,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 child: TetrisPiecePreview(type: eng.nextType),
               ),
             ),
-            // proto .stats flex:1 — 剩余高度内均匀铺 SCORE/LINES/LEVEL
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _stat('SCORE', '${eng.score}'),
-                    _stat('LINES', '${eng.lines}'),
-                    _stat('LEVEL', eng.level.toString().padLeft(2, '0')),
-                  ],
-                ),
-              ),
-            ),
+            const SizedBox(height: 10),
+            _stat('SCORE', '${eng.score}'),
+            const SizedBox(height: 10),
+            _stat('LINES', '${eng.lines}'),
+            const SizedBox(height: 10),
+            _stat('LEVEL', eng.level.toString().padLeft(2, '0')),
           ],
         ),
       ),
