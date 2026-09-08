@@ -43,6 +43,7 @@ class TetrisEngine extends ChangeNotifier {
   late List<List<int>> grid; // [row][col]，0=空 / 1..7=方块类型
   TetrisPiece? current;
   int? holdType;
+  int? holdIndex; // holdType 在序列中的位置（0-based，HOLD 面板索引用）；空 = 无暂存
   bool _holdLocked = false; // 同一块只能 hold 一次
   int pieceIndex = 0;
   int score = 0;
@@ -67,6 +68,7 @@ class TetrisEngine extends ChangeNotifier {
     level = 0;
     alive = true;
     holdType = null;
+    holdIndex = null;
     _holdLocked = false;
     _spawn();
   }
@@ -200,6 +202,8 @@ class TetrisEngine extends ChangeNotifier {
   void hold() {
     final c = current;
     if (c == null || !alive || _holdLocked) return;
+    // 入槽的是 curType，它的序列位置是 pieceIndex - 1（_spawn 里 pieceIndex++ 过）
+    holdIndex = pieceIndex - 1;
     final curType = c.type;
     if (holdType == null) {
       holdType = curType;

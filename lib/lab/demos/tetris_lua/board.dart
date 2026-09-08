@@ -7,8 +7,9 @@
 //
 // 颜色：
 //   - 棋盘井纯色（无渐变）/ 网格 / 高光 / 方块识别色 → TetrisColorsStrategy
-//   - 方块格保留斜向立体高光
-//   - ghost 落点 → pieceColor + 固定 alpha 派生
+//   - 主棋盘方块格保留斜向立体高光
+//   - HOLD/NEXT mini 预览：4×4 网格 + 纯色平格（proto .minip，无 jewel 渐变）
+//   - ghost 落点 → 固定投影紫（proto .c.g，与下落块颜色无关）
 
 import 'dart:math' as math show min;
 import 'dart:ui' as ui show Gradient;
@@ -19,6 +20,10 @@ import '../../../widgets/context_tetris_colors.dart';
 import '../../../core/theme/colors/strategy/tetris_colors_strategy/tetris_colors_strategy.dart';
 import 'constants.dart';
 import 'engine.dart' show TetrisPiece;
+
+// proto .board-wrap .c.g — 固定投影紫：落点预览不能读作任何方块色。
+const Color _kGhostStroke = Color(0xB3A56BFF); // rgba(165,107,255,0.7)
+const Color _kGhostFill = Color(0x2EA56BFF); // rgba(165,107,255,0.18)
 
 class TetrisBoardView extends StatelessWidget {
   const TetrisBoardView({
@@ -131,7 +136,6 @@ class _BoardPainter extends CustomPainter {
 
     // ghost 落点
     if (ghost > 0) {
-      final color = pieceColors[cur.type]!;
       for (var i = 0; i < cur.matrix.length; i++) {
         for (var j = 0; j < cur.matrix[i].length; j++) {
           if (cur.matrix[i][j] == 0) continue;
@@ -143,7 +147,6 @@ class _BoardPainter extends CustomPainter {
             cellH * gy,
             cellW,
             cellH,
-            color,
           );
         }
       }
@@ -224,19 +227,18 @@ void _paintGhost(
   double y,
   double w,
   double h,
-  Color color,
 ) {
   final r = RRect.fromRectAndRadius(
     Rect.fromLTWH(x + 2, y + 2, w - 4, h - 4),
     Radius.circular(math.min(w, h) * 0.14),
   );
-  c.drawRRect(r, Paint()..color = color.withValues(alpha: 0.14));
+  c.drawRRect(r, Paint()..color = _kGhostFill);
   c.drawRRect(
     r,
     Paint()
-      ..color = Color.lerp(color, Colors.white, 0.25)!.withValues(alpha: 0.55)
+      ..color = _kGhostStroke
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5,
+      ..strokeWidth = 1,
   );
 }
 
@@ -275,27 +277,30 @@ class _PiecePreviewPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final slot = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      const Radius.circular(12),
-    );
-    // Hold/Next 槽：与主井同色纯色平面
-    canvas.drawRRect(slot, Paint()..color = tc.pieceBackground);
-    canvas.drawRRect(
-      slot,
-      Paint()
-        ..color = tc.pieceGridLine
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    // proto .minip：4×4 网格，1px 间隙透出白色 6% 底，空格填 ash
+    const gap = 1.0;
+    const pad = 3.0;
+    final inner = size.width - pad * 2;
+    final cell = (inner - gap * 3) / 4;
+    final pitch = cell + gap;
+
+    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0x0FFFFFFF));
+    final ash = Paint()..color = tc.pieceBackground;
+    for (var r = 0; r < 4; r++) {
+      for (var c = 0; c < 4; c++) {
+        canvas.drawRect(
+          Rect.fromLTWH(pad + c * pitch, pad + r * pitch, cell, cell),
+          ash,
+        );
+      }
+    }
 
     final t = type;
     if (t == null) return;
     final matrix = kPieceMatrices[t];
     if (matrix == null) return;
 
-    final n = 4.0;
-    final cell = size.shortestSide / n;
+    // 把 piece 的 bounding box 居中放进 4×4
     final matLen = matrix.length;
     var minR = matLen, maxR = -1, minC = 99, maxC = -1;
     for (var i = 0; i < matLen; i++) {
@@ -308,23 +313,21 @@ class _PiecePreviewPainter extends CustomPainter {
         }
       }
     }
-    final boxW = (maxC - minC + 1) * cell;
-    final boxH = (maxR - minR + 1) * cell;
-    final ox = (size.width - boxW) / 2 - minC * cell;
-    final oy = (size.height - boxH) / 2 - minR * cell;
+    final boxW = (maxC - minC) * pitch + cell;
+    final boxH = (maxR - minR) * pitch + cell;
+    final ox = pad + (inner - boxW) / 2 - minC * pitch;
+    final oy = pad + (inner - boxH) / 2 - minR * pitch;
 
     final color = pieceColors[t]!;
     for (var i = 0; i < matLen; i++) {
       for (var j = 0; j < matrix[i].length; j++) {
         if (matrix[i][j] == 0) continue;
-        _paintJewelCell(
+        _paintMiniCell(
           canvas,
-          ox + j * cell,
-          oy + i * cell,
-          cell,
+          ox + j * pitch,
+          oy + i * pitch,
           cell,
           color,
-          tc.cellHighlight,
         );
       }
     }
@@ -332,4 +335,11 @@ class _PiecePreviewPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PiecePreviewPainter old) => old.type != type;
+}
+
+/// proto .minip .c.f — mini 格：纯色 + 1px 白 32% 顶带（无 jewel 渐变，
+/// 避免小尺寸下 J/L 等方块因高光糊在一起）。
+void _paintMiniCell(Canvas c, double x, double y, double s, Color color) {
+  c.drawRect(Rect.fromLTWH(x, y, s, s), Paint()..color = color);
+  c.drawRect(Rect.fromLTWH(x, y, s, 1), Paint()..color = const Color(0x52FFFFFF));
 }
