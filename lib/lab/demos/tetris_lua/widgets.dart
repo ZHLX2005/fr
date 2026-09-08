@@ -13,6 +13,7 @@
 // surround_game_lua/widgets.dart 共享，改造需保持模板统一性，因此保留硬编码。
 
 import 'dart:async';
+import 'dart:ui' as ui show Gradient;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -43,6 +44,9 @@ const Color _cInk = Color(0xFFDCE3EC);
 const Color _cInkSub = Color(0x8CDCE3EC);
 const Color _cInkFaint = Color(0x47DCE3EC);
 const Color _cScanline = Color(0x14000000);
+const Color _cDeltaUp = Color(0xFF3DD68C); // proto .delta.up 绿
+const Color _cDeltaDown = Color(0xFFFF5A7A); // proto .delta.down 红（与 piece-Z 同值，已 GG pill 复用）
+const Color _cTitleGlow = Color(0x9900E5FF); // proto title-glow rgba(0,229,255,0.6)
 
 class OnlineGamePage extends StatefulWidget {
   const OnlineGamePage({
@@ -70,6 +74,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   bool _ackedLocally = false; // lobby 乐观
   bool _bustDeclared = false; // 防止 LOSE 重发
   DateTime? _lastSyncAt; // SYNC 节流
+  int? _lastOppScore; // 对手上个快照的分数（delta 计算基准）
+  int? _oppDelta; // 对手最近一次分数变化；null = 不显示徽章
 
   // 断线恢复态：WS 断开 → 终止本地游戏（暂停）→ rejoin 重连 → 恢复
   StreamSubscription<WSCloseEvent>? _closeSub;
@@ -100,6 +106,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
+    _trackOppDelta(s);
     setState(() => _snap = s);
 
     // 断线恢复：自己重新出现在 players（rejoin 成功 / WS 重连拿到新鲜快照）
@@ -134,10 +141,27 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       // 新一局：清乐观/胜负标志
       _ackedLocally = false;
       _bustDeclared = false;
+      _lastOppScore = null;
+      _oppDelta = null;
     }
     if (_ackedLocally && phase != 'lobby' && phase != 'ready') {
       _ackedLocally = false;
     }
+  }
+
+  /// 记录对手分数变化 → delta 徽章数据（proto .opp .delta.up / .down）。
+  /// 首帧或分数未变 → null（不显示，避免原型里没有的常驻假徽章）。
+  void _trackOppDelta(Snapshot s) {
+    final oppId = TetrisRoom.opponentId(s, _room.deviceId);
+    final opp = oppId == null ? null : TetrisRoom.stateOf(s, oppId);
+    if (opp == null) {
+      _lastOppScore = null;
+      _oppDelta = null;
+      return;
+    }
+    final last = _lastOppScore;
+    _oppDelta = (last == null || opp.score == last) ? null : opp.score - last;
+    _lastOppScore = opp.score;
   }
 
   /// WS 断开：终止本地游戏（暂停重力/输入、保留棋盘与分数），
@@ -688,21 +712,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         children: [
           Text(
             '▣ TETRIS / MATCH',
-            style: GoogleFonts.orbitron(
+            // proto：标题是 chrome 标签，继承正文 JetBrains Mono 9px/0.2em 常规体；
+            // Orbitron 只用于数字强调（.stat .val / .opp .avatar/.delta）
+            style: GoogleFonts.jetBrainsMono(
               color: _cNeon,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-              shadows: [Shadow(color: _cLineStrong, blurRadius: 6)],
+              fontSize: 9,
+              letterSpacing: 1.8,
+              shadows: const [Shadow(color: _cTitleGlow, blurRadius: 6)],
             ),
           ),
           Text(
             '09:41 · MATCH ${round.clamp(1, 99)}',
-            style: TextStyle(
+            style: GoogleFonts.jetBrainsMono(
               color: _cInkSub,
               fontSize: 9,
               letterSpacing: 1.8,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -729,11 +753,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           ),
           Text(
             '1P · SVR-A84K',
-            style: TextStyle(
+            style: GoogleFonts.jetBrainsMono(
               color: _cInkSub,
               fontSize: 9,
               letterSpacing: 1.8,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -741,22 +764,18 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  /// Cyber 棋盘外壳（neon 边框 + 扫描线遮罩）+ 原 TetrisBoardView。
+  /// Cyber 棋盘外壳（neon 边框 + 内嵌暗角 + 扫描线遮罩）+ 原 TetrisBoardView。
   Widget _buildCyberBoard(TetrisEngine eng) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: _cLineStrong, width: 1),
         borderRadius: BorderRadius.circular(4),
+        // proto .board-wrap：外辉光 rgba(0,229,255,0.18)（无投影，板体沉入面板）
         boxShadow: [
           BoxShadow(
-            color: _cLineStrong,
+            color: const Color(0x2E00E5FF),
             blurRadius: 18,
             spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: const Color(0x66000000),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -769,6 +788,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             current: eng.current,
             ghostOffset: eng.ghostOffset(),
           ),
+          const _BoardInnerShade(),
           const _ScanlineOverlay(),
         ],
       ),
@@ -841,27 +861,26 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   SizedBox(height: 2),
                   Text(
                     '${opp?.score ?? 0} · L${opp?.lines ?? 0}',
-                    style: TextStyle(
+                    style: GoogleFonts.jetBrainsMono(
                       color: _cInkSub,
                       fontSize: 9,
-                      letterSpacing: 1.6,
-                      fontFamily: 'monospace',
+                      letterSpacing: 1.44, // proto 0.16em × 9px
                     ),
                   ),
                 ],
               ),
             ),
-            // 状态 pill：dead 显示「已 GG」，live 显示 delta
+            // 状态 pill：dead 显示「已 GG」，live 显示最近一次分数 delta（无变化则不渲染）
             if (isDead)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: _cPanel,
-                  border: Border.all(color: const Color(0xFFFF5A7A)),
+                  border: Border.all(color: _cDeltaDown),
                   borderRadius: BorderRadius.circular(4),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF5A7A).withValues(alpha: 0.35),
+                      color: _cDeltaDown.withValues(alpha: 0.35),
                       blurRadius: 8,
                     ),
                   ],
@@ -869,28 +888,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 child: Text(
                   '已 GG',
                   style: GoogleFonts.orbitron(
-                    color: const Color(0xFFFF5A7A),
+                    color: _cDeltaDown,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               )
-            else
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _cPanel,
-                  border: Border.all(color: _cLineStrong),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '+${opp?.score ?? 0}',
-                  style: GoogleFonts.orbitron(
-                    color: _cInkSub,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+            else if (_oppDelta != null)
+              TweenAnimationBuilder<double>(
+                key: ValueKey(_oppDelta),
+                tween: Tween(begin: 1.25, end: 1),
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                builder: (context, scale, child) =>
+                    Transform.scale(scale: scale, child: child),
+                child: _DeltaBadge(delta: _oppDelta!),
               ),
           ],
         ),
@@ -912,11 +924,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               behavior: HitTestBehavior.opaque,
               onTap: _hold,
               child: _cyberPanel(
-                child: _infoBlock('HOLD', TetrisPiecePreview(type: eng.holdType)),
+                child: _infoBlock(
+                  'HOLD',
+                  index: eng.holdIndex == null
+                      ? '--'
+                      : (eng.holdIndex! + 1).toString().padLeft(2, '0'),
+                  child: TetrisPiecePreview(type: eng.holdType),
+                ),
               ),
             ),
             _cyberPanel(
-              child: _infoBlock('NEXT', TetrisPiecePreview(type: eng.nextType)),
+              child: _infoBlock(
+                'NEXT',
+                index: (eng.pieceIndex + 1).toString().padLeft(2, '0'),
+                child: TetrisPiecePreview(type: eng.nextType),
+              ),
             ),
             // Stats — 自由排列，不包 panel；Orbitron 24px 全 neon + glow
             Column(
@@ -959,14 +981,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  Widget _infoBlock(String label, Widget child) => Column(
+  /// proto .panel .lbl：'> ' neon 前缀 + label，可带右对齐序列索引（HOLD 02 / NEXT 03）。
+  Widget _infoBlock(String label, {String? index, required Widget child}) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '> $label',
+              Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: '> ', style: TextStyle(color: _cNeon)),
+                    TextSpan(text: label),
+                  ],
+                ),
                 style: TextStyle(
                   color: _cInkSub,
                   fontSize: 9,
@@ -974,6 +1002,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              if (index != null)
+                Text(
+                  index,
+                  style: const TextStyle(
+                    color: _cInkSub,
+                    fontSize: 9,
+                    letterSpacing: 1.8,
+                  ),
+                ),
             ],
           ),
           SizedBox(height: 6),
@@ -986,8 +1023,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '> $label',
+          Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: '> ', style: TextStyle(color: _cNeon)),
+                TextSpan(text: label),
+              ],
+            ),
             style: TextStyle(
               color: _cInkSub,
               fontSize: 9,
@@ -1004,6 +1046,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               fontWeight: FontWeight.w700,
               height: 1,
               shadows: [Shadow(color: _cLineStrong, blurRadius: 8)],
+            ).copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -1016,9 +1060,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // wrapper：neon 边框 + 四角大括号
+          // wrapper：neon 边框 + 对角大括号
           Container(
-            padding: EdgeInsets.fromLTRB(10, 10, 10, 10),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
@@ -1100,10 +1144,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               ],
             ),
           ),
-          // wrapper 四角大括号
+          // wrapper 对角大括号：proto 只画 TL + BR（.ctrl-wrap::before/::after）
           const Positioned(top: -1, left: -1, child: _CornerBracketTL(color: _cNeon)),
-          const Positioned(top: -1, right: -1, child: _CornerBracketTR(color: _cNeon)),
-          const Positioned(bottom: -1, left: -1, child: _CornerBracketBL(color: _cNeon)),
           const Positioned(bottom: -1, right: -1, child: _CornerBracketBR(color: _cNeon)),
         ],
       ),
@@ -1111,6 +1153,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   /// 控制区左右半的 chip 标签。
+  /// proto：8px / 0.20em（8px × 0.20 = 1.6 逻辑像素），hint 继承父级字距。
   Widget _ctrlHalfLabel(String left, String right) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -1119,19 +1162,19 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         children: [
           Text(
             left,
-            style: TextStyle(
+            style: GoogleFonts.jetBrainsMono(
               color: _cInkFaint,
               fontSize: 8,
-              letterSpacing: 0.20,
+              letterSpacing: 1.6,
               fontWeight: FontWeight.bold,
             ),
           ),
           Text(
             right,
-            style: TextStyle(
+            style: GoogleFonts.jetBrainsMono(
               color: _cNeon,
               fontSize: 8,
-              letterSpacing: 0.16,
+              letterSpacing: 1.6,
               fontWeight: FontWeight.bold,
               shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
             ),
@@ -1151,69 +1194,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     bool accent = false,
     bool dim = false,
   }) {
-    final borderColor = accent ? _cNeon2 : _cLine;
-    final iconColor = accent ? _cNeon2 : _cInkSub;
-    final bgColor = accent ? const Color(0x14FF2BD6) : _cPanel;
-    return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        onTapDown: repeat == null ? null : (_) => _beginRepeat(repeat),
-        onTapUp: repeat == null ? null : (_) => _endRepeat(),
-        onTapCancel: repeat == null ? null : _endRepeat,
-        child: Opacity(
-          opacity: dim ? 0.35 : 1,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                margin: EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-                height: 56,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  border: Border.all(color: borderColor),
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: accent
-                      ? [
-                          BoxShadow(color: const Color(0x59FF2BD6), blurRadius: 14),
-                          BoxShadow(color: const Color(0x33FF2BD6), blurRadius: 4, offset: const Offset(0, 0)),
-                        ]
-                      : [
-                          BoxShadow(color: const Color(0x66000000), blurRadius: 4, offset: const Offset(0, 2)),
-                        ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      color: iconColor,
-                      size: 22,
-                      shadows: accent
-                          ? [Shadow(color: const Color(0x8CFF2BD6), blurRadius: 6)]
-                          : null,
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: iconColor,
-                        fontSize: 9,
-                        letterSpacing: 0.06,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // CRT 四角小方括号
-              _CyberBrackets(color: accent ? _cNeon2 : _cLine, size: 5, thickness: 1.5),
-              // 长按连发 ⟳ 标记
-              if (repeat != null)
-                _RepeatBadge(color: _cNeon),
-            ],
-          ),
-        ),
-      ),
+    return _PadButton(
+      icon: icon,
+      label: label,
+      onTap: onTap,
+      repeat: repeat,
+      onRepeatStart: _beginRepeat,
+      onRepeatEnd: _endRepeat,
+      accent: accent,
+      dim: dim,
     );
   }
 
@@ -1370,10 +1359,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               SizedBox(height: 8),
               Text(
                 '对手当前分数 ${opp?.score ?? 0}',
-                style: TextStyle(
+                style: GoogleFonts.jetBrainsMono(
                   color: _cInkSub,
                   fontSize: 13,
-                  fontFamily: 'monospace',
                 ),
               ),
             ],
@@ -1452,6 +1440,37 @@ class _ReadyAvatar extends StatelessWidget {
 // Cyber v2 小部件：CRT 方括号 / 扫描线遮罩 / ⟳ 重复标记 / wrapper 角括号
 // ══════════════════════════════════════════════════════════════════
 
+/// proto .opp .delta — 对手分数变化徽章：up 绿 / down 红，Orbitron 14 w700。
+class _DeltaBadge extends StatelessWidget {
+  const _DeltaBadge({required this.delta});
+  final int delta;
+
+  @override
+  Widget build(BuildContext context) {
+    final up = delta > 0;
+    final color = up ? _cDeltaUp : _cDeltaDown;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _cPanel,
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 8),
+        ],
+      ),
+      child: Text(
+        up ? '+$delta' : '$delta',
+        style: GoogleFonts.orbitron(
+          color: color,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 /// 边框四角的小方括号，赛博 CRT 风。
 /// 仅视觉，不接收命中（不阻挡按钮事件）。
 class _CyberBrackets extends StatelessWidget {
@@ -1519,6 +1538,55 @@ class _ScanlinePainter extends CustomPainter {
   bool shouldRepaint(covariant _ScanlinePainter oldDelegate) => false;
 }
 
+/// board-wrap 内嵌暗角（proto inset 0 0 18px rgba(0,0,0,0.4)）— CRT 凹陷感。
+/// Flutter BoxShadow 无 inset → 四边 18px 线性渐变手绘。
+class _BoardInnerShade extends StatelessWidget {
+  const _BoardInnerShade();
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(painter: _BoardInnerShadePainter()),
+      ),
+    );
+  }
+}
+
+class _BoardInnerShadePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const color = Color(0x66000000); // rgba(0,0,0,0.4)
+    const fade = 18.0;
+    final w = size.width;
+    final h = size.height;
+    Paint edge(Offset from, Offset to) => Paint()
+      ..shader = ui.Gradient.linear(
+        from,
+        to,
+        [color, color.withValues(alpha: 0)],
+      );
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, fade),
+      edge(const Offset(0, 0), const Offset(0, fade)),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, h - fade, w, fade),
+      edge(Offset(0, h), Offset(0, h - fade)),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, fade, h),
+      edge(const Offset(0, 0), const Offset(fade, 0)),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w - fade, 0, fade, h),
+      edge(Offset(w, 0), Offset(w - fade, 0)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BoardInnerShadePainter oldDelegate) => false;
+}
+
 /// 按钮内右上角的 ⟳ 小标记，提示长按连发。
 class _RepeatBadge extends StatelessWidget {
   const _RepeatBadge({required this.color});
@@ -1543,7 +1611,142 @@ class _RepeatBadge extends StatelessWidget {
   }
 }
 
-/// wrapper 容器外侧的四角大括号（12×12，neon + glow）。
+/// 控制按钮（proto .btn）— 原型唯一带动效的元素，按压/hover 必须有反馈。
+/// hover：边框/文字转 neon + 外辉光；active：下沉 1px + 青色底 tint（.12s ease）。
+/// accent（硬降）保持粉系，仅下沉 + 底色加深。
+class _PadButton extends StatefulWidget {
+  const _PadButton({
+    required this.icon,
+    required this.label,
+    this.onTap,
+    this.repeat,
+    this.onRepeatStart,
+    this.onRepeatEnd,
+    this.accent = false,
+    this.dim = false,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final VoidCallback? repeat; // 非空 = 长按连发
+  final ValueChanged<VoidCallback>? onRepeatStart;
+  final VoidCallback? onRepeatEnd;
+  final bool accent;
+  final bool dim;
+
+  @override
+  State<_PadButton> createState() => _PadButtonState();
+}
+
+class _PadButtonState extends State<_PadButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  void _onTapDown(TapDownDetails _) {
+    setState(() => _pressed = true);
+    final r = widget.repeat;
+    if (r != null) widget.onRepeatStart?.call(r);
+  }
+
+  void _onTapUp(TapUpDetails _) => _release();
+  void _onTapCancel() => _release();
+
+  void _release() {
+    if (!_pressed) return;
+    setState(() => _pressed = false);
+    if (widget.repeat != null) widget.onRepeatEnd?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = widget.accent;
+    final lit = _pressed || _hovered;
+    final fg = accent ? _cNeon2 : (lit ? _cNeon : _cInkSub);
+    final bgColor = accent
+        ? (lit ? const Color(0x2EFF2BD6) : const Color(0x14FF2BD6))
+        : (lit ? const Color(0x1A00E5FF) : _cPanel);
+    final borderColor = accent ? _cNeon2 : (lit ? _cLineStrong : _cLine);
+    final shadows = accent
+        ? [
+            const BoxShadow(color: Color(0x59FF2BD6), blurRadius: 14),
+            const BoxShadow(color: Color(0x33FF2BD6), blurRadius: 4),
+          ]
+        : [
+            const BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+            if (lit) const BoxShadow(color: Color(0x3300E5FF), blurRadius: 8),
+          ];
+
+    return Expanded(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          onTapDown: _onTapDown,
+          onTapUp: _onTapUp,
+          onTapCancel: _onTapCancel,
+          child: Opacity(
+            opacity: widget.dim ? 0.35 : 1,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOut,
+                  // active 下沉 1px（proto translateY(1px)）：margin 上+1 下-1
+                  margin: EdgeInsets.fromLTRB(
+                    2, _pressed ? 5 : 4, 2, _pressed ? 3 : 4,
+                  ),
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    border: Border.all(color: borderColor),
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: shadows,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        widget.icon,
+                        color: fg,
+                        size: 22,
+                        shadows: accent
+                            ? [Shadow(color: const Color(0x8CFF2BD6), blurRadius: 6)]
+                            : null,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.label,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: fg,
+                          fontSize: 9,
+                          letterSpacing: 0.54, // proto 0.06em × 9px
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // CRT 四角小方括号
+                _CyberBrackets(color: accent ? _cNeon2 : _cLine, size: 5, thickness: 1.5),
+                // 长按连发 ⟳ 标记
+                if (widget.repeat != null) _RepeatBadge(color: _cNeon),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// wrapper 容器外侧的对角大括号（12×12，neon + glow，proto 只用 TL + BR）。
 class _CornerBracketTL extends StatelessWidget {
   const _CornerBracketTL({this.color = const Color(0xFF00E5FF)});
   final Color color;
@@ -1555,42 +1758,6 @@ class _CornerBracketTL extends StatelessWidget {
         width: 12, height: 12,
         decoration: BoxDecoration(
           border: Border(top: side, left: side),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)],
-        ),
-      ),
-    );
-  }
-}
-
-class _CornerBracketTR extends StatelessWidget {
-  const _CornerBracketTR({this.color = const Color(0xFF00E5FF)});
-  final Color color;
-  @override
-  Widget build(BuildContext context) {
-    final side = BorderSide(color: color, width: 2);
-    return IgnorePointer(
-      child: Container(
-        width: 12, height: 12,
-        decoration: BoxDecoration(
-          border: Border(top: side, right: side),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)],
-        ),
-      ),
-    );
-  }
-}
-
-class _CornerBracketBL extends StatelessWidget {
-  const _CornerBracketBL({this.color = const Color(0xFF00E5FF)});
-  final Color color;
-  @override
-  Widget build(BuildContext context) {
-    final side = BorderSide(color: color, width: 2);
-    return IgnorePointer(
-      child: Container(
-        width: 12, height: 12,
-        decoration: BoxDecoration(
-          border: Border(left: side, bottom: side),
           boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)],
         ),
       ),
