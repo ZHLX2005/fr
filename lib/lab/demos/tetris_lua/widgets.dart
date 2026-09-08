@@ -16,8 +16,6 @@ import 'dart:async';
 import 'dart:ui' as ui show Gradient;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import 'engine.dart';
 import 'board.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
@@ -46,6 +44,77 @@ const Color _cInkFaint = Color(0x47DCE3EC);
 const Color _cDeltaUp = Color(0xFF3DD68C); // proto .delta.up 绿
 const Color _cDeltaDown = Color(0xFFFF5A7A); // proto .delta.down 红（与 piece-Z 同值，已 GG pill 复用）
 const Color _cTitleGlow = Color(0x9900E5FF); // proto title-glow rgba(0,229,255,0.6)
+
+// Playing 屏用静态 monospace，禁止 GoogleFonts 运行时拉取。
+// 引擎每帧 notify → AnimatedBuilder rebuild；GoogleFonts 会挂
+// InheritedWidget 依赖，易触发 framework "dependent is not a descendant"。
+const TextStyle _tsTitle = TextStyle(
+  color: _cNeon,
+  fontSize: 9,
+  letterSpacing: 1.8,
+  fontFamily: 'monospace',
+  shadows: [Shadow(color: _cTitleGlow, blurRadius: 6)],
+);
+const TextStyle _tsChrome = TextStyle(
+  color: _cInkSub,
+  fontSize: 9,
+  letterSpacing: 1.8,
+  fontFamily: 'monospace',
+);
+const TextStyle _tsChromeNeon = TextStyle(
+  color: _cNeon,
+  fontSize: 9,
+  letterSpacing: 1.8,
+  fontFamily: 'monospace',
+  shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
+);
+const TextStyle _tsName = TextStyle(
+  color: _cInk,
+  fontSize: 12,
+  fontWeight: FontWeight.w700,
+  letterSpacing: 0.96,
+  fontFamily: 'monospace',
+);
+const TextStyle _tsLabel = TextStyle(
+  color: _cInkSub,
+  fontSize: 9,
+  letterSpacing: 1.8,
+  fontFamily: 'monospace',
+);
+const TextStyle _tsCtrlHint = TextStyle(
+  color: _cInkFaint,
+  fontSize: 8,
+  letterSpacing: 1.6,
+  fontWeight: FontWeight.bold,
+  fontFamily: 'monospace',
+);
+const TextStyle _tsCtrlHintNeon = TextStyle(
+  color: _cNeon,
+  fontSize: 8,
+  letterSpacing: 1.6,
+  fontWeight: FontWeight.bold,
+  fontFamily: 'monospace',
+  shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
+);
+const TextStyle _tsStatVal = TextStyle(
+  color: _cNeon,
+  fontSize: 24,
+  fontWeight: FontWeight.w700,
+  height: 1,
+  fontFamily: 'monospace',
+  shadows: [Shadow(color: _cLineStrong, blurRadius: 8)],
+  fontFeatures: [FontFeature.tabularFigures()],
+);
+const TextStyle _tsBtnLbl = TextStyle(
+  fontSize: 9,
+  letterSpacing: 0.54,
+  fontFamily: 'monospace',
+);
+const TextStyle _tsDelta = TextStyle(
+  fontSize: 14,
+  fontWeight: FontWeight.w700,
+  fontFamily: 'monospace',
+);
 
 class OnlineGamePage extends StatefulWidget {
   const OnlineGamePage({
@@ -654,68 +723,104 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final oppId = TetrisRoom.opponentId(_snap, _room.deviceId);
     final opp = oppId == null ? null : TetrisRoom.stateOf(_snap, oppId);
     final eng = _engine;
+    // 结构硬约束：顶栏/对手固高；中间 Expanded 吃剩余；操作键走
+    // bottomNavigationBar，绝不跟 play Column 抢高度（此前会整片黑）。
     return Scaffold(
       backgroundColor: _cBg,
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const IgnorePointer(child: _AmbientWash()),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              // 顶/对手/控制/底栏固高；只有中间 play 可伸缩，避免操作键被挤没
-              child: Column(
-                children: [
-                  _buildTopBar(),
-                  _buildOpponentBar(oppId, opp),
-                  Expanded(
-                    child: eng == null
-                        ? const Center(
-                            child: CircularProgressIndicator(color: _cNeon),
-                          )
-                        : _buildPlayArea(eng, opp),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const IgnorePointer(child: _AmbientWash()),
+          SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTopBar(),
+                      _buildOpponentBar(oppId, opp),
+                    ],
                   ),
-                  _buildControls(),
-                  _buildFooter(),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                    child: SizedBox.expand(
+                      child: eng == null
+                          ? const Center(
+                              child: CircularProgressIndicator(color: _cNeon),
+                            )
+                          : _buildPlayArea(eng, opp),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+      bottomNavigationBar: ColoredBox(
+        color: _cBg,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildControls(),
+                _buildFooter(),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  /// 中间对局区：侧栏固有高度可滚动，棋盘按 10:20 吃满剩余宽高。
-  /// 禁止侧栏再用 Expanded（矮屏会布局失败 → 整片黑）。
+  /// 中间对局区：Row stretch + 棋盘自适配；Ash 底保证槽位非空时可见。
   Widget _buildPlayArea(TetrisEngine eng, TetrisPlayerState? opp) {
     return Stack(
       clipBehavior: Clip.hardEdge,
       fit: StackFit.expand,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 88,
-                    height: constraints.maxHeight,
-                    child: _buildSidePanel(eng),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: AnimatedBuilder(
-                      animation: eng,
-                      builder: (context, _) => _buildCyberBoard(eng),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+        const ColoredBox(color: Color(0xFF3A414C)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 88,
+              child: ColoredBox(
+                color: _cBg,
+                child: _buildSidePanel(eng),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: eng,
+                builder: (context, _) => LayoutBuilder(
+                  builder: (context, c) {
+                    final maxW = c.maxWidth;
+                    final maxH = c.maxHeight;
+                    if (maxW <= 0 || maxH <= 0) {
+                      return const Center(
+                        child: Text(
+                          'NO SPACE',
+                          style: TextStyle(color: _cNeon),
+                        ),
+                      );
+                    }
+                    return _buildCyberBoard(eng, maxW: maxW, maxH: maxH);
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
         if (!eng.alive) _buildBustWaiting(opp),
       ],
@@ -726,7 +831,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildTopBar() {
     final round = TetrisRoom.sequence(_snap).length; // 用序列长度代替回合号（弱占位）
     return Container(
-      // proto .top：padding-bottom 8 + border-bottom line
       padding: const EdgeInsets.only(bottom: 8),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: _cLine)),
@@ -734,24 +838,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            '▣ TETRIS / MATCH',
-            // proto：标题是 chrome 标签，继承正文 JetBrains Mono 9px/0.2em 常规体；
-            // Orbitron 只用于数字强调（.stat .val / .opp .avatar/.delta）
-            style: GoogleFonts.jetBrainsMono(
-              color: _cNeon,
-              fontSize: 9,
-              letterSpacing: 1.8,
-              shadows: const [Shadow(color: _cTitleGlow, blurRadius: 6)],
-            ),
-          ),
+          const Text('▣ TETRIS / MATCH', style: _tsTitle),
           Text(
             '09:41 · MATCH ${round.clamp(1, 99)}',
-            style: GoogleFonts.jetBrainsMono(
-              color: _cInkSub,
-              fontSize: 9,
-              letterSpacing: 1.8,
-            ),
+            style: _tsChrome,
           ),
         ],
       ),
@@ -760,84 +850,66 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   /// Cyber 底栏：左 ‖ PAUSE，右 1P · SVR-A84K。
   Widget _buildFooter() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
+    return const Padding(
+      padding: EdgeInsets.only(top: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            '‖ PAUSE',
-            style: GoogleFonts.jetBrainsMono(
-              color: _cNeon,
-              fontSize: 9,
-              letterSpacing: 1.8,
-              shadows: const [Shadow(color: _cLineStrong, blurRadius: 4)],
-            ),
-          ),
-          Text(
-            '1P · SVR-A84K',
-            style: GoogleFonts.jetBrainsMono(
-              color: _cInkSub,
-              fontSize: 9,
-              letterSpacing: 1.8,
-            ),
-          ),
+          Text('‖ PAUSE', style: _tsChromeNeon),
+          Text('1P · SVR-A84K', style: _tsChrome),
         ],
       ),
     );
   }
 
-  /// Cyber 棋盘外壳：在父约束内取最大 10:20 矩形（AspectRatio），保证非 0 尺寸。
-  Widget _buildCyberBoard(TetrisEngine eng) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxW = constraints.maxWidth;
-        final maxH = constraints.maxHeight;
-        if (!maxW.isFinite || !maxH.isFinite || maxW <= 0 || maxH <= 0) {
-          return const SizedBox.shrink();
-        }
-        const ratio = kTetrisCols / kTetrisRows; // 0.5
-        var w = maxW;
-        var h = w / ratio;
-        if (h > maxH) {
-          h = maxH;
-          w = h * ratio;
-        }
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: w,
-            height: h,
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF3A414C), // ash well，空盘也可见
-                border: Border.all(color: _cLineStrong, width: 1),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x2E00E5FF),
-                    blurRadius: 18,
-                    spreadRadius: 0,
-                  ),
-                ],
+  /// Cyber 棋盘：父级传入有限 maxW/maxH，这里只做 10:20 适配，永不 shrink 成空。
+  Widget _buildCyberBoard(
+    TetrisEngine eng, {
+    required double maxW,
+    required double maxH,
+  }) {
+    const ratio = kTetrisCols / kTetrisRows; // 0.5
+    var w = maxW;
+    var h = w / ratio;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
+    w = w.clamp(1.0, maxW);
+    h = h.clamp(1.0, maxH);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        width: w,
+        height: h,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF3A414C),
+            border: Border.all(color: _cLineStrong, width: 1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x2E00E5FF),
+                blurRadius: 18,
+                spreadRadius: 0,
               ),
-              clipBehavior: Clip.hardEdge,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  TetrisBoardView(
-                    grid: eng.grid,
-                    current: eng.current,
-                    ghostOffset: eng.ghostOffset(),
-                    expand: true,
-                  ),
-                  const _BoardInnerShade(),
-                  const _ScanlineOverlay(),
-                ],
-              ),
-            ),
+            ],
           ),
-        );
-      },
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              TetrisBoardView(
+                grid: eng.grid,
+                current: eng.current,
+                ghostOffset: eng.ghostOffset(),
+                expand: true,
+              ),
+              const _BoardInnerShade(),
+              const _ScanlineOverlay(),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -894,21 +966,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   alias,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: _cInk,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.96,
-                  ),
+                  style: _tsName,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${opp?.score ?? 0} · L${opp?.lines ?? 0}',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: _cInkSub,
-                    fontSize: 9,
-                    letterSpacing: 1.44,
-                  ),
+                  style: _tsChrome.copyWith(letterSpacing: 1.44),
                 ),
               ],
             ),
@@ -929,11 +992,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               ),
               child: Text(
                 '已 GG',
-                style: GoogleFonts.orbitron(
-                  color: _cDeltaDown,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: _tsDelta.copyWith(color: _cDeltaDown),
               ),
             )
           else if (_oppDelta != null)
@@ -1025,20 +1084,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     TextSpan(text: label),
                   ],
                 ),
-                style: GoogleFonts.jetBrainsMono(
-                  color: _cInkSub,
-                  fontSize: 9,
-                  letterSpacing: 1.8,
-                ),
+                style: _tsLabel,
               ),
               if (index != null)
                 Text(
                   index,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: _cInkSub,
-                    fontSize: 9,
-                    letterSpacing: 1.8,
-                  ),
+                  style: _tsLabel,
                 ),
             ],
           ),
@@ -1060,128 +1111,108 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 TextSpan(text: label),
               ],
             ),
-            style: GoogleFonts.jetBrainsMono(
-              color: _cInkSub,
-              fontSize: 9,
-              letterSpacing: 1.8,
-            ),
+            style: _tsLabel,
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: GoogleFonts.orbitron(
-              color: _cNeon,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              shadows: const [Shadow(color: _cLineStrong, blurRadius: 8)],
-            ).copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+            style: _tsStatVal,
           ),
         ],
       );
 
   Widget _buildControls() {
     final dead = _engine != null && !_engine!.alive;
-    return Padding(
-      // proto .ctrl-wrap margin-top: 12
-      padding: const EdgeInsets.only(top: 12),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // wrapper：neon 边框 + 对角大括号
-          Container(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x0A00E5FF), Color(0x0000E5FF)],
-              ),
-              border: Border.all(color: _cLine),
-              borderRadius: BorderRadius.circular(8),
-              // proto：inset 微光，避免外阴影让 wrap 浮起
-              boxShadow: const [
-                BoxShadow(color: Color(0x0A00E5FF), blurRadius: 16),
-              ],
+    // proto：左右两半并排，六键各约 1/6 屏宽。
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x0A00E5FF), Color(0x0000E5FF)],
             ),
-            child: Row(
-              children: [
-                // 左半：MOVE（长按连发）
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ctrlHalfLabel('MOVE', '⟳ hold'),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          _padButton(
-                            _PadGlyph.left,
-                            '左',
-                            repeat: () => _move(-1),
-                            dim: dead,
-                          ),
-                          _padButton(
-                            _PadGlyph.softDrop,
-                            '软降',
-                            repeat: _softDrop,
-                            dim: dead,
-                          ),
-                          _padButton(
-                            _PadGlyph.right,
-                            '右',
-                            repeat: () => _move(1),
-                            dim: dead,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // 右半：ACTION（单次）
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ctrlHalfLabel('ACTION', 'tap'),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          _padButton(
-                            _PadGlyph.rotateCcw,
-                            '左旋',
-                            onTap: _rotateCCW,
-                            dim: dead,
-                          ),
-                          _padButton(
-                            _PadGlyph.rotateCw,
-                            '右旋',
-                            onTap: _rotateCW,
-                            dim: dead,
-                          ),
-                          _padButton(
-                            _PadGlyph.hardDrop,
-                            '硬降',
-                            onTap: _hardDrop,
-                            accent: true,
-                            dim: dead,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            border: Border.all(color: _cLine),
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: const [
+              BoxShadow(color: Color(0x0A00E5FF), blurRadius: 16),
+            ],
           ),
-          // wrapper 对角大括号：proto 只画 TL + BR（.ctrl-wrap::before/::after）
-          const Positioned(top: -1, left: -1, child: _CornerBracketTL(color: _cNeon)),
-          const Positioned(bottom: -1, right: -1, child: _CornerBracketBR(color: _cNeon)),
-        ],
-      ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ctrlHalfLabel('MOVE', '⟳ hold'),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _padButton(
+                          _PadGlyph.left,
+                          '左',
+                          repeat: () => _move(-1),
+                          dim: dead,
+                        ),
+                        _padButton(
+                          _PadGlyph.softDrop,
+                          '软降',
+                          repeat: _softDrop,
+                          dim: dead,
+                        ),
+                        _padButton(
+                          _PadGlyph.right,
+                          '右',
+                          repeat: () => _move(1),
+                          dim: dead,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ctrlHalfLabel('ACTION', 'tap'),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _padButton(
+                          _PadGlyph.rotateCcw,
+                          '左旋',
+                          onTap: _rotateCCW,
+                          dim: dead,
+                        ),
+                        _padButton(
+                          _PadGlyph.rotateCw,
+                          '右旋',
+                          onTap: _rotateCW,
+                          dim: dead,
+                        ),
+                        _padButton(
+                          _PadGlyph.hardDrop,
+                          '硬降',
+                          onTap: _hardDrop,
+                          accent: true,
+                          dim: dead,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Positioned(top: -1, left: -1, child: _CornerBracketTL(color: _cNeon)),
+        const Positioned(bottom: -1, right: -1, child: _CornerBracketBR(color: _cNeon)),
+      ],
     );
   }
 
@@ -1193,25 +1224,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            left,
-            style: GoogleFonts.jetBrainsMono(
-              color: _cInkFaint,
-              fontSize: 8,
-              letterSpacing: 1.6,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            right,
-            style: GoogleFonts.jetBrainsMono(
-              color: _cNeon,
-              fontSize: 8,
-              letterSpacing: 1.6,
-              fontWeight: FontWeight.bold,
-              shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
-            ),
-          ),
+          Text(left, style: _tsCtrlHint),
+          Text(right, style: _tsCtrlHintNeon),
         ],
       ),
     );
@@ -1227,15 +1241,18 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     bool accent = false,
     bool dim = false,
   }) {
-    return _PadButton(
-      glyph: glyph,
-      label: label,
-      onTap: onTap,
-      repeat: repeat,
-      onRepeatStart: _beginRepeat,
-      onRepeatEnd: _endRepeat,
-      accent: accent,
-      dim: dim,
+    // Expanded 由调用方 Row 持有，按钮本身不嵌套 ParentDataWidget。
+    return Expanded(
+      child: _PadButton(
+        glyph: glyph,
+        label: label,
+        onTap: onTap,
+        repeat: repeat,
+        onRepeatStart: _beginRepeat,
+        onRepeatEnd: _endRepeat,
+        accent: accent,
+        dim: dim,
+      ),
     );
   }
 
@@ -1392,9 +1409,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               SizedBox(height: 8),
               Text(
                 '对手当前分数 ${opp?.score ?? 0}',
-                style: GoogleFonts.jetBrainsMono(
+                style: const TextStyle(
                   color: _cInkSub,
                   fontSize: 13,
+                  fontFamily: 'monospace',
                 ),
               ),
             ],
@@ -1494,11 +1512,7 @@ class _DeltaBadge extends StatelessWidget {
       ),
       child: Text(
         up ? '+$delta' : '$delta',
-        style: GoogleFonts.orbitron(
-          color: color,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
+        style: _tsDelta.copyWith(color: color),
       ),
     );
   }
@@ -1529,36 +1543,37 @@ class _CyberBrackets extends StatelessWidget {
       color: color.withValues(alpha: opacity),
       width: thickness,
     );
+    // 禁止 SizedBox.expand：bottomNavigationBar / Row 常给无限高，
+    // expand 会直接抛 BoxConstraints forces an infinite height。
+    // 由调用方 Positioned.fill 提供有限尺寸。
     return IgnorePointer(
-      child: SizedBox.expand(
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: inset,
+            left: inset,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                border: Border(top: side, left: side),
+              ),
+            ),
+          ),
+          if (showBottomRight)
             Positioned(
-              top: inset,
-              left: inset,
+              bottom: inset,
+              right: inset,
               child: Container(
                 width: size,
                 height: size,
                 decoration: BoxDecoration(
-                  border: Border(top: side, left: side),
+                  border: Border(bottom: side, right: side),
                 ),
               ),
             ),
-            if (showBottomRight)
-              Positioned(
-                bottom: inset,
-                right: inset,
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    border: Border(bottom: side, right: side),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1908,63 +1923,64 @@ class _PadButtonState extends State<_PadButton> {
             if (lit) const BoxShadow(color: Color(0x3300E5FF), blurRadius: 8),
           ];
 
-    return Expanded(
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onTap,
-          onTapDown: _onTapDown,
-          onTapUp: _onTapUp,
-          onTapCancel: _onTapCancel,
-          child: Opacity(
-            opacity: widget.dim ? 0.35 : 1,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  curve: Curves.easeOut,
-                  // active 下沉 1px（proto translateY(1px)）：margin 上+1 下-1
-                  margin: EdgeInsets.fromLTRB(
-                    2,
-                    _pressed ? 5 : 4,
-                    2,
-                    _pressed ? 3 : 4,
-                  ),
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    border: Border.all(color: borderColor),
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: shadows,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _PadStrokeIcon(
-                        glyph: widget.glyph,
-                        color: fg,
-                        glow: accent
-                            ? const Color(0xB3FF2BD6)
-                            : null,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.label,
-                        style: GoogleFonts.jetBrainsMono(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        child: Opacity(
+          opacity: widget.dim ? 0.35 : 1,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              LayoutBuilder(
+                builder: (context, slot) {
+                  // 槽宽由 1/6 Expanded 决定；高度不超过宽度，杜绝瘦高条
+                  final faceW = slot.maxWidth;
+                  final faceH = faceW.clamp(40.0, 52.0);
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    curve: Curves.easeOut,
+                    margin: EdgeInsets.only(
+                      top: _pressed ? 2 : 1,
+                      bottom: _pressed ? 0 : 1,
+                    ),
+                    width: faceW,
+                    height: faceH,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      border: Border.all(color: borderColor),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: shadows,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _PadStrokeIcon(
+                          glyph: widget.glyph,
                           color: fg,
-                          fontSize: 9,
-                          letterSpacing: 0.54, // proto 0.06em × 9px
+                          glow: accent
+                              ? const Color(0xB3FF2BD6)
+                              : null,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                // CRT 角标：repeat 只保留 TL（BR 位给 ⟳）；accent 全不透明 neon-2
-                _CyberBrackets(
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.label,
+                          style: _tsBtnLbl.copyWith(color: fg),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              // CRT 角标：repeat 只保留 TL（BR 位给 ⟳）；accent 全不透明 neon-2
+              Positioned.fill(
+                child: _CyberBrackets(
                   color: accent ? _cNeon2 : (isRepeat ? _cNeon : _cLine),
                   size: 5,
                   thickness: 1,
@@ -1972,9 +1988,9 @@ class _PadButtonState extends State<_PadButton> {
                   showBottomRight: !isRepeat,
                   opacity: accent || isRepeat ? 1 : 0.55,
                 ),
-                if (isRepeat) const _RepeatBadge(color: _cNeon),
-              ],
-            ),
+              ),
+              if (isRepeat) const _RepeatBadge(color: _cNeon),
+            ],
           ),
         ),
       ),

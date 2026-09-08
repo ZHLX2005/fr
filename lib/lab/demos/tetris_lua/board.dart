@@ -1,17 +1,18 @@
 // lib/lab/demos/tetris_lua/board.dart
-// 俄罗斯方块 — 棋盘与方块预览渲染（Ash flat well · proto-3-cyber-v2）
+// 俄罗斯方块 — 棋盘与方块预览渲染（Ash well · glossy candy cells）
 //
 //   [TetrisBoardView]   主棋盘：堆积 + 下落块 + ghost 落点预览
 //   [TetrisMiniBoard]   对方迷你预览：只画堆积（复用主棋盘，无 current/ghost）
 //   [TetrisPiecePreview] 单方块预览：Hold / Next 槽用
 //
 // 颜色：
-//   - 棋盘井纯色（无渐变）/ 网格 / 方块识别色 → TetrisColorsStrategy
-//   - 主棋盘方块格：纯色 + inset 顶/底 bevel（proto .board-wrap .c.f）
-//   - HOLD/NEXT mini 预览：4×4 网格 + 纯色平格（proto .minip）
-//   - ghost 落点 → 固定投影紫（proto .c.g，与下落块颜色无关）
+//   - 棋盘井纯色 / 网格 / 方块识别色 → TetrisColorsStrategy
+//   - 主棋盘格：圆角 + 斜向柔渐变 + 顶部高光（光滑糖果质感）
+//   - HOLD/NEXT mini：同系缩小版
+//   - ghost 落点 → 固定投影紫（与下落块颜色无关）
 
 import 'dart:math' as math show min;
+import 'dart:ui' as ui show Gradient;
 
 import 'package:flutter/material.dart';
 
@@ -23,10 +24,6 @@ import 'engine.dart' show TetrisPiece;
 // proto .board-wrap .c.g — 固定投影紫：落点预览不能读作任何方块色。
 const Color _kGhostStroke = Color(0xB3A56BFF); // rgba(165,107,255,0.7)
 const Color _kGhostFill = Color(0x2EA56BFF); // rgba(165,107,255,0.18)
-
-// proto .c.f inset bevel
-const Color _kBevelTop = Color(0x59FFFFFF); // rgba(255,255,255,0.35)
-const Color _kBevelBottom = Color(0x2E000000); // rgba(0,0,0,0.18)
 
 class TetrisBoardView extends StatelessWidget {
   const TetrisBoardView({
@@ -134,7 +131,7 @@ class _BoardPainter extends CustomPainter {
       for (var x = 0; x < row.length && x < kTetrisCols; x++) {
         final t = row[x];
         if (t != kEmptyCell) {
-          _paintFlatCell(
+          _paintGlossCell(
             canvas,
             cellW * x,
             cellH * y,
@@ -174,7 +171,7 @@ class _BoardPainter extends CustomPainter {
         if (cur.matrix[i][j] == 0) continue;
         final gy = cur.y + i;
         if (gy < 0 || gy >= kTetrisRows) continue;
-        _paintFlatCell(
+        _paintGlossCell(
           canvas,
           cellW * (cur.x + j),
           cellH * gy,
@@ -192,8 +189,8 @@ class _BoardPainter extends CustomPainter {
   bool shouldRepaint(covariant _BoardPainter old) => true;
 }
 
-/// proto .board-wrap .c.f — 纯色填格 + inset 顶白 / 底黑 bevel（无圆角、无斜向渐变）。
-void _paintFlatCell(
+/// 光滑釉面格：小圆角 + 轻斜渐变 + 细高光（避免泡感胖圆角）。
+void _paintGlossCell(
   Canvas c,
   double x,
   double y,
@@ -201,15 +198,62 @@ void _paintFlatCell(
   double h,
   Color color,
 ) {
-  final rect = Rect.fromLTWH(x, y, w, h);
-  c.drawRect(rect, Paint()..color = color);
-  // inset 0 2px 0 white@35%
-  c.drawRect(Rect.fromLTWH(x, y, w, 2), Paint()..color = _kBevelTop);
-  // inset 0 -2px 0 black@18%
-  c.drawRect(Rect.fromLTWH(x, y + h - 2, w, 2), Paint()..color = _kBevelBottom);
+  final gap = math.min(w, h) * 0.05;
+  final radius = math.min(w, h) * 0.14;
+  final rect = Rect.fromLTWH(
+    x + gap,
+    y + gap,
+    w - gap * 2,
+    h - gap * 2,
+  );
+  if (rect.width <= 0 || rect.height <= 0) return;
+  final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+
+  final hi = Color.lerp(color, const Color(0xFFFFFFFF), 0.22)!;
+  final mid = color;
+  final lo = Color.lerp(color, const Color(0xFF000000), 0.18)!;
+
+  c.drawRRect(
+    rrect,
+    Paint()
+      ..shader = ui.Gradient.linear(
+        rect.topCenter,
+        rect.bottomCenter,
+        [hi, mid, lo],
+        const [0.0, 0.55, 1.0],
+      ),
+  );
+
+  // 顶部细高光条（釉面，非厚 bevel）
+  final spec = RRect.fromRectAndRadius(
+    Rect.fromLTWH(
+      rect.left + rect.width * 0.14,
+      rect.top + rect.height * 0.1,
+      rect.width * 0.72,
+      rect.height * 0.22,
+    ),
+    Radius.circular(radius * 0.7),
+  );
+  c.drawRRect(
+    spec,
+    Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(spec.left, spec.top),
+        Offset(spec.left, spec.bottom),
+        const [Color(0x59FFFFFF), Color(0x00FFFFFF)],
+      ),
+  );
+
+  c.drawRRect(
+    rrect.deflate(0.5),
+    Paint()
+      ..color = const Color(0x28FFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8,
+  );
 }
 
-/// proto .board-wrap .c.g — 满格方块：fill + 1px inset stroke，无圆角。
+/// ghost：同圆角轮廓的半透明紫描边，不抢色。
 void _paintGhost(
   Canvas c,
   double x,
@@ -217,10 +261,18 @@ void _paintGhost(
   double w,
   double h,
 ) {
-  final rect = Rect.fromLTWH(x, y, w, h);
-  c.drawRect(rect, Paint()..color = _kGhostFill);
-  c.drawRect(
-    rect.deflate(0.5),
+  final gap = math.min(w, h) * 0.05;
+  final radius = math.min(w, h) * 0.14;
+  final rect = Rect.fromLTWH(
+    x + gap,
+    y + gap,
+    w - gap * 2,
+    h - gap * 2,
+  );
+  final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+  c.drawRRect(rrect, Paint()..color = _kGhostFill);
+  c.drawRRect(
+    rrect.deflate(0.5),
     Paint()
       ..color = _kGhostStroke
       ..style = PaintingStyle.stroke
@@ -315,10 +367,11 @@ class _PiecePreviewPainter extends CustomPainter {
     for (var i = 0; i < matLen; i++) {
       for (var j = 0; j < matrix[i].length; j++) {
         if (matrix[i][j] == 0) continue;
-        _paintMiniCell(
+        _paintGlossCell(
           canvas,
           ox + j * pitch,
           oy + i * pitch,
+          cell,
           cell,
           color,
         );
@@ -328,11 +381,4 @@ class _PiecePreviewPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PiecePreviewPainter old) => old.type != type;
-}
-
-/// proto .minip .c.f — mini 格：纯色 + 1px 白 32% 顶带（无 jewel 渐变，
-/// 避免小尺寸下 J/L 等方块因高光糊在一起）。
-void _paintMiniCell(Canvas c, double x, double y, double s, Color color) {
-  c.drawRect(Rect.fromLTWH(x, y, s, s), Paint()..color = color);
-  c.drawRect(Rect.fromLTWH(x, y, s, 1), Paint()..color = const Color(0x52FFFFFF));
 }
