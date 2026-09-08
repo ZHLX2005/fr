@@ -675,13 +675,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                             child: CircularProgressIndicator(color: _cNeon),
                           )
                         : Stack(
+                            // 侧栏/棋盘溢出不得盖住下方操作键
+                            clipBehavior: Clip.hardEdge,
                             fit: StackFit.expand,
                             children: [
                               // proto .play：gap 10 + padding-top 12
                               Padding(
                                 padding: const EdgeInsets.only(top: 12),
                                 child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  // stretch：侧栏吃满中间区高度，stats 才能 flex 铺开且不溢出
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     _buildSidePanel(eng),
                                     const SizedBox(width: 10),
@@ -777,32 +780,34 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   /// Cyber 棋盘外壳（neon 边框 + 内嵌暗角 + 扫描线遮罩）+ 原 TetrisBoardView。
+  /// proto .board-wrap：aspect-ratio 10/20，勿纵向拉满整列（否则矮屏上侧栏溢出/空框抢高）。
   Widget _buildCyberBoard(TetrisEngine eng) {
-    return Container(
-      // proto .board-wrap：直角、无 borderRadius
-      decoration: BoxDecoration(
-        border: Border.all(color: _cLineStrong, width: 1),
-        // proto：外辉光 rgba(0,229,255,0.18)（无投影，板体沉入面板）
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x2E00E5FF),
-            blurRadius: 18,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          TetrisBoardView(
-            grid: eng.grid,
-            current: eng.current,
-            ghostOffset: eng.ghostOffset(),
-          ),
-          const _BoardInnerShade(),
-          const _ScanlineOverlay(),
-        ],
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: _cLineStrong, width: 1),
+          // proto：外辉光 rgba(0,229,255,0.18)
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x2E00E5FF),
+              blurRadius: 18,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Stack(
+          children: [
+            TetrisBoardView(
+              grid: eng.grid,
+              current: eng.current,
+              ghostOffset: eng.ghostOffset(),
+            ),
+            const _BoardInnerShade(),
+            const _ScanlineOverlay(),
+          ],
+        ),
       ),
     );
   }
@@ -926,7 +931,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       width: 88,
       child: AnimatedBuilder(
         animation: eng,
-        // proto .side：顶对齐 stack + gap 8；stats gap 10（勿 spaceBetween 拉开）
+        // proto .side：HOLD/NEXT 顶置 gap8；.stats { flex:1 } 沿棋盘高度铺开。
+        // 必须吃满 Row 拉伸高度，否则 Column 固有高度溢出会盖住操作键。
         builder: (context, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -952,13 +958,21 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 child: TetrisPiecePreview(type: eng.nextType),
               ),
             ),
-            // Stats — 自由排列，不包 panel；Orbitron 24px 全 neon + glow
-            const SizedBox(height: 4),
-            _stat('SCORE', '${eng.score}'),
-            const SizedBox(height: 10),
-            _stat('LINES', '${eng.lines}'),
-            const SizedBox(height: 10),
-            _stat('LEVEL', eng.level.toString().padLeft(2, '0')),
+            // proto .stats flex:1 — 剩余高度内均匀铺 SCORE/LINES/LEVEL
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _stat('SCORE', '${eng.score}'),
+                    _stat('LINES', '${eng.lines}'),
+                    _stat('LEVEL', eng.level.toString().padLeft(2, '0')),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
