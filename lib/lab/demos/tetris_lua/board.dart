@@ -1,18 +1,17 @@
 // lib/lab/demos/tetris_lua/board.dart
-// 俄罗斯方块 — 棋盘与方块预览渲染（Ash flat well）
+// 俄罗斯方块 — 棋盘与方块预览渲染（Ash flat well · proto-3-cyber-v2）
 //
 //   [TetrisBoardView]   主棋盘：堆积 + 下落块 + ghost 落点预览
 //   [TetrisMiniBoard]   对方迷你预览：只画堆积（复用主棋盘，无 current/ghost）
 //   [TetrisPiecePreview] 单方块预览：Hold / Next 槽用
 //
 // 颜色：
-//   - 棋盘井纯色（无渐变）/ 网格 / 高光 / 方块识别色 → TetrisColorsStrategy
-//   - 主棋盘方块格保留斜向立体高光
-//   - HOLD/NEXT mini 预览：4×4 网格 + 纯色平格（proto .minip，无 jewel 渐变）
+//   - 棋盘井纯色（无渐变）/ 网格 / 方块识别色 → TetrisColorsStrategy
+//   - 主棋盘方块格：纯色 + inset 顶/底 bevel（proto .board-wrap .c.f）
+//   - HOLD/NEXT mini 预览：4×4 网格 + 纯色平格（proto .minip）
 //   - ghost 落点 → 固定投影紫（proto .c.g，与下落块颜色无关）
 
 import 'dart:math' as math show min;
-import 'dart:ui' as ui show Gradient;
 
 import 'package:flutter/material.dart';
 
@@ -24,6 +23,10 @@ import 'engine.dart' show TetrisPiece;
 // proto .board-wrap .c.g — 固定投影紫：落点预览不能读作任何方块色。
 const Color _kGhostStroke = Color(0xB3A56BFF); // rgba(165,107,255,0.7)
 const Color _kGhostFill = Color(0x2EA56BFF); // rgba(165,107,255,0.18)
+
+// proto .c.f inset bevel
+const Color _kBevelTop = Color(0x59FFFFFF); // rgba(255,255,255,0.35)
+const Color _kBevelBottom = Color(0x2E000000); // rgba(0,0,0,0.18)
 
 class TetrisBoardView extends StatelessWidget {
   const TetrisBoardView({
@@ -94,22 +97,18 @@ class _BoardPainter extends CustomPainter {
     // Ash 中灰井：纯色平面，无渐变
     canvas.drawRect(boardRect, Paint()..color = tc.pieceBackground);
 
+    // proto：每格 outline 1px ash-grid（含外缘，与相邻格共享边）
     final linePaint = Paint()
       ..color = tc.pieceGridLine
+      ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    for (var i = 1; i < kTetrisCols; i++) {
-      canvas.drawLine(
-        Offset(cellW * i, 0),
-        Offset(cellW * i, size.height),
-        linePaint,
-      );
-    }
-    for (var i = 1; i < kTetrisRows; i++) {
-      canvas.drawLine(
-        Offset(0, cellH * i),
-        Offset(size.width, cellH * i),
-        linePaint,
-      );
+    for (var y = 0; y < kTetrisRows; y++) {
+      for (var x = 0; x < kTetrisCols; x++) {
+        canvas.drawRect(
+          Rect.fromLTWH(cellW * x, cellH * y, cellW, cellH),
+          linePaint,
+        );
+      }
     }
 
     // 堆积格
@@ -118,14 +117,13 @@ class _BoardPainter extends CustomPainter {
       for (var x = 0; x < row.length && x < kTetrisCols; x++) {
         final t = row[x];
         if (t != kEmptyCell) {
-          _paintJewelCell(
+          _paintFlatCell(
             canvas,
             cellW * x,
             cellH * y,
             cellW,
             cellH,
             pieceColors[t]!,
-            tc.cellHighlight,
           );
         }
       }
@@ -159,14 +157,13 @@ class _BoardPainter extends CustomPainter {
         if (cur.matrix[i][j] == 0) continue;
         final gy = cur.y + i;
         if (gy < 0 || gy >= kTetrisRows) continue;
-        _paintJewelCell(
+        _paintFlatCell(
           canvas,
           cellW * (cur.x + j),
           cellH * gy,
           cellW,
           cellH,
           color,
-          tc.cellHighlight,
         );
       }
     }
@@ -178,49 +175,24 @@ class _BoardPainter extends CustomPainter {
   bool shouldRepaint(covariant _BoardPainter old) => true;
 }
 
-/// 糖果立体格：斜向渐变 + 薄高光条（井底保持纯色）。
-void _paintJewelCell(
+/// proto .board-wrap .c.f — 纯色填格 + inset 顶白 / 底黑 bevel（无圆角、无斜向渐变）。
+void _paintFlatCell(
   Canvas c,
   double x,
   double y,
   double w,
   double h,
   Color color,
-  Color highlight,
 ) {
-  final radius = Radius.circular(math.min(w, h) * 0.16);
-  final r = RRect.fromRectAndRadius(
-    Rect.fromLTWH(x + 1.2, y + 1.2, w - 2.4, h - 2.4),
-    radius,
-  );
-  final bounds = r.outerRect;
-  c.drawRRect(
-    r,
-    Paint()
-      ..shader = ui.Gradient.linear(
-        bounds.topLeft,
-        bounds.bottomRight,
-        [
-          Color.lerp(color, Colors.white, 0.32)!,
-          color,
-          Color.lerp(color, Colors.black, 0.22)!,
-        ],
-        const [0.0, 0.42, 1.0],
-      ),
-  );
-  // 顶部薄高光
-  final hiH = (h - 5) * 0.24;
-  if (hiH > 1) {
-    c.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(x + w * 0.18, y + 2.8, w * 0.64, hiH),
-        const Radius.circular(99),
-      ),
-      Paint()..color = highlight,
-    );
-  }
+  final rect = Rect.fromLTWH(x, y, w, h);
+  c.drawRect(rect, Paint()..color = color);
+  // inset 0 2px 0 white@35%
+  c.drawRect(Rect.fromLTWH(x, y, w, 2), Paint()..color = _kBevelTop);
+  // inset 0 -2px 0 black@18%
+  c.drawRect(Rect.fromLTWH(x, y + h - 2, w, 2), Paint()..color = _kBevelBottom);
 }
 
+/// proto .board-wrap .c.g — 满格方块：fill + 1px inset stroke，无圆角。
 void _paintGhost(
   Canvas c,
   double x,
@@ -228,13 +200,10 @@ void _paintGhost(
   double w,
   double h,
 ) {
-  final r = RRect.fromRectAndRadius(
-    Rect.fromLTWH(x + 2, y + 2, w - 4, h - 4),
-    Radius.circular(math.min(w, h) * 0.14),
-  );
-  c.drawRRect(r, Paint()..color = _kGhostFill);
-  c.drawRRect(
-    r,
+  final rect = Rect.fromLTWH(x, y, w, h);
+  c.drawRect(rect, Paint()..color = _kGhostFill);
+  c.drawRect(
+    rect.deflate(0.5),
     Paint()
       ..color = _kGhostStroke
       ..style = PaintingStyle.stroke
@@ -278,18 +247,24 @@ class _PiecePreviewPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // proto .minip：4×4 网格，1px 间隙透出白色 6% 底，空格填 ash
+    // 固定 11px 格（proto），在可用尺寸内居中。
     const gap = 1.0;
     const pad = 3.0;
-    final inner = size.width - pad * 2;
-    final cell = (inner - gap * 3) / 4;
-    final pitch = cell + gap;
+    const cell = 11.0;
+    const pitch = cell + gap;
+    const grid = pad * 2 + cell * 4 + gap * 3; // 53
+    final ox0 = (size.width - grid) / 2;
+    final oy0 = (size.height - grid) / 2;
 
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0x0FFFFFFF));
+    canvas.drawRect(
+      Rect.fromLTWH(ox0, oy0, grid, grid),
+      Paint()..color = const Color(0x0FFFFFFF),
+    );
     final ash = Paint()..color = tc.pieceBackground;
     for (var r = 0; r < 4; r++) {
       for (var c = 0; c < 4; c++) {
         canvas.drawRect(
-          Rect.fromLTWH(pad + c * pitch, pad + r * pitch, cell, cell),
+          Rect.fromLTWH(ox0 + pad + c * pitch, oy0 + pad + r * pitch, cell, cell),
           ash,
         );
       }
@@ -313,10 +288,11 @@ class _PiecePreviewPainter extends CustomPainter {
         }
       }
     }
+    final inner = grid - pad * 2;
     final boxW = (maxC - minC) * pitch + cell;
     final boxH = (maxR - minR) * pitch + cell;
-    final ox = pad + (inner - boxW) / 2 - minC * pitch;
-    final oy = pad + (inner - boxH) / 2 - minR * pitch;
+    final ox = ox0 + pad + (inner - boxW) / 2 - minC * pitch;
+    final oy = oy0 + pad + (inner - boxH) / 2 - minR * pitch;
 
     final color = pieceColors[t]!;
     for (var i = 0; i < matLen; i++) {
