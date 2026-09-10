@@ -1881,10 +1881,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               isMe: false,
               showAvatar: false,
             ),
-            // 棋盘 320×320 + 上下 padding 4 → 固定槽位 328，不参与 flex 收缩
-            SizedBox(
-              height: 328,
-              width: double.infinity,
+            // 棋盘 Expanded 占满剩余空间（flex 1）；FAB/composer 浮层 absolute 定位
+            // 在 board-wrap Stack 内，不参与 flex
+            Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 child: Stack(
