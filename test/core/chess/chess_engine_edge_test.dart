@@ -76,6 +76,51 @@ void main() {
       expect(castling, isEmpty,
           reason: 'castling forbidden while in check, regardless of transit safety');
     });
+
+    test('king left e1 but FEN still has KQkq → generateLegalMoves must not crash',
+        () {
+      // Bad / AI endgame FEN: king on d1, rights still claim KQkq.
+      final fen = 'r3k2r/8/8/8/8/8/8/R2K3R w KQkq - 0 1';
+      final s = FenCodec.fromFen(fen);
+      const engine = ChessEngine();
+      final legal = engine.generateLegalMoves(s);
+      expect(legal, isNotEmpty);
+      expect(
+        legal.where((m) => m.flag == MoveFlags.castling),
+        isEmpty,
+        reason: 'king not on e1 → no castling candidates',
+      );
+    });
+
+    test('K right but h1 empty → O-O absent (no phantom rook)', () {
+      final fen = 'r3k2r/8/8/8/8/8/8/R3K3 w KQkq - 0 1';
+      final s = FenCodec.fromFen(fen);
+      final legal = const ChessEngine().generateLegalMoves(s);
+      expect(
+        legal.where((m) => m.flag == MoveFlags.castling && m.to == 62),
+        isEmpty,
+      );
+    });
+
+    test('bare UCI e1g1 still moves rook (castling flag recovered)', () {
+      final fen = 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1';
+      final s = FenCodec.fromFen(fen);
+      // Construct without relying on fromUci flag — flag:none, from/to only.
+      const bare = Move(from: 60, to: 62);
+      expect(bare.flag, MoveFlags.none);
+      final next = applyMove(s, bare).nextState;
+      expect(next.pieceTypeAt(62), PieceType.king); // g1
+      expect(next.pieceTypeAt(61), PieceType.rook); // f1
+      expect(next.pieceTypeAt(63), isNull); // h1 vacated
+      expect(FenCodec.toFen(next), startsWith('r3k2r/8/8/8/8/8/8/R4RK1'));
+    });
+
+    test('Move.fromUci(e1g1) sets castling flag', () {
+      final m = Move.fromUci('e1g1');
+      expect(m.flag, MoveFlags.castling);
+      expect(m.from, 60);
+      expect(m.to, 62);
+    });
   });
 
   group('promotion: vacant target + self-blocked target', () {

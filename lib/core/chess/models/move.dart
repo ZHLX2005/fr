@@ -68,6 +68,9 @@ class Move {
   }
 
   /// 反向 UCI 解析
+  ///
+  /// 标准 UCI 易位写作 `e1g1` / `e1c1` / `e8g8` / `e8c8`（无特殊后缀）。
+  /// 此处对这四着补 [MoveFlags.castling]，避免裸 UCI 应用成"王飞两格、车不动"。
   factory Move.fromUci(String uci, {PieceColor sideToMove = PieceColor.white}) {
     if (uci.length < 4) {
       throw ArgumentError('Invalid UCI move: $uci');
@@ -77,10 +80,21 @@ class Move {
     final promo = uci.length >= 5
         ? pieceTypeFromFenChar(uci.substring(4, 5))
         : null;
+    var flag = MoveFlags.none;
+    if (promo == null) {
+      final isWhiteCastle =
+          from == 60 && (to == 62 || to == 58); // e1g1 / e1c1
+      final isBlackCastle =
+          from == 4 && (to == 6 || to == 2); // e8g8 / e8c8
+      if (isWhiteCastle || isBlackCastle) {
+        flag = MoveFlags.castling;
+      }
+    }
     return Move(
       from: from,
       to: to,
       promotion: promo,
+      flag: flag,
     );
   }
 

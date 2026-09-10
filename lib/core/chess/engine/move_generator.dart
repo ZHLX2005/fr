@@ -237,19 +237,26 @@ void _generateKingMoves(
 
   // 王车易位（Castling）
   // 规则：
-  //   1. 双方没有易位权（FEN 中相应位 = true）
-  //   2. 王与车之间所有格子都空着
-  //   3. 王不在将军状态
-  //   4. 王经过的格子（包括自身）都不能在对方攻击范围内
-  // 第 4 条由 chess_engine 在合法走法筛选时再次校验（因为这是动态攻击集），
+  //   1. 王必须仍在起始格（白 e1=60 / 黑 e8=4）—— 否则不得生成
+  //   2. 对应角格仍有己方车（h1/a1 或 h8/a8）
+  //   3. 双方没有易位权（FEN 中相应位 = true）
+  //   4. 王与车之间所有格子都空着
+  //   5. 王不在将军状态
+  //   6. 王经过的格子（包括自身）都不能在对方攻击范围内
+  // 第 6 条由 chess_engine 在合法走法筛选时再次校验（因为这是动态攻击集），
   // 此处只生成"候选"易位；过滤交给上层。
+  //
+  // 注意：缺 idx/车 守卫时，坏 FEN（王已离开 e1 但仍标 KQkq）会生成
+  // from=60 的伪易位 → applyMove 抛错 → generateLegalMoves 整盘崩溃。
   final attacked = computeAttackedSquares(state, opposite(color));
   final kingColorInCheck = attacked.contains(idx);
 
-  if (color == PieceColor.white) {
+  if (color == PieceColor.white && idx == 60) {
     // 白方短易位（王翼）：King e1 (idx 60) → g1 (idx 62)；rook h1 (idx 63)
     if (state.castling.whiteKingSide &&
-        state.isEmpty(61) && state.isEmpty(62)) {
+        _isFriendlyRook(state, 63, PieceColor.white) &&
+        state.isEmpty(61) &&
+        state.isEmpty(62)) {
       if (!kingColorInCheck &&
           !attacked.contains(61) &&
           !attacked.contains(62)) {
@@ -262,7 +269,10 @@ void _generateKingMoves(
     }
     // 白方长易位（后翼）：King e1 → c1 (idx 58)；rook a1 (idx 56)
     if (state.castling.whiteQueenSide &&
-        state.isEmpty(57) && state.isEmpty(58) && state.isEmpty(59)) {
+        _isFriendlyRook(state, 56, PieceColor.white) &&
+        state.isEmpty(57) &&
+        state.isEmpty(58) &&
+        state.isEmpty(59)) {
       if (!kingColorInCheck &&
           !attacked.contains(58) &&
           !attacked.contains(59)) {
@@ -273,10 +283,12 @@ void _generateKingMoves(
         ));
       }
     }
-  } else {
+  } else if (color == PieceColor.black && idx == 4) {
     // 黑方短易位：King e8 (idx 4) → g8 (idx 6)；rook h8 (idx 7)
     if (state.castling.blackKingSide &&
-        state.isEmpty(5) && state.isEmpty(6)) {
+        _isFriendlyRook(state, 7, PieceColor.black) &&
+        state.isEmpty(5) &&
+        state.isEmpty(6)) {
       if (!kingColorInCheck &&
           !attacked.contains(5) &&
           !attacked.contains(6)) {
@@ -289,7 +301,10 @@ void _generateKingMoves(
     }
     // 黑方长易位：King e8 → c8 (idx 2)；rook a8 (idx 0)
     if (state.castling.blackQueenSide &&
-        state.isEmpty(1) && state.isEmpty(2) && state.isEmpty(3)) {
+        _isFriendlyRook(state, 0, PieceColor.black) &&
+        state.isEmpty(1) &&
+        state.isEmpty(2) &&
+        state.isEmpty(3)) {
       if (!kingColorInCheck &&
           !attacked.contains(2) &&
           !attacked.contains(3)) {
@@ -301,6 +316,14 @@ void _generateKingMoves(
       }
     }
   }
+}
+
+/// 角格是否仍是 [color] 方的车（易位前置条件）。
+bool _isFriendlyRook(BoardState state, int square, PieceColor color) {
+  final slot = state.cells[square];
+  if (slot == null) return false;
+  return PieceSlot.unpackType(slot) == PieceType.rook &&
+      PieceSlot.unpackColorEnum(slot) == color;
 }
 
 bool _inRange(int r, int c) => r >= 0 && r < 8 && c >= 0 && c < 8;

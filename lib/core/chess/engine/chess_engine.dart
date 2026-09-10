@@ -43,7 +43,13 @@ class ChessEngine {
       // 王车易位时额外校验：王经过的格子不能被攻击。
       // move_generator 已生成"无将军"判定，但每个格子的"非攻击"保证由王车易位自身评估，
       // 此处再额外校验：尝试 applyMove 后看王位是否被攻击。
-      final result = applyMove(state, m);
+      // 畸形伪走法（坏 FEN 残留）→ 跳过，禁止拖垮整盘走法生成。
+      final ApplyResult result;
+      try {
+        result = applyMove(state, m);
+      } catch (_) {
+        continue;
+      }
       final newState = result.nextState;
       final kingSquare = newState.findKing(myColor);
       if (kingSquare == null) {
@@ -66,11 +72,15 @@ class ChessEngine {
           // 是否将杀 = 该方是否有合法走法（在原 sideToMove 切换后）
           final oppLegal = generatePseudoLegalMoves(newState)
               .where((mm) {
-            final r = applyMove(newState, mm);
-            final k = r.nextState.findKing(opposite(myColor)) ?? -1;
-            if (k < 0) return false;
-            final atk = computeAttackedSquares(r.nextState, myColor);
-            return !atk.contains(k);
+            try {
+              final r = applyMove(newState, mm);
+              final k = r.nextState.findKing(opposite(myColor)) ?? -1;
+              if (k < 0) return false;
+              final atk = computeAttackedSquares(r.nextState, myColor);
+              return !atk.contains(k);
+            } catch (_) {
+              return false;
+            }
           }).toList();
           if (oppLegal.isEmpty) {
             isCheckmate = true;

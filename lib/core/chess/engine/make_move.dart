@@ -53,7 +53,20 @@ ApplyResult applyMove(BoardState state, Move move) {
   var halfmoveClockBump = true; // 多数走法 +1
   var fullmoveIncrement = false;
 
-  switch (move.flag) {
+  // 裸 UCI（Move.fromUci）可能丢 castling flag：王从 e1/e8 横走两格 → 按易位处理。
+  var flag = move.flag;
+  if (flag == MoveFlags.none &&
+      pieceType == PieceType.king &&
+      move.promotion == null &&
+      (move.from ~/ 8) == (move.to ~/ 8) &&
+      (move.to % 8 - move.from % 8).abs() == 2) {
+    if ((pieceColor == PieceColor.white && move.from == 60) ||
+        (pieceColor == PieceColor.black && move.from == 4)) {
+      flag = MoveFlags.castling;
+    }
+  }
+
+  switch (flag) {
     case MoveFlags.none:
       // 普通走法（含吃子）
       if (isCapture) {
@@ -62,32 +75,36 @@ ApplyResult applyMove(BoardState state, Move move) {
       }
       break;
     case MoveFlags.castling:
-      // 王与车一并移动
+      // 王与车一并移动（搬原车 slot，不重新 pack，避免丢 flags / 凭空造车）
       if (targetColor == PieceColor.white) {
         if (move.to == 62) {
           // 王翼 O-O
-          board[60] = null; // 王
-          board[63] = null; // h1 车
-          board[62] = from; // 王 → g1
-          board[61] = PieceSlot.pack(PieceType.rook, PieceColor.white, flags: 0); // 车 → f1
+          final rook = board[63];
+          board[60] = null;
+          board[63] = null;
+          board[62] = from;
+          if (rook != null) board[61] = rook;
         } else if (move.to == 58) {
           // 后翼 O-O-O
+          final rook = board[56];
           board[60] = null;
           board[56] = null;
           board[58] = from;
-          board[59] = PieceSlot.pack(PieceType.rook, PieceColor.white, flags: 0);
+          if (rook != null) board[59] = rook;
         }
       } else {
         if (move.to == 6) {
+          final rook = board[7];
           board[4] = null;
           board[7] = null;
           board[6] = from;
-          board[5] = PieceSlot.pack(PieceType.rook, PieceColor.black, flags: 0);
+          if (rook != null) board[5] = rook;
         } else if (move.to == 2) {
+          final rook = board[0];
           board[4] = null;
           board[0] = null;
           board[2] = from;
-          board[3] = PieceSlot.pack(PieceType.rook, PieceColor.black, flags: 0);
+          if (rook != null) board[3] = rook;
         }
       }
       isCapture = false;
@@ -100,13 +117,13 @@ ApplyResult applyMove(BoardState state, Move move) {
   }
 
   // 处理升变：从 from slot → 新 slot（保持颜色，换 type）
-  if (move.promotion != null) {
-    // 移开原 from
+  // 易位已在上方搬完王+车，禁止再跑"普通 from→to"（否则会重复写王格）。
+  if (flag == MoveFlags.castling) {
+    // no-op：棋子已就位
+  } else if (move.promotion != null) {
     board[move.from] = null;
-    // 写入升变后的 to
     board[move.to] = PieceSlot.pack(move.promotion, pieceColor, flags: 0);
   } else {
-    // 普通走法：移动 from → to
     board[move.from] = null;
     board[move.to] = from;
   }
