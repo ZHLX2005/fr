@@ -23,57 +23,6 @@ const List<String> kBoardChatQuickEmojis = [
   '👊', '👍', '🎉', '🤔', '😤', '🤝',
 ];
 
-/// 双 tab composer 的表情包（mock 阶段 hardcoded 12 个 SVG icon +
-/// sk 渐变背景；生产用 EmojiBundle.forGame('chess', ...) 拉 KV）。
-///
-/// 字段：id / svgPath (24x24 viewBox 描线) / sk (背景渐变 class) / category
-class _KvEmojiEntry {
-  final String id;
-  final String svgPath;
-  final String sk;
-  final String category;
-  const _KvEmojiEntry(this.id, this.svgPath, this.sk, this.category);
-}
-
-const List<_KvEmojiEntry> _kComposerEmojis = [
-  _KvEmojiEntry('fist-bump',
-      'M9 11V6.5a1.5 1.5 0 0 1 3 0V11M12 11V4.5a1.5 1.5 0 0 1 3 0V11M15 11V6.5a1.5 1.5 0 0 1 3 0v8.5a4 4 0 0 1-4 4h-3a4 4 0 0 1-4-4v-2.5',
-      'sk-a', 'gesture'),
-  _KvEmojiEntry('thumbs-up',
-      'M7 22V11M14 11V4a2 2 0 0 0-4 0v7H7l3 11h7a3 3 0 0 0 3-2.5l1-5a2 2 0 0 0-2-2.5h-5z',
-      'sk-b', 'gesture'),
-  _KvEmojiEntry('party',
-      'M5.8 11.3L2 22l10.7-3.79M4 16.5l5.5-5.5M14 8L8 14M19 5L5 19M14.5 5.5L18 9',
-      'sk-c', 'celebrate'),
-  _KvEmojiEntry('thinking',
-      'M12 2a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 1.5-2.5 3M12 17.5v.01',
-      'sk-d', 'face'),
-  _KvEmojiEntry('frustrated',
-      'M12 2a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM16 16s-1.5-2-4-2-4 2-4 2M9 9l-1.5-1M15 9l1.5-1',
-      'sk-e', 'face'),
-  _KvEmojiEntry('handshake',
-      'M11 17l2 2a1 1 0 1 0 3-3M14 14l2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4M3 4h2.5l1 2M16 4l1 2',
-      'sk-f', 'gesture'),
-  _KvEmojiEntry('wave',
-      'M7 22V11M14 11V4a2 2 0 0 0-4 0v2M14 11V7a2 2 0 0 1 4 0v4M14 11h2a2 2 0 0 1 2 2v3a4 4 0 0 1-4 4h-2',
-      'sk-g', 'gesture'),
-  _KvEmojiEntry('applause',
-      'M9 5l-4 4 4 4M15 5l4 4-4 4M12 4v16M9 12l3 3 3-3',
-      'sk-h', 'gesture'),
-  _KvEmojiEntry('pray',
-      'M12 2v20M9 18l3-12 3 12M9 8h6',
-      'sk-i', 'gesture'),
-  _KvEmojiEntry('trophy',
-      'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3a1 1 0 0 1 1 1v1a3 3 0 0 1-3 3M7 5H4a1 1 0 0 0-1 1v1a3 3 0 0 0 3 3',
-      'sk-j', 'celebrate'),
-  _KvEmojiEntry('good-luck',
-      'M12 2a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4zM12 10v12M9 16h6',
-      'sk-k', 'gesture'),
-  _KvEmojiEntry('cool',
-      'M3 12a9 9 0 0 1 18 0v3a3 3 0 0 1-3 3h-1a3 3 0 0 1-3-3v-1a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3z',
-      'sk-l', 'face'),
-];
-
 /// _seen 集合上限：超过此值按 seen 的插入顺序淘汰最早 key。
 /// 服务端 chatRing append-only，跨长局可达上千条；_seen 是去重缓存需有界。
 const int _kSeenCapacity = 256;
@@ -617,16 +566,16 @@ class _ChatCardState extends State<_ChatCard> with TickerProviderStateMixin {
     Widget content;
     if (isEmoji) {
       final entry = widget.emojiBundle.byId[e.emojiId ?? ''];
-      final img = entry?.imageProvider(widget.fileResolver);
       content = SizedBox(
         width: 60,
         height: 60,
-        child: img == null
-            ? const SizedBox.shrink()
-            : Padding(
-                padding: const EdgeInsets.all(6),
-                child: Image(image: img, fit: BoxFit.contain),
-              ),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: _EmojiImage(
+            image: entry?.imageProvider(widget.fileResolver),
+            id: e.emojiId ?? '',
+          ),
+        ),
       );
     } else {
       final text = e.text ?? '';
@@ -776,10 +725,16 @@ class _BoardChatFabState extends State<_BoardChatFab> {
                 width: 48,
                 height: 48,
                 alignment: Alignment.center,
-                child: Icon(
-                  Icons.chat_bubble_outline_rounded,
-                  size: 20,
-                  color: scheme.onSurface.withValues(alpha: widget.enabled ? 1.0 : 0.4),
+                // mock: 22×22 自定义 SVG 聊天气泡（区别于 Icons.chat_bubble_outline_rounded）
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CustomPaint(
+                    painter: _ChatBubbleIconPainter(
+                      color: const Color(0xFF1A1A1A)
+                          .withValues(alpha: widget.enabled ? 1.0 : 0.4),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -863,16 +818,20 @@ class _ComposerState extends State<_Composer> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surface,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: scheme.outline),
+        // mock: border:1px solid var(--text-1) 硬黑边（F2 身份色）
+        side: const BorderSide(color: Color(0xFF1A1A1A)),
       ),
-      elevation: 4,
+      // mock: box-shadow 0 8px 24px rgba(0,0,0,0.14) + 0 2px 4px rgba(0,0,0,0.06)
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.14),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 240),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 4, 8),
+          // mock: padding: 8px 4px 8px 8px (LTRB) — top 从 4 → 8
+          padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -895,16 +854,28 @@ class _ComposerState extends State<_Composer> {
     );
   }
 
-  /// 顶部 head：表情 / 记录 tab + 关闭按钮
+  /// 顶部 head：表情 / 记录 tab（segmented control 容器）+ 关闭按钮
+  /// mock .tabs: bg #FAFAF7, radius 6, padding 2, gap 2 (F2 风格分段控件)
   Widget _buildHead(ColorScheme scheme) {
     return Row(
       children: [
-        // 表情 tab
-        _buildTab('表情', 'emoji', scheme),
-        // 记录 tab（角标显示本局条数）
-        _buildTab('记录', 'history', scheme,
-            count: _uniqueHistory().length),
-        const Spacer(),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAFAF7), // var(--bg)
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                _buildTab('表情', 'emoji', scheme),
+                _buildTab('记录', 'history', scheme,
+                    count: _uniqueHistory().length),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
         // 关闭按钮
         InkWell(
           onTap: widget.onClose,
@@ -974,8 +945,23 @@ class _ComposerState extends State<_Composer> {
     );
   }
 
-  /// emoji tab：4 列 SVG 表情网格（来自 _kComposerEmojis）
+  /// emoji tab：从 [EmojiBundle] 渲染 KV 上的真实表情图片
+  /// （board_chat_overlay.dart 原版 line 810-834 的行为）。
   Widget _buildEmojiGrid(ColorScheme scheme) {
+    final entries = widget.emojiBundle.entries;
+    if (entries.isEmpty) {
+      // 表情包尚未加载完成（chess_room_page 的 _ensureEmojiBundle 异步）——
+      // 占位避免空 grid 闪一下。
+      return const SizedBox(
+        height: 100,
+        child: Center(
+          child: SizedBox(
+            width: 16, height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
     return Container(
       constraints: const BoxConstraints(maxHeight: 156),
       child: GridView.count(
@@ -987,24 +973,18 @@ class _ComposerState extends State<_Composer> {
         crossAxisSpacing: 4,
         padding: EdgeInsets.zero,
         children: [
-          for (final e in _kComposerEmojis)
+          for (final entry in entries)
             InkResponse(
               onTap: widget.enabled && !widget.sending
-                  ? () => _doSendEmoji(e.id)
+                  ? () => _doSendEmoji(entry.id)
                   : null,
               radius: 18,
               child: Container(
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: _KvEmojiGradients.bySk(e.sk),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CustomPaint(
-                    painter: _SvgIconPainter(e.svgPath),
-                  ),
+                padding: const EdgeInsets.all(6),
+                child: _EmojiImage(
+                  image: entry.imageProvider(widget.fileResolver),
+                  id: entry.id,
                 ),
               ),
             ),
@@ -1076,21 +1056,16 @@ class _ComposerState extends State<_Composer> {
 
   Widget _buildHistoryBody(ChatEvent e, ColorScheme scheme) {
     if (e.isEmoji) {
-      final entry = _kComposerEmojis.firstWhere(
-        (x) => x.id == e.emojiId,
-        orElse: () => _kComposerEmojis.first,
-      );
-      return Container(
+      final entry = widget.emojiBundle.byId[e.emojiId ?? ''];
+      if (entry == null) {
+        return const SizedBox(width: 22, height: 22);
+      }
+      return SizedBox(
         width: 22,
         height: 22,
-        decoration: BoxDecoration(
-          gradient: _KvEmojiGradients.bySk(entry.sk),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: CustomPaint(painter: _SvgIconPainter(entry.svgPath)),
+        child: _EmojiImage(
+          image: entry.imageProvider(widget.fileResolver),
+          id: entry.id,
         ),
       );
     }
@@ -1142,10 +1117,17 @@ class _ComposerState extends State<_Composer> {
                     widget.textController.text.trim().isNotEmpty
                 ? _doSendText
                 : null,
+            // mock: 黑色 1px 边框 + 黑色背景 + 白字 + radius 6 (F2 硬黑 identity)
             style: FilledButton.styleFrom(
               minimumSize: const Size(48, 32),
               padding: const EdgeInsets.symmetric(horizontal: 10),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: const Color(0xFF1A1A1A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+                side: const BorderSide(color: Color(0xFF1A1A1A)),
+              ),
             ),
             child: const Text('发', style: TextStyle(fontSize: 12)),
           ),
@@ -1166,121 +1148,102 @@ class _ComposerState extends State<_Composer> {
   }
 }
 
-/// sk 渐变背景表（mock 阶段 hardcoded；生产用 kv 上传图）
-class _KvEmojiGradients {
-  static final Map<String, LinearGradient> _cache = {};
-  static LinearGradient bySk(String sk) {
-    return _cache.putIfAbsent(sk, () {
-      final c = _stopColors[sk] ?? (_stopColors['sk-a']!);
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: c,
-      );
-    });
-  }
+/// 统一渲染 emoji 表情（KV 拉来的 imageProvider）。
+///
+/// 处理 imageProvider 为 null 的情况（EmojiEntry.imageProvider 在无 fileResolver
+/// 且无本地缓存时返回 null —— board_chat_overlay.dart:38-44）。
+class _EmojiImage extends StatelessWidget {
+  final ImageProvider? image;
+  final String id;
+  const _EmojiImage({required this.image, required this.id});
 
-  static const Map<String, List<Color>> _stopColors = {
-    'sk-a': [Color(0xFFFFE08A), Color(0xFFF5A623)],
-    'sk-b': [Color(0xFFA8E6CF), Color(0xFF3DDC97)],
-    'sk-c': [Color(0xFFFFB3BA), Color(0xFFFF6B6B)],
-    'sk-d': [Color(0xFFB5D5FF), Color(0xFF2A6FDB)],
-    'sk-e': [Color(0xFFE0D4FF), Color(0xFF8B5CF6)],
-    'sk-f': [Color(0xFFFFD6A5), Color(0xFFC2410C)],
-    'sk-g': [Color(0xFFFFE0B2), Color(0xFFFF9800)],
-    'sk-h': [Color(0xFFB2DFDB), Color(0xFF009688)],
-    'sk-i': [Color(0xFFF8BBD0), Color(0xFFEC407A)],
-    'sk-j': [Color(0xFFFFF59D), Color(0xFFFBC02D)],
-    'sk-k': [Color(0xFFC8E6C9), Color(0xFF43A047)],
-    'sk-l': [Color(0xFF90CAF9), Color(0xFF1565C0)],
-  };
+  @override
+  Widget build(BuildContext context) {
+    final img = image;
+    if (img == null) {
+      // 兜底：emoji 加载不出来 → 显示浅灰占位 + id 前 2 字符（调试用）
+      final hint = id.length >= 2 ? id.substring(0, 2) : '?';
+      return Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          hint,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    return Image(
+      image: img,
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      errorBuilder: (_, _, _) => Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Icon(Icons.broken_image_outlined, size: 14),
+      ),
+    );
+  }
 }
 
-/// CustomPainter：把 SVG path 描成白色描线图标（24x24 viewBox）
-class _SvgIconPainter extends CustomPainter {
-  final String svgPath;
-  _SvgIconPainter(this.svgPath);
+/// FAB 聊天气泡 icon（mock 的 22×22 自定义 SVG）。
+/// path data: M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z
+/// （圆角矩形主体 + 左下小尾巴 — 与 Icons.chat_bubble_outline_rounded 不同）。
+class _ChatBubbleIconPainter extends CustomPainter {
+  final Color color;
+  _ChatBubbleIconPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final metrics = _parsePath(svgPath);
-    if (metrics == null) return;
     final scaleX = size.width / 24.0;
     final scaleY = size.height / 24.0;
     final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2.2 / ((scaleX + scaleY) / 2)
+      ..color = color
+      ..strokeWidth = 2.0 / ((scaleX + scaleY) / 2)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    for (final path in metrics) {
-      canvas.save();
-      canvas.scale(scaleX, scaleY);
-      canvas.drawPath(path, paint);
-      canvas.restore();
-    }
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+    final path = _buildBubblePath();
+    canvas.save();
+    canvas.scale(scaleX, scaleY);
+    canvas.drawPath(path, paint);
+    canvas.restore();
   }
 
-  /// 极简 SVG path 解析：支持 M / L / H / V / C / Z / 数字。
-  /// 不处理 S/Q/T/A 等（mock 数据里只用 M/L/C/Z 已够）。
-  List<Path>? _parsePath(String d) {
-    try {
-      final tokens = d.split(RegExp(r'[\s,]'));
-      final out = <Path>[];
-      Path? cur;
-      int i = 0;
-      double lastX = 0, lastY = 0;
-      while (i < tokens.length) {
-        final tok = tokens[i].trim();
-        if (tok.isEmpty) { i++; continue; }
-        if (tok == 'M' || tok == 'L') {
-          final x = double.parse(tokens[++i]);
-          final y = double.parse(tokens[++i]);
-          cur = Path()..moveTo(x, y);
-          lastX = x; lastY = y;
-          out.add(cur);
-        } else if (tok == 'm' || tok == 'l') {
-          final x = lastX + double.parse(tokens[++i]);
-          final y = lastY + double.parse(tokens[++i]);
-          cur ??= Path();
-          cur.lineTo(x, y);
-          lastX = x; lastY = y;
-        } else if (tok == 'C' || tok == 'c') {
-          final x1 = double.parse(tokens[++i]);
-          final y1 = double.parse(tokens[++i]);
-          final x2 = double.parse(tokens[++i]);
-          final y2 = double.parse(tokens[++i]);
-          final x = double.parse(tokens[++i]);
-          final y = double.parse(tokens[++i]);
-          if (tok == 'c') {
-            cur!.cubicTo(
-              lastX + x1, lastY + y1,
-              lastX + x2, lastY + y2,
-              lastX + x, lastY + y,
-            );
-          } else {
-            cur!.cubicTo(x1, y1, x2, y2, x, y);
-          }
-          lastX = (tok == 'c') ? lastX + x : x;
-          lastY = (tok == 'c') ? lastY + y : y;
-        } else if (tok == 'Z' || tok == 'z') {
-          cur?.close();
-        } else {
-          // 数字：作为隐式 L (lineTo) — 简化处理
-          final n = double.parse(tok);
-          if (cur == null) break;
-          cur.lineTo(n, lastY);
-          lastX = n;
-        }
-        i++;
-      }
-      return out.where((p) => p != null).toList();
-    } catch (_) {
-      return null;
-    }
+  /// 24x24 viewBox：圆角矩形 + 左下小尾巴
+  Path _buildBubblePath() {
+    final p = Path();
+    // M21 15  : 起点右上偏左 (21, 15)
+    p.moveTo(21, 15);
+    // a2 2 0 0 1-2 2 : 弧到 (19, 17) 圆角
+    p.arcToPoint(const Offset(19, 17), radius: const Radius.circular(2), clockwise: true);
+    // H7 : 水平到 (7, 17)
+    p.lineTo(7, 17);
+    // l-4 4 : 相对位移 (-4, 4) → 画左下小尾巴到 (3, 21)
+    p.lineTo(3, 21);
+    // V5 : 垂直回到 (3, 5)
+    p.lineTo(3, 5);
+    // a2 2 0 0 1 2-2 : 弧到 (5, 3) 圆角
+    p.arcToPoint(const Offset(5, 3), radius: const Radius.circular(2), clockwise: true);
+    // h14 : 水平到 (19, 3)
+    p.lineTo(19, 3);
+    // a2 2 0 0 1 2 2 : 弧到 (21, 5) 圆角
+    p.arcToPoint(const Offset(21, 5), radius: const Radius.circular(2), clockwise: true);
+    // z : 闭合（回到 (21, 15)）
+    p.close();
+    return p;
   }
 
   @override
-  bool shouldRepaint(covariant _SvgIconPainter oldDelegate) =>
-      oldDelegate.svgPath != svgPath;
+  bool shouldRepaint(covariant _ChatBubbleIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
