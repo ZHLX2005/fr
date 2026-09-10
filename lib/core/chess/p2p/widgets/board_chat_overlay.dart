@@ -366,15 +366,17 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
               // （if 条件让 _Composer 卸载/重建），故每次打开都播一次入场动画
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 180),
-              curve: const Cubic(0.2, 0.9, 0.3, 1.2),
+              // 不用 Cubic y>1 过冲：Opacity 要求 [0,1]，过冲会 assert / 闪层
+              curve: Curves.easeOutCubic,
               builder: (ctx, t, child) {
+                final clamped = t.clamp(0.0, 1.0);
                 return Opacity(
-                  opacity: t,
+                  opacity: clamped,
                   child: Transform.translate(
                     // 从右侧 +8 滑入
-                    offset: Offset(8 * (1 - t), 0),
+                    offset: Offset(8 * (1 - clamped), 0),
                     child: Transform.scale(
-                      scale: 0.96 + 0.04 * t,
+                      scale: 0.96 + 0.04 * clamped,
                       alignment: Alignment.topRight,
                       child: child,
                     ),
@@ -460,7 +462,7 @@ class _CardStack extends StatelessWidget {
   }
 }
 
-/// 单张卡片：entry 用 cubic-bezier(.2,.9,.3,1.4) + -10→+2→0deg 旋转；dismiss 用 0→+8deg + scale 1→0.5
+/// 单张卡片：entry 用 TweenSequence 三段 bounce（scale/rot）；dismiss 用 easeIn
 class _ChatCard extends StatefulWidget {
   final _CardData card;
   final bool isMe;
@@ -508,16 +510,35 @@ class _ChatCardState extends State<_ChatCard> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    // bouncy 3-stop entry：60% 时 bouncy peak、40% 收尾
-    const bouncy = Cubic(0.2, 0.9, 0.3, 1.4);
+    // Bounce 已由 TweenSequence 关键（0.3→1.1→1.0）。禁止再套
+    // Cubic(..., y>1) 过冲曲线：CurvedAnimation 会产出 t>1，TweenSequence
+    // 断言失败，debug 下连闪灰色错误蒙层（发表情立刻能复现）。
     _entryScale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0.3, end: 1.1), weight: 60),
-      TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0), weight: 40),
-    ]).animate(CurvedAnimation(parent: _entryCtrl, curve: bouncy));
-    _entryOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(_entryCtrl);
+      TweenSequenceItem(
+        tween: Tween(begin: 0.3, end: 1.1)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 60,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.1, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 40,
+      ),
+    ]).animate(_entryCtrl);
+    _entryOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOut),
+    );
     _entryRot = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: -10.0, end: 2.0), weight: 60),
-      TweenSequenceItem(tween: Tween(begin: 2.0, end: 0.0), weight: 40),
+      TweenSequenceItem(
+        tween: Tween(begin: -10.0, end: 2.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 60,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 2.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 40,
+      ),
     ]).animate(_entryCtrl);
     _entryCtrl.forward();
 
@@ -622,7 +643,8 @@ class _ChatCardState extends State<_ChatCard> with TickerProviderStateMixin {
         animation: Listenable.merge([_entryCtrl, _dismissCtrl]),
         builder: (ctx, child) {
           return Opacity(
-            opacity: _entryOpacity.value * _dismissOpacity.value,
+            opacity: (_entryOpacity.value * _dismissOpacity.value)
+                .clamp(0.0, 1.0),
             child: Transform.rotate(
               angle: (_entryRot.value + _dismissRot.value) * 3.1415926 / 180,
               child: Transform.scale(
