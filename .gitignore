@@ -74,3 +74,7 @@ PROJECT_INDEX.md
 
 test
 .tool
+
+# 本地临时目录（截图 / MCP 调试产物 / null 输出等）
+.tmp/
+nul
