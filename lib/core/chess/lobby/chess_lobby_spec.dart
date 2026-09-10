@@ -2,28 +2,22 @@
 //
 // chess 的 GameLobbySpec + GameLobbySlots 实例。
 //
-// 用 GameLobbyPage 替代原 ChessLobbyPage，行为零变化：
-//   · 双入口（创建/加入）
-//   · snapshot 门控 onStarted
-//   · 建房配置页（host_color/first_mover）
-//   · 残局 chip（formExtras 插槽注入）
+// 入口流（v7）：
+//   · smartMatch 单入口「进入对局」→ tryJoinOrCreate（先到 = 房主）
+//   · 房间规则（host_color / first_mover / 残局）在准备阶段由房主配置
+//     （ChessRoomPage lobby/ready + Lua SET_RULES），不在进房前配
 //   · ChessIdentity（登录 uid 优先）身份通道
-//   · AppBar 残局库 + 换肤按钮（actionsBuilder 插槽）
+//   · AppBar 换肤按钮（actionsBuilder 插槽）；残局库改到准备卡内
 //
 // chess 的脚本经 LuaScriptAssembler 组装（lifecycle + actions + emoji），
 // 因此为 final（非 const）—— assembleLuaScript 在 runtime 做字符串拼接。
-// Lobby 侧标记 `const GameLobbySpec(..., script: kChessScript)` 的其余游戏
-// 仍可保持 const；chess 此处以 final 承载等效语义（单例，build 时一次性赋值）。
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_chess_colors.dart';
 import '../../game_kit/lobby/game_lobby_identity.dart';
 import '../../game_kit/lobby/game_lobby_slots.dart';
 import '../../game_kit/lobby/game_lobby_spec.dart';
-import '../endgame/chess_endgame.dart';
 import '../p2p/chess_identity.dart';
-import '../p2p/chess_room_config_page.dart';
 import '../p2p/script/chess_script.dart';
 
 /// chess 专属 IdentityResolver —— 包装 ChessIdentity.resolve()（登录 uid 优先）。
@@ -43,111 +37,26 @@ final GameLobbySpec kChessLobbySpec = GameLobbySpec(
   relayUrl: 'http://47.110.80.47:8988',
   script: kChessScript,
   maxPlayers: 2,
-  flow: LobbyFlowType.dualEntry,
+  flow: LobbyFlowType.smartMatch,
   identityResolver: _ChessIdentityResolver(),
-  copy: LobbyCopy(
-    primaryBtnText: '创建房间',
-    secondaryBtnText: '加入房间',
+  copy: const LobbyCopy(
+    primaryBtnText: '进入对局',
+    secondaryBtnText: null,
     hintIcon: '◐',
     hintPosition: HintPosition.bottom,
-    hintText: '与朋友约定同一房间号："创建房间"是房主，"加入房间"是后到者。',
+    hintText: '与朋友约定同一房间号：谁先进入谁是房主，后到者为对手。规则由房主在准备阶段配置。',
     aliasFieldHint: '如：小白',
     codeFieldHint: '4–6 位大写字母数字',
   ),
 );
 
-/// 构造 chess 用的 GameLobbySlots.
+/// 构造 chess 用的 GameLobbySlots。
 ///
-/// 两个外部依赖通过闭包注入：
-///   · [initialEndgame] —— 残局快照（建房时注入 initial_fen）
-///   · [onClearEndgame] —— 残局 chip 的 X 按钮回调
-///   · [actionsBuilder] —— AppBar actions（残局库 / 换肤）
+/// 规则配置已移入 [ChessRoomPage] 准备阶段；此处仅挂 AppBar actions（换肤等）。
 GameLobbySlots buildChessLobbySlots({
-  required ChessEndgameSnapshot? initialEndgame,
-  required VoidCallback onClearEndgame,
   required LobbyActionsBuilder actionsBuilder,
 }) {
   return GameLobbySlots(
-    // 创建房间前置配置页（chess: 执子角色 + first_mover）
-    configPageBuilder: (context, {required data}) async {
-      final cfg = await Navigator.of(context).push<ChessRoomConfig>(
-        MaterialPageRoute(
-          builder: (ctx) => ChessRoomConfigPage(
-            alias: data.alias,
-            code: data.code,
-            endgame: initialEndgame,
-            relayUrl: kChessLobbySpec.relayUrl,
-            onSubmit: (cfg) => Navigator.of(ctx).pop(cfg),
-          ),
-        ),
-      );
-      if (cfg == null) return null;
-      final params = <String, dynamic>{
-        'host_color': cfg.hostColor,
-      };
-      if (cfg.guestColor != null) {
-        params['guest_color'] = cfg.guestColor;
-      }
-      params['first_mover'] = cfg.firstMover;
-      return params;
-    },
-    // 残局 FEN 注入（formExtras 渲染 chip 时也在用同一个 initialEndgame）
-    initialParamsBuilder: (data, cfg) {
-      if (initialEndgame == null) return const {};
-      return {'initial_fen': initialEndgame.fen};
-    },
-    // 残局 chip（房间号字段之后插入）
-    formExtras: (context) {
-      if (initialEndgame == null) return const [];
-      return [_EndgameChip(label: initialEndgame.label ?? '快照', onClear: onClearEndgame)];
-    },
-    // AppBar 残局库 + 换肤
     actionsBuilder: actionsBuilder,
   );
-}
-
-/// 残局 chip —— 显示当前选中的残局名 + X 清除按钮.
-///
-/// 颜色走 context.chessColors.lightSquare（chess 入口块色，入口页唯一保留的棋盘色通道）。
-class _EndgameChip extends StatelessWidget {
-  final String label;
-  final VoidCallback onClear;
-
-  const _EndgameChip({required this.label, required this.onClear});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = context.chessColors;
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: colors.lightSquare.withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.extension_outlined, size: 18, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '残局：$label',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            GestureDetector(
-              onTap: onClear,
-              child: Icon(Icons.close, size: 18, color: theme.colorScheme.primary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

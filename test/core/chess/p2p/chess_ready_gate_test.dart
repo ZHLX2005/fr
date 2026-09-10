@@ -233,7 +233,11 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      await tester.tap(find.textContaining('开始游戏'));
+      // 准备卡含规则面板后更高 → 滚动到可见再点。
+      final dealBtn = find.textContaining('开始游戏');
+      await tester.ensureVisible(dealBtn);
+      await tester.pump();
+      await tester.tap(dealBtn);
       await tester.pump();
 
       expect(handle.actionCalls, hasLength(1));

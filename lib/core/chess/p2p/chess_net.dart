@@ -112,6 +112,25 @@ class ChessRoom {
   Future<void> reset() =>
       handle.applyAction(type: 'RESET', params: const {});
 
+  /// 准备阶段改规则（host only，lobby/ready → 清 ready 回 lobby）。
+  ///
+  /// 字段均可选；[clearEndgame] 为 true 时恢复标准开局。
+  Future<void> setRules({
+    String? hostColor,
+    String? firstMover,
+    String? initialFen,
+    String? endgameLabel,
+    bool clearEndgame = false,
+  }) {
+    final params = <String, dynamic>{};
+    if (hostColor != null) params['host_color'] = hostColor;
+    if (firstMover != null) params['first_mover'] = firstMover;
+    if (initialFen != null) params['initial_fen'] = initialFen;
+    if (endgameLabel != null) params['endgame_label'] = endgameLabel;
+    if (clearEndgame) params['clear_endgame'] = true;
+    return handle.applyAction(type: 'SET_RULES', params: params);
+  }
+
   // ── Snapshot 便捷读取（静态，便于 UI 无实例调用）──
 
   static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
@@ -142,9 +161,24 @@ class ChessRoom {
   /// 当前棋盘 FEN（服务端权威）。
   static String? fen(Snapshot? s) => s?.context['fen']?.toString();
 
-  /// 残局初始 FEN（建房 initial_params 注入；null = 标准开局房间）。
+  /// 残局初始 FEN（建房 initial_params / SET_RULES 注入）。
+  /// 标准开局也有 starting fen —— 用 [isEndgameRoom] 区分。
   static String? initialFen(Snapshot? s) {
     final v = s?.context['initial_fen']?.toString();
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  /// 是否残局房（initial_fen 存在且不是标准起点）。
+  static bool isEndgameRoom(Snapshot? s) {
+    final fen = initialFen(s);
+    if (fen == null || fen.isEmpty) return false;
+    return fen !=
+        'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  }
+
+  /// 残局显示名（SET_RULES 写入；标准开局为 null）。
+  static String? endgameLabel(Snapshot? s) {
+    final v = s?.context['endgame_label']?.toString();
     return (v == null || v.isEmpty) ? null : v;
   }
 

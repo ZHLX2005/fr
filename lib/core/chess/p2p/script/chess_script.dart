@@ -40,6 +40,7 @@
 //
 //   ACK         = "any"               双方都可在 lobby 阶段点准备
 //   DEAL        = "host"              双方 ACK 后由 host 显式开局
+//   SET_RULES   = "host"              准备阶段改执子色/残局（清 ready）
 //   MOVE        = "current_player"    轮到谁走谁走
 //   RESIGN      = "any"               任何一方任何时候都能投
 //   DRAW_*      = "any"               议和流程任意一方发起

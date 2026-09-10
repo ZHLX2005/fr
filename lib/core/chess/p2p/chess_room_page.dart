@@ -37,6 +37,7 @@ import '../engine/chess_engine.dart';
 import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
 import '../endgame/chess_endgame.dart';
+import '../endgame/chess_endgame_list_page.dart';
 import '../endgame/chess_endgame_store.dart';
 import '../../../api/goframe/goframe_config.dart';
 import '../../game_kit/chat/chat_event.dart';
@@ -54,6 +55,7 @@ import '../widgets/chess_connection_status.dart';
 import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 import 'chess_net.dart';
+import 'chess_room_config_page.dart';
 import 'widgets/board_chat_overlay.dart';
 import 'widgets/player_strip.dart';
 
@@ -199,6 +201,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// lobby/ready 阶段房主点"开始游戏"发送锁（防双击）。
   bool _dealLock = false;
+
+  /// lobby/ready 阶段房主改规则发送锁。
+  bool _setRulesLock = false;
 
   // ─────────────────────────── 回放（复盘）状态 ───────────────────────────
   //
@@ -515,16 +520,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
         : (ChessRoom.hostColor(_snapshot) == 'w' ? '执黑（先手）' : '执白（先手）');
   }
 
-  /// 残局标题（lobby 卡片 chip）：v5 不再"强翻转"残局 FEN，
-  /// 所有残局原貌保留，不再有"· 镜像"标记。
-  String? get _endgameTitle {
-    final e = widget.initialEndgame;
-    if (e != null) return '残局：${e.label ?? '快照'}';
-    // 换设备进房（widget 无残局信息）→ 服务端 initial_fen 存在 = 残局房。
-    if (ChessRoom.initialFen(_snapshot) != null) return '残局对局';
-    return null;
-  }
-
   void _onCloseEvent(WSCloseEvent event) {
     if (!mounted) return;
     // WS close code 0 = 暂时断开（RoomHandle 自动 reconnect 中），其余
@@ -833,6 +828,91 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       if (mounted) {
         setState(() => _dealLock = false);
       }
+    }
+  }
+
+  /// 房主改规则（SET_RULES）—— 清 ready 回 lobby。
+  Future<void> _applyRules(ChessRoomConfig cfg) async {
+    if (_setRulesLock || !_isHost) return;
+    final snap = _snapshot;
+    final sameColor = cfg.hostColor != 'random' &&
+        cfg.hostColor == ChessRoom.hostColor(snap);
+    final sameFirst = cfg.firstMover == ChessRoom.initialSide(snap);
+    if (sameColor && sameFirst) return;
+
+    setState(() {
+      _setRulesLock = true;
+      _ackedLocally = false;
+    });
+    try {
+      await (_room ?? ChessRoom(widget.handle)).setRules(
+        hostColor: cfg.hostColor,
+        firstMover: ChessRoom.isEndgameRoom(snap) ? cfg.firstMover : null,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('改规则失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _setRulesLock = false);
+    }
+  }
+
+  /// 房主选残局 → SET_RULES(initial_fen)。
+  Future<void> _pickEndgame() async {
+    if (!_isHost || _setRulesLock) return;
+    final skin = widget.localSkin ?? ChessSkinBundle.byId(widget.skinId);
+    final snap = await Navigator.of(context).push<ChessEndgameSnapshot>(
+      MaterialPageRoute(
+        builder: (_) => ChessEndgameListPage(skin: skin),
+      ),
+    );
+    if (!mounted || snap == null) return;
+    setState(() {
+      _setRulesLock = true;
+      _ackedLocally = false;
+    });
+    try {
+      // FEN 第 2 字段推默认先手；房主可再在面板改 first_mover。
+      final side = snap.fen.split(RegExp(r'\s+')).length > 1 &&
+              snap.fen.split(RegExp(r'\s+'))[1] == 'b'
+          ? 'b'
+          : 'w';
+      await (_room ?? ChessRoom(widget.handle)).setRules(
+        initialFen: snap.fen,
+        firstMover: side,
+        endgameLabel: snap.label ?? '快照',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('设置残局失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _setRulesLock = false);
+    }
+  }
+
+  /// 房主清除残局 → 标准开局。
+  Future<void> _clearEndgameRules() async {
+    if (!_isHost || _setRulesLock) return;
+    setState(() {
+      _setRulesLock = true;
+      _ackedLocally = false;
+    });
+    try {
+      await (_room ?? ChessRoom(widget.handle)).setRules(clearEndgame: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('清除残局失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _setRulesLock = false);
     }
   }
 
@@ -1513,51 +1593,21 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                       ),
                     ),
                   ),
-                  // 残局房间：残局名 chip（建房 initial_fen 注入时显示）
-                  if (_endgameTitle != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.extension_outlined,
-                            size: 14,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              _endgameTitle!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color:
-                                    Theme.of(context).colorScheme.primary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  const SizedBox(height: 22),
+
+                  // 房间规则：host 可改；guest 只读。改规则会清 ready。
+                  ChessRoomRulesPanel(
+                    editable: _isHost && !_setRulesLock,
+                    hostColor: ChessRoom.hostColor(snap),
+                    firstMover: ChessRoom.initialSide(snap),
+                    isEndgame: ChessRoom.isEndgameRoom(snap) ||
+                        widget.initialEndgame != null,
+                    endgameLabel: ChessRoom.endgameLabel(snap) ??
+                        widget.initialEndgame?.label,
+                    onChanged: _isHost ? _applyRules : null,
+                    onPickEndgame: _isHost ? _pickEndgame : null,
+                    onClearEndgame: _isHost ? _clearEndgameRules : null,
+                  ),
                   const SizedBox(height: 22),
 
                   // 玩家头像列表

@@ -66,6 +66,62 @@ on_action_START = function(c, p)
   return on_action_DEAL(c, p)
 end
 
+-- 准备阶段改规则（SET_RULES）—— 仅 host，仅 lobby/ready。
+-- 改完清空 ready、强制回 lobby（双方需重新准备）。
+-- 字段均可选：host_color / first_mover / initial_fen / clear_endgame / endgame_label。
+on_action_SET_RULES = function(c, p)
+  if not role_check(c, p, "SET_RULES") then return c end
+  if state ~= "lobby" and state ~= "ready" then return c end
+
+  if type(p.host_color) == "string" then
+    if p.host_color == "w" or p.host_color == "b" then
+      c.host_color = p.host_color
+    elseif p.host_color == "random" then
+      c.host_color = (math.random(2) == 1) and "w" or "b"
+    end
+  end
+
+  local starting =
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+  if p.clear_endgame == true then
+    c.initial_fen = starting
+    c.initial_side = "w"
+    c.endgame_label = nil
+  elseif type(p.initial_fen) == "string" and is_valid_fen_structure(p.initial_fen) then
+    c.initial_fen = p.initial_fen
+    if type(p.first_mover) == "string" and (p.first_mover == "w" or p.first_mover == "b") then
+      c.initial_side = p.first_mover
+    else
+      local fields = {}
+      for f in c.initial_fen:gmatch("%S+") do table.insert(fields, f) end
+      c.initial_side = (fields[2] == "b") and "b" or "w"
+    end
+    if type(p.endgame_label) == "string" and p.endgame_label ~= "" then
+      c.endgame_label = p.endgame_label
+    else
+      c.endgame_label = "残局"
+    end
+  elseif type(p.first_mover) == "string" and (p.first_mover == "w" or p.first_mover == "b") then
+    -- 仅改 first_mover（残局已存在时）
+    c.initial_side = p.first_mover
+  end
+
+  if type(p.endgame_label) == "string" and p.clear_endgame ~= true
+      and type(p.initial_fen) ~= "string" then
+    -- 允许单独刷新显示名
+    if p.endgame_label ~= "" then
+      c.endgame_label = p.endgame_label
+    end
+  end
+
+  c.fen = c.initial_fen or starting
+  c.moves = {}
+  c.ready = {}
+  state = "lobby"
+  return c
+end
+
 -- 走子（MOVE）—— 仅当前走子方可发；结构校验 + FEN sideToMove 反证；不携带 status
 on_action_MOVE = function(c, p)
   if state ~= "playing" then
@@ -309,6 +365,7 @@ return {
     functions = {
       "on_init", "on_join", "on_leave",
       "on_action_ACK", "on_action_DEAL", "on_action_START",
+      "on_action_SET_RULES",
       "on_action_MOVE", "on_action_CLAIM_END",
       "on_action_RESIGN", "on_action_DRAW_OFFER", "on_action_DRAW_ACCEPT",
       "on_action_DRAW_DECLINE", "on_action_UNDO_OFFER",
@@ -321,6 +378,7 @@ return {
   on_action_ACK = on_action_ACK,
   on_action_DEAL = on_action_DEAL,
   on_action_START = on_action_START,
+  on_action_SET_RULES = on_action_SET_RULES,
   on_action_MOVE = on_action_MOVE,
   on_action_CLAIM_END = on_action_CLAIM_END,
   on_action_RESIGN = on_action_RESIGN,

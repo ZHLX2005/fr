@@ -21,6 +21,7 @@ void main() {
   _undoGuards();
   _v5HostColorGuards();
   _v6FirstMoverGuards();
+  _v7SetRulesGuards();
   group('kChessScript on_leave 静态守卫：断线不销毁房间', () {
     test('playing/ready 分支存在 disconnect 判因，且先于 host 销毁分支', () {
       final onLeave = _onLeaveBlock();
@@ -319,6 +320,28 @@ void _v6FirstMoverGuards() {
       // p.first_mover 缺省时仍走 FEN 推导路径
       expect(onInit, contains('fields[2] == "b"'),
           reason: 'first_mover 缺省兑底路径：FEN 第 2 字段推导');
+    });
+  });
+}
+
+void _v7SetRulesGuards() {
+  group('kChessScript v7 SET_RULES 准备阶段改规则 静态守卫', () {
+    test('on_action_SET_RULES 存在且仅 lobby/ready', () {
+      final block = _functionBlock('on_action_SET_RULES = function');
+      expect(block, contains('role_check(c, p, "SET_RULES")'));
+      expect(block, contains('state ~= "lobby" and state ~= "ready"'));
+      expect(block, contains('c.ready = {}'));
+      expect(block, contains('state = "lobby"'));
+    });
+
+    test('on_init action_permissions 含 SET_RULES=host', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(onInit, contains('SET_RULES  = "host"'));
+    });
+
+    test('assembler 导出表含 on_action_SET_RULES', () {
+      expect(kChessScript, contains('on_action_SET_RULES'));
+      expect(kChessScript, contains('"on_action_SET_RULES"'));
     });
   });
 }

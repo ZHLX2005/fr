@@ -212,9 +212,13 @@ on_init = function(c, p)
   c.draw_offers = {}
   c.undo_offers = {}
   c.status = "playing"
+  -- endgame_label：残局显示名（SET_RULES 写入；标准开局为 nil）
+  c.endgame_label = nil
+
   c.action_permissions = {
     ACK        = "any",
     DEAL       = "host",
+    SET_RULES  = "host",
     MOVE       = "current_player",
     RESIGN     = "any",
     DRAW_OFFER = "any",

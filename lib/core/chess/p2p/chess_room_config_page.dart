@@ -1,47 +1,29 @@
 // lib/core/chess/p2p/chess_room_config_page.dart
 //
-// 国际象棋建房配置页（v6）—— 创建房间前的角色与残局首手方显式配置。
+// 国际象棋房间规则面板（v7）—— 准备阶段由房主配置执子色 / 残局先手。
 //
-// ## 流程
+// ## 流程（v7）
 //
-// lobby page（ChessLobbyPage）输入昵称 + 房间号 →
-// 用户点 "创建房间" → push 本页 →
-// 用户显式选择 host/guest 配色（执白/执黑/随机）与残局 first_moker（黑先/白先）→
-// 点 "创建房间" → onSubmit(ChessRoomConfig) → Navigator.pop(cfg) →
-// lobby page 拿到 cfg 后调 tryJoinOrCreate(initialParams={host_color, first_mover, ...})
+// 单入口「进入对局」→ tryJoinOrCreate（先到 = 房主）→ ChessRoomPage 准备卡
+// → 房主在本面板改规则 → SET_RULES → 双方重新准备 → DEAL 开局。
 //
-// ## 与 chess_lobby_page 的分工
-//
-// · lobby page: 输入昵称 + 房间号，提供 "创建房间" / "加入房间" 两个按钮
-// · 本页: 只承担"我是房主"的子流程（角色 + first_moker）；guest 路径根本不进本页
-// · chess_room_page: 拿到 snapshot 后渲染对局 UI（lobby card / playing board / ended card）
-//
-// ## ChessRoomConfig 字段语义
-//
-//   hostColor  = 'w' / 'b' / 'random'
-//   guestColor = 'w' / 'b' / null（random 时 null：服务端掷筛后写 c.host_color，
-//                                      guest 与 host 执子色相反）
-//   firstMover = 'w' / 'b'
-//                标准开局永远 'w'（白方先走是棋规）；残局模式用户在 UI 显式选
-//
-// 服务端契约：ChessRoomConfig 三字段都映射到 initialParams（host_color, guest_color, first_mover）。
-// 服务端 Lua 读取 host_color → c.host_color；first_mover（v6 新增）→ c.initial_side 覆盖。
+// 旧版「创建房间前 push 全屏配置页」已废弃；本文件保留 ChessRoomConfig
+// 数据类 + 可嵌入的 ChessRoomRulesPanel。
 
 import 'package:flutter/material.dart';
 
-import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../endgame/chess_endgame.dart';
 
-/// 建房配置结果 —— 由 ChessRoomConfigPage 提交时通过 onSubmit / Navigator.pop 返回。
+/// 房间规则结果 —— 映射到 SET_RULES / 历史 initialParams。
 @immutable
 class ChessRoomConfig {
   /// 'w' / 'b' / 'random'。'random' 时服务端掷筛后写 c.host_color。
   final String hostColor;
 
-  /// 'w' / 'b' / null。null 当且仅当 hostColor == 'random'（服务端掷筛决定）。
+  /// 'w' / 'b' / null。null 当且仅当 hostColor == 'random'。
   final String? guestColor;
 
-  /// 'w' / 'b'。标准开局 = 'w'（白方先走，棋规）；残局 = UI 显式选择。
+  /// 'w' / 'b'。标准开局 = 'w'；残局 = UI 显式选择。
   final String firstMover;
 
   const ChessRoomConfig({
@@ -55,294 +37,240 @@ class ChessRoomConfig {
       'ChessRoomConfig(host: $hostColor, guest: $guestColor, first: $firstMover)';
 }
 
-/// 建房配置页 —— 单组二选一 chip 选 host/guest 配色，残局模式额外选 first_moker。
-class ChessRoomConfigPage extends StatefulWidget {
-  const ChessRoomConfigPage({
+/// host/guest 配色选择。
+enum ChessColorChoice { hostWhite, hostBlack, random }
+
+/// 残局 first_mover 二选一。
+enum ChessFirstMoverChoice { blackFirst, whiteFirst }
+
+/// 准备阶段规则面板 —— 可嵌入 lobby/ready 卡片。
+///
+/// [editable]=true（房主）时点选即 [onChanged]；guest 只读展示当前规则。
+class ChessRoomRulesPanel extends StatelessWidget {
+  const ChessRoomRulesPanel({
     super.key,
-    required this.alias,
-    required this.code,
-    required this.endgame,
-    required this.relayUrl,
-    required this.onSubmit,
-    this.transportBuilder,
+    required this.editable,
+    required this.hostColor,
+    required this.firstMover,
+    required this.isEndgame,
+    this.endgameLabel,
+    this.onChanged,
+    this.onPickEndgame,
+    this.onClearEndgame,
   });
 
-  /// 昵称（lobby 已填好）。
-  final String alias;
+  /// 房主可改；guest 只读。
+  final bool editable;
 
-  /// 房间号（4-6 位大写字母数字）。
-  final String code;
+  /// 当前服务端权威 host 执子色（'w' / 'b'；random 已在服务端解析）。
+  final String hostColor;
 
-  /// 残局快照（非 null → 显示 first_moker 二选一 chip）。
-  final ChessEndgameSnapshot? endgame;
+  /// 当前 first_mover（'w' / 'b'）。
+  final String firstMover;
 
-  /// Relay URL（透传给 transport，不在 config 页内联）。
-  final String relayUrl;
+  /// 是否残局房。
+  final bool isEndgame;
 
-  /// 提交回调：用户在 config 页按"创建房间" → onSubmit(ChessRoomConfig) →
-  /// 上层（lobby page）拿到 cfg 后调 tryJoinOrCreate。
-  final void Function(ChessRoomConfig onSubmit) onSubmit;
+  /// 残局显示名。
+  final String? endgameLabel;
 
-  /// 测试注入：自定义 transport 构造。
-  final RelayV3Transport Function(String alias, String deviceId)?
-      transportBuilder;
+  /// 房主改执子色 / first_mover 时回调。
+  final ValueChanged<ChessRoomConfig>? onChanged;
 
-  @override
-  State<ChessRoomConfigPage> createState() => _ChessRoomConfigPageState();
-}
+  /// 房主打开残局库。
+  final VoidCallback? onPickEndgame;
 
-/// host/guest 配色选择。
-enum _ColorChoice { hostWhite, hostBlack, random }
+  /// 房主清除残局 → 标准开局。
+  final VoidCallback? onClearEndgame;
 
-/// 残局 first_moker 二选一（标准开局棋规白先，不暴露此 enum）。
-enum _FirstMoverChoice { blackFirst, whiteFirst }
+  ChessColorChoice get _colorChoice {
+    if (hostColor == 'b') return ChessColorChoice.hostBlack;
+    return ChessColorChoice.hostWhite;
+  }
 
-class _ChessRoomConfigPageState extends State<ChessRoomConfigPage> {
-  // host/guest 配色：单组二选一 chip，互斥。
-  _ColorChoice _colorChoice = _ColorChoice.hostWhite;
+  ChessFirstMoverChoice get _firstChoice => firstMover == 'b'
+      ? ChessFirstMoverChoice.blackFirst
+      : ChessFirstMoverChoice.whiteFirst;
 
-  // 残局 first_moker：默认黑先（多数 puzzles 是黑先和棋类；用户在 UI 可改白先）。
-  _FirstMoverChoice _firstMover = _FirstMoverChoice.blackFirst;
-
-  ChessRoomConfig _buildConfig() {
-    final hostGuest = switch (_colorChoice) {
-      _ColorChoice.hostWhite => ('w', 'b'),
-      _ColorChoice.hostBlack => ('b', 'w'),
-      _ColorChoice.random => ('random', null as String?),
+  ChessRoomConfig _configFor(ChessColorChoice color, ChessFirstMoverChoice first) {
+    final hostGuest = switch (color) {
+      ChessColorChoice.hostWhite => ('w', 'b'),
+      ChessColorChoice.hostBlack => ('b', 'w'),
+      ChessColorChoice.random => ('random', null as String?),
     };
-    final firstMover = widget.endgame != null
-        ? (_firstMover == _FirstMoverChoice.blackFirst ? 'b' : 'w')
-        : 'w'; // 标准开局棋规：白方永远先走
     return ChessRoomConfig(
       hostColor: hostGuest.$1,
       guestColor: hostGuest.$2,
-      firstMover: firstMover,
+      firstMover: isEndgame
+          ? (first == ChessFirstMoverChoice.blackFirst ? 'b' : 'w')
+          : 'w',
     );
+  }
+
+  void _emitColor(ChessColorChoice color) {
+    if (!editable || onChanged == null) return;
+    onChanged!(_configFor(color, _firstChoice));
+  }
+
+  void _emitFirst(ChessFirstMoverChoice first) {
+    if (!editable || onChanged == null) return;
+    onChanged!(_configFor(_colorChoice, first));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isEndgame = widget.endgame != null;
-    final endgame = widget.endgame;
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '房间 ${widget.code}',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            Text(
-              '创建者：${widget.alias}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 1. 房间信息条（残局时显示）
-                  if (isEndgame) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary
-                            .withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: theme.colorScheme.primary
-                              .withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.extension_outlined,
-                            size: 18,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '残局：${endgame!.label ?? '快照'}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: theme.colorScheme.primary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // 2. host/guest 配色
-                  Text(
-                    '执子角色',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Column(
-                    children: [
-                      _colorRow(
-                        value: _ColorChoice.hostWhite,
-                        icon: Icons.circle_outlined,
-                        label: '我执白，他执黑',
-                        sublabel: '（我先手）',
-                      ),
-                      const SizedBox(height: 6),
-                      _colorRow(
-                        value: _ColorChoice.hostBlack,
-                        icon: Icons.lens_outlined,
-                        label: '我执黑，他执白',
-                        sublabel: '（我后手）',
-                      ),
-                      const SizedBox(height: 6),
-                      _colorRow(
-                        value: _ColorChoice.random,
-                        icon: Icons.shuffle,
-                        label: '随机掷筛',
-                        sublabel: '（建房瞬间决定）',
-                      ),
-                    ],
-                  ),
-
-                  // 3. 残局模式额外：first_moker 二选一
-                  if (isEndgame) ...[
-                    const SizedBox(height: 20),
-                    Text(
-                      '下一步棋（first_mover）',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _firstMoverButton(
-                            value: _FirstMoverChoice.blackFirst,
-                            label: '黑先',
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: _firstMoverButton(
-                            value: _FirstMoverChoice.whiteFirst,
-                            label: '白先',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  // 4. 规则提示
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 1),
-                          child: Text(
-                            '◐',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _hintText(),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.75),
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // 5. 创建按钮
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _submit,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      '创建房间',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          editable ? '房间规则（仅房主可改）' : '房间规则',
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1,
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        if (isEndgame) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.extension_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '残局：${endgameLabel ?? '快照'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (editable && onClearEndgame != null)
+                  GestureDetector(
+                    onTap: onClearEndgame,
+                    child: Icon(
+                      Icons.close,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (editable) ...[
+          _colorRow(
+            context,
+            value: ChessColorChoice.hostWhite,
+            icon: Icons.circle_outlined,
+            label: '我执白，他执黑',
+            sublabel: isEndgame ? '' : '（我先手）',
+          ),
+          const SizedBox(height: 6),
+          _colorRow(
+            context,
+            value: ChessColorChoice.hostBlack,
+            icon: Icons.lens_outlined,
+            label: '我执黑，他执白',
+            sublabel: isEndgame ? '' : '（我后手）',
+          ),
+          const SizedBox(height: 6),
+          _colorRow(
+            context,
+            value: ChessColorChoice.random,
+            icon: Icons.shuffle,
+            label: '随机掷筛',
+            sublabel: '（立即决定）',
+            forceUnselected: true,
+          ),
+          if (isEndgame) ...[
+            const SizedBox(height: 12),
+            Text(
+              '下一步棋',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: _firstMoverButton(
+                    context,
+                    value: ChessFirstMoverChoice.blackFirst,
+                    label: '黑先',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _firstMoverButton(
+                    context,
+                    value: ChessFirstMoverChoice.whiteFirst,
+                    label: '白先',
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (onPickEndgame != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onPickEndgame,
+              icon: const Icon(Icons.extension_outlined, size: 18),
+              label: Text(isEndgame ? '更换残局' : '选择残局'),
+            ),
+          ],
+        ] else ...[
+          Text(
+            _guestSummary(),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
-  /// 单选 chip 行：host/guest 配色。
-  Widget _colorRow({
-    required _ColorChoice value,
+  String _guestSummary() {
+    final hostSide = hostColor == 'b' ? '黑' : '白';
+    final first = firstMover == 'b' ? '黑' : '白';
+    if (isEndgame) {
+      return '房主执$hostSide；残局「${endgameLabel ?? '快照'}」由$first方先走。';
+    }
+    return '房主执$hostSide；标准开局，白方先走。';
+  }
+
+  Widget _colorRow(
+    BuildContext context, {
+    required ChessColorChoice value,
     required IconData icon,
     required String label,
     required String sublabel,
+    bool forceUnselected = false,
   }) {
     final theme = Theme.of(context);
-    final selected = _colorChoice == value;
+    final selected = !forceUnselected && _colorChoice == value;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: () => setState(() => _colorChoice = value),
+      onTap: editable ? () => _emitColor(value) : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
@@ -383,14 +311,15 @@ class _ChessRoomConfigPageState extends State<ChessRoomConfigPage> {
                             : theme.colorScheme.onSurface,
                       ),
                     ),
-                    TextSpan(
-                      text: '  $sublabel',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.55),
+                    if (sublabel.isNotEmpty)
+                      TextSpan(
+                        text: '  $sublabel',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.55),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -407,15 +336,15 @@ class _ChessRoomConfigPageState extends State<ChessRoomConfigPage> {
     );
   }
 
-  /// first_moker 单选按钮：残局模式强制二选一。
-  Widget _firstMoverButton({
-    required _FirstMoverChoice value,
+  Widget _firstMoverButton(
+    BuildContext context, {
+    required ChessFirstMoverChoice value,
     required String label,
   }) {
     final theme = Theme.of(context);
-    final selected = _firstMover == value;
+    final selected = _firstChoice == value;
     return OutlinedButton(
-      onPressed: () => setState(() => _firstMover = value),
+      onPressed: editable ? () => _emitFirst(value) : null,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
         minimumSize: const Size(0, 44),
@@ -446,36 +375,124 @@ class _ChessRoomConfigPageState extends State<ChessRoomConfigPage> {
       ),
     );
   }
+}
 
-  /// 规则提示文案（动态）：根据 host/guest + first_mover。
-  String _hintText() {
-    final isEndgame = widget.endgame != null;
-    final firstMover = isEndgame
-        ? (_firstMover == _FirstMoverChoice.blackFirst ? '黑' : '白')
-        : '白'; // 标准开局棋规白先
-    switch (_colorChoice) {
-      case _ColorChoice.hostWhite:
-        if (isEndgame) {
-          return '你执白（${firstMover == '白' ? '先手' : '后手'}），对方执黑（${firstMover == '黑' ? '先手' : '后手'}）。'
-              '残局从$firstMover 方先走 —— 你选执白时若残局是黑先，对方（执黑）走第一步。';
-        }
-        return '你执白（先手），对方执黑（后手）。白方棋规先走。';
-      case _ColorChoice.hostBlack:
-        if (isEndgame) {
-          return '你执黑（${firstMover == '黑' ? '先手' : '后手'}），对方执白（${firstMover == '白' ? '先手' : '后手'}）。'
-              '残局从$firstMover 方先走 —— 你选执黑时若残局是白先，对方（执白）走第一步。';
-        }
-        return '你执黑（后手），对方执白（先手）。白方棋规先走。';
-      case _ColorChoice.random:
-        if (isEndgame) {
-          return '建房瞬间服务端掷筛决定你的执子颜色。'
-              '残局从$firstMover 方先走 —— 若掷筛后你执${firstMover == '黑' ? '黑' : '白'}，你走第一步。';
-        }
-        return '建房瞬间服务端掷筛决定你的执子颜色。白方棋规先走。';
-    }
+/// 兼容旧测试 / 全屏编辑入口 —— 内嵌 [ChessRoomRulesPanel] + 提交按钮。
+class ChessRoomConfigPage extends StatefulWidget {
+  const ChessRoomConfigPage({
+    super.key,
+    required this.alias,
+    required this.code,
+    required this.endgame,
+    required this.onSubmit,
+    this.relayUrl = '',
+  });
+
+  final String alias;
+  final String code;
+  final ChessEndgameSnapshot? endgame;
+  final void Function(ChessRoomConfig onSubmit) onSubmit;
+  final String relayUrl;
+
+  @override
+  State<ChessRoomConfigPage> createState() => _ChessRoomConfigPageState();
+}
+
+class _ChessRoomConfigPageState extends State<ChessRoomConfigPage> {
+  late String _hostColor;
+  late String _firstMover;
+
+  @override
+  void initState() {
+    super.initState();
+    _hostColor = 'w';
+    _firstMover = widget.endgame != null ? 'b' : 'w';
   }
 
-  void _submit() {
-    widget.onSubmit(_buildConfig());
+  ChessRoomConfig get _config {
+    final guest = _hostColor == 'random'
+        ? null
+        : (_hostColor == 'w' ? 'b' : 'w');
+    return ChessRoomConfig(
+      hostColor: _hostColor,
+      guestColor: guest,
+      firstMover: widget.endgame != null ? _firstMover : 'w',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '房间 ${widget.code}',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              '创建者：${widget.alias}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ChessRoomRulesPanel(
+                    editable: true,
+                    hostColor: _hostColor == 'random' ? 'w' : _hostColor,
+                    firstMover: _firstMover,
+                    isEndgame: widget.endgame != null,
+                    endgameLabel: widget.endgame?.label,
+                    onChanged: (cfg) {
+                      setState(() {
+                        _hostColor = cfg.hostColor;
+                        _firstMover = cfg.firstMover;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: () => widget.onSubmit(_config),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      '创建房间',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

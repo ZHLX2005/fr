@@ -15,10 +15,11 @@ import 'game_lobby_identity.dart';
 
 /// 入口流类型 —— 作为一等类型长期共存：
 //   · smartMatch：单按钮「进入对局」，tryJoinOrCreate 成功后立即回调 onStarted
-//                  （服务端 join 404 自动转 create），适合无建房配置的轻量游戏
+//                  （服务端 join 404 自动转 create），先到者 = 房主；
+//                  适合规则在准备阶段配置的游戏（chess v7）或无配置轻量游戏
 //   · dualEntry：双按钮「创建房间」「加入房间」，创建路径 push 可选配置页
 //                  再建房；snapshot 门控 onStarted（state ∈ {lobby,ready,playing,ended}），
-//                  适合需要建房配置的复杂游戏（chess）
+//                  适合进房前就要定规则的游戏
 enum LobbyFlowType { smartMatch, dualEntry }
 
 /// 提示行在表单里的位置。
