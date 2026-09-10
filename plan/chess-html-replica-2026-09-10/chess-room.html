@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chess 对弈房间 · 100% 复刻</title>
+<style>
+  :root {
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.16);
+    --text-1: #1A1A1A;
+    --text-2: #6B6B6B;
+    --text-3: #9B9B9B;
+    --me: #2A6FDB;
+    --opp: #C2410C;
+
+    --light-sq: #F0EAD6;
+    --dark-sq: #B58863;
+    --label: #8A8475;
+    --selected: #F6C65B;
+    --last-move: rgba(246, 198, 91, 0.45);
+    --legal-dot: rgba(42, 111, 219, 0.55);
+    --capture-ring: rgba(194, 65, 12, 0.85);
+
+    --check-banner: rgba(217, 48, 37, 0.85);
+    --offline-banner: rgba(217, 48, 37, 0.85);
+
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: #EDEBE6; color: var(--text-1);
+    font-family: var(--sans); -webkit-font-smoothing: antialiased;
+  }
+  body { display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 24px 16px 48px; gap: 16px; }
+
+  .banner {
+    width: min(720px, 100%);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px; line-height: 1.6; color: var(--text-2);
+  }
+  .banner h1 { margin: 0 0 6px; font-size: 16px; color: var(--text-1); }
+  .banner code { font-size: 12px; background: #F4F3EF; padding: 1px 6px; border-radius: 4px; }
+  .banner ul { margin: 8px 0 0; padding-left: 18px; }
+  .banner li { margin: 2px 0; }
+
+  .phone {
+    width: 360px; height: 720px; min-height: 720px; max-height: 720px;
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+    flex-shrink: 0;
+  }
+
+  /* 顶部进度条（fetching） */
+  .progress-bar {
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--me), transparent);
+    background-size: 30% 100%; background-repeat: no-repeat;
+    animation: progressSlide 1.2s linear infinite;
+    z-index: 50;
+  }
+  @keyframes progressSlide {
+    0%   { background-position: -30% 0; }
+    100% { background-position: 130% 0; }
+  }
+
+  /* AppBar：leading (徽标 86) + 房间号 + actions */
+  .topbar {
+    height: 44px; display: flex; align-items: center; padding: 0 4px 0 12px;
+    border-bottom: 1px solid var(--border); gap: 8px; font-size: 14px;
+    flex-shrink: 0;
+  }
+  .topbar .badge {
+    width: 78px; height: 28px; display: flex; align-items: center; gap: 6px;
+    padding: 0 8px; border-radius: 14px;
+    background: rgba(42, 111, 219, 0.08); color: var(--me);
+    font-size: 11px; font-weight: 600; flex-shrink: 0;
+  }
+  .topbar .badge .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--me);
+    box-shadow: 0 0 0 0 rgba(42, 111, 219, 0.6);
+    animation: pulseDot 1.6s ease-out infinite;
+  }
+  @keyframes pulseDot {
+    0%   { box-shadow: 0 0 0 0 rgba(42, 111, 219, 0.6); }
+    70%  { box-shadow: 0 0 0 8px rgba(42, 111, 219, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(42, 111, 219, 0); }
+  }
+  .topbar .title { flex: 1; font-weight: 600; }
+  .topbar .action-btn {
+    width: 36px; height: 36px; display: grid; place-items: center;
+    border: none; background: transparent; cursor: pointer;
+    color: var(--text-2); border-radius: 50%;
+  }
+  .topbar .action-btn:hover { background: var(--bg); color: var(--text-1); }
+  .topbar .action-btn .spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--border-strong); border-top-color: var(--me);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 玩家条 F2：色点 + name + meta */
+  .player-strip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; flex-shrink: 0;
+  }
+  .player-strip.top { border-bottom: 1px solid var(--border); }
+  .player-strip.bot { border-top: 1px solid var(--border); }
+  .side-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--me); flex-shrink: 0;
+  }
+  .side-dot.opp { background: var(--opp); }
+  .player-strip .name {
+    font-size: 13px; font-weight: 600; flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .player-strip .meta {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px; color: var(--text-2); flex-shrink: 0;
+  }
+  .player-strip .meta .sep { color: var(--text-3); margin: 0 4px; }
+  .player-strip .meta .turn-tag {
+    color: var(--me); font-weight: 600;
+  }
+
+  /* 中间棋盘区：剩余高度吃满 */
+  .board-wrap {
+    flex: 1 1 auto; min-height: 0;
+    display: grid; place-items: center;
+    padding: 12px; background: var(--bg);
+    position: relative;
+  }
+
+  /* 棋盘：320×320 (含 16px 坐标位) — 用 absolute 定位避免 grid 隐式行 bug */
+  .board-area {
+    width: 320px; height: 320px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .board {
+    position: absolute; left: 16px; top: 16px;
+    width: 288px; height: 288px;
+    display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+  }
+  .rank-labels {
+    position: absolute; left: 0; top: 16px;
+    width: 16px; height: 288px;
+    display: grid; grid-template-rows: repeat(8, 1fr);
+    color: var(--label); font-size: 10px; font-weight: 600;
+  }
+  .file-labels {
+    position: absolute; left: 16px; top: 304px;
+    width: 288px; height: 16px;
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    color: var(--label); font-size: 10px; font-weight: 600;
+  }
+  .rank-labels > div, .file-labels > div {
+    display: grid; place-items: center;
+  }
+  .sq {
+    display: grid; place-items: center;
+    font-size: 22px; line-height: 1; user-select: none;
+    position: relative;
+  }
+  .sq.light { background: var(--light-sq); color: var(--dark-sq); }
+  .sq.dark  { background: var(--dark-sq);  color: var(--light-sq); }
+
+  /* 选中 / 上一步高亮 */
+  .sq.selected { box-shadow: inset 0 0 0 100vmax var(--selected); }
+  .sq.last-from::before, .sq.last-to::before {
+    content: ''; position: absolute; inset: 0;
+    background: var(--last-move);
+  }
+  .sq.last-from, .sq.last-to { z-index: 1; }
+
+  /* 合法走法：空格圆点 / 吃子圆圈 */
+  .sq .legal-dot {
+    position: absolute; left: 50%; top: 50%;
+    width: 28%; height: 28%;
+    border-radius: 50%; background: var(--legal-dot);
+    transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 2;
+  }
+  .sq .capture-ring {
+    position: absolute; left: 50%; top: 50%;
+    width: 80%; height: 80%;
+    border-radius: 50%;
+    border: 4px solid var(--capture-ring);
+    transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 2;
+  }
+
+  /* 将军：王格红色外环 */
+  .sq.in-check::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle, rgba(217,48,37,0.55) 0%, rgba(217,48,37,0) 70%);
+    pointer-events: none; z-index: 1;
+  }
+
+  /* 浮起棋子 (拖动) */
+  .drag-piece {
+    position: absolute; left: 0; top: 0;
+    width: 40px; height: 40px; pointer-events: none; z-index: 30;
+    font-size: 22px; display: grid; place-items: center;
+    line-height: 1; user-select: none;
+  }
+
+  /* 卡片堆：左上 */
+  .stack {
+    position: absolute; top: 16px; left: 16px;
+    width: 0; height: 0; pointer-events: none; z-index: 20;
+  }
+  .card {
+    position: absolute; left: 0; top: 0;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+    line-height: 1.2;
+    transform-origin: center center;
+    pointer-events: none;
+  }
+  .card.emoji {
+    width: 60px; height: 60px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 6px;
+  }
+  .card.emoji .sticker {
+    width: 100%; height: 100%; border-radius: 6px;
+    display: grid; place-items: center;
+    font-size: 32px; line-height: 1;
+  }
+  .card.text {
+    width: max-content; max-width: 220px; min-height: 32px;
+    font-size: 12px; padding: 6px 10px 6px 14px;
+    white-space: normal; overflow-wrap: break-word;
+    line-height: 1.35; text-align: left;
+  }
+  .card .who {
+    position: absolute; top: 5px; left: 5px;
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+  .card.from-me .who { background: var(--me); }
+  .card.from-opp .who { background: var(--opp); }
+  @keyframes deal {
+    0%   { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+    60%  { transform: scale(1.1)  rotate(2deg);   opacity: 1; }
+    100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
+  }
+  @keyframes dismiss {
+    0%   { transform: scale(1) rotate(0deg); opacity: 1; }
+    100% { transform: scale(0.5) rotate(8deg); opacity: 0; }
+  }
+  .card.entering { animation: deal 0.4s cubic-bezier(.2,.9,.3,1.4) forwards; }
+  .card.leaving  { animation: dismiss 0.3s ease forwards; }
+
+  /* FAB：右上 */
+  .fab {
+    position: absolute; right: 16px; top: 16px;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--text-1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+    display: grid; place-items: center;
+    cursor: pointer; z-index: 25;
+    font-size: 18px; line-height: 1; color: var(--text-1);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .fab:hover { transform: scale(1.05); box-shadow: 0 6px 16px rgba(0,0,0,0.14); }
+  .fab:active { transform: scale(0.95); }
+  .fab.hidden { display: none; }
+
+  /* composer — bottom-right 替换 FAB (board_chat_overlay.dart:780-885)
+     width 240, padding LTRB 8,4,4,8, 6 unicode emoji Row + input + send */
+  .composer {
+    position: absolute; right: 16px; bottom: 16px;
+    width: 240px; padding: 8px 4px 8px 8px;
+    background: var(--surface);
+    border: 1px solid var(--text-1);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.14), 0 2px 4px rgba(0,0,0,0.06);
+    z-index: 26; display: flex; flex-direction: column; gap: 8px;
+    transform: translateY(8px) scale(0.96);
+    transform-origin: bottom right;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .composer.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  .composer .emoji-row { display: flex; gap: 2px; padding-right: 4px; }
+  .composer .e-btn {
+    width: 32px; height: 32px; padding: 0; border: 1px solid transparent;
+    background: transparent; border-radius: 4px; cursor: pointer;
+    display: grid; place-items: center; font-size: 18px; color: inherit;
+  }
+  .composer .e-btn:hover { background: var(--bg); }
+  .composer .e-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .composer .row { display: flex; align-items: center; gap: 6px; padding-right: 4px; }
+  .composer input {
+    flex: 1; height: 32px; min-width: 0; border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; font: inherit; font-size: 12px;
+    background: var(--bg); outline: none; color: var(--text-1);
+  }
+  .composer input:focus { border-color: var(--text-1); background: var(--surface); }
+  .composer .send {
+    height: 32px; padding: 0 10px; border: 1px solid var(--text-1);
+    background: var(--text-1); color: #fff; border-radius: 6px;
+    font: inherit; font-size: 12px; cursor: pointer; flex-shrink: 0;
+  }
+  .composer .send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .backdrop {
+    position: absolute; inset: 0; z-index: 24; display: none;
+  }
+  .backdrop.show { display: block; }
+
+  /* 操作条 */
+  .actions {
+    display: flex; gap: 8px; justify-content: center;
+    padding: 4px 16px 12px; flex-shrink: 0;
+  }
+  .actions .btn {
+    font-size: 12px; padding: 6px 12px; border-radius: 6px;
+    border: 1px solid var(--border-strong); background: var(--surface);
+    color: var(--text-2); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: inherit;
+  }
+  .actions .btn:hover { color: var(--text-1); border-color: var(--text-1); }
+  .actions .btn.primary {
+    background: var(--text-1); color: var(--surface); border-color: var(--text-1);
+  }
+  .actions .btn.primary:hover { background: #000; }
+  .actions .btn.danger { color: var(--opp); border-color: var(--opp); }
+  .actions .btn.danger:hover { background: rgba(194, 65, 12, 0.08); }
+  .actions .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* 终局覆盖层 */
+  .gameover {
+    position: absolute; inset: 0; z-index: 40;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(35, 25, 20, 0.75);
+  }
+  .gameover.show { display: flex; }
+  .gameover .card-go {
+    background: var(--surface);
+    border: 2px solid var(--text-1);
+    border-radius: 16px;
+    padding: 28px 32px;
+    min-width: 240px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .gameover .card-go h2 {
+    margin: 0 0 8px; font-size: 26px; font-weight: 700;
+  }
+  .gameover .card-go p {
+    margin: 0 0 20px; font-size: 16px; color: var(--text-2);
+  }
+  .gameover .card-go .btn-stack {
+    display: flex; flex-direction: column; gap: 10px; align-items: stretch;
+  }
+  .gameover .card-go .btn-stack .btn { justify-content: center; }
+
+  /* 升变面板 */
+  .promotion {
+    position: absolute; inset: 0; z-index: 41;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(35, 25, 20, 0.55);
+  }
+  .promotion.show { display: flex; }
+  .promotion .row-promo {
+    display: flex; gap: 8px; padding: 16px;
+    background: var(--surface); border: 2px solid var(--text-1);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .promotion .p-btn {
+    width: 56px; height: 56px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--border-strong);
+    font-size: 36px; line-height: 1; cursor: pointer;
+    display: grid; place-items: center;
+    color: var(--text-1);
+  }
+  .promotion .p-btn:hover { background: var(--surface); border-color: var(--text-1); }
+
+  /* 掉线 banner (顶部) */
+  .offline-banner {
+    position: absolute; top: 44px; left: 0; right: 0;
+    background: var(--offline-banner); color: #fff;
+    padding: 8px 16px; font-size: 13px; font-weight: 600;
+    display: none; align-items: center; justify-content: center; gap: 10px;
+    z-index: 35;
+  }
+  .offline-banner.show { display: flex; }
+  .offline-banner .spin {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* WS 断开全屏遮罩 */
+  .ws-offline {
+    position: absolute; inset: 0; z-index: 45;
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    background: rgba(0,0,0,0.55); color: #fff; gap: 12px;
+  }
+  .ws-offline.show { display: flex; }
+  .ws-offline .spin {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.4); border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+  }
+  .ws-offline .text { font-size: 14px; }
+
+  /* FAB 聊天图标 (SVG) */
+  .fab .fab-icon {
+    width: 22px; height: 22px;
+    color: var(--text-1);
+  }
+  .fab .fab-icon svg {
+    width: 100%; height: 100%;
+    fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  /* 演示按钮 */
+  .demo-btn {
+    position: absolute; top: 52px; right: 12px; z-index: 30;
+    font-size: 11px; padding: 4px 10px; border-radius: 4px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer; color: var(--text-2); font-family: inherit;
+  }
+  .demo-btn:hover { color: var(--text-1); border-color: var(--text-1); }
+
+  /* 准备勾 (SVG) */
+  .ready-check {
+    display: inline-block; width: 18px; height: 18px; border-radius: 4px;
+    background: var(--me);
+  }
+  .ready-check::after {
+    content: ''; display: block;
+    width: 8px; height: 4px;
+    border-left: 2.4px solid #fff;
+    border-bottom: 2.4px solid #fff;
+    transform: rotate(-45deg) translate(2px, -1px);
+  }
+
+  /* 模式切换 (调试控件：放在 phone 之外) */
+  .mode-bar {
+    display: flex; gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .mode-bar button {
+    font-size: 12px; padding: 6px 12px; border-radius: 4px;
+    background: transparent; border: 1px solid transparent;
+    cursor: pointer; color: var(--text-2); font-family: inherit;
+  }
+  .mode-bar button:hover { color: var(--text-1); }
+  .mode-bar button.on { background: var(--text-1); color: var(--surface); border-color: var(--text-1); }
+
+  /* 状态栏小指示 */
+  .state-dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: #3DDC97; margin-right: 4px; vertical-align: middle;
+  }
+  .state-dot.off { background: var(--opp); }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>Chess 对弈房间 · 100% 复刻 (HTML 静态)</h1>
+  对应源码：
+  <code>chess_room_page.dart</code> ·
+  <code>player_strip.dart</code> ·
+  <code>board_chat_overlay.dart</code> ·
+  <code>chess_board.dart</code> ·
+  <code>chess_piece.dart</code> ·
+  <code>chess_constants.dart</code>
+  <ul>
+    <li>320×320 棋盘 + 16px 坐标标签 (a-h/1-8) + 选中/上一步/合法走法/吃子高亮 (F2 落地原型省略了坐标)</li>
+    <li>PlayerStrip F2 版：色点 + name + meta，己方蓝 <code>#2A6FDB</code>，对方橙 <code>#C2410C</code></li>
+    <li>BoardChatOverlay：左上卡片堆 (deal-in + dismiss 动画) + 右上 FAB + composer (emoji行 + 历史 + 文字 + 发送)</li>
+    <li>操作条：投降 / 悔棋 / 议和；终局覆盖层 (再来一局/复盘/返回)；升变面板 (Q/R/B/N)</li>
+    <li>掉线 banner、WS 离线遮罩、顶部进度条、Lobby/Ready 卡片 → 模式切换器</li>
+  </ul>
+</div>
+
+<!-- 模式切换 (调试控件：放在 phone 之外) -->
+<div class="mode-bar">
+  <button data-mode="lobby" class="on">大厅 / Lobby</button>
+  <button data-mode="playing">对弈 / Playing</button>
+  <button data-mode="ended">终局 / Ended</button>
+  <button data-mode="offline">掉线 / Offline</button>
+</div>
+
+<div class="phone" id="phone">
+  <div class="progress-bar" id="progress" style="display:none"></div>
+
+  <!-- 掉线 banner -->
+  <div class="offline-banner" id="offlineBanner">
+    <span class="spin"></span>
+    <span>你已掉线 · 正在重连（棋盘已冻结）</span>
+  </div>
+
+  <!-- AppBar -->
+  <div class="topbar">
+    <div class="badge" title="连接状态">
+      <span class="pulse" id="connPulse"></span>
+      <span id="connText">在线</span>
+    </div>
+    <div class="title">房间 <span id="roomCode">R-7421</span></div>
+    <button class="action-btn" id="refreshBtn" title="刷新快照">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+    </button>
+    <button class="action-btn" id="leaveBtn" title="断开">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    </button>
+  </div>
+
+  <!-- 演示按钮 (触发卡片序列) -->
+  <button class="demo-btn" id="demoBtn">演示</button>
+
+  <!-- Lobby/Ready 卡片 -->
+  <div id="lobbyView" style="display:none; flex:1; min-height:0; overflow:auto;">
+    <div style="display:flex; align-items:center; justify-content:center; min-height:100%; padding:20px;">
+      <div style="background:var(--surface); border:1px solid var(--border-strong); border-radius:20px; padding:28px; max-width:440px; width:100%; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+        <div style="text-align:center; font-size:18px; font-weight:700; letter-spacing:2px; color:var(--label);">等待对手</div>
+        <div style="width:24px; height:2px; background:var(--label); margin:6px auto 18px;"></div>
+
+        <div style="text-align:center;">
+          <div style="display:inline-block; padding:10px 20px; border-radius:30px; background:rgba(240,234,214,0.5); border:1px solid rgba(0,0,0,0.08); font-size:24px; font-weight:700; letter-spacing:8px; color:var(--label);">R-7421</div>
+        </div>
+        <div style="height:22px;"></div>
+
+        <div style="display:flex; align-items:center; gap:14px; padding:6px 0;">
+          <div style="width:44px; height:44px; border-radius:50%; background:rgba(42,111,219,0.12); border:2.4px solid var(--me); display:grid; place-items:center;">
+            <span class="ready-check"></span>
+          </div>
+          <div style="flex:1; font-size:15px; font-weight:600; color:var(--label);">lin-99  (我) · 执白（先手）</div>
+          <div style="padding:4px 10px; border-radius:20px; background:rgba(42,111,219,0.12); font-size:11px; font-weight:600; color:var(--me); letter-spacing:1px;">已准备</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; padding:6px 0;">
+          <div style="width:44px; height:44px; border-radius:50%; background:rgba(240,234,214,0.5); border:1.6px solid rgba(0,0,0,0.4); display:grid; place-items:center;">
+            <span style="color:var(--label); font-size:16px; font-weight:600;">?</span>
+          </div>
+          <div style="flex:1; font-size:15px; font-weight:500; color:var(--label);">等待玩家加入 · 执黑（后手）</div>
+          <div style="padding:4px 10px; border-radius:20px; background:rgba(240,234,214,0.6); font-size:11px; font-weight:600; color:rgba(107,107,107,0.7); letter-spacing:1px;">未准备</div>
+        </div>
+
+        <div style="margin-top:22px;">
+          <button style="width:100%; height:48px; border-radius:10px; background:rgba(107,107,107,0.4); color:#fff; border:none; font-size:15px; font-weight:600; letter-spacing:2px; font-family:inherit;">已准备</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 对弈视图 -->
+  <div id="playingView" style="display:flex; flex-direction:column; flex:1; min-height:0;">
+    <div class="player-strip top">
+      <span class="side-dot opp"></span>
+      <span class="name">lin-99</span>
+      <span class="meta" id="oppMeta">执黑<span class="sep">·</span>已连接</span>
+    </div>
+
+    <div class="board-wrap" id="boardWrap">
+      <div class="board-area">
+        <div class="board" id="board"></div>
+        <div class="rank-labels" id="rankLabels"></div>
+        <div class="file-labels" id="fileLabels"></div>
+      </div>
+
+      <div class="stack" id="stack"></div>
+      <div class="backdrop" id="backdrop"></div>
+      <div class="fab" id="fab" title="发送消息">
+        <span class="fab-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+      </div>
+
+      <div class="composer" id="composer" style="display:none">
+        <div class="emoji-row" id="emojiRow"></div>
+        <div class="row">
+          <input id="txt" placeholder="说点什么…" maxlength="40">
+          <button class="send" id="sendBtn" disabled>发</button>
+        </div>
+      </div>
+
+      <!-- 升变面板 -->
+      <div class="promotion" id="promotion">
+        <div class="row-promo" id="promoRow"></div>
+      </div>
+
+      <!-- 终局覆盖层 -->
+      <div class="gameover" id="gameover">
+        <div class="card-go">
+          <h2 id="goTitle">将杀</h2>
+          <p id="goSub">你赢了</p>
+          <div class="btn-stack">
+            <button class="btn primary" id="goReset">再来一局</button>
+            <button class="btn" id="goReplay">复盘</button>
+            <button class="btn" id="goLeave">返回</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="player-strip bot">
+      <span class="side-dot"></span>
+      <span class="name">我</span>
+      <span class="meta" id="meMeta">执白<span class="sep">·</span><span class="turn-tag">你的回合</span></span>
+    </div>
+
+    <div class="actions">
+      <button class="btn danger" id="resignBtn">投降</button>
+      <button class="btn" id="undoBtn">悔棋</button>
+      <button class="btn" id="drawBtn">议和</button>
+    </div>
+  </div>
+
+  <!-- WS 全屏遮罩 -->
+  <div class="ws-offline" id="wsOffline">
+    <div class="spin"></div>
+    <div class="text">连接断开，正在重连…</div>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+   * State (静态演示) — 来自 chess_room_page.dart 的字段映射
+   * ============================================================ */
+  const state = {
+    mode: 'lobby',          // lobby / playing / ended / offline
+    sideToMove: 'w',        // 'w' / 'b'
+    myColor: 'w',
+    isHost: true,
+    status: 'playing',      // playing / check / checkmate / stalemate / resigned / draw
+    fetching: false,
+    meDisconnected: false,
+    wsOffline: false,
+    isMyTurn: true,
+    selectedSquare: null,   // 0..63
+    lastMove: null,         // { from, to }
+    inCheck: null,         // 0..63
+    pendingPromotion: null, // { from, to }
+  };
+
+  /* 棋子 Unicode (kUnicodePieces) */
+  const PIECE = {
+    K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙',
+    k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟',
+  };
+
+  /* 初始局面 (kStartingFen 简化) */
+  const FILES = 'abcdefgh';
+  function initialBoard() {
+    const b = Array(64).fill(null);
+    const back = 'rnbqkbnr';
+    for (let c = 0; c < 8; c++) {
+      b[0*8 + c] = back[c];                  // row 0: 黑底
+      b[1*8 + c] = 'p';
+      b[6*8 + c] = 'P';
+      b[7*8 + c] = back[c].toUpperCase();    // row 7: 白底
+    }
+    return b;
+  }
+  let board = initialBoard();
+
+  /* 1D index ↔ 坐标 */
+  const idx = (r, c) => r * 8 + c;
+  const rc  = (i) => [Math.floor(i/8), i%8];
+
+  /* 当前 (board, sideToMove) 下"伪合法"提示 (e2/e7 中兵前进 + e 兵走两步) */
+  function pseudoLegalTargets(from) {
+    const p = board[from];
+    if (!p) return [];
+    const isW = p === p.toUpperCase();
+    const myTurn = (state.sideToMove === 'w') === isW;
+    if (!myTurn) return [];
+    const [r, c] = rc(from);
+    const out = [];
+    const dir = isW ? -1 : 1;
+    const startRow = isW ? 6 : 1;
+    const promoRow = isW ? 0 : 7;
+
+    // pawn
+    if (p === 'P' || p === 'p') {
+      const f1 = idx(r+dir, c);
+      if (r+dir >= 0 && r+dir <= 7 && !board[f1]) {
+        out.push(f1);
+        if (r === startRow) {
+          const f2 = idx(r+dir*2, c);
+          if (!board[f2]) out.push(f2);
+        }
+      }
+      // 斜吃
+      for (const dc of [-1, 1]) {
+        const nr = r+dir, nc = c+dc;
+        if (nc < 0 || nc > 7 || nr < 0 || nr > 7) continue;
+        const t = idx(nr, nc);
+        if (board[t] && (board[t] === board[t].toUpperCase()) !== isW) {
+          out.push(t);
+        }
+      }
+      return out;
+    }
+    // knight
+    if (p === 'N' || p === 'n') {
+      const jumps = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+      for (const [dr,dc] of jumps) {
+        const nr=r+dr, nc=c+dc;
+        if (nr<0||nr>7||nc<0||nc>7) continue;
+        const t=idx(nr,nc);
+        if (!board[t] || (board[t]===board[t].toUpperCase()) !== isW) out.push(t);
+      }
+      return out;
+    }
+    // bishop/rook/queen
+    const slide = [];
+    if (p === 'B' || p === 'b' || p === 'Q' || p === 'q') slide.push([-1,-1],[-1,1],[1,-1],[1,1]);
+    if (p === 'R' || p === 'r' || p === 'Q' || p === 'q') slide.push([-1,0],[1,0],[0,-1],[0,1]);
+    for (const [dr,dc] of slide) {
+      let nr=r+dr, nc=c+dc;
+      while (nr>=0 && nr<=7 && nc>=0 && nc<=7) {
+        const t = idx(nr,nc);
+        if (!board[t]) { out.push(t); }
+        else {
+          if ((board[t]===board[t].toUpperCase()) !== isW) out.push(t);
+          break;
+        }
+        nr+=dr; nc+=dc;
+      }
+    }
+    return out;
+  }
+
+  /* 走子 (含升变判定) */
+  function tryMove(from, to) {
+    const piece = board[from];
+    if (!piece) return false;
+    const targets = pseudoLegalTargets(from);
+    if (!targets.includes(to)) return false;
+    const isW = piece === piece.toUpperCase();
+    const [tr] = rc(to);
+    const promoRow = isW ? 0 : 7;
+    if ((piece === 'P' || piece === 'p') && tr === promoRow) {
+      state.pendingPromotion = { from, to };
+      renderPromotion();
+      return true;
+    }
+    commitMove(from, to, null);
+    return true;
+  }
+  function commitMove(from, to, promotion) {
+    let piece = board[from];
+    if (promotion) {
+      piece = (piece === piece.toUpperCase()) ? promotion.toUpperCase() : promotion;
+    }
+    const captured = board[to];
+    board[to] = piece;
+    board[from] = null;
+
+    // 上一步高亮 + 翻转轮次
+    state.lastMove = { from, to };
+    state.sideToMove = state.sideToMove === 'w' ? 'b' : 'w';
+    state.isMyTurn = (state.sideToMove === state.myColor);
+    state.selectedSquare = null;
+    state.inCheck = null;
+
+    // 检查对方王是否被攻击 (简单扫描后模拟)
+    state.status = 'playing';
+    state.inCheck = null;
+    renderBoard();
+    renderPlayerMeta();
+  }
+
+  /* ============================================================
+   * Rendering
+   * ============================================================ */
+  function renderRankLabels() {
+    const el = document.getElementById('rankLabels');
+    el.innerHTML = '';
+    // 白方视角：row 0 = rank 8 在顶
+    for (let r = 0; r < 8; r++) {
+      const d = document.createElement('div');
+      d.textContent = 8 - r;
+      el.appendChild(d);
+    }
+  }
+  function renderFileLabels() {
+    const el = document.getElementById('fileLabels');
+    el.innerHTML = '';
+    for (let c = 0; c < 8; c++) {
+      const d = document.createElement('div');
+      d.textContent = FILES[c];
+      el.appendChild(d);
+    }
+  }
+
+  function renderBoard() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    const targets = state.selectedSquare != null ? pseudoLegalTargets(state.selectedSquare) : [];
+    const targetSet = new Set(targets);
+    const inCheck = state.inCheck;
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const i = idx(r, c);
+        const sq = document.createElement('div');
+        const isLight = (r + c) % 2 === 0;
+        sq.className = 'sq ' + (isLight ? 'light' : 'dark');
+        sq.dataset.idx = String(i);
+        sq.style.cursor = 'pointer';
+
+        // 棋子
+        const p = board[i];
+        if (p) sq.textContent = PIECE[p];
+
+        // 选中
+        if (state.selectedSquare === i) sq.classList.add('selected');
+
+        // 上一步
+        if (state.lastMove) {
+          if (state.lastMove.from === i) sq.classList.add('last-from');
+          if (state.lastMove.to === i)   sq.classList.add('last-to');
+        }
+
+        // 将军
+        if (inCheck === i) sq.classList.add('in-check');
+
+        // 合法走法提示
+        if (targetSet.has(i)) {
+          if (board[i]) {
+            const ring = document.createElement('div');
+            ring.className = 'capture-ring';
+            sq.appendChild(ring);
+          } else {
+            const dot = document.createElement('div');
+            dot.className = 'legal-dot';
+            sq.appendChild(dot);
+          }
+        }
+
+        // 点击
+        sq.addEventListener('click', () => onSquareClick(i));
+        el.appendChild(sq);
+      }
+    }
+  }
+
+  function onSquareClick(i) {
+    if (state.mode !== 'playing' || state.wsOffline) return;
+    if (!state.isMyTurn) return;
+    const p = board[i];
+
+    // 情况 1：未选中 → 选己方
+    if (state.selectedSquare == null) {
+      if (p && (p === p.toUpperCase()) === (state.sideToMove === 'w')) {
+        setSel(i);
+      }
+      return;
+    }
+    // 情况 2：点同格
+    if (state.selectedSquare === i) { setSel(null); return; }
+    // 情况 3：切到另一颗己方
+    if (p && (p === p.toUpperCase()) === (state.sideToMove === 'w')) {
+      setSel(i);
+      return;
+    }
+    // 情况 4：合法目标 → 走
+    if (pseudoLegalTargets(state.selectedSquare).includes(i)) {
+      tryMove(state.selectedSquare, i);
+      return;
+    }
+    // 情况 5：非法
+    setSel(null);
+  }
+  function setSel(i) {
+    state.selectedSquare = i;
+    renderBoard();
+  }
+
+  function renderPlayerMeta() {
+    const me = document.getElementById('meMeta');
+    const opp = document.getElementById('oppMeta');
+    const myColorLabel = state.myColor === 'w' ? '执白' : '执黑';
+    const oppColorLabel = state.myColor === 'w' ? '执黑' : '执白';
+
+    let meStatus = '你的回合';
+    if (state.mode === 'ended') meStatus = '对局结束';
+    else if (!state.isMyTurn) meStatus = state.status === 'check' ? '等待对方 · 将军' : '等待对方…';
+    else if (state.status === 'check') meStatus = '你的回合 · 将军';
+
+    me.innerHTML = `${myColorLabel}<span class="sep">·</span><span class="turn-tag">${meStatus}</span>`;
+    opp.innerHTML = `${oppColorLabel}<span class="sep">·</span>已连接`;
+  }
+
+  function renderPromotion() {
+    const el = document.getElementById('promotion');
+    const row = document.getElementById('promoRow');
+    row.innerHTML = '';
+    const isW = (state.myColor === 'w');
+    const pieces = isW ? ['Q','R','B','N'] : ['q','r','b','n'];
+    for (const p of pieces) {
+      const b = document.createElement('button');
+      b.className = 'p-btn';
+      b.textContent = PIECE[p];
+      b.addEventListener('click', () => {
+        const pp = state.pendingPromotion;
+        state.pendingPromotion = null;
+        el.classList.remove('show');
+        commitMove(pp.from, pp.to, p);
+      });
+      row.appendChild(b);
+    }
+    el.classList.add('show');
+  }
+
+  /* ============================================================
+   * BoardChatOverlay
+   * ============================================================ */
+  /* 6 个 quick emoji (board_chat_overlay.dart:22 kBoardChatQuickEmojis) */
+  const kBoardChatQuickEmojis = ['👊', '👍', '🎉', '🤔', '😤', '🤝'];
+
+  function setupComposer() {
+    const row = document.getElementById('emojiRow');
+    row.innerHTML = '';
+    kBoardChatQuickEmojis.forEach((e) => {
+      const b = document.createElement('button');
+      b.className = 'e-btn';
+      b.textContent = e;
+      b.addEventListener('click', () => {
+        pushCard({ from: 'me', kind: 'emoji', emoji: e });
+        closeComposer();
+      });
+      row.appendChild(b);
+    });
+  }
+
+  const stackEl = document.getElementById('stack');
+  const MAX_CARDS = 3;
+  const VISIBLE_MS = 2800;
+  const cards = [];
+  const history = [];
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (ch) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
+
+  function pushCard({ from, kind, content, emoji }) {
+    history.push({ from, kind, content, emoji });
+
+    const c = document.createElement('div');
+    c.className = 'card ' + kind + ' from-' + from + ' entering';
+    const who = document.createElement('span'); who.className = 'who';
+    c.appendChild(who);
+    if (kind === 'emoji') {
+      const e = document.createElement('span');
+      e.className = 'sticker';
+      e.style.fontSize = '32px';
+      e.textContent = emoji;
+      c.appendChild(e);
+    } else {
+      const t = document.createElement('span');
+      t.textContent = content;
+      c.appendChild(t);
+    }
+    stackEl.appendChild(c);
+    cards.push(c);
+
+    for (let i = 0; i < cards.length; i++) {
+      const vi = cards.length - 1 - i;
+      const card = cards[i];
+      card.style.zIndex = String(MAX_CARDS - vi);
+      card.style.transform = `translate(${vi*6}px, ${vi*6}px) scale(${1 - vi*0.04}) rotate(${(vi%2===0?1:-1)*vi*1.5}deg)`;
+      card.style.opacity = String(1 - vi*0.18);
+    }
+    while (cards.length > MAX_CARDS) {
+      const old = cards.shift();
+      old.classList.add('leaving');
+      setTimeout(() => old.remove(), 320);
+    }
+    setTimeout(() => {
+      if (!c.isConnected) return;
+      c.classList.add('leaving');
+      setTimeout(() => c.remove(), 320);
+      const i = cards.indexOf(c);
+      if (i >= 0) cards.splice(i, 1);
+      for (let j = 0; j < cards.length; j++) {
+        const vi = cards.length - 1 - j;
+        cards[j].style.transform = `translate(${vi*6}px, ${vi*6}px) scale(${1 - vi*0.04}) rotate(${(vi%2===0?1:-1)*vi*1.5}deg)`;
+        cards[j].style.opacity = String(1 - vi*0.18);
+        cards[j].style.zIndex = String(MAX_CARDS - vi);
+      }
+    }, VISIBLE_MS);
+  }
+
+  const fab        = document.getElementById('fab');
+  const composer   = document.getElementById('composer');
+  const backdrop   = document.getElementById('backdrop');
+  const txt        = document.getElementById('txt');
+  const sendBtn    = document.getElementById('sendBtn');
+
+  function openComposer() {
+    fab.classList.add('hidden');
+    composer.style.display = 'flex';
+    composer.classList.add('show');
+    backdrop.classList.add('show');
+    setTimeout(() => txt.focus(), 150);
+  }
+  function closeComposer() {
+    fab.classList.remove('hidden');
+    composer.classList.remove('show');
+    setTimeout(() => { composer.style.display = 'none'; }, 200);
+    backdrop.classList.remove('show');
+    txt.blur();
+  }
+  fab.addEventListener('click', openComposer);
+  backdrop.addEventListener('click', closeComposer);
+
+  txt.addEventListener('input', () => sendBtn.disabled = txt.value.trim().length === 0);
+  function sendText() {
+    const v = txt.value.trim();
+    if (!v) return;
+    pushCard({ from: 'me', kind: 'text', content: v });
+    txt.value = ''; sendBtn.disabled = true;
+    closeComposer();
+  }
+  sendBtn.addEventListener('click', sendText);
+  txt.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendText(); }
+  });
+
+  /* ============================================================
+   * 模式切换
+   * ============================================================ */
+  const lobbyView   = document.getElementById('lobbyView');
+  const playingView = document.getElementById('playingView');
+  const wsOffline   = document.getElementById('wsOffline');
+  const offlineBan  = document.getElementById('offlineBanner');
+  const gameover    = document.getElementById('gameover');
+  const progress    = document.getElementById('progress');
+
+  function applyMode(m) {
+    state.mode = m;
+    document.querySelectorAll('.mode-bar button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.mode === m);
+    });
+    lobbyView.style.display   = (m === 'lobby') ? 'block' : 'none';
+    playingView.style.display = (m === 'lobby') ? 'none'  : 'flex';
+    wsOffline.classList.toggle('show', m === 'offline');
+    offlineBan.classList.toggle('show', m === 'offline');
+    gameover.classList.toggle('show', m === 'ended');
+    document.getElementById('connText').textContent = (m === 'offline') ? '离线' : '在线';
+    if (m === 'ended') {
+      document.getElementById('goTitle').textContent = '将杀';
+      document.getElementById('goSub').textContent = '你赢了';
+    }
+  }
+  document.querySelectorAll('.mode-bar button').forEach((b) => {
+    b.addEventListener('click', () => applyMode(b.dataset.mode));
+  });
+
+  /* ============================================================
+   * 操作按钮 (演示用)
+   * ============================================================ */
+  document.getElementById('resignBtn').addEventListener('click', () => {
+    if (state.mode === 'playing') {
+      applyMode('ended');
+      document.getElementById('goTitle').textContent = '认输';
+      document.getElementById('goSub').textContent = '你输了';
+    }
+  });
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    pushCard({ from: 'me', kind: 'text', content: '悔棋?' });
+  });
+  document.getElementById('drawBtn').addEventListener('click', () => {
+    pushCard({ from: 'me', kind: 'emoji', emoji: '🤝' });
+  });
+  document.getElementById('goReset').addEventListener('click', () => {
+    board = initialBoard();
+    state.sideToMove = 'w';
+    state.lastMove = null;
+    state.selectedSquare = null;
+    state.inCheck = null;
+    state.isMyTurn = true;
+    state.status = 'playing';
+    renderBoard();
+    renderPlayerMeta();
+    applyMode('playing');
+  });
+  document.getElementById('goReplay').addEventListener('click', () => {
+    alert('复盘模式：步进 / 自动播放 / 拖动进度条 (本静态 demo 不实现)');
+  });
+  document.getElementById('goLeave').addEventListener('click', () => {
+    applyMode('lobby');
+  });
+  document.getElementById('refreshBtn').addEventListener('click', () => {
+    progress.style.display = 'block';
+    setTimeout(() => { progress.style.display = 'none'; }, 900);
+  });
+  document.getElementById('leaveBtn').addEventListener('click', () => {
+    applyMode('lobby');
+  });
+
+  /* ============================================================
+   * 演示按钮：5 张卡 deal-in
+   * ============================================================ */
+  function runDemo() {
+    cards.forEach((c) => c.remove()); cards.length = 0;
+    history.length = 0;
+    setTimeout(() => pushCard({ from: 'opp', kind: 'emoji', emoji: '🤔' }), 100);
+    setTimeout(() => pushCard({ from: 'me',  kind: 'emoji', emoji: '👊' }), 900);
+    setTimeout(() => pushCard({ from: 'opp', kind: 'text',  content: '这步棋我真的没想到可以这样下' }), 1800);
+    setTimeout(() => pushCard({ from: 'me',  kind: 'emoji', emoji: '👍' }), 2700);
+    setTimeout(() => pushCard({ from: 'opp', kind: 'text',  content: 'GG' }), 3600);
+  }
+  document.getElementById('demoBtn').addEventListener('click', runDemo);
+
+  /* ============================================================
+   * Boot
+   * ============================================================ */
+  renderRankLabels();
+  renderFileLabels();
+  renderBoard();
+  renderPlayerMeta();
+  setupComposer();
+  applyMode('lobby');
+  setTimeout(runDemo, 400);
+</script>
+</body>
+</html>

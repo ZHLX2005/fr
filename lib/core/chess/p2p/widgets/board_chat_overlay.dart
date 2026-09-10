@@ -1,8 +1,8 @@
 // lib/core/chess/p2p/widgets/board_chat_overlay.dart
 //
 // F2 落地版：棋盘 absolute 浮层
-//   · 右上角：近期对话卡片堆（最多 N 张，新卡 deal-in，旧卡 tuck 后退）
-//   · 左上角：💬 FAB（点击展开 composer；避开键盘遮挡）
+//   · 左上角：近期对话卡片堆（最多 N 张，新卡 deal-in，旧卡 tuck 后退）
+//   · 右上角：💬 FAB（点击展开 composer）
 //   · composer：双 tab（表情 / 记录）+ 文字输入 + 发送
 //   · 浮层 absolute，不挤 Column flex；竖屏 board-wrap 上下留白时 FAB 可落在格外
 //
@@ -252,10 +252,8 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
     setState(() => _composerOpen = true);
     // 关闭时已在 _draftText 中保留文字；打开后把草稿恢复给 controller
     _textController.text = _draftText;
-    // 聚焦交给 _Composer 的 listener / FocusNode，延迟到 build 后
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
+    // 不自动 requestFocus：一打开就抢焦点会弹 IME，发表情再 unfocus
+    // 时键盘收起容易闪灰色蒙层。用户点输入框再聚焦即可。
   }
 
   void _closeComposer() {
@@ -284,11 +282,11 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
       _toast('发送过快，稍后再试');
       return;
     }
+    // 先关 composer（清 barrier），再发网：避免 await 期间蒙层/键盘闪一下。
+    _closeComposer();
     setState(() => _sending = true);
     try {
       await widget.onSendEmoji(id);
-      if (!mounted) return;
-      _closeComposer();
     } catch (_) {
       if (mounted) _toast('表情发送失败');
     } finally {
@@ -325,12 +323,10 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // 卡片堆：右上角（在 board 上方的 padding 区）
-        // 之前在左上：但 FAB/composer 也改到了左上角（避开键盘弹起遮挡），
-        // 卡片堆改到右上避免与对话入口重叠。
+        // 卡片堆：左上角（与右上对话入口分开，避免重叠）
         Positioned(
           top: 16,
-          right: 16,
+          left: 16,
           child: _CardStack(
             cards: _cards,
             dismissing: _dismissing,
@@ -341,30 +337,29 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
           ),
         ),
 
-        // composer 背景遮罩（仅在打开时）
+        // composer 背景：仅挡点击，不着色（着色会在开关瞬间闪灰色蒙层）
         if (_composerOpen)
           Positioned.fill(
             child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+              behavior: HitTestBehavior.translucent,
               onTap: _closeComposer,
             ),
           ),
 
-        // composer 关闭时：左上角 FAB
-        // 之前在右下角：移到左上角避免键盘弹起时 FAB 被输入法遮住无法点。
+        // composer 关闭时：右上角 FAB
         if (!_composerOpen)
           Positioned(
-            left: 16,
+            right: 16,
             top: 16,
             child: _BoardChatFab(
               enabled: widget.enabled,
               onTap: _openComposer,
             ),
           ),
-        // composer 打开时：左上角 composer 面板（替换 FAB，从左侧滑入）
+        // composer 打开时：右上角面板（替换 FAB，从右侧滑入）
         if (_composerOpen)
           Positioned(
-            left: 16,
+            right: 16,
             top: 16,
             child: TweenAnimationBuilder<double>(
               // 首次构建 t=0→1；后续 composer 关闭再打开时也会重新构建
@@ -376,10 +371,11 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
                 return Opacity(
                   opacity: t,
                   child: Transform.translate(
-                    // 从左侧 -8 滑入（位置在左上，故水平方向滑入更自然）
-                    offset: Offset(-8 * (1 - t), 0),
+                    // 从右侧 +8 滑入
+                    offset: Offset(8 * (1 - t), 0),
                     child: Transform.scale(
                       scale: 0.96 + 0.04 * t,
+                      alignment: Alignment.topRight,
                       child: child,
                     ),
                   ),
@@ -672,7 +668,7 @@ class _ChatCardState extends State<_ChatCard> with TickerProviderStateMixin {
   }
 }
 
-/// 左上角圆形 FAB（棋盘 quick-send 入口）
+/// 右上角圆形 FAB（棋盘 quick-send 入口）
 /// 命名：区别于 chess_room_page.dart 的 _ChatFab（PlayerStrip 上的"详细历史"入口）
 /// 视觉对齐 F2 原型：圆形、黑色边、💬 图标、hover/active scale 反馈
 class _BoardChatFab extends StatefulWidget {

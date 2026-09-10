@@ -1389,7 +1389,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
 
     // resizeToAvoidBottomInset: false —— 键盘不得挤 body；对话 FAB/composer
-    // 在棋盘区左上角 absolute 浮层，不依赖键盘抬升。
+    // 在棋盘区右上角 absolute 浮层，不依赖键盘抬升。
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(

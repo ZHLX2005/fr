@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chess 对弈 · Playing 状态 (真实 Flutter 视觉 + 双 tab + 12 SVG 表情)</title>
+<style>
+  /* ============================================================
+   * Tokens — 与 lib/core/theme/tokens/color/chess/chess.dart 对齐
+   * ============================================================ */
+  :root {
+    /* 棋盘 */
+    --light-sq: #EBE5D6;
+    --dark-sq:  #A07E5A;
+    --grid-line: #8A8475;
+    --label: #8A8475;
+    /* 高亮 (chess.dart:40,43,46,49) */
+    --selected: rgba(122, 154, 126, 0.35);
+    --last-move: rgba(217, 226, 211, 0.6);
+    --legal-dot: rgba(138, 132, 117, 0.5);
+    --capture-ring: #A0594A;
+    /* 终局 / 升变 */
+    --promotion-overlay: #F4F1EA;
+    --promotion-border: #6B5D4F;
+    --checkmate-overlay: rgba(61, 49, 39, 0.75);
+    /* F2 身份色 */
+    --me: #2A6FDB;
+    --opp: #C2410C;
+    --strip-meta: #6B6B6B;
+    /* 中性色 */
+    --surface: #FFFFFF;
+    --bg: #FAFAF7;
+    --text-1: #1A1A1A;
+    --text-2: #6B6B6B;
+    --text-3: #9B9B9B;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.16);
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  }
+
+  /* kv 表情包渐变背景（与 board_chat_overlay.dart _KvEmojiGradients 一致） */
+  .sk-a { background: linear-gradient(135deg, #FFE08A, #F5A623); }
+  .sk-b { background: linear-gradient(135deg, #A8E6CF, #3DDC97); }
+  .sk-c { background: linear-gradient(135deg, #FFB3BA, #FF6B6B); }
+  .sk-d { background: linear-gradient(135deg, #B5D5FF, #2A6FDB); }
+  .sk-e { background: linear-gradient(135deg, #E0D4FF, #8B5CF6); }
+  .sk-f { background: linear-gradient(135deg, #FFD6A5, #C2410C); }
+  .sk-g { background: linear-gradient(135deg, #FFE0B2, #FF9800); }
+  .sk-h { background: linear-gradient(135deg, #B2DFDB, #009688); }
+  .sk-i { background: linear-gradient(135deg, #F8BBD0, #EC407A); }
+  .sk-j { background: linear-gradient(135deg, #FFF59D, #FBC02D); }
+  .sk-k { background: linear-gradient(135deg, #C8E6C9, #43A047); }
+  .sk-l { background: linear-gradient(135deg, #90CAF9, #1565C0); }
+
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:#EDEBE6; color:var(--text-1);
+    font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+  body { display:flex; flex-direction:column; align-items:center; padding:24px 16px 48px; gap:16px; min-height:100vh; }
+
+  .banner {
+    width: min(720px, 100%);
+    background: var(--surface); border:1px solid var(--border-strong);
+    border-radius:10px; padding:14px 16px; font-size:13px; line-height:1.6; color:var(--text-2);
+  }
+  .banner h1 { margin:0 0 6px; font-size:16px; color:var(--text-1); }
+  .banner code { font-size:12px; background:#F4F3EF; padding:1px 6px; border-radius:4px; }
+  .banner ul { margin:8px 0 0; padding-left:18px; }
+  .banner li { margin:2px 0; }
+
+  .mode-bar { display:flex; gap:4px; background:var(--surface);
+    border:1px solid var(--border); border-radius:8px; padding:4px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  .mode-bar button { font-size:12px; padding:6px 12px; border-radius:4px;
+    background:transparent; border:1px solid transparent; cursor:pointer;
+    color:var(--text-2); font-family:inherit; }
+  .mode-bar button:hover { color:var(--text-1); }
+  .mode-bar button.on { background:var(--text-1); color:var(--surface); border-color:var(--text-1); }
+
+  /* ============================================================
+   * Phone frame
+   * ============================================================ */
+  .phone {
+    width:360px; height:720px; min-height:720px; max-height:720px;
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    display:flex; flex-direction:column; position:relative; overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,0.08); flex-shrink:0;
+  }
+
+  /* ============================================================
+   * AppBar — Material 3 kToolbarHeight=56dp
+   * ============================================================ */
+  .topbar {
+    height:56px; display:flex; align-items:center; padding:0 4px 0 12px;
+    border-bottom:1px solid var(--border); gap:8px; font-size:14px; flex-shrink:0;
+  }
+  .topbar .badge {
+    width:86px; height:32px; display:flex; align-items:center; gap:6px;
+    padding:0 4px; font-size:11px; font-weight:500; flex-shrink:0; color:var(--text-2);
+  }
+  .topbar .badge .pulse {
+    width:8px; height:8px; border-radius:50%; background:var(--me);
+    box-shadow:0 0 4px rgba(0,0,0,0.5);
+  }
+  .topbar .title { flex:1; font-size:22px; font-weight:500; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .topbar .action-btn {
+    width:48px; height:48px; display:grid; place-items:center;
+    border:none; background:transparent; cursor:pointer;
+    color:var(--text-1); border-radius:50%;
+  }
+  .topbar .action-btn:hover { background: rgba(0,0,0,0.06); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============================================================
+   * PlayerStrip F2
+   * ============================================================ */
+  .player-strip {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 16px; flex-shrink:0;
+  }
+  .side-dot { width:8px; height:8px; border-radius:50%; background:var(--me); flex-shrink:0; }
+  .side-dot.opp { background: var(--opp); }
+  .player-strip .name {
+    font-size:13px; font-weight:600; flex:1; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-1);
+  }
+  .player-strip .name.opp { font-weight:500; }
+  .player-strip .meta {
+    font-size:13px; color: var(--strip-meta); flex-shrink:0;
+    font-variant-numeric: tabular-nums;
+    display:flex; align-items:center; gap:6px;
+  }
+  .player-strip .meta .sep { color: var(--text-3); }
+
+  /* ============================================================
+   * Board area
+   * ============================================================ */
+  .board-wrap {
+    flex:1 1 auto; min-height:0;
+    display:grid; place-items:center;
+    padding:12px; background:var(--bg); position:relative;
+  }
+  .board-area {
+    width:320px; height:320px; position:relative; flex-shrink:0;
+  }
+  .board {
+    position:absolute; left:16px; top:16px;
+    width:288px; height:288px;
+    display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
+    background: var(--surface);
+  }
+  .rank-labels {
+    position:absolute; left:0; top:16px;
+    width:16px; height:288px;
+    display:grid; grid-template-rows:repeat(8,1fr);
+    color: var(--label); font-size:8px; font-weight:600;
+  }
+  .file-labels {
+    position:absolute; left:16px; top:304px;
+    width:288px; height:16px;
+    display:grid; grid-template-columns:repeat(8,1fr);
+    color: var(--label); font-size:8px; font-weight:600;
+  }
+  .rank-labels > div, .file-labels > div {
+    display:grid; place-items:center;
+  }
+  .sq {
+    display:grid; place-items:center;
+    font-size:22px; line-height:1; user-select:none;
+    position:relative;
+  }
+  .sq.light { background: var(--light-sq); color: var(--dark-sq); }
+  .sq.dark  { background: var(--dark-sq);  color: var(--light-sq); }
+  .sq.selected::before {
+    content:''; position:absolute; inset:0;
+    background: var(--selected);
+  }
+  .sq.last-from::before, .sq.last-to::before {
+    content:''; position:absolute; inset:0;
+    background: var(--last-move);
+  }
+  .sq.last-from, .sq.last-to { z-index:1; }
+  .sq .legal-dot {
+    position:absolute; left:50%; top:50%;
+    width:32%; height:32%;
+    border-radius:50%; background:var(--legal-dot);
+    transform:translate(-50%,-50%); pointer-events:none; z-index:2;
+  }
+  .sq .capture-ring {
+    position:absolute; left:50%; top:50%;
+    width:85%; height:85%;
+    border-radius:50%;
+    border:3px solid var(--capture-ring);
+    transform:translate(-50%,-50%); pointer-events:none; z-index:2;
+  }
+  .sq.piece { z-index:0; }
+
+  /* ============================================================
+   * BoardChatOverlay — card stack 右上角 (避开左上对话入口)
+   * ============================================================ */
+  .stack {
+    position:absolute; top:16px; left:16px;
+    width:240px; height:80px; pointer-events:none; z-index:20;
+  }
+  .card {
+    position:absolute; left:0; top:0;
+    background:var(--surface);
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+    line-height:1.2;
+    transform-origin:center center;
+    pointer-events:none;
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  }
+  .card.emoji {
+    width:60px; height:60px;
+    display:flex; align-items:center; justify-content:center; padding:6px;
+  }
+  .card.emoji .sticker {
+    width:100%; height:100%; border-radius:6px;
+    display:grid; place-items:center; color:#fff;
+  }
+  .card.emoji .sticker svg {
+    width:60%; height:60%; fill:none; stroke:currentColor;
+    stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;
+  }
+  .card.text {
+    width:max-content; max-width:220px; min-height:32px;
+    font-size:12px; padding:6px 10px 6px 14px;
+    white-space:normal; overflow-wrap:break-word; line-height:1.35; text-align:left;
+  }
+  .card .who {
+    position:absolute; top:5px; left:5px;
+    width:5px; height:5px; border-radius:50%;
+  }
+  .card.from-me .who { background:var(--me); }
+  .card.from-opp .who { background:var(--opp); }
+  @keyframes deal {
+    0%   { transform: scale(0.3) rotate(-10deg); opacity:0; }
+    60%  { transform: scale(1.1)  rotate(2deg);   opacity:1; }
+    100% { transform: scale(1)    rotate(0deg);   opacity:1; }
+  }
+  @keyframes dismiss {
+    0%   { transform: scale(1) rotate(0deg); opacity:1; }
+    100% { transform: scale(0.5) rotate(8deg); opacity:0; }
+  }
+  .card.entering { animation: deal 0.4s cubic-bezier(.2,.9,.3,1.4) forwards; }
+  .card.leaving  { animation: dismiss 0.32s ease-in forwards; }
+
+  /* ============================================================
+   * FAB — 右上角 (board_chat_overlay.dart)
+   * ============================================================ */
+  .fab {
+    position:absolute; right:16px; top:16px;
+    width:48px; height:48px; border-radius:50%;
+    background:var(--surface);
+    border:1px solid var(--text-1);
+    box-shadow:0 4px 12px rgba(0,0,0,0.10);
+    display:grid; place-items:center;
+    cursor:pointer; z-index:25;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .fab:hover { transform: scale(1.05); box-shadow:0 6px 16px rgba(0,0,0,0.14); }
+  .fab:active { transform: scale(0.95); }
+  .fab.hidden { display:none; }
+  .fab svg { width:22px; height:22px; color: var(--text-1); }
+
+  /* ============================================================
+   * Composer — 右上角 替换 FAB（从右滑入）
+   * 双 tab (表情/记录) + 12 SVG 表情网格 (4 列) + 记录 ChatEvent 列表
+   * ============================================================ */
+  .composer {
+    position:absolute; right:16px; top:16px;
+    width:240px; padding:8px 4px 8px 8px;
+    background:var(--surface);
+    border:1px solid var(--text-1);
+    border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.14), 0 2px 4px rgba(0,0,0,0.06);
+    z-index:26; display:flex; flex-direction:column; gap:8px;
+    transform: translateX(8px) scale(0.96);
+    transform-origin: top right;
+    opacity:0; pointer-events:none;
+    transition: opacity 0.18s, transform 0.18s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .composer.show { opacity:1; transform: translateX(0) scale(1); pointer-events:auto; }
+  .composer .head {
+    display:flex; align-items:center; gap:4px;
+  }
+  .composer .tabs {
+    display:flex; flex:1;
+    background:var(--bg);
+    border-radius:6px; padding:2px; gap:2px;
+  }
+  .composer .tab {
+    flex:1; padding:4px 8px;
+    background:transparent; border:none; border-radius:4px;
+    font:inherit; font-size:12px; font-weight:600;
+    color:var(--text-2); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:4px;
+  }
+  .composer .tab:hover { color:var(--text-1); }
+  .composer .tab.active {
+    background:var(--surface);
+    color:var(--text-1);
+    box-shadow:0 1px 3px rgba(0,0,0,0.08);
+  }
+  .composer .tab .count {
+    display:inline-block; min-width:16px; height:16px; line-height:16px;
+    padding:0 5px; border-radius:8px;
+    background:var(--me); color:#fff;
+    font-size:10px; font-weight:600; text-align:center;
+  }
+  .composer .tab.active .count { background:var(--opp); }
+  .composer .close {
+    width:22px; height:22px; border-radius:50%;
+    background:transparent; border:none; color:var(--text-3);
+    cursor:pointer; font-size:14px; display:grid; place-items:center;
+    flex-shrink:0;
+  }
+  .composer .close:hover { background:#F4F3EF; color:var(--text-1); }
+  .composer .tab-panel { display:none; }
+  .composer .tab-panel.active { display:block; }
+
+  /* 表情 tab：4 列网格 */
+  .composer .emoji-grid {
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:4px;
+    max-height:156px; overflow-y:auto;
+    padding:2px 0;
+  }
+  .composer .emoji-grid .e-btn {
+    width:100%; aspect-ratio:1; min-height:40px;
+    border:1px solid transparent; border-radius:6px;
+    cursor:pointer; display:grid; place-items:center; padding:0;
+    color:#fff;
+    transition: transform 0.15s;
+  }
+  .composer .emoji-grid .e-btn:hover { transform: scale(1.08); }
+  .composer .emoji-grid .e-btn svg {
+    width:60%; height:60%;
+    fill:none; stroke:currentColor;
+    stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;
+  }
+  .composer .emoji-grid .e-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+  /* 记录 tab：本局 ChatEvent 列表 */
+  .hist-box {
+    max-height:156px; overflow-y:auto;
+    background:var(--bg); border:1px solid var(--border-strong);
+    border-radius:6px; padding:6px 8px;
+  }
+  .hist-empty { font-size:11px; color:var(--text-3); text-align:center; padding:16px 0; }
+  .hist-row {
+    display:flex; align-items:flex-start; gap:6px;
+    padding:3px 0; font-size:11px; line-height:1.3;
+  }
+  .hist-row .dot {
+    width:5px; height:5px; border-radius:50%; margin-top:4px; flex-shrink:0;
+  }
+  .hist-row .dot.me { background:var(--me); }
+  .hist-row .dot.opp { background:var(--opp); }
+  .hist-row .who { font-weight:600; flex-shrink:0; font-size:10px; }
+  .hist-row .who.me { color:var(--me); }
+  .hist-row .who.opp { color:var(--opp); }
+  .hist-row .body { flex:1; min-width:0; word-break:break-word; }
+  .hist-row .body .sticker {
+    width:22px; height:22px; border-radius:4px;
+    display:inline-grid; place-items:center; color:#fff; vertical-align:middle;
+  }
+  .hist-row .body .sticker svg {
+    width:70%; height:70%;
+    fill:none; stroke:currentColor;
+    stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;
+  }
+
+  /* 输入 + 发送 (composer 共享底部) */
+  .composer .row { display:flex; align-items:center; gap:6px; padding-right:4px; }
+  .composer input {
+    flex:1; height:32px; min-width:0; border:1px solid var(--border);
+    border-radius:6px; padding:8px 10px; font:inherit; font-size:12px;
+    background:var(--bg); outline:none; color:var(--text-1);
+  }
+  .composer input:focus { border-color:var(--text-1); background:var(--surface); }
+  .composer .send {
+    height:32px; padding:0 10px; border:1px solid var(--text-1);
+    background:var(--text-1); color:#fff; border-radius:6px;
+    font:inherit; font-size:12px; cursor:pointer; flex-shrink:0;
+  }
+  .composer .send:disabled { opacity:0.4; cursor:not-allowed; }
+
+  /* 升变面板 (promotion_panel.dart) */
+  .promotion {
+    position:absolute; inset:0; z-index:41;
+    display:none; align-items:center; justify-content:center;
+    background: rgba(0,0,0,0.45);
+  }
+  .promotion.show { display:flex; }
+  .promotion .row-promo {
+    display:flex; gap:8px; padding:10px;
+    background: var(--promotion-overlay);
+    border:2px solid var(--promotion-border);
+    border-radius:8px;
+  }
+  .promotion .p-btn {
+    width:56px; height:56px; padding:0; border:none; background:transparent;
+    font-size:34px; line-height:1; cursor:pointer; color:var(--text-1);
+    display:grid; place-items:center;
+  }
+  .promotion .p-btn:hover { background: rgba(0,0,0,0.04); }
+
+  /* 终局覆盖层 (chess_room_page.dart:2043-2059 Positioned.fill) */
+  .gameover {
+    position:absolute; inset:0; z-index:40;
+    display:none; align-items:center; justify-content:center;
+    background: var(--checkmate-overlay);
+  }
+  .gameover.show { display:flex; }
+  .gameover .card-go {
+    background: var(--promotion-overlay);
+    border:2px solid var(--promotion-border);
+    border-radius:16px;
+    padding:28px 32px; min-width:240px; text-align:center;
+  }
+  .gameover .card-go h2 { margin:0 0 8px; font-size:26px; font-weight:700; }
+  .gameover .card-go p  { margin:0 0 20px; font-size:16px; color:var(--label); }
+  .gameover .btn-stack { display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .gameover .btn {
+    font-size:14px; font-weight:500; letter-spacing:0.1px;
+    min-height:40px; padding:0 24px;
+    border-radius:20px; cursor:pointer; font-family:inherit;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .gameover .btn.primary { background:var(--me); color:#fff; border:1px solid var(--me); }
+  .gameover .btn.outline { background:transparent; color:var(--text-1); border:1px solid var(--text-1); }
+
+  /* WS 离线 (chess_room_page.dart:1747-1769) */
+  .ws-offline {
+    position:absolute; inset:0; z-index:45;
+    display:none; align-items:center; justify-content:center; flex-direction:column;
+    background: rgba(0,0,0,0.55); color:#fff; gap:12px;
+  }
+  .ws-offline.show { display:flex; }
+  .ws-offline .spin {
+    width:36px; height:36px; border-radius:50%;
+    border:4px solid rgba(255,255,255,0.4); border-top-color:#fff;
+    animation: spin 0.8s linear infinite;
+  }
+  .ws-offline .text { font-size:14px; }
+
+  /* 我方掉线 banner (chess_room_page.dart:1774-1805) */
+  .me-offline {
+    position:absolute; top:0; left:0; right:0;
+    background: #D93025; color:#fff;
+    padding:8px 16px; font-size:13px; font-weight:600;
+    display:none; align-items:center; justify-content:center; gap:10px;
+    z-index:46;
+  }
+  .me-offline.show { display:flex; }
+  .me-offline .spin {
+    width:14px; height:14px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.4); border-top-color:#fff;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* Fetching 进度条 (chess_room_page.dart:1425-1431) */
+  .progress-bar {
+    position:absolute; top:0; left:0; right:0; height:2px; z-index:50;
+    background: var(--me);
+    animation: progressIndeterminate 1.4s linear infinite;
+  }
+  @keyframes progressIndeterminate {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>Chess · Playing 状态 (真实 Flutter 视觉 + 双 tab + 12 SVG 表情)</h1>
+  对应源码：
+  <code>chess_room_page.dart</code> ·
+  <code>player_strip.dart</code> ·
+  <code>board_chat_overlay.dart</code> ·
+  <code>chess_board.dart</code> ·
+  <code>chess_constants.dart</code> ·
+  <code>chess.dart</code>
+  <ul>
+    <li>真实 Flutter 视觉：AppBar 56dp、棋盘 320×320（沙色 + 沙绿/米奶高亮）、FAB 48×48 右下、Composer 240px bottom:16</li>
+    <li>对话 (board_chat_overlay.dart) 双 tab：表情 (12 SVG + sk 渐变) + 记录 (本局 ChatEvent 列表)</li>
+    <li>12 个 SVG 表情 (kvEmojiBundle mock) 4 列 GridView + 白色描线 icon</li>
+    <li>棋子用 Unicode ♔♕♖♗♘♙ (chess.dart fallback)</li>
+    <li>升变 #F4F1EA 米底 + #6B5D4F 棕边、终局暖棕 scrim、WS 离线全屏遮罩</li>
+  </ul>
+</div>
+
+<div class="mode-bar">
+  <button data-mode="playing" class="on">对弈</button>
+  <button data-mode="promotion">升变</button>
+  <button data-mode="ended">终局</button>
+  <button data-mode="ws-offline">WS 离线</button>
+  <button data-mode="me-offline">我掉线</button>
+  <button data-mode="fetching">拉取中</button>
+</div>
+
+<div class="phone" id="phone">
+  <div class="progress-bar" id="progress" style="display:none"></div>
+  <div class="me-offline" id="meOffline">
+    <span class="spin"></span>
+    <span>你已掉线 · 正在重连（棋盘已冻结）</span>
+  </div>
+
+  <!-- AppBar (Material 3 56dp) -->
+  <div class="topbar">
+    <div class="badge" title="连接状态">
+      <span class="pulse"></span>
+      <span id="connText">已连接</span>
+    </div>
+    <div class="title">房间 <span id="roomCode">R-7421</span></div>
+    <button class="action-btn" id="refreshBtn" title="刷新快照">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <polyline points="1 20 1 14 7 14"></polyline>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+      </svg>
+    </button>
+    <button class="action-btn" id="leaveBtn" title="断开">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    </button>
+  </div>
+
+  <div id="playingView" style="display:flex; flex-direction:column; flex:1; min-height:0;">
+    <div class="player-strip top">
+      <span class="side-dot opp"></span>
+      <span class="name opp">lin-99</span>
+      <span class="meta">
+        <span>执黑</span><span class="sep">·</span><span>已连接</span>
+      </span>
+    </div>
+
+    <div class="board-wrap" id="boardWrap">
+      <div class="board-area">
+        <div class="board" id="board"></div>
+        <div class="rank-labels" id="rankLabels"></div>
+        <div class="file-labels" id="fileLabels"></div>
+      </div>
+
+      <div class="stack" id="stack"></div>
+
+      <div class="fab" id="fab" title="发送消息">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+      </div>
+
+      <div class="composer" id="composer" style="display:none">
+        <div class="head">
+          <div class="tabs">
+            <button class="tab active" data-tab="emoji" type="button">表情</button>
+            <button class="tab" data-tab="history" type="button">记录 <span class="count" id="histCount" style="display:none">0</span></button>
+          </div>
+          <button class="close" id="closeBtn" title="收起">×</button>
+        </div>
+        <div class="tab-panel active" data-panel="emoji">
+          <div class="emoji-grid" id="emojiGrid"></div>
+        </div>
+        <div class="tab-panel" data-panel="history">
+          <div class="hist-box" id="histBox">
+            <div class="hist-empty" id="histEmpty">还没有消息</div>
+            <div id="histList"></div>
+          </div>
+        </div>
+        <div class="row">
+          <input id="txt" placeholder="说点什么…" maxlength="40">
+          <button class="send" id="sendBtn" disabled>发</button>
+        </div>
+      </div>
+
+      <div class="promotion" id="promotion">
+        <div class="row-promo" id="promoRow"></div>
+      </div>
+    </div>
+
+    <div class="player-strip bot">
+      <span class="side-dot"></span>
+      <span class="name">我</span>
+      <span class="meta" id="meMeta">
+        <span>执白</span><span class="sep">·</span><span id="meStatus">你的回合</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="gameover" id="gameover">
+    <div class="card-go">
+      <h2 id="goTitle">将杀</h2>
+      <p id="goSub">你赢了</p>
+      <div class="btn-stack">
+        <button class="btn primary" id="goReset">再来一局</button>
+        <button class="btn outline" id="goReplay">复盘</button>
+        <button class="btn outline" id="goLeave">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ws-offline" id="wsOffline">
+    <div class="spin"></div>
+    <div class="text">连接断开，正在重连…</div>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+   * State + boot
+   * ============================================================ */
+  const state = {
+    sideToMove: 'w', myColor: 'w', isHost: true,
+    selectedSquare: null, lastMove: null,
+    mode: 'playing',
+  };
+
+  /* Unicode 棋子 (kUnicodePieces chess_constants.dart:30-44) */
+  const PIECE = {
+    K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙',
+    k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟',
+  };
+
+  /* kv 表情包 mock (board_chat_overlay.dart _kComposerEmojis) */
+  const kvEmojiBundle = [
+    { id:'fist-bump', svg:'<path d="M9 11V6.5a1.5 1.5 0 0 1 3 0V11M12 11V4.5a1.5 1.5 0 0 1 3 0V11M15 11V6.5a1.5 1.5 0 0 1 3 0v8.5a4 4 0 0 1-4 4h-3a4 4 0 0 1-4-4v-2.5"/>', sk:'sk-a' },
+    { id:'thumbs-up', svg:'<path d="M7 22V11M14 11V4a2 2 0 0 0-4 0v7H7l3 11h7a3 3 0 0 0 3-2.5l1-5a2 2 0 0 0-2-2.5h-5z"/>', sk:'sk-b' },
+    { id:'party', svg:'<path d="M5.8 11.3L2 22l10.7-3.79M4 16.5l5.5-5.5M14 8L8 14M19 5L5 19M14.5 5.5L18 9"/>', sk:'sk-c' },
+    { id:'thinking', svg:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 1.5-2.5 3M12 17.5v.01"/>', sk:'sk-d' },
+    { id:'frustrated', svg:'<circle cx="12" cy="12" r="9"/><path d="M16 16s-1.5-2-4-2-4 2-4 2M9 9l-1.5-1M15 9l1.5-1"/>', sk:'sk-e' },
+    { id:'handshake', svg:'<path d="M11 17l2 2a1 1 0 1 0 3-3M14 14l2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4M3 4h2.5l1 2M16 4l1 2"/>', sk:'sk-f' },
+    { id:'wave', svg:'<path d="M7 22V11M14 11V4a2 2 0 0 0-4 0v2M14 11V7a2 2 0 0 1 4 0v4M14 11h2a2 2 0 0 1 2 2v3a4 4 0 0 1-4 4h-2"/>', sk:'sk-g' },
+    { id:'applause', svg:'<path d="M9 5l-4 4 4 4M15 5l4 4-4 4M12 4v16M9 12l3 3 3-3"/>', sk:'sk-h' },
+    { id:'pray', svg:'<path d="M12 2v20M9 18l3-12 3 12M9 8h6"/>', sk:'sk-i' },
+    { id:'trophy', svg:'<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3a1 1 0 0 1 1 1v1a3 3 0 0 1-3 3M7 5H4a1 1 0 0 0-1 1v1a3 3 0 0 0 3 3"/>', sk:'sk-j' },
+    { id:'good-luck', svg:'<path d="M12 2a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4zM12 10v12M9 16h6"/>', sk:'sk-k' },
+    { id:'cool', svg:'<path d="M3 12a9 9 0 0 1 18 0v3a3 3 0 0 1-3 3h-1a3 3 0 0 1-3-3v-1a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3z"/>', sk:'sk-l' },
+  ];
+  function renderSticker(p) {
+    return `<span class="sticker ${p.sk}"><svg viewBox="0 0 24 24">${p.svg}</svg></span>`;
+  }
+
+  function initialBoard() {
+    const b = Array(64).fill(null);
+    const back = 'rnbqkbnr';
+    for (let c = 0; c < 8; c++) {
+      b[0*8+c] = back[c];
+      b[1*8+c] = 'p';
+      b[6*8+c] = 'P';
+      b[7*8+c] = back[c].toUpperCase();
+    }
+    return b;
+  }
+  let board = initialBoard();
+
+  const idx = (r, c) => r * 8 + c;
+  const rc  = (i) => [Math.floor(i/8), i%8];
+
+  function pseudoLegalTargets(from) {
+    const p = board[from]; if (!p) return [];
+    const isW = p === p.toUpperCase();
+    if ((state.sideToMove === 'w') !== isW) return [];
+    const [r, c] = rc(from);
+    const out = [];
+    const dir = isW ? -1 : 1;
+    const startRow = isW ? 6 : 1;
+    if (p === 'P' || p === 'p') {
+      const f1 = idx(r+dir, c);
+      if (r+dir>=0 && r+dir<=7 && !board[f1]) {
+        out.push(f1);
+        if (r === startRow) { const f2 = idx(r+dir*2,c); if (!board[f2]) out.push(f2); }
+      }
+      for (const dc of [-1, 1]) {
+        const nr=r+dir, nc=c+dc;
+        if (nc<0||nc>7||nr<0||nr>7) continue;
+        const t = idx(nr,nc);
+        if (board[t] && (board[t]===board[t].toUpperCase()) !== isW) out.push(t);
+      }
+      return out;
+    }
+    if (p === 'N' || p === 'n') {
+      for (const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
+        const nr=r+dr, nc=c+dc;
+        if (nr<0||nr>7||nc<0||nc>7) continue;
+        const t=idx(nr,nc);
+        if (!board[t] || (board[t]===board[t].toUpperCase()) !== isW) out.push(t);
+      }
+      return out;
+    }
+    const slide = [];
+    if (p==='B'||p==='b'||p==='Q'||p==='q') slide.push([-1,-1],[-1,1],[1,-1],[1,1]);
+    if (p==='R'||p==='r'||p==='Q'||p==='q') slide.push([-1,0],[1,0],[0,-1],[0,1]);
+    for (const [dr,dc] of slide) {
+      let nr=r+dr, nc=c+dc;
+      while (nr>=0&&nr<=7&&nc>=0&&nc<=7) {
+        const t = idx(nr,nc);
+        if (!board[t]) out.push(t);
+        else { if ((board[t]===board[t].toUpperCase()) !== isW) out.push(t); break; }
+        nr+=dr; nc+=dc;
+      }
+    }
+    return out;
+  }
+
+  function tryMove(from, to) {
+    const piece = board[from];
+    if (!piece) return false;
+    if (!pseudoLegalTargets(from).includes(to)) return false;
+    const isW = piece === piece.toUpperCase();
+    const [tr] = rc(to);
+    if ((piece === 'P' || piece === 'p') && tr === (isW ? 0 : 7)) {
+      state.pendingPromotion = { from, to };
+      renderPromotion();
+      return true;
+    }
+    commitMove(from, to, null);
+    return true;
+  }
+  function commitMove(from, to, promotion) {
+    let piece = board[from];
+    if (promotion) piece = (piece === piece.toUpperCase()) ? promotion.toUpperCase() : promotion;
+    board[to] = piece; board[from] = null;
+    state.lastMove = { from, to };
+    state.sideToMove = state.sideToMove === 'w' ? 'b' : 'w';
+    state.selectedSquare = null;
+    state.pendingPromotion = null;
+    document.getElementById('promotion').classList.remove('show');
+    renderBoard();
+    renderMeMeta();
+  }
+
+  /* ============================================================
+   * Rendering
+   * ============================================================ */
+  function renderRankLabels() {
+    const el = document.getElementById('rankLabels');
+    el.innerHTML = '';
+    for (let r = 0; r < 8; r++) {
+      const d = document.createElement('div');
+      d.textContent = 8 - r;
+      el.appendChild(d);
+    }
+  }
+  function renderFileLabels() {
+    const el = document.getElementById('fileLabels');
+    el.innerHTML = '';
+    for (let c = 0; c < 8; c++) {
+      const d = document.createElement('div');
+      d.textContent = 'abcdefgh'[c];
+      el.appendChild(d);
+    }
+  }
+
+  function renderBoard() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    const targets = state.selectedSquare != null ? new Set(pseudoLegalTargets(state.selectedSquare)) : new Set();
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const i = idx(r, c);
+        const sq = document.createElement('div');
+        sq.className = 'sq ' + (((r+c) % 2 === 0) ? 'light' : 'dark');
+        sq.dataset.idx = String(i);
+        sq.style.cursor = 'pointer';
+        const p = board[i];
+        if (p) { sq.classList.add('piece'); sq.textContent = PIECE[p]; }
+        if (state.selectedSquare === i) sq.classList.add('selected');
+        if (state.lastMove) {
+          if (state.lastMove.from === i) sq.classList.add('last-from');
+          if (state.lastMove.to === i) sq.classList.add('last-to');
+        }
+        if (targets.has(i)) {
+          if (board[i]) {
+            const ring = document.createElement('div');
+            ring.className = 'capture-ring';
+            sq.appendChild(ring);
+          } else {
+            const dot = document.createElement('div');
+            dot.className = 'legal-dot';
+            sq.appendChild(dot);
+          }
+        }
+        sq.addEventListener('click', () => onSquareClick(i));
+        el.appendChild(sq);
+      }
+    }
+  }
+
+  function onSquareClick(i) {
+    if (state.mode !== 'playing') return;
+    const p = board[i];
+    if (state.selectedSquare == null) {
+      if (p && (p === p.toUpperCase()) === (state.sideToMove === 'w')) state.selectedSquare = i;
+    } else if (state.selectedSquare === i) {
+      state.selectedSquare = null;
+    } else if (p && (p === p.toUpperCase()) === (state.sideToMove === 'w')) {
+      state.selectedSquare = i;
+    } else if (pseudoLegalTargets(state.selectedSquare).includes(i)) {
+      tryMove(state.selectedSquare, i);
+      state.selectedSquare = null;
+      return;
+    } else {
+      state.selectedSquare = null;
+    }
+    renderBoard();
+  }
+
+  function renderMeMeta() {
+    document.getElementById('meStatus').textContent = (state.sideToMove === state.myColor) ? '你的回合' : '等待对方…';
+  }
+
+  function renderPromotion() {
+    const isW = (state.myColor === 'w');
+    const pieces = isW ? ['Q','R','B','N'] : ['q','r','b','n'];
+    const row = document.getElementById('promoRow');
+    row.innerHTML = '';
+    for (const p of pieces) {
+      const b = document.createElement('button');
+      b.className = 'p-btn';
+      b.textContent = PIECE[p];
+      b.addEventListener('click', () => {
+        const pp = state.pendingPromotion;
+        state.pendingPromotion = null;
+        commitMove(pp.from, pp.to, p);
+      });
+      row.appendChild(b);
+    }
+    document.getElementById('promotion').classList.add('show');
+  }
+
+  /* ============================================================
+   * BoardChatOverlay — 双 tab composer + card stack
+   * ============================================================ */
+  const stackEl = document.getElementById('stack');
+  const MAX_CARDS = 3;
+  const VISIBLE_MS = 2800;
+  const cards = [];
+  const history = [];      // 本局 ChatEvent 列表（去重）
+  const _seen = new Set();  // 去重 key
+
+  function pushCard({ from, kind, content, emoji, emojiId }) {
+    const key = `${from}:${kind}:${content || emoji || emojiId}:${Date.now() + Math.random()}`;
+    if (_seen.has(key)) return;
+    _seen.add(key);
+    if (_seen.size > 256) _seen.delete(_seen.values().next().value);
+    history.push({ from, kind, content, emoji, emojiId });
+
+    const c = document.createElement('div');
+    c.className = 'card ' + kind + ' from-' + from + ' entering';
+    const who = document.createElement('span'); who.className = 'who';
+    c.appendChild(who);
+    if (kind === 'emoji') {
+      // 在卡片堆也用 SVG sticker (board_chat_overlay.dart 真实逻辑)
+      const entry = kvEmojiBundle.find(e => e.id === emojiId) || kvEmojiBundle[0];
+      const t = document.createElement('span');
+      t.className = 'sticker ' + entry.sk;
+      t.innerHTML = `<svg viewBox="0 0 24 24">${entry.svg}</svg>`;
+      c.appendChild(t);
+    } else {
+      const t = document.createElement('span');
+      t.textContent = content;
+      c.appendChild(t);
+    }
+    stackEl.appendChild(c);
+    cards.push(c);
+    layout();
+    while (cards.length > MAX_CARDS) {
+      const old = cards.shift();
+      old.classList.add('leaving');
+      setTimeout(() => old.remove(), 320);
+    }
+    setTimeout(() => {
+      if (!c.isConnected) return;
+      c.classList.add('leaving');
+      setTimeout(() => c.remove(), 320);
+      const k = cards.indexOf(c);
+      if (k >= 0) cards.splice(k, 1);
+      layout();
+    }, VISIBLE_MS);
+    renderHistory();  // 同步记录 tab 角标 + 列表
+  }
+  function layout() {
+    for (let i = 0; i < cards.length; i++) {
+      const vi = cards.length - 1 - i;
+      const card = cards[i];
+      card.style.zIndex = String(MAX_CARDS - vi);
+      card.style.transform = `translate(${vi*6}px, ${vi*6}px) scale(${1 - vi*0.04}) rotate(${(vi%2===0?1:-1)*vi*1.5}deg)`;
+      card.style.opacity = String(1 - vi*0.18);
+    }
+  }
+
+  /* Composer — 12 SVG 表情网格 (4 列) */
+  function setupComposer() {
+    const grid = document.getElementById('emojiGrid');
+    grid.innerHTML = '';
+    for (const entry of kvEmojiBundle) {
+      const b = document.createElement('button');
+      b.className = 'e-btn ' + entry.sk;
+      b.title = entry.id;
+      b.innerHTML = `<svg viewBox="0 0 24 24">${entry.svg}</svg>`;
+      b.addEventListener('click', () => {
+        pushCard({ from: 'me', kind: 'emoji', emojiId: entry.id });
+        closeComposer();
+      });
+      grid.appendChild(b);
+    }
+
+    // tab 切换
+    document.querySelectorAll('.composer .tab').forEach((btn) => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+  }
+  function switchTab(tab) {
+    document.querySelectorAll('.composer .tab').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    document.querySelectorAll('.composer .tab-panel').forEach((p) => {
+      p.classList.toggle('active', p.dataset.panel === tab);
+    });
+    if (tab === 'history') {
+      const histBox = document.getElementById('histBox');
+      if (histBox) histBox.scrollTop = histBox.scrollHeight;
+    }
+  }
+
+  /* 记录 tab：本局 ChatEvent 列表 */
+  function renderHistory() {
+    const list = document.getElementById('histList');
+    const empty = document.getElementById('histEmpty');
+    const count = document.getElementById('histCount');
+    if (history.length > 0) {
+      count.textContent = String(history.length);
+      count.style.display = 'inline-block';
+      empty.style.display = 'none';
+    } else {
+      count.style.display = 'none';
+      empty.style.display = 'block';
+    }
+    list.innerHTML = '';
+    for (const h of history) {
+      const row = document.createElement('div');
+      row.className = 'hist-row';
+      const who = h.from === 'me' ? 'me' : 'opp';
+      let body = '';
+      if (h.kind === 'emoji') {
+        const entry = kvEmojiBundle.find(e => e.id === h.emojiId) || kvEmojiBundle[0];
+        body = `<span class="sticker ${entry.sk}"><svg viewBox="0 0 24 24">${entry.svg}</svg></span>`;
+      } else {
+        body = escapeHtml(h.content || '');
+      }
+      row.innerHTML =
+        `<span class="dot ${who}"></span>` +
+        `<span class="who ${who}">${who === 'me' ? '我' : '对方'}</span>` +
+        `<span class="body">${body}</span>`;
+      list.appendChild(row);
+    }
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (ch) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
+
+  function openComposer() {
+    document.getElementById('fab').classList.add('hidden');
+    document.getElementById('composer').style.display = 'flex';
+    document.getElementById('composer').classList.add('show');
+    setTimeout(() => document.getElementById('txt').focus(), 150);
+  }
+  function closeComposer() {
+    document.getElementById('fab').classList.remove('hidden');
+    document.getElementById('composer').classList.remove('show');
+    setTimeout(() => { document.getElementById('composer').style.display = 'none'; }, 200);
+    document.getElementById('txt').blur();
+  }
+  document.getElementById('fab').addEventListener('click', openComposer);
+  document.getElementById('closeBtn').addEventListener('click', closeComposer);
+  const txt = document.getElementById('txt');
+  const sendBtn = document.getElementById('sendBtn');
+  txt.addEventListener('input', () => sendBtn.disabled = txt.value.trim().length === 0);
+  function sendText() {
+    const v = txt.value.trim();
+    if (!v) return;
+    pushCard({ from: 'me', kind: 'text', content: v });
+    txt.value = ''; sendBtn.disabled = true;
+    closeComposer();
+  }
+  sendBtn.addEventListener('click', sendText);
+  txt.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendText(); } });
+
+  /* 模式切换 */
+  function applyMode(m) {
+    state.mode = m;
+    document.querySelectorAll('.mode-bar button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.mode === m);
+    });
+    const keepPlaying = ['playing', 'promotion', 'fetching', 'me-offline'].includes(m);
+    document.getElementById('playingView').style.display = keepPlaying ? 'flex' : 'none';
+    document.getElementById('gameover').classList.toggle('show', m === 'ended');
+    document.getElementById('wsOffline').classList.toggle('show', m === 'ws-offline');
+    document.getElementById('meOffline').classList.toggle('show', m === 'me-offline');
+    document.getElementById('progress').style.display = (m === 'fetching') ? 'block' : 'none';
+    document.getElementById('connText').textContent = (m === 'ws-offline') ? '重连中…' : '已连接';
+  }
+  document.querySelectorAll('.mode-bar button').forEach((b) => {
+    b.addEventListener('click', () => applyMode(b.dataset.mode));
+  });
+
+  /* 操作按钮 */
+  document.getElementById('refreshBtn').addEventListener('click', () => {
+    document.getElementById('progress').style.display = 'block';
+    setTimeout(() => { document.getElementById('progress').style.display = 'none'; }, 1200);
+  });
+  document.getElementById('goReset').addEventListener('click', () => {
+    board = initialBoard();
+    state.sideToMove = 'w'; state.lastMove = null; state.selectedSquare = null;
+    renderBoard(); renderMeMeta();
+    applyMode('playing');
+  });
+  document.getElementById('goLeave').addEventListener('click', () => applyMode('playing'));
+
+  /* 调试：demo 触发卡片序列 + 升变 */
+  function runDemo() {
+    cards.forEach((c) => c.remove()); cards.length = 0;
+    history.length = 0; _seen.clear(); renderHistory();
+    setTimeout(() => pushCard({ from: 'opp', kind: 'emoji', emojiId: 'thinking'  }), 100);
+    setTimeout(() => pushCard({ from: 'me',  kind: 'emoji', emojiId: 'fist-bump' }), 900);
+    setTimeout(() => pushCard({ from: 'opp', kind: 'text',  content: '这步棋我真的没想到可以这样下' }), 1800);
+    setTimeout(() => pushCard({ from: 'me',  kind: 'emoji', emojiId: 'thumbs-up' }), 2700);
+    setTimeout(() => pushCard({ from: 'opp', kind: 'text',  content: 'GG' }), 3600);
+  }
+
+  /* Boot */
+  renderRankLabels();
+  renderFileLabels();
+  renderBoard();
+  renderMeMeta();
+  setupComposer();
+  applyMode('playing');
+  // 初次启动跑一次 demo 让卡片堆 + 记录 tab 有数据
+  setTimeout(runDemo, 400);
+</script>
+</body>
+</html>
