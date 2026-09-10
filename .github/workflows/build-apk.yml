@@ -75,17 +75,20 @@ jobs:
           retention-days: 90
 
       - name: Upload APK to file server
+        continue-on-error: true
         run: |
           APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
           if [ -n "$APK_FILE" ]; then
             echo "Uploading $APK_FILE to file server..."
             # 新 file 接口：POST /api/v1/files + key=fr_latest_apk（共享 key，组内覆盖更新，
             # 服务端软删旧行，/files/by-key/fr_latest_apk 永远指向最新）。匿名上传落匿名组、强制 public。
-            RESPONSE=$(curl -s -X POST "http://47.110.80.47:8988/api/v1/files" \
+            # curl 网络失败（exit 52 empty reply 等）不得拖垮整 job：|| true 吞掉非零码。
+            RESPONSE=$(curl -sS --connect-timeout 15 --max-time 120 \
+              -X POST "http://47.110.80.47:8988/api/v1/files" \
               -F "file=@$APK_FILE" \
               -F "key=fr_latest_apk" \
               -F "accessLevel=public" \
-              -F "expireSeconds=0")
+              -F "expireSeconds=0" || true)
             echo "Upload response: $RESPONSE"
             if echo "$RESPONSE" | grep -Eq '"code":[[:space:]]*0'; then
               echo "APK uploaded successfully"

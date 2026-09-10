@@ -108,6 +108,7 @@ jobs:
           retention-days: 90
 
       - name: Upload APK to file server
+        continue-on-error: true
         run: |
           APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
           if [ -n "$APK_FILE" ]; then
@@ -116,17 +117,19 @@ jobs:
             # 服务端软删旧行，/files/by-key/{key} 永远指向最新）
             UPLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
             DOWNLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
-            RESPONSE=$(curl -s -X POST "http://47.110.80.47:8988/api/v1/files" \
+            # curl 网络失败不得拖垮整 job（|| true + continue-on-error）
+            RESPONSE=$(curl -sS --connect-timeout 15 --max-time 120 \
+              -X POST "http://47.110.80.47:8988/api/v1/files" \
               -F "file=@$APK_FILE" \
               -F "key=${UPLOAD_KEY}" \
               -F "accessLevel=public" \
-              -F "expireSeconds=0")
+              -F "expireSeconds=0" || true)
             echo "Upload response: $RESPONSE"
             if echo "$RESPONSE" | grep -Eq '"code":[[:space:]]*0'; then
               echo "APK uploaded successfully"
               echo "download_url=http://47.110.80.47:8988/files/by-key/${DOWNLOAD_KEY}" >> $GITHUB_ENV
             else
-              echo "APK uploaded failed, but continuing..."
+              echo "APK upload failed, but continuing..."
             fi
           else
             echo "No APK found to upload"
