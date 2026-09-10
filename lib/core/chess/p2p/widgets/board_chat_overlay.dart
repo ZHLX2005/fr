@@ -1,10 +1,10 @@
 // lib/core/chess/p2p/widgets/board_chat_overlay.dart
 //
 // F2 落地版：棋盘 absolute 浮层
-//   · 左上角：近期对话卡片堆（最多 N 张，新卡 deal-in，旧卡 tuck 后退）
-//   · 右下角：💬 FAB（点击展开 composer）
-//   · composer：emoji 行 + 文字输入 + 发送
-//   · 棋盘 100% 不被遮挡；player strip 镜像同尺寸；host-guest 通用
+//   · 右上角：近期对话卡片堆（最多 N 张，新卡 deal-in，旧卡 tuck 后退）
+//   · 左上角：💬 FAB（点击展开 composer；避开键盘遮挡）
+//   · composer：双 tab（表情 / 记录）+ 文字输入 + 发送
+//   · 浮层 absolute，不挤 Column flex；竖屏 board-wrap 上下留白时 FAB 可落在格外
 //
 // 设计依据：plan/chess-chat-redesign-2026-09-07/F-card-stack.html
 // 替换关系：EmojiOverlay + ChatSpeechBubbles（emoji/对话悬浮）→ BoardChatOverlay
@@ -672,7 +672,7 @@ class _ChatCardState extends State<_ChatCard> with TickerProviderStateMixin {
   }
 }
 
-/// 右下角圆形 FAB（棋盘 quick-send 入口）
+/// 左上角圆形 FAB（棋盘 quick-send 入口）
 /// 命名：区别于 chess_room_page.dart 的 _ChatFab（PlayerStrip 上的"详细历史"入口）
 /// 视觉对齐 F2 原型：圆形、黑色边、💬 图标、hover/active scale 反馈
 class _BoardChatFab extends StatefulWidget {

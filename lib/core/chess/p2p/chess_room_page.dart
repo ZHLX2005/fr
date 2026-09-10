@@ -1388,9 +1388,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       body = _buildPlaying(skin, board);
     }
 
-    // resizeToAvoidBottomInset: false —— 键盘不得用 Scaffold 内边距挤 body。
-    // 棋盘槽位为固定高度（非 Expanded）；缩窗余量由底部 Spacer 吸收。
-    // 对话 FAB/composer 在棋盘右上角，不依赖键盘抬升。
+    // resizeToAvoidBottomInset: false —— 键盘不得挤 body；对话 FAB/composer
+    // 在棋盘区左上角 absolute 浮层，不依赖键盘抬升。
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
@@ -1867,8 +1866,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       return '$colorLabel · $turn';
     }
 
-    // 棋盘区固定高度（非 Expanded）：键盘 / adjustResize 缩窗时由底部 Spacer
-    // 吞掉余量，320 棋盘不重排、不上移。卡片/composer 为 absolute 浮层，不占布局。
+    // 棋盘 Expanded 独占剩余高度（勿再叠 Spacer，否则双 flex 对半分 → 溢出/悬空）。
+    // 棋盘边长 = board-wrap 最短边，随屏自适应；竖屏上下留白可让 FAB 落在格外。
     return Stack(
       children: [
         Column(
@@ -1881,54 +1880,65 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               isMe: false,
               showAvatar: false,
             ),
-            // 棋盘 Expanded 占满剩余空间（flex 1）；FAB/composer 浮层 absolute 定位
-            // 在 board-wrap Stack 内，不参与 flex
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: SizedBox(
-                        width: 320,
-                        height: 320,
-                        child: ChessBoard(
-                          // 回放中渲染缓存局面子序列；平时渲染实况棋盘（快照 fen）。
-                          state: displayBoard,
-                          skin: skin,
-                          sideToMove: displayBoard.sideToMove,
-                          flipped: flipped,
-                          // 回放中棋盘只读：选中 / 合法目标清空 + 输入回调全部
-                          // 断开（tap 与拖动手势层都不挂载）。
-                          selectedSquare: replayOn ? null : _selectedSquare,
-                          legalTargets: replayOn ? const <int>{} : _legalTargets,
-                          lastMove: displayLastMove,
-                          onSquareTap: replayOn ? null : _handleTap,
-                          onDragSquareStart: replayOn ? null : _handleDragStart,
-                          onDragSquareUpdate: replayOn ? null : _handleDragUpdate,
-                          onDragSquareEnd: replayOn ? null : _handleDragEnd,
-                          draggingSquare: replayOn ? null : _draggingSquare,
-                          dragFingerPos: replayOn ? null : _dragFingerPos,
-                          dragHoverSquare: replayOn ? null : _dragHoverSquare,
-                          // 用户自定义棋盘配色（null = 跟随主题）
-                          boardPalette: widget.boardPalette,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final side = constraints.biggest.shortestSide;
+                    return Stack(
+                      children: [
+                        Center(
+                          child: SizedBox(
+                            width: side,
+                            height: side,
+                            child: ChessBoard(
+                              // 回放中渲染缓存局面子序列；平时渲染实况棋盘（快照 fen）。
+                              state: displayBoard,
+                              skin: skin,
+                              sideToMove: displayBoard.sideToMove,
+                              flipped: flipped,
+                              // 回放中棋盘只读：选中 / 合法目标清空 + 输入回调全部
+                              // 断开（tap 与拖动手势层都不挂载）。
+                              selectedSquare:
+                                  replayOn ? null : _selectedSquare,
+                              legalTargets:
+                                  replayOn ? const <int>{} : _legalTargets,
+                              lastMove: displayLastMove,
+                              onSquareTap: replayOn ? null : _handleTap,
+                              onDragSquareStart:
+                                  replayOn ? null : _handleDragStart,
+                              onDragSquareUpdate:
+                                  replayOn ? null : _handleDragUpdate,
+                              onDragSquareEnd:
+                                  replayOn ? null : _handleDragEnd,
+                              draggingSquare:
+                                  replayOn ? null : _draggingSquare,
+                              dragFingerPos:
+                                  replayOn ? null : _dragFingerPos,
+                              dragHoverSquare:
+                                  replayOn ? null : _dragHoverSquare,
+                              // 用户自定义棋盘配色（null = 跟随主题）
+                              boardPalette: widget.boardPalette,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    // 浮层：卡片 IgnorePointer；仅 FAB/composer 吃点击，不挤棋盘布局
-                    if (!replayOn)
-                      Positioned.fill(
-                        child: BoardChatOverlay(
-                          events: chatEvents,
-                          myDeviceId: myIdForChat,
-                          emojiBundle: _emojiBundle,
-                          fileResolver: _emojiFileResolver,
-                          enabled: !gameOver,
-                          onSendEmoji: (id) => _handleSendEmoji(id),
-                          onSendText: (text) => _handleSendText(text),
-                        ),
-                      ),
-                  ],
+                        // 浮层：卡片 IgnorePointer；仅 FAB/composer 吃点击
+                        if (!replayOn)
+                          Positioned.fill(
+                            child: BoardChatOverlay(
+                              events: chatEvents,
+                              myDeviceId: myIdForChat,
+                              emojiBundle: _emojiBundle,
+                              fileResolver: _emojiFileResolver,
+                              enabled: !gameOver,
+                              onSendEmoji: (id) => _handleSendEmoji(id),
+                              onSendText: (text) => _handleSendText(text),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -2024,8 +2034,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                       ],
                     ),
             ),
-            // 吸收剩余高度；键盘缩窗时优先压缩此处，棋盘槽位不动
-            const Spacer(),
           ],
         ),
         // 升变面板

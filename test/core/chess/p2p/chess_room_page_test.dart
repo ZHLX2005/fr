@@ -1084,7 +1084,8 @@ void main() {
 
     final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
     expect(board.flipped, isTrue, reason: '本地==guest_id → 黑方视角（不丢身份）');
-    expect(find.text('你执黑'), findsOneWidget);
+    // F2 PlayerStrip subtitle：执黑 · …
+    expect(find.textContaining('执黑'), findsWidgets);
   });
 
   testWidgets('稳定身份重连：transport 用登录 uid 且 host_id 同源 → 正确判定白方', (
@@ -1107,7 +1108,8 @@ void main() {
     await tester.pumpWidget(host(handle));
     await tester.pump();
 
-    expect(find.text('你执白'), findsOneWidget);
+    // F2 PlayerStrip subtitle：执白 · …
+    expect(find.textContaining('执白'), findsWidgets);
     final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
     expect(board.flipped, isFalse);
 
@@ -1125,7 +1127,7 @@ void main() {
     );
     await tester.pumpWidget(host(reconnect));
     await tester.pump();
-    expect(find.text('你执白'), findsOneWidget,
+    expect(find.textContaining('执白'), findsWidgets,
         reason: '重连后同一稳定 uid 仍识别为白方（Bug 2 根因修复）');
   });
 
