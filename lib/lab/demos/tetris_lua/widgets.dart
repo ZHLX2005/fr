@@ -1137,9 +1137,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             ),
             border: Border.all(color: _cLine),
             borderRadius: BorderRadius.circular(8),
-            boxShadow: const [
-              BoxShadow(color: Color(0x0A00E5FF), blurRadius: 16),
-            ],
           ),
           child: Row(
             children: [
