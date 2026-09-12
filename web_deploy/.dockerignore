@@ -1,0 +1,7 @@
+build-web/.git
+build-web/.cache
+build-web/.dart_tool
+build-web/.idea
+build-web/.vscode
+*.md
+*.log

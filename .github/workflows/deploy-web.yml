@@ -1,0 +1,140 @@
+name: Deploy Web
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  deploy-web:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      # 提交信息包含 web 才继续（master 分支上其他 push 跳过整个 job）
+      - name: Check commit message
+        if: github.event_name == 'push'
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $MSG"
+          if ! echo "$MSG" | grep -qi 'web'; then
+            echo "Commit message does not contain 'web', skipping deploy."
+            exit 1
+          fi
+
+      - name: Build Flutter web
+        run: flutter build web --release --pwa-strategy=none
+
+      - name: Prepare deploy context
+        run: |
+          rm -rf web_deploy/build-web
+          cp -r build/web web_deploy/build-web
+          echo "build-web size:"
+          du -sh web_deploy/build-web
+
+      - name: Diagnose secrets (length only)
+        if: always()
+        env:
+          HOST_LEN:     ${{ secrets.HOST }}
+          USERNAME_LEN: ${{ secrets.USERNAME }}
+          SSH_KEY_LEN:  ${{ secrets.SSH_KEY }}
+          PORT_LEN:     ${{ secrets.PORT }}
+        run: |
+          echo "HOST length: ${#HOST_LEN}"
+          echo "USERNAME length: ${#USERNAME_LEN}"
+          echo "SSH_KEY length: ${#SSH_KEY_LEN}"
+          echo "PORT length: ${#PORT_LEN}"
+
+      - name: Build Docker image
+        run: docker build -t xiaodouzi-fr-web:latest web_deploy/
+
+      - name: Save Docker image
+        run: docker save xiaodouzi-fr-web:latest | gzip > app.tar.gz
+
+      - name: Copy image to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT || 22 }}
+          source: "app.tar.gz"
+          target: "~/app/"
+          timeout: 30m
+          strip_components: 0
+
+      - name: Load and run on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT || 22 }}
+          timeout: 30s
+          command_timeout: 15m
+          script: |
+            bash -c '
+            set -e
+            APP_DIR="$HOME/app"
+            CONTAINER_NAME="xiaodouzi-fr-web"
+            IMAGE_NAME="xiaodouzi-fr-web"
+            HOST_PORT=82
+            CONTAINER_PORT=80
+            HEALTH_PATH="/"
+
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
+
+            test -s app.tar.gz || { echo "MISSING app.tar.gz"; exit 1; }
+            docker load < app.tar.gz
+            docker image inspect "${IMAGE_NAME}:latest" >/dev/null \
+              || { echo "load failed - image tag missing"; exit 1; }
+            rm -f app.tar.gz
+
+            docker stop "$CONTAINER_NAME" 2>/dev/null || true
+            docker rm   "$CONTAINER_NAME" 2>/dev/null || true
+            docker network prune -f 2>/dev/null || true
+
+            docker run -d \
+              --name "$CONTAINER_NAME" \
+              --restart unless-stopped \
+              -p "${HOST_PORT}:${CONTAINER_PORT}" \
+              "${IMAGE_NAME}:latest"
+
+            # 健康检查（最多 60s）
+            MAX=6
+            ok=false
+            for i in $(seq 1 $MAX); do
+              echo "Health check attempt $i/$MAX..."
+              if curl -f -s "http://localhost:${HOST_PORT}${HEALTH_PATH}" >/dev/null 2>&1; then
+                ok=true
+                echo "Health check passed!"
+                break
+              fi
+              sleep 10
+            done
+
+            if [ "$ok" = false ]; then
+              echo "Health check FAILED. Recent logs:"
+              docker logs "$CONTAINER_NAME" --tail 60
+              exit 1
+            fi
+
+            # 清理旧 image 防磁盘撑爆
+            docker image prune -f || true
+
+            echo "Deployment successful!"
+            '
