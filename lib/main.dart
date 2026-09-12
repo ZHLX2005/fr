@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
@@ -84,8 +85,10 @@ void main() async {
 
   await RiveNative.init();
 
-  // 初始化 APK 后台下载服务（Android Foreground Service）
-  await ApkDownloadService().initialize();
+  // 初始化 APK 后台下载服务（Android Foreground Service）—— web 无此插件，跳过
+  if (!kIsWeb) {
+    await ApkDownloadService().initialize();
+  }
 
   // APK 自动下载生命周期：先 hydrate 状态（lastSeenUploadTime / autoDownloadEnabled）
   // 再触发启动期检查；开关关闭时静默返回，不影响冷启动。
