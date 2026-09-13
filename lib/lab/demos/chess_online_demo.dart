@@ -23,6 +23,7 @@ import '../../core/chess/p2p/chess_room_page.dart';
 import '../../core/chess/skins/chess_skin.dart';
 import '../../core/chess/skins/chess_skin_localizer.dart';
 import '../../core/chess/skins/chess_skin_meta.dart';
+import '../../core/chess/skins/chess_skin_meta_sync.dart' show fetchAndMergeSkins;
 import '../../core/chess/skins/chess_skin_prefs.dart';
 import '../../core/chess/skins/chess_skin_settings_page.dart';
 import '../../core/chess/skins/file_resolver.dart';
@@ -128,7 +129,17 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
   }
 
   Future<void> _downloadSkin(String skinId) async {
-    final meta = _metaById(skinId);
+    var meta = _metaById(skinId);
+    if (meta == null) {
+      // v8 修复：冷启动时 ChessSkinBundle 注册表只装了本地 7 套 catalog，
+      // KV index 仅在进入换肤设置页时才拉取。若持久化的皮肤 id 是 KV 追加的
+      // （如 '9' Q版 / '11' 写实 / 'island-cut-*' 中国风等），此处 meta
+      // 解析 miss → 静默不下载 → 对局页 byId 回退 GameDefaultSkin →
+      // 全部棋子走 unicode 线条兜底（"选了皮肤进对局却变回默认棋子"）。
+      // 先 best-effort 合入 KV index（5s 超时），再重试一次 meta 解析。
+      final merged = await fetchAndMergeSkins().catchError((Object _) => false);
+      if (merged) meta = _metaById(skinId);
+    }
     if (meta == null) return;
     if (await _localizer.isCached(skinId)) {
       final cached = await _localizer.fromCache(skinId);
