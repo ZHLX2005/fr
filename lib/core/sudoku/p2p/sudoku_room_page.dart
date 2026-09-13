@@ -1,9 +1,8 @@
 // lib/core/sudoku/p2p/sudoku_room_page.dart
 //
 // 数独联机房间页（lobby / ready / playing / ended 四态路由）。
-// 权威方：服务端 Lua 状态机（kSudokuScript）。本地棋盘在 puzzle 出现后一次性构造。
-// 填值走 SudokuValidator.isValidMove；非法 → cell.isError=true + 错误计数累加。
-// 提交（SUBMIT）：扁平 81 格 values + elapsed + errors → 服务端裁决。
+// 权威方：服务端 Lua 状态机。本地棋盘在 puzzle 出现后一次性构造。
+// 填值走 SudokuValidator；提交扁平 81 格 → 服务端裁决。
 
 import 'dart:async';
 
@@ -77,13 +76,11 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
       final ctx = s.context;
       final d = ctx['difficulty']?.toString();
       if (d != null && d.isNotEmpty) _difficulty = d;
-      // 进入 playing → 锚定开始时间 + 启动 UI 计时。
       if (s.state == 'playing' && _startedAt == null) {
         _startedAt = DateTime.now();
         _errors = 0;
         _startElapsedTimer();
       }
-      // 首次见到 puzzle → 一次性构造本地棋盘（含 solution，服务端权威）。
       if (_board == null && ctx['puzzle'] is List && ctx['solution'] is List) {
         _board = SudokuBoard.fromPuzzle(SudokuPuzzle(
           puzzle: (ctx['puzzle'] as List).cast<int>(),
@@ -108,7 +105,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
   List<List<int?>> _boardToGrid(SudokuBoard board) =>
       board.cells.map((row) => row.map((c) => c.value).toList()).toList();
 
-  /// Host 本地生成题目 → send SET_PUZZLE。失败弹 snackbar。
+  /// Host 本地生成题目 → send SET_PUZZLE。
   Future<void> _hostGenerateAndSendPuzzle(String difficulty) async {
     if (!_isHost) return;
     final puzzle = SudokuGenerator.generate(
@@ -130,6 +127,26 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         SnackBar(content: Text('生成题目失败: $e')),
       );
     }
+  }
+
+  /// Host 推送 START，前提：guest 已加入 + puzzle 已生成。
+  Future<void> _onStart() async {
+    if (!_isHost) return;
+    try {
+      await SudokuNet.sendStart(widget.handle);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('开始对局失败: $e')),
+      );
+    }
+  }
+
+  /// Lua on_join 存的是 true（占位），真实别名走 fallback —— 永远不显示 "true"。
+  String _playerName(Map players, String? id, String fallback) {
+    if (id == null) return fallback;
+    final raw = players[id];
+    return raw is String ? raw : fallback;
   }
 
   void _onNumber(int n) {
@@ -173,11 +190,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         : DateTime.now().difference(_startedAt!).inMilliseconds;
     try {
       await SudokuNet.sendSubmit(
-        widget.handle,
-        values: values,
-        elapsedMs: elapsed,
-        errors: _errors,
-      );
+        widget.handle, values: values, elapsedMs: elapsed, errors: _errors);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -190,13 +203,9 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     final board = _board;
     if (board == null || board.cells[r][c].isInitial) return;
     setState(() {
-      if (_selectedR == r && _selectedC == c) {
-        _selectedR = null;
-        _selectedC = null;
-      } else {
-        _selectedR = r;
-        _selectedC = c;
-      }
+      final same = _selectedR == r && _selectedC == c;
+      _selectedR = same ? null : r;
+      _selectedC = same ? null : c;
     });
   }
 
@@ -235,6 +244,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     final snap = _snap!;
     final colors = context.colors;
     final puzzleReady = snap.context['puzzle'] is List;
+    final canStart = _isHost && _hasGuest && puzzleReady;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -267,18 +277,26 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
                     textAlign: TextAlign.center,
                   ),
                 )
-              else
+              else ...[
                 SudokuRoomConfigPanel(
                   editable: _isHost,
                   difficulty: _difficulty,
                   puzzleReady: puzzleReady,
-                  // 改难度 → host 立即重生成（触发 host 流）。
                   onDifficultyChanged:
                       _isHost ? (d) => _hostGenerateAndSendPuzzle(d) : null,
                   onGenerate: _isHost
                       ? () => _hostGenerateAndSendPuzzle(_difficulty)
                       : null,
                 ),
+                if (_isHost) ...[
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: canStart ? _onStart : null,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('开始对局'),
+                  ),
+                ],
+              ],
             ],
           ),
         ),
@@ -292,9 +310,11 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     final snap = _snap!;
     final players = (snap.context['players'] as Map?) ?? const {};
     final guestId = snap.context['guest_id']?.toString();
-    final guestName =
-        guestId != null && players[guestId] != null ? players[guestId].toString() : 'Guest';
-    final myName = players[_deviceId]?.toString() ?? '我';
+    final myName = _playerName(players, _deviceId, '我');
+    final guestName = _playerName(players, guestId, 'Guest');
+    final oppElapsedMs = guestId == null
+        ? null
+        : (snap.context['finished_at_ms']?[guestId] as int?) ?? _elapsedMs;
     final selfInfo = SudokuPlayerInfo(
       name: myName,
       filledCount: board.filledCount,
@@ -308,12 +328,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
       errorCount: (snap.context['error_count']?[guestId ?? ''] as int?) ?? 0,
       isComplete: guestId != null &&
           (snap.context['finished_at_ms']?[guestId] != null),
-      elapsed: guestId == null
-          ? null
-          : Duration(
-              milliseconds:
-                  (snap.context['finished_at_ms']?[guestId] as int?) ??
-                      _elapsedMs),
+      elapsed: oppElapsedMs == null ? null : Duration(milliseconds: oppElapsedMs),
     );
     return Column(
       children: [
@@ -326,7 +341,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
                 board: board,
                 selectedRow: _selectedR,
                 selectedCol: _selectedC,
-                onCellTap: _isPlaying ? _onCellTap : null,
+                onCellTap: _onCellTap,
               ),
             ),
           ),
@@ -334,7 +349,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         SudokuNumberPad(
           onNumber: _onNumber,
           onClear: _onClear,
-          onSubmit: _isPlaying ? _onSubmit : null,
+          onSubmit: _onSubmit,
         ),
       ],
     );
@@ -346,14 +361,11 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     final winnerId = snap.context['winner_id']?.toString();
     final iAmWinner = winnerId != null && winnerId == _deviceId;
     final players = (snap.context['players'] as Map?) ?? const {};
-    final winnerName = winnerId != null && players[winnerId] != null
-        ? players[winnerId].toString()
-        : '未知';
-    final seconds = ((winnerId != null
-                ? (snap.context['finished_at_ms']?[winnerId] as int?)
-                : null) ??
-            0) ~/
-        1000;
+    final winnerName = _playerName(players, winnerId, '未知');
+    final finishedMs = winnerId != null
+        ? (snap.context['finished_at_ms']?[winnerId] as int?)
+        : null;
+    final seconds = (finishedMs ?? 0) ~/ 1000;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
