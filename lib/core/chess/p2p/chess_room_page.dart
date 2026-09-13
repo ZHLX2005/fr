@@ -941,13 +941,18 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   }
 
   /// 对方是否已挂起和棋 offer（context['draw_offers'] 含对方 device_id）。
+  ///
+  /// v8 修复：对手 id 按角色（host↔guest）推，不得按颜色推 —— 旧版
+  /// `myColor == white ? guest_id : host_id` 在 host 执黑（host_color='b'）
+  /// 时会把自己当成对手，导致对方的悔棋 / 议和请求永远不显示接受按钮。
   bool get _opponentOffered {
     final snap = _snapshot;
-    final myColor = _myColor;
-    if (snap == null || myColor == null) return false;
+    if (snap == null) return false;
     final offers = snap.context['draw_offers'];
     if (offers is! Map) return false;
-    final oppId = myColor == PieceColor.white ? snap.context['guest_id'] : snap.context['host_id'];
+    final oppId = _isHost
+        ? snap.context['guest_id']
+        : snap.context['host_id'];
     if (oppId == null) return false;
     return offers[oppId.toString()] == true;
   }
@@ -987,12 +992,16 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   }
 
   /// 我能否请求悔棋：对局中 + 自己至少走过一手
-  /// （host=白 → moves ≥ 1；guest=黑 → moves ≥ 2。与服务端 UNDO_OFFER 门一致）。
+  /// （先手方 moves ≥ 1；后手方 moves ≥ 2。与服务端 UNDO_OFFER 门一致）。
+  /// v8 修复：先手方 = host_color == initial_side 的一方 —— host 未必先手
+  /// （host 执黑 / 黑先残局），旧版 `_isHost ? n>=1 : n>=2` 在此误判门槛。
   bool get _canRequestUndo {
     final snap = _snapshot;
     if (snap == null || snap.state != 'playing') return false;
     final n = ChessRoom.moves(snap).length;
-    return _isHost ? n >= 1 : n >= 2;
+    final iAmFirst =
+        _isHost == (ChessRoom.hostColor(snap) == ChessRoom.initialSide(snap));
+    return iAmFirst ? n >= 1 : n >= 2;
   }
 
   /// 点"议和"：无对方 offer → 发 DRAW_OFFER（只挂申请，等对方接受）；

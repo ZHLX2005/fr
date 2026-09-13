@@ -18,9 +18,10 @@
 // side_to_move(n) 推 first_moker），只是注释更新（host 是先手方还是后手方
 // 由 c.host_color 决定，不再由 c.initial_side 直接等同 host）。
 //
-// UNDO_ACCEPT 计算逻辑：requester == host_id 仍是"先手方最近一手"的判据；
-// 因为 host 是 first_moker 当且仅当 host_color == initial_side，新算法与
-// 旧算法的"白先 / 黑先残局"等价情况都保持一致。
+// UNDO_ACCEPT / UNDO_OFFER（v8 修复）：先手方判据改为
+// host_color == initial_side（v5 解耦后 host 未必是先手方）。旧版
+// `requester == c.host_id` 硬编码 host 先手，在 host 执黑时 pop 数量算反、
+// guest（先手方）第一手悔棋被误挡 —— 悔棋回退错局面 / 流程卡死。
 //
 // ## Lua 作用域与拼接顺序
 //
@@ -252,12 +253,14 @@ end
 
 -- 协商悔棋（v3）：申请 → 对方接受/拒绝。
 -- 语义：撤销"请求方最近一手 + 其后所有手"，回到轮请求方走。
---   · 先手方（host_color == initial_side 时 host 即先手方；否则 guest 是先手方）
+--   · 先手方（host_color == initial_side 的一方；v5 解耦后 host 未必先手）
 --     最后一手在奇数位：n 奇 → pop 1；n 偶 → pop 2
 --   · 后手方最后一手在偶数位：n 偶 → pop 1；n 奇 → pop 2
--- 计算逻辑：requester == c.host_id 仍是"先手方最近一手"的判据
--- （v5 与 v4 算法等价 —— 因为 host 是 first_moker 当且仅当 host_color == initial_side）。
+-- v8 修复：requester_is_first = (requester 是否 host) == (host 是否先手方)。
 -- 与 DRAW 不同：双方同时挂 undo offer 不自动生效，必须显式接受。
+-- v8 修复：先手方 = host_color == initial_side 的一方（v5 解耦后 host 未必
+-- 是先手方）。请求方必须至少走过一手才能悔棋：先手方 n>=1；后手方 n>=2。
+-- （旧版硬编码 "guest 一律 n<2 拒绝"，在 guest 为先手方时误挡第一手悔棋。）
 on_action_UNDO_OFFER = function(c, p)
   if state ~= "playing" then
     return c
@@ -274,7 +277,9 @@ on_action_UNDO_OFFER = function(c, p)
   if not is_host and not is_guest then
     return c
   end
-  if is_guest and n < 2 then
+  local host_is_first = ((c.host_color or "w") == (c.initial_side or "w"))
+  local requester_is_first = (is_host == host_is_first)
+  if (not requester_is_first) and n < 2 then
     return c
   end
   c.undo_offers[p.device_id] = true
@@ -299,7 +304,11 @@ on_action_UNDO_ACCEPT = function(c, p)
     return c
   end
   local n = #c.moves
-  local requester_is_first = (requester == c.host_id)
+  -- v8 修复：先手方 = host_color == initial_side 的一方（v5 解耦后 host 未必
+  -- 是先手方）。旧版 `requester == c.host_id` 硬编码 host 为先手，在 host
+  -- 执黑（host_color ~= initial_side）时 pop 数量算反 —— 悔棋回退错局面。
+  local host_is_first = ((c.host_color or "w") == (c.initial_side or "w"))
+  local requester_is_first = ((requester == c.host_id) == host_is_first)
   local pops
   if requester_is_first then
     pops = (n % 2 == 1) and 1 or 2
