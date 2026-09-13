@@ -10,6 +10,13 @@
 //   → 返回所选皮肤 id 写入 ChessSkinPrefs 持久化
 //   → 建房/加入后把 skinId 传给 ChessRoomPage。
 //
+// v9 皮肤就绪保障：
+//   1. 冷启动注册表只装本地 7 套 catalog，KV 索引（追加皮肤）需另行拉取
+//      —— 预取时若 meta miss，先 best-effort 合入 KV 索引再重试（v8）。
+//   2. 进入 chess 界面（本页 initState）即开始预取下载。
+//   3. 进房门禁：点"进入对局"后若皮肤尚未就绪，弹遮罩等待下载完成；
+//      失败则提示"皮肤资源未下载完成"并留在大厅，不放行进房。
+//
 // 自定义棋盘颜色：设置页内"自定义棋盘颜色"区
 //   → BoardColorPrefs 持久化；优先级：用户自定义 > 主题 context.chessColors。
 
@@ -101,6 +108,9 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
   /// 下载失败的错误文案。
   String? _downloadError;
 
+  /// 去重：进行中的下载（skinId → future），防止入口预取与进房门禁并发重复下载。
+  final Map<String, Future<void>> _inflightDownloads = {};
+
   @override
   void initState() {
     super.initState();
@@ -128,7 +138,17 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     }
   }
 
-  Future<void> _downloadSkin(String skinId) async {
+  /// 皮肤下载入口（幂等 + 去重）。设置页与进房门禁共用。
+  Future<void> _downloadSkin(String skinId) {
+    final existing = _inflightDownloads[skinId];
+    if (existing != null) return existing;
+    final fut = _doDownloadSkin(skinId)
+        .whenComplete(() => _inflightDownloads.remove(skinId));
+    _inflightDownloads[skinId] = fut;
+    return fut;
+  }
+
+  Future<void> _doDownloadSkin(String skinId) async {
     var meta = _metaById(skinId);
     if (meta == null) {
       // v8 修复：冷启动时 ChessSkinBundle 注册表只装了本地 7 套 catalog，
@@ -193,6 +213,30 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
   }
 
   Future<void> _onStarted(RoomHandle handle, LobbyStartedCtx ctx) async {
+    // v9：进房门禁 —— 入口页 initState 已开始预取，若用户在下载完成前点了
+    // "进入对局"，这里阻塞等待皮肤就绪（弹进度遮罩）；失败则提示
+    // "皮肤资源未下载完成"并留在大厅，不放行进房（避免对局内回退默认棋子）。
+    if (ChessSkinLocalizer.isSupported && !_localSkins.containsKey(_skinId)) {
+      final ok = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _SkinPreparingDialog(
+          prepare: () async {
+            await _downloadSkin(_skinId);
+            return _localSkins.containsKey(_skinId);
+          },
+        ),
+      );
+      if (!mounted) return;
+      if (ok != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('皮肤资源未下载完成，无法进入对局，请检查网络后重试'),
+          ),
+        );
+        return;
+      }
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ChessRoomPage(
@@ -254,6 +298,48 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
         ],
       ),
       onStarted: _onStarted,
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 皮肤准备遮罩（进房门禁）
+// ══════════════════════════════════════════════════════════════
+
+/// 进房前的皮肤准备进度遮罩：prepare 完成后自动关闭。
+/// pop(true) = 皮肤已就绪；pop(false) = 下载失败。
+class _SkinPreparingDialog extends StatefulWidget {
+  const _SkinPreparingDialog({required this.prepare});
+
+  final Future<bool> Function() prepare;
+
+  @override
+  State<_SkinPreparingDialog> createState() => _SkinPreparingDialogState();
+}
+
+class _SkinPreparingDialogState extends State<_SkinPreparingDialog> {
+  @override
+  void initState() {
+    super.initState();
+    widget.prepare().then((ok) {
+      if (mounted) Navigator.of(context).pop(ok);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('皮肤资源准备中，请稍候…'),
+          ],
+        ),
+      ),
     );
   }
 }
