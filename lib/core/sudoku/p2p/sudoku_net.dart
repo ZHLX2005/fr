@@ -14,6 +14,7 @@ export 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
 class SudokuNet {
   static const String kActionSetPuzzle = 'SET_PUZZLE';
   static const String kActionStart = 'START';
+  static const String kActionProgress = 'PROGRESS';
   static const String kActionSubmit = 'SUBMIT';
 
   /// Host 推送题目（SET_PUZZLE）。服务端校验 puzzle/solution 长度 + 值域 +
@@ -39,6 +40,20 @@ class SudokuNet {
   /// Host 通知双方开始（START）。前提：guest 已加入 + puzzle 已推送。
   static Future<Snapshot> sendStart(RoomHandle handle) {
     return handle.applyAction(type: kActionStart, params: const {});
+  }
+
+  /// 实时进度上报（PROGRESS）。playing 状态下填数/擦除后 fire-and-forget，
+  /// 服务端写 ctx.progress[device_id] = {filled, errors}，对手进度条据此渲染。
+  /// 失败不影响本地对局（调用方自行吞异常）。
+  static Future<Snapshot> sendProgress(
+    RoomHandle handle, {
+    required int filled,
+    required int errors,
+  }) {
+    return handle.applyAction(
+      type: kActionProgress,
+      params: {'filled': filled, 'errors': errors},
+    );
   }
 
   /// 任意一方提交答案（SUBMIT）。服务端对照 solution 全 81 格校验；
