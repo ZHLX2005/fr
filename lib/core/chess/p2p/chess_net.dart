@@ -236,8 +236,10 @@ class ChessRoom {
   /// 我能不能发这个 action？读服务端 action_permissions + 角色判定。
   ///
   /// chess 的 current_player 由"先手方 + moves 奇偶"推（与 Lua side_to_move
-  /// 同源；残局 v3：host 永远执先手方，黑先残局 host=黑）：
-  ///   n 偶数 → 轮先手方（host）；奇数 → 轮后手方（guest）。
+  /// 同源）。v8 修复：先手方 = host_color == initial_side 的一方 —— v5 解耦
+  /// 后 host 未必先手（host 执黑 / 黑先残局），旧版硬编码 "n 偶 → 轮 host"
+  /// 在 host 执黑时全部判反：
+  ///   n 偶数 → 轮先手方；奇数 → 轮后手方。
   static bool canPerform(
     String action,
     Snapshot? snap, {
@@ -246,19 +248,16 @@ class ChessRoom {
     final rule = actionPermissions(snap)[action];
     if (rule == null || rule == 'any') return true;
     if (rule == 'host') return isHost;
-    if (rule == 'current_player') {
+    if (rule == 'current_player' || rule == 'non_current_player') {
       final n = (snap?.context['moves'] is List)
           ? (snap!.context['moves'] as List).length
           : 0;
-      // n 偶数 → 轮先手方（host）；奇数 → 轮后手方（guest）
-      return (n.isEven && isHost) || (n.isOdd && !isHost);
-    }
-    if (rule == 'non_current_player') {
-      final n = (snap?.context['moves'] is List)
-          ? (snap?.context['moves'] as List).length
-          : 0;
-      // 刚走完的一方 = 上一手轮走方：n 偶数 → 先手方刚走完 → guest 声明
-      return (n.isEven && !isHost) || (n.isOdd && isHost);
+      final hostIsFirst =
+          hostColor(snap) == initialSide(snap);
+      final iAmFirst = isHost == hostIsFirst;
+      // n 偶数 → 轮先手方；奇数 → 轮后手方
+      final isMyTurn = (n.isEven == iAmFirst);
+      return rule == 'current_player' ? isMyTurn : !isMyTurn;
     }
     return false;
   }

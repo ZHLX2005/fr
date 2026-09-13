@@ -149,13 +149,22 @@ void _undoGuards() {
       );
     });
 
-    test('UNDO_OFFER 前置门：n==0 拒绝 + 非对局方拒绝 + 黑方 n<2 拒绝', () {
+    test('UNDO_OFFER 前置门：n==0 拒绝 + 非对局方拒绝 + 后手方 n<2 拒绝（v8 先手方修正）', () {
       final block = _functionBlock('on_action_UNDO_OFFER = function');
       expect(block, contains('if n == 0 then'), reason: '零走法无从悔棋');
-      expect(block, contains('if is_guest and n < 2 then'),
-          reason: '黑方一手未走无从悔棋');
       expect(block, contains('not is_host and not is_guest'),
           reason: '只认对局双方');
+      // v8：先手方判据 = host_color == initial_side（host 未必先手）。
+      // 旧版 `if is_guest and n < 2` 硬编码 guest 后手，guest 先手时第一手
+      // 悔棋被误挡 —— 守卫确保新判据存在且旧写法不再回归。
+      expect(block, contains('host_is_first = ((c.host_color or "w") == (c.initial_side or "w"))'),
+          reason: '先手方必须由 host_color == initial_side 推（v5 解耦语义）');
+      expect(block, contains('requester_is_first = (is_host == host_is_first)'),
+          reason: '请求方先手身份 = 是否 host ⊕ host 是否先手方');
+      expect(block, contains('if (not requester_is_first) and n < 2 then'),
+          reason: '仅后手方要求 n>=2（先手方 n>=1 即可悔棋）');
+      expect(block, isNot(contains('if is_guest and n < 2 then')),
+          reason: '旧版 guest 硬编码门槛必须移除（guest 先手时误挡）');
       expect(block, contains('c.undo_offers[p.device_id] = true'),
           reason: '校验通过才挂 offer');
     });
@@ -170,6 +179,23 @@ void _undoGuards() {
         block,
         contains('if c.undo_offers[p.device_id] == true'),
         reason: '双方同时挂 offer 必须互斥作废（回退手数取决于请求方，歧义不回退）',
+      );
+      // v8：pop 数量必须按"host_color == initial_side 推先手方"，不得硬编码
+      // `requester == c.host_id` 为先手（host 执黑时 pop 数算反，悔棋回退错局面）。
+      expect(
+        block,
+        contains('host_is_first = ((c.host_color or "w") == (c.initial_side or "w"))'),
+        reason: '先手方判据必须由 host_color == initial_side 推',
+      );
+      expect(
+        block,
+        contains('requester_is_first = ((requester == c.host_id) == host_is_first)'),
+        reason: '请求方先手身份 = 是否 host ⊕ host 是否先手方',
+      );
+      expect(
+        block,
+        isNot(contains('requester_is_first = (requester == c.host_id)')),
+        reason: '旧版硬编码 host 先手判据必须移除',
       );
       expect(block, contains('table.remove(c.moves)'),
           reason: '必须 pop moves（悔棋核心动作）');
