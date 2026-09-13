@@ -33,6 +33,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
 
   Snapshot? _snap;
   SudokuBoard? _board;
+  List<int>? _solution;
   int? _selectedR;
   int? _selectedC;
   int _errors = 0;
@@ -71,6 +72,9 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
 
   void _onSnapshot(Snapshot s) {
     if (!mounted) return;
+    // 防御服务端快照回退（ended/playing → lobby 等异常倒退）：拒绝应用。
+    // 典型触发场景：断线后 heartbeat / fetchSnapshot 拉到过期快照。
+    if (RoomHandle.isStateRegression(_snap?.state, s.state)) return;
     setState(() {
       _snap = s;
       final ctx = s.context;
@@ -82,9 +86,10 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         _startElapsedTimer();
       }
       if (_board == null && ctx['puzzle'] is List && ctx['solution'] is List) {
+        _solution = (ctx['solution'] as List).cast<int>();
         _board = SudokuBoard.fromPuzzle(SudokuPuzzle(
           puzzle: (ctx['puzzle'] as List).cast<int>(),
-          solution: (ctx['solution'] as List).cast<int>(),
+          solution: _solution!,
           seed: (ctx['seed'] as int?) ?? 0,
           difficulty: ctx['difficulty']?.toString() ?? 'medium',
         ));
@@ -142,11 +147,20 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     }
   }
 
-  /// Lua on_join 存的是 true（占位），真实别名走 fallback —— 永远不显示 "true"。
+  /// Lua on_join 存的是 p.alias（真实昵称字符串）——与 chess 一致。
   String _playerName(Map players, String? id, String fallback) {
     if (id == null) return fallback;
     final raw = players[id];
     return raw is String ? raw : fallback;
+  }
+
+  /// 实时进度上报（fire-and-forget）：填数 / 擦除后推给服务端，
+  /// 对手端从 snapshot 的 progress 表读。失败静默，不影响本地对局。
+  void _pushProgress(SudokuBoard board) {
+    if (!_isPlaying) return;
+    SudokuNet.sendProgress(widget.handle,
+      filled: board.filledCount, errors: _errors,
+    ).then<void>((_) {}, onError: (_) {});
   }
 
   void _onNumber(int n) {
@@ -160,6 +174,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     board.setValue(r, c, n, isValidMove: (rr, cc, vv) =>
         SudokuValidator.isValidMove(_boardToGrid(board), rr, cc, vv));
     if (!wasError && board.cells[r][c].isError) _errors++;
+    _pushProgress(board);
     if (mounted) setState(() {});
   }
 
@@ -170,6 +185,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     if (board == null || r == null || c == null) return;
     if (board.cells[r][c].isInitial) return;
     board.setValue(r, c, null, isValidMove: (_, _, _) => true);
+    _pushProgress(board);
     if (mounted) setState(() {});
   }
 
@@ -185,6 +201,20 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     final values = <int>[
       for (final row in board.cells) for (final cell in row) cell.value ?? 0,
     ];
+    // 本地预校验（客户端本来持有 solution）：有错先提示，不打无效请求。
+    // 服务端 SUBMIT 拒绝时原样返回快照（无 HTTP 错误），所以这道校验是
+    // 错误答案唯一的用户反馈通道。
+    final solution = _solution;
+    if (solution != null) {
+      for (int i = 0; i < 81; i++) {
+        if (values[i] != solution[i]) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('答案有误，再检查一下')),
+          );
+          return;
+        }
+      }
+    }
     final elapsed = _startedAt == null
         ? 0
         : DateTime.now().difference(_startedAt!).inMilliseconds;
@@ -310,6 +340,10 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     final snap = _snap!;
     final players = (snap.context['players'] as Map?) ?? const {};
     final guestId = snap.context['guest_id']?.toString();
+    // 实时进度：Lua PROGRESS action 写入的 progress[device_id] = {filled, errors}
+    final progress = (snap.context['progress'] as Map?) ?? const {};
+    final oppProgress =
+        (progress[guestId ?? ''] as Map?) ?? const <dynamic, dynamic>{};
     final myName = _playerName(players, _deviceId, '我');
     final guestName = _playerName(players, guestId, 'Guest');
     final oppElapsedMs = guestId == null
@@ -324,8 +358,8 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     );
     final oppInfo = SudokuPlayerInfo(
       name: guestName,
-      filledCount: (snap.context['guest_filled'] as int?) ?? 0,
-      errorCount: (snap.context['error_count']?[guestId ?? ''] as int?) ?? 0,
+      filledCount: ((oppProgress['filled'] as num?) ?? 0).toInt(),
+      errorCount: ((oppProgress['errors'] as num?) ?? 0).toInt(),
       isComplete: guestId != null &&
           (snap.context['finished_at_ms']?[guestId] != null),
       elapsed: oppElapsedMs == null ? null : Duration(milliseconds: oppElapsedMs),

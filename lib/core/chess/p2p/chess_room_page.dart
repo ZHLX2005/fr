@@ -969,13 +969,18 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   // ─────────────────────────── 悔棋（undo → accept/decline） ───────────────────────────
 
   /// 对方是否已挂起悔棋 offer（context['undo_offers'] 含对方 device_id）。
+  ///
+  /// v8 补漏：对手 id 按角色（host↔guest）推，不得按颜色推 —— 与
+  /// [_opponentOffered] 同一语义。旧版 `myColor == white ? guest_id : host_id`
+  /// 在 host 执黑（host_color='b'）时把自己当成对手：对方发来的悔棋请求
+  /// 永远不显示"接受/拒绝"，自己发的请求反而显示成对方的。
+  /// （v8 当日并行编辑互相覆盖导致此处的修复丢失，本次补回。）
   bool get _opponentUndoOffered {
     final snap = _snapshot;
-    final myColor = _myColor;
-    if (snap == null || myColor == null) return false;
+    if (snap == null) return false;
     final offers = snap.context['undo_offers'];
     if (offers is! Map) return false;
-    final oppId = myColor == PieceColor.white
+    final oppId = _isHost
         ? snap.context['guest_id']
         : snap.context['host_id'];
     if (oppId == null) return false;
