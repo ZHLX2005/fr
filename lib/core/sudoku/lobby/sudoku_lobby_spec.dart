@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../game_kit/lobby/game_lobby_identity.dart';
 import '../../game_kit/lobby/game_lobby_spec.dart';
+import '../../../lab/demos/sudoku_lua/constants.dart';
 import '../p2p/script/sudoku_script.dart';
 
 /// 数独入口 spec（final，非 const — kSudokuScript 经 assembleLuaScript 组装为 final）。
@@ -17,7 +18,7 @@ final GameLobbySpec kSudokuLobbySpec = GameLobbySpec(
   title: '数独竞赛（联机）',
   heroIcon: Icons.grid_4x4_rounded,
   heroTagline: '输入房间号，与朋友竞速解同一道题',
-  relayUrl: 'http://47.110.80.47:8988',
+  relayUrl: kSudokuRelayUrl,
   script: kSudokuScript,
   maxPlayers: 2,
   flow: LobbyFlowType.smartMatch,
