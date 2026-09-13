@@ -856,6 +856,55 @@ void main() {
         reason: '接受 = 显式 UNDO_ACCEPT → 服务端 pop 回退');
   });
 
+  testWidgets('v8 补漏：host 执黑时对方（guest=白）悔棋 offer → 显示接受/拒绝',
+      (tester) async {
+    // 旧版 _opponentUndoOffered 按颜色反推对手 id（myColor==black → host_id）
+    // 在 host_color='b' 时把自己当成对手 → 对方 offer 永远不显示接受/拒绝。
+    // 修复后与 _opponentOffered 同语义：按角色（host ↔ guest）取对手 id。
+    final transport = FakeTransport(deviceId: 'd-host');
+    final handle = FakeRoomHandle(
+      transport: transport,
+      code: '999999',
+      initial: makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        hostColor: 'b',
+        initialSide: 'w',
+      ),
+    );
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    // 对方（guest=白）挂起悔棋 offer。
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        hostColor: 'b',
+        initialSide: 'w',
+        undoOffers: {'d-guest': true},
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('接受悔棋'), findsOneWidget,
+        reason: 'host 执黑时也能看到对方（guest）的悔棋请求');
+    expect(find.text('拒绝'), findsOneWidget);
+
+    await tester.tap(find.text('接受悔棋'));
+    await tester.pump();
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'UNDO_ACCEPT',
+        reason: 'host 执黑时接受对方悔棋同样走显式 UNDO_ACCEPT');
+  });
+
   testWidgets('对方悔棋 offer 挂起 → 拒绝 → UNDO_DECLINE（回到正常对局）', (tester) async {
     final handle = makeHostHandle();
     await tester.pumpWidget(host(handle));
