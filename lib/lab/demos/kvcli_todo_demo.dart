@@ -24,12 +24,14 @@ import '../../api/goframe/kv/kv_endpoint.dart';
 import '../../api/goframe/group/group_endpoint.dart';
 import '../../api/providers/api_providers.dart';
 import '../../core/design/emphasis_button.dart';
+import '../../widgets/global_ring/ring_enabled_provider.dart';
 import '../lab_container.dart';
 import 'kvcli_todo/active_group_provider.dart';
 import 'kvcli_todo/const_kvcli_todo.dart';
 import 'kvcli_todo/kvcli_todo_dialogs.dart';
 import 'kvcli_todo/kvcli_todo_models.dart';
 import 'kvcli_todo/kvcli_todo_widgets.dart';
+import 'kvcli_todo/todo_submit_service.dart';
 
 // ── 错误处理辅助 ──────────────────────────────────────────────────────────
 
@@ -111,10 +113,11 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
   Set<String> _filterTopics = const <String>{};
 
   /// 激活组注入 KV 的三元值：0 → null（后端回落默认组），>0 → 原值。
-  int? get _gid {
-    final gid = ref.read(activeGroupProvider);
-    return gid == 0 ? null : gid;
-  }
+  /// 映射规则在 TodoSubmitService.toGroupId —— 全局圆环共用同一份。
+  int? get _gid => TodoSubmitService.toGroupId(ref.read(activeGroupProvider));
+
+  /// 提交（读-改-写）与全局圆环共用同一实现，避免契约漂移。
+  late final TodoSubmitService _submit = TodoSubmitService(widget.kv);
 
   @override
   void initState() {
@@ -224,16 +227,9 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
 
   // ── 操作层 ───────────────────────────────────────────────────────────
 
-  /// 下一个可用任务 id：扫 待办+冻结 取最大 +1。
-  /// 冻结任务保留原 id，若只扫待办，清空待办后新任务 id 会与冻结任务撞车，
-  /// 解冻时无法按 id 定位到正确任务。
-  int _nextTaskId() {
-    var maxId = 0;
-    for (final t in [..._open, ..._freeze]) {
-      if (t.id > maxId) maxId = t.id;
-    }
-    return maxId + 1;
-  }
+  /// 下一个可用任务 id。规则（含"为什么必须扫冻结"）在
+  /// TodoSubmitService.nextTaskId —— 与提交、克隆、解冻换 id 共用。
+  int _nextTaskId() => TodoSubmitService.nextTaskId(_open, _freeze);
 
   Future<void> _add() async {
     if (_refreshing || _loading) {
@@ -248,27 +244,24 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
       return;
     }
 
-    final task = KvTask(
-      id: _nextTaskId(),
+    // 提交逻辑走共享 service（刚 _refreshLatest 过，直接用内存快照，不必再读）
+    final plan = TodoSubmitService.plan(
+      open: _open,
+      freeze: _freeze,
+      topics: _topics,
       topic: topic,
       text: text,
-      createdAt: DateTime.now().toIso8601String(),
     );
-    final next = [..._open, task];
-    // 主题不在快捷列表 → 一并写入 todo:topics（两把 key 一起写，失败整单放弃）
-    final addTopic = !_topics.contains(topic);
-    final nextTopics = addTopic ? [..._topics, topic] : _topics;
     try {
-      await _saveTasks(KvCliTodoConst.keyOpen, next);
-      if (addTopic) await _saveTopics(nextTopics);
+      await _submit.apply(plan, groupId: _gid);
     } catch (e) {
       _toast('提交失败：${_errMsg(e)}');
       return;
     }
     if (!mounted) return;
     setState(() {
-      _open = next;
-      if (addTopic) _topics = nextTopics;
+      _open = plan.tasks;
+      if (plan.topicChanged) _topics = plan.topics;
     });
     _textCtrl.clear();
     _textFocus.requestFocus();
@@ -922,7 +915,36 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
               ? _buildComposer(scheme)
               : const SizedBox.shrink(),
         ),
+        _buildRingToggle(scheme),
       ],
+    );
+  }
+
+  /// 全局圆环开关 —— 圆环本身就是提交 KV 需求的入口，开关放在它自己的功能页。
+  /// 关掉后 RingBubble 从 MaterialApp.builder 层整层移除（watch → 宿主重建）。
+  Widget _buildRingToggle(ColorScheme scheme) {
+    final on = ref.watch(ringEnabledProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+      child: SwitchListTile.adaptive(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        value: on,
+        activeThumbColor: scheme.primary,
+        title: Text(
+          '全局圆环',
+          style: TextStyle(
+            fontSize: 12,
+            color: scheme.outline,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          '常驻在所有页面之上，随时提交一条需求',
+          style: TextStyle(fontSize: 11, color: scheme.outline),
+        ),
+        onChanged: (v) => ref.read(ringEnabledProvider.notifier).set(v),
+      ),
     );
   }
 

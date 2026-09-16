@@ -5,6 +5,7 @@ import 'package:xiaodouzi_fr/lab/demos/clock/const_clock_max_mode.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
+import 'package:xiaodouzi_fr/lab/demos/clock/utils/clock_chain_util.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/clock_editor_sheet.dart';
 import 'package:xiaodouzi_fr/core/theme/component/zen/zen_theme.dart';
 
@@ -31,8 +32,16 @@ class ClocksTab extends StatefulWidget {
 }
 
 class _ClocksTabState extends State<ClocksTab> {
-  /// 记录区是否按 title 自动聚类（max 模式 = fr todo #27）。
-  /// UI 局部状态，关闭后回到全量列表，无数据丢失。
+  /// max 模式：按 `LabClock.parentId` 的血缘链合并 —— clock 网格里一条链合并成
+  /// 一张卡（中央取链上最大时长），记录区一条链折叠成一行。
+  ///
+  /// UI 局部状态，不持久化；关闭后回到全量列表，无数据丢失。
+  ///
+  /// 已知不一致（**不要当 bug 修**）：桌面小组件的 `_syncToWidget` /
+  /// `toggleLatestClock` 锚定 `provider.clocks.first`，而合并卡代表的是"链上
+  /// 时长最大者"。例如 `C1(60min) ← C2(30min)` 时桌面 widget 显示/切换 C2，
+  /// 合并卡显示 C1。`_clocks.first` 是 fr #5 明确记录的 widget 契约，且 max 模式
+  /// 本身就是不持久化的 UI 透镜，widget 看不到它。
   bool _maxMode = false;
 
   @override
@@ -49,18 +58,19 @@ class _ClocksTabState extends State<ClocksTab> {
   /// Called by the shell's FAB when the user is on the Clocks tab.
   Future<void> _openEditor(BuildContext context) async {
     final provider = context.read<LabClockProvider>();
+    // FAB 新建：没有来源 clock → "新的根时钟"开关不显示，新 clock 恒为新根。
     final result = await showClockEditor(context);
     if (result == null) return;
-    await provider.createClock(
+    final created = await provider.createClock(
       title: result.title,
       description: result.description,
       durationSeconds: result.durationSeconds,
       color: result.color,
     );
-    // setBeat is on the *newest* clock (inserted at index 0)
-    final newest = provider.clocks.first;
+    // 用 createClock 的返回值定位新 clock，而不是 provider.clocks.first ——
+    // 后者依赖 "insert(0) ⇒ first 是最新" 这个隐式契约。
     await provider.setBeat(
-      newest.id,
+      created.id,
       bpm: result.bpm,
       beatPattern: result.beatPattern,
     );
@@ -70,6 +80,8 @@ class _ClocksTabState extends State<ClocksTab> {
   Widget build(BuildContext context) {
     return Consumer<LabClockProvider>(
       builder: (context, provider, _) {
+        // max 模式下网格按血缘链合并：一条链一张卡。非 max 模式不计算（空列表）。
+        final chains = _maxMode ? provider.clockChains : const <ClockChain>[];
         // 空状态进 sliver，Records 区恒渲染——clocks 为空不能吞掉历史记录
         return CustomScrollView(
           slivers: [
@@ -91,11 +103,15 @@ class _ClocksTabState extends State<ClocksTab> {
                     childAspectRatio: 0.85,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, i) => _ClockCard(
-                      clock: provider.clocks[i],
-                      maxMode: _maxMode,
-                    ),
-                    childCount: provider.clocks.length,
+                    (context, i) => _maxMode
+                        ? _ClockCard(
+                            clock: chains[i].representative,
+                            chain: chains[i],
+                          )
+                        : _ClockCard(clock: provider.clocks[i]),
+                    childCount: _maxMode
+                        ? chains.length
+                        : provider.clocks.length,
                   ),
                 ),
               ),
@@ -144,8 +160,8 @@ class _ClocksTabState extends State<ClocksTab> {
               )
             else if (_maxMode)
               () {
-                final maxList = provider.maxRecordsByTitle;
-                if (maxList.isEmpty) {
+                final rows = provider.chainRecordRows;
+                if (rows.isEmpty) {
                   return const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -155,9 +171,8 @@ class _ClocksTabState extends State<ClocksTab> {
                 }
                 return SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, i) =>
-                        _MaxRecordTile(record: maxList[i]),
-                    childCount: maxList.length,
+                    (context, i) => _ChainRecordTile(row: rows[i]),
+                    childCount: rows.length,
                   ),
                 );
               }()
@@ -194,67 +209,50 @@ class _EmptyState extends StatelessWidget {
 
 class _ClockCard extends StatelessWidget {
   final LabClock clock;
-  /// max 模式开关（fr todo #27）。开启且时钟空闲时，中央显示该 title
-  /// 的"个人最佳"时长，否则维持 remainingSeconds。
-  final bool maxMode;
-  const _ClockCard({required this.clock, this.maxMode = false});
+
+  /// 非空 = max 模式下的**合并卡**：一张卡代表整条 parent 链。
+  /// [clock] 此时是链上代表（时长最大者，或运行中的成员）。
+  final ClockChain? chain;
+
+  const _ClockCard({required this.clock, this.chain});
 
   @override
   Widget build(BuildContext context) {
     final p = context.read<LabClockProvider>();
-    final baseColor = clock.color == null
+    // 合并卡：标题与圆点取**链根**（稳定，不随代表漂移）；
+    // 运行态、节拍、按钮、长按编辑全部作用于**代表** clock。
+    final display = chain?.representative ?? clock;
+    final titleClock = chain?.root ?? clock;
+    final baseColor = titleClock.color == null
         ? Theme.of(context).colorScheme.primary
-        : Color(int.parse(clock.color!.replaceFirst('#', '0xFF')));
-    final remaining = clock.remainingSeconds;
+        : Color(int.parse(titleClock.color!.replaceFirst('#', '0xFF')));
+    final remaining = display.remainingSeconds;
 
-    // max 模式：未运行时显示该 title 的 BP（customTitle ?? clockTitle 同 key），
-    // 运行中维持倒计时（不让 BP 覆盖实时进度感）。
-    int? displaySeconds;
-    String? displayHint;
-    if (maxMode && !clock.isRunning) {
-      final key = (clock.title.trim().isNotEmpty)
-          ? clock.title.trim()
-          : null;
-      if (key != null) {
-        LabClockRecord? best;
-        for (final r in p.records) {
-          if (!r.completed) continue;
-          final rKey = (r.customTitle?.trim().isNotEmpty ?? false)
-              ? r.customTitle!.trim()
-              : r.clockTitle;
-          if (rKey != key) continue;
-          if (best == null || r.durationSeconds > best.durationSeconds) {
-            best = r;
-          }
-        }
-        if (best != null) {
-          displaySeconds = best.durationSeconds;
-          displayHint = kClockBestRecordBadge;
-        }
-      }
-    }
-    final centerSeconds = displaySeconds ?? remaining;
-    final isMaxDisplay = displaySeconds != null;
-    final hasBeat = clock.bpm != null;
-    final silenced = p.isClockSilenced(clock.id);
-    final isActive = clock.isRunning && hasBeat && !silenced;
+    // 合并卡空闲时中央显示"链上最长目标时长"，运行中维持实时倒计时
+    // （不让静态最大值盖掉进度感），此时最大值退到角标行。
+    final centerSeconds = chain?.centerSeconds ?? remaining;
+    final isMaxDisplay = chain?.centerIsChainMax ?? false;
+    final hasBeat = display.bpm != null;
 
     return InkWell(
       // Long-press to edit; tap is reserved for the play/pause/reset buttons
       // inside the card (nested InkWells compete in the gesture arena and the
       // outer tap was stealing button taps, so the clock couldn't be stopped).
       onLongPress: () async {
-        final result = await showClockEditor(context, existing: clock);
+        final result = await showClockEditor(context, existing: display);
         if (result == null) return;
         await p.updateClock(
-          id: clock.id,
+          id: display.id,
           title: result.title,
           description: result.description,
           durationSeconds: result.durationSeconds,
           color: result.color,
+          // 开关可见时才可能为 true；不可见时恒 false → 无副作用。
+          // true = 打开"新的根时钟" → 脱离链成为新根。
+          clearParent: result.isNewRoot,
         );
         await p.setBeat(
-          clock.id,
+          display.id,
           bpm: result.bpm,
           beatPattern: result.beatPattern,
         );
@@ -279,24 +277,34 @@ class _ClockCard extends StatelessWidget {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    clock.title,
+                    titleClock.title,
                     style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                InkWell(
-                  onTap: () => _confirmDelete(context, p),
-                  customBorder: CircleBorder(),
-                  child: Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.close,
-                      size: 18,
+                // 合并卡不提供 × 删除：一张卡代表整条链，"删哪一台"语义模糊，
+                // 要删就关掉 max 开关回普通模式删。
+                if (chain == null)
+                  InkWell(
+                    onTap: () => _confirmDelete(context, p),
+                    customBorder: CircleBorder(),
+                    child: Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: context.colors.textMuted,
+                      ),
+                    ),
+                  )
+                else if (chain!.size > 1)
+                  Text(
+                    clockChainSizeLabel(chain!.size),
+                    style: ZenText.monoDigitSmall.copyWith(
                       color: context.colors.textMuted,
                     ),
                   ),
-                ),
               ],
             ),
             Spacer(),
@@ -316,11 +324,15 @@ class _ClockCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (isMaxDisplay) ...[
+            // 合并卡角标：空闲 = "链上最长"；运行中 = "链上最长 03:00"
+            // （把刚被实时倒计时顶下去的最大值挪到这里，信息不丢）。
+            if (chain != null) ...[
               SizedBox(height: 2),
               Center(
                 child: Text(
-                  displayHint!,
+                  chain!.centerIsChainMax
+                      ? kClockChainMaxBadge
+                      : '$kClockChainMaxBadge ${formatTime(chain!.maxDurationSeconds)}',
                   style: ZenText.monoDigitSmall.copyWith(
                     color: context.colors.accent,
                   ),
@@ -335,10 +347,10 @@ class _ClockCard extends StatelessWidget {
                   SizedBox(width: 6),
                   Text(
                     (() {
-                      final modeLabel = clock.beatPattern == '1/4'
+                      final modeLabel = display.beatPattern == '1/4'
                           ? '单拍'
                           : '双拍';
-                      return '${clock.bpm}bpm · $modeLabel';
+                      return '${display.bpm}bpm · $modeLabel';
                     })(),
                     style: ZenText.monoDigitSmall,
                   ),
@@ -349,19 +361,19 @@ class _ClockCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ZenIconButton(
-                  icon: clock.isRunning
+                  icon: display.isRunning
                       ? Icons.pause_rounded
                       : Icons.play_arrow_rounded,
                   color: baseColor,
-                  onTap: () => clock.isRunning
-                      ? p.pauseCountdown(clock.id)
-                      : p.startCountdown(clock.id),
+                  onTap: () => display.isRunning
+                      ? p.pauseCountdown(display.id)
+                      : p.startCountdown(display.id),
                 ),
                 SizedBox(width: 12),
                 ZenIconButton(
                   icon: Icons.refresh_rounded,
                   color: context.colors.textMuted,
-                  onTap: () => p.resetCountdown(clock.id),
+                  onTap: () => p.resetCountdown(display.id),
                 ),
               ],
             ),
@@ -546,12 +558,39 @@ class _RecordTileState extends State<_RecordTile> {
                           _isExpanded = false;
                         });
                         final dur = p.getRecordLiveDuration(record);
-                        if (dur > 0) {
-                          await p.createClock(
+                        if (dur <= 0) return;
+                        // 来源 clock 可能已被删除 → 开关不显示，新 clock 恒为新根。
+                        final source = p.getClockById(record.clockId);
+                        // 打开预填编辑器而不是一步创建：用户可当场把时长调长
+                        // （这正是血缘链上 maxDurationSeconds 递增的来源），
+                        // 并用"新的根时钟"开关决定并入来源链还是另起一条。
+                        final result = await showClockEditor(
+                          context,
+                          seed: ClockEditorSeed(
                             title: record.customTitle ?? record.clockTitle,
                             durationSeconds: dur,
-                          );
-                        }
+                            color: LabClockProvider.resolveColor(source?.color),
+                            bpm: source?.bpm,
+                            beatPattern: source?.beatPattern,
+                          ),
+                          mergeParent: source,
+                        );
+                        if (result == null || !mounted) return;
+                        final created = await p.createClock(
+                          title: result.title,
+                          description: result.description,
+                          durationSeconds: result.durationSeconds,
+                          color: result.color,
+                          parentId: ClockChainUtil.resolveParentId(
+                            mergeParent: source,
+                            isNewRoot: result.isNewRoot,
+                          ),
+                        );
+                        await p.setBeat(
+                          created.id,
+                          bpm: result.bpm,
+                          beatPattern: result.beatPattern,
+                        );
                       },
                     ),
                   ],
@@ -599,19 +638,20 @@ class _RecordTileState extends State<_RecordTile> {
   }
 }
 
-/// max 模式下按 title 折叠后的单行（fr todo #27）。
-/// 不带 swipe/重命名/删除 —— BP 视图是"只读"的概览面板，操作回到普通模式。
-class _MaxRecordTile extends StatelessWidget {
-  final LabClockRecord record;
-  const _MaxRecordTile({required this.record});
+/// max 模式下按**血缘链**折叠后的单行。
+///
+/// 角标 = 该链记录条数，右侧 = 链内**实际时长**最大的那条（不是配置时长）。
+/// 不带 swipe/重命名/删除 —— 折叠视图是"只读"的概览面板，操作回到普通模式。
+class _ChainRecordTile extends StatelessWidget {
+  final ChainRecordRow row;
+  const _ChainRecordTile({required this.row});
 
   @override
   Widget build(BuildContext context) {
-    final title =
-        (record.customTitle?.trim().isNotEmpty ?? false)
-            ? record.customTitle!
-            : record.clockTitle;
-    final accent = context.colors.accent;
+    // 孤儿行（所属 clock 已删）用 textMuted 弱化，视觉上和活跃链区分开。
+    final accent = row.isOrphan
+        ? context.colors.textMuted
+        : context.colors.accent;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Container(
@@ -626,7 +666,7 @@ class _MaxRecordTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                kClockBestRecordBadge,
+                clockRecordCountLabel(row.count),
                 style: ZenText.monoDigitSmall.copyWith(
                   color: accent,
                   fontWeight: FontWeight.w600,
@@ -638,9 +678,9 @@ class _MaxRecordTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: ZenText.body),
+                  Text(row.title, style: ZenText.body),
                   Text(
-                    formatRecordDate(record.startTime),
+                    formatRecordDate(row.record.startTime),
                     style: ZenText.monoDigitSmall,
                   ),
                 ],
@@ -653,7 +693,7 @@ class _MaxRecordTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                formatTime(record.durationSeconds),
+                formatTime(row.actualSeconds),
                 style: ZenText.monoDigitSmall.copyWith(
                   color: accent,
                   fontWeight: FontWeight.w600,

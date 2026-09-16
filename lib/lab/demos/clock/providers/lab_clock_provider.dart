@@ -10,6 +10,7 @@ import '../models/lab_clock.dart';
 import '../models/lab_clock_record.dart';
 import '../../metronome/sample_loader.dart';
 import '../services/clock_alert_sound.dart';
+import '../utils/clock_chain_util.dart';
 import 'beat_coordinator.dart';
 
 /// 桌面 widget toggle 决策结果（fr #5）
@@ -229,11 +230,16 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   /// 创建时钟
+  ///
+  /// [parentId] 非空 = 并入来源 clock 的血缘链（max 模式会与父合并取最大时长）；
+  /// null = 新根（另起一条链）。FAB 新建恒为 null，从记录"新建"时由编辑器里的
+  /// "新的根时钟"开关决定（ClockChainUtil.resolveParentId）。
   Future<LabClock> createClock({
     String title = '新时钟',
     String description = '',
     int? durationSeconds,
     String? color,
+    String? parentId,
   }) async {
     final clock = LabClock(
       id: const Uuid().v4(),
@@ -244,6 +250,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       isRunning: false,
       remainingSeconds: durationSeconds ?? 0,
       color: resolveColor(color),
+      parentId: parentId,
     );
     _clocks.insert(0, clock);
     await _saveClocks();
@@ -253,18 +260,23 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   /// 更新时钟
+  ///
+  /// [clearParent] = true 时把 parentId 置回 null（脱离血缘链成为新根）。
+  /// 必须走 [LabClock.withParentId]，因为 copyWith 的 `x ?? this.x` 范式
+  /// 传 null 无法清空字段。
   Future<void> updateClock({
     required String id,
     String? title,
     String? description,
     int? durationSeconds,
     String? color,
+    bool clearParent = false,
   }) async {
     final i = _clocks.indexWhere((c) => c.id == id);
     if (i == -1) return;
 
     final c = _clocks[i];
-    _clocks[i] = c.copyWith(
+    final updated = c.copyWith(
       title: title ?? c.title,
       description: description ?? c.description,
       durationSeconds: durationSeconds ?? c.durationSeconds,
@@ -273,6 +285,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
           : (durationSeconds ?? c.remainingSeconds),
       color: color ?? c.color,
     );
+    _clocks[i] = clearParent ? updated.withParentId(null) : updated;
     await _saveClocks();
     _syncToWidget(); // 同步到桌面小组件
     notifyListeners();
@@ -439,6 +452,14 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
       }
       return r;
     }).toList();
+    // 直接子时钟的 parentId 归一化为 null（它们成为各自链的新根）。
+    //
+    // 不做归一化也能跑（链解析把"缺失父"当根处理），但那样 `parentId != null`
+    // 就成了不可信谓词：父被删后编辑该钟，"新的根时钟"开关会显示却打开无任何
+    // 视觉变化，形成死 UI。归一化让 `parentId != null` ⇔ "存在真实父"。
+    _clocks = _clocks
+        .map((c) => c.parentId == id ? c.withParentId(null) : c)
+        .toList();
     _clocks.removeWhere((c) => c.id == id);
     await _saveClocks();
     if (needSaveRecords) await _saveRecords();
@@ -577,51 +598,23 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   /// 获取记录实时运行时间
-  int getRecordLiveDuration(LabClockRecord record) {
-    // 已完成：直接返回保存的值
-    if (record.completed) {
-      return record.accumulatedSeconds ?? 0;
-    }
-    // 获取关联的时钟
-    final clock = getClockById(record.clockId);
-    if (clock != null) {
-      // 时钟存在：计算当前已消耗时间（无论是否暂停）
-      return (record.durationSeconds) - clock.remainingSeconds;
-    }
-    // 时钟不存在且未完成：用已累计秒数兜底（不再恒 0）
-    return record.accumulatedSeconds ?? 0;
-  }
+  ///
+  /// 委托 [ClockChainUtil.liveDuration]，让 provider 与 max 模式的记录折叠共用
+  /// 同一份口径（避免两份等价实现日后分叉）。
+  int getRecordLiveDuration(LabClockRecord record) =>
+      ClockChainUtil.liveDuration(record, getClockById(record.clockId));
 
-  /// 按 title 自动聚类的"个人最佳 BP"列表（fr todo #27）。
+  /// max 模式的 clock 血缘链列表（按 parentId 合并）。
   ///
-  /// - 聚合 key：customTitle ?? clockTitle（去空白；空字符串视同未命名回退）
-  /// - BP 选取：同一 key 下 completed 记录中 durationSeconds 最大者
-  /// - 排序：title 字典序（让"最佳面板"有稳定的展示顺序，便于跨次会话扫读）
-  ///
-  /// 注意：纯派生 getter，不修改 _records、不写 prefs；UI toggle 是 State 内
-  /// 局部状态，关闭后回到全量列表不丢数据。
-  List<LabClockRecord> get maxRecordsByTitle {
-    final Map<String, LabClockRecord> best = {};
-    for (final r in _records.where((r) => r.completed)) {
-      final custom = r.customTitle?.trim();
-      final key = (custom == null || custom.isEmpty) ? r.clockTitle : custom;
-      final prev = best[key];
-      if (prev == null || r.durationSeconds > prev.durationSeconds) {
-        best[key] = r;
-      }
-    }
-    final list = best.values.toList();
-    list.sort((a, b) {
-      final ka = (a.customTitle?.trim().isNotEmpty ?? false)
-          ? a.customTitle!.trim()
-          : a.clockTitle;
-      final kb = (b.customTitle?.trim().isNotEmpty ?? false)
-          ? b.customTitle!.trim()
-          : b.clockTitle;
-      return ka.compareTo(kb);
-    });
-    return list;
-  }
+  /// 纯派生 getter：不修改 `_clocks`、不写 prefs、不 notify。
+  /// **不要加 identity 缓存** —— `clocks` 返回的是被原地改写的同一个 list 实例
+  /// （`_clocks[i] = ...` / `insert(0, ...)` / `removeWhere`），任何基于
+  /// `identical(list)` 的缓存都会读到脏数据。规模只有几十，每次重算可忽略。
+  List<ClockChain> get clockChains => ClockChainUtil.buildChains(_clocks);
+
+  /// max 模式下记录区的折叠行（每条链一行 + 末尾孤儿行）。
+  List<ChainRecordRow> get chainRecordRows =>
+      ClockChainUtil.foldRecords(clocks: _clocks, records: _records);
 
   @override
   void dispose() {

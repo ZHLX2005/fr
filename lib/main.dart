@@ -25,6 +25,8 @@ import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
 import 'core/chess/chess.dart';
+import 'widgets/global_ring/global_ring_host.dart';
+import 'widgets/global_ring/ring_enabled_provider.dart';
 
 /// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -127,6 +129,8 @@ void main() async {
   // 这样首帧渲染就能拿到正确主题，避免 flash-to-default。
   await container.read(themeNotifierProvider.notifier).hydrate();
   await container.read(TimetableStore.provider.notifier).hydrate();
+  // 全局圆环开关：预加载，避免首帧先画出圆环再被关掉（闪一下）
+  await container.read(ringEnabledProvider.notifier).load();
 
   // 使用 NoteRootScope + UncontrolledProviderScope（preloaded container）包裹应用根节点
   runApp(
@@ -172,6 +176,12 @@ class MyApp extends ConsumerWidget {
       ],
       child: MaterialApp(
         navigatorKey: rootNavigatorKey,
+        // 全局圆环：包在 Navigator 外层 → 高于所有 route / dialog / sheet。
+        // 开关在 KV 清单页控制（ringEnabledProvider）。
+        builder: (context, child) => GlobalRingHost(
+          child: child ?? const SizedBox.shrink(),
+          navigatorKey: rootNavigatorKey,
+        ),
         // fr:// CLEAR_TOP 防栈累加依赖的路由栈跟踪器
         navigatorObservers: [frRouteStack],
         title: '小豆子',
