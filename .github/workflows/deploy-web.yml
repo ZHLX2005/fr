@@ -7,6 +7,12 @@ on:
 
 jobs:
   deploy-web:
+    # 只有提交信息包含 'web' 才启动 —— master 上其他 push 整个 job 跳过
+    # （灰色 skipped，不占 runner、不报红），而不是跑完 checkout/装 Flutter 再失败。
+    # 手动触发（workflow_dispatch）不受此限制，永远执行。
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || contains(github.event.head_commit.message, 'web')
     runs-on: ubuntu-latest
     environment: production
 
@@ -23,17 +29,6 @@ jobs:
 
       - name: Get Flutter dependencies
         run: flutter pub get
-
-      # 提交信息包含 web 才继续（master 分支上其他 push 跳过整个 job）
-      - name: Check commit message
-        if: github.event_name == 'push'
-        run: |
-          MSG="${{ github.event.head_commit.message }}"
-          echo "Commit message: $MSG"
-          if ! echo "$MSG" | grep -qi 'web'; then
-            echo "Commit message does not contain 'web', skipping deploy."
-            exit 1
-          fi
 
       - name: Build Flutter web
         run: flutter build web --release --pwa-strategy=none
