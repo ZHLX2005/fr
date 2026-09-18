@@ -116,16 +116,20 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.widget_title, title)
 
                 if (useChronometer) {
-                    // 顺序要紧：setChronometerCountDown 必须早于 setChronometer ——
-                    // 后者内部 setBase() 会立刻 updateText()，而 updateText 读 mCountDown；
-                    // 若那时还没落，第一帧会按"向上计数"把 base（未来时刻）减出天文数字。
-                    // 同一批 action 应用完才绘制，所以顺序排对零成本。
+                    // ★ 顺序要紧：setChronometer 必须在前，setChronometerCountDown 在后
+                    //（与官方文档 / 社区用法一致）。两种顺序的稳健性不对称：
                     //
-                    // 全程 countDown=true 即可覆盖超时：Chronometer 数到 0 **不会自停**，
-                    // 越过 0 后框架自动取绝对值并套 R.string.negative_duration（`-%s`）
-                    // 渲染出负号。**不要**再 setFormat("-%s")，那会变成 `--00:12`。
-                    setChronometerCountDown(R.id.widget_time_chrono, true)
+                    //   若 ChronometerAction.apply 会用自带的 countDown 字段无条件
+                    //   chronometer.setCountDown(...)（4 参重载传的是 false），那么
+                    //   "countDown 在前"会被随后的 setChronometer 覆盖 → 变成向上计数，
+                    //   倒计时反向走字；而"setChronometer 在前"最后一个 action 生效，
+                    //   countDown 一定是 true。反过来若 ChronometerAction 不碰 countDown，
+                    //   两种顺序都对。所以本顺序在两种实现下都正确。
+                    //
+                    // 中间的"向上计数"瞬时态不可见：RemoteViews 是整批 action 应用完才绘制，
+                    // 且 setCountDown() 自己会调 updateText() 立刻纠正文本。
                     setChronometer(R.id.widget_time_chrono, base, null, true)
+                    setChronometerCountDown(R.id.widget_time_chrono, true)
                     setViewVisibility(R.id.widget_time_chrono, View.VISIBLE)
                     setViewVisibility(R.id.widget_time, View.GONE)
                 } else {

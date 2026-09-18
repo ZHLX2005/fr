@@ -97,15 +97,24 @@ Chronometer 数到 0 **不会自停**，越过 0 后框架自动取绝对值并�
 `R.string.negative_duration`（`-%s`）渲染负号。所以**全程 `countDown=true` +
 `format=null`** 即可覆盖负数，共用一个 Chronometer、无需任何模式切换。
 
-**3. action 顺序：`setChronometerCountDown` 必须排在 `setChronometer` 之前。**
+**3. action 顺序：`setChronometer` 在前，`setChronometerCountDown` 在后。**
 
-后者内部 `setBase()` → 立刻 `updateText()`，而 `updateText()` 读 `mCountDown`；
-若那时还没落，第一帧会按"向上计数"把未来的 `base` 减出天文数字。
+```kotlin
+setChronometer(viewId, base, null, true)      // ← 先
+setChronometerCountDown(viewId, true)          // ← 后
+```
 
-> 若真机上发现走字方向反了（某些实现里 4 参 `setChronometer` 会把 countDown
-> 重置为 false），改用三连兜底：
-> `setChronometer(...,false)` → `setChronometerCountDown(...,true)` → `setChronometer(...,true)`。
-> 同一批 action 应用完才绘制，中间帧不可见。
+与官方文档 / 社区用法一致。**不要反过来写**（这个坑踩过：曾按"countDown 要先落，
+否则 updateText 读不到"的推理把顺序写反了）。两种顺序的稳健性不对称：
+
+- 若 `ChronometerAction.apply` 用自带的 countDown 字段无条件
+  `chronometer.setCountDown(...)`（4 参重载传的是 `false`），"countDown 在前"
+  会被随后的 `setChronometer` 覆盖 → **变成向上计数，倒计时反向走字**。
+- 反过来若它不碰 countDown，两种顺序都对。
+
+所以只有"setChronometer 在前"在两种实现下都正确。中间那个"向上计数"的瞬时态
+不可见 —— RemoteViews 整批 action 应用完才绘制，且 `setCountDown()` 自己会调
+`updateText()` 立刻纠正文本。
 
 **4. `setChronometerCountDown` 是 API 24**（不是网上说的 17），minSdk 必须 ≥ 24。
 
