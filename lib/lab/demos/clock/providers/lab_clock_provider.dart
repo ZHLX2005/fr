@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import 'package:xiaodouzi_fr/services/metronome/metronome_service.dart';
 import '../../../../native/home_widget/clock_widget_data.dart';
 import '../../../../native/home_widget/clock_widget_service.dart';
 import '../models/lab_clock.dart';
@@ -29,6 +28,11 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   /// 颜色为空 → 主题默认陶土色；否则原样（不覆盖用户选择）。
   static String resolveColor(String? color) => color ?? kDefaultClockColor;
   Timer? _timer;
+
+  /// 是否在前台。后台时 tick 不再 `notifyListeners()`（避免后台白白产帧），
+  /// 且定时器整体停摆（见 [didChangeAppLifecycleState]）。
+  bool _isForeground = true;
+
   final Set<String> _silencedClocks = {};
 
   /// Clocks whose beat was stolen by another provider. UI greys out the beat dot.
@@ -40,12 +44,16 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   LabClockProvider() {
     _startTimer();
     WidgetsBinding.instance.addObserver(this);
-    // 冷启动就 ready Oboe stream。这样 LabClockProvider 第一个时钟 startCountdown
-    // 走 BeatCoordinator.requestOwnership 之前，stream 已经 init 过，不会出现
-    // "service 还没 ready 但有人 play/pause 了"的 race。
-    MetronomeService.instance.ensureReady();
-    // 冷启动即还原用户声音槽到共享 FFI 单例，这样不先进 metronome 页、
-    // 直进 clock→beat 也能听到木鱼（修 beat 默认声 bug，fr #2）。
+    // ★ 这里**刻意不预热** Oboe stream。Oboe 流是 LowLatency + Exclusive 输出流，
+    // 冷启动就打开会让音频 HAL 全程常驻、阻止 CPU 深度睡眠 —— 这是被系统判定
+    // 「后台高耗电」的主因之一，且与用户是否用过节拍器无关。
+    // 现在由 MetronomeService 按需初始化：BeatCoordinator.requestOwnership →
+    // setBpm/play 会在同一同步调用链内自动 init，原本担心的
+    // "service 还没 ready 但有人 play" 的 race 不复存在。
+    //
+    // 冷启动仍要还原用户声音槽到共享 FFI 单例（不先进 metronome 页、直进
+    // clock→beat 也能听到木鱼，修 beat 默认声 bug，fr #2）。流未就绪时
+    // loadSample 会记账、待首次 ensureReady() 回放，所以顺序无关。
     SampleLoader.restoreAtStartup();
     // 启动即加载数据并同步到桌面小组件
     // 之前要等 ClockDemo 页打开才 loadClocks，导致冷启动时 widget 看到的是空状态
@@ -61,71 +69,111 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 只认 resumed / paused。inactive / hidden 会被弹权限框、分屏、下拉通知栏
+    // 频繁触发，在那里做 I/O 或推送会变成新的抖动源。
     if (state == AppLifecycleState.resumed) {
-      // 应用恢复时重新计算所有运行中的时钟
-      _recalculateRunningClocks();
+      _isForeground = true;
+      // 补算后台期间流逝的时间；若期间跨过 0，回来补播一次提醒音
+      // （后台定时器已停，实时提醒被有意放弃 —— 见 [paused] 分支）。
+      final crossedWhileAway = _recalculateRunningClocks();
+      if (crossedWhileAway) ClockAlertSound.instance.play();
+      // 无条件 notify：后台期间 UI 可能整体没有重建过
+      notifyListeners();
+      _saveClocks();
       // 无论是否变化都强制同步一次：widget 可能已被系统 30 分钟周期拉新过
+      _syncToWidget();
+      resumeActiveBeat();
+      _startTimer();
+    } else if (state == AppLifecycleState.paused) {
+      _isForeground = false;
+      _recalculateRunningClocks();
+      // ★ 退后台就停掉 1Hz 定时器 —— 让进程可以被系统冻结，这是消除
+      //   「后台高耗电」判定的关键。走字已交给桌面侧的 Chronometer 自走，
+      //   不依赖这个定时器。
+      _stopTimer();
+      // ★ 释放节拍器占用。原实现只在页面 dispose 时释放（见 [releaseAllBeats]），
+      //   导致带 BPM 的时钟退到后台后 Oboe 流仍在播放：既持续耗电，又让进程
+      //   无法被冻结（进而放大定时器的开销）。
+      releaseAllBeats();
+      _saveClocks();
       _syncToWidget();
     }
   }
 
-  /// 重新计算运行中时钟的剩余时间（基于startTime）
-  void _recalculateRunningClocks() {
-    bool changed = false;
-    for (int i = 0; i < _clocks.length; i++) {
+  /// 重新计算运行中时钟的剩余时间（基于 startTime）。
+  ///
+  /// 返回后台/休眠期间是否有时钟跨过 0，供调用方决定是否补播提醒音。
+  /// **不做任何 I/O 或 notify** —— 由调用方按场景决定。
+  bool _recalculateRunningClocks() {
+    var changed = false;
+    var crossed = false;
+    final now = DateTime.now();
+    for (var i = 0; i < _clocks.length; i++) {
       final clock = _clocks[i];
-      if (clock.isRunning && clock.startTime != null) {
-        // 使用startRemainingSeconds（如果有），否则兼容旧数据用durationSeconds
-        final baseSeconds =
-            clock.startRemainingSeconds ??
-            clock.durationSeconds ??
-            clock.remainingSeconds;
-        final elapsed = DateTime.now().difference(clock.startTime!).inSeconds;
-        final newRemaining = baseSeconds - elapsed;
+      final next = tickRemaining(clock, now);
+      if (next == null) continue;
+      if (crossedZero(clock.remainingSeconds, next)) crossed = true;
+      _clocks[i] = clock.copyWith(remainingSeconds: next);
+      changed = true;
+    }
+    if (changed && _isForeground) notifyListeners();
+    return crossed;
+  }
 
-        if (newRemaining != clock.remainingSeconds) {
-          _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
-          changed = true;
-        }
-      }
+  /// 纯函数：算出这一帧该显示的剩余秒数；无变化返回 null。
+  ///
+  /// 抽出来是为了可单测（照 [crossedZero] / resolveColor 的既有范式）——
+  /// provider 本身依赖 SharedPreferences，难以在单测里驱动。
+  static int? tickRemaining(LabClock clock, DateTime now) {
+    if (!clock.isRunning || clock.startTime == null) return null;
+    // 使用 startRemainingSeconds（如果有），否则兼容旧数据用 durationSeconds
+    final baseSeconds =
+        clock.startRemainingSeconds ?? clock.durationSeconds ?? clock.remainingSeconds;
+    final next = baseSeconds - now.difference(clock.startTime!).inSeconds;
+    return next == clock.remainingSeconds ? null : next;
+  }
+
+  /// 每秒 tick。**刻意不做任何 I/O 或 widget 推送**。
+  ///
+  /// 1. 落盘是多余的：锚点 `startTime` + `startRemainingSeconds` 在
+  ///    [startCountdown] 时就已持久化，`remainingSeconds` 只是派生显示值，
+  ///    重启/回前台由 [_recalculateRunningClocks] 按锚点补算。
+  /// 2. 推送是致命的：`HomeWidget.saveWidgetData` 底层是 `commit()`（同步落盘），
+  ///    原先每秒 6~10 次磁盘提交 + 一次广播唤醒桌面进程重绘，正是被系统判定
+  ///    「后台高耗电」的主因。现在走字由原生 Chronometer 自走，app 只在
+  ///    状态迁移点推一次。
+  void _onTick() {
+    var changed = false;
+    var crossed = false;
+    final now = DateTime.now();
+    for (var i = 0; i < _clocks.length; i++) {
+      final clock = _clocks[i];
+      final next = tickRemaining(clock, now);
+      if (next == null) continue;
+      // 上一帧剩余 >0 → 当前 <=0：归零瞬间触发一次提醒音（fr #3）
+      if (crossedZero(clock.remainingSeconds, next)) crossed = true;
+      _clocks[i] = clock.copyWith(remainingSeconds: next);
+      changed = true;
     }
-    if (changed) {
+    if (!changed) return;
+
+    if (crossed) {
+      // 归零是一次真正的状态迁移：提醒音 + 落盘 + 让桌面 pill 翻到「已超时」
+      ClockAlertSound.instance.play();
       _saveClocks();
-      notifyListeners();
+      _syncToWidget();
     }
+    if (_isForeground) notifyListeners();
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      bool changed = false;
-      for (int i = 0; i < _clocks.length; i++) {
-        final clock = _clocks[i];
-        if (clock.isRunning && clock.startTime != null) {
-          // 使用startRemainingSeconds（如果有），否则兼容旧数据用durationSeconds
-          final baseSeconds =
-              clock.startRemainingSeconds ??
-              clock.durationSeconds ??
-              clock.remainingSeconds;
-          final elapsed = DateTime.now().difference(clock.startTime!).inSeconds;
-          final newRemaining = baseSeconds - elapsed;
-          // 上一帧剩余 >0 → 当前 <=0：归零瞬间触发一次提醒音（fr #3）
-          final prevRemaining = clock.remainingSeconds;
+    _stopTimer();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
+  }
 
-          if (newRemaining != clock.remainingSeconds) {
-            if (crossedZero(prevRemaining, newRemaining)) {
-              ClockAlertSound.instance.play();
-            }
-            _clocks[i] = clock.copyWith(remainingSeconds: newRemaining);
-            changed = true;
-          }
-        }
-      }
-      if (changed) {
-        _saveClocks();
-        _syncToWidget(); // 同步到桌面小组件
-        notifyListeners();
-      }
-    });
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
   }
 
   // 震动与系统提示音已移除 — 倒计时结束由 metronome tick 提示（Oboe 单例）
@@ -194,6 +242,8 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     // 加载完做一次"基于 startTime 重算"——
     // 如果用户在 app 死掉的时候有 running 的钟，重新打开后 remaining 已经过期了
     _recalculateRunningClocks();
+    // 把补算后的值落盘（tick 已不再每秒写盘，这里是冷启动后的唯一一次对齐）
+    await _saveClocks();
     _syncToWidget();
     notifyListeners();
   }
@@ -495,8 +545,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
   /// 停 timer、释放 beat、清 v1+v2 SharedPreferences、清内存、清桌面 widget。
   Future<void> wipeAllData() async {
     // 停掉 per-second timer，防止清空后又被写回来。
-    _timer?.cancel();
-    _timer = null;
+    _stopTimer();
 
     // 释放当前 clock 对 metronome 的占用（不管是哪个 id）。
     final owner = BeatCoordinator.ownerId;
@@ -531,7 +580,8 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
     if (i == -1) return;
     _clocks[i] = _clocks[i].copyWith(bpm: bpm, beatPattern: beatPattern);
     await _saveClocks();
-    _syncToWidget();
+    // 刻意不推 widget：桌面小组件不显示 bpm，推一次就是 6 次同步落盘 + 1 次
+    // 广播唤醒桌面进程，纯浪费。
     notifyListeners();
   }
 
@@ -618,7 +668,7 @@ class LabClockProvider with ChangeNotifier, WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _stopTimer();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

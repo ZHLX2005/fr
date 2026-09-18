@@ -35,8 +35,10 @@ class _OboeBeatSink implements BeatSink {
 /// ownership, the previous owner's `beatenOutCallback` fires.
 ///
 /// The service is shared across the app (single Oboe stream + sample slots).
-/// Releasing ownership only pauses playback — it never closes the stream —
-/// so the next caller (clock demo, metronome demo) gets a ready service.
+/// Releasing ownership only pauses playback. The stream itself is closed
+/// later by `MetronomeService`'s idle timer (see `kMetronomeIdleShutdownDelay`)
+/// so the audio device can power down; the next caller (clock demo, metronome
+/// demo) re-opens it automatically via the auto-init in setBpm/play.
 class BeatCoordinator {
   static String? _ownerId;
   static ValueChanged<String>? _onBeatenOut;

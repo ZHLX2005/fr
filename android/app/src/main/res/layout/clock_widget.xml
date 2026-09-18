@@ -46,17 +46,39 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- 时间显示 -->
-        <TextView
-            android:id="@+id/widget_time"
+        <!-- 时间显示：静态 TextView 与自走字 Chronometer 二选一（visibility 切换）。
+             - Chronometer（运行中）：由桌面 host 进程自己每秒刷新，app 侧零唤醒。
+               数到 0 不自停，越过 0 后框架会套 R.string.negative_duration 自动加负号。
+             - TextView（暂停/等待开始/无时钟）：走 Kotlin 侧 formatHms()，保留
+               完整的 [-]HH:MM:SS 补零格式。
+             两者样式逐项对齐 + layout_gravity=center，避免切换时宽度变化导致跳位。 -->
+        <FrameLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="00:00:00"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#202124"
-            android:fontFamily="monospace"
-            android:layout_marginTop="2dp" />
+            android:layout_marginTop="2dp">
+
+            <TextView
+                android:id="@+id/widget_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="00:00:00"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#202124"
+                android:fontFamily="monospace" />
+
+            <Chronometer
+                android:id="@+id/widget_time_chrono"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#202124"
+                android:fontFamily="monospace"
+                android:visibility="gone" />
+        </FrameLayout>
 
         <!-- 状态 pill：浅 tint 底 + 同色描边 + 同色字（背景/字色随状态由 Kotlin 切换） -->
         <TextView

@@ -20,6 +20,7 @@ import 'core/ai_chat/system_messages/system_events_controller.dart';
 import 'core/note/note_root_scope.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
+import 'app_lifecycle/app_foreground.dart';
 import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
@@ -47,6 +48,10 @@ Future<dynamic> _handleRootMethodCall(MethodCall call) async {
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 全局前后台信号：让非 widget 的常驻服务（relay transport / lan discovery）
+  // 也能在退到后台时挂起周期性网络活动。页面级用各自的 WidgetsBindingObserver。
+  AppForeground.install();
 
   // 注册国际象棋皮肤（const catalog → RemoteChessSkin）。
   // 必须在任何 chess UI 构建之前调用；这里走"启动期一次性"语义。

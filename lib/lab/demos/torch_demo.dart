@@ -227,19 +227,30 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Future<void> _turnOffScreenLight() async {
-    if (_isScreenLightOn) {
-      try {
-        await ScreenBrightness().setScreenBrightness(_savedBrightness);
-        await WakelockPlus.disable();
-        setState(() {
-          _isScreenLightOn = false;
-          _showScreenLightOverlay = false;
-          _showControls = true;
-        });
-        _cancelHideTimer();
-      } catch (e) {
-        debugPrint('Turn off screen light error: $e');
-      }
+    // ★ WakelockPlus 是**全局插件状态**，与 _isScreenLightOn 解耦：
+    //   「保持常亮」开关可以在屏幕光关闭时单独打开（见 _toggleKeepScreenOn），
+    //   所以关灯不能以 _isScreenLightOn 为前提 —— 否则「只开常亮、不开屏幕光」
+    //   再退出页面时，WakelockPlus.disable() 永远不执行，屏幕持续不休眠。
+    //   disable 本身是幂等的，无条件调用即可。
+    try {
+      await WakelockPlus.disable();
+    } catch (e) {
+      debugPrint('Wakelock disable error: $e');
+    }
+
+    if (!_isScreenLightOn) return;
+
+    try {
+      await ScreenBrightness().setScreenBrightness(_savedBrightness);
+      if (!mounted) return;
+      setState(() {
+        _isScreenLightOn = false;
+        _showScreenLightOverlay = false;
+        _showControls = true;
+      });
+      _cancelHideTimer();
+    } catch (e) {
+      debugPrint('Turn off screen light error: $e');
     }
   }
 

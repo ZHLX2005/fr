@@ -106,13 +106,23 @@ class PigmentFloatingManager : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        // null intent = 系统在进程被杀后重启服务。MediaProjection 授权已失效，
+        // 重启只会让服务+通知在后台空转，直接退场。
+        if (intent == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        when (intent.action) {
             ACTION_START -> {
                 showBubble()
             }
-            ACTION_STOP -> stopSelf()
+            ACTION_STOP -> {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return START_NOT_STICKY
+            }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {

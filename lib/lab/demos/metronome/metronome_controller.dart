@@ -136,11 +136,11 @@ class MetronomeController extends ChangeNotifier {
     _tickSub?.cancel();
     _tickSub = null;
     if (_initialized) {
-      // Pause playback but DO NOT shutdown the Oboe stream — it's a shared
-      // singleton also used by the Clock demo's LabClockProvider. Shutting
-      // it down here would (a) lose any loaded custom samples (woodfish etc.)
-      // and (b) leave BeatCoordinator._ready=true while gStream=null, so
-      // the next user calling requestOwnership hits no-op FFI stubs.
+      // Only pause. The Oboe stream itself is closed by MetronomeService's
+      // idle timer (kMetronomeIdleShutdownDelay) so the audio device can power
+      // down — leaving it running is what got the app flagged for background
+      // battery drain. This is safe: cpp's shutdown_audio() deliberately keeps
+      // the sample slots, and the next setBpm/play auto-reopens the stream.
       MetronomeFFI.pause();
       _initialized = false;
     }

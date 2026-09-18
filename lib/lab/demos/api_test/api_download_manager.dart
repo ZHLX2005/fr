@@ -148,6 +148,9 @@ class ApkDownloadManager {
             totalBytes: 0,
             statusMessage: '已取消下载',
           );
+          // 取消是终态，必须停掉前台服务（与 completed/error 分支一致）——
+          // 否则 dataSync 服务 + 常驻通知会一直挂着。
+          _bgService.stopService();
           break;
         case 'completed':
           final path = data['path'] as String?;

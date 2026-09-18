@@ -21,7 +21,8 @@ class OffsetCalibratePage extends StatefulWidget {
   State<OffsetCalibratePage> createState() => _OffsetCalibratePageState();
 }
 
-class _OffsetCalibratePageState extends State<OffsetCalibratePage> {
+class _OffsetCalibratePageState extends State<OffsetCalibratePage>
+    with WidgetsBindingObserver {
   static const int _needSamples = 8;
 
   final Stopwatch _sw = Stopwatch();
@@ -34,9 +35,29 @@ class _OffsetCalibratePageState extends State<OffsetCalibratePage> {
   int get _intervalMs => (60000 / widget.bpm).round();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _beatTimer?.cancel();
     super.dispose();
+  }
+
+  /// 退到后台就停掉节拍定时器。校准的拍点间隔是 60000/bpm 毫秒（bpm>=120 时
+  /// <=500ms），每拍都震动 + 播系统音 + setState —— 后台继续跑既是耗电也是
+  /// 莫名其妙的后台声音/震动。校准本身要求用户盯着屏幕点，后台跑毫无意义。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused && _running) {
+      _beatTimer?.cancel();
+      _beatTimer = null;
+      _sw.stop();
+      if (mounted) setState(() => _running = false);
+    }
   }
 
   void _start() {
