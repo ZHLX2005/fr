@@ -23,6 +23,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/core/chess/chess.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_room_page.dart';
+import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record.dart';
+import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record_store.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
@@ -35,6 +37,20 @@ class FakeActionCall {
   final String type;
   final Map<String, dynamic> params;
   FakeActionCall(this.type, this.params);
+}
+
+/// 内存 fake store —— testWidgets 的 FakeAsync zone 里 await 真实文件 IO
+/// 会挂死，widget 测试必须绕开磁盘（store 落盘语义已由 store 单测覆盖）。
+class FakeGameStore extends ChessGameRecordStore {
+  FakeGameStore() : super(isWeb: false);
+
+  final List<ChessGameRecord> records = [];
+
+  @override
+  Future<List<ChessGameRecord>> loadAll() async => List.of(records);
+
+  @override
+  Future<void> save(ChessGameRecord r) async => records.add(r);
 }
 
 /// 真实 RelayV3Transport + MockClient（不联网），记录 applyAction 调用。
@@ -269,7 +285,11 @@ void main() {
   }
 
   /// 用 ChessRoomPage 包一层 host widget（默认 600x600 可点棋盘）。
-  Widget host(FakeRoomHandle handle, {LocalChessSkin? localSkin}) {
+  Widget host(
+    FakeRoomHandle handle, {
+    LocalChessSkin? localSkin,
+    ChessGameRecordStore? gameRecordStore,
+  }) {
     ChessSkinBundle.registerHardcoded();
     return MaterialApp(
       home: Scaffold(
@@ -281,6 +301,7 @@ void main() {
               handle: handle,
               skinId: kChessSkinsCatalog[0].id,
               localSkin: localSkin,
+              gameRecordStore: gameRecordStore,
             ),
           ),
         ),
@@ -1061,6 +1082,95 @@ void main() {
     expect(handle.actionCalls, isEmpty);
   });
 
+  // ─────────────── 王车易位端到端：手势 → 引擎 → MOVE uci → 回显落子 ───────────────
+
+  /// 双方均保有完整易位权的局面（与引擎易位测试同源）。
+  const castlingFen = 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1';
+
+  FakeRoomHandle makeCastlingHandle({String? fen}) {
+    final transport = FakeTransport(deviceId: 'd-host');
+    return FakeRoomHandle(
+      transport: transport,
+      code: '999999',
+      initial: makeSnapshot(
+        code: '999999',
+        fen: fen ?? castlingFen,
+        status: 'playing',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+      ),
+    );
+  }
+
+  testWidgets('白棋短易位 O-O：tap e1 → tap g1 → 发 MOVE uci e1g1，回显后王 g1/车 f1', (
+    tester,
+  ) async {
+    final handle = makeCastlingHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    await tapCell(tester, squareToIndex('e1'));
+    await tapCell(tester, squareToIndex('g1'));
+    await tester.pump();
+
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'MOVE');
+    expect(handle.lastParams?['uci'], 'e1g1');
+
+    // FakeHandle 模拟服务端回显（快照 fen = 走后局面）→ 棋盘重建。
+    await tester.pump();
+    await tester.pump();
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.state.pieceTypeAt(squareToIndex('g1')), PieceType.king,
+        reason: '王落到 g1');
+    expect(board.state.pieceColorAt(squareToIndex('g1')), PieceColor.white);
+    expect(board.state.pieceTypeAt(squareToIndex('f1')), PieceType.rook,
+        reason: '车随王移到 f1');
+    expect(board.state.isEmpty(squareToIndex('e1')), isTrue, reason: 'e1 已空');
+    expect(board.state.isEmpty(squareToIndex('h1')), isTrue, reason: 'h1 已空');
+  });
+
+  testWidgets('白棋长易位 O-O-O：drag e1 → 松手 c1 → 发 MOVE uci e1c1，回显后王 c1/车 d1', (
+    tester,
+  ) async {
+    final handle = makeCastlingHandle();
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    await dragPiece(tester, squareToIndex('e1'), squareToIndex('c1'));
+    await tester.pump();
+
+    expect(handle.actionCalls, hasLength(1));
+    expect(handle.actionCalls.first.type, 'MOVE');
+    expect(handle.lastParams?['uci'], 'e1c1');
+
+    await tester.pump();
+    await tester.pump();
+    final board = tester.widget<ChessBoard>(find.byType(ChessBoard));
+    expect(board.state.pieceTypeAt(squareToIndex('c1')), PieceType.king,
+        reason: '王落到 c1');
+    expect(board.state.pieceTypeAt(squareToIndex('d1')), PieceType.rook,
+        reason: '车随王移到 d1');
+    expect(board.state.isEmpty(squareToIndex('a1')), isTrue, reason: 'a1 已空');
+    expect(board.state.isEmpty(squareToIndex('e1')), isTrue, reason: 'e1 已空');
+  });
+
+  testWidgets('易位权已撤销（KQkq→-）：tap e1 → tap g1 → 不发 MOVE（正确拒绝）', (tester) async {
+    // 用户报"无法易位"的最常见真实原因：王/车动过后权利已被撤销，
+    // 此时拒绝是规则正确行为 —— 该测试锁死这一拒绝路径。
+    const noRightsFen = 'r3k2r/8/8/8/8/8/8/R3K2R w - - 0 1';
+    final handle = makeCastlingHandle(fen: noRightsFen);
+    await tester.pumpWidget(host(handle));
+    await tester.pump();
+
+    await tapCell(tester, squareToIndex('e1'));
+    await tapCell(tester, squareToIndex('g1'));
+    await tester.pump();
+
+    expect(handle.actionCalls, isEmpty,
+        reason: '易位权已撤销 → g1 非法目标 → 不发 MOVE（规则正确拒绝，非 bug）');
+  });
+
   // ─────────────── 本地皮肤（localSkin 参数） ───────────────
 
   testWidgets('传 localSkin → 棋盘用本地皮肤渲染（离线可用）', (tester) async {
@@ -1262,5 +1372,82 @@ void main() {
 
     expect(find.textContaining('开始游戏'), findsOneWidget,
         reason: '标准开局 host 执白 → 仍看到开始游戏（向后兼容）');
+  });
+
+  // ─────────────── 保存整局到对局回放库（终局复盘 → 书签按钮） ───────────────
+
+  /// 3 手后的标准 FEN（1.e4 e5 2.Nf3，轮黑）。
+  const String kFenAfter3 =
+      'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2';
+
+  FakeRoomHandle makeEndedHandle() {
+    final transport = FakeTransport(deviceId: 'd-host');
+    return FakeRoomHandle(
+      transport: transport,
+      code: '999999',
+      initial: makeSnapshot(
+        code: '999999',
+        fen: kFenAfter3,
+        status: 'checkmate',
+        state: 'ended',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        winner: 'd-guest',
+        moves: const [
+          {'uci': 'e2e4', 'by': 'd-host', 'ts': 1},
+          {'uci': 'e7e5', 'by': 'd-guest', 'ts': 2},
+          {'uci': 'g1f3', 'by': 'd-host', 'ts': 3},
+        ],
+      ),
+    );
+  }
+
+  /// 内存 fake store —— testWidgets 的 FakeAsync zone 里 await 真实文件 IO
+  /// 会挂死，widget 测试必须绕开磁盘（store 落盘语义已由 store 单测覆盖）。
+  testWidgets('终局复盘 → 点「保存整局」→ 记录落盘（注入 store）', (tester) async {
+    final store = FakeGameStore();
+    await tester.pumpWidget(host(makeEndedHandle(), gameRecordStore: store));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    // 终局卡片 → 点「复盘」→ 回放条出现 → 点保存整局。
+    await tester.tap(find.text('复盘'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('保存整局到对局库'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining('已保存整局（3 手）'), findsOneWidget);
+
+    expect(store.records, hasLength(1));
+    expect(store.records.first.uciMoves, ['e2e4', 'e7e5', 'g1f3']);
+    expect(store.records.first.status, 'checkmate');
+    expect(store.records.first.roomCode, '999999');
+    expect(store.records.first.initialFen.contains('KQkq'), isTrue,
+        reason: 'initialFen = 重演首态（标准开局）FEN');
+    expect(store.records.first.moveCount, 3);
+  });
+
+  testWidgets('重复保存同一局 → 幂等提示不重复落盘', (tester) async {
+    final store = FakeGameStore();
+    await tester.pumpWidget(host(makeEndedHandle(), gameRecordStore: store));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('复盘'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('保存整局到对局库'));
+    await tester.pump();
+    await tester.pump();
+
+    // 第二次保存（同内容）→ 幂等提示。
+    await tester.tap(find.byTooltip('保存整局到对局库'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('该局已在回放库中，无需重复保存'), findsOneWidget);
+    expect(store.records, hasLength(1), reason: '不重复落盘');
   });
 }
