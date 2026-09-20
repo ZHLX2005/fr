@@ -57,6 +57,9 @@ class ChessReplayBar extends StatelessWidget {
   /// 导出当前回放局面为残局快照（null = 不显示导出按钮）。
   final VoidCallback? onExport;
 
+  /// 保存整局到对局回放库（null = 不显示保存按钮）。
+  final VoidCallback? onSaveGame;
+
   const ChessReplayBar({
     super.key,
     required this.index,
@@ -70,6 +73,7 @@ class ChessReplayBar extends StatelessWidget {
     required this.onSeek,
     required this.onExit,
     this.onExport,
+    this.onSaveGame,
   });
 
   @override
@@ -116,6 +120,13 @@ class ChessReplayBar extends StatelessWidget {
                 tooltip: '导出残局快照',
                 onPressed: onExport,
                 icon: const Icon(Icons.save_outlined),
+              ),
+            // 保存整局到对局回放库（整谱 + 起始局面持久化，跨会话可复盘）
+            if (onSaveGame != null)
+              IconButton(
+                tooltip: '保存整局到对局库',
+                onPressed: onSaveGame,
+                icon: const Icon(Icons.bookmark_add_outlined),
               ),
             const SizedBox(width: 8),
             // 步数标签："12 / 40"（0 = 初始局面）

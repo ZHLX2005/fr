@@ -39,6 +39,9 @@ import '../engine/make_move.dart';
 import '../endgame/chess_endgame.dart';
 import '../endgame/chess_endgame_list_page.dart';
 import '../endgame/chess_endgame_store.dart';
+import '../replay/chess_game_record.dart';
+import '../replay/chess_game_record_list_page.dart';
+import '../replay/chess_game_record_store.dart';
 import '../../../api/goframe/goframe_config.dart';
 import '../../game_kit/chat/chat_event.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
@@ -88,6 +91,9 @@ class ChessRoomPage extends StatefulWidget {
   /// null = 标准开局房间（服务端 initial_fen 仍可能存在 —— 换设备进房兜底读快照）。
   final ChessEndgameSnapshot? initialEndgame;
 
+  /// 整局保存存储（注入方便测试；null → 生产默认走 documents 目录）。
+  final ChessGameRecordStore? gameRecordStore;
+
   const ChessRoomPage({
     super.key,
     required this.handle,
@@ -97,6 +103,7 @@ class ChessRoomPage extends StatefulWidget {
     this.localSkin,
     this.boardPalette,
     this.initialEndgame,
+    this.gameRecordStore,
   });
 
   @override
@@ -860,6 +867,16 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
+  /// 打开对局回放库（已保存整局列表 → 离线回放页，快照列表选步开始）。
+  Future<void> _openGameLibrary() async {
+    final skin = widget.localSkin ?? ChessSkinBundle.byId(widget.skinId);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChessGameRecordListPage(skin: skin),
+      ),
+    );
+  }
+
   /// 房主选残局 → SET_RULES(initial_fen)。
   Future<void> _pickEndgame() async {
     if (!_isHost || _setRulesLock) return;
@@ -1329,6 +1346,51 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     }
   }
 
+  /// 保存整局到对局回放库（ChessReplayBar 书签按钮）：
+  ///   initialFen = 回放起点 FEN（重演子序列首态；残局房为残局局面）
+  ///   uciMoves   = 回放已解析的整局谱（每手已经合法走法匹配校验）
+  /// 幂等：同 initialFen + 同整谱已在库 → 提示不重复落盘（内容级查重）。
+  Future<void> _saveWholeGame() async {
+    if (!_replayMode || _replayMoves.isEmpty) return;
+    final snap = _snapshot;
+    if (snap == null) return;
+    final now = DateTime.now();
+    final record = ChessGameRecord(
+      id: 'game-${snap.roomCode}-${now.millisecondsSinceEpoch}',
+      title: '对局 '
+          '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
+          '${(widget.initialEndgame?.label != null) ? ' · ${widget.initialEndgame!.label}' : ''}',
+      initialFen: FenCodec.toFen(_replayStates.first),
+      uciMoves: [for (final m in _replayMoves) m.toUci()],
+      status: snap.context['status']?.toString() ?? '',
+      roomCode: snap.roomCode,
+      savedAt: now.toUtc().toIso8601String(),
+    );
+    final store = widget.gameRecordStore ?? ChessGameRecordStore();
+    try {
+      final existing = await store.loadAll();
+      final key = record.contentKey();
+      if (existing.any((r) => r.contentKey() == key)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('该局已在回放库中，无需重复保存')),
+        );
+        return;
+      }
+      await store.save(record);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已保存整局（${record.moveCount} 手）到对局回放库')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存整局失败：$e')),
+      );
+    }
+  }
+
   /// 退出回放：回到终局覆盖层（返回 / 再来一局 / 复盘）。
   void _exitReplay() {
     if (!_replayMode) return;
@@ -1621,6 +1683,15 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                     onChanged: _isHost ? _applyRules : null,
                     onPickEndgame: _isHost ? _pickEndgame : null,
                     onClearEndgame: _isHost ? _clearEndgameRules : null,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 对局回放库：已保存整局列表（所有角色可用）。
+                  // 保存入口 = 终局复盘回放条的「保存整局」书签按钮。
+                  OutlinedButton.icon(
+                    onPressed: _openGameLibrary,
+                    icon: const Icon(Icons.library_books_outlined, size: 18),
+                    label: const Text('对局回放库'),
                   ),
                   const SizedBox(height: 22),
 
@@ -2030,6 +2101,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                       onSeek: _seekReplay,
                       onExit: _exitReplay,
                       onExport: _exportCurrentReplayPosition,
+                      onSaveGame: _saveWholeGame,
                     )
                   : Column(
                       mainAxisSize: MainAxisSize.min,
