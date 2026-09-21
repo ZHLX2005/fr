@@ -96,7 +96,7 @@ void main() {
     await tester.tap(find.byTooltip('删除'));
     await tester.pumpAndSettle();
 
-    expect(find.text('确定删除「对局 game-a」？'), findsOneWidget);
+    expect(find.textContaining('确定删除「对局 game-a」？'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
     await tester.pumpAndSettle();
 

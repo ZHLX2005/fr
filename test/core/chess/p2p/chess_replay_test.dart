@@ -255,7 +255,8 @@ void main() {
     // 回放条出现，步数标签 "4 / 4"（从终局开始），状态条提示回放中。
     expect(find.byType(ChessReplayBar), findsOneWidget);
     expect(find.text('4 / 4'), findsOneWidget);
-    expect(find.text('回放中'), findsOneWidget);
+    // 我方状态条 subtitle = 执子色 · 回放中（host 默认执白）。
+    expect(find.text('执白 · 回放中'), findsOneWidget);
     // 终局覆盖层隐藏（退出回放才回来）。
     expect(find.text('将杀'), findsNothing);
     // 棋盘 = 终局局面：e4 白兵 / f3 白马 / c6 黑马。

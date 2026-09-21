@@ -1442,6 +1442,16 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    // 第一次保存 → SnackBar 可见。
+    expect(find.textContaining('已保存整局'), findsOneWidget);
+    // 推进假时钟让首条 SnackBar 走完时长 + 退场（实测需 ≥8s），避免
+    // 第二次 showSnackBar 被 ScaffoldMessenger 排队挡住。
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已保存整局'), findsNothing);
+
     // 第二次保存（同内容）→ 幂等提示。
     await tester.tap(find.byTooltip('保存整局到对局库'));
     await tester.pump();
