@@ -1,12 +1,16 @@
 // lib/core/chess/p2p/widgets/board_chat_overlay.dart
 //
-// F2 落地版：棋盘 absolute 浮层
-//   · 左上角：近期对话卡片堆（最多 N 张，新卡 deal-in，旧卡 tuck 后退）
-//   · 右上角：💬 FAB（点击展开 composer）
-//   · composer：双 tab（表情 / 记录）+ 文字输入 + 发送
-//   · 浮层 absolute，不挤 Column flex；竖屏 board-wrap 上下留白时 FAB 可落在格外
+// F3 落地版：棋盘 absolute 浮层（聊天区统一在左上角）
+//   · 左上角：💬 入口 + 最新一条消息预览（纯静态，无渐入/缩放/位移动画）
+//   · 入口点击 → 左上角原地展开 composer（双 tab 表情 / 记录 + 文字输入 + 发送）
+//   · 浮层 absolute，不挤 Column flex；竖屏 board-wrap 上下留白时入口可落在格外
 //
-// 设计依据：plan/chess-chat-redesign-2026-09-07/F-card-stack.html
+// 性能约束：F2 的卡片堆（入场 bounce / 退场 / tuck + 每帧 Matrix4Tween）已整体
+// 移除 —— 每条消息挂 2 个 AnimationController、外加 TweenAnimationBuilder 逐帧
+// 重建，长局下纯属额外开销。现在只保留"最新一条"预览：来消息即时显示，超时
+// [BoardChatOverlay.previewDuration] 后收回纯图标态，全程零动画。
+//
+// 设计依据：plan/chess-chat-redesign-2026-09-07/F-card-stack.html（卡片堆已废弃）
 // 替换关系：EmojiOverlay + ChatSpeechBubbles（emoji/对话悬浮）→ BoardChatOverlay
 // 保留关系：ChatSheet 走"详细历史"路径（PlayerStrip trailing 上的 _ChatFab 触发）
 
@@ -27,7 +31,7 @@ const List<String> kBoardChatQuickEmojis = [
 /// 服务端 chatRing append-only，跨长局可达上千条；_seen 是去重缓存需有界。
 const int _kSeenCapacity = 256;
 
-/// F2 棋盘对话浮层
+/// 棋盘对话浮层（左上角：入口 + 最新一条预览 + 展开输入面板）
 class BoardChatOverlay extends StatefulWidget {
   final List<ChatEvent> events;
   final String myDeviceId;
@@ -43,11 +47,8 @@ class BoardChatOverlay extends StatefulWidget {
   /// 是否允许发送（终局 / 断线时关闭）
   final bool enabled;
 
-  /// 卡片堆上限
-  final int maxCards;
-
-  /// 单张卡片可见时长（超时后开始 dismiss 动画）
-  final Duration cardDisplayDuration;
+  /// 最新消息预览可见时长（到时收回纯图标态，无动画）
+  final Duration previewDuration;
 
   /// 发送节流
   final Duration sendThrottle;
@@ -61,8 +62,7 @@ class BoardChatOverlay extends StatefulWidget {
     required this.onSendEmoji,
     required this.onSendText,
     this.enabled = true,
-    this.maxCards = 3,
-    this.cardDisplayDuration = const Duration(milliseconds: 2800),
+    this.previewDuration = const Duration(milliseconds: 3000),
     this.sendThrottle = const Duration(milliseconds: 800),
   });
 
@@ -71,22 +71,25 @@ class BoardChatOverlay extends StatefulWidget {
 }
 
 class _BoardChatOverlayState extends State<BoardChatOverlay> {
-  // 卡片数据（FIFO，新卡在末尾）
-  final List<_CardData> _cards = [];
+  // 预览：最新一条消息；null = 只显示 💬 图标
+  ChatEvent? _preview;
 
-  // 已 dismiss 但尚未真正移除（等待动画结束回调）
-  // 集合；实际动画由 _ChatCardState 内部 controller 驱动
-  final Set<String> _dismissing = {};
-
-  // 自动 dismiss 定时器（卡片到达 cardDisplayDuration 后触发）
-  final Map<String, Timer> _timers = {};
+  // 预览超时定时器（到 previewDuration 后收回图标态）
+  Timer? _previewTimer;
 
   // 去重缓存：FIFO，超过 _kSeenCapacity 淘汰最早
-  // 注：server 端 chatRing append-only，长局可达上千条，故需有界
-  final List<String> _seenList = [];
+  // 注：server 端 chatRing append-only，长局可达上千条，故需有界。
+  // 用 LinkedHashSet：O(1) 命中判断（List.contains 在长局下是隐性的 O(n²)），
+  // 且保留插入序 → first 即最早，可用于 FIFO 淘汰。
+  final Set<String> _seen = <String>{};
+
+  // 上次 ingest 的原始列表指纹（末条 key + 长度）：append-only 列表只要这两个
+  // 没变就不可能来新消息 → 直接跳过 O(n) 去重，避免每次棋盘 rebuild 都白跑。
+  String? _lastIngestKey;
+  int _lastIngestLen = -1;
 
   // 本局 ChatEvent 列表（去重后）—— 给 _Composer 记录 tab 用。
-  // 每次 ingest 后刷新；_seenList 同源。
+  // 每次 ingest 后刷新；_seen 同源。
   List<ChatEvent> _historyEvents = const [];
 
   // 草稿：composer 隐藏时保留用户输入（避免重建丢失）
@@ -119,10 +122,7 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
 
   @override
   void dispose() {
-    for (final t in _timers.values) {
-      t.cancel();
-    }
-    _timers.clear();
+    _previewTimer?.cancel();
     _textController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -130,40 +130,42 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
 
   /// 全量重置（myDeviceId 变化 / 跨局）
   void _resetAllState() {
-    for (final t in _timers.values) {
-      t.cancel();
-    }
-    _timers.clear();
-    _seenList.clear();
-    _dismissing.clear();
-    _cards.clear();
+    _previewTimer?.cancel();
+    _previewTimer = null;
+    _preview = null;
+    _seen.clear();
+    _lastIngestKey = null;
+    _lastIngestLen = -1;
+    _historyEvents = const [];
     _draftText = '';
     _textController.text = '';
   }
 
   void _ingest(List<ChatEvent> events) {
-    // 跨局 / RESET：events 被清空时同步清掉卡片，避免上局残影
+    // 跨局 / RESET：events 被清空时同步清掉预览，避免上局残影
     if (events.isEmpty) {
-      if (_cards.isEmpty && _timers.isEmpty) return;
-      // 取消所有 timer、立即清状态（不播 dismiss 动画：跨局无需动画）
-      for (final t in _timers.values) {
-        t.cancel();
-      }
-      _timers.clear();
-      _dismissing.clear();
-      _cards.clear();
-      _seenList.clear();
+      if (_preview == null && _seen.isEmpty && _historyEvents.isEmpty) return;
+      _previewTimer?.cancel();
+      _previewTimer = null;
+      _preview = null;
+      _seen.clear();
+      _lastIngestKey = null;
+      _lastIngestLen = -1;
       _historyEvents = const [];
       return;
     }
 
-    // 收集本批次新增（循环外单次 setState，避免 N 次 rebuild）
-    final newCards = <_CardData>[];
-    final newTimers = <String, Timer>{};
+    // 指纹未变 → 无新消息（chatRing append-only）：跳过整轮去重
+    final lastKey = _keyFor(events.last);
+    if (lastKey == _lastIngestKey && events.length == _lastIngestLen) return;
+    _lastIngestKey = lastKey;
+    _lastIngestLen = events.length;
 
+    // 本批次最后一条合法新消息 = 预览内容；循环内不 setState，末尾单次提交
+    ChatEvent? latest;
     for (final e in events) {
       final key = _keyFor(e);
-      if (_seenList.contains(key)) continue;
+      if (_seen.contains(key)) continue;
       _pushSeen(key);
 
       // 内容合法性校验：emoji 必须能解析到 image；文字必须非空（trim 与 ChatSpeechBubbles 对齐，拒纯空白）
@@ -173,40 +175,31 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
       } else if (e.text == null || e.text!.trim().isEmpty) {
         continue;
       }
-
-      newCards.add(_CardData(event: e));
-      newTimers[e.id] = Timer(widget.cardDisplayDuration, () {
-        if (!mounted) return;
-        _dismissCard(e.id);
-      });
+      latest = e;
     }
 
-    if (newCards.isEmpty && _timers.isEmpty == false) {
-      // 仅新增 timer（无新增卡片，仍需补建 timer）—— 当前 ingest 设计里 newCards 非空才有 timer，可优化
+    final history = _dedupEvents(events);
+
+    if (latest == null) {
+      // 无新消息：只在历史条数真的变了才 rebuild（长局下 events 每帧都来）
+      if (history.length == _historyEvents.length) return;
+      setState(() => _historyEvents = history);
+      return;
     }
 
-    if (newCards.isEmpty) return;
+    // 预览刷新（同一批多条时只展示最后一条）+ 重置超时计时
+    _showPreview(latest);
+    setState(() => _historyEvents = history);
+  }
 
-    // 溢出：超出 maxCards 的旧卡立即标记 dismiss（动画播放），再物理移除
-    final overflow = (_cards.length + newCards.length) - widget.maxCards;
-    final toDismiss = overflow > 0
-        ? _cards.take(overflow).map((c) => c.event.id).toList()
-        : const <String>[];
-
-    setState(() {
-      _cards.addAll(newCards);
-      while (_cards.length > widget.maxCards) {
-        _cards.removeAt(0);
-      }
-      for (final id in toDismiss) {
-        _dismissing.add(id);
-        _timers[id]?.cancel();
-      }
-      // 同步本局历史快照（去重）—— 给 _Composer 记录 tab 用
-      _historyEvents = _dedupEvents(events);
+  /// 显示最新消息预览，并重置 [BoardChatOverlay.previewDuration] 计时
+  void _showPreview(ChatEvent e) {
+    _preview = e;
+    _previewTimer?.cancel();
+    _previewTimer = Timer(widget.previewDuration, () {
+      if (!mounted) return;
+      setState(() => _preview = null);
     });
-
-    _timers.addAll(newTimers);
   }
 
   /// 从 append-only events 列表提取去重后的事件（保持原顺序）
@@ -220,32 +213,13 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
   }
 
   void _pushSeen(String key) {
-    _seenList.add(key);
-    if (_seenList.length > _kSeenCapacity) {
-      _seenList.removeAt(0); // FIFO 淘汰
+    _seen.add(key);
+    if (_seen.length > _kSeenCapacity) {
+      _seen.remove(_seen.first); // FIFO 淘汰（LinkedHashSet 保插入序）
     }
   }
 
   String _keyFor(ChatEvent e) => '${e.kind.name}:${e.id}:${e.seq}';
-
-  /// 幂等 dismiss：取消 timer + 检查卡片仍在 + 标记 dismissing（动画由 _ChatCard 内部驱动）
-  void _dismissCard(String eventId) {
-    if (!mounted) return;
-    _timers.remove(eventId)?.cancel();
-    if (!_cards.any((c) => c.event.id == eventId)) return;
-    if (_dismissing.contains(eventId)) return;
-    setState(() => _dismissing.add(eventId));
-  }
-
-  /// _ChatCard 自身动画完成后回调，物理移除
-  void _onCardDismissed(String eventId) {
-    if (!mounted) return;
-    setState(() {
-      _cards.removeWhere((c) => c.event.id == eventId);
-      _dismissing.remove(eventId);
-    });
-    _timers.remove(eventId)?.cancel();
-  }
 
   void _openComposer() {
     if (!widget.enabled) return;
@@ -294,18 +268,21 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
     }
   }
 
-  Future<void> _sendText(String text) async {
-    if (!widget.enabled || _sending) return;
+  /// 发送文字。返回 true = 已发出（_Composer 据此决定是否清空输入框）。
+  Future<bool> _sendText(String text) async {
+    if (!widget.enabled || _sending) return false;
     if (_throttled()) {
       _toast('发送过快，稍后再试');
-      return;
+      return false;
     }
     setState(() => _sending = true);
     try {
       await widget.onSendText(text);
       // 文字发送后保留 composer（清空输入由 _Composer._doSendText 负责），便于连发
+      return true;
     } catch (_) {
       if (mounted) _toast('发送失败');
+      return false;
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -320,23 +297,11 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    // 聊天区统一左上角：关闭态 = 💬 入口（有预览则展开显示最新一条）；
+    // 打开态 = 输入面板原地替换。两者互斥，不做任何过渡动画。
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // 卡片堆：左上角（与右上对话入口分开，避免重叠）
-        Positioned(
-          top: 16,
-          left: 16,
-          child: _CardStack(
-            cards: _cards,
-            dismissing: _dismissing,
-            myDeviceId: widget.myDeviceId,
-            emojiBundle: widget.emojiBundle,
-            fileResolver: widget.fileResolver,
-            onCardDismissed: _onCardDismissed,
-          ),
-        ),
-
         // composer 背景：仅挡点击，不着色（着色会在开关瞬间闪灰色蒙层）
         if (_composerOpen)
           Positioned.fill(
@@ -346,58 +311,39 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
             ),
           ),
 
-        // composer 关闭时：右上角 FAB
+        // composer 关闭时：左上角聊天入口 + 最新消息预览
         if (!_composerOpen)
           Positioned(
-            right: 16,
+            left: 16,
             top: 16,
-            child: _BoardChatFab(
+            child: _ChatPill(
               enabled: widget.enabled,
+              preview: _preview,
+              myDeviceId: widget.myDeviceId,
+              emojiBundle: widget.emojiBundle,
+              fileResolver: widget.fileResolver,
               onTap: _openComposer,
             ),
           ),
-        // composer 打开时：右上角面板（替换 FAB，从右侧滑入）
+        // composer 打开时：左上角面板
         if (_composerOpen)
           Positioned(
-            right: 16,
+            left: 16,
             top: 16,
-            child: TweenAnimationBuilder<double>(
-              // 首次构建 t=0→1；后续 composer 关闭再打开时也会重新构建
-              // （if 条件让 _Composer 卸载/重建），故每次打开都播一次入场动画
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 180),
-              // 不用 Cubic y>1 过冲：Opacity 要求 [0,1]，过冲会 assert / 闪层
-              curve: Curves.easeOutCubic,
-              builder: (ctx, t, child) {
-                final clamped = t.clamp(0.0, 1.0);
-                return Opacity(
-                  opacity: clamped,
-                  child: Transform.translate(
-                    // 从右侧 +8 滑入
-                    offset: Offset(8 * (1 - clamped), 0),
-                    child: Transform.scale(
-                      scale: 0.96 + 0.04 * clamped,
-                      alignment: Alignment.topRight,
-                      child: child,
-                    ),
-                  ),
-                );
-              },
-              child: _Composer(
-                emojiBundle: widget.emojiBundle,
-                fileResolver: widget.fileResolver,
-                enabled: widget.enabled,
-                sending: _sending,
-                textController: _textController,
-                focusNode: _focusNode,
-                onTextChanged: _onComposerTextChanged,
-                onSendEmoji: _sendEmoji,
-                onSendText: _sendText,
-                onClose: _closeComposer,
-                // 双 tab 记录面板：本局 ChatEvent 列表（去重显示）
-                events: _historyEvents,
-                myDeviceId: widget.myDeviceId,
-              ),
+            child: _Composer(
+              emojiBundle: widget.emojiBundle,
+              fileResolver: widget.fileResolver,
+              enabled: widget.enabled,
+              sending: _sending,
+              textController: _textController,
+              focusNode: _focusNode,
+              onTextChanged: _onComposerTextChanged,
+              onSendEmoji: _sendEmoji,
+              onSendText: _sendText,
+              onClose: _closeComposer,
+              // 双 tab 记录面板：本局 ChatEvent 列表（去重显示）
+              events: _historyEvents,
+              myDeviceId: widget.myDeviceId,
             ),
           ),
       ],
@@ -405,312 +351,71 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
   }
 }
 
-class _CardData {
-  final ChatEvent event;
-  _CardData({required this.event});
-}
-
-/// 卡片堆：渲染 N 张卡片，按 depth 偏移制造层叠感
-class _CardStack extends StatelessWidget {
-  final List<_CardData> cards;
-  final Set<String> dismissing;
+/// 左上角聊天入口：💬 图标 + 最新一条消息预览（同一 pill 内，无动画）
+///
+/// 命名：区别于 chess_room_page.dart 的 _ChatFab（PlayerStrip 上的"详细历史"入口）
+/// 形态：无预览 = 48×48 圆形（只有图标）；有预览 = 胶囊，图标右侧跟最新内容
+/// （文字单行省略 / emoji 缩略图），超时由宿主清空 preview → 立即收回圆形。
+/// 身份色点复用 F2 约定：蓝 = 我 / 橙 = 对方。
+class _ChatPill extends StatefulWidget {
+  final bool enabled;
+  final ChatEvent? preview;
   final String myDeviceId;
   final EmojiBundle emojiBundle;
   final FileResolver? fileResolver;
-  final ValueChanged<String> onCardDismissed;
+  final VoidCallback onTap;
 
-  const _CardStack({
-    required this.cards,
-    required this.dismissing,
+  const _ChatPill({
+    required this.enabled,
+    required this.preview,
     required this.myDeviceId,
     required this.emojiBundle,
     required this.fileResolver,
-    required this.onCardDismissed,
+    required this.onTap,
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (cards.isEmpty) return const SizedBox.shrink();
-    // SizedBox 80 是为了给 3 张 60x60 卡 + 12px 偏移留出可见边界（hit-test 用）
-    return IgnorePointer(
-      child: SizedBox(
-        width: 240,
-        height: 80,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            for (int i = 0; i < cards.length; i++)
-              Positioned(
-                left: i * 6.0,
-                top: i * 6.0,
-                child: _ChatCard(
-                  // key 必须稳定以保 didUpdateWidget 触发
-                  key: ValueKey('chat-card-${cards[i].event.id}'),
-                  card: cards[i],
-                  isMe: cards[i].event.from == myDeviceId,
-                  isDismissing: dismissing.contains(cards[i].event.id),
-                  depth: cards.length - 1 - i,
-                  emojiBundle: emojiBundle,
-                  fileResolver: fileResolver,
-                  onDismissed: () => onCardDismissed(cards[i].event.id),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<_ChatPill> createState() => _ChatPillState();
 }
 
-/// 单张卡片：entry 用 TweenSequence 三段 bounce（scale/rot）；dismiss 用 easeIn
-class _ChatCard extends StatefulWidget {
-  final _CardData card;
-  final bool isMe;
-  final bool isDismissing;
-  final int depth; // 0 = 最新，N-1 = 最旧
-  final EmojiBundle emojiBundle;
-  final FileResolver? fileResolver;
-  final VoidCallback onDismissed;
-
-  const _ChatCard({
-    super.key,
-    required this.card,
-    required this.isMe,
-    required this.isDismissing,
-    required this.depth,
-    required this.emojiBundle,
-    required this.fileResolver,
-    required this.onDismissed,
-  });
-
-  @override
-  State<_ChatCard> createState() => _ChatCardState();
-}
-
-class _ChatCardState extends State<_ChatCard> with TickerProviderStateMixin {
-  // 入场：TweenSequence 三关键帧（scale 0.3→1.1→1.0、rotation -10°→+2°→0°）
-  // 与原型 F2 keyframe 严格对齐
-  late final AnimationController _entryCtrl;
-  late final Animation<double> _entryScale;
-  late final Animation<double> _entryOpacity;
-  late final Animation<double> _entryRot;
-
-  // 退场：scale 1→0.5、rotation 0°→+8°、opacity 1→0
-  late final AnimationController _dismissCtrl;
-  late final Animation<double> _dismissScale;
-  late final Animation<double> _dismissOpacity;
-  late final Animation<double> _dismissRot;
-
-  bool _onDismissedFired = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _entryCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-    // Bounce 已由 TweenSequence 关键（0.3→1.1→1.0）。禁止再套
-    // Cubic(..., y>1) 过冲曲线：CurvedAnimation 会产出 t>1，TweenSequence
-    // 断言失败，debug 下连闪灰色错误蒙层（发表情立刻能复现）。
-    _entryScale = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: 0.3, end: 1.1)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 60,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 1.1, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
-        weight: 40,
-      ),
-    ]).animate(_entryCtrl);
-    _entryOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOut),
-    );
-    _entryRot = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween(begin: -10.0, end: 2.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 60,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 2.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
-        weight: 40,
-      ),
-    ]).animate(_entryCtrl);
-    _entryCtrl.forward();
-
-    _dismissCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-    _dismissScale = Tween<double>(begin: 1.0, end: 0.5).animate(
-      CurvedAnimation(parent: _dismissCtrl, curve: Curves.easeIn),
-    );
-    _dismissOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(_dismissCtrl);
-    _dismissRot = Tween<double>(begin: 0.0, end: 8.0).animate(_dismissCtrl);
-  }
-
-  @override
-  void didUpdateWidget(_ChatCard old) {
-    super.didUpdateWidget(old);
-    if (widget.isDismissing && !old.isDismissing && !_dismissCtrl.isAnimating) {
-      _dismissCtrl.forward().then((_) {
-        if (mounted && !_onDismissedFired) {
-          _onDismissedFired = true;
-          widget.onDismissed();
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _entryCtrl.dispose();
-    _dismissCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final e = widget.card.event;
-    final isEmoji = e.isEmoji;
-
-    // 卡片内容
-    Widget content;
-    if (isEmoji) {
-      final entry = widget.emojiBundle.byId[e.emojiId ?? ''];
-      content = SizedBox(
-        width: 60,
-        height: 60,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: _EmojiImage(
-            image: entry?.imageProvider(widget.fileResolver),
-            id: e.emojiId ?? '',
-          ),
-        ),
-      );
-    } else {
-      final text = e.text ?? '';
-      // 关键：maxWidth 约束让 text 自适应一行 + 超出换行（shrink-to-content + wrap）
-      content = Container(
-        constraints: const BoxConstraints(maxWidth: 220),
-        padding: const EdgeInsets.fromLTRB(14, 6, 10, 6),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.35,
-            color: scheme.onSurface,
-          ),
-        ),
-      );
-    }
-
-    // depth-based base 值（旧卡缩、淡、转）
-    final baseScale = 1.0 - widget.depth * 0.04;
-    final baseOpacity = 1.0 - widget.depth * 0.18;
-    final baseRot = (widget.depth.isEven ? 1 : -1) * widget.depth * 1.5; // 度
-
-    // depth-based transform matrix（position + base scale + base rot）
-    // 用 TweenAnimationBuilder 实现"被新卡挤下来时的 tuck 过渡"
-    final baseMatrix = Matrix4.identity()
-      ..translateByDouble(widget.depth * 6.0, widget.depth * 6.0, 0, 1)
-      ..rotateZ(baseRot * 3.1415926 / 180)
-      ..scaleByDouble(baseScale, baseScale, 1, 1);
-
-    return TweenAnimationBuilder<Matrix4>(
-      tween: Matrix4Tween(begin: Matrix4.identity(), end: baseMatrix),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      builder: (ctx, matrix, child) {
-        return Transform(
-          transform: matrix,
-          alignment: Alignment.center,
-          child: AnimatedOpacity(
-            opacity: baseOpacity,
-            duration: const Duration(milliseconds: 300),
-            child: child,
-          ),
-        );
-      },
-      // 在 base transform 之上叠加入场/退场动画
-      child: AnimatedBuilder(
-        animation: Listenable.merge([_entryCtrl, _dismissCtrl]),
-        builder: (ctx, child) {
-          return Opacity(
-            opacity: (_entryOpacity.value * _dismissOpacity.value)
-                .clamp(0.0, 1.0),
-            child: Transform.rotate(
-              angle: (_entryRot.value + _dismissRot.value) * 3.1415926 / 180,
-              child: Transform.scale(
-                scale: _entryScale.value * _dismissScale.value,
-                child: child,
-              ),
-            ),
-          );
-        },
-        child: Material(
-          color: scheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(color: scheme.outlineVariant),
-          ),
-          // 原型 box-shadow 0 3px 10px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06)
-          elevation: 1,
-          shadowColor: Colors.black.withValues(alpha: 0.10),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              content,
-              // 发送方色点
-              Positioned(
-                top: 5,
-                left: 5,
-                child: Container(
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: widget.isMe
-                        ? const Color(0xFF2A6FDB)
-                        : const Color(0xFFC2410C),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 右上角圆形 FAB（棋盘 quick-send 入口）
-/// 命名：区别于 chess_room_page.dart 的 _ChatFab（PlayerStrip 上的"详细历史"入口）
-/// 视觉对齐 F2 原型：圆形、黑色边、💬 图标、hover/active scale 反馈
-class _BoardChatFab extends StatefulWidget {
-  final bool enabled;
-  final VoidCallback onTap;
-  const _BoardChatFab({required this.enabled, required this.onTap});
-
-  @override
-  State<_BoardChatFab> createState() => _BoardChatFabState();
-}
-
-class _BoardChatFabState extends State<_BoardChatFab> {
+class _ChatPillState extends State<_ChatPill> {
   bool _hover = false;
   bool _active = false;
 
+  /// 预览主体：文字单行省略 / emoji 缩略图
+  Widget _buildPreview(ChatEvent e, ColorScheme scheme) {
+    if (e.isEmoji) {
+      final entry = widget.emojiBundle.byId[e.emojiId ?? ''];
+      return SizedBox(
+        width: 22,
+        height: 22,
+        child: _EmojiImage(
+          image: entry?.imageProvider(widget.fileResolver),
+          id: e.emojiId ?? '',
+        ),
+      );
+    }
+    return Flexible(
+      child: Text(
+        e.text ?? '',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          height: 1.2,
+          color: scheme.onSurface,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final preview = widget.preview;
     // scale: 1.0 → 1.05 (hover) → 0.95 (active)
     final scale = _active ? 0.95 : (_hover ? 1.05 : 1.0);
+    final isMe = preview?.from == widget.myDeviceId;
     return MouseRegion(
       cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hover = true),
@@ -734,24 +439,48 @@ class _BoardChatFabState extends State<_BoardChatFab> {
           curve: Curves.easeOut,
           child: Material(
             color: scheme.surface,
-            shape: const CircleBorder(side: BorderSide(color: Color(0xFF1A1A1A))),
+            // 无预览时 48×48 = 圆；有预览时撑成胶囊（同 radius 24 视觉一致）
+            shape: const StadiumBorder(side: BorderSide(color: Color(0xFF1A1A1A))),
             elevation: _hover ? 3 : 2,
             child: InkWell(
-              customBorder: const CircleBorder(),
+              customBorder: const StadiumBorder(),
               onTap: widget.enabled ? widget.onTap : null,
-              child: Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                // mock: 22×22 自定义 SVG 聊天气泡（区别于 Icons.chat_bubble_outline_rounded）
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CustomPaint(
-                    painter: _ChatBubbleIconPainter(
-                      color: const Color(0xFF1A1A1A)
-                          .withValues(alpha: widget.enabled ? 1.0 : 0.4),
-                    ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // mock: 22×22 自定义 SVG 聊天气泡
+                      // （区别于 Icons.chat_bubble_outline_rounded）
+                      SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CustomPaint(
+                          painter: _ChatBubbleIconPainter(
+                            color: const Color(0xFF1A1A1A)
+                                .withValues(alpha: widget.enabled ? 1.0 : 0.4),
+                          ),
+                        ),
+                      ),
+                      if (preview != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: isMe
+                                ? const Color(0xFF2A6FDB)
+                                : const Color(0xFFC2410C),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        _buildPreview(preview, scheme),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -764,9 +493,8 @@ class _BoardChatFabState extends State<_BoardChatFab> {
 }
 
 /// 嵌入式 composer：emoji 行 + 文字输入 + 发送
-/// 由 BoardChatOverlay 始终构造（不随 _composerOpen 销毁），保证：
-///   · 关闭时输入文字保留（草稿暂存在 _draftText）
-///   · 重开时不重建 FocusNode / TextEditingController
+/// 仅 _composerOpen 时构造；文字草稿与输入控件由 [_BoardChatOverlayState] 持有，
+/// 关闭时草稿存 _draftText、controller / focusNode 由宿主复用，重开不丢内容。
 class _Composer extends StatefulWidget {
   final EmojiBundle emojiBundle;
   final FileResolver? fileResolver;
@@ -776,7 +504,9 @@ class _Composer extends StatefulWidget {
   final FocusNode focusNode;
   final ValueChanged<String> onTextChanged;
   final Future<void> Function(String emojiId) onSendEmoji;
-  final Future<void> Function(String text) onSendText;
+
+  /// 返回 true = 已发出（据此决定是否清空输入框）
+  final Future<bool> Function(String text) onSendText;
   final VoidCallback onClose;
   // 双 tab 记录面板：本局对话历史（去重后展示）
   final List<ChatEvent> events;
@@ -828,8 +558,10 @@ class _ComposerState extends State<_Composer> {
   Future<void> _doSendText() async {
     final text = widget.textController.text.trim();
     if (text.isEmpty || !widget.enabled || widget.sending) return;
+    // 发送成功才清空：被节流 / 失败时保留草稿，避免用户输入被吞
+    final sent = await widget.onSendText(text);
+    if (!mounted || !sent) return;
     widget.textController.clear();
-    await widget.onSendText(text);
   }
 
   @override
@@ -1107,7 +839,10 @@ class _ComposerState extends State<_Composer> {
             child: TextField(
               controller: widget.textController,
               focusNode: widget.focusNode,
-              enabled: widget.enabled && !widget.sending,
+              // 发送在途时不再禁用输入框：禁用会让聚焦中的输入框失焦、
+              // 收起 IME，连发体验很差；重复发送由 _doSendText 的 sending
+              // 守卫 + 按钮可用态兜住。
+              enabled: widget.enabled,
               maxLines: 1,
               maxLength: 40,
               textInputAction: TextInputAction.send,
@@ -1128,27 +863,36 @@ class _ComposerState extends State<_Composer> {
           ),
         ),
         const SizedBox(width: 6),
-        SizedBox(
-          height: 32,
-          child: FilledButton(
-            onPressed: widget.enabled && !widget.sending &&
-                    widget.textController.text.trim().isNotEmpty
-                ? _doSendText
-                : null,
-            // mock: 黑色 1px 边框 + 黑色背景 + 白字 + radius 6 (F2 硬黑 identity)
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(48, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: const Color(0xFF1A1A1A),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-                side: const BorderSide(color: Color(0xFF1A1A1A)),
+        // 可用态必须跟着输入内容实时刷新：此前 onPressed 直接读
+        // textController.text，但 textController 的 listener 只把草稿转给父层
+        // （父层不 setState），本层不 rebuild → 输入后按钮仍是灰的，得切 tab
+        // 触发重建才会亮。这里用 ValueListenableBuilder 只重建按钮本身。
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: widget.textController,
+          builder: (ctx, value, _) {
+            final canSend = widget.enabled &&
+                !widget.sending &&
+                value.text.trim().isNotEmpty;
+            return SizedBox(
+              height: 32,
+              child: FilledButton(
+                onPressed: canSend ? _doSendText : null,
+                // mock: 黑色 1px 边框 + 黑色背景 + 白字 + radius 6 (F2 硬黑 identity)
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(48, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: const BorderSide(color: Color(0xFF1A1A1A)),
+                  ),
+                ),
+                child: const Text('发', style: TextStyle(fontSize: 12)),
               ),
-            ),
-            child: const Text('发', style: TextStyle(fontSize: 12)),
-          ),
+            );
+          },
         ),
       ],
     );

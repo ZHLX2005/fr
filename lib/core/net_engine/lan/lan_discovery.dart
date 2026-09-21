@@ -136,11 +136,15 @@ class _LanDiscoveryPage extends StatefulWidget {
   State<_LanDiscoveryPage> createState() => _LanDiscoveryPageState();
 }
 
-class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
+class _LanDiscoveryPageState extends State<_LanDiscoveryPage>
+    with WidgetsBindingObserver {
   final Map<String, DiscoveredPeer> _peers = {};
   String? _myNodeId;
   String? _error;
-  Transport? _transport;
+  // 声明为具体类 LanTransport（而非 Transport 接口）：前后台门控恢复广播时
+  // 需要 broadcastDiscovery()，它不在 Transport 接口上。本页唯一的赋值来源
+  // 就是 LanTransport.create()，所以收窄类型是安全的。
+  LanTransport? _transport;
   bool _scanning = false;
   bool _handedOff = false;
   String _myAlias = '';
@@ -157,7 +161,30 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPrefs();
+  }
+
+  /// 退到后台就停掉 2s 一次的 UDP 组播广播。原实现只在 dispose / 用户点"停止"
+  /// 时取消，所以扫描进行中把 app 退到后台仍会继续组播 —— 后台周期性网络活动
+  /// 是省电统计里最显眼的扣分项。UDP socket 与 LocalHttpServer 保留（被动收包
+  /// 不产生额外唤醒），只掐掉主动广播。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _discoveryTimer?.cancel();
+      _discoveryTimer = null;
+    } else if (state == AppLifecycleState.resumed && _scanning) {
+      if (_discoveryTimer == null) {
+        final transport = _transport;
+        if (transport != null) {
+          transport.broadcastDiscovery();
+          _discoveryTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+            transport.broadcastDiscovery();
+          });
+        }
+      }
+    }
   }
 
   Future<void> _loadPrefs() async {
@@ -174,6 +201,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _discoveryTimer?.cancel();
     _httpServer?.stop();
     if (!_handedOff) _transport?.stop();

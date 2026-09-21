@@ -23,6 +23,9 @@ class MetronomeService {
   /// 拍点流（web 上永不发数据）。
   Stream<int> get tickStream => _tickStreamController.stream;
 
+  /// web 端永远没有真实的 Oboe 流。
+  bool get isInitialized => false;
+
   /// 初始化 Oboe 音频流。多次调用只生效一次。
   /// Web 端无原生引擎，直接 no-op。
   void ensureReady({double bpm = 120.0}) {}

@@ -1,7 +1,34 @@
 import 'package:flutter/material.dart';
 import '../../../../widgets/context_colors.dart';
+import 'package:xiaodouzi_fr/lab/demos/clock/const_clock_max_mode.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
+import 'package:xiaodouzi_fr/lab/demos/clock/utils/clock_chain_util.dart';
 import 'package:xiaodouzi_fr/core/theme/component/zen/zen_theme.dart';
+
+/// 新建时钟时的预填值（"从记录新建"路径用）。
+///
+/// 不进入编辑模式：标题仍是「添加时钟」、按钮仍是「添加」，只是把来源记录的
+/// 名称/实际时长/来源 clock 的颜色与节拍带进来，用户可当场把时长调长 ——
+/// 这正是血缘链上 maxDurationSeconds 递增的来源。
+///
+/// 与 `existing` 互斥；两者同时传入时 `existing` 优先。
+class ClockEditorSeed {
+  final String title;
+  final String description;
+  final int durationSeconds;
+  final String color;
+  final int? bpm;
+  final String? beatPattern;
+
+  const ClockEditorSeed({
+    required this.title,
+    this.description = '',
+    required this.durationSeconds,
+    required this.color,
+    this.bpm,
+    this.beatPattern,
+  });
+}
 
 class ClockEditorResult {
   final String title;
@@ -11,6 +38,13 @@ class ClockEditorResult {
   final int? bpm;
   final String? beatPattern;
 
+  /// 是否作为新链的根。
+  ///
+  /// 仅在"新的根时钟"开关**可见**时有语义（开关不可见时恒为 false，调用方
+  /// 用 [ClockChainUtil.shouldShowNewRootSwitch] 判断是否采纳 → 无副作用）。
+  /// true → 写入的 parentId 为 null（另起一条链）。
+  final bool isNewRoot;
+
   ClockEditorResult({
     required this.title,
     required this.description,
@@ -18,6 +52,7 @@ class ClockEditorResult {
     required this.color,
     this.bpm,
     this.beatPattern,
+    this.isNewRoot = true,
   });
 }
 
@@ -35,6 +70,8 @@ const _palette = [
 Future<ClockEditorResult?> showClockEditor(
   BuildContext context, {
   LabClock? existing,
+  ClockEditorSeed? seed,
+  LabClock? mergeParent,
 }) {
   return showModalBottomSheet<ClockEditorResult>(
     context: context,
@@ -43,13 +80,22 @@ Future<ClockEditorResult?> showClockEditor(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (ctx) => _ClockEditorSheet(existing: existing),
+    builder: (ctx) => _ClockEditorSheet(
+      existing: existing,
+      seed: seed,
+      mergeParent: mergeParent,
+    ),
   );
 }
 
 class _ClockEditorSheet extends StatefulWidget {
   final LabClock? existing;
-  const _ClockEditorSheet({this.existing});
+  final ClockEditorSeed? seed;
+
+  /// 可并入的父 clock：非空时显示"新的根时钟"开关（默认关 = 并入来源链）。
+  final LabClock? mergeParent;
+
+  const _ClockEditorSheet({this.existing, this.seed, this.mergeParent});
   @override
   State<_ClockEditorSheet> createState() => _ClockEditorSheetState();
 }
@@ -65,31 +111,40 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
   /// '1beat' = one beat per round (all strong); '2beat' = two beats per round (strong-weak).
   late String _mode;
 
+  /// "新的根时钟"开关。初值恒 false：开关只在"存在可并入的父"时显示，
+  /// 而此时无论是"从记录新建"还是"编辑一个在链上的 clock"，当前状态都是
+  /// "不是新根" —— 打开才意味着脱离来源链。
+  late bool _newRoot;
+
   @override
   void initState() {
     super.initState();
     final c = widget.existing;
-    _titleCtl = TextEditingController(text: c?.title ?? '');
-    _descCtl = TextEditingController(text: c?.description ?? '');
-    final total = c?.durationSeconds ?? 300;
+    final s = widget.seed;
+    _newRoot = false;
+    _titleCtl = TextEditingController(text: c?.title ?? s?.title ?? '');
+    _descCtl = TextEditingController(
+      text: c?.description ?? s?.description ?? '',
+    );
+    final total = c?.durationSeconds ?? s?.durationSeconds ?? 300;
     _hours = total ~/ 3600;
     _minutes = (total % 3600) ~/ 60;
     _seconds = total % 60;
-    _color = c?.color ?? _palette.first;
-    _beatEnabled = c?.bpm != null;
+    _color = c?.color ?? s?.color ?? _palette.first;
+    final existingBpm = c?.bpm ?? s?.bpm;
+    _beatEnabled = existingBpm != null;
     // Reverse-derive rounds/mode from stored bpm+pattern when editing.
     // 1beat mode stores pattern '1/4' (1 beat/round); 2beat stores '2/4' (2 beats/round).
-    final pattern = c?.beatPattern;
+    final pattern = c?.beatPattern ?? s?.beatPattern;
     if (pattern == '1/4') {
       _mode = '1beat';
     } else {
       _mode = '2beat'; // default and for '2/4'
     }
     final beatsPerRound = _mode == '1beat' ? 1 : 2;
-    final duration = c?.durationSeconds ?? 300;
-    final bpm = c?.bpm ?? 40;
+    final bpm = existingBpm ?? 40;
     // rounds = bpm * duration / 60 / beatsPerRound
-    final derivedRounds = (bpm * duration / 60 / beatsPerRound).round();
+    final derivedRounds = (bpm * total / 60 / beatsPerRound).round();
     _roundsCtl = TextEditingController(
       text: derivedRounds > 0 ? '$derivedRounds' : '40',
     );
@@ -258,6 +313,8 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
               }).toList(),
             ),
             SizedBox(height: 20),
+            Text('设置', style: ZenText.label),
+            SizedBox(height: 4),
             // Beat section: rounds + mode → auto-computed bpm/pattern.
             Row(
               children: [
@@ -324,6 +381,42 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                 ),
               ),
             ],
+            // "新的根时钟"开关：仅在存在可并入的父时显示（FAB 新建、编辑一个
+            // 已经是根的 clock 都不显示）。显示条件与调用方的采纳条件共用
+            // ClockChainUtil.shouldShowNewRootSwitch，避免两处漂移。
+            if (ClockChainUtil.shouldShowNewRootSwitch(
+              existing: widget.existing,
+              mergeParent: widget.mergeParent,
+            )) ...[
+              SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(kClockNewRootSwitchLabel, style: ZenText.label),
+                        SizedBox(height: 2),
+                        Text(
+                          _newRoot
+                              ? kClockNewRootSwitchHintOn
+                              : kClockNewRootSwitchHintOff,
+                          style: ZenText.monoDigitSmall.copyWith(
+                            color: context.colors.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _newRoot,
+                    activeThumbColor: context.colors.accent,
+                    onChanged: (v) => setState(() => _newRoot = v),
+                  ),
+                ],
+              ),
+            ],
             SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -338,6 +431,7 @@ class _ClockEditorSheetState extends State<_ClockEditorSheet> {
                       color: _color,
                       bpm: _beatEnabled ? _computedBpm : null,
                       beatPattern: _beatEnabled ? _computedPattern : null,
+                      isNewRoot: _newRoot,
                     ),
                   );
                 },

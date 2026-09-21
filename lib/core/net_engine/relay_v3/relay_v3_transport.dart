@@ -33,6 +33,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../../app_lifecycle/app_foreground.dart';
+
 // ——— 类型定义 ———
 
 /// history 条目
@@ -301,6 +303,8 @@ class RoomHandle {
   /// 终端 close code 不会自动重连。
   Future<void> connect() async {
     if (_disposed) return;
+    // 安装前后台门控：退到后台停心跳，回前台重启 + 补快照
+    _installForegroundGate();
     if (_connected) return; // 幂等
 
     final uri = Uri.parse(wsUrl).replace(queryParameters: {
@@ -389,6 +393,51 @@ class RoomHandle {
   void _stopHeartbeat() {
     _heartbeat?.cancel();
     _heartbeat = null;
+  }
+
+  // ── 前后台门控 ────────────────────────────────────────────────────────
+  //
+  // 原实现只在页面 dispose 时取消心跳，所以**只要房间页还在栈上**，退到后台
+  // 仍会每 20s 发一次 HTTP GET —— 后台周期性网络唤醒正是被系统判定
+  // 「后台高耗电」的典型形态。
+  //
+  // WS 长连**保留**：服务端快照推送仍能到达，且避免每次切前台都重连。
+  bool _fgGateInstalled = false;
+
+  void _installForegroundGate() {
+    if (_fgGateInstalled) return;
+    _fgGateInstalled = true;
+    AppForeground.isForeground.addListener(_onForegroundChanged);
+    // 订阅时可能已经在后台（例如页面在后台被深链拉起）
+    if (!AppForeground.value) _stopHeartbeat();
+  }
+
+  void _removeForegroundGate() {
+    if (!_fgGateInstalled) return;
+    _fgGateInstalled = false;
+    AppForeground.isForeground.removeListener(_onForegroundChanged);
+  }
+
+  void _onForegroundChanged() {
+    if (_disposed) return;
+    if (AppForeground.value) {
+      if (!_connected) {
+        // connect() 成功后自己会 _startHeartbeat()
+        connect();
+      } else {
+        _startHeartbeat();
+      }
+      // 补状态：后台期间可能错过快照推送与心跳
+      unawaited(() async {
+        try {
+          await fetchSnapshot();
+        } catch (_) {
+          // best-effort：失败时下个心跳周期会再试
+        }
+      }());
+    } else {
+      _stopHeartbeat();
+    }
   }
 
   /// 测试可见：手动启动心跳（不真正 connect WS —— fakeAsync 环境
@@ -543,6 +592,7 @@ class RoomHandle {
     if (_disposed) return; // 幂等
     _disposed = true;
     _connected = false;
+    _removeForegroundGate();
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _stopHeartbeat();

@@ -56,7 +56,14 @@ class VolumeDecayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        // 系统在进程被杀后重启服务时会传 null intent。此时若继续往下走，
+        // 服务会在"没有 startForeground、没有通知"的状态下后台存活，而
+        // onCreate 已经初始化了全局音频 EQ —— 是纯粹的静默耗电。直接退场。
+        if (intent == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        when (intent.action) {
             ACTION_TURN_OFF -> {
                 turnOff()
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -80,7 +87,10 @@ class VolumeDecayService : Service() {
                 turnOn(gain)
             }
         }
-        return START_STICKY
+        // START_NOT_STICKY：本服务是用户显式开启的音量衰减（挂全局音频 EQ），
+        // 被系统杀死后不该无条件下次拉起 —— 用户没再表达意图，且重启后
+        // 没有通知、状态也不完整。
+        return START_NOT_STICKY
     }
 
     private fun turnOn(gain: Int) {

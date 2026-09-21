@@ -20,6 +20,7 @@
 ///   └──────────────────────────────────────┘
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -128,6 +129,21 @@ class _BackgroundState {
   final _BgController controller = _BgController();
 }
 
+/// 终态兜底：正常情况下主 isolate 收到 'completed'/'error'/'cancelled' 后会自己
+/// 调 `stopService()`，但主 isolate 可能已经死了，没人收尾 —— 那样前台服务
+/// 和常驻通知会一直挂着，被系统记成后台耗电。
+///
+/// 稍等一会儿再退场，让上面的 `invoke` 先送达（重复 `stopSelf()` 是幂等的）。
+void _stopSelfSoon(AndroidServiceInstance service) {
+  Future.delayed(const Duration(seconds: 2), () {
+    try {
+      service.stopSelf();
+    } catch (_) {
+      // ignore: 服务可能已被主 isolate 停掉
+    }
+  });
+}
+
 /// 后台 isolate 入口函数（必须为顶级或静态函数）
 @pragma('vm:entry-point')
 void apkDownloadServiceHandler(ServiceInstance service) {
@@ -135,9 +151,25 @@ void apkDownloadServiceHandler(ServiceInstance service) {
 
   _bgState = _BackgroundState();
 
+  // 看门狗：服务可能被系统以 START_STICKY 重启，而重启后这里只会注册监听、
+  // 不会自动开始下载 —— 不退场就是一个挂着通知空转的前台服务。
+  // 60s 内没收到任何指令就自行了断。
+  Timer? startupWatchdog = Timer(const Duration(seconds: 60), () {
+    service.stopSelf();
+  });
+
+  // 暂停后若用户不再恢复，不该无限期占着前台服务。
+  Timer? pauseWatchdog;
+
   service.on('download_command').listen((event) async {
     final action = event?['action'] as String?;
     final ctrl = _bgState!.controller;
+
+    // 收到任何指令都说明服务确实在被使用，撤掉两个看门狗（各自按需重设）
+    startupWatchdog?.cancel();
+    startupWatchdog = null;
+    pauseWatchdog?.cancel();
+    pauseWatchdog = null;
 
     switch (action) {
       case 'start':
@@ -150,6 +182,10 @@ void apkDownloadServiceHandler(ServiceInstance service) {
           content: '下载已暂停',
         );
         service.invoke('data', {'type': 'paused'});
+        pauseWatchdog = Timer(
+          const Duration(minutes: 30),
+          () => service.stopSelf(),
+        );
       case 'cancel':
         ctrl.cancel();
       case 'stop':
@@ -188,6 +224,7 @@ Future<void> _runDownload(
           'type': 'error',
           'message': '服务器返回 ${streamedResponse.statusCode}',
         });
+        _stopSelfSoon(service);
         return;
       }
 
@@ -220,6 +257,8 @@ Future<void> _runDownload(
             content: '下载已取消',
           );
           service.invoke('data', {'type': 'cancelled'});
+          // 取消是终态：必须退场，否则前台服务 + 常驻通知永不消失
+          _stopSelfSoon(service);
           return;
         }
 
@@ -282,6 +321,8 @@ Future<void> _runDownload(
           'message': '文件保存失败',
         });
       }
+      // 下载流程结束（成功或失败）都是终态：退场，不留空转的前台服务
+      _stopSelfSoon(service);
     } finally {
       client.close();
     }
@@ -290,6 +331,7 @@ Future<void> _runDownload(
       'type': 'error',
       'message': '$e',
     });
+    _stopSelfSoon(service);
   }
 }
 

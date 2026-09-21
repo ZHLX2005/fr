@@ -18,6 +18,13 @@ class LabClock {
   final int? bpm;          // 20..300, null = no beat
   final String? beatPattern; // key into MetronomePresets.patterns, null = no beat
 
+  /// 血缘父 clock 的 id：从某条记录"新建"时钟时，父 = 该记录所属的 clock。
+  /// null = 链根（独立时钟，另起一条链）。max 模式按这条链合并取最大时长。
+  ///
+  /// 注意：copyWith 是 `x ?? this.x` 范式，传 null 无法清空本字段 ——
+  /// 置空请走 LabClockProvider.setClockParent(id, null)。
+  final String? parentId;
+
   LabClock({
     required this.id,
     required this.title,
@@ -32,6 +39,7 @@ class LabClock {
     this.startRemainingSeconds,
     this.bpm,
     this.beatPattern,
+    this.parentId,
   });
 
   factory LabClock.fromJson(Map<String, dynamic> json) =>
@@ -53,6 +61,7 @@ class LabClock {
     int? startRemainingSeconds,
     int? bpm,
     String? beatPattern,
+    String? parentId,
   }) {
     return LabClock(
       id: id ?? this.id,
@@ -69,6 +78,31 @@ class LabClock {
           startRemainingSeconds ?? this.startRemainingSeconds,
       bpm: bpm ?? this.bpm,
       beatPattern: beatPattern ?? this.beatPattern,
+      parentId: parentId ?? this.parentId,
+    );
+  }
+
+  /// 显式设置 [parentId]（可为 null）。
+  ///
+  /// copyWith 是 `x ?? this.x` 范式，传 null **无法**清空 parentId；
+  /// 而"脱离链成为新根"必须能把 parentId 置回 null —— 用独立方法表达该意图，
+  /// 避免后人误用 copyWith(parentId: null) 写出静默失效的代码。
+  LabClock withParentId(String? parentId) {
+    return LabClock(
+      id: id,
+      title: title,
+      description: description,
+      createdAt: createdAt,
+      targetTime: targetTime,
+      durationSeconds: durationSeconds,
+      isRunning: isRunning,
+      remainingSeconds: remainingSeconds,
+      color: color,
+      startTime: startTime,
+      startRemainingSeconds: startRemainingSeconds,
+      bpm: bpm,
+      beatPattern: beatPattern,
+      parentId: parentId,
     );
   }
 }

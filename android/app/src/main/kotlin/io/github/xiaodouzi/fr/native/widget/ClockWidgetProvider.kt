@@ -6,6 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
+import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
 import io.github.xiaodouzi.fr.MainActivity
@@ -39,6 +41,19 @@ class ClockWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "io.github.xiaodouzi.fr.action.CLOCK_WIDGET_REFRESH"
 
+        // prefs key —— 只保留这里真正会读的，与 Dart 侧
+        // lib/native/home_widget/clock_widget_service.dart 的写入集合一一对应。
+        // 新增 key 必须两边同时改，否则是静默失效。
+        private const val KEY_TITLE = "clock_title"
+        private const val KEY_IS_RUNNING = "clock_is_running"
+        private const val KEY_IS_PAUSED_AT_START = "clock_is_paused_at_start"
+        private const val KEY_REMAINING_SECONDS = "clock_remaining_seconds"
+        private const val KEY_START_TIME_MS = "clock_start_time_ms"
+        private const val KEY_START_REMAINING_SECONDS = "clock_start_remaining_seconds"
+
+        /** 锚点可信区间：±30 天。超出即认为 prefs 数据不可信，退回静态文本。 */
+        private const val MAX_TRUSTED_REMAINING_MS = 30L * 24 * 60 * 60 * 1000
+
         internal fun updateAppWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -46,34 +61,50 @@ class ClockWidgetProvider : AppWidgetProvider() {
         ) {
             val widgetData = HomeWidgetPlugin.getData(context)
 
-            val title = widgetData.getString("clock_title", "暂无倒计时") ?: "暂无倒计时"
-            val isRunning = widgetData.getString("clock_is_running", "0") == "1"
+            val title = widgetData.getString(KEY_TITLE, "暂无倒计时") ?: "暂无倒计时"
+            val isRunning = widgetData.getString(KEY_IS_RUNNING, "0") == "1"
             val savedRemaining =
-                widgetData.getString("clock_remaining_seconds", "0")?.toIntOrNull() ?: 0
+                widgetData.getString(KEY_REMAINING_SECONDS, "0")?.toIntOrNull() ?: 0
             val startTimeMs =
-                widgetData.getString("clock_start_time_ms", "0")?.toLongOrNull() ?: 0L
+                widgetData.getString(KEY_START_TIME_MS, "0")?.toLongOrNull() ?: 0L
             val startRemaining =
-                widgetData.getString("clock_start_remaining_seconds", "0")?.toIntOrNull()
+                widgetData.getString(KEY_START_REMAINING_SECONDS, "0")?.toIntOrNull()
                     ?: savedRemaining
 
-            // 实时计算 remaining：如果在跑且有合法 startTime，按当前时间推算，
-            // 否则退回到 Flutter 端最后保存的快照值。
+            // 实时计算 remaining（**毫秒精度**，不要先 /1000 取整 —— 否则每次
+            // 推送都会引入最多 1 秒的固定偏差）：如果在跑且有合法 startTime，
+            // 按当前时间推算，否则退回到 Flutter 端最后保存的快照值。
             // 这样即使 Flutter 进程被杀，widget 下次刷新仍能显示正确时间。
-            val remaining = if (isRunning && startTimeMs > 0) {
-                val elapsedSec = (System.currentTimeMillis() - startTimeMs) / 1000
-                (startRemaining - elapsedSec).toInt()
+            val remainingMs: Long = if (isRunning && startTimeMs > 0L) {
+                startRemaining * 1000L - (System.currentTimeMillis() - startTimeMs)
             } else {
-                savedRemaining
+                savedRemaining * 1000L
             }
 
-            val isOvertime = remaining < 0
-            val formattedTime = formatHms(remaining)
+            val isOvertime = remainingMs < 0L
+
+            // ── 走字交给 Chronometer，app 侧不再每秒推送 ──────────────────
+            //
+            // base 是"从现在起还要数多少"，锚在 SystemClock.elapsedRealtime()
+            // （**含深睡眠**，不能用 uptimeMillis，否则息屏时会停住）。
+            // base 是绝对锚点，与 host 何时 apply 无关，所以不需要持久化，
+            // 每次 update 重算即可。
+            //
+            // 脏数据兜底：remaining 超出 ±30 天说明 prefs 里的锚点不可信
+            // （陈旧值 / 手工改系统时间），退回静态文本，避免 Chronometer
+            // 渲染出天文数字。
+            val anchorTrustworthy = abs(remainingMs) < MAX_TRUSTED_REMAINING_MS
+            val useChronometer = isRunning && startTimeMs > 0L && anchorTrustworthy
+            val base = SystemClock.elapsedRealtime() + remainingMs
+
+            // 静态分支显示 Flutter 端最后落盘的快照值（暂停态的实际剩余就是它）
+            val formattedTime = formatHms(savedRemaining)
 
             // border-emphasis：状态 pill 用"浅 tint 底 drawable + 同色描边 + 同色字/图标"，
             // tint/描边在 drawable 里，这里只下发本色。图标用 vector（去 emoji）。
             data class StatusStyle(val text: String, val iconRes: Int, val pillRes: Int, val color: Int)
 
-            val isPausedAtStart = widgetData.getString("clock_is_paused_at_start", "0") == "1"
+            val isPausedAtStart = widgetData.getString(KEY_IS_PAUSED_AT_START, "0") == "1"
             val style = when {
                 isOvertime -> StatusStyle("已超时", R.drawable.widget_ic_overtime, R.drawable.status_pill_overtime, 0xFFE64A19.toInt())
                 isRunning -> StatusStyle("进行中", R.drawable.widget_ic_running, R.drawable.status_pill_running, 0xFF4CAF50.toInt())
@@ -83,7 +114,32 @@ class ClockWidgetProvider : AppWidgetProvider() {
 
             val views = RemoteViews(context.packageName, R.layout.clock_widget).apply {
                 setTextViewText(R.id.widget_title, title)
-                setTextViewText(R.id.widget_time, formattedTime)
+
+                if (useChronometer) {
+                    // ★ 顺序要紧：setChronometer 必须在前，setChronometerCountDown 在后
+                    //（与官方文档 / 社区用法一致）。两种顺序的稳健性不对称：
+                    //
+                    //   若 ChronometerAction.apply 会用自带的 countDown 字段无条件
+                    //   chronometer.setCountDown(...)（4 参重载传的是 false），那么
+                    //   "countDown 在前"会被随后的 setChronometer 覆盖 → 变成向上计数，
+                    //   倒计时反向走字；而"setChronometer 在前"最后一个 action 生效，
+                    //   countDown 一定是 true。反过来若 ChronometerAction 不碰 countDown，
+                    //   两种顺序都对。所以本顺序在两种实现下都正确。
+                    //
+                    // 中间的"向上计数"瞬时态不可见：RemoteViews 是整批 action 应用完才绘制，
+                    // 且 setCountDown() 自己会调 updateText() 立刻纠正文本。
+                    setChronometer(R.id.widget_time_chrono, base, null, true)
+                    setChronometerCountDown(R.id.widget_time_chrono, true)
+                    setViewVisibility(R.id.widget_time_chrono, View.VISIBLE)
+                    setViewVisibility(R.id.widget_time, View.GONE)
+                } else {
+                    // 显式 stop + 重下 base，避免 host 里残留上一轮的 1Hz ticker / 陈旧锚点
+                    setChronometer(R.id.widget_time_chrono, base, null, false)
+                    setViewVisibility(R.id.widget_time_chrono, View.GONE)
+                    setViewVisibility(R.id.widget_time, View.VISIBLE)
+                    setTextViewText(R.id.widget_time, formattedTime)
+                }
+
                 setTextViewText(R.id.widget_status, style.text)
                 setTextColor(R.id.widget_status, style.color)
                 // RemoteViews 没有 setBackgroundResource(id,res)，用 setInt 反射调用

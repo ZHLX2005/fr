@@ -119,12 +119,23 @@ class FloatingWindowManager : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        // 系统在进程被杀后重启服务时会传 null intent。MediaProjection 授权在
+        // 进程死亡时已失效，重启出一个没有截屏能力的悬浮窗服务毫无意义，
+        // 只会让服务+通知在后台空转。直接退场。
+        if (intent == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        when (intent.action) {
             ACTION_START -> showFloatingWindow()
-            ACTION_STOP -> stopSelf()
+            ACTION_STOP -> {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+                return START_NOT_STICKY
+            }
             ACTION_CAPTURE -> captureScreen()
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

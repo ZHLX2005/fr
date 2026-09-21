@@ -32,7 +32,7 @@ class _SensorPage extends StatefulWidget {
 }
 
 class _SensorPageState extends State<_SensorPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
 
   // 传感器流
@@ -61,22 +61,44 @@ class _SensorPageState extends State<_SensorPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 4, vsync: this);
     _initSensors();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cancelSubscriptions();
     _tabController.dispose();
     super.dispose();
   }
+
+  /// 退到后台就断开四路传感器。传感器默认是 game 级采样率，每帧都回调并
+  /// 触发 setState —— 页面在栈上时后台继续全速跑，是实实在在的耗电。
+  /// 只认 paused/resumed：inactive 会被弹权限框、分屏频繁触发。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _cancelSubscriptions();
+      _subsActive = false;
+    } else if (state == AppLifecycleState.resumed && !_subsActive) {
+      _initSensors();
+      _subsActive = true;
+    }
+  }
+
+  bool _subsActive = true;
 
   void _cancelSubscriptions() {
     _accelSubscription?.cancel();
     _gyroSubscription?.cancel();
     _magSubscription?.cancel();
     _userAccelSubscription?.cancel();
+    _accelSubscription = null;
+    _gyroSubscription = null;
+    _magSubscription = null;
+    _userAccelSubscription = null;
   }
 
   void _initSensors() {

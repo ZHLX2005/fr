@@ -20,10 +20,13 @@ import 'core/ai_chat/system_messages/system_events_controller.dart';
 import 'core/note/note_root_scope.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
+import 'app_lifecycle/app_foreground.dart';
 import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
+import 'widgets/global_ring/global_ring_host.dart';
+import 'widgets/global_ring/ring_enabled_provider.dart';
 
 /// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -44,6 +47,10 @@ Future<dynamic> _handleRootMethodCall(MethodCall call) async {
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 全局前后台信号：让非 widget 的常驻服务（relay transport / lan discovery）
+  // 也能在退到后台时挂起周期性网络活动。页面级用各自的 WidgetsBindingObserver。
+  AppForeground.install();
 
   // ★ 皮肤线上化（id49）：启动期不再注册 7 套硬编码皮肤，不占用应用全局
   // 生命周期。皮肤初始化延后到进入象棋页面（ChessOnlinePage._initSkins）：
@@ -125,6 +132,8 @@ void main() async {
   // 这样首帧渲染就能拿到正确主题，避免 flash-to-default。
   await container.read(themeNotifierProvider.notifier).hydrate();
   await container.read(TimetableStore.provider.notifier).hydrate();
+  // 全局圆环开关：预加载，避免首帧先画出圆环再被关掉（闪一下）
+  await container.read(ringEnabledProvider.notifier).load();
 
   // 使用 NoteRootScope + UncontrolledProviderScope（preloaded container）包裹应用根节点
   runApp(
@@ -170,6 +179,12 @@ class MyApp extends ConsumerWidget {
       ],
       child: MaterialApp(
         navigatorKey: rootNavigatorKey,
+        // 全局圆环：包在 Navigator 外层 → 高于所有 route / dialog / sheet。
+        // 开关在 KV 清单页控制（ringEnabledProvider）。
+        builder: (context, child) => GlobalRingHost(
+          child: child ?? const SizedBox.shrink(),
+          navigatorKey: rootNavigatorKey,
+        ),
         // fr:// CLEAR_TOP 防栈累加依赖的路由栈跟踪器
         navigatorObservers: [frRouteStack],
         title: '小豆子',
