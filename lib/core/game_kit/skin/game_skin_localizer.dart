@@ -78,6 +78,29 @@ class GameSkinLocalizer {
   static Future<void> ensureBaseDirInit() =>
       ensureBaseDirInitFor(kChessSkinSpec);
 
+  /// 获取规约对应的皮肤缓存根目录（`<docs>/<cacheDirName>`；不存在则创建）。
+  ///
+  /// 用于 KV index 落盘 / 恢复（见 [GameSkinBundle.persistIndexJson]）。
+  /// 失败（web / 静态分区不匹配 / 目录创建异常）→ null，调用方 no-op 回退。
+  static Future<Directory?> ensureCacheRootFor(GameSkinSpec spec) async {
+    if (kIsWeb) return null;
+    await ensureBaseDirInitFor(spec);
+    if (_baseGameId != spec.gameId || _baseCacheDirName != spec.cacheDirName) {
+      return null;
+    }
+    final base = _baseDir;
+    if (base == null) return null;
+    final dir = Directory(
+      '${base.path}${Platform.pathSeparator}${spec.cacheDirName}',
+    );
+    try {
+      if (!dir.existsSync()) dir.createSync(recursive: true);
+    } catch (_) {
+      return null;
+    }
+    return dir;
+  }
+
   @visibleForTesting
   static void setBaseDirForTest(Directory? dir, {GameSkinSpec? spec}) {
     _baseDir = dir;

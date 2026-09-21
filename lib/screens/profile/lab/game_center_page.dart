@@ -87,14 +87,24 @@ class _GameCenterPageState extends State<GameCenterPage>
     _scrollController.addListener(_onScroll);
     _provider.addListener(_onProviderChanged);
 
-    // 拉取游戏中心封面索引（best-effort：网络失败静默回退程序化封面）。
+    // 封面加载（id58 修复：KV 拉取结果落盘，离线/下次进入也能显示线上封面）：
+    //   1. 先恢复上次持久化的封面索引（零网络，首屏即可显示线上封面）；
+    //   2. 再 best-effort 拉取线上最新（fetchAndMerge 成功后自动落盘）。
     // 封面管线：ve game-skin-admin 上传 → KV public game-center_skin:index → 这里合入。
-    // 成功后必须 setState：卡片在 build 时读 gameCenterCoverOf，否则首屏一直停在程序化兜底。
-    unawaited(
-      fetchAndMergeGameCenterSkins().then((ok) {
-        if (ok && mounted) setState(() {});
-      }),
+    // 拉取/恢复成功后必须 setState：卡片在 build 时读 gameCenterCoverOf，
+    // 否则首屏一直停在程序化兜底。
+    unawaited(_loadCovers());
+  }
+
+  Future<void> _loadCovers() async {
+    final restored = await gameCenterSkinBundle
+        .restorePersistedIndex()
+        .catchError((Object _) => false);
+    if (restored && mounted) setState(() {});
+    final ok = await fetchAndMergeGameCenterSkins().catchError(
+      (Object _) => false,
     );
+    if (ok && mounted) setState(() {});
   }
 
   @override
