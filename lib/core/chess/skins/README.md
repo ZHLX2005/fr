@@ -9,18 +9,20 @@
 
 ---
 
-## 1. 数据流（换肤页按需）
+## 1. 数据流（皮肤线上化 · id49/id58）
 
 ```
-1. main() 调用 ChessSkinBundle.registerHardcoded()（仅本地 7 套 catalog，零网络）
-2. 遍历 kChessSkinsCatalog（const List<ChessSkinMeta>，7 套皮肤 × 12 piece = 84 个 FileRef）
-3. 每套构造 RemoteChessSkin(meta, fileResolver: PublicFileResolver(baseUrl: ...))
-4. 每次进入换肤设置页（ChessSkinSettingsPage.initState）再 fire-and-forget 调 fetchAndMergeSkins()（不阻塞列表初始渲染）
-   ├─ 成功：readString('chess_skin:index') → ChessSkinMeta.parseList → ChessSkinBundle.registerRemoteSkins()
-   │        同 id 覆盖、新 id 追加、本地 7 套不删、'default' 永不碰
-   └─ 失败/缺失/解析错：静默回退（本步骤前的 1-3 即"零回归"基线）
-5. UI 端通过 ChessSkinBundle.byId('<skinId>') 拿到 ChessSkin
-6. chess_board.dart 渲染时调 `skin.pieces['wK']` → CachedNetworkImage(url) → 自动 7 天磁盘缓存
+1. main() 不再注册任何皮肤（启动期 registerHardcoded 已删除，仅 @visibleForTesting 保留供测试）
+2. 进入象棋页面（ChessOnlinePage._initSkins）：
+   ├─ 磁盘有持久化 index（<docs>/chess_skins/skin-index.json）→ restorePersistedIndex() 离线恢复（零网络）
+   ├─ 无缓存（首装/清数据）→ 强拉 fetchAndMergeSkins()；失败 → 页面横幅提示重试，进房门禁不放行
+   └─ prefs 持久化 id 在线上清单失效 → 回退线上第一套（chessSkinFallbackId()）
+3. fetchAndMergeSkins() 成功：readString('chess_skin:index') → ChessSkinMeta.parseList
+   → ChessSkinBundle.registerRemoteSkins() + persistIndexJson() 落盘（供下次离线恢复）
+   同 id 覆盖、新 id 追加、'default' 永不碰
+4. UI 端通过 ChessSkinBundle.byId('<skinId>') 拿到 ChessSkin
+5. chess_board.dart 渲染时调 `skin.pieces['wK']` → CachedNetworkImage(url) → 自动 7 天磁盘缓存
+6. 选中的皮肤走 localizer 本地化（下载 12 webp + board 到 <docs>/chess_skins/<id>/，离线可用）
 ```
 
 **优势：**

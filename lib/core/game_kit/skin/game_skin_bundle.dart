@@ -5,8 +5,10 @@
 // game owns its registry instance.
 
 import 'dart:async' show unawaited;
+import 'dart:convert';
+import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/widgets.dart' show ImageProvider;
 
 import 'file_resolver.dart';
@@ -104,6 +106,67 @@ class GameSkinBundle {
     _metas.clear();
   }
 
+  // ── KV index 持久化（id58 / 皮肤线上化：拉取成功落盘，下次启动离线恢复） ──
+
+  /// KV index 落盘文件名（存于 `<docs>/<cacheDirName>/skin-index.json`）。
+  static const String kIndexCacheFileName = 'skin-index.json';
+
+  /// 把 KV index 原文持久化到磁盘（best-effort：任何失败静默返回 false）。
+  ///
+  /// 文件内容为 wrapper：`{"baseUrl": <file host>, "index": <KV 原始 JSON 文本>}`，
+  /// baseUrl 一并保存以便恢复时用同一文件 host 构造 resolver。
+  Future<bool> persistIndexJson(
+    String rawJsonText, {
+    required String baseUrl,
+  }) async {
+    try {
+      final root = await GameSkinLocalizer.ensureCacheRootFor(spec);
+      if (root == null) return false;
+      final f = File(
+        '${root.path}${Platform.pathSeparator}$kIndexCacheFileName',
+      );
+      await f.writeAsString(
+        jsonEncode({'baseUrl': baseUrl, 'index': rawJsonText}),
+        flush: true,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 从磁盘恢复上次持久化的 KV index（离线首屏 / 离线皮肤清单）。
+  ///
+  /// 恢复 = 解析 + registerRemoteSkins（upsert 语义，同 id 覆盖）。
+  /// 无文件 / 损坏 / 解析失败 / web → 返回 false（调用方走强拉或兜底）。
+  Future<bool> restorePersistedIndex() async {
+    try {
+      if (kIsWeb) return false;
+      final root = await GameSkinLocalizer.ensureCacheRootFor(spec);
+      if (root == null) return false;
+      final f = File(
+        '${root.path}${Platform.pathSeparator}$kIndexCacheFileName',
+      );
+      if (!f.existsSync()) return false;
+      final raw = jsonDecode(f.readAsStringSync());
+      if (raw is! Map) return false;
+      final baseUrl = raw['baseUrl'];
+      final index = raw['index'];
+      if (baseUrl is! String || baseUrl.isEmpty || index is! String) {
+        return false;
+      }
+      final metas = parseAndValidate(index);
+      if (metas == null || metas.isEmpty) return false;
+      registerRemoteSkins(
+        metas,
+        fileResolver: PublicFileResolver(baseUrl: baseUrl),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 拉取 KV 并合入注册表（generic fetchAndMerge）.
   Future<bool> fetchAndMerge({
     PublicKvReader? reader,
@@ -118,6 +181,8 @@ class GameSkinBundle {
     final parsed = parseAndValidate(jsonText);
     if (parsed == null) return false;
     registerRemoteSkins(parsed, fileResolver: fileResolver);
+    // 拉取成功 → 落盘 index（fire-and-forget；下次启动离线恢复，id58）。
+    unawaited(persistIndexJson(jsonText, baseUrl: kv.baseUrl));
     return true;
   }
 }

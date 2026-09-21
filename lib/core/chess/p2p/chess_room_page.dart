@@ -38,10 +38,9 @@ import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
 import '../endgame/chess_endgame.dart';
 import '../endgame/chess_endgame_list_page.dart';
-import '../endgame/chess_endgame_store.dart';
 import '../replay/chess_game_record.dart';
-import '../replay/chess_game_record_list_page.dart';
 import '../replay/chess_game_record_store.dart';
+import '../replay/chess_replay_export.dart';
 import '../../../api/goframe/goframe_config.dart';
 import '../../game_kit/chat/chat_event.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
@@ -868,15 +867,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   }
 
   /// 打开对局回放库（已保存整局列表 → 离线回放页，快照列表选步开始）。
-  Future<void> _openGameLibrary() async {
-    final skin = widget.localSkin ?? ChessSkinBundle.byId(widget.skinId);
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChessGameRecordListPage(skin: skin),
-      ),
-    );
-  }
-
   /// 房主选残局 → SET_RULES(initial_fen)。
   Future<void> _pickEndgame() async {
     if (!_isHost || _setRulesLock) return;
@@ -1289,7 +1279,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   ///   fen = 重演局面子序列在当前 index 的 FEN
   ///   lineage.moves = 初始局面走到当前 index 的 UCI 序列
   ///   id = eg-房间号-mN（同 房间 手数 幂等 —— 重复导出提示已保存）
-  /// 保存到 <documents>/chess_endgames/ → SnackBar 提供分享入口。
+  /// 保存到 `<documents>/chess_endgames/` → SnackBar 提供分享入口。
   Future<void> _exportCurrentReplayPosition() async {
     if (!_replayMode) return;
     final snap = _snapshot;
@@ -1300,50 +1290,17 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       for (var i = 0; i < index; i++) _replayMoves[i].toUci(),
     ];
     final code = snap.roomCode;
-    final id = 'eg-$code-m$index';
-    final title = index == 0 ? '残局·初始局面' : '残局·第 $index 手';
-    final endgame = ChessEndgame(
-      id: id,
-      title: title,
+    await saveEndgameSnapshotWithFeedback(
+      context,
+      id: 'eg-$code-m$index',
+      title: index == 0 ? '残局·初始局面' : '残局·第 $index 手',
       description: '房间 $code 回放导出'
           '${(widget.initialEndgame?.label != null) ? ' · 源：${widget.initialEndgame!.label}' : ''}',
-      createdAt: DateTime.now().toUtc().toIso8601String(),
-      source: ChessEndgameSource.replay,
-      snapshots: [
-        ChessEndgameSnapshot(
-          label: index == 0 ? '初始局面' : '第 $index 手后',
-          fen: fen,
-          lineageMoves: uciMoves,
-          lineageMoveIndex: index,
-        ),
-      ],
+      snapshotLabel: index == 0 ? '初始局面' : '第 $index 手后',
+      fen: fen,
+      lineageMoves: uciMoves,
+      lineageMoveIndex: index,
     );
-    final store = ChessEndgameStore();
-    try {
-      final existed = await store.existsLocal(id);
-      await store.save(endgame);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(existed ? '残局已更新：$title' : '已保存到残局库：$title'),
-          action: SnackBarAction(
-            label: '分享',
-            onPressed: () async {
-              try {
-                await store.exportAndShare(endgame);
-              } on Object {
-                // 分享失败静默（文件已落盘，用户可从残局库重试）。
-              }
-            },
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导出失败：$e')),
-      );
-    }
   }
 
   /// 保存整局到对局回放库（ChessReplayBar 书签按钮）：
@@ -1685,15 +1642,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                     onClearEndgame: _isHost ? _clearEndgameRules : null,
                   ),
                   const SizedBox(height: 12),
-
-                  // 对局回放库：已保存整局列表（所有角色可用）。
-                  // 保存入口 = 终局复盘回放条的「保存整局」书签按钮。
-                  OutlinedButton.icon(
-                    onPressed: _openGameLibrary,
-                    icon: const Icon(Icons.library_books_outlined, size: 18),
-                    label: const Text('对局回放库'),
-                  ),
-                  const SizedBox(height: 22),
 
                   // 玩家头像列表
                   ...players.entries.map((e) {

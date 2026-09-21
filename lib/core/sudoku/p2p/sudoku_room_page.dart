@@ -1,7 +1,8 @@
 // lib/core/sudoku/p2p/sudoku_room_page.dart
 //
 // 数独联机房间页（lobby / ready / playing / ended 四态路由）。
-// 权威方：服务端 Lua 状态机。本地棋盘在 puzzle 出现后一次性构造。
+// 权威方：服务端 Lua 状态机。本地棋盘从快照 puzzle 构造；
+// 服务端题面被覆盖（lobby/ready 重复 SET_PUZZLE）时跟随重建 —— 见 _onSnapshot。
 // 填值走 SudokuValidator；提交扁平 81 格 → 服务端裁决。
 
 import 'dart:async';
@@ -34,6 +35,10 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
   Snapshot? _snap;
   SudokuBoard? _board;
   List<int>? _solution;
+
+  /// 已应用到本地棋盘的题面（与服务端 ctx['puzzle'] 逐元素比对，
+  /// 检测 SET_PUZZLE 覆盖 —— 覆盖时本地棋盘必须跟随重建，见 _onSnapshot）。
+  List<int>? _appliedPuzzle;
   int? _selectedR;
   int? _selectedC;
   int _errors = 0;
@@ -85,14 +90,29 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         _errors = 0;
         _startElapsedTimer();
       }
-      if (_board == null && ctx['puzzle'] is List && ctx['solution'] is List) {
-        _solution = (ctx['solution'] as List).cast<int>();
-        _board = SudokuBoard.fromPuzzle(SudokuPuzzle(
-          puzzle: (ctx['puzzle'] as List).cast<int>(),
-          solution: _solution!,
-          seed: (ctx['seed'] as int?) ?? 0,
-          difficulty: ctx['difficulty']?.toString() ?? 'medium',
-        ));
+      // 题面一致性：服务端允许在 lobby/ready 重复 SET_PUZZLE 覆盖 ctx 题面
+      // （host 换难度 / 再次生成）。客户端必须跟随重建本地棋盘 —— 否则本地
+      // 停留旧题面、提交时被服务端新 solution 静默拒绝（SUBMIT 原样 return c，
+      // 无任何错误反馈）。服务端仅在 lobby/ready 接受 SET_PUZZLE，此处重建
+      // 对进行中对局无副作用；防御性场景（playing 中题面变化，正常不可达）
+      // 同样以服务端为准。同题面快照（progress 等无关更新）不重建，保留进度。
+      final ctxPuzzle = ctx['puzzle'];
+      final ctxSolution = ctx['solution'];
+      if (ctxPuzzle is List && ctxSolution is List) {
+        final incoming = List<int>.from(ctxPuzzle.cast<int>());
+        if (!_intListEquals(_appliedPuzzle, incoming)) {
+          _appliedPuzzle = incoming;
+          _solution = List<int>.from(ctxSolution.cast<int>());
+          _board = SudokuBoard.fromPuzzle(SudokuPuzzle(
+            puzzle: List<int>.of(incoming),
+            solution: List<int>.of(_solution!),
+            seed: (ctx['seed'] as int?) ?? 0,
+            difficulty: ctx['difficulty']?.toString() ?? 'medium',
+          ));
+          _errors = 0;
+          _selectedR = null;
+          _selectedC = null;
+        }
       }
     });
   }
@@ -428,4 +448,15 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
       ),
     );
   }
+}
+
+/// 逐元素比较两份 81 格题面；两者皆 null 视为相等，单侧 null 视为不等。
+bool _intListEquals(List<int>? a, List<int>? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

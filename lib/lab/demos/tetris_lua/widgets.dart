@@ -1135,8 +1135,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               end: Alignment.bottomCenter,
               colors: [Color(0x0A00E5FF), Color(0x0000E5FF)],
             ),
-            border: Border.all(color: _cLine),
-            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             children: [

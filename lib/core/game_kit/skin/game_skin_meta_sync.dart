@@ -32,6 +32,10 @@ Future<bool> fetchAndMergeSkinsFor(
     return false;
   }
   bundle.registerRemoteSkins(metas, fileResolver: fileResolver);
+  // 拉取成功 → 落盘 index（fire-and-forget；下次启动离线恢复，id58）。
+  unawaited(
+    bundle.persistIndexJson(jsonText, baseUrl: kv.baseUrl),
+  );
   _log(spec.gameId, 'KV index 合入完成：${metas.length} 套（${metas.map((m) => m.id).join(', ')}）');
   return true;
 }

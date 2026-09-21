@@ -11,6 +11,7 @@
 // ChessSkinBundle.metas），SharedPreferences mock 空值（skinId 默认 '1'）。
 // 不真正连 relay（不点"进入对局"）；KV 拉取走 fire-and-forget，测试环境静默失败。
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_localizer.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_settings_page.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/file_resolver.dart';
+import 'package:xiaodouzi_fr/core/game_kit/skin/local_game_skin.dart';
 import 'package:xiaodouzi_fr/core/theme/colors/factory.dart';
 import 'package:xiaodouzi_fr/core/theme/extensions/chess_color_strategy_extension.dart';
 import 'package:xiaodouzi_fr/lab/demos/chess_online_demo.dart';
@@ -102,12 +104,33 @@ void main() {
   });
 
   /// 把 [id] 皮肤的完整缓存写到磁盘（模拟"以前下载过"）。
+  ///
+  /// 必须同时写 `.skin-meta.json` 索引（key → fileId）：`isCached` 会逐 key
+  /// 校验 index[key] == meta.pieces[key].fileId，只写图片文件不算命中缓存。
   void seedCache(String id) {
     final dir = Directory('${tempRoot.path}/chess_skins/$id')
       ..createSync(recursive: true);
+    GameSkinMeta? meta;
+    for (final m in ChessSkinBundle.metas) {
+      if (m.id == id) {
+        meta = m;
+        break;
+      }
+    }
+    final index = <String, String>{};
     for (final key in kChessSkin12PieceKeys) {
       File('${dir.path}/$key.webp').writeAsBytesSync(_tinyPng);
+      final ref = meta?.pieces[key];
+      if (ref != null) index[key] = ref.fileId;
     }
+    final bg = meta?.boardBackground;
+    if (bg != null) {
+      File('${dir.path}/${LocalGameSkin.boardBackgroundFileName(bg)}')
+          .writeAsBytesSync(_tinyPng);
+      index['boardBackground'] = bg.fileId;
+    }
+    File('${dir.path}/${ChessSkinLocalizer.kCachedMetaFileName}')
+        .writeAsStringSync(jsonEncode(index));
     File(
       '${dir.path}/${ChessSkinLocalizer.kDoneMarker}',
     ).writeAsStringSync('ok\n');

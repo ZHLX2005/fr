@@ -10,10 +10,10 @@
 //   → 返回所选皮肤 id 写入 ChessSkinPrefs 持久化
 //   → 建房/加入后把 skinId 传给 ChessRoomPage。
 //
-// v9 皮肤就绪保障：
-//   1. 冷启动注册表只装本地 7 套 catalog，KV 索引（追加皮肤）需另行拉取
-//      —— 预取时若 meta miss，先 best-effort 合入 KV 索引再重试（v8）。
-//   2. 进入 chess 界面（本页 initState）即开始预取下载。
+// v10 皮肤线上化（id49）：
+//   1. 启动期不再注册 7 套硬编码皮肤；皮肤清单全部来自线上 KV index。
+//   2. 进入本页（initState）→ _initSkins：磁盘持久化 index 离线恢复；
+//      首启无缓存强拉 KV index（失败页面横幅提示重试）。
 //   3. 进房门禁：点"进入对局"后若皮肤尚未就绪，弹遮罩等待下载完成；
 //      失败则提示"皮肤资源未下载完成"并留在大厅，不放行进房。
 //
@@ -25,6 +25,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart' show RoomHandle;
+import '../../core/chess/replay/chess_game_record_list_page.dart';
 import '../../core/chess/lobby/chess_lobby_spec.dart';
 import '../../core/chess/p2p/chess_room_page.dart';
 import '../../core/chess/skins/chess_skin.dart';
@@ -68,10 +69,17 @@ void registerChessOnlineDemo() => demoRegistry.register(ChessOnlineDemo());
 // ══════════════════════════════════════════════════════════════
 
 class ChessOnlinePage extends StatefulWidget {
-  const ChessOnlinePage({super.key, this.localizer});
+  const ChessOnlinePage({
+    super.key,
+    this.localizer,
+    this.onFetchKvIndex,
+  });
 
   /// 皮肤本地化器注入（测试用）。null → 生产默认构造（真实 path_provider + http）。
   final ChessSkinLocalizer? localizer;
+
+  /// KV index 强拉注入点（测试用）。null → 生产 `fetchAndMergeSkins()`。
+  final Future<bool> Function()? onFetchKvIndex;
 
   @override
   State<ChessOnlinePage> createState() => _ChessOnlinePageState();
@@ -82,8 +90,12 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
   final GlobalKey<GameLobbyPageState> _lobbyKey =
       GlobalKey<GameLobbyPageState>();
 
-  /// 当前选中的皮肤 id（默认 catalog 第一套 '1'；initState 从 SharedPreferences 加载）。
-  String _skinId = kChessSkinsCatalog.first.id;
+  /// 当前选中的皮肤 id（initState 从磁盘恢复 / 强拉后确定）。
+  String _skinId = kDefaultChessSkinId;
+
+  /// 皮肤初始化失败（首启无缓存且 KV 强拉失败）→ 页面顶部横幅 + 重试，
+  /// 进房门禁（_onStarted）同样不放行。
+  bool _skinInitError = false;
 
   /// 自定义棋盘配色（null = 跟随主题；initState 从 SharedPreferences 加载）。
   BoardPalette? _boardPalette;
@@ -114,15 +126,54 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
   @override
   void initState() {
     super.initState();
-    ChessSkinPrefs.read().then((id) {
-      if (!mounted) return;
-      setState(() => _skinId = id);
-      _prefetchSkin(id);
-    });
+    _initSkins();
     BoardColorPrefs.read().then((palette) {
       if (!mounted) return;
       setState(() => _boardPalette = palette);
     });
+  }
+
+  /// v10 皮肤初始化（皮肤线上化 id49：启动期 registerHardcoded 已删除）：
+  ///   1. 磁盘有持久化 KV index → 离线恢复注册表（零网络）。
+  ///   2. 无缓存（首装 / 清数据）→ **强拉** KV index；失败置错误态
+  ///      （页面横幅提示重试；进房门禁同样不放行 —— 首启必须拉到皮肤）。
+  ///   3. 读 prefs 选中皮肤；持久化 id 在线上清单失效（皮肤下架等）
+  ///      → 回退线上第一套。
+  ///   4. 预取下载选中皮肤（走现有 localizer 本地缓存）。
+  Future<void> _initSkins() async {
+    if (ChessSkinBundle.metas.isEmpty) {
+      final restored = await ChessSkinBundle.restorePersistedIndex();
+      if (!mounted) return;
+      if (!restored && ChessSkinBundle.metas.isEmpty) {
+        final fetch = widget.onFetchKvIndex ?? fetchAndMergeSkins;
+        final ok = await fetch().catchError((Object _) => false);
+        if (!mounted) return;
+        if (!ok) {
+          setState(() => _skinInitError = true);
+          return;
+        }
+      }
+    }
+    var id = await ChessSkinPrefs.read();
+    if (!mounted) return;
+    if (_metaById(id) == null) {
+      final metas = ChessSkinBundle.metas;
+      if (metas.isEmpty) {
+        // 注册表仍空（restore/fetch 均未成功）→ 提示重试。
+        setState(() => _skinInitError = true);
+        return;
+      }
+      id = metas.first.id;
+    }
+    setState(() => _skinId = id);
+    _prefetchSkin(id);
+  }
+
+  /// 首启强拉失败后的重试入口（横幅按钮）。
+  Future<void> _retrySkinInit() async {
+    if (!mounted) return;
+    setState(() => _skinInitError = false);
+    await _initSkins();
   }
 
   Future<void> _prefetchSkin(String skinId) async {
@@ -151,11 +202,9 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
   Future<void> _doDownloadSkin(String skinId) async {
     var meta = _metaById(skinId);
     if (meta == null) {
-      // v8 修复：冷启动时 ChessSkinBundle 注册表只装了本地 7 套 catalog，
-      // KV index 仅在进入换肤设置页时才拉取。若持久化的皮肤 id 是 KV 追加的
-      // （如 '9' Q版 / '11' 写实 / 'island-cut-*' 中国风等），此处 meta
-      // 解析 miss → 静默不下载 → 对局页 byId 回退 GameDefaultSkin →
-      // 全部棋子走 unicode 线条兜底（"选了皮肤进对局却变回默认棋子"）。
+      // v8/v10：注册表未合入线上 KV index（首启强拉失败后重试下载、或
+      // 持久化的皮肤 id 已下架）时 meta 解析 miss → 静默不下载 → 对局页
+      // byId 回退 GameDefaultSkin → 全部棋子走 unicode 线条兜底。
       // 先 best-effort 合入 KV index（5s 超时），再重试一次 meta 解析。
       final merged = await fetchAndMergeSkins().catchError((Object _) => false);
       if (merged) meta = _metaById(skinId);
@@ -260,6 +309,17 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     }
   }
 
+  /// 对局回放库一级入口（id61：回放与皮肤平行，独立于房间流程）。
+  /// 皮肤跟随当前选中：已本地化用本地缓存，否则按 id 解析（远程/unicode 兜底）。
+  Future<void> _openReplayLibrary() async {
+    final skin = _localSkins[_skinId] ?? ChessSkinBundle.byId(_skinId);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChessGameRecordListPage(skin: skin),
+      ),
+    );
+  }
+
   Future<void> _openSkinSettings() async {
     final selected = await Navigator.of(context).push<String>(
       MaterialPageRoute(
@@ -285,19 +345,56 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
 
   @override
   Widget build(BuildContext context) {
-    return GameLobbyPage(
-      key: _lobbyKey,
-      spec: kChessLobbySpec,
-      slots: buildChessLobbySlots(
-        actionsBuilder: (context) => [
-          IconButton(
-            icon: const Icon(Icons.palette_outlined),
-            tooltip: '换肤',
-            onPressed: _openSkinSettings,
+    return Column(
+      children: [
+        // 首启强拉失败横幅（皮肤线上化 id49）：提示联网重试。
+        if (_skinInitError)
+          Material(
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: SafeArea(
+              bottom: false,
+              child: ListTile(
+                leading: Icon(
+                  Icons.cloud_off,
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+                title: Text(
+                  '皮肤资源初始化失败（首次使用需联网下载）',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                ),
+                trailing: TextButton.icon(
+                  onPressed: _retrySkinInit,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('重试'),
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
-      onStarted: _onStarted,
+        Expanded(
+          child: GameLobbyPage(
+            key: _lobbyKey,
+            spec: kChessLobbySpec,
+            slots: buildChessLobbySlots(
+              actionsBuilder: (context) => [
+                // 对局回放（id61：一级入口，与换肤平级；独立于开房间流程）。
+                IconButton(
+                  icon: const Icon(Icons.movie_outlined),
+                  tooltip: '对局回放',
+                  onPressed: _openReplayLibrary,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.palette_outlined),
+                  tooltip: '换肤',
+                  onPressed: _openSkinSettings,
+                ),
+              ],
+            ),
+            onStarted: _onStarted,
+          ),
+        ),
+      ],
     );
   }
 }

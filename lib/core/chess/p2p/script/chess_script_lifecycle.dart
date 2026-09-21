@@ -254,13 +254,12 @@ on_join = function(c, p)
 end
 
 -- 掉线重连 / 玩家退出：lobby / ready / playing / ended 各语义不同
--- 关键区分（v3 已修）：
---   · playing/ready 内任何一方 p.reason == "disconnect" → 视为瞬态断线：
---     只标 c.disconnected[id] = true，房间保持 alive。
---   · playing/ready 内 host 非断线离开 → 销毁房间（force_leave guest + ended）。
---   · playing/ready 内 guest 非断线离开 → 保留 player + 标 disconnected，
---     等待 guest 同 device_id 重连。
---   · lobby 内 guest 离开 → 清 guest 槽；host 离开 → 空房销毁。
+-- 关键区分（v4 修订，id47「退出不终止对局」）：
+--   · playing/ready 内任何一方离开（无论 reason 是 disconnect 还是主动退出）
+--     → 一律视为暂时离线：只标 c.disconnected[id] = true，房间保持 alive，
+--       同 device_id 重新 join 即恢复（on_join 清标记）。
+--     host 主动退出不再 ended / force_leave guest；僵尸房由服务端房间 TTL 回收。
+--   · lobby 内 guest 离开 → 清 guest 槽；host 离开 → 空房销毁（无对局，合理）。
 --   · ended 内任何人离开 → 保持 ended。
 on_leave = function(c, p)
   c.ready[p.device_id] = nil
@@ -268,18 +267,7 @@ on_leave = function(c, p)
   c.undo_offers[p.device_id] = nil
 
   if state == "playing" or state == "ready" then
-    if p.reason == "disconnect" then
-      c.disconnected[p.device_id] = true
-    elseif p.device_id == c.host_id then
-      state = "ended"
-      c.status = "ended"
-      c.end_reason = "host_left"
-      if c.guest_id ~= nil and c.players[c.guest_id] ~= nil then
-        c.force_leave = { c.guest_id }
-      end
-    else
-      c.disconnected[p.device_id] = true
-    end
+    c.disconnected[p.device_id] = true
   elseif state == "lobby" then
     c.players[p.device_id] = nil
     c.disconnected[p.device_id] = nil

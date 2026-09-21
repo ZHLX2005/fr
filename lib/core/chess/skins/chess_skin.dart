@@ -6,6 +6,8 @@
 
 import 'dart:async' show unawaited;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../game_kit/skin/file_resolver.dart';
 import '../../game_kit/skin/game_skin_bundle.dart' as g;
 import '../../game_kit/skin/game_skin_localizer.dart';
@@ -16,6 +18,17 @@ import 'chess_skin_meta.dart';
 
 /// 内置 skin 远端 baseUrl 默认值。
 const String kDefaultChessSkinBaseUrl = 'http://47.110.80.47:8988';
+
+/// prefs 缺省回退皮肤 id（历史 catalog 首套 id；线上清单缺失时上层会
+/// remap 到线上第一套，见 `chessSkinFallbackId`）。
+const String kDefaultChessSkinId = '1';
+
+/// 线上清单首选皮肤 id：metas 第一套；注册表为空（未初始化/首启未拉到）
+/// → '1' 兜底（byId 会回退 default → unicode 渲染）。
+String chessSkinFallbackId() {
+  final metas = ChessSkinBundle.metas;
+  return metas.isNotEmpty ? metas.first.id : kDefaultChessSkinId;
+}
 
 /// 12 个 piece key 集合（compat 别名）.
 const Set<String> kChessSkinKeys = kChessSkin12PieceKeys;
@@ -50,9 +63,14 @@ abstract class ChessSkinBundle {
 
   static g.GameSkinBundle get bundle => _bundle;
 
+  static Future<bool> restorePersistedIndex() =>
+      _bundle.restorePersistedIndex();
+
+  /// 仅测试可用：装入 7 套本地 catalog 皮肤（生产已删除启动期注册，
+  /// 皮肤全部来自线上 KV —— 见 ChessOnlinePage._initSkins 首启强拉流程）。
+  @visibleForTesting
   static void registerHardcoded() {
-    unawaited(GameSkinLocalizer.ensureBaseDirInitFor(kChessSkinSpec));
-    final catalog = kChessSkinsCatalog
+    unawaited(GameSkinLocalizer.ensureBaseDirInitFor(kChessSkinSpec));    final catalog = kChessSkinsCatalog
         .map((m) => gmeta.GameSkinMeta(
               id: m.id,
               displayName: m.displayName,
