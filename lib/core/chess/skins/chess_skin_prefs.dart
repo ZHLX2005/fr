@@ -5,13 +5,13 @@
 
 import '../../game_kit/skin/game_skin_prefs.dart' as g;
 import '../../game_kit/skin/game_skin_spec.dart';
-import 'chess_skin_meta.dart';
+import 'chess_skin.dart';
 
 class ChessSkinPrefs {
   ChessSkinPrefs._();
 
   static Future<String> read() =>
-      g.GameSkinPrefs.read(kChessSkinSpec, fallbackId: kChessSkinsCatalog.first.id);
+      g.GameSkinPrefs.read(kChessSkinSpec, fallbackId: kDefaultChessSkinId);
 
   static Future<void> write(String id) => g.GameSkinPrefs.write(kChessSkinSpec, id);
 }

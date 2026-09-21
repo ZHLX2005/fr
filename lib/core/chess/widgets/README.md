@@ -23,7 +23,7 @@
    - `selectedSquare` / `lastMoveHighlight` / `legalMoveHint` / `captureHint`
 2. **棋子图像统一从 `ChessSkin.pieces` 读**：UI 不写 `AssetImage(...)`
 3. **业务走 `ChessEngine` / `BoardState` / `Move`**，不在 widget 内做走法生成
-4. **皮肤注册**：`main.dart` 启动期调 `ChessSkinBundle.registerHardcoded()`
+4. **皮肤注册**：已线上化（id49）—— `main.dart` 启动期不再注册；进入象棋页面时离线恢复持久化 index / 首启强拉 KV（见 `ChessOnlinePage._initSkins`）
 
 ## 三、tap 流程（`ChessController`）
 

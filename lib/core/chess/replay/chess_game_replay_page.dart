@@ -55,9 +55,9 @@ class _ChessGameReplayPageState extends State<ChessGameReplayPage> {
   /// 自动播放节奏（与房间页回放一致）。
   static const Duration _kTickInterval = Duration(milliseconds: 800);
 
-  /// 当前皮肤。widget.skin 非空时直接用；否则先落 catalog 默认，
+  /// 当前皮肤。widget.skin 非空时直接用；否则先落线上清单首选皮肤，
   /// initState 异步读 prefs 后切到用户当前选中的皮肤。
-  late ChessSkin _skin = widget.skin ?? ChessSkinBundle.byId('1');
+  late ChessSkin _skin = widget.skin ?? ChessSkinBundle.byId(chessSkinFallbackId());
 
   /// 重演结果（initState 一次构建，步进 / 跳转全 O(1)）。
   late final ChessReplayResult _replay;
@@ -81,7 +81,13 @@ class _ChessGameReplayPageState extends State<ChessGameReplayPage> {
     if (widget.skin == null) {
       ChessSkinPrefs.read().then((id) {
         if (!mounted) return;
-        setState(() => _skin = ChessSkinBundle.byId(id));
+        // 持久化 id 在线上清单失效（皮肤下架/首启未拉到）→ 回退线上第一套。
+        final metas = ChessSkinBundle.metas;
+        final resolved =
+            metas.isEmpty || metas.any((m) => m.id == id)
+                ? id
+                : chessSkinFallbackId();
+        setState(() => _skin = ChessSkinBundle.byId(resolved));
       }).catchError((Object _) {});
     }
   }

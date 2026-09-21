@@ -33,7 +33,7 @@ class ChessEndgameListPage extends StatefulWidget {
   /// 存储注入（测试用）。null → 生产默认。
   final ChessEndgameStore? store;
 
-  /// 缩略预览用皮肤。null → ChessSkinBundle.byId('1')。
+  /// 缩略预览用皮肤。null → ChessSkinBundle.byId(chessSkinFallbackId())（线上第一套）。
   final ChessSkin? skin;
 
   @override
@@ -366,7 +366,7 @@ class _ChessEndgameListPageState extends State<ChessEndgameListPage> {
                 ? ChessBoard(
                     state: board,
                     skin: widget.skin ??
-                        ChessSkinBundle.byId('1'),
+                        ChessSkinBundle.byId(chessSkinFallbackId()),
                     sideToMove: board.sideToMove,
                     onSquareTap: null, // 预览无交互
                   )
