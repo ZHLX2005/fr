@@ -2,17 +2,20 @@
 
 > 审计范围：`lib/**/*.dart`  
 > 审计日期：2026-06-16  
+> 更新：2026-09-21 补 `rose` / `lemon` 两套主题（原记录仅 3 套）、修正 `AppColorsExtension` 入口路径、登记 `ReactionPalette` 信号灯色豁免。
 > 审计目标：确认当前主题种类、主题通道覆盖情况，以及切换主题后仍保留固定颜色的具体组件。
 
 ## 1. 结论摘要
 
-当前全局提供 3 套主题：
+当前全局提供 5 套主题：
 
 | 模式 | 显示名称 | 明暗 | 视觉方向 |
 | --- | --- | --- | --- |
 | `AppThemeMode.purple` | 暮紫主题 | 深色 | 暮紫主色 + 鎏金暖黑环境 |
 | `AppThemeMode.zen` | 茶禅主题 | 浅色 | Sage 绿 + 暖米环境 + 陶土红强调 |
 | `AppThemeMode.ink` | 墨白主题 | 浅色 | 墨黑 + 纸白 + 墨赭强调 |
+| `AppThemeMode.rose` | 粉雾海盐主题 | 浅色 | 雾粉主色 + 灰青强调 |
+| `AppThemeMode.lemon` | 柠檬鼠尾草主题 | 浅色 | 柠檬黄主色 + 鼠尾草绿强调 |
 
 主题入口与状态链路：
 
@@ -75,6 +78,7 @@ ThemeNotifier
 
 - 主题系统自身的 raw token、`ColorScheme` 和 `ThemeExtension` 定义；
 - 游戏棋盘、棋子、地形、2048 方块等规则视觉色；
+- 反应力测试的红 / 绿 / 琥珀信号灯色（`ReactionPalette`）—— 底色即交互指令，跟随主题会在多数主题下失效；
 - 网站、平台和第三方品牌色；
 - 医学组织分类、痛感梯度等数据语义色；
 - 图表分类色，但建议优先评估 `AppColorsExtension.category`；
@@ -87,7 +91,7 @@ ThemeNotifier
 
 ### 3.1 Material `ColorScheme`
 
-入口：`lib/core/theme/app_theme.dart`、`lib/core/theme/semantic/colors.dart`
+入口：`lib/core/theme/app_theme.dart`、`lib/core/theme/tokens/colors.dart`
 
 覆盖角色包括：
 
@@ -116,7 +120,8 @@ ThemeNotifier
 
 ### 3.3 `AppColorsExtension`
 
-入口：`lib/core/theme/semantic/extensions.dart`
+入口：`lib/core/theme/tokens/color/app_colors_extension.dart`
+（5 套主题各持一份 const 实例，定义在 `lib/core/theme/tokens/color/theme/<theme>.dart`）
 
 用于：
 
@@ -570,6 +575,26 @@ bone/muscle/joint/organ 色板属于数据语义，默认豁免；禁止把页�
 
 方块和棋盘规则色默认豁免。需单独检查：页面 Scaffold、分数面板、普通按钮、Dialog 和非棋盘文字。
 
+### `ReactionTestDemo`（刻意豁免，非缺陷）
+
+文件：`lib/lab/demos/reaction_test_demo.dart`
+
+主屏相位底色**就是**交互指令（waiting 红 = 别点 / ready 绿 = 可以点），
+用户要在几百毫秒内靠颜色做判断，因此固定色集中在 `ReactionPalette`，
+底色 + 主前景 + 次级前景成对固定（不靠 alpha 叠色）。外围 UI（AppBar）仍走 `ColorScheme`。
+
+登记理由——若不豁免、改回从 `ColorScheme` 派生，各主题实测如下：
+
+| 主题 | 症状 | 程度 |
+| --- | --- | --- |
+| 墨白 ink | `primary == onSurface == #1A1A1A`，ready 与 idle 底色完全相同，"变绿"那一刻画面零变化 | 功能不可用 |
+| 暮紫 purple | ready(primary) 与 waiting(error) 同为紫粉色系，红绿语义同时失效 | 功能不可用 |
+| 粉雾海盐 rose | ready(primary) 粉红比 waiting(error) 深红更"危险"，语义近似反转 | 功能不可用 |
+| 柠檬鼠尾草 lemon | ready(primary) 是柠檬黄，绿语义丢失 | 语义弱化 |
+| 茶禅 zen | primary 恰为灰绿，仅属巧合可用 | 巧合可用 |
+
+守卫测试：`test/lab/demos/reaction_test_demo_test.dart`（5 套主题 × 4 相位 + 对比度 ≥4.5:1）。
+
 ## 5. 整改优先级
 
 ### P0：切换主题后明显错误
@@ -613,6 +638,7 @@ bone/muscle/joint/organ 色板属于数据语义，默认豁免；禁止把页�
 - [ ] Body 组织分类色登记豁免
 - [ ] Torch 实际补光色登记豁免
 - [ ] 2048 方块色登记豁免
+- [x] `ReactionTestDemo` 信号灯色登记豁免（`ReactionPalette`，主屏底色/前景成对固定，AppBar 仍走主题）
 - [ ] Web Bookmark 品牌色登记豁免
 - [ ] 棋盘、棋子、地形色登记专用通道
 - [ ] 小说阅读器纸张主题登记组件级独立主题
