@@ -18,10 +18,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../engine/fen_codec.dart';
+import '../endgame/chess_endgame_store.dart';
 import '../skins/chess_skin.dart';
+import '../skins/chess_skin_prefs.dart';
 import '../widgets/chess_board.dart';
 import '../widgets/chess_replay_bar.dart';
 import 'chess_game_record.dart';
+import 'chess_replay_export.dart';
 import 'chess_replay_resolver.dart';
 
 /// 整局离线回放页。
@@ -29,13 +33,18 @@ class ChessGameReplayPage extends StatefulWidget {
   /// 已保存的对局记录（本地回放库条目）。
   final ChessGameRecord record;
 
-  /// 缩略 / 主棋盘皮肤。null → ChessSkinBundle.byId('1')。
+  /// 缩略 / 主棋盘皮肤。null → 跟随当前选中皮肤（prefs `chess_skin_id`，
+  /// id61"回放皮肤与当前选择对齐"）。
   final ChessSkin? skin;
+
+  /// 残局快照持久化注入点（测试用）。null → 生产默认构造。
+  final ChessEndgameStore? endgameStore;
 
   const ChessGameReplayPage({
     super.key,
     required this.record,
     this.skin,
+    this.endgameStore,
   });
 
   @override
@@ -46,8 +55,9 @@ class _ChessGameReplayPageState extends State<ChessGameReplayPage> {
   /// 自动播放节奏（与房间页回放一致）。
   static const Duration _kTickInterval = Duration(milliseconds: 800);
 
-  ChessSkin get _skin =>
-      widget.skin ?? ChessSkinBundle.byId('1');
+  /// 当前皮肤。widget.skin 非空时直接用；否则先落 catalog 默认，
+  /// initState 异步读 prefs 后切到用户当前选中的皮肤。
+  late ChessSkin _skin = widget.skin ?? ChessSkinBundle.byId('1');
 
   /// 重演结果（initState 一次构建，步进 / 跳转全 O(1)）。
   late final ChessReplayResult _replay;
@@ -66,6 +76,14 @@ class _ChessGameReplayPageState extends State<ChessGameReplayPage> {
       uciMoves: widget.record.uciMoves,
     );
     _index = _replay.moves.length; // 从终局开始（与房间页复盘一致）。
+    // 未显式传皮肤 → 跟随当前选中皮肤（id61：与设置页选择对齐）。
+    // prefs 不可用（测试环境 / 平台异常）→ 保持 catalog 默认皮肤。
+    if (widget.skin == null) {
+      ChessSkinPrefs.read().then((id) {
+        if (!mounted) return;
+        setState(() => _skin = ChessSkinBundle.byId(id));
+      }).catchError((Object _) {});
+    }
   }
 
   @override
@@ -123,6 +141,30 @@ class _ChessGameReplayPageState extends State<ChessGameReplayPage> {
       return;
     }
     setState(() => _index = next);
+  }
+
+  // ─────────────────────────── 残局快照导出 ───────────────────────────
+
+  /// 导出当前回放局面为残局快照（id61：回放中选一个节点创建快照，
+  /// 快照 = 残局统一，开房间只从快照选）。
+  /// id = `eg-rp-<recordId>-m<index>`（同记录同手数幂等）。
+  Future<void> _exportCurrentSnapshot() async {
+    final index = _index;
+    final fen = FenCodec.toFen(_replay.states[index]);
+    final uciMoves = <String>[
+      for (var i = 0; i < index; i++) _replay.moves[i].toUci(),
+    ];
+    await saveEndgameSnapshotWithFeedback(
+      context,
+      id: 'eg-rp-${widget.record.id}-m$index',
+      title: index == 0 ? '残局·初始局面' : '残局·第 $index 手',
+      description: '回放《${widget.record.title}》导出',
+      snapshotLabel: index == 0 ? '初始局面' : '第 $index 手后',
+      fen: fen,
+      lineageMoves: uciMoves,
+      lineageMoveIndex: index,
+      store: widget.endgameStore,
+    );
   }
 
   // ─────────────────────────── UI ───────────────────────────
@@ -206,7 +248,8 @@ class _ChessGameReplayPageState extends State<ChessGameReplayPage> {
           ),
           // 快照横向列表：点选任意一步直接跳到该局面。
           _buildSnapshotStrip(theme),
-          // 回放控制条（保存 / 导出按钮不挂 —— 数据源已是回放库本体）。
+          // 回放控制条（onExport = 任一手导出残局快照，进开房间"选择残局"列表；
+          // onSaveGame 不挂 —— 数据源已是回放库本体）。
           SafeArea(
             top: false,
             child: ChessReplayBar(
@@ -219,6 +262,7 @@ class _ChessGameReplayPageState extends State<ChessGameReplayPage> {
               onStepForward: () => _step(1),
               onToEnd: () => _seek(_replay.moves.length),
               onSeek: _seek,
+              onExport: _exportCurrentSnapshot,
               onExit: () => Navigator.of(context).maybePop(),
             ),
           ),

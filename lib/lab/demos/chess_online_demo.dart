@@ -25,6 +25,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart' show RoomHandle;
+import '../../core/chess/replay/chess_game_record_list_page.dart';
 import '../../core/chess/lobby/chess_lobby_spec.dart';
 import '../../core/chess/p2p/chess_room_page.dart';
 import '../../core/chess/skins/chess_skin.dart';
@@ -260,6 +261,17 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     }
   }
 
+  /// 对局回放库一级入口（id61：回放与皮肤平行，独立于房间流程）。
+  /// 皮肤跟随当前选中：已本地化用本地缓存，否则按 id 解析（远程/unicode 兜底）。
+  Future<void> _openReplayLibrary() async {
+    final skin = _localSkins[_skinId] ?? ChessSkinBundle.byId(_skinId);
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChessGameRecordListPage(skin: skin),
+      ),
+    );
+  }
+
   Future<void> _openSkinSettings() async {
     final selected = await Navigator.of(context).push<String>(
       MaterialPageRoute(
@@ -290,6 +302,12 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
       spec: kChessLobbySpec,
       slots: buildChessLobbySlots(
         actionsBuilder: (context) => [
+          // 对局回放（id61：一级入口，与换肤平级；独立于开房间流程）。
+          IconButton(
+            icon: const Icon(Icons.movie_outlined),
+            tooltip: '对局回放',
+            onPressed: _openReplayLibrary,
+          ),
           IconButton(
             icon: const Icon(Icons.palette_outlined),
             tooltip: '换肤',
