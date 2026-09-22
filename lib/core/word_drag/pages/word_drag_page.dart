@@ -322,14 +322,16 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      // 释义卡：底=容器色，字=onSurface 成对（勿用 onSurfaceVariant 当底，
+                      // zen 主题下与 surface 字仅 3.5:1 洗白）
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       word.definition,
                       style: TextStyle(
                         fontSize: 18,
-                        color: Theme.of(context).colorScheme.surface,
+                        color: Theme.of(context).colorScheme.onSurface,
                         height: 1.5,
                       ),
                     ),
@@ -339,9 +341,11 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
+                      // 例句卡：底=primaryContainer，前景统一 onPrimaryContainer 成对
+                      // （原底/字同为 primary，对比度 1:1 文字全隐）
+                      color: Theme.of(context).colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Theme.of(context).colorScheme.primary),
+                      border: Border.all(color: Theme.of(context).colorScheme.primaryContainer),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,7 +354,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                           children: [
                             Icon(
                               Icons.format_quote,
-                              color: Theme.of(context).colorScheme.primary,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
                               size: 16,
                             ),
                             const SizedBox(width: 4),
@@ -358,7 +362,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                               '例句',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -369,7 +373,7 @@ class _WordDragPageContentState extends State<_WordDragPageContent> {
                           word.example,
                           style: TextStyle(
                             fontSize: 15,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
                             fontStyle: FontStyle.italic,
                             height: 1.5,
                           ),
