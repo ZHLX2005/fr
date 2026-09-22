@@ -25,6 +25,7 @@ import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
+import 'screens/profile/lab/game_center_page.dart';
 import 'widgets/global_ring/global_ring_host.dart';
 import 'widgets/global_ring/ring_enabled_provider.dart';
 
@@ -97,10 +98,17 @@ void main() async {
 
   // APK 自动下载生命周期：先 hydrate 状态（lastSeenUploadTime / autoDownloadEnabled）
   // 再触发启动期检查；开关关闭时静默返回，不影响冷启动。
-  unawaited(runApkAutoDownloadOnStartup());
+  // ★ web 端不跑：APK 分发是 Android 专属能力，web 构建里纯属噪音。
+  if (!kIsWeb) {
+    unawaited(runApkAutoDownloadOnStartup());
+  }
 
   // 崩溃日志摄入：启动时一次性把原生侧累积的 crash 日志导入系统消息面板。
-  unawaited(runCrashLogIntakeOnStartup());
+  // ★ web 端不跑：读的是原生 MethodChannel，web 上必然失败（内部 catch 兜底），
+  //   直接跳过省一次无效通道调用。
+  if (!kIsWeb) {
+    unawaited(runCrashLogIntakeOnStartup());
+  }
 
   // 初始化 Hive
   final hiveRepo = HiveTimetableRepository();
@@ -194,8 +202,14 @@ class MyApp extends ConsumerWidget {
         initialRoute: '/',
         onGenerateRoute: (settings) {
           // Task 8: 删 /lab 特殊分支 — fr://lab 走 frRouter 统一处理。
+          //
+          // ★ web 端入口收敛：不渲染主页三 Tab 容器（Profile / Time 心流 /
+          //   AI 助手）及底部导航，任意 URL 都直接落到游戏中心 —— 游戏中心
+          //   就是 web 端的全部界面。kIsWeb 是编译期常量，原生 AOT 构建会把
+          //   该分支摇树剔除，GameCenterPage 不会进原生包的执行路径。
           return MaterialPageRoute(
-            builder: (_) => const MainScreen(),
+            builder: (_) =>
+                kIsWeb ? const GameCenterPage() : const MainScreen(),
             settings: settings,
           );
         },
