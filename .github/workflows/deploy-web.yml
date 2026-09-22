@@ -109,8 +109,13 @@ jobs:
               -p "${HOST_PORT}:${CONTAINER_PORT}" \
               "${IMAGE_NAME}:latest"
 
-            # 健康检查（最多 60s）
-            MAX=6
+            # 落盘大镜像刚 load 完时磁盘忙，nginx entrypoint 可能要 1-2 分钟，
+            # 先给 15s 起步缓冲再开始探测
+            sleep 15
+
+            # 健康检查（起步缓冲 15s + 最多 24 次 x 10s ≈ 255s）
+            # 2026-09-22 两次实测 60s 窗口均误报红（容器实际健康），故放宽到 ~4 分钟
+            MAX=24
             ok=false
             for i in $(seq 1 $MAX); do
               echo "Health check attempt $i/$MAX..."
