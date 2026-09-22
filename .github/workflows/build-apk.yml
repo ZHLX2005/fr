@@ -74,28 +74,64 @@ jobs:
           path: debug_symbols
           retention-days: 90
 
+      # 只在 master push / 手动触发时上传。PR 构建绝不触碰线上 key：
+      # 未合并的代码一旦覆盖 fr_latest_apk，等于把没审查过的包发给了所有用户。
       - name: Upload APK to file server
-        continue-on-error: true
+        if: github.event_name != 'pull_request'
         run: |
           APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
-          if [ -n "$APK_FILE" ]; then
-            echo "Uploading $APK_FILE to file server..."
-            # 新 file 接口：POST /api/v1/files + key=fr_latest_apk（共享 key，组内覆盖更新，
-            # 服务端软删旧行，/files/by-key/fr_latest_apk 永远指向最新）。匿名上传落匿名组、强制 public。
-            # curl 网络失败（exit 52 empty reply 等）不得拖垮整 job：|| true 吞掉非零码。
-            RESPONSE=$(curl -sS --connect-timeout 15 --max-time 120 \
+          if [ -z "$APK_FILE" ]; then
+            echo "::error::未找到 APK，无法上传"
+            exit 1
+          fi
+
+          LOCAL_SHA=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
+          echo "Uploading $APK_FILE to file server..."
+          echo "Local sha256: $LOCAL_SHA"
+          # 新 file 接口：POST /api/v1/files + key=fr_latest_apk（共享 key，组内覆盖更新，
+          # 服务端软删旧行，/files/by-key/fr_latest_apk 永远指向最新）。匿名上传落匿名组、强制 public。
+          # 注意：不要在这里吞错误。2026-09-22 起runner(Azure 出口)→阿里云跨境链路会
+          # 偶发劣化，触发服务端 60s 读超时；上传失败必须让 job 变红，否则线上包
+          # 会悄悄停在旧版本（09-22 就发生过：job success 但线上还是 #97 的包）。
+          UPLOADED=false
+          RESPONSE=""
+          for attempt in 1 2 3; do
+            echo "--- upload attempt $attempt/3 ---"
+            RESPONSE=$(curl -sS --connect-timeout 15 --max-time 300 \
               -X POST "http://47.110.80.47:8988/api/v1/files" \
               -F "file=@$APK_FILE" \
               -F "key=fr_latest_apk" \
               -F "accessLevel=public" \
-              -F "expireSeconds=0" || true)
+              -F "expireSeconds=0") || RESPONSE=""
             echo "Upload response: $RESPONSE"
-            if echo "$RESPONSE" | grep -Eq '"code":[[:space:]]*0'; then
-              echo "APK uploaded successfully"
-              echo "download_url=http://47.110.80.47:8988/files/by-key/fr_latest_apk" >> $GITHUB_ENV
-            else
-              echo "APK upload failed, but continuing..."
+            # 双重校验：code=0 且服务端回算的 sha256 与本地一致（防半截/被改写的包上线）
+            if echo "$RESPONSE" | grep -Eq '"code":[[:space:]]*0' \
+               && echo "$RESPONSE" | grep -q "$LOCAL_SHA"; then
+              UPLOADED=true
+              echo "APK uploaded successfully (attempt $attempt)"
+              break
             fi
-          else
-            echo "No APK found to upload"
+            echo "attempt $attempt 失败，20 秒后重试..."
+            sleep 20
+          done
+
+          {
+            echo "### APK 分发上传结果"
+            if [ "$UPLOADED" = "true" ]; then
+              echo "- 状态: ✅ 成功"
+              echo "- sha256: \`$LOCAL_SHA\`"
+              echo "- 分发地址: http://47.110.80.47:8988/files/by-key/fr_latest_apk"
+            else
+              echo "- 状态: ❌ 失败（已重试 3 次）"
+              echo "- 本地 sha256: \`$LOCAL_SHA\`"
+              echo "- 最后响应: \`$RESPONSE\`"
+              echo "- 常见原因: runner→阿里云跨境链路劣化触发服务端 60s 读超时"
+              echo "- 补救: 本机 \`gh run download <run> -n flutter-app-arm64-\$GITHUB_SHA\` 后直传；或链路恢复后 rerun"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$UPLOADED" != "true" ]; then
+            echo "::error::APK 上传失败（重试 3 次仍失败），本次构建未发布到分发渠道"
+            exit 1
           fi
+          echo "download_url=http://47.110.80.47:8988/files/by-key/fr_latest_apk" >> $GITHUB_ENV
