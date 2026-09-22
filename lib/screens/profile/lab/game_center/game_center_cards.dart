@@ -96,7 +96,7 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
                 remoteCover: remoteCover,
                 iconSize: 72,
               ),
-                // 底部信息条：再压一层深色渐变，保证长描述也可读
+                // 底部信息条：浅渐变托底（2026-09-22 从 0.62 降到 0.32），保证长描述也可读
                 Positioned(
                   left: 0,
                   right: 0,
@@ -108,7 +108,7 @@ class _GameFeaturedCardState extends State<GameFeaturedCard> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-                          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.62),
+                          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.32),
                         ],
                       ),
                     ),
