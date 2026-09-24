@@ -10,7 +10,9 @@
 // 分类 / 配色 / 图标登记表在 game_center/const_game_center.dart；
 // 卡片组件在 game_center/game_center_cards.dart；封面在 game_center_artwork.dart。
 //
-// 添加新游戏：demo `override type => DemoType.game` + 在 kGameMeta 里登记一条即可，
+// 添加新游戏：demo `override type => DemoType.game` + 在 kGameCenterCatalog 与
+// kGameMeta 里各登记一条，再跑 `dart run tool/publish_game_center_index.dart`
+// 重发 KV——否则 ve 管理端「游戏封面」tab 看不到该游戏，无法分配封面。
 // 本文件无需改动。
 
 import 'dart:async' show unawaited;
@@ -60,8 +62,10 @@ class _GameCenterPageState extends State<GameCenterPage>
         .where(seen.add)
         .toList();
 
-    // debug 校验：目录（KV 事实源，ve 管理端消费）与当前注册表 / kGameMeta 一致，
-    // 防止发布工具把过期列表发上 KV。不一致在 debug 构建直接崩（发布前必现）。
+    // debug 校验（双向防漂移）：
+    //   正向：catalog（KV 事实源，ve 管理端消费）每条都已注册且在 kGameMeta 里；
+    //   反向：每个注册的 game 都进了 catalog（漏登记 → 管理端无法分配封面）。
+    // 任一不一致在 debug 构建直接崩（发布前必现）。
     assert(() {
       final slugs = _games.map((d) => d.slug).toSet();
       for (final e in kGameCenterCatalog) {
@@ -74,6 +78,16 @@ class _GameCenterPageState extends State<GameCenterPage>
           kGameMeta.containsKey(e.slug),
           'game-center catalog slug "${e.slug}" missing in kGameMeta; '
           'add a GameMeta entry in const_game_center.dart',
+        );
+      }
+      final catalogSlugs = kGameCenterCatalog.map((e) => e.slug).toSet();
+      for (final d in _games) {
+        assert(
+          catalogSlugs.contains(d.slug),
+          'game "${d.slug}" is registered as DemoType.game but missing in '
+          'kGameCenterCatalog; add a GameCenterCatalogEntry in '
+          'game_center_catalog.dart, then republish via '
+          'tool/publish_game_center_index.dart (ve admin cannot see it otherwise)',
         );
       }
       return true;

@@ -124,6 +124,13 @@ const List<GameCenterCatalogEntry> kGameCenterCatalog = [
     categories: ['multiplayer', 'board'],
     mode: '联机双人',
   ),
+  GameCenterCatalogEntry(
+    slug: 'sudoku-lua',
+    title: '数独（联机）',
+    description: 'Sudoku 互联网双人对战 · v3 Lua 服务端权威 · 同题竞速',
+    categories: ['multiplayer', 'puzzle'],
+    mode: '联机双人',
+  ),
   // ── 本地 ────────────────────────────────────────────────────
   GameCenterCatalogEntry(
     slug: 'surround-game',
