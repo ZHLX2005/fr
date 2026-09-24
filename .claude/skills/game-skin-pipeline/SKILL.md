@@ -30,15 +30,16 @@ description: 游戏资源公开 KV 管线 —— 皮肤 / 封面 / 曲库 / 表�
 | 场景 | 读/用 | 路径 |
 | --- | --- | --- |
 | **新增一套游戏皮肤（任意 gameId）** | [[extend-sop]] §2 全流程走一遍 | `references/extend-sop.md` |
-| **新增一款游戏封面（game-center）** | [[extend-sop]] §3 | `references/extend-sop.md` |
-| **新增一首歌（line songs）** | [[extend-sop]] §4 | `references/extend-sop.md` |
-| **新增一套表情包（任意 scope）** | [[extend-sop]] §5 + [[emoji-sop]] | `references/extend-sop.md` §5 + `references/emoji-sop.md` |
+| **新增一款游戏封面（game-center）** | [[extend-sop]] §4 | `references/extend-sop.md` |
+| **新增一款游戏（fr 新上线，管理端要能配封面）** | 先登记 `kGameCenterCatalog` + 重发目录，再走封面 SOP | `lib/core/game_kit/game_center_catalog.dart` + [[extend-sop]] §4.3 |
+| **新增一首歌（line songs）** | [[extend-sop]] §5 | `references/extend-sop.md` |
+| **新增一套表情包（任意 scope）** | [[extend-sop]] §6 + [[emoji-sop]] | `references/extend-sop.md` §6 + `references/emoji-sop.md` |
 | 发布游戏中心目录（新增/下线游戏） | 跑 `tool/publish_game_center_index.dart` | `tool/publish_game_center_index.dart` |
 | 上传图片/音频/表情拿 file_id | 跑 `scripts/add_<thing>.py` | `scripts/add_skin.py` / `scripts/add_emoji_pack.py` |
 | 一次性给旧 chess 文件补 tag | 跑 `retag_existing.py` | `scripts/retag_existing.py` |
 | 把 line 曲库从 Supabase 迁过来 | 跑 `migrate_line_from_supabase.py` | `scripts/migrate_line_from_supabase.py` |
 | 理解加载链路（混合三层 + 文件地图） | [[architecture]] | `references/architecture.md` |
-| 皮肤/曲库/表情不生效 → 排查 | [[extend-sop]] §6 | `references/extend-sop.md` §6 |
+| 皮肤/曲库/表情不生效 → 排查 | [[extend-sop]] §7 | `references/extend-sop.md` §7 |
 
 ## 核心事实（后端能力，已实测）
 
@@ -167,6 +168,8 @@ dart run tool/publish_game_center_index.dart
 # 发布后 ve game-skin-admin ?tab=covers 即可看到新列表
 ```
 
+> 🚨 fr 每新增一款 game（`DemoType.game`），必须先在 `kGameCenterCatalog` 登记条目并重跑本命令，管理端才有该游戏可配封面——漏了不会报错（fr 端灰兜底照常显示），只会在配封面时发现管理端没有（2026-09-24 数独回归）。已由 `GameCenterPage` debug 断言 + `test/lab/game_center_catalog_test.dart` 双向拦截。
+
 ### D. 一次性补打 chess 历史 tags
 
 ```bash
@@ -185,6 +188,7 @@ python .claude/skills/game-skin-pipeline/scripts/migrate_line_from_supabase.py  
 
 | 症状 | 排查 |
 |---|---|
+| 新增游戏后 ve 管理端「游戏封面」看不到 | ① `kGameCenterCatalog` 是否已登记该 slug；② 是否重跑 `dart run tool/publish_game_center_index.dart`；③ 匿名读验证：`curl 'http://…/api/v1/kv/public/game-center_catalog:index?groupId=190'` 应含该 slug |
 | 资源没出现在列表 | ① 匿名读验证：`curl 'http://47.110.80.47:8988/api/v1/kv/public/<key>?groupId=190'` 应返回 code 0；② value 是否合法 JSON array 且无重复 id（parseList 整批拒绝）；③ 客户端是否真重启（fetch 仅启动拉一次） |
 | 列表有资源但显示空白 | ① file_id 是否 32-hex 且真实存在：`curl -I 'http://…/files/<id>'`（HEAD 404 是已知怪癖，用 GET/字节计数验证）；② 本地缓存目录是否半残：app 文档目录删掉重下 |
 | 换了图但不更新 | KV index 是全量覆盖语义：重新 publish（version+1 + 新 fileId）；本地已缓存的旧图按资源目录持久化 —— **改图必须换新 id 或让用户清缓存** |

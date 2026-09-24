@@ -14,6 +14,9 @@
 lib/lab/demos/xxx_demo.dart       override DemoType get type => game  +  get slug
         ↓ lab/lab_bootstrap.dart  registerXxxDemo()
 demoRegistry.getAll().filterByType(game)        ← GameCenterPage initState 去重缓存
+        ├→ kGameCenterCatalog（game_center_catalog.dart，管理端列表事实源）
+        │     └→ dart run tool/publish_game_center_index.dart → KV public
+        │         → ve game-skin-admin「游戏封面」tab（管理端按 slug=skinId 分配封面）
         ↓
   _featured = games.where(meta.isOnline)        → 精选横滑（仅"全部"tab 出现）
   _bucket(cat) = games.where(meta.categories∋cat) → 分类分桶
@@ -24,20 +27,23 @@ GameGridCard / GameFeaturedCard → gameMetaOf(demo.slug) → GameArtwork
 常量层按 **slug** 判归属（不 `is DemoClass`），所以 `const_game_center.dart`
 零依赖任何 demo 实现——加删游戏不动 import 图。
 
-## 封面三级来源（按优先级自动降级）
+## 封面三级来源（按优先级自动降级，2026-09-05 接入皮肤管线）
 
 | 级 | 来源 | 谁设置 | 落点 |
 |---|---|---|---|
-| 1 | 用户自定义背景图 `LabCardProvider.getBackground(title)` | 长按 Lab 卡设图 | `game_center_cards.dart` → `DemoCoverImage` |
-| 2 | 程序化封面 `GameMeta.gradient` + `.pattern` + `.icon` | 登记在 `kGameMeta` | `game_center_artwork.dart` `GameArtwork` |
-| 3 | fallback `kFallbackGameMeta`（灰+game图标+arcade） | 自动 | `const_game_center.dart` |
+| 1 | 远程封面 `remoteCover`（KV `game-center_skin:index`，skinId = slug，`small`/`large` 两张） | ve game-skin-admin 上传，见 [[extend-sop]] §4 | `gameCenterCoverOf(slug, …)` → `GameArtwork` |
+| 2 | 用户自定义背景图 `LabCardProvider.getBackground(title)` | 长按 Lab 卡设图 | `game_center_cards.dart` → `DemoCoverImage` |
+| 3 | 程序化封面 `GameMeta.gradient` + `.pattern` + `.icon` | 登记在 `kGameMeta` | `game_center_artwork.dart` `GameArtwork` |
+| 兜底 | fallback `kFallbackGameMeta`（灰+game图标+arcade） | 自动 | `const_game_center.dart` |
+
+远程封面客户端侧 best-effort：`GameCenterPage._loadCovers()` 先恢复落盘索引再拉线上，失败静默回退下级。
 
 ## 扩展点地图
 
 | 做什么 | 改哪里 | 备注 |
 |---|---|---|
-| 加一款游戏 | `demos/xxx_demo.dart` + `lab_bootstrap.dart` | 必改：①`type=>game` ②`registerXxx()` |
-| 登记封面/分类 | `const_game_center.dart` 的 `kGameMeta` | 建议必做，否则走 fallback |
+| 加一款游戏 | `demos/xxx_demo.dart` + `lab_bootstrap.dart` + `game_center_catalog.dart` | 必改 4 处：①`type=>game` ②`registerXxx()` ③`kGameCenterCatalog` 条目 ④重跑发布脚本（漏③④ = ve 管理端看不到、无法配封面） |
+| 登记封面/分类 | `const_game_center.dart` 的 `kGameMeta` + `game_center_catalog.dart` | kGameMeta 必做（漏了走灰 fallback）；catalog 必做（管理端列表事实源） |
 | 加全新分类 | `const_game_center.dart` | `GameCategory` + `kGameCategoryTabs` + `kGameCategoryIcons` + `kGameCategoryLabels` 各加一行 |
 | 加封面图案 | `const_game_center.dart` + `game_center_artwork.dart` | `GameArtPattern` enum + `_ArtPatternPainter._paintXxx` + switch |
 
@@ -63,9 +69,24 @@ import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
   mode: '联机双人',           // 卡片副标题 + 精选胶囊文案
   pattern: GameArtPattern.grid,
 ),
+
+// 4) lib/core/game_kit/game_center_catalog.dart — kGameCenterCatalog
+//    （ve 管理端「游戏封面」tab 的列表事实源，slug 即 skinId）
+GameCenterCatalogEntry(
+  slug: 'gomoku-lua',
+  title: '五子棋（联机）',                    // = demo.title
+  description: 'Gomoku 互联网双人对战 · …',  // = demo.description
+  categories: ['multiplayer', 'board'],      // = kGameMeta.categories
+  mode: '联机双人',
+),
 ```
 
-验证：`flutter analyze` 0 error → 真机确认精选横滑只含联机、分类 tab 数量对、封面不白板。
+```bash
+# 5) 重发 KV 目录（已登录 kvcli）——不跑 = 管理端永远看不到新游戏
+dart run tool/publish_game_center_index.dart
+```
+
+验证：`flutter analyze` 0 error → `flutter test test/lab/game_center_catalog_test.dart`（目录↔注册表↔kGameMeta 双向一致性）→ 真机确认精选横滑只含联机、分类 tab 数量对、封面不白板 → ve 管理端 `?tab=covers` 刷新可见新游戏。
 
 ## 真坑
 
@@ -77,3 +98,4 @@ import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
 | 收藏/背景 key 用 title | 改 demo 标题 = 用户收藏与自定义封面静默丢失 | 已知债务，改 provider 前先看 |
 | 别名 slug 重复渲染 | 一 demo 多 slug → 列表重复卡片 | page 已按实例去重；新代码别绕过去重直接用 getAll() |
 | 联机游戏不进精选 | `isOnline` 看 categories 是否含 multiplayer | 精选 = `_games.where(isOnline)`，本地游戏不进 |
+| 新游戏漏 catalog 登记 | fr 端卡片正常显示（灰兜底、不报错），但 ve 管理端「游戏封面」看不到 → 无法分配远程封面（2026-09-24 数独回归） | 已双向拦截：`GameCenterPage` debug 断言 + `test/lab/game_center_catalog_test.dart`；登记后必须重跑发布脚本 |

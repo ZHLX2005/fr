@@ -156,8 +156,8 @@ python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/covers/gomoku go
 ve 的「游戏封面」tab **游戏列表来自 fr 发布的 KV 目录**，不手维护：
 
 - KV key：`game-center_catalog:index`（groupId 190）；tag：`game-center-catalog`；value = JSON array（每项 slug/title/description/mode/categories/isOnline）
-- 事实源：`lib/core/game_kit/game_center_catalog.dart` 的 `kGameCenterCatalog`（slug 必须与 `DemoPage.slug`、`kGameMeta` 一致；`GameCenterPage.initState` 有 debug 断言防漂移）
-- **新增/下线游戏**：改 `kGameCenterCatalog`（+ 对应 demo 注册 / kGameMeta）后重发即可，ve 侧零改动
+- 事实源：`lib/core/game_kit/game_center_catalog.dart` 的 `kGameCenterCatalog`（slug 必须与 `DemoPage.slug`、`kGameMeta` 一致；`GameCenterPage` debug 断言 + `test/lab/game_center_catalog_test.dart` **双向**防漂移）
+- **新增/下线游戏**：改 `kGameCenterCatalog`（+ 对应 demo 注册 / kGameMeta）后**必须重发**，ve 侧零改动。漏发不报错（fr 端灰兜底照常显示），只会在配封面时发现管理端没有该游戏（2026-09-24 数独回归）
 
 **发布目录**（已登录 kvcli）：
 
@@ -231,6 +231,7 @@ python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/cel
 
 | 症状 | 排查 |
 |---|---|
+| 新增游戏后 ve 管理端「游戏封面」看不到 | ① `kGameCenterCatalog` 是否已登记该 slug；② 是否重跑 `dart run tool/publish_game_center_index.dart`；③ 匿名读验证：`curl 'http://…/api/v1/kv/public/game-center_catalog:index?groupId=190'` 应含该 slug |
 | 资源没出现在列表 | ① 匿名读验证：`curl 'http://47.110.80.47:8988/api/v1/kv/public/<key>?groupId=190'` 应返回 code 0；② value 是否合法 JSON array 且无重复 id（parseList 整批拒绝）；③ 客户端是否真重启（fetch 仅启动拉一次） |
 | 列表有资源但显示空白 | ① file_id 是否 32-hex 且真实存在：`curl -I 'http://…/files/<id>'`（HEAD 404 是已知怪癖，用 GET/字节计数验证）；② 本地缓存目录是否半残：app 文档目录删掉重下 |
 | 换了图但不更新 | KV index 是全量覆盖语义：重新 publish（version+1 + 新 fileId）；本地已缓存的旧图按资源目录持久化 —— **改图必须换新 id 或让用户清缓存**（同 id 覆盖只影响未下载过的新设备） |
