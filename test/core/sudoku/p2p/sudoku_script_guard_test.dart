@@ -16,11 +16,24 @@ void main() {
     expect(kSudokuScript, contains('on_leave = function'));
   });
 
-  test('kSudokuScript 含 action handler（SET_PUZZLE / START / PROGRESS / SUBMIT）', () {
+  test('kSudokuScript 含 action handler（SET_PUZZLE / ACK / START / PROGRESS / SUBMIT）', () {
     expect(kSudokuScript, contains('on_action_SET_PUZZLE = function'));
+    expect(kSudokuScript, contains('on_action_ACK = function'));
     expect(kSudokuScript, contains('on_action_START = function'));
     expect(kSudokuScript, contains('on_action_PROGRESS = function'));
     expect(kSudokuScript, contains('on_action_SUBMIT = function'));
+  });
+
+  test('ACK 准备门：双方 ACK 才置 ready；SET_PUZZLE 清 ready 回 lobby', () {
+    expect(kSudokuScript, contains('c.ready[p.device_id] = true'));
+    expect(kSudokuScript, contains('c.ready[c.host_id] == true'));
+    expect(kSudokuScript, contains('c.ready[c.guest_id] == true'));
+    // SET_PUZZLE 段内清 ready 回 lobby（题目变化 = 规则变化）
+    final spStart = kSudokuScript.indexOf('on_action_SET_PUZZLE');
+    final spEnd = kSudokuScript.indexOf('on_action_ACK');
+    final setPuzzleSeg = kSudokuScript.substring(spStart, spEnd);
+    expect(setPuzzleSeg, contains('c.ready = {}'));
+    expect(setPuzzleSeg, contains('state = "lobby"'));
   });
 
   test('身份字段用 device_id（relay 契约），禁止 payload.uid 回归', () {

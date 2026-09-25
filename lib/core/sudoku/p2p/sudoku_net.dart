@@ -13,6 +13,7 @@ export 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
 
 class SudokuNet {
   static const String kActionSetPuzzle = 'SET_PUZZLE';
+  static const String kActionAck = 'ACK';
   static const String kActionStart = 'START';
   static const String kActionProgress = 'PROGRESS';
   static const String kActionSubmit = 'SUBMIT';
@@ -37,7 +38,13 @@ class SudokuNet {
     );
   }
 
-  /// Host 通知双方开始（START）。前提：guest 已加入 + puzzle 已推送。
+  /// 准备 ACK（对齐 chess）：lobby 阶段点"准备好了"。
+  /// 双方都 ACK 后服务端把 state 推到 ready，host 才能 START。
+  static Future<Snapshot> sendAck(RoomHandle handle) {
+    return handle.applyAction(type: kActionAck, params: const {});
+  }
+
+  /// Host 通知双方开始（START）。前提：双方已 ACK（ready）+ puzzle 已推送。
   static Future<Snapshot> sendStart(RoomHandle handle) {
     return handle.applyAction(type: kActionStart, params: const {});
   }

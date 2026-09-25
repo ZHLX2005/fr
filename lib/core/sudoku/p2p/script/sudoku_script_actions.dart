@@ -1,6 +1,6 @@
 // lib/core/sudoku/p2p/script/sudoku_script_actions.dart
 //
-// kSudokuScript 的 actions 段：SET_PUZZLE / START / PROGRESS / SUBMIT。
+// kSudokuScript 的 actions 段：SET_PUZZLE / ACK / START / PROGRESS / SUBMIT。
 //
 // 与 chess/go 一致的服务端契约（v2 修复）：
 //   · handler 签名 `(c, p)`，身份字段 `p.device_id`（客户端 applyAction
@@ -36,15 +36,29 @@ on_action_SET_PUZZLE = function(c, p)
   c.solution = so
   c.seed = p.seed or 0
   c.difficulty = p.difficulty or 'medium'
-  state = "ready"
+  -- 题目变化 = 规则变化（对齐 chess SET_RULES）：清 ready 回 lobby，双方重新 ACK
+  c.ready = {}
+  state = "lobby"
+  return c
+end
+
+-- ACK 准备门（对齐 chess）：双方都 ACK 后 state → ready，host 才可 START。
+on_action_ACK = function(c, p)
+  if state ~= "lobby" and state ~= "ready" then return c end
+  if c.players[p.device_id] == nil then return c end
+  c.ready[p.device_id] = true
+  if c.host_id ~= nil and c.guest_id ~= nil
+     and c.ready[c.host_id] == true and c.ready[c.guest_id] == true then
+    state = "ready"
+  end
   return c
 end
 
 on_action_START = function(c, p)
   if p.device_id ~= c.host_id then return c end
-  if c.guest_id == nil then return c end
+  -- 必须双方 ACK 就绪（state == 'ready'）且题目已生成
+  if state ~= "ready" then return c end
   if c.puzzle == nil then return c end
-  if state ~= "lobby" and state ~= "ready" then return c end
   state = "playing"
   c.started_at_ms = now_ms()
   return c

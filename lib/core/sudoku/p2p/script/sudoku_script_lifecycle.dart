@@ -25,6 +25,7 @@ on_init = function(c, p)
   c.players = {}
   c.players[p.device_id] = p.alias
   c.guest_id = nil
+  c.ready = {}           -- {[device_id] = true}（ACK 准备门，对齐 chess）
   c.puzzle = nil
   c.solution = nil
   c.seed = 0
@@ -65,6 +66,7 @@ on_leave = function(c, p)
     c.disconnected[p.device_id] = true
   elseif state == "lobby" then
     c.players[p.device_id] = nil
+    c.ready[p.device_id] = nil
     c.disconnected[p.device_id] = nil
     if p.device_id == c.guest_id then
       c.guest_id = nil
