@@ -13,7 +13,6 @@
 // surround_game_lua/widgets.dart 共享，改造需保持模板统一性，因此保留硬编码。
 
 import 'dart:async';
-import 'dart:ui' as ui show Gradient;
 
 import 'package:flutter/material.dart';
 import 'engine.dart';
@@ -29,8 +28,12 @@ const int kMaxRecoverAttempts = 5;
 // Cyber v2 主题令牌（proto-3-cyber-v2 落地）
 //
 // 替换 _buildPlaying 内部使用的 ColorScheme / kTetrisAccent 系列硬编码，
-// 改用赛博朋克配色 + neon 边框 + CRT 方括号 + 扫描线。Lobby / Finished
-// 不受影响（继续走 BoardTheme），只覆盖 playing 这一屏。
+// 改用赛博朋克配色 + neon 边框。Lobby / Finished 不受影响
+// （继续走 BoardTheme），只覆盖 playing 这一屏。
+//
+// 2026-09-25：去掉纯装饰元素（氛围光 / 扫描线 / 暗角 / CRT 角括号 /
+// 假顶栏假时钟 / 假底栏 PAUSE·SVR / neon 辉光阴影），只保留承载信息的
+// 面板、徽章与按钮反馈。
 // ════════════════════════════════════════════════════════════════════
 const Color _cBg = Color(0xFF0B0D11);
 const Color _cPanel = Color(0xFF11141A);
@@ -43,30 +46,15 @@ const Color _cInkSub = Color(0x8CDCE3EC);
 const Color _cInkFaint = Color(0x47DCE3EC);
 const Color _cDeltaUp = Color(0xFF3DD68C); // proto .delta.up 绿
 const Color _cDeltaDown = Color(0xFFFF5A7A); // proto .delta.down 红（与 piece-Z 同值，已 GG pill 复用）
-const Color _cTitleGlow = Color(0x9900E5FF); // proto title-glow rgba(0,229,255,0.6)
 
 // Playing 屏用静态 monospace，禁止 GoogleFonts 运行时拉取。
 // 引擎每帧 notify → AnimatedBuilder rebuild；GoogleFonts 会挂
 // InheritedWidget 依赖，易触发 framework "dependent is not a descendant"。
-const TextStyle _tsTitle = TextStyle(
-  color: _cNeon,
-  fontSize: 9,
-  letterSpacing: 1.8,
-  fontFamily: 'monospace',
-  shadows: [Shadow(color: _cTitleGlow, blurRadius: 6)],
-);
 const TextStyle _tsChrome = TextStyle(
   color: _cInkSub,
   fontSize: 9,
   letterSpacing: 1.8,
   fontFamily: 'monospace',
-);
-const TextStyle _tsChromeNeon = TextStyle(
-  color: _cNeon,
-  fontSize: 9,
-  letterSpacing: 1.8,
-  fontFamily: 'monospace',
-  shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
 );
 const TextStyle _tsName = TextStyle(
   color: _cInk,
@@ -94,7 +82,6 @@ const TextStyle _tsCtrlHintNeon = TextStyle(
   letterSpacing: 1.6,
   fontWeight: FontWeight.bold,
   fontFamily: 'monospace',
-  shadows: [Shadow(color: _cLineStrong, blurRadius: 4)],
 );
 const TextStyle _tsStatVal = TextStyle(
   color: _cNeon,
@@ -102,7 +89,6 @@ const TextStyle _tsStatVal = TextStyle(
   fontWeight: FontWeight.w700,
   height: 1,
   fontFamily: 'monospace',
-  shadows: [Shadow(color: _cLineStrong, blurRadius: 8)],
   fontFeatures: [FontFeature.tabularFigures()],
 );
 const TextStyle _tsBtnLbl = TextStyle(
@@ -723,59 +709,41 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final oppId = TetrisRoom.opponentId(_snap, _room.deviceId);
     final opp = oppId == null ? null : TetrisRoom.stateOf(_snap, oppId);
     final eng = _engine;
-    // 结构硬约束：顶栏/对手固高；中间 Expanded 吃剩余；操作键走
+    // 结构硬约束：对手栏固高；中间 Expanded 吃剩余；操作键走
     // bottomNavigationBar，绝不跟 play Column 抢高度（此前会整片黑）。
     return Scaffold(
       backgroundColor: _cBg,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const IgnorePointer(child: _AmbientWash()),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildTopBar(),
-                      _buildOpponentBar(oppId, opp),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-                    child: SizedBox.expand(
-                      child: eng == null
-                          ? const Center(
-                              child: CircularProgressIndicator(color: _cNeon),
-                            )
-                          : _buildPlayArea(eng, opp),
-                    ),
-                  ),
-                ),
-              ],
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              child: _buildOpponentBar(oppId, opp),
             ),
-          ),
-        ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                child: SizedBox.expand(
+                  child: eng == null
+                      ? const Center(
+                          child: CircularProgressIndicator(color: _cNeon),
+                        )
+                      : _buildPlayArea(eng, opp),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: ColoredBox(
         color: _cBg,
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildControls(),
-                _buildFooter(),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
+            child: _buildControls(),
           ),
         ),
       ),
@@ -827,41 +795,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  /// Cyber 顶栏：左 neon 标题「▣ TETRIS / MATCH」，右比赛时间 + 回合号。
-  Widget _buildTopBar() {
-    final round = TetrisRoom.sequence(_snap).length; // 用序列长度代替回合号（弱占位）
-    return Container(
-      padding: const EdgeInsets.only(bottom: 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _cLine)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('▣ TETRIS / MATCH', style: _tsTitle),
-          Text(
-            '09:41 · MATCH ${round.clamp(1, 99)}',
-            style: _tsChrome,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Cyber 底栏：左 ‖ PAUSE，右 1P · SVR-A84K。
-  Widget _buildFooter() {
-    return const Padding(
-      padding: EdgeInsets.only(top: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('‖ PAUSE', style: _tsChromeNeon),
-          Text('1P · SVR-A84K', style: _tsChrome),
-        ],
-      ),
-    );
-  }
-
   /// Cyber 棋盘：父级传入有限 maxW/maxH，这里只做 10:20 适配，永不 shrink 成空。
   Widget _buildCyberBoard(
     TetrisEngine eng, {
@@ -886,27 +819,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           decoration: BoxDecoration(
             color: const Color(0xFF3A414C),
             border: Border.all(color: _cLineStrong, width: 1),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x2E00E5FF),
-                blurRadius: 18,
-                spreadRadius: 0,
-              ),
-            ],
           ),
           clipBehavior: Clip.hardEdge,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              TetrisBoardView(
-                grid: eng.grid,
-                current: eng.current,
-                ghostOffset: eng.ghostOffset(),
-                expand: true,
-              ),
-              const _BoardInnerShade(),
-              const _ScanlineOverlay(),
-            ],
+          child: TetrisBoardView(
+            grid: eng.grid,
+            current: eng.current,
+            ghostOffset: eng.ghostOffset(),
+            expand: true,
           ),
         ),
       ),
@@ -948,9 +867,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       color: const Color(0xFF3A414C),
                       border: Border.all(color: _cLineStrong),
                       borderRadius: BorderRadius.circular(3),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x2E00E5FF), blurRadius: 10),
-                      ],
                     ),
                     clipBehavior: Clip.hardEdge,
                     child: TetrisMiniBoard(board: opp.board),
@@ -983,12 +899,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 color: _cPanel,
                 border: Border.all(color: _cDeltaDown),
                 borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: _cDeltaDown.withValues(alpha: 0.35),
-                    blurRadius: 8,
-                  ),
-                ],
               ),
               child: Text(
                 '已 GG',
@@ -1052,7 +962,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  /// Cyber 侧栏小面板：panel 底 + neon 边框 + inset 微光（proto 无 CRT 角标）。
+  /// Cyber 侧栏小面板：panel 底 + neon 边框。
   Widget _cyberPanel({required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -1060,16 +970,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         color: _cPanel,
         border: Border.all(color: _cLine),
         borderRadius: BorderRadius.circular(4),
-        boxShadow: const [
-          // 近似 inset 0 0 12px rgba(0,229,255,0.04)
-          BoxShadow(color: Color(0x0A00E5FF), blurRadius: 12),
-        ],
       ),
       child: child,
     );
   }
 
-  /// proto .panel .lbl：'> ' neon 前缀 + label，可带右对齐序列索引（HOLD 02 / NEXT 03）。
+  /// panel label，可带右对齐序列索引（HOLD 02 / NEXT 03）。
   Widget _infoBlock(String label, {String? index, required Widget child}) =>
       Column(
         mainAxisSize: MainAxisSize.min,
@@ -1077,13 +983,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    const TextSpan(text: '> ', style: TextStyle(color: _cNeon)),
-                    TextSpan(text: label),
-                  ],
-                ),
+              Text(
+                label,
                 style: _tsLabel,
               ),
               if (index != null)
@@ -1099,18 +1000,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         ],
       );
 
-  /// Cyber 大数字 (Orbitron 24px neon + glow) — 自由排版，无 panel。
+  /// Cyber 大数字 — 自由排版，无 panel。
   Widget _stat(String label, String value) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text.rich(
-            TextSpan(
-              children: [
-                const TextSpan(text: '> ', style: TextStyle(color: _cNeon)),
-                TextSpan(text: label),
-              ],
-            ),
+          Text(
+            label,
             style: _tsLabel,
           ),
           const SizedBox(height: 2),
@@ -1124,19 +1020,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildControls() {
     final dead = _engine != null && !_engine!.alive;
     // proto：左右两半并排，六键各约 1/6 屏宽。
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x0A00E5FF), Color(0x0000E5FF)],
-            ),
-          ),
-          child: Row(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+      child: Row(
             children: [
               Expanded(
                 child: Column(
@@ -1204,10 +1090,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               ),
             ],
           ),
-        ),
-        const Positioned(top: -1, left: -1, child: _CornerBracketTL(color: _cNeon)),
-        const Positioned(bottom: -1, right: -1, child: _CornerBracketBR(color: _cNeon)),
-      ],
     );
   }
 
@@ -1389,7 +1271,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 Icons.hourglass_top,
                 color: _cNeon,
                 size: 40,
-                shadows: [Shadow(color: _cLineStrong, blurRadius: 12)],
               ),
               SizedBox(height: 12),
               Text(
@@ -1501,214 +1382,11 @@ class _DeltaBadge extends StatelessWidget {
         color: _cPanel,
         border: Border.all(color: color),
         borderRadius: BorderRadius.circular(4),
-        boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 8),
-        ],
       ),
       child: Text(
         up ? '+$delta' : '$delta',
         style: _tsDelta.copyWith(color: color),
       ),
-    );
-  }
-}
-
-/// 边框角的小方括号，赛博 CRT 风。
-/// 仅视觉，不接收命中（不阻挡按钮事件）。
-/// proto .btn：inset 3px、5×5、1px、opacity 0.55；repeat 只保留 TL。
-class _CyberBrackets extends StatelessWidget {
-  const _CyberBrackets({
-    this.color = const Color(0xFF00E5FF),
-    this.size = 5,
-    this.thickness = 1,
-    this.inset = 3,
-    this.showBottomRight = true,
-    this.opacity = 0.55,
-  });
-  final Color color;
-  final double size;
-  final double thickness;
-  final double inset;
-  final bool showBottomRight;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    final side = BorderSide(
-      color: color.withValues(alpha: opacity),
-      width: thickness,
-    );
-    // 禁止 SizedBox.expand：bottomNavigationBar / Row 常给无限高，
-    // expand 会直接抛 BoxConstraints forces an infinite height。
-    // 由调用方 Positioned.fill 提供有限尺寸。
-    return IgnorePointer(
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            top: inset,
-            left: inset,
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                border: Border(top: side, left: side),
-              ),
-            ),
-          ),
-          if (showBottomRight)
-            Positioned(
-              bottom: inset,
-              right: inset,
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  border: Border(bottom: side, right: side),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 棋盘 / 容器上的水平扫描线遮罩（CRT 复古）。
-class _ScanlineOverlay extends StatelessWidget {
-  const _ScanlineOverlay();
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: CustomPaint(painter: _ScanlinePainter()),
-      ),
-    );
-  }
-}
-
-class _ScanlinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // proto：2px clear + 1px rgba(0,0,0,0.06)
-    final paint = Paint()..color = const Color(0x0F000000);
-    for (double y = 2; y < size.height; y += 3) {
-      canvas.drawRect(Rect.fromLTWH(0, y, size.width, 1), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ScanlinePainter oldDelegate) => false;
-}
-
-/// board-wrap 内嵌暗角（proto inset 0 0 18px rgba(0,0,0,0.4)）— CRT 凹陷感。
-/// Flutter BoxShadow 无 inset → 四边 18px 线性渐变手绘。
-class _BoardInnerShade extends StatelessWidget {
-  const _BoardInnerShade();
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: CustomPaint(painter: _BoardInnerShadePainter()),
-      ),
-    );
-  }
-}
-
-class _BoardInnerShadePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const color = Color(0x66000000); // rgba(0,0,0,0.4)
-    const fade = 18.0;
-    final w = size.width;
-    final h = size.height;
-    Paint edge(Offset from, Offset to) => Paint()
-      ..shader = ui.Gradient.linear(
-        from,
-        to,
-        [color, color.withValues(alpha: 0)],
-      );
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, fade),
-      edge(const Offset(0, 0), const Offset(0, fade)),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, h - fade, w, fade),
-      edge(Offset(0, h), Offset(0, h - fade)),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, fade, h),
-      edge(const Offset(0, 0), const Offset(fade, 0)),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w - fade, 0, fade, h),
-      edge(Offset(w, 0), Offset(w - fade, 0)),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _BoardInnerShadePainter oldDelegate) => false;
-}
-
-/// 按钮内右上角的 ⟳ 小标记，提示长按连发。
-class _RepeatBadge extends StatelessWidget {
-  const _RepeatBadge({required this.color});
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: 3,
-      right: 5,
-      child: IgnorePointer(
-        child: Text(
-          '⟳',
-          style: TextStyle(
-            color: color,
-            fontSize: 9,
-            height: 1,
-            shadows: [Shadow(color: color, blurRadius: 4)],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// proto .phone::before — 角落氛围径向光（cyan TL / pink BR）。
-class _AmbientWash extends StatelessWidget {
-  const _AmbientWash();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.topLeft,
-                radius: 1.05,
-                colors: [Color(0x1400E5FF), Color(0x0000E5FF)],
-                stops: [0.0, 0.55],
-              ),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.bottomRight,
-                radius: 1.05,
-                colors: [Color(0x0FFF2BD6), Color(0x00FF2BD6)],
-                stops: [0.0, 0.55],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1902,7 +1580,6 @@ class _PadButtonState extends State<_PadButton> {
   Widget build(BuildContext context) {
     final accent = widget.accent;
     final lit = _pressed || _hovered;
-    final isRepeat = widget.repeat != null;
     final fg = accent ? _cNeon2 : (lit ? _cNeon : _cInkSub);
     // proto .btn.acc idle bg rgba(255,43,214,0.06)
     final bgColor = accent
@@ -1930,62 +1607,43 @@ class _PadButtonState extends State<_PadButton> {
         onTapCancel: _onTapCancel,
         child: Opacity(
           opacity: widget.dim ? 0.35 : 1,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              LayoutBuilder(
-                builder: (context, slot) {
-                  // 槽宽由 1/6 Expanded 决定；高度不超过宽度，杜绝瘦高条
-                  final faceW = slot.maxWidth;
-                  final faceH = faceW.clamp(40.0, 52.0);
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 120),
-                    curve: Curves.easeOut,
-                    margin: EdgeInsets.only(
-                      top: _pressed ? 2 : 1,
-                      bottom: _pressed ? 0 : 1,
-                    ),
-                    width: faceW,
-                    height: faceH,
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      border: Border.all(color: borderColor),
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: shadows,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _PadStrokeIcon(
-                          glyph: widget.glyph,
-                          color: fg,
-                          glow: accent
-                              ? const Color(0xB3FF2BD6)
-                              : null,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.label,
-                          style: _tsBtnLbl.copyWith(color: fg),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              // CRT 角标：repeat 只保留 TL（BR 位给 ⟳）；accent 全不透明 neon-2
-              Positioned.fill(
-                child: _CyberBrackets(
-                  color: accent ? _cNeon2 : (isRepeat ? _cNeon : _cLine),
-                  size: 5,
-                  thickness: 1,
-                  inset: 3,
-                  showBottomRight: !isRepeat,
-                  opacity: accent || isRepeat ? 1 : 0.55,
+          child: LayoutBuilder(
+            builder: (context, slot) {
+              // 槽宽由 1/6 Expanded 决定；高度不超过宽度，杜绝瘦高条
+              final faceW = slot.maxWidth;
+              final faceH = faceW.clamp(40.0, 52.0);
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                curve: Curves.easeOut,
+                margin: EdgeInsets.only(
+                  top: _pressed ? 2 : 1,
+                  bottom: _pressed ? 0 : 1,
                 ),
-              ),
-              if (isRepeat) const _RepeatBadge(color: _cNeon),
-            ],
+                width: faceW,
+                height: faceH,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  border: Border.all(color: borderColor),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: shadows,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _PadStrokeIcon(
+                      glyph: widget.glyph,
+                      color: fg,
+                      glow: accent ? const Color(0xB3FF2BD6) : null,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.label,
+                      style: _tsBtnLbl.copyWith(color: fg),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -1993,45 +1651,3 @@ class _PadButtonState extends State<_PadButton> {
   }
 }
 
-/// wrapper 容器外侧的对角大括号（12×12，neon + glow，proto 只用 TL + BR）。
-class _CornerBracketTL extends StatelessWidget {
-  const _CornerBracketTL({this.color = const Color(0xFF00E5FF)});
-  final Color color;
-  @override
-  Widget build(BuildContext context) {
-    final side = BorderSide(color: color, width: 2);
-    return IgnorePointer(
-      child: Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(
-          border: Border(top: side, left: side),
-          boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CornerBracketBR extends StatelessWidget {
-  const _CornerBracketBR({this.color = const Color(0xFF00E5FF)});
-  final Color color;
-  @override
-  Widget build(BuildContext context) {
-    final side = BorderSide(color: color, width: 2);
-    return IgnorePointer(
-      child: Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(
-          border: Border(right: side, bottom: side),
-          boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6),
-          ],
-        ),
-      ),
-    );
-  }
-}
