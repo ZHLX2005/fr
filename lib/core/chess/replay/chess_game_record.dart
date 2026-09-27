@@ -16,8 +16,13 @@
 //   "uciMoves": ["e2e4", "e7e5", ...],            // 整局谱（防御截断在重演层）
 //   "status": "checkmate",                        // 终局状态（playing 不应出现）
 //   "roomCode": "123456",                         // 来源房间（追溯用，可空）
+//   "auto": true,                                 // 终局自动入库标记（仅在 true 时写出）
 //   "savedAt": "2026-09-19T23:19:54Z"
 // }
+//
+// 自动保存（fr #65「自动保存最近三把」）：终局快照首次到达时整局自动入库
+// （auto=true），滚动只保留最近 kChessGameAutoKeep 局；手动保存的条目
+// （auto 缺省 = false）永不清理，手动保存同 contentKey 的自动条目即"转正"。
 //
 // 校验规则（tryParse 全防御，任何失败返回 null 不抛异常）：
 //   · format / version / id / title / initialFen / uciMoves 必填且合法
@@ -36,6 +41,9 @@ const int kChessGameVersion = 1;
 
 /// 本地文件扩展名（可识别 + 仍是 json）。
 const String kChessGameFileExt = '.chessgame.json';
+
+/// 自动保存滚动窗口：auto 条目只保留最近 N 局（手动保存不受限）。
+const int kChessGameAutoKeep = 3;
 
 /// 终局状态 → 中文徽标文案（列表页 / 回放页 AppBar 共用）。
 ///
@@ -73,6 +81,10 @@ class ChessGameRecord {
   /// 保存时间（ISO8601 UTC）。
   final String savedAt;
 
+  /// 自动保存标记（终局自动入库 → true；手动保存 / 转正后 → false）。
+  /// true 的条目受 [kChessGameAutoKeep] 滚动清理，false 永不清理。
+  final bool auto;
+
   const ChessGameRecord({
     required this.id,
     required this.title,
@@ -81,9 +93,22 @@ class ChessGameRecord {
     this.status = '',
     this.roomCode,
     required this.savedAt,
+    this.auto = false,
   });
 
   int get moveCount => uciMoves.length;
+
+  /// 复制并覆盖 auto（手动保存"转正"自动条目用，其余字段原样保留）。
+  ChessGameRecord copyWith({bool? auto}) => ChessGameRecord(
+        id: id,
+        title: title,
+        initialFen: initialFen,
+        uciMoves: uciMoves,
+        status: status,
+        roomCode: roomCode,
+        savedAt: savedAt,
+        auto: auto ?? this.auto,
+      );
 
   Map<String, dynamic> toJson() => {
         'format': kChessGameFormatTag,
@@ -94,6 +119,7 @@ class ChessGameRecord {
         'uciMoves': uciMoves,
         if (status.isNotEmpty) 'status': status,
         if (roomCode != null && roomCode!.isNotEmpty) 'roomCode': roomCode,
+        if (auto) 'auto': true,
         'savedAt': savedAt,
       };
 
@@ -143,6 +169,8 @@ class ChessGameRecord {
       status: decoded['status']?.toString() ?? '',
       roomCode: decoded['roomCode']?.toString(),
       savedAt: decoded['savedAt']?.toString() ?? '',
+      // 宽松：缺省 / 非布尔垃圾值都回退 false（旧文件无此字段）。
+      auto: decoded['auto'] == true,
     );
   }
 }

@@ -4,11 +4,13 @@
 //
 // 布局（参照 ChessEndgameListPage 的全屏列表风格）：
 //   AppBar(title: '对局回放库')
-//   body: ListView（整局卡片：标题 / 保存日期 / 手数 / 终局徽标）
+//   body: ListView（整局卡片：标题 / 保存日期 / 手数 / 终局徽标 / 自动徽标）
 //     点击卡片 → push ChessGameReplayPage（离线回放：快照列表选步开始）
 //     trailing 删除按钮（全部为本地条目，均可删）→ 确认弹窗 → delete
 //
 // 与残局库的差异：无内置 assets / 无导入导出（对局记录纯本地产物）。
+// 自动条目（auto=true，终局自动入库）带「自动」徽标，滚动只保留最近
+// kChessGameAutoKeep 局；手动条目永不清理（fr #65）。
 
 import 'package:flutter/material.dart';
 
@@ -150,7 +152,7 @@ class _ChessGameRecordListPageState extends State<ChessGameRecordListPage> {
                             SizedBox(height: 120),
                             Center(
                               child: Text(
-                                '暂无已保存的对局\n在房间终局复盘时点「保存整局」即可入库',
+                                '暂无已保存的对局\n终局后整局自动入库（保留最近 3 局）\n复盘时点「保存整局」可永久保留',
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -221,6 +223,26 @@ class _ChessGameRecordListPageState extends State<ChessGameRecordListPage> {
                     style: TextStyle(
                       fontSize: 10,
                       color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+              if (r.auto) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondary
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '自动',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.colorScheme.secondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

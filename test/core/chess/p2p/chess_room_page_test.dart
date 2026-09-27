@@ -50,7 +50,12 @@ class FakeGameStore extends ChessGameRecordStore {
   Future<List<ChessGameRecord>> loadAll() async => List.of(records);
 
   @override
-  Future<void> save(ChessGameRecord r) async => records.add(r);
+  Future<void> save(ChessGameRecord r) async {
+    // 对齐真实磁盘语义：同 id = 同文件 = 覆写（手动保存"转正"自动条目
+    // 走同 id 重写，fake 必须同样 upsert，否则凭空多出一条）。
+    records.removeWhere((e) => e.id == r.id);
+    records.add(r);
+  }
 }
 
 /// 真实 RelayV3Transport + MockClient（不联网），记录 applyAction 调用。

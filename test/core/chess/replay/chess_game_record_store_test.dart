@@ -9,7 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record.dart';
 import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record_store.dart';
 
-ChessGameRecord _record(String id, {String savedAt = '2026-09-19T15:00:00Z'}) =>
+ChessGameRecord _record(
+  String id, {
+  String savedAt = '2026-09-19T15:00:00Z',
+  bool auto = false,
+}) =>
     ChessGameRecord(
       id: id,
       title: '对局 $id',
@@ -18,6 +22,7 @@ ChessGameRecord _record(String id, {String savedAt = '2026-09-19T15:00:00Z'}) =>
       status: 'resigned',
       roomCode: '777777',
       savedAt: savedAt,
+      auto: auto,
     );
 
 void main() {
@@ -83,6 +88,55 @@ void main() {
 
     test('delete 不存在的 id → 静默成功', () async {
       await store().delete('no-such-id');
+    });
+  });
+
+  group('pruneAuto 滚动清理（自动保存最近三把）', () {
+    test('auto 只留最近 3 局，更旧的 auto 被删；手动条目永不清理', () async {
+      final s = store();
+      // 5 局 auto（savedAt 递增）+ 2 局手动。
+      await s.save(_record('auto-1', savedAt: '2026-09-01T10:00:00Z', auto: true));
+      await s.save(_record('auto-2', savedAt: '2026-09-02T10:00:00Z', auto: true));
+      await s.save(_record('auto-3', savedAt: '2026-09-03T10:00:00Z', auto: true));
+      await s.save(_record('auto-4', savedAt: '2026-09-04T10:00:00Z', auto: true));
+      await s.save(_record('auto-5', savedAt: '2026-09-05T10:00:00Z', auto: true));
+      await s.save(_record('manual-1', savedAt: '2026-08-01T10:00:00Z'));
+      await s.save(_record('manual-2', savedAt: '2026-08-02T10:00:00Z'));
+
+      await s.pruneAuto();
+
+      final ids = (await s.loadAll()).map((e) => e.id).toSet();
+      expect(ids, {'auto-3', 'auto-4', 'auto-5', 'manual-1', 'manual-2'},
+          reason: 'auto 只留最近 3 局；手动条目不受影响');
+    });
+
+    test('不足 keep → 全保留；重复调用幂等', () async {
+      final s = store();
+      await s.save(_record('auto-1', savedAt: '2026-09-01T10:00:00Z', auto: true));
+      await s.save(_record('auto-2', savedAt: '2026-09-02T10:00:00Z', auto: true));
+
+      await s.pruneAuto();
+      await s.pruneAuto();
+
+      final ids = (await s.loadAll()).map((e) => e.id).toSet();
+      expect(ids, {'auto-1', 'auto-2'});
+    });
+
+    test('keep 可覆盖（keep: 1 只留最近 1 局 auto）', () async {
+      final s = store();
+      await s.save(_record('auto-1', savedAt: '2026-09-01T10:00:00Z', auto: true));
+      await s.save(_record('auto-2', savedAt: '2026-09-02T10:00:00Z', auto: true));
+      await s.save(_record('manual-1', savedAt: '2026-08-01T10:00:00Z'));
+
+      await s.pruneAuto(keep: 1);
+
+      final ids = (await s.loadAll()).map((e) => e.id).toSet();
+      expect(ids, {'auto-2', 'manual-1'});
+    });
+
+    test('web → 静默 no-op', () async {
+      final s = ChessGameRecordStore(dirProvider: () async => tmp, isWeb: true);
+      await s.pruneAuto();
     });
   });
 

@@ -402,6 +402,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     if (snap.state == 'ended') {
       if (!_gameOverShown) {
         _gameOverShown = true;
+        // 整局自动入库（fr #65）：终局首次到达即落盘，完全静默
+        // （与手动保存同库；auto 条目滚动只保留最近三局）。
+        unawaited(_autoSaveFinishedGame());
       }
     } else {
       _gameOverShown = false;
@@ -1207,23 +1210,21 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     return raw is List && raw.isNotEmpty;
   }
 
-  /// 进入回放：解析最新快照的全部棋谱 → 一次性重演构建局面子序列 →
-  /// 从终局开始（玩家先退步复盘 —— 标准复盘 UX）。
+  /// 解析服务端权威棋谱 → (合法走法序列, 局面子序列)；无可回放内容 → null。
   ///
-  /// 起点 = 服务端 initial_fen（残局房间从残局局面起演；标准房 null →
-  /// BoardState.initial()）。每手 UCI 与引擎合法走法匹配（from/to/promotion
-  /// 相同者）：匹配拿到的 Move 自带正确 flag（易位 / 吃过路兵 / capturedSquare），
+  /// 起点 = 服务端 initial_fen（残局房间从残局局面起演，黑先残局亦同）；
+  /// 解析失败（畸形 FEN）→ 回退标准开局（防御）。
+  /// 每手 UCI 与引擎合法走法匹配（from/to/promotion 相同者）：
+  /// 匹配拿到的 Move 自带正确 flag（易位 / 吃过路兵 / capturedSquare），
   /// applyMove 依赖 flag 才能正确搬车 / 移除过路兵 —— 直接 Move.fromUci
   /// 的裸 flag 会把王车易位走成"王飞两格、车不动"。
-  /// 匹配失败（畸形 / 与局面脱节的棋谱）→ 防御截断，只回放到此之前。
-  void _enterReplay() {
+  /// 匹配失败（畸形 / 与局面脱节的棋谱）→ 防御截断，只解析到此之前。
+  (List<Move>, List<BoardState>)? _parseServerGameLine() {
     final snap = _snapshot;
-    if (snap == null) return;
+    if (snap == null) return null;
     final rawMoves = snap.context['moves'];
-    if (rawMoves is! List || rawMoves.isEmpty) return;
+    if (rawMoves is! List || rawMoves.isEmpty) return null;
 
-    // 回放起点：残局房间从 initial_fen 起演（黑先残局亦同）；
-    // 解析失败（畸形 FEN）→ 回退标准开局（防御）。
     BoardState start;
     final rawInitial = ChessRoom.initialFen(snap);
     if (rawInitial != null) {
@@ -1263,7 +1264,16 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       moves.add(matched);
       states.add(cur);
     }
-    if (moves.isEmpty) return; // 一手都没解析出来 → 不进回放。
+    if (moves.isEmpty) return null; // 一手都没解析出来 → 无可回放内容。
+    return (moves, states);
+  }
+
+  /// 进入回放：解析最新快照的全部棋谱 → 一次性重演构建局面子序列 →
+  /// 从终局开始（玩家先退步复盘 —— 标准复盘 UX）。
+  void _enterReplay() {
+    final parsed = _parseServerGameLine();
+    if (parsed == null) return;
+    final (moves, states) = parsed;
 
     setState(() {
       _replayMoves = moves;
@@ -1303,10 +1313,59 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     );
   }
 
+  /// 对局记录展示标题（手动 / 自动保存共用）。
+  String _gameRecordTitle(DateTime now) =>
+      '对局 '
+      '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+      '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
+      '${(widget.initialEndgame?.label != null) ? ' · ${widget.initialEndgame!.label}' : ''}';
+
+  /// 从当前快照构建整局记录（手动 / 自动保存共用）；无可回放内容 → null。
+  ChessGameRecord? _buildGameRecord({required bool auto}) {
+    final parsed = _parseServerGameLine();
+    if (parsed == null) return null;
+    final (moves, states) = parsed;
+    final snap = _snapshot;
+    if (snap == null) return null;
+    final now = DateTime.now();
+    return ChessGameRecord(
+      id: 'game-${snap.roomCode}-${now.millisecondsSinceEpoch}',
+      title: _gameRecordTitle(now),
+      initialFen: FenCodec.toFen(states.first),
+      uciMoves: [for (final m in moves) m.toUci()],
+      status: snap.context['status']?.toString() ?? '',
+      roomCode: snap.roomCode,
+      savedAt: now.toUtc().toIso8601String(),
+      auto: auto,
+    );
+  }
+
+  /// 终局自动保存整局到回放库（fr #65「自动保存最近三把」）：
+  ///   · 触发：快照首次进入 ended（双方设备各自落盘本机一份）
+  ///   · 静默：内容已在库（手动存过 / 上次终局已存）→ 跳过；
+  ///     web 端 / 落盘失败 → 吞掉不提示（不打扰对局收尾）
+  ///   · 滚动：auto 条目只保留最近 kChessGameAutoKeep 局，手动条目不受限
+  Future<void> _autoSaveFinishedGame() async {
+    final store = widget.gameRecordStore ?? ChessGameRecordStore();
+    try {
+      final record = _buildGameRecord(auto: true);
+      if (record == null) return; // 零走法 / 棋谱解析不出 → 无可保存内容
+      final key = record.contentKey();
+      final existing = await store.loadAll();
+      if (existing.any((r) => r.contentKey() == key)) return;
+      await store.save(record);
+      await store.pruneAuto();
+    } on Object {
+      // 自动保存完全静默（web UnsupportedError / 磁盘失败都不弹）。
+    }
+  }
+
   /// 保存整局到对局回放库（ChessReplayBar 书签按钮）：
   ///   initialFen = 回放起点 FEN（重演子序列首态；残局房为残局局面）
   ///   uciMoves   = 回放已解析的整局谱（每手已经合法走法匹配校验）
-  /// 幂等：同 initialFen + 同整谱已在库 → 提示不重复落盘（内容级查重）。
+  /// 幂等：同 initialFen + 同整谱已在库 → 提示不重复落盘（内容级查重）；
+  /// 若已存在的是终局自动入库条目 → 手动保存即"转正"（auto→false，
+  /// 不再被滚动清理），反馈按保存成功走。
   Future<void> _saveWholeGame() async {
     if (!_replayMode || _replayMoves.isEmpty) return;
     final snap = _snapshot;
@@ -1314,10 +1373,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final now = DateTime.now();
     final record = ChessGameRecord(
       id: 'game-${snap.roomCode}-${now.millisecondsSinceEpoch}',
-      title: '对局 '
-          '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
-          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
-          '${(widget.initialEndgame?.label != null) ? ' · ${widget.initialEndgame!.label}' : ''}',
+      title: _gameRecordTitle(now),
       initialFen: FenCodec.toFen(_replayStates.first),
       uciMoves: [for (final m in _replayMoves) m.toUci()],
       status: snap.context['status']?.toString() ?? '',
@@ -1326,13 +1382,28 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     );
     final store = widget.gameRecordStore ?? ChessGameRecordStore();
     try {
-      final existing = await store.loadAll();
       final key = record.contentKey();
-      if (existing.any((r) => r.contentKey() == key)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('该局已在回放库中，无需重复保存')),
-        );
+      ChessGameRecord? dup;
+      for (final r in await store.loadAll()) {
+        if (r.contentKey() == key) {
+          dup = r;
+          break;
+        }
+      }
+      if (dup != null) {
+        if (dup.auto) {
+          // 同一局此前由终局自动入库 → 转正为手动条目（同 id 重写）。
+          await store.save(dup.copyWith(auto: false));
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已保存整局（${record.moveCount} 手）到对局回放库')),
+          );
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('该局已在回放库中，无需重复保存')),
+          );
+        }
         return;
       }
       await store.save(record);

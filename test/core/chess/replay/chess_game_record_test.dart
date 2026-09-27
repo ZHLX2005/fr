@@ -75,6 +75,63 @@ void main() {
     });
   });
 
+  group('auto 标记（终局自动入库，fr #65）', () {
+    test('缺省 false；auto: true → encode 写字段 → 往返还原', () {
+      // 缺省：手动保存语义，encode 不写 auto 字段。
+      final manual = ChessGameRecord.tryParse(_sample().encode());
+      expect(manual!.auto, isFalse);
+      expect(manual.encode().contains('"auto"'), isFalse);
+
+      const autoRec = ChessGameRecord(
+        id: 'game-777-1',
+        title: '对局 09-27 14:00',
+        initialFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        uciMoves: ['e2e4'],
+        status: 'resigned',
+        savedAt: '2026-09-27T06:00:00Z',
+        auto: true,
+      );
+      expect(
+        (jsonDecode(autoRec.encode()) as Map<String, dynamic>)['auto'],
+        true,
+        reason: 'auto=true 时 encode 显式写出',
+      );
+      final back = ChessGameRecord.tryParse(autoRec.encode());
+      expect(back!.auto, isTrue);
+    });
+
+    test('auto 字段垃圾值 → 宽松回退 false（不拒解析）', () {
+      final back = ChessGameRecord.tryParse(
+        _mutated((j) => j..['auto'] = 'yes'),
+      );
+      expect(back, isNotNull);
+      expect(back!.auto, isFalse);
+    });
+
+    test('copyWith(auto: false) 转正：其余字段原样保留', () {
+      const autoRec = ChessGameRecord(
+        id: 'game-777-2',
+        title: 't',
+        initialFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        uciMoves: ['e2e4', 'e7e5'],
+        status: 'draw',
+        roomCode: '777',
+        savedAt: '2026-09-27T06:00:00Z',
+        auto: true,
+      );
+      final promoted = autoRec.copyWith(auto: false);
+      expect(promoted.auto, isFalse);
+      expect(promoted.id, autoRec.id);
+      expect(promoted.title, autoRec.title);
+      expect(promoted.initialFen, autoRec.initialFen);
+      expect(promoted.uciMoves, autoRec.uciMoves);
+      expect(promoted.status, autoRec.status);
+      expect(promoted.roomCode, autoRec.roomCode);
+      expect(promoted.savedAt, autoRec.savedAt);
+      expect(promoted.contentKey(), autoRec.contentKey());
+    });
+  });
+
   group('ChessGameRecord.tryParse 防御', () {
     test('坏 JSON → null', () {
       expect(ChessGameRecord.tryParse('{not json'), isNull);

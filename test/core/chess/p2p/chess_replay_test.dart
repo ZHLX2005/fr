@@ -25,6 +25,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/core/chess/chess.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_room_page.dart';
+import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record.dart';
+import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record_store.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_replay_bar.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
@@ -116,6 +118,30 @@ class FakeRoomHandle extends RoomHandle {
   Future<void> leave() async {
     left = true;
   }
+}
+
+/// 内存版整局记录 store —— testWidgets 的 FakeAsync zone 里 await 真实
+/// 文件 IO 会挂死（同 chess_game_record_list_page_test 的 _FakeStore 理由）。
+/// 语义对齐磁盘：同 id 覆写（同毫秒 id 冲突时表现为合并，测试只断言
+/// 「auto ≤ 窗口 + 最新局在场」这类对合并鲁棒的不变量）。
+class _FakeRecordStore extends ChessGameRecordStore {
+  _FakeRecordStore() : super(isWeb: false);
+
+  final List<ChessGameRecord> records = [];
+
+  @override
+  Future<List<ChessGameRecord>> loadAll() async =>
+      List.of(records)..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+
+  @override
+  Future<void> save(ChessGameRecord r) async {
+    records.removeWhere((e) => e.id == r.id);
+    records.add(r);
+  }
+
+  @override
+  Future<void> delete(String id) async =>
+      records.removeWhere((e) => e.id == id);
 }
 
 /// 生成一份快照（同 chess_room_page_test 的 makeSnapshot）。
@@ -215,8 +241,8 @@ void main() {
     );
   }
 
-  /// host widget 包装（600x600 可点棋盘）。
-  Widget host(FakeRoomHandle handle) {
+  /// host widget 包装（600x600 可点棋盘；store 注入测自动保存）。
+  Widget host(FakeRoomHandle handle, {_FakeRecordStore? store}) {
     ChessSkinBundle.registerHardcoded();
     return MaterialApp(
       home: Scaffold(
@@ -224,7 +250,7 @@ void main() {
           child: SizedBox(
             width: 600,
             height: 600,
-            child: ChessRoomPage(handle: handle),
+            child: ChessRoomPage(handle: handle, gameRecordStore: store),
           ),
         ),
       ),
@@ -527,5 +553,145 @@ void main() {
     expect(find.text('认输'), findsOneWidget);
     expect(find.text('复盘'), findsNothing, reason: '无走法对局没有回放内容');
     expect(find.widgetWithText(OutlinedButton, '返回'), findsOneWidget);
+  });
+
+  testWidgets('终局 → 整局自动入库（auto 标记 + 静默，无重复落盘）', (tester) async {
+    final store = _FakeRecordStore();
+    final handle = makeHandle(host: true);
+    await tester.pumpWidget(host(handle, store: store));
+    await tester.pump();
+
+    // 终局快照到达（无需进复盘）→ 自动入库。
+    pushEndedGame(handle, gameLine);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(store.records, hasLength(1), reason: '终局即自动保存，无需手动');
+    final r = store.records.single;
+    expect(r.auto, isTrue);
+    expect(r.roomCode, '999999');
+    expect(r.status, 'checkmate');
+    expect(r.uciMoves, gameLine);
+    // 完全静默：不弹任何 SnackBar。
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.textContaining('自动保存'), findsNothing);
+
+    // 同一终局快照重推（连接抖动场景）→ 终局覆盖层已显示过 → 不再触发，不重复入库。
+    pushEndedGame(handle, gameLine);
+    await tester.pump();
+    await tester.pump();
+    expect(store.records, hasLength(1), reason: '重复终局快照不重复落盘');
+  });
+
+  testWidgets('零走法终局（立刻投降）→ 不自动入库', (tester) async {
+    final store = _FakeRecordStore();
+    final handle = makeHandle(host: true);
+    await tester.pumpWidget(host(handle, store: store));
+    await tester.pump();
+
+    handle.pushSnapshot(
+      makeSnapshot(
+        code: '999999',
+        fen: kStartingFen,
+        status: 'resigned',
+        state: 'ended',
+        hostId: 'd-host',
+        guestId: 'd-guest',
+        winner: 'd-guest',
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(store.records, isEmpty, reason: '无可回放内容 → 不入库');
+  });
+
+  testWidgets('自动入库后手动保存同一局 → 转正（auto→false）', (tester) async {
+    final store = _FakeRecordStore();
+    final handle = makeHandle(host: true);
+    await tester.pumpWidget(host(handle, store: store));
+    await tester.pump();
+
+    // 终局 → 自动入库（auto=true）。
+    pushEndedGame(handle, gameLine);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(store.records.single.auto, isTrue);
+
+    // 进复盘点「保存整局到对局库」→ 命中同内容自动条目 → 转正。
+    await tester.tap(find.widgetWithText(OutlinedButton, '复盘'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('保存整局到对局库'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(store.records, hasLength(1), reason: '转正是同一条目的原地改写');
+    expect(store.records.single.auto, isFalse, reason: '手动保存后不再被滚动清理');
+    expect(find.text('已保存整局（4 手）到对局回放库'), findsOneWidget);
+
+    // ScaffoldMessenger 是队列制（同时只演一条）：喂足假时钟让第一条走完
+    // 入场（计时器在入场完成后才启动）→ 4s 停留 → 退场，清空队列。
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('已保存整局（4 手）到对局回放库'), findsNothing);
+
+    // 再点一次 → 已是手动条目 → 提示无需重复保存。
+    await tester.tap(find.byTooltip('保存整局到对局库'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('该局已在回放库中，无需重复保存'), findsOneWidget);
+    expect(store.records.single.auto, isFalse);
+  });
+
+  testWidgets('连打四局 → 自动条目滚动只留最近三局', (tester) async {
+    final store = _FakeRecordStore();
+    final handle = makeHandle(host: true);
+    await tester.pumpWidget(host(handle, store: store));
+    await tester.pump();
+
+    // 第 1 局：直接推终局快照 → 自动入库。
+    pushEndedGame(handle, const ['e2e4', 'e7e5', 'g1f3', 'b8c6']);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    // 之后每局：host 再来一局（RESET）→ 回 playing → 推下一局终局。
+    Future<void> nextGame(List<String> ucis) async {
+      await tester.tap(find.widgetWithText(FilledButton, '再来一局'));
+      await tester.pump();
+      handle.pushSnapshot(
+        makeSnapshot(
+          code: '999999',
+          fen: kStartingFen,
+          status: 'playing',
+          state: 'playing',
+          hostId: 'd-host',
+          guestId: 'd-guest',
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      pushEndedGame(handle, ucis);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await nextGame(const ['d2d4', 'd7d5']);
+    await nextGame(const ['c2c4', 'c7c5', 'b1c3']);
+    await nextGame(const ['g1f3', 'g8f6']);
+
+    // 不变量（对同毫秒 id 合并鲁棒）：auto 条目不超过窗口数，且最新一局在场。
+    final autos = store.records.where((r) => r.auto).toList();
+    expect(autos.length, lessThanOrEqualTo(kChessGameAutoKeep));
+    expect(
+      autos.any((r) => r.uciMoves.join(',') == 'g1f3,g8f6'),
+      isTrue,
+      reason: '最新一局必被保留',
+    );
   });
 }

@@ -16,7 +16,11 @@ import 'package:xiaodouzi_fr/core/chess/replay/chess_game_replay_page.dart';
 const String _kStartFen =
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-ChessGameRecord _record(String id, {String status = 'checkmate'}) =>
+ChessGameRecord _record(
+  String id, {
+  String status = 'checkmate',
+  bool auto = false,
+}) =>
     ChessGameRecord(
       id: id,
       title: '对局 $id',
@@ -25,6 +29,7 @@ ChessGameRecord _record(String id, {String status = 'checkmate'}) =>
       status: status,
       roomCode: '999999',
       savedAt: '2026-09-19T15:19:54Z',
+      auto: auto,
     );
 
 /// 内存 fake store —— testWidgets 的 FakeAsync zone 里 await 真实文件 IO
@@ -75,6 +80,21 @@ void main() {
   testWidgets('空库 → 空态提示', (tester) async {
     await pumpPage(tester, _FakeStore());
     expect(find.textContaining('暂无已保存的对局'), findsOneWidget);
+    expect(find.textContaining('自动入库'), findsOneWidget,
+        reason: '空态提示说明终局自动入库语义');
+  });
+
+  testWidgets('自动条目 → 「自动」徽标；手动条目不显示', (tester) async {
+    final store = _FakeStore()
+      ..records.addAll([
+        _record('game-auto', auto: true),
+        _record('game-manual'),
+      ]);
+
+    await pumpPage(tester, store);
+
+    expect(find.text('自动'), findsOneWidget,
+        reason: '只有 auto=true 的条目带自动徽标');
   });
 
   testWidgets('点卡片 → push ChessGameReplayPage（默认从终局开始）', (tester) async {

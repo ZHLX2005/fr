@@ -89,6 +89,26 @@ class ChessGameRecordStore {
     }
   }
 
+  /// 自动保存条目滚动清理（fr #65「自动保存最近三把」）：
+  /// 按 savedAt 倒序只保留最近 [keep] 条 auto 记录，更旧的 auto 逐个删除；
+  /// 手动保存（auto=false）永不清理。幂等，全防御（失败静默，下次再试）。
+  Future<void> pruneAuto({int keep = kChessGameAutoKeep}) async {
+    if (isWeb) return;
+    try {
+      // loadAll 已按 savedAt 倒序（新的在前），顺序数到 keep 之外的 auto 删掉。
+      var seen = 0;
+      for (final r in await loadAll()) {
+        if (!r.auto) continue;
+        seen++;
+        if (seen > keep) {
+          await delete(r.id);
+        }
+      }
+    } on Object {
+      // 清理失败 → 静默（不阻塞保存主流程，下次自动保存再补）。
+    }
+  }
+
   Future<Directory> _ensureLocalDir() async {
     final docs = await dirProvider();
     final dir = Directory('${docs.path}/$kLocalDirName');
