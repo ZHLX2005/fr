@@ -4,8 +4,10 @@
 // 防止装饰清理/结构改动引入运行时布局异常（analyze 查不出来）。
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import 'package:xiaodouzi_fr/lab/demos/tetris_lua/board.dart';
 import 'package:xiaodouzi_fr/lab/demos/tetris_lua/constants.dart';
 import 'package:xiaodouzi_fr/lab/demos/tetris_lua/widgets.dart';
 
@@ -87,6 +89,19 @@ void main() {
     // 对手栏
     expect(find.text('对手'), findsOneWidget);
     expect(find.text('80 · L0'), findsOneWidget);
+
+    // 棋盘必须以正常 10:20 比例渲染出来（防止与背景融色/尺寸塌陷回归）。
+    // 两个 TetrisBoardView：对手迷你井(32宽) + 主棋盘，取较大者。
+    final boxes =
+        tester.renderObjectList<RenderBox>(find.byType(TetrisBoardView));
+    expect(boxes.length, 2);
+    final main = boxes.reduce(
+      (a, b) => a.size.width > b.size.width ? a : b,
+    );
+    expect(main.size.width, greaterThan(100), reason: '棋盘宽度不能塌陷');
+    expect(main.size.height, greaterThan(200), reason: '棋盘高度不能塌陷');
+    expect(main.size.width / main.size.height, closeTo(0.5, 0.02),
+        reason: '棋盘必须保持 10:20');
 
     // 模拟按键操作不抛异常
     await tester.tap(find.text('左旋'));

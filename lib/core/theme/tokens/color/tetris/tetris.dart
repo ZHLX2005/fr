@@ -18,8 +18,8 @@ class TetrisColors {
   /// 棋盘井底（Ash 中灰纯色，跨主题锁定，无渐变）
   static const Color pieceBackground = Color(0xFF3A414C);
 
-  /// 网格线（白 @ ~7%）
-  static const Color pieceGridLine = Color(0x12FFFFFF);
+  /// 网格线（白 @ ~12%；7% 在中灰井上几乎不可读，12% 保证格线可辨）
+  static const Color pieceGridLine = Color(0x1FFFFFFF);
 
   /// 7 方块糖果识别色（按 kPieceI..kPieceL 索引 1..7，跨主题锁定）
   static const Map<int, Color> pieceColors = {

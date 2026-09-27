@@ -46,8 +46,8 @@ void main() {
       expect(TetrisColors.pieceBackground, const Color(0xFF3A414C));
     });
 
-    test('pieceGridLine = white @ ~7% alpha (0x12 ≈ 18/255)', () {
-      expect(TetrisColors.pieceGridLine, const Color(0x12FFFFFF));
+    test('pieceGridLine = white @ ~12% alpha (0x1F ≈ 31/255)', () {
+      expect(TetrisColors.pieceGridLine, const Color(0x1FFFFFFF));
     });
 
     test('cellHighlight = white @ 50% alpha (0x80 ≈ 128/255)', () {

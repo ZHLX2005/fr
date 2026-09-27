@@ -752,13 +752,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  /// 中间对局区：Row stretch + 棋盘自适配；Ash 底保证槽位非空时可见。
+  /// 中间对局区：Row stretch + 棋盘自适配。
+  /// 背景垫必须用深色 _cBg：棋盘井是 Ash 中灰 #3A414C，垫色相同会
+  /// 让棋盘与四周融成一整块灰（去装饰后无辉光区分，视觉上"看不到棋盘"）。
   Widget _buildPlayArea(TetrisEngine eng, TetrisPlayerState? opp) {
     return Stack(
       clipBehavior: Clip.hardEdge,
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: Color(0xFF3A414C)),
+        const ColoredBox(color: _cBg),
         Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1022,12 +1024,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Widget _buildControls() {
     final dead = _engine != null && !_engine!.alive;
     // proto：左右两半并排，六键各约 1/6 屏宽。
+    // 两个半区 Column 必须 mainAxisSize=min：Scaffold 给 bottomNavigationBar
+    // 的约束是有界的（0..全屏），max 会让 Column 撑满全屏、把 body 压成 0 高
+    // （棋盘 h=0 → 'NO SPACE'，整个对局界面只剩按钮）。
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
       child: Row(
             children: [
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _ctrlHalfLabel('MOVE', '⟳ hold'),
@@ -1060,6 +1066,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               const SizedBox(width: 6),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _ctrlHalfLabel('ACTION', 'tap'),
