@@ -30,7 +30,7 @@ references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模�
 | A01 | Flutter-fr路由-注册规范与防腐蚀 | **加新页面 / 写 fr:// 跳转 / 加 MethodChannel / 提交前自查腐蚀时** |
 | A02 | Flutter-自定义Scheme路由中心化-fr-Router | **改 fr:// 路由 / 重构路由系统 / 理解路由设计原理时** |
 | A03 | Flutter-Lab容器-模块结构与重构模式 | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时** |
-| A04 | Flutter-TimePage-Focus时间模块完整指南 | **改中间 Time tab 任何文件 / 改 timePage 标记 / kTimePageMeta / 心流空间 / FocusStatsPage / Lab timePage 过滤 / 桌面 widget 深链时**（整 time 模块单一长 ref：架构 + 4 章 + 4 错误案例） |
+| A04 | Flutter-TimePage-Focus时间模块完整指南 | **改中间 Time tab 任何文件 / 改 timePage 标记 / kTimePageMeta / 心流空间 / Lab timePage 过滤 / 桌面 widget 深链时**（整 time 模块单一长 ref：架构 + 4 章 + 3 错误案例） |
 | A05 | Flutter-游戏中心-扩展游戏路线 | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑） |
 | A06 | Flutter-Demo-slug别名与Tab合并SOP | **给 demo 加别名 slug（旧 URL 兼容）/ 合并多个相关 demo 为统一 Tab 容器时** |
 | B01 | Flutter-Provider双重实例冲突-时钟wipe后数据恢复 | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时** |
@@ -83,10 +83,3 @@ native目录:
 1. 完成之后先检查编译是否成功
 2. 检查相关配置是否真正实现,尤其是安卓原生项目的权限配置 —— 每次添加新依赖,确认是否需要在安卓当前配置对应权限或通信通道
 3. 竭尽全力避免溢出问题
-
-### [2026-09-27] key_board 操作教训
-
-| 错误操作 | 实际后果 | 正确做法 |
-|---------|---------|---------|
-| ref 序列化时自创子目录（A-扩展SOP/ B-问题与方案/） | 与「扁平 + A01 前缀」预期不符，返工两次 | 序列化 = 扁平文件名前缀，序列信息由主文档「序列总览 + 代号列」承载，key_board 无子目录概念 |
-| 重命名后只修带 .md 的路径引用 | `[[裸名]]` 和正文裸名提法漏网 9 处 | 全量盘点：grep 技术前缀名再排除已带序号的行，覆盖 wiki-link 与裸名后一次改完 |

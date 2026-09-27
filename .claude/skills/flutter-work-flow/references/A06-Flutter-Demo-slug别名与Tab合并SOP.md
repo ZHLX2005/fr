@@ -2,7 +2,7 @@
 
 > 何时读：要给某个 demo 注册多个 fr:// slug 别名（旧 URL 兼容）时、或要把多个相关 demo 合并为统一 Tab 容器时。
 >
-> 背景：2026-07 已把 `kDemoSlugs` 全局表迁为 `DemoPage.slug` abstract 字段——slug 与 demo 同文件 co-located、漏写编译期报错，全局 map 已删除。迁移史不再保留，本 ref 只留仍可复用的两个 SOP。
+> 背景：`DemoPage.slug` 是 abstract 字段，slug 与 demo 同文件 co-located，漏写编译期报错；全局 `kDemoSlugs` map 不存在。
 
 ---
 
@@ -151,7 +151,7 @@ rm lib/lab/demos/rive_pendulum_demo.dart \
 
 ## 踩坑记录
 
-### 坑 2：flutter analyze exit code 误判
+### 坑 1：flutter analyze exit code 误判
 
 ```bash
 flutter analyze 2>&1 | grep -E "^\s+error"
@@ -167,26 +167,7 @@ flutter analyze 2>&1 | tail -3                     # 看最后一行总结
 `flutter analyze` 在 **0 issue 时** 退出码 = 0，**有 issue 时** 退出码 = 1（但仍打印 issue 详情）。
 真正想「只看 issue」应该用 `grep -E " error | warning "` 拿 issue 行。
 
-### 坑 3：`.gitignore` 拒绝 add 已追踪文件
-
-本项目 `.gitignore` 写：
-```
-test/*
-!test/core/
-!test/core/localnet/
-```
-
-意图：`test/lab/` 是本地实验，不入版本库。
-但已存在的 `test/lab/demo_slug_test.dart` **不受影响**（gitignore 只忽略未追踪文件）。
-
-**判断文件是否被 ignore**：
-```bash
-git check-ignore -v <file>
-# exit 0 + 打印规则 = 被忽略
-# exit 1 = 不被忽略（已追踪 或 不匹配规则）
-```
-
-### 坑 4：slug 测试只检查长度下限不检查上限
+### 坑 2：slug 测试只检查长度下限不检查上限
 
 之前：
 ```dart

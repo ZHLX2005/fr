@@ -257,7 +257,7 @@ flutter analyze lib/core/focus/focus_home_page.dart
 
 > 改主页布局不在本章 —— 走第三章。
 
-### 当前模型契约（2026-07-29 `c0039ae8` 提交后）
+### 当前模型契约
 
 `FocusSession` 字段（**subjectId 已删除**）：
 - `id`, `durationMinutes`, `startTime`, `endTime`
@@ -314,7 +314,7 @@ Widget _buildModeDistribution(FocusProvider fp) { ... }
 | `FocusTimerProvider` 与 `FocusProvider` 各开一套聚合 | 数据双源 | 聚合只在 `FocusProvider` |
 | 改 `_timerStartTime` 但不更新 `_restoreTimerState` | cold-start 后计时跳秒 | 改一处必改对称的另一处（见兄弟 ref `B01-Flutter-Provider双重实例冲突-时钟wipe后数据恢复`）|
 | 在 Stats 页加 ListView 不限高度 | 无限列表 + 外层 SingleChildScrollView → 渲染卡死 | 限制 height / `shrinkWrap + NeverScrollableScrollPhysics` |
-| 跨 await 用 builder `context` 不 re-guard | 「BuildContext 跨 async 空隙」lint（cad94527 教训）| 捕获 / re-guard 详见底部错误案例 |
+| 跨 await 用 builder `context` 不 re-guard | 「BuildContext 跨 async 空隙」lint（BuildContext 跨 await 教训）| 捕获 / re-guard 详见底部错误案例 |
 
 ### 测试矩阵
 
@@ -406,29 +406,15 @@ flutter test test/lab/demo_slug_test.dart && echo OK
 
 ---
 
-## 错误案例（沉淀，按发现日期倒序）
+## 错误案例（含修法）
 
-### [2026-07-29] 拆 4 个 ref 过度优化教训（key_board_3）
-
-**错误操作**：第一次重构把 time 模块拆成 4 个独立 ref 文件（新增 / 改面板 / 统计扩展 / Lab 过滤）。
-
-**实际后果**：用户反馈「ref 太少了，不要字数分割」——违反 key_board_3 主旨，「ref 是特化场景指导，不是为了拆而拆」。4 个 ref 内章节相互引用，反而定义凌乱（`DemoPage.timePage` / `kTimePageMeta` 等抽象在 4 个 ref 都出现）。
-
-**正确做法**：保留单一长 ref，按主题内章节（同主题下 4 个不同方面）组织 —— key_board_3 的「主题才是判据」原则。同主题内的不同方面应该在一个文档里用章节组织，用锚点跳转，而不是分文件。
-
-### [2026-07-29] `cad94527` BuildContext 跨 await 教训
+### BuildContext 跨 await 教训
 
 `focus_timer_page.dart`「完成」按钮 onTap 在 `_showEndConfirmDialog` 闭包里使用 builder context 跨 await 调用 `_showCompletionDialog(context, ...)` —— Dart 分析器报「BuildContext 跨异步空隙，mounted 守卫不匹配（State.context vs builder context）」。
 
 **修法**：在 await **之前**捕获 `focusProvider`，await 之后调 `_showCompletionDialog(session)` 委托给 State method，State method 内用 `this.context`（State.context 在 mounted 守卫下合法）。
 
-### [2026-07-29] `c0039ae8` Lab 过滤初次集成
-
-第一次集成 `timePage` 过滤时把过滤写成 `e.value.type != DemoType.time`（假设新加 enum 值）。**根因**：与 `DemoType.game` 误平行——以为 time 也要新 enum 值。task 4 改用 `bool get timePage` 字段（与 type 正交），改完测试才反应过来。
-
-**正确做法**：过滤写 `!e.value.timePage`（bool 字段判断），**不要新增 `DemoType.time` enum 值**。如果业务演化让 time 必须有子类，再加 enum 值并保留 `timePage: true` 字段做兼容。
-
-### [2026-07-29] c0039ae8 提交 SharedPreferences string/int 误用
+### SharedPreferences fixture int/string 误用
 
 `FocusTimerProviderTest` 测试 fixture 写 `'focus_timer_state': '0'`（字符串），但 `prefs.getInt()` 返回 null，导致 5 个测试全挂。SharedPreferences mock 对 `getInt` 严格要求 int 值。
 

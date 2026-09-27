@@ -1,24 +1,6 @@
 # Flutter 自定义 Scheme 路由中心化（fr:// Router）
 
-## 项目背景
-
-小豆子 FR 项目里 `fr://` 内部 URL 处理分散在 5 个模块（文本链接、MethodChannel 反注册、桌面 widget、demo 反注册、内部代码），每加一个核心页要改 3 处，逻辑重复且不统一。本次重构收敛到 `lib/core/schema/` 一个注册中心。
-
-## 关键难点和技术点
-
-### 问题根因：5 处入口不一致
-
-| 位置                                                 | 行为                                                                                | 痛点                                                                 |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `schema_service.dart`                              | `_registerCorePages()` 硬编码 4 个 core page                                      | 与`schema_navigator.dart` switch case 重复                         |
-| `schema_navigator.dart`                            | 4 个 if/else + 4 个 switch case；`setNavigatorKey` 静态全局                       | 加新核心页要改 2 处                                                  |
-| `main.dart`                                        | 4 个`_navigateToXxx` 平行存在；硬编码 demo key `'Notion 图床'` / `'日历待办'` | 与 schema 层平行存在                                                 |
-| `lab/demos/*_demo.dart`                            | 36 个 demo 用`demoRegistry.register(WidgetClass())`                               | demo key 与 fr:// 路由映射在`SchemaRegistry.discover()` 里二次生成 |
-| `message_strategy/text_link_message_strategy.dart` | 复用`SchemaText`，依赖 SchemaNavigator                                            | 链路长、错位难追                                                     |
-
-**核心矛盾**：同一个"路由"概念，被 5 处不同代码独立实现，新增/修改都要改多处。
-
-### 解决方案：单注册中心 + 强类型 Handler
+## 解决方案：单注册中心 + 强类型 Handler
 
 ```
 lib/core/schema/
@@ -43,7 +25,7 @@ lib/core/schema/
 
 ## ⚠️ Critical 设计陷阱：FrUri 拆 host 还是 authority
 
-这是本次重构**最深的坑**，差点让整套嵌套路由失效。
+这是嵌套路由**最深的坑**，差点让整套嵌套路由失效。
 
 ### NOK Example（错误拆法 — host 取第一个 `/` 前）
 
@@ -154,7 +136,7 @@ static String _safeDecode(String s) {
 **2. ASCII slug 规范**（根治 — URL 不含中文）：
 
 demo 用英文 slug 作 URL key（`fr://lab/demo/clock`），中文 title（`时钟`）仅作显示文字。
-slug 通过 `DemoPage.slug` abstract getter 强制每个 demo 子类自带（**不再用** `kDemoSlugs` 全局表，2026-07 已抽象化）。
+slug 通过 `DemoPage.slug` abstract getter 强制每个 demo 子类自带（全局 `kDemoSlugs` map 不存在；旧 slug 通过别名机制兼容）。
 历史 slug 通过 `demoRegistry.register(demo, key: alias)` 别名机制兼容。详见 [[A06-Flutter-Demo-slug别名与Tab合并SOP]] 与规范 ref「命名约定」。
 
 ### 测试教训
@@ -310,7 +292,7 @@ void registerAllFrRoutes() {
 
 ## MethodChannel 反注册 → fr:// URL 翻译
 
-main.dart 原本有 4 个 `_navigateToXxx` 方法处理桌面 widget 的 MethodChannel 反注册。重构后合并为一个 switch：
+main.dart 用一个 switch 分发桌面 widget 的 MethodChannel 反注册（统一翻译成 `fr://...` URL 后走 `FrNavigator.handle`）：
 
 ```dart
 Future<dynamic> _handleMethodCall(MethodCall call) async {
@@ -404,7 +386,7 @@ nav.push(...);
 **失效场景**：点时钟 widget → `[Main, Clock]`；点日历 widget → `[Main, Clock, Calendar]`；再点时钟 → 旧逻辑看栈顶是 Calendar ≠ Clock → 又 push → `[Main, Clock, Calendar, Clock]`……栈无限累加，返回键在重复页之间循环，根页面无法直接退出。CLEAR_TOP 把"是否已在栈中"扩到任意深度，根治累加。
 
 **教训**：
-1. 重构 Navigator 相关代码时，**防重复 push 保护是隐性合约**——单元测试很难覆盖（需 widget 测试模拟多次 MethodCall），code review 要专门检查 push 路径的去重逻辑。
+1. **防重复 push 保护是隐性合约**——单元测试很难覆盖（需 widget 测试模拟多次 MethodCall），code review 要专门检查 push 路径的去重逻辑。
 2. 去重判断范围要覆盖**全栈**而非仅栈顶，否则"交替点击 / 嵌套导航"会绕过去重。
 
 ---
@@ -444,26 +426,6 @@ nav.push(...);
 
 ---
 
-## 迁移策略（一次性彻底）
-
-| 当前                                                        | 新                                                            |
-| ----------------------------------------------------------- | ------------------------------------------------------------- |
-| `SchemaNavigator.navigateToCorePage` switch               | `LabCoreHandler` 处理 lab/core/*                            |
-| `SchemaNavigator.navigateToDemo` demoRegistry 查询        | `LabDemoHandler` 处理 lab/demo/*                            |
-| `SchemaNavigator.navigateToLab`                           | `LabIndexHandler` 处理 fr://lab                             |
-| `main.dart._navigateToLab/Calendar/Timetable/NotionImage` | 4 个 MethodChannel handler →`FrNavigator.handle(fr://...)` |
-| `notion_image_host_demo.dart`                             | 保留 demo 注册，同时注册`fr://notion/image-host`            |
-
-**删除清单**（老 API 全部下线）：
-
-- `schema_service.dart`（SchemaRoutes / SchemaRegistry / schemaRegistry）
-- `schema_navigator.dart`（SchemaNavigator）
-- `schema_parser.dart`（autoLink 逻辑搬到 schema_text.dart 私有方法）
-
-**保留**：`lib/lab/lab_container.dart` 的 `DemoRegistry` / `demoRegistry` —— 是 lab 模块基础设施，被 36 个 demo 文件直接调用，与 fr:// 路由无强耦合。`LabDemoHandler` 仅作为消费者通过 `demoRegistry.get(key)` 查询。
-
----
-
 ## 经验总结
 
 | 教训                                                                         | 应用场景                                             |
@@ -473,13 +435,11 @@ nav.push(...);
 | 路由测试必须断言具体 handler 类型，不能只断言非 null                         | 路由 / 分发 / 策略模式系统的测试                     |
 | query string 工具方法（queryBool/queryString/pathSegment）放 FrRouteMatch 上 | 需要传参的 deep link 场景                            |
 | MethodChannel 反注册可翻译成内部 URL，统一分发链路                           | Flutter 与 native 桥接的路由统一                     |
-| 防重复 push 是隐性合约，重构 Navigator 时要专门检查                          | 任何涉及多次 push 的入口（widget 回调、onNewIntent） |
+| 防重复 push 是隐性合约，Navigator 改动时要专门检查                          | 任何涉及多次 push 的入口（widget 回调、onNewIntent） |
 
 ---
 
 ## 相关文件
 
-- Spec: `docs/superpowers/specs/2026-07-03-fr-url-router-design.md`
-- Plan: `docs/superpowers/plans/2026-07-03-fr-url-router.md`
 - 核心实现：`lib/core/schema/fr_*.dart` + `lib/core/schema/handlers/*.dart`
 - 测试：`test/core/schema/{fr_uri,fr_router,fr_route_handler,migration}_test.dart`（41 个 case）

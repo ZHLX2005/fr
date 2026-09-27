@@ -1,5 +1,7 @@
 # Flutter Hive TypeAdapter Part文件CI构建失败问题
 
+> **现状（2026-09 核对）**：项目已迁移回官方生成方案——`hive_generator + build_runner` 生成 `body_record.g.dart`（含 GENERATED 的 `BodyRecordAdapter`）。本 ref 保留为「CI 构建失败排障案例」：核心价值是根因分析方法（本地过 ≠ CI 过 → 环境差异 → 简化架构优先），不是当前做法。
+
 ## 问题概述
 
 **场景**: Flutter项目中使用`part`文件机制分离Hive的`TypeAdapter`生成代码,在本地开发正常,但CI构建(Android APK)反复失败。
@@ -160,7 +162,7 @@ dev_dependencies:
 ```
 **何时适用**: 项目规模较大,多个Hive模型需要统一管理。需要在CI中确保`flutter pub run build_runner build`正确执行。
 
-### 方案2: 手工实现TypeAdapter(当前采用)
+### 方案2: 手工实现TypeAdapter（当时采用，后迁移回方案1）
 **适用场景**: 模型数量较少(<10个),不想引入额外的代码生成依赖。
 
 ### 方案3: 使用Isar替代Hive
@@ -193,6 +195,6 @@ dev_dependencies:
 ## 相关文件
 
 - `lib/core/body/models/body_record.dart` — 修复后的文件
-- `lib/core/body/models/body_record_repo.dart` — Hive Repository
+- `lib/core/storage/hive/body_record_repository.dart` — Hive Repository（`BodyRecordRepository implements HiveRepository`）
 - `.github/workflows/build-apk.yml` — CI配置文件
 - Commit: `3404292` — fix(body): 合并BodyRecordAdapter到主文件,解决CI构建问题

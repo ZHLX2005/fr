@@ -27,7 +27,7 @@ GameGridCard / GameFeaturedCard → gameMetaOf(demo.slug) → GameArtwork
 常量层按 **slug** 判归属（不 `is DemoClass`），所以 `const_game_center.dart`
 零依赖任何 demo 实现——加删游戏不动 import 图。
 
-## 封面三级来源（按优先级自动降级，2026-09-05 接入皮肤管线）
+## 封面三级来源（按优先级自动降级）
 
 | 级 | 来源 | 谁设置 | 落点 |
 |---|---|---|---|
@@ -98,4 +98,4 @@ dart run tool/publish_game_center_index.dart
 | 收藏/背景 key 用 title | 改 demo 标题 = 用户收藏与自定义封面静默丢失 | 已知债务，改 provider 前先看 |
 | 别名 slug 重复渲染 | 一 demo 多 slug → 列表重复卡片 | page 已按实例去重；新代码别绕过去重直接用 getAll() |
 | 联机游戏不进精选 | `isOnline` 看 categories 是否含 multiplayer | 精选 = `_games.where(isOnline)`，本地游戏不进 |
-| 新游戏漏 catalog 登记 | fr 端卡片正常显示（灰兜底、不报错），但 ve 管理端「游戏封面」看不到 → 无法分配远程封面（2026-09-24 数独回归） | 已双向拦截：`GameCenterPage` debug 断言 + `test/lab/game_center_catalog_test.dart`；登记后必须重跑发布脚本 |
+| 新游戏漏 catalog 登记 | fr 端卡片正常显示（灰兜底、不报错），但 ve 管理端「游戏封面」看不到 → 无法分配远程封面 | 已双向拦截：`GameCenterPage` debug 断言 + `test/lab/game_center_catalog_test.dart`；登记后必须重跑发布脚本 |

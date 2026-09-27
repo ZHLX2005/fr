@@ -3,8 +3,6 @@
 > 何时读：改 `lib/screens/profile/lab/` 下任何文件（Lab 页 / 下拉收藏面板 / 游戏中心 / demo 卡片）、
 > 或要给别的"重手势 + 重动画"页面做同类性能/结构优化时。
 >
-> 背景：2026-07 该目录从「lab_page.dart + 4 个 part 文件互相咬合」重构为 import 模块。
-> 四个提交：ValueNotifier 双通道 → 手势收敛 → part 拆模块 → 共享件抽取。
 
 ---
 

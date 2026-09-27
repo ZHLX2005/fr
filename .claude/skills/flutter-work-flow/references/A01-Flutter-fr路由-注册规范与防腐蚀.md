@@ -162,7 +162,7 @@ flutter test test/lab/demo_slug_test.dart
 
 **Demo 路由专属**（`fr://lab/demo/{slug}`）：
 
-- [ ] 新 demo 的 slug 已在子类文件 `@override String get slug => 'xxx';` 声明（**不再**用 `kDemoSlugs` 全局表，slug 抽象化后该表已删除）
+- [ ] 新 demo 的 slug 已在子类文件 `@override String get slug => 'xxx';` 声明（无 `kDemoSlugs` 全局表）
 - [ ] slug 必须纯 ASCII（小写字母/数字/连字符），与中文 title 同文件 co-located
 - [ ] URL 用 slug 不用 title（`fr://lab/demo/clock` ✅，`fr://lab/demo/时钟` ❌ 会崩溃）
 - [ ] `test/lab/demo_slug_test.dart` 跑通（断言 slug 纯 ASCII + 别名一致性）
@@ -194,7 +194,7 @@ onTap: () {
 onTap: () => FrNavigator.handle(context, link);
 ```
 
-**为什么错**：这又把路由分发逻辑搬回 widget 层，正是本次重构要消除的腐蚀。新增路由时 widget 这里要改，路由表也失真。
+**为什么错**：这又把路由分发逻辑搬回 widget 层，正是路由系统要消除的腐蚀。新增路由时 widget 这里要改，路由表也失真。
 
 ### NOK 2：MethodChannel 直接连页面
 
@@ -248,7 +248,7 @@ test('fr://lab/demo/clock resolves to LabDemoHandler', () async {
 });
 ```
 
-**为什么错**：本次重构的 critical bug（host 拆分错误导致嵌套路由全失效）就是藏在"只断言非 null"的测试里长达 9 个 Task。详见设计 ref。
+**为什么错**：host 拆分错误会导致嵌套路由全失效，曾藏在"只断言非 null"的测试里漏过去。详见设计 ref。
 
 ### NOK 5：URL 直接用中文 demo title
 
