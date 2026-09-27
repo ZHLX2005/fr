@@ -446,6 +446,14 @@ class RoomHandle {
   @visibleForTesting
   void debugStartHeartbeat() => _startHeartbeat();
 
+  /// 测试可见：手动向 snapshot 流注入一帧（模拟 WS 推送/HTTP 轮询回包），
+  /// 同时更新 [latest]。用于 widget 测试里「页面先订阅、快照后到达」的真实时序。
+  @visibleForTesting
+  void debugEmitSnapshot(Snapshot snap) {
+    latest = snap;
+    _emitSnapshot(snap);
+  }
+
   /// 提交 action
   ///
   /// 成功后自动更新本地 latest + 推送 snapshot 流。

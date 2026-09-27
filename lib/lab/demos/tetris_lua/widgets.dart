@@ -315,14 +315,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       return;
     }
     _lastSyncAt = now;
-    // 断连瞬间可能失败：吞掉，避免未处理异步异常
+    // 断连瞬间可能失败：吞掉，避免未处理异步异常。
+    // 注意不能用 .catchError((_) {})：Future<Snapshot> 的 handler 必须返回
+    // Snapshot，返回 null 会再抛 ArgumentError（真机断连时表现为整页异常）。
     _room.syncState(
       board: eng.boardSnapshot(),
       score: eng.score,
       lines: eng.lines,
       pieceIndex: eng.pieceIndex,
       alive: eng.alive,
-    ).catchError((_) {});
+    ).then<void>((_) {}, onError: (Object _) {});
   }
 
   void _declareBust() {
@@ -331,7 +333,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _gravityTimer?.cancel();
     _repeatTimer?.cancel();
     final eng = _engine;
-    _room.bust(eng?.score ?? 0).catchError((_) {});
+    _room.bust(eng?.score ?? 0).then<void>((_) {}, onError: (Object _) {});
   }
 
   // ── 网络动作 ──
