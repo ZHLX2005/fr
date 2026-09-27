@@ -3,32 +3,40 @@ name: flutter-work-flow
 description: flutter的开发操作流程,在dart-flutter任何问题都需要优先加载这个SKILL
 ---
 `<doc-reference>`
-references/
-├── Flutter-Hive-TypeAdapter-part文件CI构建失败问题.md   # Flutter Hive part文件CI构建连续失败3次,通过合并Adapter到主文件解决
-├── Flutter-CollapsingHeader圆角渐变头部与白色内容区布局.md   # CustomScrollView + SliverPersistentHeader 实现圆角渐变头部，关键：pinned:false，只用gradient不用color
-├── Android-FloatingWindow-常驻截屏模式适配Android14+.md   # Android 14+ MediaProjection token 一次性问题，常驻 VirtualDisplay 方案
-├── Flutter-自定义Scheme路由中心化-fr-Router.md   # fr:// 路由设计：authority/path 拆分 + prefix 匹配 + handler 模式（理解系统/重构时读）
-├── Flutter-fr路由-注册规范与防腐蚀.md   # fr:// 日常使用：新页面注册SOP + 防腐蚀grep检测 + 反模式（加新页面/写跳转时读）
-├── Flutter-DemoPage-slug抽象化与别名机制.md   # kDemoSlugs 全局表迁移到 abstract slug 字段、Demo 别名机制、多 demo 合并为 Tab 容器
-├── Flutter-Lab容器-模块结构与重构模式.md   # lab/ 目录地图（lab_panel/demo_grid/game_center）+ ValueNotifier 双通道 + 手势收敛 + part→import 拆法
-├── Flutter-TimePage-Focus时间模块完整指南.md   # 整 time 模块单一长 ref：架构 + 加新工作流 / 改面板 / 统计与心流扩展 / Lab 过滤+深链 4 章（time 主题同源不拆文件）
-└── Flutter-游戏中心-扩展游戏路线.md   # 加新游戏/新分类/新封面图案的扩展点地图 + SOP（数据流/封面三级来源/真坑）
+references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模块前读） B=问题与方案（遇到 bug / 做方案选择时读）
+├── A01-Flutter-fr路由-注册规范与防腐蚀.md   # fr:// 日常使用：新页面注册SOP + 防腐蚀grep检测 + 反模式（加新页面/写跳转时读）
+├── A02-Flutter-自定义Scheme路由中心化-fr-Router.md   # fr:// 路由机制：authority/path 拆分 + prefix 匹配 + handler 模式（理解系统/重构时读）
+├── A03-Flutter-Lab容器-模块结构与重构模式.md   # lab/ 目录地图（lab_panel/demo_grid/game_center）+ ValueNotifier 双通道 + 手势收敛 + part→import 拆法
+├── A04-Flutter-TimePage-Focus时间模块完整指南.md   # 整 time 模块单一长 ref：架构 + 加新工作流 / 改面板 / 统计与心流扩展 / Lab 过滤+深链 4 章（time 主题同源不拆文件）
+├── A05-Flutter-游戏中心-扩展游戏路线.md   # 加新游戏/新分类/新封面图案的扩展点地图 + SOP（数据流/封面三级来源/真坑）
+├── A06-Flutter-Demo-slug别名与Tab合并SOP.md   # demo 别名注册（旧 fr:// URL 兼容）+ 多 demo 合并 Tab 容器 SOP
+├── B01-Flutter-Provider双重实例冲突-时钟wipe后数据恢复.md   # 根级/页面级双 Provider 各写同一 SP，wipe 后被旧实例定时快照回写
+├── B02-Flutter-Hive-TypeAdapter-part文件CI构建失败问题.md   # Hive part文件CI构建连续失败3次,通过合并Adapter到主文件解决
+├── B03-Android-FloatingWindow-常驻截屏模式适配Android14+.md   # Android 14+ MediaProjection token 一次性问题，常驻 VirtualDisplay 方案
+└── B04-Flutter-CollapsingHeader圆角渐变头部与白色内容区布局.md   # CustomScrollView + SliverPersistentHeader 实现圆角渐变头部，关键：pinned:false，只用gradient不用color
 `</doc-reference>`
+
+## 序列总览（先读这里）
+
+| 代号 | 类别 | 何时读该序列 | 成员 |
+| --- | --- | --- | --- |
+| A | 扩展 SOP | 动手扩展一个模块前（成本 / 范围 / 流程） | A01 fr路由注册 / A02 fr路由机制 / A03 Lab容器 / A04 TimePage / A05 游戏中心 / A06 Demo-slug别名 |
+| B | 问题与方案 | 遇到具体 bug / 做细节方案选择时单独读 | B01 Provider双实例 / B02 Hive CI坑 / B03 FloatingWindow适配 / B04 CollapsingHeader |
 
 ## 何时读哪个 ref
 
-| ref                                                  | 何时读取                                                                                                                                                                                       |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Flutter-Hive-TypeAdapter-part文件CI构建失败问题      | Hive TypeAdapter / part 文件 CI 编译失败时                                                                                                                                                     |
-| Flutter-CollapsingHeader圆角渐变头部与白色内容区布局 | 做 collapsing header / 圆角渐变头部布局时                                                                                                                                                      |
-| Android-FloatingWindow-常驻截屏模式适配Android14+    | Android 14+ MediaProjection / 悬浮窗截屏 / token 失效时                                                                                                                                        |
-| Flutter-自定义Scheme路由中心化-fr-Router             | **改 fr:// 路由 / 重构路由系统 / 理解路由设计原理时**                                                                                                                                    |
-| Flutter-fr路由-注册规范与防腐蚀                      | **加新页面 / 写 fr:// 跳转 / 加 MethodChannel / 提交前自查腐蚀时**                                                                                                                       |
-| Flutter-DemoPage-slug抽象化与别名机制                | **删 kDemoSlugs 迁 abstract slug / 给 demo 加别名 slug / 合并多个 demo 为统一 Tab 容器时**                                                                                               |
-| Flutter-Lab容器-模块结构与重构模式                   | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时**                                                                    |
-| Flutter-TimePage-Focus时间模块完整指南               | **改中间 Time tab 任何文件 / 改 timePage 标记 / kTimePageMeta / 心流空间 / FocusStatsPage / Lab timePage 过滤 / 桌面 widget 深链时**（整 time 模块单一长 ref：架构 + 4 章 + 4 错误案例） |
-| Flutter-游戏中心-扩展游戏路线                        | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑）                                                                             |
-| Flutter-Provider双重实例冲突-时钟wipe后数据恢复      | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时**                                                                             |
+| 代号 | ref | 何时读取 |
+| --- | --- | --- |
+| A01 | Flutter-fr路由-注册规范与防腐蚀 | **加新页面 / 写 fr:// 跳转 / 加 MethodChannel / 提交前自查腐蚀时** |
+| A02 | Flutter-自定义Scheme路由中心化-fr-Router | **改 fr:// 路由 / 重构路由系统 / 理解路由设计原理时** |
+| A03 | Flutter-Lab容器-模块结构与重构模式 | **改 lib/screens/profile/lab/ 任何文件（Lab页/下拉面板/游戏中心/demo卡片）/ 给重手势+重动画页面做性能或模块化重构时** |
+| A04 | Flutter-TimePage-Focus时间模块完整指南 | **改中间 Time tab 任何文件 / 改 timePage 标记 / kTimePageMeta / 心流空间 / FocusStatsPage / Lab timePage 过滤 / 桌面 widget 深链时**（整 time 模块单一长 ref：架构 + 4 章 + 4 错误案例） |
+| A05 | Flutter-游戏中心-扩展游戏路线 | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑） |
+| A06 | Flutter-Demo-slug别名与Tab合并SOP | **给 demo 加别名 slug（旧 URL 兼容）/ 合并多个相关 demo 为统一 Tab 容器时** |
+| B01 | Flutter-Provider双重实例冲突-时钟wipe后数据恢复 | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时** |
+| B02 | Flutter-Hive-TypeAdapter-part文件CI构建失败问题 | Hive TypeAdapter / part 文件 CI 编译失败时 |
+| B03 | Android-FloatingWindow-常驻截屏模式适配Android14+ | Android 14+ MediaProjection / 悬浮窗截屏 / token 失效时 |
+| B04 | Flutter-CollapsingHeader圆角渐变头部与白色内容区布局 | 做 collapsing header / 圆角渐变头部布局时 |
 
 import: 任何不能立即完成的任务,请使用todolist相关的工具 先规划任务 然后再每个条目进行完成 禁止没有任何流程的进行代码控制
 
@@ -75,3 +83,10 @@ native目录:
 1. 完成之后先检查编译是否成功
 2. 检查相关配置是否真正实现,尤其是安卓原生项目的权限配置 —— 每次添加新依赖,确认是否需要在安卓当前配置对应权限或通信通道
 3. 竭尽全力避免溢出问题
+
+### [2026-09-27] key_board 操作教训
+
+| 错误操作 | 实际后果 | 正确做法 |
+|---------|---------|---------|
+| ref 序列化时自创子目录（A-扩展SOP/ B-问题与方案/） | 与「扁平 + A01 前缀」预期不符，返工两次 | 序列化 = 扁平文件名前缀，序列信息由主文档「序列总览 + 代号列」承载，key_board 无子目录概念 |
+| 重命名后只修带 .md 的路径引用 | `[[裸名]]` 和正文裸名提法漏网 9 处 | 全量盘点：grep 技术前缀名再排除已带序号的行，覆盖 wiki-link 与裸名后一次改完 |

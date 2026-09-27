@@ -1,6 +1,6 @@
 # Flutter fr:// 路由注册规范与防腐蚀
 
-> **与设计 ref 的关系**：`Flutter-自定义Scheme路由中心化-fr-Router.md` 讲**为什么**这么设计 + 设计陷阱（authority/path 拆分、prefix 匹配）。本 ref 讲**日常怎么用**：加新页面、用 fr:// 跳转、防止代码腐蚀。
+> **与设计 ref 的关系**：`A02-Flutter-自定义Scheme路由中心化-fr-Router.md` 讲**为什么**这么设计 + 设计陷阱（authority/path 拆分、prefix 匹配）。本 ref 讲**日常怎么用**：加新页面、用 fr:// 跳转、防止代码腐蚀。
 >
 > - 要理解路由系统 / 重构路由 → 读**设计 ref**
 > - 要加新页面 / 写跳转 / 提交前自查 → 读**本 ref**
@@ -166,7 +166,7 @@ flutter test test/lab/demo_slug_test.dart
 - [ ] slug 必须纯 ASCII（小写字母/数字/连字符），与中文 title 同文件 co-located
 - [ ] URL 用 slug 不用 title（`fr://lab/demo/clock` ✅，`fr://lab/demo/时钟` ❌ 会崩溃）
 - [ ] `test/lab/demo_slug_test.dart` 跑通（断言 slug 纯 ASCII + 别名一致性）
-- [ ] 旧 slug 别名：通过 `demoRegistry.register(demo, key: 'legacy-slug')` 单独注册到同一实例，详见 [[Flutter-DemoPage-slug抽象化与别名机制]]
+- [ ] 旧 slug 别名：通过 `demoRegistry.register(demo, key: 'legacy-slug')` 单独注册到同一实例，详见 [[A06-Flutter-Demo-slug别名与Tab合并SOP]]
 
 ---
 
@@ -351,7 +351,7 @@ FrRoute('{authority}', handler: const {Name}Handler()),
 
 ## 相关文件
 
-- 设计 ref：`references/Flutter-自定义Scheme路由中心化-fr-Router.md`（理解系统 + 设计陷阱）
+- 设计 ref：`references/A02-Flutter-自定义Scheme路由中心化-fr-Router.md`（理解系统 + 设计陷阱）
 - 核心实现：`lib/core/schema/fr_*.dart` + `lib/core/schema/handlers/*.dart`
 - 集中注册：`lib/core/schema/bootstrap_routes.dart`
 - MethodChannel 翻译：`lib/main.dart` 的 `_handleMethodCall`

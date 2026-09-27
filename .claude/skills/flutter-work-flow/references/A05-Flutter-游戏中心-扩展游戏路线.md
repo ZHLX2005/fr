@@ -4,7 +4,7 @@
 > 本 ref 回答"改哪里、按什么顺序、怎么验证"。
 >
 > 对应代码：`lib/screens/profile/lab/game_center/`（const/artwork/cards 三件套）
-> + 宿主 `game_center_page.dart`。架构原理见 [[Flutter-Lab容器-模块结构与重构模式]]。
+> + 宿主 `game_center_page.dart`。架构原理见 [[A03-Flutter-Lab容器-模块结构与重构模式]]。
 
 ---
 

@@ -1,85 +1,8 @@
-# Flutter DemoPage slug 抽象化与别名机制
+# Flutter Demo slug 别名与 Tab 合并 SOP
 
-> 何时读：要把 `kDemoSlugs` 全局表迁到 `DemoPage.slug` 抽象字段时、要给某个 demo 注册多个 fr:// slug 别名时、或要合并多个相关 demo 为统一 Tab 容器时。
-
----
-
-## slug 抽象化改造
-
-### 背景
-
-`lib/lab/lab_container.dart` 原本有一张 `kDemoSlugs` 全局 map：
-
-```dart
-const Map<String, String> kDemoSlugs = {
-  '时钟': 'clock',
-  'Rive 摆钟': 'rive-pendulum',
-  ...
-};
-```
-
-`DemoPage.slug` 默认实现查这个 map：
-
-```dart
-String get slug => kDemoSlugs[title] ?? title;
-```
-
-### 问题
-
-| 问题 | 影响 |
-|------|------|
-| 加新 demo 要改 2 个文件 | demo 文件 + lab_container.dart 的 map 行 |
-| 漏改 map 编译期无报错 | 直到运行 / slug 测试才发现 |
-| slug 和 title 相距 30+ 文件 | review 时容易漏 |
-| map 是「特殊映射」的容器（如 `'Demo 实验室' → 'demo-lab'`），但实际 90% 是 1:1 直接对应 | 过度抽象 |
-
-### 改造方案（已完成 2026-07）
-
-把 `DemoPage.slug` 改为 abstract getter，每个子类自带：
-
-```dart
-// lib/lab/lab_container.dart
-abstract class DemoPage {
-  String get title;
-  String get description;
-  String get slug;          // ← abstract，强制每个子类声明
-  Widget buildPage(BuildContext context);
-  // ...
-}
-```
-
-```dart
-// 每个 demo 文件
-class ClockDemo extends DemoPage {
-  @override String get title => '时钟';
-
-  @override String get slug => 'clock';      // ← 与 title 同文件 co-located
-
-  @override String get description => '...';
-  // ...
-}
-```
-
-**删除** `kDemoSlugs` 全局 map。
-
-### 迁移清单（一次性，36 个 demo）
-
-每个 demo 文件加：
-```dart
-@override
-String get slug => '<slug>';
-```
-
-插在 `String get title` 之后、`String get description` 之前。
-
-### 迁移结果
-
-| 维度 | 之前 | 之后 |
-|------|------|------|
-| 加新 demo 改文件数 | 2（demo + lab_container） | 1（仅 demo） |
-| 漏写 slug 检测时机 | 测试阶段 / 运行期 | **编译期**（abstract 强制） |
-| slug 测试断言 | 间接：查 map + demo.title | 直接：读 `DemoPage.slug` 字段 |
-| 旧 demo 是否需要立即补 slug | — | ✅ 改造前**所有** demo 必须补，否则编译失败 |
+> 何时读：要给某个 demo 注册多个 fr:// slug 别名（旧 URL 兼容）时、或要把多个相关 demo 合并为统一 Tab 容器时。
+>
+> 背景：2026-07 已把 `kDemoSlugs` 全局表迁为 `DemoPage.slug` abstract 字段——slug 与 demo 同文件 co-located、漏写编译期报错，全局 map 已删除。迁移史不再保留，本 ref 只留仍可复用的两个 SOP。
 
 ---
 
@@ -219,23 +142,14 @@ rm lib/lab/demos/rive_pendulum_demo.dart \
 
 ## 相关 ref
 
-- fr:// 路由总设计：`Flutter-自定义Scheme路由中心化-fr-Router`
-- fr:// 日常使用 / 加新 demo：`Flutter-fr路由-注册规范与防腐蚀`
+- fr:// 路由总设计：`A02-Flutter-自定义Scheme路由中心化-fr-Router`
+- fr:// 日常使用 / 加新 demo：`A01-Flutter-fr路由-注册规范与防腐蚀`
 - Rive demo 完整流程：`rive-skills/references/flutter-project-workflow`
 - Rive 0.14.x API / DataBind：`rive-skills/references/flutter-databind-0.14`
 
 ---
 
 ## 踩坑记录
-
-### 坑 1：Agent 批量改文件时可能 revert 不该 revert 的文件
-
-派 Agent 改 36 个 demo 加 slug 字段时，Agent 在 diff 检查后「恢复意外的 lab_container.dart 变更」——但那正是主代理故意改的（删 `kDemoSlugs`）。
-
-**预防**：
-- 派 Agent 改文件前**先记录**主代理自己已改的文件清单（`git status` 输出快照）
-- Agent 完成后**主代理亲自**重新应用关键文件改动
-- 给 Agent 的 prompt 写明「不要碰文件 X / Y / Z」
 
 ### 坑 2：flutter analyze exit code 误判
 

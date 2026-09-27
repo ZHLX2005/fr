@@ -4,7 +4,7 @@
 >
 > **何时读这个 ref**：改任何 time 模块相关文件 — 改 `lib/core/focus/*`、动 `kTimePageMeta`、`timePage` 标记、Lab 过滤、桌面 widget 深链、新增 / 修改 time 工具时。**不要为了优化加载粒度而拆成多个 ref** — 这 5 个方面都同主题，强行拆开会让 ref 之间互相依赖 / 引用 / 重复定义，反而更难维护。
 >
-> **前置依赖**：`flutter-work-flow/SKILL.md`（Flutter 项目总约定）。**兄弟 ref**：`Flutter-DemoPage-slug抽象化与别名机制`、`Flutter-Lab容器-模块结构与重构模式`、`Flutter-游戏中心-扩展游戏路线`、`Flutter-Provider双重实例冲突-时钟wipe后数据恢复`。
+> **前置依赖**：`flutter-work-flow/SKILL.md`（Flutter 项目总约定）。**兄弟 ref**：`A06-Flutter-Demo-slug别名与Tab合并SOP`、`A03-Flutter-Lab容器-模块结构与重构模式`、`A05-Flutter-游戏中心-扩展游戏路线`、`B01-Flutter-Provider双重实例冲突-时钟wipe后数据恢复`。
 
 ---
 
@@ -312,7 +312,7 @@ Widget _buildModeDistribution(FocusProvider fp) { ... }
 | --- | --- | --- |
 | 在 `FocusSession` 上新增「科目」字段 | **subject 概念已经删除**；复活破坏 gamecenter 对称 + stats | 用 `mode` 或新维度字段 |
 | `FocusTimerProvider` 与 `FocusProvider` 各开一套聚合 | 数据双源 | 聚合只在 `FocusProvider` |
-| 改 `_timerStartTime` 但不更新 `_restoreTimerState` | cold-start 后计时跳秒 | 改一处必改对称的另一处（见兄弟 ref `Flutter-Provider双重实例冲突-时钟wipe后数据恢复`）|
+| 改 `_timerStartTime` 但不更新 `_restoreTimerState` | cold-start 后计时跳秒 | 改一处必改对称的另一处（见兄弟 ref `B01-Flutter-Provider双重实例冲突-时钟wipe后数据恢复`）|
 | 在 Stats 页加 ListView 不限高度 | 无限列表 + 外层 SingleChildScrollView → 渲染卡死 | 限制 height / `shrinkWrap + NeverScrollableScrollPhysics` |
 | 跨 await 用 builder `context` 不 re-guard | 「BuildContext 跨 async 空隙」lint（cad94527 教训）| 捕获 / re-guard 详见底部错误案例 |
 
@@ -381,7 +381,7 @@ class LabDemoHandler extends FrRouteHandler {
 'navigateToCalendar' => 'fr://lab/demo/calendar',
 ```
 
-**硬编码 slug**——改 slug 必须同步改这两行（属于 `Flutter-DemoPage-slug抽象化与别名机制` ref 范畴）。
+**硬编码 slug**——改 slug 必须同步改这两行（属于 `A06-Flutter-Demo-slug别名与Tab合并SOP` ref 范畴）。
 
 ### 修改 Lab 过滤的边界
 
@@ -390,7 +390,7 @@ class LabDemoHandler extends FrRouteHandler {
 | 加 `_hiddenFromLab: false` 反向豁免 | 改 `excludeGames` 语义 |
 | 改去重顺序 | 把 `seen.add` 改成按 slug 去重 |
 | 改排序方式 | 把过滤改成 lazy builder |
-| 加排序字段如 `sortBy = .title` | 给 Lab panel 加新手势（见 `Flutter-Lab容器-模块结构与重构模式` ref）|
+| 加排序字段如 `sortBy = .title` | 给 Lab panel 加新手势（见 `A03-Flutter-Lab容器-模块结构与重构模式` ref）|
 
 ### 自检清单
 

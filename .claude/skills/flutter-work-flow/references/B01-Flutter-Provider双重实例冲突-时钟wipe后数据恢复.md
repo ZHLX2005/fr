@@ -1,5 +1,5 @@
 ---
-name: Flutter-Provider双重实例冲突-时钟wipe后数据恢复
+name: B01-Flutter-Provider双重实例冲突-时钟wipe后数据恢复
 description: Provider ChangeNotifier 在 app 根级和页面级各创建一份时，各自独立 timer + 各自写同一份 SharedPreferences。清空后全局实例的 timer 回写旧数据，导致 wipe 瞬时生效后快照恢复。创建页面 Consumer 时需确认 provider 是否已被上层 create。~
 ---
 

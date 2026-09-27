@@ -166,7 +166,7 @@ lib/lab/demos/rive_demo/                    # 统一 demo 目录
 - 共享 widget（错误视图、状态 chip）提到目录根
 - 旧 demo 文件删除，slug 通过 `demoRegistry.register(demo, key: alias)` 保留为别名
 
-详细方案 + 别名机制 + 踩坑见 flutter-work-flow 的 [[Flutter-DemoPage-slug抽象化与别名机制]] ref。
+详细方案 + 别名机制 + 踩坑见 flutter-work-flow 的 [[A06-Flutter-Demo-slug别名与Tab合并SOP]] ref。
 
 ## Common Mistakes
 
