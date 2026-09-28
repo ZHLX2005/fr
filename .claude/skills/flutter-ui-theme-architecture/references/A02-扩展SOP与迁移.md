@@ -1,7 +1,7 @@
-# 子 ref B：如何扩展（theme-extension）
+# 如何扩展主题（theme-extension）
 
 > 从 [SKILL.md](../SKILL.md) 导航进入。本文给 **主题系统的扩展与迁移 SOP**：新增配色、新增语义角色、新增组件样式、把既有硬编码迁到主题通道、豁免判定、特例策略怎么写。
-> 系统分层/文件地图先看 [[architecture]]；用量现状/热点文件看 [[color-usage-audit]]；识别色锁定业务怎么写看 [[special-cases]]。
+> 系统分层/文件地图先看 [[A01-系统架构与数据流]]；用量现状/热点文件看 [[B01-颜色用量审计]]；识别色锁定业务怎么写看 [[B02-特例策略]]。
 
 ## 0. 扩展动作速查表
 
@@ -12,7 +12,7 @@
 | 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `widgets/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
 | 新增 / 改一个复用的组件样式 | `component/` 或 `widgets/theme/zen_theme.dart` helper | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
-| 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[special-cases]] |
+| 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[B02-特例策略]] |
 | 看历史踩过的反模式 / 找正确做法 | 踩坑经验库 | §4.5 |
 | 判断某处能不能写裸 hex | 豁免规则 | §5 |
 
@@ -60,7 +60,7 @@
 4. 消费端已有 `context.colors` 快捷入口，扩接口后自动可用，无需改 `context_colors.dart`。
 
 > ⚠️ 任何实现 `ColorStrategy` 的类都要满足 `@immutable` + 角色全覆盖 + `==`/`hashCode` 一致性，否则策略去重与 rebuild 失效。
-> ⚠️ **特例策略不要扩**：`TetrisColorsStrategy` 4 角色锁定，扩它 = 改 const 引用面 = 高风险。要加识别色业务开新 strategy（见 [[special-cases]] §2）。
+> ⚠️ **特例策略不要扩**：`TetrisColorsStrategy` 4 角色锁定，扩它 = 改 const 引用面 = 高风险。要加识别色业务开新 strategy（见 [[B02-特例策略]] §2）。
 
 ## 3. 新增 / 修改组件样式
 
@@ -72,7 +72,7 @@
 
 ## 4. 把既有硬编码迁到主题通道（迁移 SOP）
 
-判断当前写法属于哪类，然后一键入对应通道（决策速查见 [[color-usage-audit]] §6）：
+判断当前写法属于哪类，然后一键入对应通道（决策速查见 [[B01-颜色用量审计]] §6）：
 
 | 现状 | 迁到 | 改法 |
 | --- | --- | --- |
@@ -143,7 +143,7 @@
 
 ### 4.5.11 ❌ "看起来颜色不对"先改 token 而不是先查树
 
-**正确做法**：颜色不对先按 [[architecture]] §6.4 的调试步骤排查（嵌套 MaterialApp？Provider 树隔离？token 注入？组件裸 hex？），**90% 的"颜色不对"是树问题，不是 token 问题**。
+**正确做法**：颜色不对先按 [[A01-系统架构与数据流]] §6.4 的调试步骤排查（嵌套 MaterialApp？Provider 树隔离？token 注入？组件裸 hex？），**90% 的"颜色不对"是树问题，不是 token 问题**。
 
 ### 4.5.12 ❌ "颜色太深"先想到 `surfaceContainerHighest` → `primaryContainer` 就停
 
@@ -189,7 +189,7 @@
 
 **根因**：`pieceColors` 改 `List<Color>` 0..6 强行从 scheme 派生，但 engine / Lua 协议始终用 1..7 → off-by-one + 越界。
 
-**正确做法**：见 [[special-cases]] §1。识别色业务必须 native const + `Map<int, Color>` 1..7 索引。
+**正确做法**：见 [[B02-特例策略]] §1。识别色业务必须 native const + `Map<int, Color>` 1..7 索引。
 
 **踩坑案例**：`fix(tetris): revert palette to native + fix pieceColors off-by-one`（commit 24d91ea1）。
 
@@ -202,7 +202,7 @@
 3. **特例 strategy（无需豁免注释，架构决策保留）**：
    - `tokens/color/tetris/tetris.dart` 4 角色 + 7 方块色（识别色锁定，玩家靠颜色识别方块）
    - `tokens/color/team/team.dart` 6 头像色（识别色锁定）
-   - `lib/core/surround_game` 与 `lib/core/reversi` 的 `BoardThemeData`（86 处，见 [[architecture]] §5.8）
+   - `lib/core/surround_game` 与 `lib/core/reversi` 的 `BoardThemeData`（86 处，见 [[A01-系统架构与数据流]] §5.8）
 
 **红线**：`lib/` 新增代码不默认这些豁免——只有上面场景适用，任何其它裸 hex 都要先想通道。
 
@@ -217,4 +217,4 @@ flutter build apk --debug        # √ Built
 - **特例页面**（tetris / team_card）跨主题审一次：切主题后该不动的角色必须不变。
 - 新增枚举 / 扩角色后，确认无遗漏 switch 分支（`getThemeData` / `materialThemeModeProvider` / displayName / icon）。
 - strategy 扩展后跑一次测试或至少 analyze，确认 `==`/`hashCode` 改动不崩。
-- 回到 [[color-usage-audit]] 更新：目录计数、迁移历史、Top 热点（如有变化）。
+- 回到 [[B01-颜色用量审计]] 更新：目录计数、迁移历史、Top 热点（如有变化）。
