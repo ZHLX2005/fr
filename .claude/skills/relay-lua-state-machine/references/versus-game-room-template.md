@@ -761,7 +761,7 @@ Container(
 - **已激活/已完成**：`FilledButton` 灰色/主题实底 + disabled
 - **主要动作**（进入对局 / 开始游戏 / 再来一局）：`FilledButton` 黑色实底 + 圆角 10px
 
-配色决策见 [[server-authoritative-client-state]] §颜色决策；border-emphasis 规范见 styles-skill 的 `border-emphasis-style`。
+配色决策见 [[server-authoritative-client-state]] §颜色决策；border-emphasis 规范见 flutter-ui-styles 的 `border-emphasis-style`。
 
 ### 6.3 状态徽章 + 圆环头像
 

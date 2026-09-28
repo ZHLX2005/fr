@@ -2,7 +2,7 @@
 
 > 何时读：嵌套 ModalBottomSheet 里"打开下一层 sheet 显示空空如也"/"没有找到任何数据库"/缓存竞态/异步加载没完成用户已点进 picker。
 >
-> 本文档原为 `uiux` skill 的 ref，本次合并入 `styles-skill`。
+> 本文档原为 `uiux` skill 的 ref，本次合并入 `flutter-ui-styles`。
 
 ---
 
