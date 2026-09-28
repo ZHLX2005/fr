@@ -1,7 +1,7 @@
-# 子 ref B：游戏资源端到端 SOP + 故障排查
+# 端到端 SOP + 故障排查（游戏资源全套）
 
 > 从 [SKILL.md](../SKILL.md) 导航进入。本文是**操作手册**：每条线的端到端 SOP（图片目录 → 客户端免发版生效），以及常见故障排查。
-> 架构细节见 [[architecture]]；表情包特定见 [[emoji-sop]]。
+> 架构细节见 [[A02-加载架构与文件地图]]；表情包特定见 [[A03-表情包端到端SOP]]。
 
 ## 0. 前置条件
 
@@ -54,7 +54,7 @@
 ### 2.2 端到端
 
 ```bash
-python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
 # 可选：--name "霓虹" 自定义 displayName
 ```
 
@@ -67,7 +67,7 @@ python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
 旧版 add_skin.py 没发 tags；如需为已上传的 84 张图补 tag，运行：
 
 ```bash
-python .claude/skills/game-skin-pipeline/scripts/retag_existing.py
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/retag_existing.py
 ```
 
 脚本读 `tool/upload_chess_skins/chess_skins_file_ids.json`、PATCH 每个 file、最后把 KV `chess_skin:index` 重写带上 `tags=['chess-skin']`。支持 `--dry-run` 先预览。**只跑一次就够了**，后续新上传由新版 add_skin.py 自动带 tag。
@@ -119,7 +119,7 @@ python .claude/skills/game-skin-pipeline/scripts/retag_existing.py
 ### 3.2 端到端
 
 ```bash
-python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/skins/ink ink --game gomoku --name "水墨"
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_skin.py D:/skins/ink ink --game gomoku --name "水墨"
 ```
 
 脚本自动：上传 3 张（或 2 张，无 board）→ 拉旧 `gomoku_skin:index` → 合并 → 写回（`tags=['gomoku-skin']`）→ 验证 → 清理孤儿。
@@ -146,7 +146,7 @@ python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/skins/ink ink --
 ### 4.2 端到端
 
 ```bash
-python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/covers/gomoku gomoku-lua --game game-center --name "五子棋（联机）"
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_skin.py D:/covers/gomoku gomoku-lua --game game-center --name "五子棋（联机）"
 ```
 
 发布后重启 app 进游戏中心即可看到新封面；换图只需重传同 slug（version+1）。
@@ -187,7 +187,7 @@ dart run tool/publish_game_center_index.dart
 ### 5.2 上传单首歌
 
 ```bash
-python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/songs/my-song my-song --game line
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_skin.py D:/songs/my-song my-song --game line
 # 脚本期望 D:/songs/my-song/ 下有 audio.mp3 + cover.webp + chart.json
 ```
 
@@ -197,10 +197,10 @@ python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/songs/my-song my
 
 ```bash
 # 预览（不上传）
-python .claude/skills/game-skin-pipeline/scripts/migrate_line_from_supabase.py --dry-run
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/migrate_line_from_supabase.py --dry-run
 
 # 正式迁移
-python .claude/skills/game-skin-pipeline/scripts/migrate_line_from_supabase.py
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/migrate_line_from_supabase.py
 # 可选：--limit 1 --base http://host:port --group 190
 ```
 
@@ -210,20 +210,20 @@ python .claude/skills/game-skin-pipeline/scripts/migrate_line_from_supabase.py
 
 ## 6. emoji 端到端（表情包）
 
-详细 SOP 见 [[emoji-sop]]。快速入口：
+详细 SOP 见 [[A03-表情包端到端SOP]]。快速入口：
 
 ```bash
 # common 作用域（全局）
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common --name "庆祝"
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common --name "庆祝"
 
 # 游戏作用域（如 chess）
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/chess_only chess-faces --scope chess
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/chess_only chess-faces --scope chess
 
 # 重发覆盖
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common
 ```
 
-文件命名约定见 [[emoji-sop]] §3。客户端验证：进对应游戏的房间 → 点表情按钮 → 新表情出现。
+文件命名约定见 [[A03-表情包端到端SOP]] §3。客户端验证：进对应游戏的房间 → 点表情按钮 → 新表情出现。
 
 ---
 

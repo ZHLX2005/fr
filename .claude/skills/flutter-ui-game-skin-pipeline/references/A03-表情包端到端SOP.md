@@ -1,7 +1,7 @@
-# 子 ref C：表情包（emoji pack）端到端 SOP
+# 表情包（emoji pack）端到端 SOP
 
 > 从 [SKILL.md](../SKILL.md) 导航进入。本文是**表情包专用 SOP**：scope 合并机制、id 命名约束、两种 KV value 形态、与 GameSkin 体系的差异。
-> 通用 SOP 见 [[extend-sop]] §6；架构细节见 [[architecture]] §2.5 / §3.5。
+> 通用 SOP 见 [[A01-端到端SOP与故障排查]] §6；架构细节见 [[A02-加载架构与文件地图]] §2.5 / §3.5。
 
 ## 1. 两种 KV value 形态（共存）
 
@@ -118,17 +118,17 @@ mkdir -p D:/emojis/celebration
 
 ```bash
 # common 作用域
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py \
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py \
     D:/emojis/celebration celebration \
     --scope common --name "庆祝"
 
 # 游戏作用域
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py \
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py \
     D:/emojis/chess_only chess-faces \
     --scope chess
 
 # 同 pack 重发（覆盖：删除旧 emoji id 不再上传的 file）
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py \
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py \
     D:/emojis/celebration celebration --scope common
 ```
 

@@ -1,5 +1,5 @@
 ---
-name: game-skin-pipeline
+name: flutter-ui-game-skin-pipeline
 description: 游戏资源公开 KV 管线 —— 皮肤 / 封面 / 曲库 / 表情包四条线统一走 File API + KV public（groupId=190），从图片或音频资源到客户端免发版生效的完整链路。当要"新增/更换一套皮肤/封面/歌曲/表情包"、"更新 chess_skin:index / gomoku_skin:index / game-center_skin:index / line_song:index / emoji_*_skin:index"、"排查皮肤不生效 / 图挂了 / 曲库空白 / 表情发不出去"时触发。含可执行上传脚本与端到端 SOP。
 ---
 
@@ -25,21 +25,27 @@ description: 游戏资源公开 KV 管线 —— 皮肤 / 封面 / 曲库 / 表�
 |---|---|---|---|
 | 游戏中心目录 | `game-center_catalog:index` | `game-center-catalog` | `lib/core/game_kit/game_center_catalog.dart` 的 `kGameCenterCatalog` |
 
+## 序列总览（先读这里）
+
+| 代号 | 类别 | 何时读该序列 | 成员 |
+| --- | --- | --- | --- |
+| A | 操作 SOP（动手相关） | 新增资源 / 排查故障 / 理解加载链路 / 表情包特定时 | [[A01-端到端SOP与故障排查]] / [[A02-加载架构与文件地图]] / [[A03-表情包端到端SOP]] |
+
 ## 何时读哪个 ref / 用哪个脚本
 
 | 场景 | 读/用 | 路径 |
 | --- | --- | --- |
-| **新增一套游戏皮肤（任意 gameId）** | [[extend-sop]] §2 全流程走一遍 | `references/extend-sop.md` |
-| **新增一款游戏封面（game-center）** | [[extend-sop]] §4 | `references/extend-sop.md` |
-| **新增一款游戏（fr 新上线，管理端要能配封面）** | 先登记 `kGameCenterCatalog` + 重发目录，再走封面 SOP | `lib/core/game_kit/game_center_catalog.dart` + [[extend-sop]] §4.3 |
-| **新增一首歌（line songs）** | [[extend-sop]] §5 | `references/extend-sop.md` |
-| **新增一套表情包（任意 scope）** | [[extend-sop]] §6 + [[emoji-sop]] | `references/extend-sop.md` §6 + `references/emoji-sop.md` |
+| **新增一套游戏皮肤（任意 gameId）** | [[A01-端到端SOP与故障排查]] §2 全流程走一遍 | `references/A01-端到端SOP与故障排查.md` |
+| **新增一款游戏封面（game-center）** | [[A01-端到端SOP与故障排查]] §4 | `references/A01-端到端SOP与故障排查.md` |
+| **新增一款游戏（fr 新上线，管理端要能配封面）** | 先登记 `kGameCenterCatalog` + 重发目录，再走封面 SOP | `lib/core/game_kit/game_center_catalog.dart` + [[A01-端到端SOP与故障排查]] §4.3 |
+| **新增一首歌（line songs）** | [[A01-端到端SOP与故障排查]] §5 | `references/A01-端到端SOP与故障排查.md` |
+| **新增一套表情包（任意 scope）** | [[A01-端到端SOP与故障排查]] §6 + [[A03-表情包端到端SOP]] | `references/A01-端到端SOP与故障排查.md` §6 + `references/A03-表情包端到端SOP.md` |
 | 发布游戏中心目录（新增/下线游戏） | 跑 `tool/publish_game_center_index.dart` | `tool/publish_game_center_index.dart` |
 | 上传图片/音频/表情拿 file_id | 跑 `scripts/add_<thing>.py` | `scripts/add_skin.py` / `scripts/add_emoji_pack.py` |
 | 一次性给旧 chess 文件补 tag | 跑 `retag_existing.py` | `scripts/retag_existing.py` |
 | 把 line 曲库从 Supabase 迁过来 | 跑 `migrate_line_from_supabase.py` | `scripts/migrate_line_from_supabase.py` |
-| 理解加载链路（混合三层 + 文件地图） | [[architecture]] | `references/architecture.md` |
-| 皮肤/曲库/表情不生效 → 排查 | [[extend-sop]] §7 | `references/extend-sop.md` §7 |
+| 理解加载链路（混合三层 + 文件地图） | [[A02-加载架构与文件地图]] | `references/A02-加载架构与文件地图.md` |
+| 皮肤/曲库/表情不生效 → 排查 | [[A01-端到端SOP与故障排查]] §7 | `references/A01-端到端SOP与故障排查.md` §7 |
 
 ## 核心事实（后端能力，已实测）
 
@@ -136,13 +142,13 @@ emoji 是唯一带 `<scope>` 的：scope=`common` 或 `gameId`（如 `emoji_ches
 kvcli auth login
 
 # 1) chess（默认）：12 张 webp，命名 00_white_king.webp 等
-python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_skin.py D:/skins/neo neo
 
 # 2) gomoku：3 张（black.png / white.png / board.png，允许 webp/jpg 互换）
-python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/skins/ink ink --game gomoku --name "水墨"
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_skin.py D:/skins/ink ink --game gomoku --name "水墨"
 
 # 3) game-center 封面：2 张（small.webp + large.webp；skinId = demo slug）
-python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/covers/gomoku gomoku-lua --game game-center --name "五子棋（联机）"
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_skin.py D:/covers/gomoku gomoku-lua --game game-center --name "五子棋（联机）"
 
 # 4) 客户端重启 app → 新资源出现在列表（无需发版）
 ```
@@ -151,13 +157,13 @@ python .claude/skills/game-skin-pipeline/scripts/add_skin.py D:/covers/gomoku go
 
 ```bash
 # common 作用域：所有游戏都可见（与游戏无关的表情，如 thumbs-up）
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common --name "庆祝"
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common --name "庆祝"
 
 # 特定游戏作用域（如 chess-emoji，只在 chess 房间显示）
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/chess_only chess-faces --scope chess
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/chess_only chess-faces --scope chess
 
 # 重发已有 pack（覆盖：删除旧 emoji id 不再上传的 file）
-python .claude/skills/game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common
 ```
 
 ### C. 发布游戏中心目录（新增/下线游戏）
@@ -174,14 +180,14 @@ dart run tool/publish_game_center_index.dart
 
 ```bash
 # 仅历史数据需要：旧版 add_skin.py 没发 tags，84 张图补 tag 让 facet 可见
-python .claude/skills/game-skin-pipeline/scripts/retag_existing.py
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/retag_existing.py
 ```
 
 ### E. 把 line 曲库从 Supabase 迁过来
 
 ```bash
-python .claude/skills/game-skin-pipeline/scripts/migrate_line_from_supabase.py --dry-run  # 预览
-python .claude/skills/game-skin-pipeline/scripts/migrate_line_from_supabase.py           # 正式
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/migrate_line_from_supabase.py --dry-run  # 预览
+python .claude/skills/flutter-ui-game-skin-pipeline/scripts/migrate_line_from_supabase.py           # 正式
 ```
 
 ## 通用故障排查入口
@@ -199,8 +205,8 @@ python .claude/skills/game-skin-pipeline/scripts/migrate_line_from_supabase.py  
 
 ## 引用索引
 
-| ref | 何时读取 | 路径 |
-| --- | --- | --- |
-| [[extend-sop]] | 新增/更换资源、端到端 SOP、故障排查 | `references/extend-sop.md` |
-| [[architecture]] | 理解加载链路、KV value schema、文件地图 | `references/architecture.md` |
-| [[emoji-sop]] | 表情包特定：scope 合并、id 命名、pack meta 解析 | `references/emoji-sop.md` |
+| 代号 | ref | 何时读取 | 路径 |
+| --- | --- | --- | --- |
+| A01 | [[A01-端到端SOP与故障排查]] | 新增/更换资源、端到端 SOP、故障排查 | `references/A01-端到端SOP与故障排查.md` |
+| A02 | [[A02-加载架构与文件地图]] | 理解加载链路、KV value schema、文件地图 | `references/A02-加载架构与文件地图.md` |
+| A03 | [[A03-表情包端到端SOP]] | 表情包特定：scope 合并、id 命名、pack meta 解析 | `references/A03-表情包端到端SOP.md` |
