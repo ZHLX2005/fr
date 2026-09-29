@@ -22,6 +22,7 @@ import 'core/note/note_root_scope.dart';
 import 'native/home_widget/timetable_widget_syncer.dart';
 import 'services/apk_download_service.dart';
 import 'app_lifecycle/app_foreground.dart';
+import 'app_lifecycle/globals_error_guard.dart';
 import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
@@ -49,6 +50,11 @@ Future<dynamic> _handleRootMethodCall(MethodCall call) async {
 void main() async {
   // 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ★ 全局错误兜底：release 构建下 Flutter 默认的 ErrorWidget 是**一块无字浅灰矩形**
+  //（message 在 assert 里被剥离、Paragraph 为 null 时不画字），任何 build 期异常
+  // 都会表现为「整页空白」。装上本兜底后，线上也能看到可读的错误卡片 + logcat 日志。
+  GlobalsErrorGuard.install();
 
   // 全局前后台信号：让非 widget 的常驻服务（relay transport / lan discovery）
   // 也能在退到后台时挂起周期性网络活动。页面级用各自的 WidgetsBindingObserver。
