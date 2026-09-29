@@ -88,6 +88,58 @@ class PiChatController extends ChangeNotifier {
     // 异步取会话名（AppBar 显示「pi · 名字」而非 sessionId 乱码）。
     // 失败静默 —— 标题退化为默认即可，不为它报错。
     unawaited(_loadSessionName(sessionId));
+    // 异步拉服务端历史合并（复评三大问题之一：换机/清缓存后本地 Hive
+    // 为空，服务端 JSONL 才是完整真相）。不阻塞首屏。
+    unawaited(_mergeServerHistory(sessionId));
+  }
+
+  /// 从服务端回读会话历史并合并进本地（缺的补上，不覆盖本地已有的）。
+  Future<void> _mergeServerHistory(String sessionId) async {
+    try {
+      final detail = await _sessions.detail(sessionId);
+      final context = detail['context'];
+      if (context is! List || context.isEmpty) return;
+      final existing = _repo.messagesOf(sessionId).toSet();
+      var added = 0;
+      for (final entry in context) {
+        if (entry is! Map) continue;
+        final role = entry['role']?.toString();
+        if (role != 'user' && role != 'assistant') continue;
+        final text = () {
+          final c = entry['content'];
+          if (c is String) return c;
+          if (c is List) {
+            final buf = StringBuffer();
+            for (final block in c) {
+              if (block is Map && block['type'] == 'text') {
+                buf.write(block['text']?.toString() ?? '');
+              }
+            }
+            return buf.toString();
+          }
+          return '';
+        }();
+        if (text.trim().isEmpty) continue;
+        final msg = PiChatMessage(
+          sessionId: sessionId,
+          role: role!,
+          text: text,
+          done: true,
+        );
+        if (existing.contains(msg)) continue;
+        await _repo.append(msg);
+        added++;
+      }
+      if (added > 0 && _sessionId == sessionId && !_disposed) {
+        // 刷新内存视图（用户正看着这个会话）
+        _messages
+          ..clear()
+          ..addAll(_repo.messagesOf(sessionId));
+        notifyListeners();
+      }
+    } catch (_) {
+      // 历史合并失败不影响本地已展示的内容
+    }
   }
 
   Future<void> _loadSessionName(String sessionId) async {
