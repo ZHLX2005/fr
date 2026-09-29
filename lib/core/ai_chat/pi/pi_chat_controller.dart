@@ -129,8 +129,21 @@ class PiChatController extends ChangeNotifier {
     _notify();
   }
 
-  /// 当前会话消息（不可变视图）。
-  List<PiChatMessage> get messages => List.unmodifiable(_messages);
+  List<PiChatMessage>? _messagesView;
+
+  /// 当前会话消息（不可变视图，带缓存）。
+  ///
+  /// 此前每次访问全量 `List.unmodifiable` 拷贝，而 itemBuilder 逐项调用
+  /// → 长会话 + 50ms 流式通知节奏下每帧 O(可见行数×n)（复评 P2-1）。
+  /// 现在只在消息列表实际变化时重建视图。
+  List<PiChatMessage> get messages {
+    return _messagesView ??= List.unmodifiable(_messages);
+  }
+
+  /// 消息变化时使缓存失效（所有改动点都走这里或直接改后调 _bump）。
+  void _bumpMessages() {
+    _messagesView = null;
+  }
 
   bool get sending => _sending;
 
@@ -159,6 +172,7 @@ class PiChatController extends ChangeNotifier {
     _messages
       ..clear()
       ..addAll(_repo.messagesOf(sessionId));
+    _bumpMessages();
     _sending = false;
     _lastError = null;
     // 跨会话状态重置（复评 P3：A 会话名粘到 B 会话）
@@ -247,6 +261,7 @@ class PiChatController extends ChangeNotifier {
         _messages
           ..clear()
           ..addAll(_repo.messagesOf(sessionId));
+        _bumpMessages();
         _notify();
       }
     } catch (_) {
@@ -453,6 +468,7 @@ class PiChatController extends ChangeNotifier {
           pending: true,
         ));
         _messages.add(_repo.getByKey(userKey)!);
+      _bumpMessages();
       }
       _notify();
 
@@ -467,6 +483,7 @@ class PiChatController extends ChangeNotifier {
       assistantKey = await _repo.append(assistant);
       final assistantMsg = _repo.getByKey(assistantKey)!;
       _messages.add(assistantMsg);
+      _bumpMessages();
       _notify();
 
       final buf = StringBuffer();
@@ -715,6 +732,7 @@ class PiChatController extends ChangeNotifier {
     final sid = _sessionId;
     if (sid != null) await _repo.clearSession(sid);
     _messages.clear();
+    _bumpMessages();
     _notify();
   }
 
@@ -731,6 +749,7 @@ class PiChatController extends ChangeNotifier {
     }
     await _repo.clearSession(sid);
     _messages.clear();
+    _bumpMessages();
     _sessionId = null;
     _notify();
   }
@@ -776,6 +795,7 @@ class PiChatController extends ChangeNotifier {
     if (failedAssistant != null) {
       final idx = _messages.indexWhere((m) => m.id == failedAssistant!.id);
       if (idx >= 0) _messages.removeAt(idx);
+      _bumpMessages();
       // 精确删除这一条（此前删「最后一条错误」—— 多失败轮次下删错，
       // 被点的气泡永远清不掉，第 7 次复评探针 G）
       await failedAssistant.delete();
