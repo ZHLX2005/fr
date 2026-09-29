@@ -114,13 +114,16 @@ class PiChatController extends ChangeNotifier {
     _sending = true;
     notifyListeners();
 
+    // 落库 key 提到 try 外：catch 里收口失败气泡要用（异常可能发生在任意一步）
+    String? userKey;
+    String? assistantKey;
     try {
       // 1) 无会话则先建（首条消息场景）
       _sessionId ??= (await _agent.newSession(cwd: _settings.cwd)).sessionId;
       final sid = _sessionId!;
 
       // 2) 乐观落库用户消息
-      final userKey = await _repo.append(PiChatMessage(
+      userKey = await _repo.append(PiChatMessage(
         sessionId: sid,
         role: 'user',
         text: trimmed,
@@ -137,32 +140,36 @@ class PiChatController extends ChangeNotifier {
         done: false,
         model: _settings.defaultModel.isEmpty ? null : _settings.defaultModel,
       );
-      final assistantKey = await _repo.append(assistant);
+      assistantKey = await _repo.append(assistant);
       final assistantMsg = _repo.getByKey(assistantKey)!;
       _messages.add(assistantMsg);
       notifyListeners();
 
       final buf = StringBuffer();
       var userEchoed = false;
+      // 到这里 userKey/assistantKey 必然已赋值（落库成功才会走到）；
+      // 局部拷贝成非空给 SSE 回调用。
+      final String uKey = userKey;
+      final String aKey = assistantKey;
       await _sub?.cancel();
       _sub = _agent.events(sid).listen(
         (e) {
           if (e.role == 'user') userEchoed = true;
           if (e.isAssistantDelta) {
             buf.write(e.textDelta);
-            _repo.updateText(assistantKey, buf.toString());
+            _repo.updateText(aKey, buf.toString());
             notifyListeners();
           }
           if (e.type == 'message_end' && e.role == 'assistant' && e.text != null) {
             // 终稿覆盖（防丢增量）
-            _repo.updateText(assistantKey, e.text!, done: true);
+            _repo.updateText(aKey, e.text!, done: true);
             assistantMsg
               ..text = e.text!
               ..done = true;
             notifyListeners();
           }
           if (e.isTurnEnd && buf.isNotEmpty) {
-            _repo.updateText(assistantKey, buf.toString(), done: true);
+            _repo.updateText(aKey, buf.toString(), done: true);
             assistantMsg
               ..text = buf.toString()
               ..done = true;
@@ -170,7 +177,7 @@ class PiChatController extends ChangeNotifier {
           }
           if (e.isError) {
             final msg = e.raw['errorMessage']?.toString() ?? '对话出错';
-            _repo.markError(assistantKey, msg);
+            _repo.markError(aKey, msg);
             assistantMsg
               ..error = msg
               ..done = true;
@@ -179,7 +186,7 @@ class PiChatController extends ChangeNotifier {
         },
         onError: (Object err) {
           final detail = err is PiApiException ? err.message : '$err';
-          _repo.markError(assistantKey, detail);
+          _repo.markError(aKey, detail);
           assistantMsg
             ..error = detail
             ..done = true;
@@ -188,12 +195,12 @@ class PiChatController extends ChangeNotifier {
           notifyListeners();
         },
         onDone: () async {
-          await _repo.updateText(assistantKey, buf.toString(), done: true);
+          await _repo.updateText(aKey, buf.toString(), done: true);
           assistantMsg
             ..text = buf.toString()
             ..done = true;
           // 用户回执：服务端回显了用户消息，清除 pending
-          if (userEchoed) await _repo.updateText(userKey, trimmed);
+          if (userEchoed) await _repo.updateText(uKey, trimmed);
           _sending = false;
           notifyListeners();
         },
@@ -204,16 +211,50 @@ class PiChatController extends ChangeNotifier {
       notifyListeners();
     } on PiApiException catch (e) {
       _lastError = e.isUnauthorized
-          ? 'token 无效或已吊销'
+          ? 'token 无效或已吊销，请到设置检查'
           : e.isThrottled
               ? '请求过于频繁，请稍后再试'
               : '发送失败: ${e.message}';
+      await _finalizeFailedTurn(userKey: userKey, assistantKey: assistantKey,
+          userText: trimmed, errorMessage: _lastError!);
       _sending = false;
       notifyListeners();
     } catch (e) {
       _lastError = '发送失败: $e';
+      await _finalizeFailedTurn(userKey: userKey, assistantKey: assistantKey,
+          userText: trimmed, errorMessage: _lastError!);
       _sending = false;
       notifyListeners();
+    }
+  }
+
+  /// 失败轮次的收口（单一出口）：用户气泡标记「未送达」，assistant 气泡
+  /// 标记失败并给「重发」入口。否则两条气泡会永久停在「发送中/生成中」，
+  /// 界面在对用户撒谎（评分 #13/#14）。
+  ///
+  /// 注意 userKey/assistantKey 可能为 null —— 异常可能发生在落库之前。
+  Future<void> _finalizeFailedTurn({
+    String? userKey,
+    String? assistantKey,
+    required String userText,
+    required String errorMessage,
+  }) async {
+    try {
+      if (assistantKey != null) {
+        await _repo.markError(assistantKey, errorMessage);
+        final m = _repo.getByKey(assistantKey);
+        if (m != null) {
+          m
+            ..error = errorMessage
+            ..done = true;
+        }
+      }
+      if (userKey != null) {
+        // 送达失败：清 pending（UI 显示「失败」状态行）
+        await _repo.updateText(userKey, userText, done: true);
+      }
+    } catch (_) {
+      // 收口失败不能掩盖原始错误
     }
   }
 
@@ -291,6 +332,18 @@ class PiChatController extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
+    // 页面销毁时若有未完成的 assistant 气泡，标记为「已停止」——
+    // 否则重启后（从 Hive 回读）它永远显示「生成中」+ 闪烁光标。
+    for (final m in _messages) {
+      if (m.role == 'assistant' && !m.done) {
+        m.done = true;
+        if (m.text.isEmpty) {
+          m.text = '（已停止）';
+        }
+        // 直接落库（dispose 里不能等异步）
+        _repo.updateText(m.sessionId, m.text, done: true).catchError((_) {});
+      }
+    }
     super.dispose();
   }
 }
