@@ -354,8 +354,13 @@ class _PiChatPageState extends State<PiChatPage> {
                                   horizontal: 12, vertical: 8),
                               itemCount: _controller.messages.length,
                               itemBuilder: (context, i) {
-                                final m = _controller.messages[i];
-                                return _Bubble(
+                                final msgs = _controller.messages;
+                                final m = msgs[i];
+                                // 日期分隔条（复评：跨天会话只有 HH:mm 定位不了）
+                                final prev = i > 0 ? msgs[i - 1] : null;
+                                final showDay = prev == null ||
+                                    !_sameDay(prev.createdAt, m.createdAt);
+                                final bubble = _Bubble(
                                   message: m,
                                   // 携带这一条的身份（多失败轮次时不带身份会
                                   // 重发错内容 —— 第 7 次复评探针 G）
@@ -364,6 +369,14 @@ class _PiChatPageState extends State<PiChatPage> {
                                             failedMessage: m,
                                           )
                                       : null,
+                                );
+                                if (!showDay) return bubble;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _DayDivider(day: m.createdAt),
+                                    bubble,
+                                  ],
                                 );
                               },
                             ),
@@ -763,6 +776,50 @@ class _ThinkingDotsState extends State<_ThinkingDots>
           }),
         );
       },
+    );
+  }
+}
+
+/// 两个时间是否同一天。
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+/// 日期分隔条（今天 / 昨天 / 具体日期）。
+class _DayDivider extends StatelessWidget {
+  final DateTime day;
+
+  const _DayDivider({required this.day});
+
+  static String label(DateTime d) {
+    final now = DateTime.now();
+    if (_sameDay(d, now)) return '今天';
+    final y = now.subtract(const Duration(days: 1));
+    if (_sameDay(d, y)) return '昨天';
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}'
+        '-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color:
+                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            label(day),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
