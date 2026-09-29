@@ -182,7 +182,10 @@ class PiChatController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (_creating) return; // 防重入
+    // controller 层互斥（第 5 次复评前置 3：不能只靠 UI 禁用）——
+    // creating 期间快速发送可并发开出第二个会话，随后 openSession
+    // 整体替换 _messages 把用户刚发的气泡冲掉。
+    if (_creating || _sending) return;
     _creating = true;
     notifyListeners();
     String? provider;
@@ -214,7 +217,8 @@ class PiChatController extends ChangeNotifier {
   /// 原气泡已在历史里，追加会造成重复）。
   Future<void> send(String text, {bool reuseUserMessage = false}) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _sending) return;
+    // creating 期间同样拒绝（controller 层互斥，不依赖 UI 禁用）
+    if (trimmed.isEmpty || _sending || _creating) return;
     if (!_settings.isConfigured) {
       _lastError = '未配置：请先在设置里填写服务地址与 device token';
       notifyListeners();
@@ -250,21 +254,26 @@ class PiChatController extends ChangeNotifier {
       }
       final sid = _sessionId!;
 
-      // 2) 乐观落库用户消息（重发场景复用已有气泡）
+      // 2) 乐观落库用户消息（重发场景复用已有气泡的真实 key）
       if (reuseUserMessage) {
-        final existing = _messages.lastWhere(
-          (m) => m.role == 'user' && m.text == trimmed,
-          orElse: () => _messages.first,
-        );
-        userKey = '${existing.sessionId}#'
-            '${_messages.indexOf(existing)}';
-        existing
-          ..pending = true
-          ..done = false;
-        await _repo.updateText(existing.sessionId, trimmed);
-        final m = _repo.getByKey(userKey);
-        if (m != null) m.pending = true;
-      } else {
+        PiChatMessage? existing;
+        for (final m in _messages.reversed) {
+          if (m.role == 'user' && m.text == trimmed) {
+            existing = m;
+            break;
+          }
+        }
+        // 找不到匹配的 user 气泡就走正常追加（绝不能 orElse 抓 assistant 气泡
+        // 来覆写 —— 第 5 次复评 #15 雷区）。key 用 HiveObject 绑定的真实 key。
+        if (existing != null && existing.key != null) {
+          userKey = existing.key as String;
+          existing
+            ..pending = true
+            ..done = false;
+          await existing.save();
+        }
+      }
+      if (userKey == null) {
         userKey = await _repo.append(PiChatMessage(
           sessionId: sid,
           role: 'user',
@@ -409,11 +418,14 @@ class PiChatController extends ChangeNotifier {
         m
           ..done = true
           ..text = m.text.isEmpty ? '（已停止）' : m.text;
-        await _repo.updateText(m.sessionId, m.text, done: true);
+        // ★ 必须用消息自身的 save()（HiveObject 绑定的真实 key sid#seq）。
+        // 此前用 sessionId 当 key 调 repo.updateText → miss 静默 return
+        // → 内存干净、磁盘照旧，重启后「生成中」复活（第 5 次复评 P1 探针实锤）。
+        await m.save();
       }
       if (clearUserPending && m.role == 'user' && m.pending) {
         m.pending = false;
-        await _repo.updateText(m.sessionId, m.text, done: true);
+        await m.save();
       }
     }
   }
@@ -557,8 +569,9 @@ class PiChatController extends ChangeNotifier {
         if (m.text.isEmpty) {
           m.text = '（已停止）';
         }
-        // 直接落库（dispose 里不能等异步）
-        _repo.updateText(m.sessionId, m.text, done: true).catchError((_) {});
+        // 真实 key 落库（HiveObject.save()）；dispose 里不 await，
+        // future 自行完成（fire-and-forget），失败不阻塞销毁。
+        m.save().catchError((_) {});
       }
     }
     super.dispose();

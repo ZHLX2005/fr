@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../storage/box_descriptor.dart';
@@ -131,6 +132,14 @@ class PiChatMessageRepository implements HiveRepository {
       }
     }
     if (targetKey != null) await _box.delete(targetKey);
+  }
+
+  /// 仅测试用：重置 init 状态与序号表（仓库是单例，跨用例会串状态）。
+  /// 不关 box（Hive.close 由用例自己控制），只让下一次 init() 重新走 openTyped。
+  @visibleForTesting
+  void resetForTest() {
+    _initialized = false;
+    _seq.clear();
   }
 
   /// 按 key 取一条（控制器持有 key 做流式更新时用）。
