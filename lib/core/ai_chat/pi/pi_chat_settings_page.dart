@@ -21,12 +21,14 @@ class PiChatSettingsPage extends StatefulWidget {
 }
 
 class _PiChatSettingsPageState extends State<PiChatSettingsPage> {
-  /// initState 里拿不到 async prefs：先空置，_hydrate 完成后赋值。
+  /// initState 里拿不到 async prefs：_settings 在 _hydrate 完成后才赋值。
+  /// **控制器必须同步初始化**（历史教训：曾经是 `late final`，build 先于
+  /// hydrate 访问它们 → release 上 LateInitializationError → 整页白屏）。
   PiChatSettings? _settings;
-  late final TextEditingController _baseUrl;
-  late final TextEditingController _token;
-  late final TextEditingController _cwd;
-  late final TextEditingController _model;
+  final TextEditingController _baseUrl = TextEditingController();
+  final TextEditingController _token = TextEditingController();
+  final TextEditingController _cwd = TextEditingController();
+  final TextEditingController _model = TextEditingController();
   String _channelPrefix = kPiNginxPrefix;
   bool _obscureToken = true;
   bool _testing = false;
@@ -39,15 +41,23 @@ class _PiChatSettingsPageState extends State<PiChatSettingsPage> {
   }
 
   Future<void> _hydrate() async {
-    final s = widget.settings ??
-        PiChatSettings(await SharedPreferences.getInstance());
-    _settings = s;
-    _baseUrl.text = s.baseUrl;
-    _token.text = s.token;
-    _cwd.text = s.cwd;
-    _model.text = s.defaultModel;
-    _channelPrefix = s.channelPrefix;
-    if (mounted) setState(() {});
+    try {
+      final s = widget.settings ??
+          PiChatSettings(await SharedPreferences.getInstance());
+      if (!mounted) return;
+      setState(() {
+        _settings = s;
+        _baseUrl.text = s.baseUrl;
+        _token.text = s.token;
+        _cwd.text = s.cwd;
+        _model.text = s.defaultModel;
+        _channelPrefix = s.channelPrefix;
+      });
+    } catch (e) {
+      // prefs 读失败也必须有可见结果（错误提示），不能让表单空白
+      if (!mounted) return;
+      setState(() => _testResult = '配置读取失败: $e');
+    }
   }
 
   @override
@@ -85,7 +95,10 @@ class _PiChatSettingsPageState extends State<PiChatSettingsPage> {
     // 先落盘再测（测试要读到最新配置）
     await _save();
     final settings = _settings;
-    if (settings == null) return;
+    if (settings == null) {
+      if (mounted) setState(() => _testing = false);
+      return;
+    }
     final probe = PiSessionsEndpoint(config: () => settings.toApiConfig());
     try {
       final list = await probe.list();
