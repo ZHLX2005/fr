@@ -105,14 +105,16 @@ class PiChatController extends ChangeNotifier {
   Map<String, dynamic>? _contextUsage;
 
   /// 拉一次上下文占用（AppBar 副标题显示）。
+  /// ★ 真实数据在 `get_state` 的 contextUsage；/sessions/:id/context 返回的
+  /// 是消息列表（此前读错端点 → 用量条恒显 0%，第 9 次复评 P1-B）。
   Future<void> refreshContextUsage() async {
     final sid = _sessionId;
     if (sid == null) return;
     try {
-      final ctx = await _sessions.context(sid);
-      final usage = ctx['contextUsage'] ?? ctx;
-      if (usage is Map<String, dynamic> && !_disposed) {
-        _contextUsage = usage;
+      final st = await _agent.state(sid);
+      final cu = st['contextUsage'];
+      if (cu is Map<String, dynamic> && !_disposed) {
+        _contextUsage = cu;
         _notify();
       }
     } catch (_) {
@@ -416,6 +418,8 @@ class PiChatController extends ChangeNotifier {
           cwd: _settings.cwd,
           provider: provider,
           modelId: modelId,
+          // 会话前选的思考档位在这里生效（第 9 次复评前置 3：此前静默丢失）
+          thinkingLevel: _thinkingLevel == 'off' ? null : _thinkingLevel,
         ))
             .sessionId;
         unawaited(_rememberSession(_sessionId));
@@ -486,6 +490,10 @@ class PiChatController extends ChangeNotifier {
         pendingFlush = true;
         Future<void>.delayed(const Duration(milliseconds: 50), () async {
           pendingFlush = false;
+          // ★ message_end 之后任何写路径只允许写 finalText（第 9 次复评
+          // 探针 A：flush 回调不检查 finalLocked，50ms 定时器把终稿覆盖成
+          // delta 残句 —— 中止/断流轮次用户把截断文本当完整答案）。
+          if (finalLocked) return;
           await _repo.updateText(aKey, buf.toString());
           assistantMsg.text = buf.toString();
           if (!_disposed) notifyListeners();
@@ -497,11 +505,12 @@ class PiChatController extends ChangeNotifier {
           // 工具活动：agent 干活的核心过程，此前完全丢弃（复评 #6 最大缺口）
           if (e.isToolEvent) {
             final name = e.toolName ?? '工具';
+            final detail = e.toolDetail == null
+                ? ''
+                : ' · ${e.toolDetail}';
             final line = e.toolPhase == 'start'
-                ? '正在调用 $name…'
-                : e.toolPhase == 'end'
-                    ? '$name 完成'
-                    : '$name …';
+                ? '正在调用 $name$detail'
+                : '$name$detail';
             if (!toolLines.contains(line)) {
               toolLines.add(line);
               assistantMsg.toolActivity = toolLines.join('\n');
@@ -671,22 +680,34 @@ class PiChatController extends ChangeNotifier {
     if (sid == null) return;
     try {
       await _agent.abort(sid);
-      // 本地同步收口：不等服务端 agent_end（若该流不结束，
-      // 中止按钮永不消失、发送按钮永久禁用 —— 复评 #8）。
-      await _sub?.cancel();
-      _sub = null;
-      await _stopUnfinishedBubbles(clearUserPending: true);
-      _sending = false;
-      _notify();
+      await _finalizeAbort();
     } on PiApiException catch (e) {
       // 中止请求失败也必须复位 sending —— 否则发送按钮永久禁用（复评 P1）。
       _lastError = '中止失败: ${e.message}';
       await _sub?.cancel();
       _sub = null;
-      await _stopUnfinishedBubbles(clearUserPending: true);
+      await _finalizeAbort();
       _sending = false;
       _notify();
     }
+  }
+
+  /// 中止的本地收口（成功/失败两路共用，第 9 次复评：手抄两份必然分叉）。
+  Future<void> _finalizeAbort() async {
+    await _sub?.cancel();
+    _sub = null;
+    // 有终稿但流没走完（无 turnEnd）的轮次：补「已停止」标记——
+    // 否则用户把截断文本当完整答案（第 9 次复评探针 A 后半）。
+    for (final m in _messages) {
+      if (m.role == 'assistant' && m.done && !m.stopped &&
+          m.text.isNotEmpty) {
+        m.stopped = true;
+        await m.save();
+      }
+    }
+    await _stopUnfinishedBubbles(clearUserPending: true);
+    _sending = false;
+    _notify();
   }
 
   /// 清空本地记录（不影响服务端会话）。

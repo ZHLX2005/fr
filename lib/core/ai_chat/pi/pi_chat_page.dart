@@ -316,7 +316,8 @@ class _PiChatPageState extends State<PiChatPage> {
         // 不再显示 sessionId 乱码（复评 #6）。长按改名（rename 端点此前
         // 在库里躺了六轮没有 UI 入口 —— 复评 #1）。
         // 副标题：上下文占用（ChatGPT/Claude 都有容量提示；复评 P2-8）
-        bottom: _controller.contextUsage == null
+        bottom: (_controller.contextUsage == null ||
+                ((_controller.contextUsage?['percent'] as num?) ?? 0) <= 0)
             ? null
             : PreferredSize(
                 preferredSize: const Size.fromHeight(14),
@@ -693,8 +694,10 @@ class _Bubble extends StatelessWidget {
                             h3: theme.textTheme.bodyLarge
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
+                          // 只注册块级 'pre'：此前注册 'code' 会把**行内代码**
+                          // 也渲染成全宽块 + 复制按钮（第 9 次复评探针 H）
                           builders: {
-                            'code': _CodeBlockBuilder(theme: theme, fg: fg),
+                            'pre': _CodeBlockBuilder(theme: theme, fg: fg),
                           },
                         ),
                       )
@@ -1090,6 +1093,13 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
+            ),
+          ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             // 顶掉默认样式，避免与 MarkdownBody 的 pre 装饰叠加

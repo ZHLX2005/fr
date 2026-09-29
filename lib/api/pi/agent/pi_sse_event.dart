@@ -55,11 +55,14 @@ class PiSseEvent {
     this.raw = const {},
   });
 
-  /// 是否为工具相关帧。
+  /// 是否为工具相关帧（含拍平形态：message_update 内嵌 toolcall_*）。
   bool get isToolEvent =>
       type.startsWith('tool_execution_') ||
       type.startsWith('toolcall_') ||
-      toolName != null;
+      toolName != null ||
+      (raw['assistantMessageEvent'] is Map &&
+          ((raw['assistantMessageEvent'] as Map)['type']?.toString() ?? '')
+              .startsWith('toolcall_'));
 
   /// 是否为助手侧的流式增量。
   bool get isAssistantDelta => type == 'message_update' && textDelta != null;
@@ -119,8 +122,22 @@ class PiSseEvent {
     String? toolCallId;
     String? toolPhase;
     String? toolDetail;
-    if (type.startsWith('tool_execution_') || type.startsWith('toolcall_')) {
-      toolPhase = type.replaceFirst('tool_execution_', '')
+    // 拍平形态（探针 C 实测）：message_update 的 assistantMessageEvent.type
+    // == 'toolcall_start' —— 顶层 type 是 message_update，只看顶层会整帧丢弃。
+    final nestedType =
+        ame is Map ? ame['type']?.toString() ?? '' : '';
+    final isTool = type.startsWith('tool_execution_') ||
+        type.startsWith('toolcall_') ||
+        nestedType.startsWith('toolcall_') ||
+        nestedType.startsWith('tool_execution_');
+    if (isTool) {
+      // phase：拍平形态从嵌套 type 取，顶层形态从顶层 type 取
+      final phaseSource = nestedType.startsWith('toolcall_') ||
+              nestedType.startsWith('tool_execution_')
+          ? nestedType
+          : type;
+      toolPhase = phaseSource
+          .replaceFirst('tool_execution_', '')
           .replaceFirst('toolcall_', '');
       final holders = [map, map['toolCall'], map['tool_call'], ame];
       for (final h in holders) {
