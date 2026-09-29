@@ -118,8 +118,25 @@ class PiChatController extends ChangeNotifier {
     String? userKey;
     String? assistantKey;
     try {
-      // 1) 无会话则先建（首条消息场景）
-      _sessionId ??= (await _agent.newSession(cwd: _settings.cwd)).sessionId;
+      // 1) 无会话则先建（首条消息场景）。
+      // 设置里的「默认模型」（provider/modelId）在这里**真正生效**——
+      // 此前它只被写进消息字段，从未传给服务端（评分 #20：死配置）。
+      if (_sessionId == null) {
+        String? provider;
+        String? modelId;
+        final dm = _settings.defaultModel;
+        if (dm.contains('/')) {
+          final i = dm.indexOf('/');
+          provider = dm.substring(0, i);
+          modelId = dm.substring(i + 1);
+        }
+        _sessionId = (await _agent.newSession(
+          cwd: _settings.cwd,
+          provider: provider,
+          modelId: modelId,
+        ))
+            .sessionId;
+      }
       final sid = _sessionId!;
 
       // 2) 乐观落库用户消息
