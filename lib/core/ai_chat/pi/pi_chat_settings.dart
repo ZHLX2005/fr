@@ -12,6 +12,7 @@ class PiChatSettings {
   static const _kCwd = 'pi_chat.cwd';
   static const _kChannelPrefix = 'pi_chat.channelPrefix';
   static const _kDefaultModel = 'pi_chat.defaultModel';
+  static const _kLastSessionId = 'pi_chat.lastSessionId';
 
   final SharedPreferences _prefs;
 
@@ -32,6 +33,10 @@ class PiChatSettings {
 
   /// 默认模型（`provider/modelId`）。空 = 跟随服务端默认。
   String get defaultModel => _prefs.getString(_kDefaultModel) ?? '';
+
+  /// 上次使用的会话 id —— 冷启恢复用（否则每次进 pi 都是全新会话，
+  /// 之前的对话在 UI 上就再也找不回来）。
+  String get lastSessionId => _prefs.getString(_kLastSessionId) ?? '';
 
   bool get isConfigured => baseUrl.isNotEmpty && token.isNotEmpty;
 
@@ -60,6 +65,10 @@ class PiChatSettings {
   Future<void> setDefaultModel(String v) =>
       _prefs.setString(_kDefaultModel, v.trim());
 
+  /// 记住当前会话（冷启恢复用）。
+  Future<void> setLastSessionId(String v) =>
+      _prefs.setString(_kLastSessionId, v.trim());
+
   /// 全量覆盖（设置页保存按钮的语义）。
   Future<void> saveAll({
     required String baseUrl,
@@ -82,5 +91,6 @@ class PiChatSettings {
     await _prefs.remove(_kCwd);
     await _prefs.remove(_kChannelPrefix);
     await _prefs.remove(_kDefaultModel);
+    await _prefs.remove(_kLastSessionId);
   }
 }

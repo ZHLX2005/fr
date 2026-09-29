@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'pi_chat_page.dart';
 import 'pi_chat_settings.dart';
 import 'pi_chat_settings_page.dart';
+import 'pi_session_list_page.dart';
 
 /// pi 聊天入口页 —— 给「AI 助手」功能列表用的同步构造壳。
 ///
@@ -98,8 +99,25 @@ class _PiChatEntryPageState extends State<PiChatEntryPage> {
       case _EntryPhase.failed:
         return _EntryErrorView(error: _error, onRetry: _hydrate);
       case _EntryPhase.ready:
-        return PiChatPage(settings: _settings!);
+        // 未配置 → 交给 PiChatPage 的 _NotConfiguredView 引导；
+        // 已配置 → 先进会话列表（历史入口），而不是直接扎进一个新会话。
+        final s = _settings!;
+        return s.isConfigured
+            ? PiSessionListPage(settings: s)
+            : PiChatPagePlaceholder(settings: s);
     }
+  }
+}
+
+/// 未配置时的占位 —— 复用 PiChatPage 的未配置引导（那里已有「去设置」）。
+class PiChatPagePlaceholder extends StatelessWidget {
+  final PiChatSettings settings;
+
+  const PiChatPagePlaceholder({super.key, required this.settings});
+
+  @override
+  Widget build(BuildContext context) {
+    return PiChatPage(settings: settings);
   }
 }
 
