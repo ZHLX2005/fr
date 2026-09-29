@@ -137,13 +137,32 @@ class PiChatController extends ChangeNotifier {
       final List? context =
           rawContext is Map ? rawContext['messages'] as List? : rawContext as List?;
       if (context == null || context.isEmpty) return;
-      // ★ 只补尾部（第 7 次复评探针 A）：此前按「值相等」去重，服务端历史里
-      // 用户两次问同一句话（合法轮次）会被误判重复而吞掉 —— 数据完整性
-      // 从「越滚越大」变成「越读越少」。现在按**本地已有条数**切分：
-      // 本地已有的前缀不动，只 append 服务端多出来的尾部。
+      // ★ 只补尾部，但切分基准必须是**可落库的有效条目数**而不是原始长度：
+      // 服务端 context 里含 tool/空文本条目时它们不会落库，用原始长度切分会
+      // 造成「本地数 < 有效数」恒成立 → 每次进会话重复追加尾部
+      //（第 8 次复评探针 A 实测：'第二答' 被重复追加）。
+      bool hasText(dynamic entry) {
+        if (entry is! Map) return false;
+        final r = entry['role']?.toString();
+        if (r != 'user' && r != 'assistant') return false;
+        final c = entry['content'];
+        if (c is String) return c.trim().isNotEmpty;
+        if (c is List) {
+          for (final b in c) {
+            if (b is Map && b['type'] == 'text' &&
+                (b['text']?.toString().trim().isNotEmpty ?? false)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      final validContext = context.where(hasText).toList();
+      if (validContext.isEmpty) return;
       final localCount = _repo.messagesOf(sessionId).length;
-      if (context.length <= localCount) return; // 本地不比服务端少
-      final pending = context.sublist(localCount);
+      if (validContext.length <= localCount) return; // 本地不比服务端少
+      final pending = validContext.sublist(localCount);
       final existing = <PiChatMessage>{};
       var added = 0;
       for (final entry in pending) {
@@ -399,6 +418,10 @@ class PiChatController extends ChangeNotifier {
 
       final buf = StringBuffer();
       var sawTurnEnd = false;
+      // message_end 的完整正文（权威终稿）；锁定后 agent_end/onDone 不得用
+      // delta 累积覆盖（第 8 次复评探针 B）
+      String? finalText;
+      var finalLocked = false;
       // 到这里 userKey/assistantKey 必然已赋值（落库成功才会走到）；
       // 局部拷贝成非空给 SSE 回调用。
       final String uKey = userKey;
@@ -425,10 +448,15 @@ class PiChatController extends ChangeNotifier {
             scheduleFlush();
           }
           if (e.type == 'message_end' && e.role == 'assistant' && e.text != null) {
-            // 终稿覆盖（防丢增量）
-            _repo.updateText(aKey, e.text!, done: true);
+            // 终稿：服务端给的完整正文是权威（delta 可能丢帧）。
+            // ★ 记入 finalText 并锁定，agent_end 不得再用 delta 累积覆盖它
+            //（第 8 次复评探针 B：终稿被覆盖成只剩增量的残句）。
+            finalText = e.text!;
+            finalLocked = true;
+            // 监听回调非 async：fire-and-forget 落库（内存立即更新）
+            _repo.updateText(aKey, finalText!, done: true);
             assistantMsg
-              ..text = e.text!
+              ..text = finalText!
               ..done = true;
             _notify();
           }
@@ -438,9 +466,14 @@ class PiChatController extends ChangeNotifier {
             //（30s 注释帧），agent_end 后流**不断开** → onDone 永不触发。
             // 若只靠 onDone，生产环境每轮成功回复后发送按钮永久转圈、
             // user 气泡永久「发送中」。空回复（纯工具调用轮）也置 done。
-            _repo.updateText(aKey, buf.toString(), done: true);
+            // 终稿已锁定时用它（探针 B：不得被 delta 累积覆盖成残句）
+            final settledText = finalLocked ? finalText! : buf.toString();
+            buf
+              ..clear()
+              ..write(settledText);
+            _repo.updateText(aKey, settledText, done: true);
             assistantMsg
-              ..text = buf.toString()
+              ..text = settledText
               ..done = true;
             // 无条件清 pending（第 4 次复评：回显帧不保证有，成功主路径
             // 不该带门 —— isError/onDone 都无条件，唯独这里带门不是完整收口）
@@ -478,8 +511,9 @@ class PiChatController extends ChangeNotifier {
           _notify();
         },
         onDone: () async {
+          final settled = finalLocked ? finalText! : buf.toString();
           assistantMsg
-            ..text = buf.toString()
+            ..text = settled
             ..done = true;
           // ★ 未见 turn_end 就断流 = 半截回复，不能伪装成完整答案
           //（第 7 次复评探针 E：一个 delta 后流干净关闭，用户把半截当完整）。

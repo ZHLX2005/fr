@@ -401,21 +401,37 @@ class _PiChatPageState extends State<PiChatPage> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: TextField(
+                          child: Focus(
+                            onKeyEvent: (node, event) {
+                              // 桌面：Enter（无 Shift）发送；Shift+Enter 换行
+                              if (event is KeyDownEvent &&
+                                  event.logicalKey == LogicalKeyboardKey.enter &&
+                                  !HardwareKeyboard.instance.isShiftPressed) {
+                                _send();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: TextField(
                             controller: _input,
                             // 关键路径：进页面即可打字（少一次点击）
                             autofocus: true,
                             minLines: 1,
                             maxLines: 5,
-                            textInputAction: TextInputAction.send,
+                            // 软键盘显示「换行」而不是「发送」：桌面/外接键盘上
+                            // 换行键可达（此前 TextInputAction.send 占用了它，
+                            // maxLines:5 形同虚设 —— 复评 #13）。发送用按钮，
+                            // 桌面回车仍然发送（onSubmitted）。
                             keyboardType: TextInputType.multiline,
-                            onSubmitted: (_) => _send(),
-                            decoration: const InputDecoration(
-                              hintText: '发消息…',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
+                            textInputAction: TextInputAction.newline,
+                              onSubmitted: (_) => _send(),
+                              decoration: const InputDecoration(
+                                hintText: '发消息…',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                              ),
                             ),
                           ),
                         ),
@@ -505,7 +521,12 @@ class _Bubble extends StatelessWidget {
                     else if (!isUser && message.done)
                       // agent 回复含代码/列表/加粗：完成后走 markdown 渲染
                       //（流式中保持纯文本，避免半截语法闪烁）。
-                      MarkdownRendererWidget(data: message.text)
+                      // SelectionArea 包一层：MarkdownRendererWidget 内部是
+                      // selectable:false（全项目共享组件的性能取舍，不在这里改它），
+                      // 但回复恰恰最需要选中复制（复评多轮扣分项）。
+                      SelectionArea(
+                        child: MarkdownRendererWidget(data: message.text),
+                      )
                     else
                       SelectableText(message.text,
                           style: theme.textTheme.bodyMedium
