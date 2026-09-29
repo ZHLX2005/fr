@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
+import '../../../api/pi/pi.dart';
 import '../../../widgets/markdown_renderer_widget.dart';
 import 'pi_chat_controller.dart';
 import 'pi_chat_message.dart';
@@ -140,6 +141,62 @@ class _PiChatPageState extends State<PiChatPage> {
     await _controller.send(text);
   }
 
+  /// 模型选择底部弹层：拉服务端清单 → 点选 → set_model 命令。
+  Future<void> _showModelPicker() async {
+    final endpoint = PiModelsEndpoint(config: () => widget.settings.toApiConfig());
+    try {
+      final catalog = await endpoint.list();
+      if (!mounted) return;
+      final current = _controller.currentModelId;
+      final selected = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('选择模型',
+                    style: Theme.of(ctx).textTheme.titleMedium),
+              ),
+              if (catalog.models.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('服务端未返回可用模型（请在 pi-web 设置页配置模型凭据）',
+                      style: Theme.of(ctx).textTheme.bodySmall),
+                )
+              else
+                for (final m in catalog.models)
+                  ListTile(
+                    leading: Icon(
+                      m.qualifiedId == current
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      size: 20,
+                    ),
+                    title: Text(m.displayName),
+                    subtitle: Text(m.qualifiedId,
+                        style: Theme.of(ctx).textTheme.bodySmall),
+                    onTap: () => Navigator.pop(ctx, m.qualifiedId),
+                  ),
+            ],
+          ),
+        ),
+      );
+      if (selected != null && selected != current) {
+        await _controller.switchModel(selected);
+      }
+    } on PiApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('拉取模型清单失败: ${e.message}')),
+        );
+      }
+    } finally {
+      endpoint.close();
+    }
+  }
+
   Future<void> _openSettings() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PiChatSettingsPage(settings: widget.settings),
@@ -193,6 +250,12 @@ class _PiChatPageState extends State<PiChatPage> {
           return 'pi 对话';
         }()),
         actions: [
+          // 模型切换（复评 #9：端点全在库里却让用户手填字符串）
+          IconButton(
+            tooltip: '切换模型',
+            icon: const Icon(Icons.tune),
+            onPressed: configured ? _showModelPicker : null,
+          ),
           IconButton(
             tooltip: _controller.creating
                 ? '正在创建…'

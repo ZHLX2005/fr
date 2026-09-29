@@ -92,6 +92,20 @@ class PiChatController extends ChangeNotifier {
 
   Future<void> _loadSessionName(String sessionId) async {
     try {
+      // 顺手同步当前模型（模型选择器的选中态）
+      try {
+        final st = await _agent.state(sessionId);
+        final model = st['model'];
+        if (model is Map && !_disposed) {
+          final p = model['provider']?.toString();
+          final m = model['modelId']?.toString();
+          if (p != null && m != null && m != 'unknown') {
+            _currentModelId = '$p/$m';
+          }
+        }
+      } catch (_) {
+        // 模型态拿不到就算了
+      }
       final detail = await _sessions.detail(sessionId);
       final name = detail['info'] is Map
           ? (detail['info']['name']?.toString() ?? '')
@@ -114,6 +128,39 @@ class PiChatController extends ChangeNotifier {
   void overrideSessionIdForTest(String sessionId) {
     _sessionId = sessionId;
   }
+
+  /// 切换模型（AppBar 模型选择器）。
+  Future<void> switchModel(String qualifiedId) async {
+    final sid = _sessionId;
+    if (sid == null) {
+      // 还没会话：把选择记成默认模型，建会话时生效
+      await _settings.setDefaultModel(qualifiedId);
+      notifyListeners();
+      return;
+    }
+    final i = qualifiedId.indexOf('/');
+    if (i <= 0) {
+      _lastError = '模型格式应为 provider/modelId：$qualifiedId';
+      notifyListeners();
+      return;
+    }
+    try {
+      await _agent.command(
+        sid,
+        {'type': 'set_model', 'provider': qualifiedId.substring(0, i),
+         'modelId': qualifiedId.substring(i + 1)},
+      );
+      await _settings.setDefaultModel(qualifiedId);
+      _lastError = null;
+    } on PiApiException catch (e) {
+      _lastError = '切换模型失败: ${e.message}';
+    }
+    notifyListeners();
+  }
+
+  /// 当前模型（服务端状态里取；未知返回 null）。
+  String? get currentModelId => _currentModelId;
+  String? _currentModelId;
 
   /// 把 sessionId 记进配置（「继续上次对话」的数据源）。
   /// 此前只有列表页写它 —— 聊天页内新建/进入会话后断链（复评 #6）。
