@@ -73,6 +73,11 @@ class PiChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 仅测试用：跳过网络建会话，直接注入 sessionId（状态机单测用）。
+  void overrideSessionIdForTest(String sessionId) {
+    _sessionId = sessionId;
+  }
+
   /// 新建一个 pi 会话（ensure_session，不耗额度）并切换过去。
   Future<void> newSession({String? model}) async {
     final cfg = _settings;
@@ -201,12 +206,17 @@ class PiChatController extends ChangeNotifier {
             notifyListeners();
           }
         },
-        onError: (Object err) {
+        onError: (Object err) async {
           final detail = err is PiApiException ? err.message : '$err';
           _repo.markError(aKey, detail);
           assistantMsg
             ..error = detail
             ..done = true;
+          // user 气泡同样要收口：断流时清 pending，否则 meta 行永远「发送中」，
+          // 且与旁边的「失败+重发」并存成矛盾态（复评 #3）。
+          try {
+            await _repo.updateText(uKey, trimmed, done: true);
+          } catch (_) {}
           _lastError = detail;
           _sending = false;
           notifyListeners();

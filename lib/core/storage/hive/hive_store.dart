@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 /// 统一管理 Hive 初始化 + box 句柄缓存。
@@ -9,9 +10,19 @@ class HiveStore {
   final Map<String, Box<dynamic>> _boxes = {};
 
   /// 初始化 Hive（多次调用安全）。
+  ///
+  /// 测试开关：true 时 init() 不调 initFlutter（那需要 path_provider
+  /// 平台通道，测试环境没有）。测试在 setUp 里先 `Hive.init(tempDir)`
+  /// 再置此开关，生产代码不碰它。
+  static bool skipFlutterInitForTest = false;
+
   Future<void> init() async {
     if (_initialized) return;
-    await Hive.initFlutter();
+    if (skipFlutterInitForTest) {
+      debugPrint('[HiveStore] skipFlutterInitForTest：跳过 initFlutter');
+    } else {
+      await Hive.initFlutter();
+    }
     _initialized = true;
   }
 

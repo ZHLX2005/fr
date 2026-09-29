@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
+import '../../../widgets/markdown_renderer_widget.dart';
 import 'pi_chat_controller.dart';
 import 'pi_chat_message.dart';
 import 'pi_chat_settings.dart';
@@ -125,6 +126,16 @@ class _PiChatPageState extends State<PiChatPage> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty) return;
+    // 流式进行中**不清输入框**（此前先 clear 再 send，而 send 在 _sending 时
+    // 静默 return —— 用户正在打的内容被无声吞掉，真实数据丢失）。
+    if (_controller.sending) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('正在生成回复，请稍候（输入已保留）'),
+        duration: Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
     _input.clear();
     await _controller.send(text);
   }
@@ -347,6 +358,10 @@ class _Bubble extends StatelessWidget {
                       Text('发送中…',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: fg.withValues(alpha: 0.6)))
+                    else if (!isUser && message.done)
+                      // agent 回复含代码/列表/加粗：完成后走 markdown 渲染
+                      //（流式中保持纯文本，避免半截语法闪烁）。
+                      MarkdownRendererWidget(data: message.text)
                     else
                       SelectableText(message.text,
                           style: theme.textTheme.bodyMedium
