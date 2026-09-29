@@ -39,6 +39,7 @@ class PiChatController extends ChangeNotifier {
   StreamSubscription<PiSseEvent>? _sub;
   bool _sending = false;
   String? _lastError;
+  bool _disposed = false;
 
   /// pi 服务端 sessionId（null = 尚未建会话）。
   String? get sessionId => _sessionId;
@@ -173,14 +174,27 @@ class PiChatController extends ChangeNotifier {
       // 局部拷贝成非空给 SSE 回调用。
       final String uKey = userKey;
       final String aKey = assistantKey;
+      // 流式节流：每个 delta 都写 Hive+notify 会造成每秒几十次磁盘 IO 与
+      // 整页 rebuild（复评 #4：真机掉帧点）。delta 先进 buffer，
+      // 50ms 定时批量落盘+通知一次。
+      var pendingFlush = false;
+      void scheduleFlush() {
+        if (pendingFlush) return;
+        pendingFlush = true;
+        Future<void>.delayed(const Duration(milliseconds: 50), () async {
+          pendingFlush = false;
+          await _repo.updateText(aKey, buf.toString());
+          assistantMsg.text = buf.toString();
+          if (!_disposed) notifyListeners();
+        });
+      }
       await _sub?.cancel();
       _sub = _agent.events(sid).listen(
         (e) {
           if (e.role == 'user') userEchoed = true;
           if (e.isAssistantDelta) {
             buf.write(e.textDelta);
-            _repo.updateText(aKey, buf.toString());
-            notifyListeners();
+            scheduleFlush();
           }
           if (e.type == 'message_end' && e.role == 'assistant' && e.text != null) {
             // 终稿覆盖（防丢增量）
@@ -384,6 +398,7 @@ class PiChatController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _sub?.cancel();
     // 页面销毁时若有未完成的 assistant 气泡，标记为「已停止」——
     // 否则重启后（从 Hive 回读）它永远显示「生成中」+ 闪烁光标。
