@@ -127,12 +127,15 @@ class _PiChatPageState extends State<PiChatPage> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty) return;
-    // 流式进行中**不清输入框**（此前先 clear 再 send，而 send 在 _sending 时
-    // 静默 return —— 用户正在打的内容被无声吞掉，真实数据丢失）。
-    if (_controller.sending) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('正在生成回复，请稍候（输入已保留）'),
-        duration: Duration(seconds: 1),
+    // 流式/创建会话进行中**不清输入框**（两类忙态都由 controller 层拒绝；
+    // 此前只查 sending —— 创建会话最长 180s 的窗口把同样一类数据丢失
+    // 重新引进来，第 6 次复评探针实锤）。
+    if (_controller.sending || _controller.creating) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_controller.creating
+            ? '正在创建会话，请稍候（输入已保留）'
+            : '正在生成回复，请稍候（输入已保留）'),
+        duration: const Duration(seconds: 1),
         behavior: SnackBarBehavior.floating,
       ));
       return;
@@ -459,6 +462,14 @@ class _Bubble extends StatelessWidget {
                     if (isStreaming && message.text.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       _TypingCursor(color: fg),
+                    ],
+                    // 中止/中断的独立状态行（stopped 是字段，不污染正文）
+                    if (message.stopped && message.done) ...[
+                      const SizedBox(height: 4),
+                      Text('已停止',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: fg.withValues(alpha: 0.6),
+                          )),
                     ],
                     if (hasError) ...[
                       const SizedBox(height: 6),

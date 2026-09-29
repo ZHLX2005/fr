@@ -46,6 +46,12 @@ class PiChatMessage extends HiveObject {
   @HiveField(7)
   bool pending;
 
+  /// assistant 消息被中止/中断（区别于自然完成；UI 显示「已停止」状态行
+  /// 而不是把伪造文本混进正文 —— 复评 P2：正文里出现「（已停止）」会被
+  /// 复制/搜索/重发带上）。
+  @HiveField(8, defaultValue: false)
+  bool stopped;
+
   PiChatMessage({
     required this.sessionId,
     required this.role,
@@ -55,10 +61,25 @@ class PiChatMessage extends HiveObject {
     this.model,
     this.error,
     this.pending = false,
+    this.stopped = false,
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// 用于 Hive key：同一会话内按时间排序且唯一。
   String keyFor(int seq) => '$sessionId#$seq';
+
+  /// 值相等（sessionId+role+text）—— 历史回读去重的依据。
+  /// 此前没有重写 → Set/contains 做身份比较永远 miss → 每进一次会话
+  /// 整段服务端历史重复落库一次（第 6 次复评探针 A：无界膨胀）。
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PiChatMessage &&
+          other.sessionId == sessionId &&
+          other.role == role &&
+          other.text == text;
+
+  @override
+  int get hashCode => Object.hash(sessionId, role, text);
 
   @override
   String toString() =>

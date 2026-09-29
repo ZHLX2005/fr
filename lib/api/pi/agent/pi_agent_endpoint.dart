@@ -152,6 +152,8 @@ class PiAgentEndpoint {
     final cfg = _config();
     final uri = cfg.uri('/agent/$sessionId/events');
     late StreamController<PiSseEvent> controller;
+    // 底层流的订阅句柄（onCancel 里取消它 = 断开 socket）
+    StreamSubscription<String>? onSubCancel;
 
     Future<void> start() async {
       try {
@@ -173,11 +175,11 @@ class PiAgentEndpoint {
           await controller.close();
           return;
         }
+        // SSE 规范允许 CRLF 分隔；统一归一成 LF 再分帧（此前只认 \n\n，
+        // CRLF 服务端全丢 —— 第 6 次复评）。drain 同时处理尾帧 flush。
         final buffer = StringBuffer();
-        await for (final chunk in resp.stream.transform(utf8.decoder)) {
-          buffer.write(chunk);
-          // SSE 以空行分帧；逐帧取出并解析
-          var text = buffer.toString();
+        Future<void> drain([String tail = '']) async {
+          var text = buffer.toString() + tail;
           var idx = text.indexOf('\n\n');
           while (idx >= 0) {
             final frame = text.substring(0, idx);
@@ -190,7 +192,33 @@ class PiAgentEndpoint {
             ..clear()
             ..write(text);
         }
-        if (!controller.isClosed) await controller.close();
+
+        // 显式 listen（而非 await for）：onCancel 需要拿到 subscription 才能
+        // 真正断开底层 socket（第 6 次复评探针 E：await for 的订阅在 onCancel
+        // 里够不着，导致每条消息泄漏一个长连连接）。
+        StreamSubscription<String>? sub;
+        sub = resp.stream.transform(utf8.decoder).listen(
+          (chunk) async {
+            await drain(chunk.replaceAll('\r\n', '\n'));
+          },
+          onDone: () async {
+            // 尾帧 flush：服务端最后一帧若没带空行，此前直接被丢弃
+            await drain('\n\n');
+            if (!controller.isClosed) await controller.close();
+          },
+          onError: (Object e) {
+            if (!controller.isClosed) {
+              controller.addError(
+                e is PiApiException
+                    ? e
+                    : PiApiException(statusCode: 0, message: '$e'),
+              );
+            }
+          },
+          cancelOnError: true,
+        );
+        // onCancel 里也需要引用：取消时先 cancel 这个订阅
+        onSubCancel = sub;
       } catch (e) {
         if (!controller.isClosed) {
           controller.addError(
@@ -206,7 +234,12 @@ class PiAgentEndpoint {
     controller = StreamController<PiSseEvent>(
       onListen: start,
       onCancel: () async {
-        // 共享 client 不 close；订阅取消即断流。
+        // ★ 真正断开底层 socket（探针 E：空实现 = 每条消息泄漏一个长连）。
+        try {
+          await onSubCancel?.cancel();
+        } catch (_) {
+          // 底层可能已结束
+        }
       },
     );
     return controller.stream;

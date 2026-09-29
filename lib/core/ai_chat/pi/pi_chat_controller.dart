@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:http/http.dart' as http;
+
 import '../../../api/pi/pi.dart';
 import '../../storage/hive/hive_store.dart';
 import 'pi_chat_message.dart';
@@ -23,10 +25,14 @@ class PiChatController extends ChangeNotifier {
     PiAgentEndpoint? agent,
     PiSessionsEndpoint? sessions,
     PiChatMessageRepository? repository,
+    http.Client? httpClient,
   })  : _settings = settings,
         _agent = agent ?? PiAgentEndpoint(config: () => settings.toApiConfig()),
         _sessions = sessions ??
-            PiSessionsEndpoint(config: () => settings.toApiConfig()),
+            PiSessionsEndpoint(
+              config: () => settings.toApiConfig(),
+              client: httpClient, // 测试注入用（默认自建）
+            ),
         _repo = repository ?? piChatMessageRepository;
 
   final PiChatSettings _settings;
@@ -83,6 +89,9 @@ class PiChatController extends ChangeNotifier {
       ..addAll(_repo.messagesOf(sessionId));
     _sending = false;
     _lastError = null;
+    // 跨会话状态重置（复评 P3：A 会话名粘到 B 会话）
+    _sessionName = null;
+    _currentModelId = null;
     unawaited(_rememberSession(sessionId));
     notifyListeners();
     // 异步取会话名（AppBar 显示「pi · 名字」而非 sessionId 乱码）。
@@ -97,8 +106,14 @@ class PiChatController extends ChangeNotifier {
   Future<void> _mergeServerHistory(String sessionId) async {
     try {
       final detail = await _sessions.detail(sessionId);
-      final context = detail['context'];
-      if (context is! List || context.isEmpty) return;
+      // 真实结构（线上实测）：context 是 Map —— {messages: [...], entryIds, ...}，
+      // 消息数组在 context['messages'] 里。此前按 List 解析 → 永远空跑。
+      final rawContext = detail['context'];
+      final List? context =
+          rawContext is Map ? rawContext['messages'] as List? : rawContext as List?;
+      if (context == null || context.isEmpty) return;
+      // 每次都从仓库现读（不能只看内存 _messages —— 重进会话时内存可能
+      // 还没含上一轮合并的记录）
       final existing = _repo.messagesOf(sessionId).toSet();
       var added = 0;
       for (final entry in context) {
@@ -126,7 +141,12 @@ class PiChatController extends ChangeNotifier {
           text: text,
           done: true,
         );
-        if (existing.contains(msg)) continue;
+        // 双保险：值相等（==已按 sessionId+role+text 实现）+ 文本级查重
+        if (existing.contains(msg) ||
+            _repo.messagesOf(sessionId).any((m) =>
+                m.role == msg.role && m.text == msg.text)) {
+          continue;
+        }
         await _repo.append(msg);
         added++;
       }
@@ -203,6 +223,8 @@ class PiChatController extends ChangeNotifier {
          'modelId': qualifiedId.substring(i + 1)},
       );
       await _settings.setDefaultModel(qualifiedId);
+      // 同步选中态（探针 D：不写这里，弹层再开时永远滞后一拍）
+      _currentModelId = qualifiedId;
       _lastError = null;
     } on PiApiException catch (e) {
       _lastError = '切换模型失败: ${e.message}';
@@ -469,7 +491,7 @@ class PiChatController extends ChangeNotifier {
       if (m.role == 'assistant' && !m.done) {
         m
           ..done = true
-          ..text = m.text.isEmpty ? '（已停止）' : m.text;
+          ..stopped = true; // 停止状态独立字段，不伪造正文（复评 P2）
         // ★ 必须用消息自身的 save()（HiveObject 绑定的真实 key sid#seq）。
         // 此前用 sessionId 当 key 调 repo.updateText → miss 静默 return
         // → 内存干净、磁盘照旧，重启后「生成中」复活（第 5 次复评 P1 探针实锤）。
@@ -613,19 +635,10 @@ class PiChatController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _sub?.cancel();
-    // 页面销毁时若有未完成的 assistant 气泡，标记为「已停止」——
-    // 否则重启后（从 Hive 回读）它永远显示「生成中」+ 闪烁光标。
-    for (final m in _messages) {
-      if (m.role == 'assistant' && !m.done) {
-        m.done = true;
-        if (m.text.isEmpty) {
-          m.text = '（已停止）';
-        }
-        // 真实 key 落库（HiveObject.save()）；dispose 里不 await，
-        // future 自行完成（fire-and-forget），失败不阻塞销毁。
-        m.save().catchError((_) {});
-      }
-    }
+    // 与 _stopUnfinishedBubbles 同一份收口（此前手抄了一份只管 assistant 的
+    // 内联循环 —— 两份逻辑必然分叉，user pending 就是从那个缝隙漏掉的，
+    // 第 6 次复评探针 C 实锤）。fire-and-forget：dispose 不能 await。
+    _stopUnfinishedBubbles(clearUserPending: true).catchError((_) {});
     super.dispose();
   }
 }
