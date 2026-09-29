@@ -357,8 +357,12 @@ class _PiChatPageState extends State<PiChatPage> {
                                 final m = _controller.messages[i];
                                 return _Bubble(
                                   message: m,
+                                  // 携带这一条的身份（多失败轮次时不带身份会
+                                  // 重发错内容 —— 第 7 次复评探针 G）
                                   onRetry: m.error != null
-                                      ? () => _controller.retryLast()
+                                      ? () => _controller.retryLast(
+                                            failedMessage: m,
+                                          )
                                       : null,
                                 );
                               },

@@ -154,6 +154,9 @@ class PiAgentEndpoint {
     late StreamController<PiSseEvent> controller;
     // 底层流的订阅句柄（onCancel 里取消它 = 断开 socket）
     StreamSubscription<String>? onSubCancel;
+    // 连接建立窗口标志：`await send(req)` 期间（弱网可数秒）用户 cancel 时
+    // onSubCancel 还是 null → 底层流照常挂上、泄漏（第 7 次复评探针 C）。
+    var cancelled = false;
 
     Future<void> start() async {
       try {
@@ -167,6 +170,12 @@ class PiAgentEndpoint {
         // 成功路径零测试覆盖 —— 复评 P0-2）。取消订阅即断开底层连接，
         // 不能 close 共享 client（后续 POST 还要用）。
         final resp = await _client.send(req);
+        if (cancelled) {
+          // 连接窗口内已被取消：立刻丢弃，不挂监听
+          await resp.stream.drain<void>().catchError((_) {});
+          await controller.close();
+          return;
+        }
         if (resp.statusCode != 200) {
           final body = await resp.stream.bytesToString();
           controller.addError(
@@ -175,11 +184,13 @@ class PiAgentEndpoint {
           await controller.close();
           return;
         }
-        // SSE 规范允许 CRLF 分隔；统一归一成 LF 再分帧（此前只认 \n\n，
-        // CRLF 服务端全丢 —— 第 6 次复评）。drain 同时处理尾帧 flush。
+        // SSE 规范允许 CRLF 分隔。★ 归一必须做在 **buffer 层**：
+        // 若在 chunk 层 replaceAll，`\r` 与 `\n` 被拆到两个 TCP chunk 时
+        // 残留的 `\r` 会把两帧粘成一帧、json 解析失败全丢（第 7 次复评
+        // 探针 B 实测 connected 与 agent_end 双双丢失 → 按钮永久转圈）。
         final buffer = StringBuffer();
         Future<void> drain([String tail = '']) async {
-          var text = buffer.toString() + tail;
+          var text = (buffer.toString() + tail).replaceAll('\r\n', '\n');
           var idx = text.indexOf('\n\n');
           while (idx >= 0) {
             final frame = text.substring(0, idx);
@@ -199,7 +210,7 @@ class PiAgentEndpoint {
         StreamSubscription<String>? sub;
         sub = resp.stream.transform(utf8.decoder).listen(
           (chunk) async {
-            await drain(chunk.replaceAll('\r\n', '\n'));
+            await drain(chunk); // 归一已在 drain 内做（buffer 层）
           },
           onDone: () async {
             // 尾帧 flush：服务端最后一帧若没带空行，此前直接被丢弃
@@ -234,7 +245,11 @@ class PiAgentEndpoint {
     controller = StreamController<PiSseEvent>(
       onListen: start,
       onCancel: () async {
-        // ★ 真正断开底层 socket（探针 E：空实现 = 每条消息泄漏一个长连）。
+        // ★ 真正断开底层 socket。两段都覆盖：
+        // - 已挂监听：cancel 订阅
+        // - 还在连接建立窗口（onSubCancel 为 null）：置标志，start() 拿到
+        //   resp 后自行丢弃（第 7 次复评探针 C 的缝隙）
+        cancelled = true;
         try {
           await onSubCancel?.cancel();
         } catch (_) {

@@ -59,20 +59,27 @@ class PiChatController extends ChangeNotifier {
     try {
       await _sessions.rename(sid, trimmed);
       _sessionName = trimmed;
-      notifyListeners();
+      _notify();
       return true;
     } on PiApiException catch (e) {
       _lastError = '重命名失败: ${e.message}';
-      notifyListeners();
+      _notify();
       return false;
     }
+  }
+
+  /// 安全通知：dispose 后不再 notify（第 7 次复评探针 D —— prompt POST 在途
+  /// 时退出页面会抛 `A PiChatController was used after being disposed`）。
+  void _notify() {
+    if (_disposed) return;
+    notifyListeners();
   }
 
   /// 手动清除错误横幅（UI 的关闭按钮）。
   void clearError() {
     if (_lastError == null) return;
     _lastError = null;
-    notifyListeners();
+    _notify();
   }
 
   /// 当前会话消息（不可变视图）。
@@ -111,7 +118,7 @@ class PiChatController extends ChangeNotifier {
     _sessionName = null;
     _currentModelId = null;
     unawaited(_rememberSession(sessionId));
-    notifyListeners();
+    _notify();
     // 异步取会话名（AppBar 显示「pi · 名字」而非 sessionId 乱码）。
     // 失败静默 —— 标题退化为默认即可，不为它报错。
     unawaited(_loadSessionName(sessionId));
@@ -130,11 +137,16 @@ class PiChatController extends ChangeNotifier {
       final List? context =
           rawContext is Map ? rawContext['messages'] as List? : rawContext as List?;
       if (context == null || context.isEmpty) return;
-      // 每次都从仓库现读（不能只看内存 _messages —— 重进会话时内存可能
-      // 还没含上一轮合并的记录）
-      final existing = _repo.messagesOf(sessionId).toSet();
+      // ★ 只补尾部（第 7 次复评探针 A）：此前按「值相等」去重，服务端历史里
+      // 用户两次问同一句话（合法轮次）会被误判重复而吞掉 —— 数据完整性
+      // 从「越滚越大」变成「越读越少」。现在按**本地已有条数**切分：
+      // 本地已有的前缀不动，只 append 服务端多出来的尾部。
+      final localCount = _repo.messagesOf(sessionId).length;
+      if (context.length <= localCount) return; // 本地不比服务端少
+      final pending = context.sublist(localCount);
+      final existing = <PiChatMessage>{};
       var added = 0;
-      for (final entry in context) {
+      for (final entry in pending) {
         if (entry is! Map) continue;
         final role = entry['role']?.toString();
         if (role != 'user' && role != 'assistant') continue;
@@ -159,12 +171,8 @@ class PiChatController extends ChangeNotifier {
           text: text,
           done: true,
         );
-        // 双保险：值相等（==已按 sessionId+role+text 实现）+ 文本级查重
-        if (existing.contains(msg) ||
-            _repo.messagesOf(sessionId).any((m) =>
-                m.role == msg.role && m.text == msg.text)) {
-          continue;
-        }
+        // 只补尾部已保证幂等；不再按文本查重（会吞掉用户重复提问的合法轮次）
+        if (existing.contains(msg)) continue;
         await _repo.append(msg);
         added++;
       }
@@ -173,7 +181,7 @@ class PiChatController extends ChangeNotifier {
         _messages
           ..clear()
           ..addAll(_repo.messagesOf(sessionId));
-        notifyListeners();
+        _notify();
       }
     } catch (_) {
       // 历史合并失败不影响本地已展示的内容
@@ -202,7 +210,7 @@ class PiChatController extends ChangeNotifier {
           : (detail['name']?.toString() ?? '');
       if (name.isNotEmpty && _sessionId == sessionId && !_disposed) {
         _sessionName = name;
-        notifyListeners();
+        _notify();
       }
     } catch (_) {
       // 标题拿不到就算了
@@ -225,13 +233,13 @@ class PiChatController extends ChangeNotifier {
     if (sid == null) {
       // 还没会话：把选择记成默认模型，建会话时生效
       await _settings.setDefaultModel(qualifiedId);
-      notifyListeners();
+      _notify();
       return;
     }
     final i = qualifiedId.indexOf('/');
     if (i <= 0) {
       _lastError = '模型格式应为 provider/modelId：$qualifiedId';
-      notifyListeners();
+      _notify();
       return;
     }
     try {
@@ -247,7 +255,7 @@ class PiChatController extends ChangeNotifier {
     } on PiApiException catch (e) {
       _lastError = '切换模型失败: ${e.message}';
     }
-    notifyListeners();
+    _notify();
   }
 
   /// 当前模型（服务端状态里取；未知返回 null）。
@@ -271,7 +279,7 @@ class PiChatController extends ChangeNotifier {
     final cfg = _settings;
     if (!cfg.isConfigured) {
       _lastError = '未配置：请先在设置里填写服务地址与 device token';
-      notifyListeners();
+      _notify();
       return;
     }
     // controller 层互斥（第 5 次复评前置 3：不能只靠 UI 禁用）——
@@ -279,7 +287,7 @@ class PiChatController extends ChangeNotifier {
     // 整体替换 _messages 把用户刚发的气泡冲掉。
     if (_creating || _sending) return;
     _creating = true;
-    notifyListeners();
+    _notify();
     String? provider;
     String? modelId;
     if (model != null && model.contains('/')) {
@@ -296,10 +304,10 @@ class PiChatController extends ChangeNotifier {
       await openSession(created.sessionId);
     } on PiApiException catch (e) {
       _lastError = '新建会话失败: ${e.message}';
-      notifyListeners();
+      _notify();
     } finally {
       _creating = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -313,12 +321,12 @@ class PiChatController extends ChangeNotifier {
     if (trimmed.isEmpty || _sending || _creating) return;
     if (!_settings.isConfigured) {
       _lastError = '未配置：请先在设置里填写服务地址与 device token';
-      notifyListeners();
+      _notify();
       return;
     }
     _lastError = null;
     _sending = true;
-    notifyListeners();
+    _notify();
 
     // 落库 key 提到 try 外：catch 里收口失败气泡要用（异常可能发生在任意一步）
     String? userKey;
@@ -374,7 +382,7 @@ class PiChatController extends ChangeNotifier {
         ));
         _messages.add(_repo.getByKey(userKey)!);
       }
-      notifyListeners();
+      _notify();
 
       // 3) 建立事件流（服务端会回显用户消息；助手增量在 message_update）
       final assistant = PiChatMessage(
@@ -387,9 +395,10 @@ class PiChatController extends ChangeNotifier {
       assistantKey = await _repo.append(assistant);
       final assistantMsg = _repo.getByKey(assistantKey)!;
       _messages.add(assistantMsg);
-      notifyListeners();
+      _notify();
 
       final buf = StringBuffer();
+      var sawTurnEnd = false;
       // 到这里 userKey/assistantKey 必然已赋值（落库成功才会走到）；
       // 局部拷贝成非空给 SSE 回调用。
       final String uKey = userKey;
@@ -421,9 +430,10 @@ class PiChatController extends ChangeNotifier {
             assistantMsg
               ..text = e.text!
               ..done = true;
-            notifyListeners();
+            _notify();
           }
           if (e.isTurnEnd) {
+            sawTurnEnd = true;
             // ★ 成功轮次在这里收口（复评 P0-1）：pi-web 的 SSE 是长连+心跳
             //（30s 注释帧），agent_end 后流**不断开** → onDone 永不触发。
             // 若只靠 onDone，生产环境每轮成功回复后发送按钮永久转圈、
@@ -436,7 +446,7 @@ class PiChatController extends ChangeNotifier {
             // 不该带门 —— isError/onDone 都无条件，唯独这里带门不是完整收口）
             _repo.updateText(uKey, trimmed, done: true);
             _sending = false;
-            notifyListeners();
+            _notify();
           }
           if (e.isError) {
             // 错误 = 这一轮结束（prompt_error 后服务端不再产出），完整收口：
@@ -449,7 +459,7 @@ class PiChatController extends ChangeNotifier {
               ..done = true;
             _repo.updateText(uKey, trimmed, done: true);
             _sending = false;
-            notifyListeners();
+            _notify();
           }
         },
         onError: (Object err) async {
@@ -465,24 +475,25 @@ class PiChatController extends ChangeNotifier {
           } catch (_) {}
           _lastError = detail;
           _sending = false;
-          notifyListeners();
+          _notify();
         },
         onDone: () async {
-          await _repo.updateText(aKey, buf.toString(), done: true);
           assistantMsg
             ..text = buf.toString()
             ..done = true;
-          // 无条件清 pending：能走到流结束，说明 prompt 已被受理；
-          // 回显帧只是锦上添花（有些错误路径没有回显），不该卡「发送中」。
+          // ★ 未见 turn_end 就断流 = 半截回复，不能伪装成完整答案
+          //（第 7 次复评探针 E：一个 delta 后流干净关闭，用户把半截当完整）。
+          if (!sawTurnEnd) assistantMsg.stopped = true;
+          await assistantMsg.save();
           await _repo.updateText(uKey, trimmed, done: true);
           _sending = false;
-          notifyListeners();
+          _notify();
         },
       );
 
       // 4) 发送 prompt（受理即返回；正文走上面的流）
       await _agent.prompt(sid, trimmed);
-      notifyListeners();
+      _notify();
     } on PiApiException catch (e) {
       _lastError = e.isUnauthorized
           ? 'token 无效或已吊销，请到设置检查'
@@ -492,13 +503,13 @@ class PiChatController extends ChangeNotifier {
       await _finalizeFailedTurn(userKey: userKey, assistantKey: assistantKey,
           userText: trimmed, errorMessage: _lastError!);
       _sending = false;
-      notifyListeners();
+      _notify();
     } catch (e) {
       _lastError = '发送失败: $e';
       await _finalizeFailedTurn(userKey: userKey, assistantKey: assistantKey,
           userText: trimmed, errorMessage: _lastError!);
       _sending = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -564,7 +575,7 @@ class PiChatController extends ChangeNotifier {
       _sub = null;
       await _stopUnfinishedBubbles(clearUserPending: true);
       _sending = false;
-      notifyListeners();
+      _notify();
     } on PiApiException catch (e) {
       // 中止请求失败也必须复位 sending —— 否则发送按钮永久禁用（复评 P1）。
       _lastError = '中止失败: ${e.message}';
@@ -572,7 +583,7 @@ class PiChatController extends ChangeNotifier {
       _sub = null;
       await _stopUnfinishedBubbles(clearUserPending: true);
       _sending = false;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -581,7 +592,7 @@ class PiChatController extends ChangeNotifier {
     final sid = _sessionId;
     if (sid != null) await _repo.clearSession(sid);
     _messages.clear();
-    notifyListeners();
+    _notify();
   }
 
   /// 删除服务端会话 + 本地记录。
@@ -592,29 +603,32 @@ class PiChatController extends ChangeNotifier {
       await _sessions.delete(sid);
     } on PiApiException catch (e) {
       _lastError = '删除会话失败: ${e.message}';
-      notifyListeners();
+      _notify();
       return;
     }
     await _repo.clearSession(sid);
     _messages.clear();
     _sessionId = null;
-    notifyListeners();
+    _notify();
   }
 
   /// 重发最后一条用户消息（失败气泡的「重发」按钮）。
   ///
   /// 实现：把最后一条 user 消息的文本重新走一遍 [send]，并把失败的那条
   /// assistant 气泡从本地移除（避免界面上留下一条无用的错误气泡）。
-  Future<void> retryLast() async {
+  Future<void> retryLast({PiChatMessage? failedMessage}) async {
     if (_sending) return;
-    // 找**最后一条失败的 assistant**，再取它**前面最近一条** user——
-    // 否则历史中间的失败气泡点重发会发错内容（复评 #10）。
-    PiChatMessage? failedAssistant;
-    final fIdx = _messages.lastIndexWhere(
-        (m) => m.role == 'assistant' && m.error != null);
-    if (fIdx >= 0) failedAssistant = _messages[fIdx];
+    // 定位：优先用调用方给的那条失败气泡（第 7 次复评探针 G：多失败轮次时
+    // 不带身份会重发错内容 —— 点第一条失败气泡实际重发第二条）。
+    PiChatMessage? failedAssistant = failedMessage;
+    var fIdx = failedAssistant != null ? _messages.indexOf(failedAssistant) : -1;
+    if (fIdx < 0) {
+      fIdx = _messages.lastIndexWhere(
+          (m) => m.role == 'assistant' && m.error != null);
+      failedAssistant = fIdx >= 0 ? _messages[fIdx] : null;
+    }
     String? lastUserText;
-    if (failedAssistant != null) {
+    if (failedAssistant != null && fIdx >= 0) {
       for (var i = fIdx - 1; i >= 0; i--) {
         final m = _messages[i];
         if (m.role == 'user' && m.text.isNotEmpty) {
@@ -635,8 +649,10 @@ class PiChatController extends ChangeNotifier {
     if (failedAssistant != null) {
       final idx = _messages.indexOf(failedAssistant);
       if (idx >= 0) _messages.removeAt(idx);
-      await _repo.removeLastErrorOf(failedAssistant.sessionId);
-      notifyListeners();
+      // 精确删除这一条（此前删「最后一条错误」—— 多失败轮次下删错，
+      // 被点的气泡永远清不掉，第 7 次复评探针 G）
+      await failedAssistant.delete();
+      _notify();
     }
     // 复用原 user 气泡重发（此前 send() 会追加一条一模一样的 user 气泡，
     // 历史出现两条重复 —— 复评 #4）。
