@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/ai_chat/ai_chat_format/format_compatibility_page.dart';
 import '../../core/ai_chat/ai_chat_sports/agent_chat_page.dart';
+import '../../core/ai_chat/pi/pi_chat_entry_page.dart';
 import '../../core/ai_chat/receipt_ocr/receipt_ocr_page.dart';
 import '../../core/ai_chat/system_messages/system_events_controller.dart';
 import '../../core/ai_chat/system_messages/system_messages_page.dart';
@@ -83,6 +84,13 @@ final List<AssistantEntry> _entries = [
         );
       },
     ),
+  ),
+  AssistantEntry(
+    icon: Icons.forum_outlined,
+    title: 'pi',
+    subtitle: 'nx-as 对话（流式）',
+    color: (context) => Theme.of(context).colorScheme.primary,
+    builder: (context) => const PiChatEntryPage(),
   ),
 ];
 

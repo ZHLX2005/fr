@@ -7,10 +7,12 @@
 /// - `pi_chat_message_repository.dart`  消息仓库（Hive + StorageRegistry）
 /// - `pi_chat_controller.dart`          控制器（历史回读/发消息/流式/中止/删除）
 /// - `pi_chat_page.dart`                聊天页
+/// - `pi_chat_entry_page.dart`          入口壳（给 AI 助手列表用的同步构造）
 ///
 /// API 层在 `lib/api/pi/`（按 api-module-auth 规范）。
 ///
-/// 接入方式：
+/// 接入方式（[PiChatEntryPage] 已挂到 `screens/chat/home_page.dart` 的
+/// `_entries`，正常点列表即可进入）：
 /// ```dart
 /// final settings = await PiChatSettingsPage.loadDefault();
 /// Navigator.push(context, MaterialPageRoute(
@@ -20,6 +22,7 @@
 library;
 
 export 'pi_chat_controller.dart';
+export 'pi_chat_entry_page.dart';
 export 'pi_chat_message.dart';
 export 'pi_chat_message_repository.dart';
 export 'pi_chat_page.dart';
