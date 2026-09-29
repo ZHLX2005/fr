@@ -33,6 +33,19 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
   /// 上次会话 id（有值且在列表里时，置顶给「继续上次对话」入口）。
   String get _lastId => widget.settings.lastSessionId;
 
+  /// 搜索关键词（复评 P2-3：列表无搜索）
+  String _query = '';
+
+  List<_SessionRow> get _filtered {
+    if (_query.trim().isEmpty) return _rows;
+    final q = _query.trim().toLowerCase();
+    return _rows
+        .where((r) =>
+            r.title.toLowerCase().contains(q) ||
+            r.id.toLowerCase().contains(q))
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -210,13 +223,59 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
         icon: const Icon(Icons.add_comment_outlined),
         label: const Text('新对话'),
       ),
-      body: _buildBody(theme),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              onChanged: (v) => setState(() => _query = v),
+              decoration: InputDecoration(
+                hintText: '搜索会话…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+          ),
+          Expanded(child: _buildBody(theme)),
+        ],
+      ),
     );
   }
 
   Widget _buildBody(ThemeData theme) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      // 骨架屏（复评 P2-3：全屏转圈无骨架）
+      return ListView.builder(
+        itemCount: 6,
+        itemBuilder: (_, i) => ListTile(
+          leading: CircleAvatar(
+            backgroundColor:
+                theme.colorScheme.onSurface.withValues(alpha: 0.06),
+          ),
+          title: Container(
+            height: 12,
+            width: 160,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          subtitle: Container(
+            height: 10,
+            width: 90,
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      );
     }
     final error = _error;
     if (error != null) {
@@ -243,6 +302,12 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
             ],
           ),
         ),
+      );
+    }
+    if (_rows.isNotEmpty && _filtered.isEmpty) {
+      return Center(
+        child: Text('没有匹配「$_query」的会话',
+            style: theme.textTheme.bodySmall),
       );
     }
     if (_rows.isEmpty) {
@@ -280,11 +345,11 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.only(bottom: 88),
-        itemCount: _rows.length,
+        itemCount: _filtered.length,
         separatorBuilder: (_, index) =>
             const Divider(height: 1, indent: 68, endIndent: 16),
         itemBuilder: (context, i) {
-          final row = _rows[i];
+          final row = _filtered[i];
           return Dismissible(
             key: ValueKey(row.id),
             direction: DismissDirection.endToStart,

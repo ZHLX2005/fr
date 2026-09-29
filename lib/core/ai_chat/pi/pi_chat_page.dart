@@ -38,6 +38,8 @@ class _PiChatPageState extends State<PiChatPage> {
     _controller = PiChatController(settings: widget.settings);
     _controller.addListener(_onChange);
     _scroll.addListener(_onScroll);
+    // 草稿：输入即存（切会话/退出不丢字 —— 复评 P2-8）
+    _input.addListener(_saveDraft);
     _init();
   }
 
@@ -54,6 +56,28 @@ class _PiChatPageState extends State<PiChatPage> {
       if (mounted) setState(() => _initError = null);
     } catch (e) {
       if (mounted) setState(() => _initError = e);
+    }
+  }
+
+  /// 草稿 key（无会话时用占位，建会话后迁移）。
+  String get _draftKey => _controller.sessionId ?? '__new__';
+
+  String _lastDraftKey = '__new__';
+
+  void _saveDraft() {
+    widget.settings.setDraft(_draftKey, _input.text);
+  }
+
+  /// 本会话草稿回填（进页面 / 切会话时）。
+  void _restoreDraft() {
+    final key = _draftKey;
+    if (key == _lastDraftKey) return;
+    _lastDraftKey = key;
+    final draft = widget.settings.draftOf(key);
+    if (draft.isNotEmpty && _input.text.isEmpty) {
+      _input.text = draft;
+      _input.selection =
+          TextSelection.collapsed(offset: _input.text.length);
     }
   }
 
@@ -92,7 +116,10 @@ class _PiChatPageState extends State<PiChatPage> {
   }
 
   void _onChange() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      _restoreDraft();
+      setState(() {});
+    }
     // 只在用户本来就贴着底部时才自动跟随（上翻看历史时不打断他）
     if (_scroll.hasClients && _isAtBottom) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -120,6 +147,7 @@ class _PiChatPageState extends State<PiChatPage> {
   void dispose() {
     _controller.removeListener(_onChange);
     _scroll.removeListener(_onScroll);
+    _input.removeListener(_saveDraft);
     _controller.dispose();
     _input.dispose();
     _scroll.dispose();
@@ -143,6 +171,7 @@ class _PiChatPageState extends State<PiChatPage> {
       return;
     }
     _input.clear();
+    widget.settings.setDraft(_draftKey, '');
     final accepted = await _controller.send(text);
     // 未被受理（建会话失败/网络不通等）→ 把文本**回填输入框**，
     // 否则用户输入被永久吞掉（第 8 次复评 P2 实锤）。

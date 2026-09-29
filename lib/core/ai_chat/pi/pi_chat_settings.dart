@@ -38,6 +38,18 @@ class PiChatSettings {
   /// 之前的对话在 UI 上就再也找不回来）。
   String get lastSessionId => _prefs.getString(_kLastSessionId) ?? '';
 
+  /// 输入草稿（按会话分开存；复评 P2-8：切会话/退出丢字）。
+  String draftOf(String sessionId) =>
+      _prefs.getString('pi_chat.draft.$sessionId') ?? '';
+
+  Future<void> setDraft(String sessionId, String text) async {
+    if (text.trim().isEmpty) {
+      await _prefs.remove('pi_chat.draft.$sessionId');
+    } else {
+      await _prefs.setString('pi_chat.draft.$sessionId', text);
+    }
+  }
+
   bool get isConfigured => baseUrl.isNotEmpty && token.isNotEmpty;
 
   /// 组装成 API 层的 [PiConfig]（未配置时 token/baseUrl 为空串）。
