@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'dart:math' as math;
 
 import '../../../api/pi/pi.dart';
-import '../../../widgets/markdown_renderer_widget.dart';
 import 'pi_chat_controller.dart';
 import 'pi_chat_message.dart';
 import 'pi_chat_settings.dart';
@@ -658,7 +659,44 @@ class _Bubble extends StatelessWidget {
                       // selectable:false（全项目共享组件的性能取舍，不在这里改它），
                       // 但回复恰恰最需要选中复制（复评多轮扣分项）。
                       SelectionArea(
-                        child: MarkdownRendererWidget(data: message.text),
+                        // 代码块增强：独立容器 + 横向滚动 + 复制按钮
+                        //（复评 #6：agent 输出代码是高频内容，此前只能整条复制）
+                        child: MarkdownBody(
+                          data: message.text,
+                          selectable: false,
+                          shrinkWrap: true,
+                          styleSheet:
+                              MarkdownStyleSheet.fromTheme(theme).copyWith(
+                            p: theme.textTheme.bodyMedium
+                                ?.copyWith(height: 1.4, color: fg),
+                            code: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12.5,
+                              color: theme.colorScheme.onSurface,
+                              backgroundColor: Colors.transparent,
+                            ),
+                            codeblockDecoration: BoxDecoration(
+                              color: theme.colorScheme.surface
+                                  .withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.12),
+                              ),
+                            ),
+                            // 气泡内标题阶收紧（复评 P2-7：h1 复用 headlineLarge
+                            // 在 520px 气泡里过大）
+                            h1: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                            h2: theme.textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                            h3: theme.textTheme.bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          builders: {
+                            'code': _CodeBlockBuilder(theme: theme, fg: fg),
+                          },
+                        ),
                       )
                     else
                       SelectableText(message.text,
@@ -1030,6 +1068,62 @@ class _ContextBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 代码块构建器：等宽字体 + 横向滚动 + 右上角复制按钮。
+class _CodeBlockBuilder extends MarkdownElementBuilder {
+  final ThemeData theme;
+  final Color fg;
+
+  _CodeBlockBuilder({required this.theme, required this.fg});
+
+  @override
+  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    return _build(element.textContent);
+  }
+
+  Widget _build(String code) {
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            // 顶掉默认样式，避免与 MarkdownBody 的 pre 装饰叠加
+            child: Text(
+              code,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12.5,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: 4,
+          top: 4,
+          child: Builder(builder: (context) {
+            return IconButton(
+              tooltip: '复制代码',
+              iconSize: 15,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.copy_all_outlined),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: code));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('代码已复制'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ));
+              },
+            );
+          }),
+        ),
+      ],
     );
   }
 }
