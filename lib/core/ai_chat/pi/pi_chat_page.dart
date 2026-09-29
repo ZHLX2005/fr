@@ -24,6 +24,9 @@ class _PiChatPageState extends State<PiChatPage> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
 
+  /// 初始化异常（非 null 时渲染错误页而不是聊天界面）。
+  Object? _initError;
+
   @override
   void initState() {
     super.initState();
@@ -33,11 +36,24 @@ class _PiChatPageState extends State<PiChatPage> {
   }
 
   Future<void> _init() async {
-    await _controller.ensureInit();
-    final sid = widget.initialSessionId;
-    if (sid != null && sid.isNotEmpty) {
-      await _controller.openSession(sid);
+    // 初始化失败**不能**白屏：Hive/path_provider 在异常平台或通道缺失时会抛，
+    // 这里捕获后交给 _initError 渲染可读错误页（带重试）。
+    try {
+      await _controller.ensureInit();
+      final sid = widget.initialSessionId;
+      if (sid != null && sid.isNotEmpty) {
+        await _controller.openSession(sid);
+      }
+      if (mounted) setState(() => _initError = null);
+    } catch (e) {
+      if (mounted) setState(() => _initError = e);
     }
+  }
+
+  /// 重新初始化（错误页的重试按钮）。
+  Future<void> _retryInit() async {
+    setState(() => _initError = null);
+    await _init();
   }
 
   void _onChange() {
@@ -78,6 +94,37 @@ class _PiChatPageState extends State<PiChatPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 初始化失败优先展示错误页（避免整页空白）
+    final initError = _initError;
+    if (initError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('pi')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.storage_outlined,
+                    size: 48, color: theme.colorScheme.error),
+                const SizedBox(height: 12),
+                Text('本地存储初始化失败', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 8),
+                SelectableText('$initError',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _retryInit,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重试'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final configured = _controller.canChat;
     return Scaffold(
       appBar: AppBar(
@@ -119,10 +166,7 @@ class _PiChatPageState extends State<PiChatPage> {
                   ),
                 Expanded(
                   child: _controller.messages.isEmpty
-                      ? Center(
-                          child: Text('发一条消息开始对话',
-                              style: theme.textTheme.bodySmall),
-                        )
+                      ? _EmptyChatView(hasSession: _controller.sessionId != null)
                       : ListView.builder(
                           controller: _scroll,
                           padding: const EdgeInsets.symmetric(
@@ -140,9 +184,12 @@ class _PiChatPageState extends State<PiChatPage> {
                         Expanded(
                           child: TextField(
                             controller: _input,
+                            // 关键路径：进页面即可打字（少一次点击）
+                            autofocus: true,
                             minLines: 1,
-                            maxLines: 4,
+                            maxLines: 5,
                             textInputAction: TextInputAction.send,
+                            keyboardType: TextInputType.multiline,
                             onSubmitted: (_) => _send(),
                             decoration: const InputDecoration(
                               hintText: '发消息…',
@@ -250,6 +297,54 @@ class _NotConfiguredView extends StatelessWidget {
             label: const Text('去设置'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 空态：企业级做法是给「这是什么 + 下一步做什么」，而不是一行灰字。
+class _EmptyChatView extends StatelessWidget {
+  final bool hasSession;
+
+  const _EmptyChatView({required this.hasSession});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.forum_outlined,
+                  size: 34, color: theme.colorScheme.primary),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              hasSession ? '开始对话' : 'pi 对话',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '直接在下方输入即可。\n'
+              '回复由服务端 pi agent 流式返回，可随时中止。',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                height: 1.6,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

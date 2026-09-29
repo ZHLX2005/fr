@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
@@ -115,8 +115,15 @@ void main() async {
   final hiveRepo = HiveTimetableRepository();
   await hiveRepo.init();
   await bodyRecordRepository.init();
-  // pi 聊天记录（lib/core/ai_chat/pi/）：Hive typed box + 存储面板注册
-  await piChatMessageRepository.init();
+  // pi 聊天记录（lib/core/ai_chat/pi/）：Hive typed box + 存储面板注册。
+  // **启动期失败不能拖垮整个 App**——只在进入 pi 页时才依赖它，
+  // 那里有自己的错误兜底（_initError）。这里记录原因即可。
+  try {
+    await piChatMessageRepository.init();
+  } catch (e, st) {
+    debugPrint('[main] pi 聊天记录初始化失败（不影响启动）: $e');
+    debugPrint('$st');
+  }
 
   // 初始化消息策略
   registerMessageStrategies();
