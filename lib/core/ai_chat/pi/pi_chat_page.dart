@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'pi_chat_controller.dart';
 import 'pi_chat_message.dart';
@@ -32,6 +33,7 @@ class _PiChatPageState extends State<PiChatPage> {
     super.initState();
     _controller = PiChatController(settings: widget.settings);
     _controller.addListener(_onChange);
+    _scroll.addListener(_onScroll);
     _init();
   }
 
@@ -56,13 +58,48 @@ class _PiChatPageState extends State<PiChatPage> {
     await _init();
   }
 
+  /// 是否显示「滚动到底」浮标（用户不在底部时）。
+  bool _showScrollToBottom = false;
+
+  /// 距底部多少像素内算「在底部」。
+  static const double _bottomThreshold = 80;
+
+  bool get _isAtBottom {
+    if (!_scroll.hasClients) return true;
+    final pos = _scroll.position;
+    return (pos.maxScrollExtent - pos.pixels) <= _bottomThreshold;
+  }
+
+  void _onScroll() {
+    final show = !_isAtBottom;
+    if (show != _showScrollToBottom) {
+      setState(() => _showScrollToBottom = show);
+    }
+  }
+
+  void _jumpToBottom() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      _scroll.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
+
   void _onChange() {
     if (mounted) setState(() {});
-    // 有新消息时滚到底
-    if (_scroll.hasClients) {
+    // 只在用户本来就贴着底部时才自动跟随（上翻看历史时不打断他）
+    if (_scroll.hasClients && _isAtBottom) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scroll.hasClients) {
+        if (mounted && _scroll.hasClients) {
           _scroll.jumpTo(_scroll.position.maxScrollExtent);
+          if (_showScrollToBottom) setState(() => _showScrollToBottom = false);
+        }
+      });
+    } else if (_scroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scroll.hasClients && !_showScrollToBottom) {
+          setState(() => _showScrollToBottom = true);
         }
       });
     }
@@ -71,6 +108,7 @@ class _PiChatPageState extends State<PiChatPage> {
   @override
   void dispose() {
     _controller.removeListener(_onChange);
+    _scroll.removeListener(_onScroll);
     _controller.dispose();
     _input.dispose();
     _scroll.dispose();
@@ -167,13 +205,36 @@ class _PiChatPageState extends State<PiChatPage> {
                 Expanded(
                   child: _controller.messages.isEmpty
                       ? _EmptyChatView(hasSession: _controller.sessionId != null)
-                      : ListView.builder(
-                          controller: _scroll,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          itemCount: _controller.messages.length,
-                          itemBuilder: (context, i) =>
-                              _Bubble(message: _controller.messages[i]),
+                      : Stack(
+                          children: [
+                            ListView.builder(
+                              controller: _scroll,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              itemCount: _controller.messages.length,
+                              itemBuilder: (context, i) {
+                                final m = _controller.messages[i];
+                                return _Bubble(
+                                  message: m,
+                                  onRetry: m.error != null
+                                      ? () => _controller.retryLast()
+                                      : null,
+                                );
+                              },
+                            ),
+                            // 「滚动到底」浮标：用户上翻看历史时出现，一键回到最新
+                            if (_showScrollToBottom)
+                              Positioned(
+                                right: 12,
+                                bottom: 12,
+                                child: FloatingActionButton.small(
+                                  heroTag: 'pi_scroll_bottom',
+                                  onPressed: _jumpToBottom,
+                                  tooltip: '回到最新',
+                                  child: const Icon(Icons.arrow_downward),
+                                ),
+                              ),
+                          ],
                         ),
                 ),
                 SafeArea(
@@ -225,47 +286,169 @@ class _PiChatPageState extends State<PiChatPage> {
 class _Bubble extends StatelessWidget {
   final PiChatMessage message;
 
-  const _Bubble({required this.message});
+  /// 失败重发回调（仅 assistant 错误气泡用；null 表示不可重发）。
+  final VoidCallback? onRetry;
+
+  const _Bubble({required this.message, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isUser = message.role == 'user';
-    final align = isUser ? Alignment.centerRight : Alignment.centerLeft;
+    final hasError = message.error != null;
+    final isStreaming = !message.done;
+
     final color = isUser
         ? theme.colorScheme.primaryContainer
-        : (message.error != null
+        : (hasError
             ? theme.colorScheme.errorContainer
             : theme.colorScheme.surfaceContainerHighest);
+    final fg = isUser
+        ? theme.colorScheme.onPrimaryContainer
+        : (hasError
+            ? theme.colorScheme.onErrorContainer
+            : theme.colorScheme.onSurface);
+
     return Align(
-      alignment: align,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.78),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            SelectableText(
-              message.text.isEmpty && message.pending ? '…' : message.text,
-              style: theme.textTheme.bodyMedium,
+            // 长按气泡 = 复制（与系统 IM 一致的手势）
+            GestureDetector(
+              onLongPress: message.text.isEmpty
+                  ? null
+                  : () => _copy(context),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.78),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (message.text.isEmpty && message.pending)
+                      Text('发送中…',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: fg.withValues(alpha: 0.6)))
+                    else
+                      SelectableText(message.text,
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: fg, height: 1.35)),
+                    // 流式末尾的闪烁光标（"正在生成"的视觉信号）
+                    if (isStreaming && message.text.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      _TypingCursor(color: fg),
+                    ],
+                    if (hasError) ...[
+                      const SizedBox(height: 6),
+                      Text(message.error!,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.colorScheme.error)),
+                      if (onRetry != null)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: onRetry,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('重发'),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-            if (message.error != null) ...[
-              const SizedBox(height: 4),
-              Text(message.error!,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.error)),
-            ],
-            if (!message.done && message.text.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text('正在输入…', style: theme.textTheme.labelSmall),
-            ],
+            // 元信息行：时间戳（+ 用户消息未确认时的状态）
+            Padding(
+              padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
+              child: Text(
+                _metaLine(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  String _metaLine() {
+    final t = message.createdAt;
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    final stamp = '$hh:$mm';
+    if (message.role == 'user' && message.pending) return '$stamp · 发送中';
+    if (message.error != null) return '$stamp · 失败';
+    if (!message.done) return '$stamp · 生成中';
+    return stamp;
+  }
+
+  void _copy(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: message.text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已复制'),
+        duration: Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+/// 流式末尾的闪烁光标。
+class _TypingCursor extends StatefulWidget {
+  final Color color;
+
+  const _TypingCursor({required this.color});
+
+  @override
+  State<_TypingCursor> createState() => _TypingCursorState();
+}
+
+class _TypingCursorState extends State<_TypingCursor>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _c,
+      child: Container(
+        width: 8,
+        height: 14,
+        decoration: BoxDecoration(
+          color: widget.color.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(2),
         ),
       ),
     );

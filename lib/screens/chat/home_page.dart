@@ -183,11 +183,63 @@ class _AssistantTile extends StatelessWidget {
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
       ),
       onTap: () {
+        // 目标页构造/构建期异常不能表现为「点了没反应」或白屏：
+        // 包一层错误兜底，任何异常都渲染成可读错误页（可返回）。
         Navigator.push(
           context,
-          MaterialPageRoute(builder: entry.builder),
+          MaterialPageRoute(
+            builder: (ctx) {
+              try {
+                return entry.builder(ctx);
+              } catch (e) {
+                return _EntryLoadErrorPage(title: entry.title, error: e);
+              }
+            },
+          ),
         );
       },
+    );
+  }
+}
+
+/// 入口目标页加载失败时的兜底页。
+///
+/// 存在的意义：`entry.builder` 是同步构造，若目标页构造期抛异常，用户看到的
+/// 会是「点了没反应」；构建期抛异常则可能整片空白。这里统一变成可读错误页。
+class _EntryLoadErrorPage extends StatelessWidget {
+  final String title;
+  final Object error;
+
+  const _EntryLoadErrorPage({required this.title, required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+              const SizedBox(height: 12),
+              Text('$title 加载失败', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              SelectableText('$error',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('返回'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

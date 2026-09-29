@@ -254,6 +254,34 @@ class PiChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 重发最后一条用户消息（失败气泡的「重发」按钮）。
+  ///
+  /// 实现：把最后一条 user 消息的文本重新走一遍 [send]，并把失败的那条
+  /// assistant 气泡从本地移除（避免界面上留下一条无用的错误气泡）。
+  Future<void> retryLast() async {
+    if (_sending) return;
+    // 找最后一条 user 文本
+    String? lastUserText;
+    PiChatMessage? failedAssistant;
+    for (final m in _messages.reversed) {
+      if (lastUserText == null && m.role == 'user' && m.text.isNotEmpty) {
+        lastUserText = m.text;
+      }
+      if (lastUserText != null && m.role == 'assistant' && m.error != null) {
+        failedAssistant = m;
+        break;
+      }
+    }
+    if (lastUserText == null) return;
+    if (failedAssistant != null) {
+      final idx = _messages.indexOf(failedAssistant);
+      if (idx >= 0) _messages.removeAt(idx);
+      await _repo.removeLastErrorOf(failedAssistant.sessionId);
+      notifyListeners();
+    }
+    await send(lastUserText);
+  }
+
   /// 确保基础设施已初始化（main.dart 启动期也可调）。
   Future<void> ensureInit() async {
     await HiveStore.instance.init();

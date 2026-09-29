@@ -114,6 +114,25 @@ class PiChatMessageRepository implements HiveRepository {
     await _box.put(key, msg);
   }
 
+  /// 删除某会话最后一条带 error 的 assistant 消息（失败重发前清理用）。
+  Future<void> removeLastErrorOf(String sessionId) async {
+    final prefix = '$sessionId#';
+    String? targetKey;
+    var targetSeq = -1;
+    for (final key in _box.keys) {
+      final k = key.toString();
+      if (!k.startsWith(prefix)) continue;
+      final msg = _box.get(key);
+      if (msg == null || msg.error == null || msg.role != 'assistant') continue;
+      final seq = int.tryParse(k.substring(prefix.length)) ?? -1;
+      if (seq > targetSeq) {
+        targetSeq = seq;
+        targetKey = k;
+      }
+    }
+    if (targetKey != null) await _box.delete(targetKey);
+  }
+
   /// 按 key 取一条（控制器持有 key 做流式更新时用）。
   PiChatMessage? getByKey(String key) => _box.get(key);
 
