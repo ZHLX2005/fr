@@ -21,6 +21,19 @@ class PiSseEvent {
   /// 该帧的消息角色（user / assistant），仅 message_start/message_end 有。
   final String? role;
 
+  // ── 工具调用（agent 的核心活动；此前完全不可见 —— 复评 #6 最大缺口）──
+  /// 工具名（bash / read / write / edit …）。
+  final String? toolName;
+
+  /// 工具调用的唯一 id（用于把 start/update/end 串成一条）。
+  final String? toolCallId;
+
+  /// 工具状态：start / update / end（来自 tool_execution_* 或 toolcall_*）。
+  final String? toolPhase;
+
+  /// 工具参数 / 部分输出（按可用字段宽松提取）。
+  final String? toolDetail;
+
   /// 助手文本增量（仅 message_update 的 text_delta 有）。
   final String? textDelta;
 
@@ -35,8 +48,18 @@ class PiSseEvent {
     this.role,
     this.textDelta,
     this.text,
+    this.toolName,
+    this.toolCallId,
+    this.toolPhase,
+    this.toolDetail,
     this.raw = const {},
   });
+
+  /// 是否为工具相关帧。
+  bool get isToolEvent =>
+      type.startsWith('tool_execution_') ||
+      type.startsWith('toolcall_') ||
+      toolName != null;
 
   /// 是否为助手侧的流式增量。
   bool get isAssistantDelta => type == 'message_update' && textDelta != null;
@@ -91,11 +114,35 @@ class PiSseEvent {
       if (d is String) delta = d;
     }
 
+    // 工具字段（宽松提取：pi/pi-web 各版本字段位置不完全一致）
+    String? toolName;
+    String? toolCallId;
+    String? toolPhase;
+    String? toolDetail;
+    if (type.startsWith('tool_execution_') || type.startsWith('toolcall_')) {
+      toolPhase = type.replaceFirst('tool_execution_', '')
+          .replaceFirst('toolcall_', '');
+      final holders = [map, map['toolCall'], map['tool_call'], ame];
+      for (final h in holders) {
+        if (h is! Map) continue;
+        toolName ??= h['toolName']?.toString() ?? h['name']?.toString();
+        toolCallId ??= h['toolCallId']?.toString() ?? h['id']?.toString();
+        toolDetail ??= h['command']?.toString() ??
+            h['args']?.toString() ??
+            h['partialResult']?.toString() ??
+            h['result']?.toString();
+      }
+    }
+
     return PiSseEvent(
       type: type,
       role: role,
       textDelta: delta,
       text: text,
+      toolName: toolName,
+      toolCallId: toolCallId,
+      toolPhase: toolPhase,
+      toolDetail: toolDetail,
       raw: map,
     );
   }

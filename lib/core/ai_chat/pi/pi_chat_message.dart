@@ -60,6 +60,11 @@ class PiChatMessage extends HiveObject {
   @HiveField(9, defaultValue: '')
   String id;
 
+  /// 本轮工具活动摘要（每行一个工具；纯工具轮靠它才不是空气泡）。
+  /// agent 产品的核心信息：用户在等的时候需要看到「它在读文件/跑命令」。
+  @HiveField(10, defaultValue: '')
+  String toolActivity;
+
   PiChatMessage({
     required this.sessionId,
     required this.role,
@@ -70,6 +75,7 @@ class PiChatMessage extends HiveObject {
     this.error,
     this.pending = false,
     this.stopped = false,
+    this.toolActivity = '',
     String? id,
   })  : id = id ?? _newId(),
         createdAt = createdAt ?? DateTime.now();

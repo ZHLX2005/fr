@@ -422,6 +422,8 @@ class PiChatController extends ChangeNotifier {
 
       final buf = StringBuffer();
       var sawTurnEnd = false;
+      // 本轮工具活动（渲染成气泡内的工具行）
+      final toolLines = <String>[];
       // message_end 的完整正文（权威终稿）；锁定后 agent_end/onDone 不得用
       // delta 累积覆盖（第 8 次复评探针 B）
       String? finalText;
@@ -447,6 +449,20 @@ class PiChatController extends ChangeNotifier {
       await _sub?.cancel();
       _sub = _agent.events(sid).listen(
         (e) {
+          // 工具活动：agent 干活的核心过程，此前完全丢弃（复评 #6 最大缺口）
+          if (e.isToolEvent) {
+            final name = e.toolName ?? '工具';
+            final line = e.toolPhase == 'start'
+                ? '正在调用 $name…'
+                : e.toolPhase == 'end'
+                    ? '$name 完成'
+                    : '$name …';
+            if (!toolLines.contains(line)) {
+              toolLines.add(line);
+              assistantMsg.toolActivity = toolLines.join('\n');
+              _notify();
+            }
+          }
           if (e.isAssistantDelta) {
             buf.write(e.textDelta);
             scheduleFlush();

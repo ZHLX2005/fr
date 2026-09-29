@@ -519,6 +519,39 @@ class _Bubble extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 工具活动（agent 的核心过程）：显示在正文之前，
+                    // 让用户在等待时看得到「它在干活」
+                    if (message.toolActivity.isNotEmpty) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.build_outlined,
+                                size: 14,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.55)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                message.toolActivity,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.7),
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (message.text.isEmpty && message.pending)
                       Text('发送中…',
                           style: theme.textTheme.bodySmall
@@ -528,7 +561,7 @@ class _Bubble extends StatelessWidget {
                       // 纯工具调用轮：模型只调了工具没输出文本。此前落到
                       // SelectableText('') = 零高度空气泡，用户只看到一个裸
                       // 时间戳，不知发生了什么（第 8 次复评 P5 探针 E）。
-                      Text('本轮无文本输出（仅工具调用）',
+                      Text('本轮无文本输出（见上方工具活动）',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: fg.withValues(alpha: 0.6),
                             fontStyle: FontStyle.italic,
