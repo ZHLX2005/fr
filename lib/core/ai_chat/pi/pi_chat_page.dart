@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
@@ -48,6 +49,7 @@ class _PiChatPageState extends State<PiChatPage> {
       final sid = widget.initialSessionId;
       if (sid != null && sid.isNotEmpty) {
         await _controller.openSession(sid);
+        unawaited(_controller.refreshContextUsage());
       }
       if (mounted) setState(() => _initError = null);
     } catch (e) {
@@ -283,6 +285,13 @@ class _PiChatPageState extends State<PiChatPage> {
         // 会话名优先（服务端 rename 的结果）；没有才退化。
         // 不再显示 sessionId 乱码（复评 #6）。长按改名（rename 端点此前
         // 在库里躺了六轮没有 UI 入口 —— 复评 #1）。
+        // 副标题：上下文占用（ChatGPT/Claude 都有容量提示；复评 P2-8）
+        bottom: _controller.contextUsage == null
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(14),
+                child: _ContextBar(usage: _controller.contextUsage!),
+              ),
         title: GestureDetector(
           onLongPress: _controller.sessionId == null
               ? null
@@ -323,10 +332,53 @@ class _PiChatPageState extends State<PiChatPage> {
               icon: const Icon(Icons.stop_circle_outlined),
               onPressed: () => _controller.abort(),
             ),
-          IconButton(
-            tooltip: '设置',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _openSettings,
+          // 思考档位 + 设置（合并进菜单，AppBar 不再拥挤）
+          PopupMenuButton<String>(
+            tooltip: '更多',
+            icon: const Icon(Icons.more_vert),
+            onSelected: (v) {
+              if (v == 'settings') {
+                _openSettings();
+              } else if (v.startsWith('think:')) {
+                _controller.setThinkingLevel(v.substring(6));
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                enabled: false,
+                height: 28,
+                child: Text('思考档位', style: TextStyle(fontSize: 12)),
+              ),
+              for (final lvl in const [
+                'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'
+              ])
+                PopupMenuItem(
+                  value: 'think:$lvl',
+                  height: 36,
+                  child: Row(
+                    children: [
+                      Icon(
+                        _controller.thinkingLevel == lvl
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_thinkingLabel(lvl)),
+                    ],
+                  ),
+                ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'settings',
+                height: 40,
+                child: Row(children: [
+                  Icon(Icons.settings_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('设置'),
+                ]),
+              ),
+            ],
           ),
         ],
       ),
@@ -892,6 +944,62 @@ class _DayDivider extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 思考档位的中文标签。
+String _thinkingLabel(String level) => const {
+      'off': '关闭',
+      'minimal': '最少',
+      'low': '低',
+      'medium': '中',
+      'high': '高',
+      'xhigh': '极高',
+      'max': '最大',
+    }[level] ??
+    level;
+
+/// AppBar 下方的上下文占用细条（ChatGPT/Claude 的容量提示）。
+class _ContextBar extends StatelessWidget {
+  final Map<String, dynamic> usage;
+
+  const _ContextBar({required this.usage});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final percent = (usage['percent'] is num)
+        ? (usage['percent'] as num).toDouble()
+        : 0.0;
+    final ratio = (percent / 100).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 3,
+                backgroundColor:
+                    theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                color: ratio > 0.85
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '上下文 ${percent.toStringAsFixed(0)}%',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
       ),
     );
   }

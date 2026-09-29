@@ -75,6 +75,51 @@ class PiChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── 思考档位（复评 P2-8：端点齐备却零接线）──
+
+  String _thinkingLevel = 'off';
+
+  /// 当前思考档位（off/minimal/low/medium/high/xhigh/max）。
+  String get thinkingLevel => _thinkingLevel;
+
+  /// 切换思考档位。
+  Future<void> setThinkingLevel(String level) async {
+    final sid = _sessionId;
+    if (sid == null) {
+      _thinkingLevel = level;
+      _notify();
+      return;
+    }
+    try {
+      await _agent.setThinkingLevel(sid, level);
+      _thinkingLevel = level;
+      _lastError = null;
+    } on PiApiException catch (e) {
+      _lastError = '切换思考档位失败: ${e.message}';
+    }
+    _notify();
+  }
+
+  /// 上下文占用（percent / tokens / contextWindow；拿不到返回 null）。
+  Map<String, dynamic>? get contextUsage => _contextUsage;
+  Map<String, dynamic>? _contextUsage;
+
+  /// 拉一次上下文占用（AppBar 副标题显示）。
+  Future<void> refreshContextUsage() async {
+    final sid = _sessionId;
+    if (sid == null) return;
+    try {
+      final ctx = await _sessions.context(sid);
+      final usage = ctx['contextUsage'] ?? ctx;
+      if (usage is Map<String, dynamic> && !_disposed) {
+        _contextUsage = usage;
+        _notify();
+      }
+    } catch (_) {
+      // 用量拿不到就算了
+    }
+  }
+
   /// 手动清除错误横幅（UI 的关闭按钮）。
   void clearError() {
     if (_lastError == null) return;
