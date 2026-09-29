@@ -184,9 +184,14 @@ class _PiChatPageState extends State<PiChatPage> {
     final configured = _controller.canChat;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_controller.sessionId == null
-            ? 'pi 聊天（新会话）'
-            : 'pi 聊天 · ${_controller.sessionId!.substring(0, 8)}…'),
+        // 会话名优先（服务端 rename 的结果）；没有才退化。
+        // 不再显示 sessionId 乱码（复评 #6）。
+        title: Text(() {
+          final name = _controller.sessionName;
+          if (name != null && name.isNotEmpty) return 'pi · $name';
+          if (_controller.sessionId == null) return 'pi 新对话';
+          return 'pi 对话';
+        }()),
         actions: [
           IconButton(
             tooltip: '新建会话',

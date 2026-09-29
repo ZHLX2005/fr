@@ -72,7 +72,30 @@ class PiChatController extends ChangeNotifier {
       ..addAll(_repo.messagesOf(sessionId));
     _lastError = null;
     notifyListeners();
+    // 异步取会话名（AppBar 显示「pi · 名字」而非 sessionId 乱码）。
+    // 失败静默 —— 标题退化为默认即可，不为它报错。
+    unawaited(_loadSessionName(sessionId));
   }
+
+  Future<void> _loadSessionName(String sessionId) async {
+    try {
+      final detail = await _sessions.detail(sessionId);
+      final name = detail['info'] is Map
+          ? (detail['info']['name']?.toString() ?? '')
+          : (detail['name']?.toString() ?? '');
+      if (name.isNotEmpty && _sessionId == sessionId && !_disposed) {
+        _sessionName = name;
+        notifyListeners();
+      }
+    } catch (_) {
+      // 标题拿不到就算了
+    }
+  }
+
+  String? _sessionName;
+
+  /// 会话显示名（服务端 name；空则 UI 退化为默认标题）。
+  String? get sessionName => _sessionName;
 
   /// 仅测试用：跳过网络建会话，直接注入 sessionId（状态机单测用）。
   void overrideSessionIdForTest(String sessionId) {
