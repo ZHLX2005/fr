@@ -30,6 +30,9 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
   Object? _error;
   List<_SessionRow> _rows = const [];
 
+  /// 上次会话 id（有值且在列表里时，置顶给「继续上次对话」入口）。
+  String get _lastId => widget.settings.lastSessionId;
+
   @override
   void initState() {
     super.initState();
@@ -187,6 +190,14 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
       appBar: AppBar(
         title: const Text('pi 对话'),
         actions: [
+          if (_rows.any((r) => r.id == _lastId))
+            IconButton(
+              tooltip: '继续上次对话',
+              icon: const Icon(Icons.history),
+              onPressed: () => _open(
+                _rows.firstWhere((r) => r.id == _lastId),
+              ),
+            ),
           IconButton(
             tooltip: '刷新',
             icon: const Icon(Icons.refresh),
