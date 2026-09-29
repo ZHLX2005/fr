@@ -14,6 +14,7 @@ import '../goframe/room/room_endpoint.dart';
 import '../notion/database_endpoint.dart';
 import '../notion/page_endpoint.dart';
 import '../notion/file_endpoint.dart';
+import '../pi/pi.dart';
 
 // ── Token ──────────────────────────────────────────────────────────
 
@@ -99,4 +100,24 @@ final notionFileEndpointProvider = Provider<NotionFileEndpoint>((ref) {
     throw StateError('Notion token 未设置');
   }
   return NotionFileEndpoint(token: token);
+});
+
+// ── pi（nx-as 网关）─────────────────────────────────────────────────
+
+/// pi 运行时配置（服务地址 / device token / 工作目录）。
+///
+/// ⚠️ 这里是**内存态**；持久化由 `lib/core/ai_chat/pi/` 的
+/// SharedPreferences 配置层在启动时灌入（配置完全可在 App 内设置）。
+final piConfigProvider = StateProvider<PiConfig>((_) => const PiConfig());
+
+final piAgentEndpointProvider = Provider<PiAgentEndpoint>((ref) {
+  return PiAgentEndpoint(config: () => ref.read(piConfigProvider));
+});
+
+final piSessionsEndpointProvider = Provider<PiSessionsEndpoint>((ref) {
+  return PiSessionsEndpoint(config: () => ref.read(piConfigProvider));
+});
+
+final piModelsEndpointProvider = Provider<PiModelsEndpoint>((ref) {
+  return PiModelsEndpoint(config: () => ref.read(piConfigProvider));
 });

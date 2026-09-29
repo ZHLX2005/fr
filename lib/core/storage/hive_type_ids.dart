@@ -16,6 +16,9 @@ abstract final class HiveTypeIds {
   /// 身体记录
   static const int bodyRecord = 0;
 
+  /// pi 聊天消息（lib/core/ai_chat/pi/）
+  static const int piChatMessage = 1;
+
   // ── lab 区段 80-99 ────────────────────────────
   // 此前 90/91 分配给 calendar v2 (untyped Map) 与 Person Adapter；
   // 日历 demo 已下线，相关 typeId 同时释放。

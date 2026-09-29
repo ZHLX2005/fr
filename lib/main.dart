@@ -15,6 +15,7 @@ import 'core/timetable/timetable.dart';
 import 'core/schema/schema.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
 import 'core/storage/hive/body_record_repository.dart';
+import 'core/ai_chat/pi/pi_chat_message_repository.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/ai_chat/system_messages/system_events_controller.dart';
 import 'core/note/note_root_scope.dart';
@@ -114,6 +115,8 @@ void main() async {
   final hiveRepo = HiveTimetableRepository();
   await hiveRepo.init();
   await bodyRecordRepository.init();
+  // pi 聊天记录（lib/core/ai_chat/pi/）：Hive typed box + 存储面板注册
+  await piChatMessageRepository.init();
 
   // 初始化消息策略
   registerMessageStrategies();
