@@ -141,7 +141,14 @@ class _PiChatPageState extends State<PiChatPage> {
       return;
     }
     _input.clear();
-    await _controller.send(text);
+    final accepted = await _controller.send(text);
+    // 未被受理（建会话失败/网络不通等）→ 把文本**回填输入框**，
+    // 否则用户输入被永久吞掉（第 8 次复评 P2 实锤）。
+    if (!accepted && mounted && _input.text.isEmpty) {
+      _input.text = text;
+      _input.selection =
+          TextSelection.collapsed(offset: _input.text.length);
+    }
   }
 
   /// 模型选择底部弹层：拉服务端清单 → 点选 → set_model 命令。
@@ -437,7 +444,9 @@ class _PiChatPageState extends State<PiChatPage> {
                         ),
                         const SizedBox(width: 8),
                         IconButton.filled(
-                          onPressed: _controller.sending ? null : _send,
+                          onPressed: (_controller.sending || _controller.creating)
+                              ? null
+                              : _send,
                           icon: _controller.sending
                               ? const SizedBox(
                                   width: 18,
@@ -514,6 +523,16 @@ class _Bubble extends StatelessWidget {
                       Text('发送中…',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: fg.withValues(alpha: 0.6)))
+                    else if (message.done && message.text.isEmpty &&
+                        message.error == null && !isUser)
+                      // 纯工具调用轮：模型只调了工具没输出文本。此前落到
+                      // SelectableText('') = 零高度空气泡，用户只看到一个裸
+                      // 时间戳，不知发生了什么（第 8 次复评 P5 探针 E）。
+                      Text('本轮无文本输出（仅工具调用）',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: fg.withValues(alpha: 0.6),
+                            fontStyle: FontStyle.italic,
+                          ))
                     else if (isStreaming && message.text.isEmpty)
                       // 首个 delta 到达前的「正在思考」三点（复评 #9：
                       // 空白色块毫无信息量）

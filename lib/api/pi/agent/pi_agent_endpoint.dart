@@ -171,9 +171,14 @@ class PiAgentEndpoint {
         // 不能 close 共享 client（后续 POST 还要用）。
         final resp = await _client.send(req);
         if (cancelled) {
-          // 连接窗口内已被取消：立刻丢弃，不挂监听
-          await resp.stream.drain<void>().catchError((_) {});
-          await controller.close();
+          // 连接窗口内已被取消：立刻丢弃并**真正释放**底层流。
+          // ★ 不能 await drain（SSE 长连上永不完成 → 这个 await 挂死，
+          // onSubCancel 永远保持 null → socket 泄漏，第 8 次复评 P4 实锤）。
+          // 直接订阅再立即 cancel，即可触发底层 onCancel。
+          unawaited(
+            resp.stream.listen((_) {}, onError: (_) {}).cancel(),
+          );
+          if (!controller.isClosed) await controller.close();
           return;
         }
         if (resp.statusCode != 200) {

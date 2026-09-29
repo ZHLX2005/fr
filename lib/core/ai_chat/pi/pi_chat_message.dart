@@ -47,10 +47,18 @@ class PiChatMessage extends HiveObject {
   bool pending;
 
   /// assistant 消息被中止/中断（区别于自然完成；UI 显示「已停止」状态行
-  /// 而不是把伪造文本混进正文 —— 复评 P2：正文里出现「（已停止）」会被
-  /// 复制/搜索/重发带上）。
+  /// 而不是把伪造文本混进正文 —— 复评 P2）。
   @HiveField(8, defaultValue: false)
   bool stopped;
+
+  /// ★ 稳定身份（第 8 次复评 P1 根因）。
+  ///
+  /// 此前没有 id：定位气泡只能靠 `==`（sessionId+role+text）或下标 ——
+  /// 两条正文为空的失败轮次**完全相等**，`indexOf` 恒定命中第一条 →
+  /// 重发错内容、内存删错（留下 key==null 幽灵行）。
+  /// 任何依赖「这一条气泡」的交互（重发/复制/删除）都必须用 id。
+  @HiveField(9, defaultValue: '')
+  String id;
 
   PiChatMessage({
     required this.sessionId,
@@ -62,7 +70,14 @@ class PiChatMessage extends HiveObject {
     this.error,
     this.pending = false,
     this.stopped = false,
-  }) : createdAt = createdAt ?? DateTime.now();
+    String? id,
+  })  : id = id ?? _newId(),
+        createdAt = createdAt ?? DateTime.now();
+
+  /// 本地唯一 id（时间戳 + 计数器，无需外部 uuid 依赖）。
+  static int _seq = 0;
+  static String _newId() =>
+      '${DateTime.now().microsecondsSinceEpoch}_${_seq++}';
 
   /// 用于 Hive key：同一会话内按时间排序且唯一。
   String keyFor(int seq) => '$sessionId#$seq';

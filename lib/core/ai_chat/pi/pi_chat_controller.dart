@@ -334,14 +334,18 @@ class PiChatController extends ChangeNotifier {
   ///
   /// [reuseUserMessage] 为 true 时不落新 user 气泡（重发场景：
   /// 原气泡已在历史里，追加会造成重复）。
-  Future<void> send(String text, {bool reuseUserMessage = false}) async {
+  /// 发送一条用户消息。返回 **true = 已被受理**（进入流式）；
+  /// false = 未被受理（未配置/忙/建会话失败），调用方应把文本回填输入框，
+  /// 否则用户输入会被永久吞掉（第 8 次复评 P2 实锤：建会话失败时文本既不
+  /// 落库也不在输入框，无重发载体）。
+  Future<bool> send(String text, {bool reuseUserMessage = false}) async {
     final trimmed = text.trim();
     // creating 期间同样拒绝（controller 层互斥，不依赖 UI 禁用）
-    if (trimmed.isEmpty || _sending || _creating) return;
+    if (trimmed.isEmpty || _sending || _creating) return false;
     if (!_settings.isConfigured) {
       _lastError = '未配置：请先在设置里填写服务地址与 device token';
       _notify();
-      return;
+      return false;
     }
     _lastError = null;
     _sending = true;
@@ -528,6 +532,7 @@ class PiChatController extends ChangeNotifier {
       // 4) 发送 prompt（受理即返回；正文走上面的流）
       await _agent.prompt(sid, trimmed);
       _notify();
+      return true;
     } on PiApiException catch (e) {
       _lastError = e.isUnauthorized
           ? 'token 无效或已吊销，请到设置检查'
@@ -538,12 +543,14 @@ class PiChatController extends ChangeNotifier {
           userText: trimmed, errorMessage: _lastError!);
       _sending = false;
       _notify();
+      return false;
     } catch (e) {
       _lastError = '发送失败: $e';
       await _finalizeFailedTurn(userKey: userKey, assistantKey: assistantKey,
           userText: trimmed, errorMessage: _lastError!);
       _sending = false;
       _notify();
+      return false;
     }
   }
 
@@ -654,8 +661,12 @@ class PiChatController extends ChangeNotifier {
     if (_sending) return;
     // 定位：优先用调用方给的那条失败气泡（第 7 次复评探针 G：多失败轮次时
     // 不带身份会重发错内容 —— 点第一条失败气泡实际重发第二条）。
+    // ★ 用稳定 id 定位（第 8 次复评 P1 根因：两条空正文失败气泡 == 相等，
+    // indexOf 恒定命中第一条 → 重发错内容）。id 由模型生成，必然唯一。
     PiChatMessage? failedAssistant = failedMessage;
-    var fIdx = failedAssistant != null ? _messages.indexOf(failedAssistant) : -1;
+    var fIdx = failedAssistant != null
+        ? _messages.indexWhere((m) => m.id == failedAssistant!.id)
+        : -1;
     if (fIdx < 0) {
       fIdx = _messages.lastIndexWhere(
           (m) => m.role == 'assistant' && m.error != null);
@@ -681,7 +692,7 @@ class PiChatController extends ChangeNotifier {
     }
     if (lastUserText == null) return;
     if (failedAssistant != null) {
-      final idx = _messages.indexOf(failedAssistant);
+      final idx = _messages.indexWhere((m) => m.id == failedAssistant!.id);
       if (idx >= 0) _messages.removeAt(idx);
       // 精确删除这一条（此前删「最后一条错误」—— 多失败轮次下删错，
       // 被点的气泡永远清不掉，第 7 次复评探针 G）
