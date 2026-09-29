@@ -44,6 +44,13 @@ class PiChatController extends ChangeNotifier {
   /// pi 服务端 sessionId（null = 尚未建会话）。
   String? get sessionId => _sessionId;
 
+  /// 手动清除错误横幅（UI 的关闭按钮）。
+  void clearError() {
+    if (_lastError == null) return;
+    _lastError = null;
+    notifyListeners();
+  }
+
   /// 当前会话消息（不可变视图）。
   List<PiChatMessage> get messages => List.unmodifiable(_messages);
 
@@ -313,12 +320,16 @@ class PiChatController extends ChangeNotifier {
 
   /// 把当前会话未完成的 assistant 气泡标记为「已停止」并落库。
   /// dispose / abort / openSession 三处共用。
-  Future<void> _stopUnfinishedBubbles() async {
+  Future<void> _stopUnfinishedBubbles({bool clearUserPending = false}) async {
     for (final m in _messages) {
       if (m.role == 'assistant' && !m.done) {
         m
           ..done = true
           ..text = m.text.isEmpty ? '（已停止）' : m.text;
+        await _repo.updateText(m.sessionId, m.text, done: true);
+      }
+      if (clearUserPending && m.role == 'user' && m.pending) {
+        m.pending = false;
         await _repo.updateText(m.sessionId, m.text, done: true);
       }
     }
@@ -364,14 +375,7 @@ class PiChatController extends ChangeNotifier {
       // 中止按钮永不消失、发送按钮永久禁用 —— 复评 #8）。
       await _sub?.cancel();
       _sub = null;
-      for (final m in _messages) {
-        if (m.role == 'assistant' && !m.done) {
-          m
-            ..done = true
-            ..text = m.text.isEmpty ? '（已停止）' : m.text;
-          await _repo.updateText(m.sessionId, m.text, done: true);
-        }
-      }
+      await _stopUnfinishedBubbles(clearUserPending: true);
       _sending = false;
       notifyListeners();
     } on PiApiException catch (e) {
@@ -379,14 +383,7 @@ class PiChatController extends ChangeNotifier {
       _lastError = '中止失败: ${e.message}';
       await _sub?.cancel();
       _sub = null;
-      for (final m in _messages) {
-        if (m.role == 'assistant' && !m.done) {
-          m
-            ..done = true
-            ..text = m.text.isEmpty ? '（已停止）' : m.text;
-          await _repo.updateText(m.sessionId, m.text, done: true);
-        }
-      }
+      await _stopUnfinishedBubbles(clearUserPending: true);
       _sending = false;
       notifyListeners();
     }

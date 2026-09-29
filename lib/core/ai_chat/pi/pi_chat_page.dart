@@ -226,6 +226,12 @@ class _PiChatPageState extends State<PiChatPage> {
                       leading: const Icon(Icons.error_outline),
                       title: Text(_controller.lastError!,
                           style: theme.textTheme.bodySmall),
+                      // 可手动关闭（此前常驻直到下次成功发送 —— 评分 #11）
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: _controller.clearError,
+                        tooltip: '关闭',
+                      ),
                     ),
                   ),
                 Expanded(
