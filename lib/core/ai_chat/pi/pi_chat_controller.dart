@@ -50,6 +50,24 @@ class PiChatController extends ChangeNotifier {
   /// pi 服务端 sessionId（null = 尚未建会话）。
   String? get sessionId => _sessionId;
 
+  /// 重命名会话（服务端 rename + 本地标题同步）。
+  Future<bool> renameSession(String name) async {
+    final sid = _sessionId;
+    if (sid == null) return false;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+    try {
+      await _sessions.rename(sid, trimmed);
+      _sessionName = trimmed;
+      notifyListeners();
+      return true;
+    } on PiApiException catch (e) {
+      _lastError = '重命名失败: ${e.message}';
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// 手动清除错误横幅（UI 的关闭按钮）。
   void clearError() {
     if (_lastError == null) return;

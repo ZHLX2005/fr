@@ -200,6 +200,35 @@ class _PiChatPageState extends State<PiChatPage> {
     }
   }
 
+  /// 改名对话框（AppBar 长按触发）。
+  Future<void> _renameDialog() async {
+    final controller = TextEditingController(text: _controller.sessionName);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重命名会话'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '会话名'),
+          onSubmitted: (_) => Navigator.pop(ctx, true),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('确定')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _controller.renameSession(controller.text);
+    }
+    controller.dispose();
+  }
+
   Future<void> _openSettings() async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => PiChatSettingsPage(settings: widget.settings),
@@ -245,13 +274,19 @@ class _PiChatPageState extends State<PiChatPage> {
     return Scaffold(
       appBar: AppBar(
         // 会话名优先（服务端 rename 的结果）；没有才退化。
-        // 不再显示 sessionId 乱码（复评 #6）。
-        title: Text(() {
-          final name = _controller.sessionName;
-          if (name != null && name.isNotEmpty) return 'pi · $name';
-          if (_controller.sessionId == null) return 'pi 新对话';
-          return 'pi 对话';
-        }()),
+        // 不再显示 sessionId 乱码（复评 #6）。长按改名（rename 端点此前
+        // 在库里躺了六轮没有 UI 入口 —— 复评 #1）。
+        title: GestureDetector(
+          onLongPress: _controller.sessionId == null
+              ? null
+              : () => _renameDialog(),
+          child: Text(() {
+            final name = _controller.sessionName;
+            if (name != null && name.isNotEmpty) return 'pi · $name';
+            if (_controller.sessionId == null) return 'pi 新对话';
+            return 'pi 对话';
+          }()),
+        ),
         actions: [
           // 模型切换（复评 #9：端点全在库里却让用户手填字符串）
           IconButton(
@@ -495,13 +530,14 @@ class _Bubble extends StatelessWidget {
                 ),
               ),
             ),
-            // 元信息行：时间戳（+ 用户消息未确认时的状态）
+            // 元信息行：时间戳 + 状态（状态按语义着色 —— 此前一刀切
+            // onSurface alpha .45，失败与进行中视觉无差，复评 P2）
             Padding(
               padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
               child: Text(
                 _metaLine(),
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                  color: _metaColor(theme),
                 ),
               ),
             ),
@@ -520,6 +556,15 @@ class _Bubble extends StatelessWidget {
     if (message.error != null) return '$stamp · 失败';
     if (!message.done) return '$stamp · 生成中';
     return stamp;
+  }
+
+  Color? _metaColor(ThemeData theme) {
+    if (message.error != null) return theme.colorScheme.error;
+    if (message.role == 'user' && message.pending) {
+      return theme.colorScheme.primary;
+    }
+    if (!message.done) return theme.colorScheme.tertiary;
+    return theme.colorScheme.onSurface.withValues(alpha: 0.45);
   }
 
   void _copy(BuildContext context) {
