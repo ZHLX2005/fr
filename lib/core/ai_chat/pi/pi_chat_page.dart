@@ -358,6 +358,10 @@ class _Bubble extends StatelessWidget {
                       Text('发送中…',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: fg.withValues(alpha: 0.6)))
+                    else if (isStreaming && message.text.isEmpty)
+                      // 首个 delta 到达前的「正在思考」三点（复评 #9：
+                      // 空白色块毫无信息量）
+                      _ThinkingDots(color: fg)
                     else if (!isUser && message.done)
                       // agent 回复含代码/列表/加粗：完成后走 markdown 渲染
                       //（流式中保持纯文本，避免半截语法闪烁）。
@@ -553,6 +557,67 @@ class _EmptyChatView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 「正在思考」三点跳动（首个流式 delta 到达前的占位指示）。
+class _ThinkingDots extends StatefulWidget {
+  final Color color;
+
+  const _ThinkingDots({required this.color});
+
+  @override
+  State<_ThinkingDots> createState() => _ThinkingDotsState();
+}
+
+class _ThinkingDotsState extends State<_ThinkingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            // 三个点错相跳动
+            final phase = (_c.value - i * 0.2) % 1.0;
+            final lift = (phase < 0.5 ? phase : 1 - phase) * 2; // 0..2
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Transform.translate(
+                offset: Offset(0, -lift),
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: widget.color.withValues(alpha: 0.5 + lift * 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

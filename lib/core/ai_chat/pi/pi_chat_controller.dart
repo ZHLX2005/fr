@@ -291,6 +291,20 @@ class PiChatController extends ChangeNotifier {
     if (sid == null) return;
     try {
       await _agent.abort(sid);
+      // 本地同步收口：不等服务端 agent_end（若该流不结束，
+      // 中止按钮永不消失、发送按钮永久禁用 —— 复评 #8）。
+      await _sub?.cancel();
+      _sub = null;
+      for (final m in _messages) {
+        if (m.role == 'assistant' && !m.done) {
+          m
+            ..done = true
+            ..text = m.text.isEmpty ? '（已停止）' : m.text;
+          await _repo.updateText(m.sessionId, m.text, done: true);
+        }
+      }
+      _sending = false;
+      notifyListeners();
     } on PiApiException catch (e) {
       _lastError = '中止失败: ${e.message}';
       notifyListeners();
@@ -328,16 +342,28 @@ class PiChatController extends ChangeNotifier {
   /// assistant 气泡从本地移除（避免界面上留下一条无用的错误气泡）。
   Future<void> retryLast() async {
     if (_sending) return;
-    // 找最后一条 user 文本
-    String? lastUserText;
+    // 找**最后一条失败的 assistant**，再取它**前面最近一条** user——
+    // 否则历史中间的失败气泡点重发会发错内容（复评 #10）。
     PiChatMessage? failedAssistant;
-    for (final m in _messages.reversed) {
-      if (lastUserText == null && m.role == 'user' && m.text.isNotEmpty) {
-        lastUserText = m.text;
+    final fIdx = _messages.lastIndexWhere(
+        (m) => m.role == 'assistant' && m.error != null);
+    if (fIdx >= 0) failedAssistant = _messages[fIdx];
+    String? lastUserText;
+    if (failedAssistant != null) {
+      for (var i = fIdx - 1; i >= 0; i--) {
+        final m = _messages[i];
+        if (m.role == 'user' && m.text.isNotEmpty) {
+          lastUserText = m.text;
+          break;
+        }
       }
-      if (lastUserText != null && m.role == 'assistant' && m.error != null) {
-        failedAssistant = m;
-        break;
+    } else {
+      // 没有失败气泡（横幅重试场景）：退化为最后一条 user
+      for (final m in _messages.reversed) {
+        if (m.role == 'user' && m.text.isNotEmpty) {
+          lastUserText = m.text;
+          break;
+        }
       }
     }
     if (lastUserText == null) return;
