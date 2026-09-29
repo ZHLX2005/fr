@@ -194,10 +194,18 @@ class _PiChatPageState extends State<PiChatPage> {
         }()),
         actions: [
           IconButton(
-            tooltip: _controller.sending ? '生成中，请先中止' : '新建会话',
-            icon: const Icon(Icons.add_comment_outlined),
-            // 发送中禁用：直接切走会泄漏「生成中」气泡（复评 P1）。
-            onPressed: configured && !_controller.sending
+            tooltip: _controller.creating
+                ? '正在创建…'
+                : _controller.sending
+                    ? '生成中，请先中止'
+                    : '新建会话',
+            icon: _controller.creating
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.add_comment_outlined),
+            // 发送中/创建中禁用：切走会泄漏气泡；无防重入会点出 N 个会话。
+            onPressed: configured && !_controller.sending && !_controller.creating
                 ? () => _controller.newSession()
                 : null,
           ),

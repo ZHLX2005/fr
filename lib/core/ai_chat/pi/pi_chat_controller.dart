@@ -73,8 +73,8 @@ class PiChatController extends ChangeNotifier {
   Future<void> openSession(String sessionId) async {
     await _repo.init();
     // 切走前把当前会话未完成的气泡标停（否则 Hive 里永久残留「生成中」，
-    // 复评 P1：发送中可点「新建会话」泄漏）。
-    await _stopUnfinishedBubbles();
+    // 复评 P1：发送中可点「新建会话」泄漏）。user pending 一并清。
+    await _stopUnfinishedBubbles(clearUserPending: true);
     _sub?.cancel();
     _sub = null;
     _sessionId = sessionId;
@@ -83,6 +83,7 @@ class PiChatController extends ChangeNotifier {
       ..addAll(_repo.messagesOf(sessionId));
     _sending = false;
     _lastError = null;
+    unawaited(_rememberSession(sessionId));
     notifyListeners();
     // 异步取会话名（AppBar 显示「pi · 名字」而非 sessionId 乱码）。
     // 失败静默 —— 标题退化为默认即可，不为它报错。
@@ -114,6 +115,18 @@ class PiChatController extends ChangeNotifier {
     _sessionId = sessionId;
   }
 
+  /// 把 sessionId 记进配置（「继续上次对话」的数据源）。
+  /// 此前只有列表页写它 —— 聊天页内新建/进入会话后断链（复评 #6）。
+  Future<void> _rememberSession(String? id) async {
+    await _settings.setLastSessionId(id ?? '');
+  }
+
+  bool _creating = false;
+
+  /// 正在创建会话（UI 据此禁用按钮 —— 请求最长 180s，无防重入会点出 N 个会话，
+  /// 复评 #14）。
+  bool get creating => _creating;
+
   /// 新建一个 pi 会话（ensure_session，不耗额度）并切换过去。
   Future<void> newSession({String? model}) async {
     final cfg = _settings;
@@ -122,6 +135,9 @@ class PiChatController extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (_creating) return; // 防重入
+    _creating = true;
+    notifyListeners();
     String? provider;
     String? modelId;
     if (model != null && model.contains('/')) {
@@ -139,11 +155,17 @@ class PiChatController extends ChangeNotifier {
     } on PiApiException catch (e) {
       _lastError = '新建会话失败: ${e.message}';
       notifyListeners();
+    } finally {
+      _creating = false;
+      notifyListeners();
     }
   }
 
   /// 发送一条用户消息（乐观落库 → prompt → 流式收 assistant）。
-  Future<void> send(String text) async {
+  ///
+  /// [reuseUserMessage] 为 true 时不落新 user 气泡（重发场景：
+  /// 原气泡已在历史里，追加会造成重复）。
+  Future<void> send(String text, {bool reuseUserMessage = false}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _sending) return;
     if (!_settings.isConfigured) {
@@ -177,17 +199,33 @@ class PiChatController extends ChangeNotifier {
           modelId: modelId,
         ))
             .sessionId;
+        unawaited(_rememberSession(_sessionId));
       }
       final sid = _sessionId!;
 
-      // 2) 乐观落库用户消息
-      userKey = await _repo.append(PiChatMessage(
-        sessionId: sid,
-        role: 'user',
-        text: trimmed,
-        pending: true,
-      ));
-      _messages.add(_repo.getByKey(userKey)!);
+      // 2) 乐观落库用户消息（重发场景复用已有气泡）
+      if (reuseUserMessage) {
+        final existing = _messages.lastWhere(
+          (m) => m.role == 'user' && m.text == trimmed,
+          orElse: () => _messages.first,
+        );
+        userKey = '${existing.sessionId}#'
+            '${_messages.indexOf(existing)}';
+        existing
+          ..pending = true
+          ..done = false;
+        await _repo.updateText(existing.sessionId, trimmed);
+        final m = _repo.getByKey(userKey);
+        if (m != null) m.pending = true;
+      } else {
+        userKey = await _repo.append(PiChatMessage(
+          sessionId: sid,
+          role: 'user',
+          text: trimmed,
+          pending: true,
+        ));
+        _messages.add(_repo.getByKey(userKey)!);
+      }
       notifyListeners();
 
       // 3) 建立事件流（服务端会回显用户消息；助手增量在 message_update）
@@ -204,7 +242,6 @@ class PiChatController extends ChangeNotifier {
       notifyListeners();
 
       final buf = StringBuffer();
-      var userEchoed = false;
       // 到这里 userKey/assistantKey 必然已赋值（落库成功才会走到）；
       // 局部拷贝成非空给 SSE 回调用。
       final String uKey = userKey;
@@ -226,7 +263,6 @@ class PiChatController extends ChangeNotifier {
       await _sub?.cancel();
       _sub = _agent.events(sid).listen(
         (e) {
-          if (e.role == 'user') userEchoed = true;
           if (e.isAssistantDelta) {
             buf.write(e.textDelta);
             scheduleFlush();
@@ -248,9 +284,9 @@ class PiChatController extends ChangeNotifier {
             assistantMsg
               ..text = buf.toString()
               ..done = true;
-            if (userEchoed) {
-              _repo.updateText(uKey, trimmed, done: true);
-            }
+            // 无条件清 pending（第 4 次复评：回显帧不保证有，成功主路径
+            // 不该带门 —— isError/onDone 都无条件，唯独这里带门不是完整收口）
+            _repo.updateText(uKey, trimmed, done: true);
             _sending = false;
             notifyListeners();
           }
@@ -320,7 +356,7 @@ class PiChatController extends ChangeNotifier {
 
   /// 把当前会话未完成的 assistant 气泡标记为「已停止」并落库。
   /// dispose / abort / openSession 三处共用。
-  Future<void> _stopUnfinishedBubbles({bool clearUserPending = false}) async {
+  Future<void> _stopUnfinishedBubbles({bool clearUserPending = true}) async {
     for (final m in _messages) {
       if (m.role == 'assistant' && !m.done) {
         m
@@ -451,7 +487,9 @@ class PiChatController extends ChangeNotifier {
       await _repo.removeLastErrorOf(failedAssistant.sessionId);
       notifyListeners();
     }
-    await send(lastUserText);
+    // 复用原 user 气泡重发（此前 send() 会追加一条一模一样的 user 气泡，
+    // 历史出现两条重复 —— 复评 #4）。
+    await send(lastUserText, reuseUserMessage: true);
   }
 
   /// 确保基础设施已初始化（main.dart 启动期也可调）。
