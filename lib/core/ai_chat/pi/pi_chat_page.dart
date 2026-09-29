@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 
 import 'pi_chat_controller.dart';
 import 'pi_chat_message.dart';
@@ -92,7 +93,13 @@ class _PiChatPageState extends State<PiChatPage> {
     if (_scroll.hasClients && _isAtBottom) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scroll.hasClients) {
-          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+          // 平滑跟随（ChatGPT/Claude 的做法）：短动画而非硬拽，
+          // 长回复时不抖动。用户主动上翻时 _isAtBottom 变 false 自动停跟。
+          _scroll.animateTo(
+            _scroll.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+          );
           if (_showScrollToBottom) setState(() => _showScrollToBottom = false);
         }
       });
@@ -325,8 +332,10 @@ class _Bubble extends StatelessWidget {
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                // 宽度基于布局约束而非屏幕尺寸：横屏/平板/分屏下都成立
                 constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.78),
+                    maxWidth: math.min(
+                        MediaQuery.of(context).size.width * 0.78, 520)),
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(14),
