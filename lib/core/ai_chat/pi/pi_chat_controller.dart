@@ -65,11 +65,16 @@ class PiChatController extends ChangeNotifier {
   /// 进入一个已有会话（从会话列表点进来 / 重启恢复）。
   Future<void> openSession(String sessionId) async {
     await _repo.init();
+    // 切走前把当前会话未完成的气泡标停（否则 Hive 里永久残留「生成中」，
+    // 复评 P1：发送中可点「新建会话」泄漏）。
+    await _stopUnfinishedBubbles();
     _sub?.cancel();
+    _sub = null;
     _sessionId = sessionId;
     _messages
       ..clear()
       ..addAll(_repo.messagesOf(sessionId));
+    _sending = false;
     _lastError = null;
     notifyListeners();
     // 异步取会话名（AppBar 显示「pi · 名字」而非 sessionId 乱码）。
@@ -227,19 +232,32 @@ class PiChatController extends ChangeNotifier {
               ..done = true;
             notifyListeners();
           }
-          if (e.isTurnEnd && buf.isNotEmpty) {
+          if (e.isTurnEnd) {
+            // ★ 成功轮次在这里收口（复评 P0-1）：pi-web 的 SSE 是长连+心跳
+            //（30s 注释帧），agent_end 后流**不断开** → onDone 永不触发。
+            // 若只靠 onDone，生产环境每轮成功回复后发送按钮永久转圈、
+            // user 气泡永久「发送中」。空回复（纯工具调用轮）也置 done。
             _repo.updateText(aKey, buf.toString(), done: true);
             assistantMsg
               ..text = buf.toString()
               ..done = true;
+            if (userEchoed) {
+              _repo.updateText(uKey, trimmed, done: true);
+            }
+            _sending = false;
             notifyListeners();
           }
           if (e.isError) {
+            // 错误 = 这一轮结束（prompt_error 后服务端不再产出），完整收口：
+            // assistant 标错误可重发、user 清 pending、sending 复位。
+            // （此前只标 assistant —— user 永挂「发送中」，复评 P1 缝隙）
             final msg = e.raw['errorMessage']?.toString() ?? '对话出错';
             _repo.markError(aKey, msg);
             assistantMsg
               ..error = msg
               ..done = true;
+            _repo.updateText(uKey, trimmed, done: true);
+            _sending = false;
             notifyListeners();
           }
         },
@@ -263,8 +281,9 @@ class PiChatController extends ChangeNotifier {
           assistantMsg
             ..text = buf.toString()
             ..done = true;
-          // 用户回执：服务端回显了用户消息，清除 pending
-          if (userEchoed) await _repo.updateText(uKey, trimmed);
+          // 无条件清 pending：能走到流结束，说明 prompt 已被受理；
+          // 回显帧只是锦上添花（有些错误路径没有回显），不该卡「发送中」。
+          await _repo.updateText(uKey, trimmed, done: true);
           _sending = false;
           notifyListeners();
         },
@@ -289,6 +308,19 @@ class PiChatController extends ChangeNotifier {
           userText: trimmed, errorMessage: _lastError!);
       _sending = false;
       notifyListeners();
+    }
+  }
+
+  /// 把当前会话未完成的 assistant 气泡标记为「已停止」并落库。
+  /// dispose / abort / openSession 三处共用。
+  Future<void> _stopUnfinishedBubbles() async {
+    for (final m in _messages) {
+      if (m.role == 'assistant' && !m.done) {
+        m
+          ..done = true
+          ..text = m.text.isEmpty ? '（已停止）' : m.text;
+        await _repo.updateText(m.sessionId, m.text, done: true);
+      }
     }
   }
 
@@ -343,7 +375,19 @@ class PiChatController extends ChangeNotifier {
       _sending = false;
       notifyListeners();
     } on PiApiException catch (e) {
+      // 中止请求失败也必须复位 sending —— 否则发送按钮永久禁用（复评 P1）。
       _lastError = '中止失败: ${e.message}';
+      await _sub?.cancel();
+      _sub = null;
+      for (final m in _messages) {
+        if (m.role == 'assistant' && !m.done) {
+          m
+            ..done = true
+            ..text = m.text.isEmpty ? '（已停止）' : m.text;
+          await _repo.updateText(m.sessionId, m.text, done: true);
+        }
+      }
+      _sending = false;
       notifyListeners();
     }
   }

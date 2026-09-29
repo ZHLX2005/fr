@@ -152,18 +152,19 @@ class PiAgentEndpoint {
     final cfg = _config();
     final uri = cfg.uri('/agent/$sessionId/events');
     late StreamController<PiSseEvent> controller;
-    http.Client? streamClient;
 
     Future<void> start() async {
       try {
-        streamClient = http.Client();
         final req = http.Request('GET', uri)
           ..headers.addAll({
             'Accept': 'text/event-stream',
             'Cache-Control': 'no-cache',
             if (cfg.token.isNotEmpty) 'Authorization': 'Bearer ${cfg.token}',
           });
-        final resp = await streamClient!.send(req);
+        // 复用注入的 _client（此前自建 client → 测试的脚本流永远进不来，
+        // 成功路径零测试覆盖 —— 复评 P0-2）。取消订阅即断开底层连接，
+        // 不能 close 共享 client（后续 POST 还要用）。
+        final resp = await _client.send(req);
         if (resp.statusCode != 200) {
           final body = await resp.stream.bytesToString();
           controller.addError(
@@ -205,7 +206,7 @@ class PiAgentEndpoint {
     controller = StreamController<PiSseEvent>(
       onListen: start,
       onCancel: () async {
-        streamClient?.close();
+        // 共享 client 不 close；订阅取消即断流。
       },
     );
     return controller.stream;

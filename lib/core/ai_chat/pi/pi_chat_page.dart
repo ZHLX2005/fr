@@ -194,9 +194,12 @@ class _PiChatPageState extends State<PiChatPage> {
         }()),
         actions: [
           IconButton(
-            tooltip: '新建会话',
+            tooltip: _controller.sending ? '生成中，请先中止' : '新建会话',
             icon: const Icon(Icons.add_comment_outlined),
-            onPressed: configured ? () => _controller.newSession() : null,
+            // 发送中禁用：直接切走会泄漏「生成中」气泡（复评 P1）。
+            onPressed: configured && !_controller.sending
+                ? () => _controller.newSession()
+                : null,
           ),
           if (_controller.sending)
             IconButton(
