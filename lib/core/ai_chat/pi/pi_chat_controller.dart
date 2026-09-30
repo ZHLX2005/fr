@@ -47,6 +47,13 @@ class PiChatController extends ChangeNotifier {
   String? _lastError;
   bool _disposed = false;
 
+  /// ★ 本轮 assistant 气泡的 key（第 15 次复评 P1-1：`send()` 先置
+  /// `_sending = true`，再 `await append` —— 这个窗口内 abort 若用
+  /// 「最后一条 assistant」定位，会命中**上一轮**已完成的回复并把它标成
+  /// 「已停止」（内存+磁盘双污染）。锚点在 append 前就确定，窗口内为 null
+  /// 时直接跳过标注）。
+  String? _turnAssistantKey;
+
   /// 订阅是否被**主动取消**（切会话/中止/dispose）。取消会关掉底层 HTTP 流，
   /// 客户端会收到 `Connection closed while receiving data` —— 那是正常副作用，
   /// 不是对话失败，必须静默（用户实测：退出再进入会弹这个异常）。
@@ -718,6 +725,7 @@ class PiChatController extends ChangeNotifier {
         model: _settings.defaultModel.isEmpty ? null : _settings.defaultModel,
       );
       assistantKey = await _repo.append(assistant);
+      _turnAssistantKey = assistantKey; // 本轮锚点（append 成功即确定）
       final assistantMsg = _repo.getByKey(assistantKey)!;
       _messages.add(assistantMsg);
       _bumpMessages();
@@ -970,28 +978,26 @@ class PiChatController extends ChangeNotifier {
     // 走统一入口：置 _subCancelled 后取消，让 onError 把随后的
     // Connection closed 当正常副作用静默掉（用户实测报错）。
     await _cancelSub();
-    // ★ 只处理**本轮**气泡（第 11 次复评探针 A2b，第二次要求）：
-    // 此前遍历全部 _messages，把上一轮已成功的回复也追溯标 stopped ——
-    // 内存+磁盘双污染，用户回看时自己的成功回答变成「已停止」。
-    // 上一轮 commit message 声称引入过 _currentAssistantKey，实际没写 —— 这次是真代码。
-    final current = _currentAssistant();
-    if (current != null && current.done && !current.stopped &&
-        current.text.isNotEmpty) {
-      current.stopped = true;
-      await current.save();
+    // ★ 只认**本轮锚点**（第 15 次复评 P1-1）：`_currentAssistant()` 取
+    // 「最后一条 assistant」，在 send 落气泡窗口内会命中上一轮 —— 把它
+    // 标成「已停止」（第 11 次 A2b 的真回归）。锚点在 append 前确定，
+    // 窗口内为 null 时本轮还没有内容可标，直接跳过。
+    final key = _turnAssistantKey;
+    if (key != null) {
+      final current = _repo.getByKey(key);
+      if (current != null && current.done && !current.stopped &&
+          current.text.isNotEmpty) {
+        current.stopped = true;
+        await current.save();
+      }
     }
     await _stopUnfinishedBubbles(clearUserPending: true);
     _sending = false;
     _notify();
   }
 
-  /// 本轮 assistant 气泡（最后一条 assistant；未完成优先）。
-  PiChatMessage? _currentAssistant() {
-    for (final m in _messages.reversed) {
-      if (m.role == 'assistant') return m;
-    }
-    return null;
-  }
+// 注：曾用「最后一条 assistant」定位本轮 —— 在 send 落气泡窗口内会命中
+// 上一轮（第 15 次复评 P1-1 回归）。现改用 _turnAssistantKey 锚点。
 
   /// 清空本地记录（不影响服务端会话）。
   Future<void> clearLocal() async {
