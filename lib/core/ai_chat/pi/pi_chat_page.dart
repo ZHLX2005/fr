@@ -216,6 +216,64 @@ class _PiChatPageState extends State<PiChatPage> {
     }
   }
 
+  Future<void> _confirmClearLocal() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清空本地记录？'),
+        content: const Text(
+            '将删除本地 Hive 中所有气泡与历史（服务端会话不受影响）。'
+            '刷新后会从服务端重新合并。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('清空')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _controller.clearLocal();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已清空本地记录')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteSession() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除整个会话？'),
+        content: const Text(
+            '将从服务端和本地同时删除该会话（不可恢复）。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(ctx).colorScheme.error),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('删除')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _controller.deleteSession();
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已删除会话')),
+        );
+      }
+    }
+  }
+
   /// 选图 → base64 入待发队列。长按附件按钮走相机。
   Future<void> _pickImage({bool fromCamera = false}) async {
     try {
@@ -426,6 +484,10 @@ class _PiChatPageState extends State<PiChatPage> {
                 _renameDialog();
               } else if (v.startsWith('think:')) {
                 _controller.setThinkingLevel(v.substring(6));
+              } else if (v == 'clear_local') {
+                _confirmClearLocal();
+              } else if (v == 'delete_session') {
+                _confirmDeleteSession();
               }
             },
             itemBuilder: (ctx) => [

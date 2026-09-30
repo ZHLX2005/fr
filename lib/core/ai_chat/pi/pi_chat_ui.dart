@@ -357,6 +357,7 @@ class PiDayDivider extends StatelessWidget {
 }
 
 /// 工具活动行：细边框卡片而非实心块（agent 干活时的「过程感」）。
+/// 长任务下固定 maxHeight + 内部滚动（信息全保留，不再顶爆气泡）。
 class PiToolStrip extends StatelessWidget {
   final String text;
 
@@ -366,33 +367,54 @@ class PiToolStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final colors = PiChatColors.of(t);
+    final lineCount = text.split('\n').length;
+    final isLong = lineCount > 4;
+    final shown = isLong
+        ? '${text.split('\n').take(4).join('\n')}\n…等 ${lineCount - 4} 步'
+        : text;
+
     return Container(
       margin: const EdgeInsets.only(bottom: PiChatTokens.s2),
-      padding: const EdgeInsets.symmetric(
-          horizontal: PiChatTokens.s3, vertical: PiChatTokens.s2),
       decoration: BoxDecoration(
         color: colors.toolSurface,
         borderRadius: BorderRadius.circular(PiChatTokens.rSm),
         border: Border.all(color: colors.bubbleBorder),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.terminal_rounded,
-              size: 13, color: colors.metaText.withValues(alpha: 0.9)),
-          const SizedBox(width: PiChatTokens.s2),
-          Expanded(
-            child: Text(
-              text,
-              style: t.textTheme.labelSmall?.copyWith(
-                color: colors.metaText,
-                height: 1.5,
-                fontFamily: 'monospace',
-                fontSize: 11.5,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 96),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: PiChatTokens.s3, vertical: PiChatTokens.s2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.terminal_rounded,
+                  size: 13, color: colors.metaText.withValues(alpha: 0.9)),
+              const SizedBox(width: PiChatTokens.s2),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: Text(
+                    shown,
+                    style: t.textTheme.labelSmall?.copyWith(
+                      color: colors.metaText,
+                      height: 1.45,
+                      fontFamily: 'monospace',
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if (isLong)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 2),
+                  child: Icon(Icons.more_horiz,
+                      size: 12,
+                      color: colors.metaText.withValues(alpha: 0.6)),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
