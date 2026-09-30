@@ -508,6 +508,14 @@ class _PiChatPageState extends State<PiChatPage> {
                         )
                       : Stack(
                           children: [
+                            Center(
+                              child: ConstrainedBox(
+                                // 宽屏（平板/横屏/桌面）把对话列居中限宽 ——
+                                // Claude/ChatGPT 的做法；上轮如实声明的未完成项
+                                constraints: const BoxConstraints(
+                                    maxWidth: PiChatTokens.contentMaxWidth),
+                                child: Stack(
+                                    children: [
                             ListView.builder(
                               controller: _scroll,
                               padding: const EdgeInsets.symmetric(
@@ -550,6 +558,10 @@ class _PiChatPageState extends State<PiChatPage> {
                                   onPressed: _jumpToBottom,
                                   tooltip: '回到最新',
                                   child: const Icon(Icons.arrow_downward),
+                                ),
+                              ),
+                                      ],
+                                  ),
                                 ),
                               ),
                           ],
