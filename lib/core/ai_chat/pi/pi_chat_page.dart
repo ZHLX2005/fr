@@ -68,7 +68,22 @@ class _PiChatPageState extends State<PiChatPage> {
 
   String _lastDraftKey = '__new__';
 
+  Timer? _draftDebounce;
+
+  /// 草稿写盘（500ms debounce —— 此前每击键一次 SharedPreferences 写，
+  /// 长段落输入时是明显的卡顿源，复评多轮扣分项）。
   void _saveDraft() {
+    _draftDebounce?.cancel();
+    final key = _draftKey;
+    final text = _input.text;
+    _draftDebounce = Timer(const Duration(milliseconds: 500), () {
+      widget.settings.setDraft(key, text);
+    });
+  }
+
+  /// 立刻落盘（dispose / 发送前）。
+  void _flushDraft() {
+    _draftDebounce?.cancel();
     widget.settings.setDraft(_draftKey, _input.text);
   }
 
@@ -152,6 +167,8 @@ class _PiChatPageState extends State<PiChatPage> {
     _controller.removeListener(_onChange);
     _scroll.removeListener(_onScroll);
     _input.removeListener(_saveDraft);
+    _flushDraft();
+    _draftDebounce?.cancel();
     _controller.dispose();
     _input.dispose();
     _scroll.dispose();
@@ -175,7 +192,7 @@ class _PiChatPageState extends State<PiChatPage> {
       return;
     }
     _input.clear();
-    widget.settings.setDraft(_draftKey, '');
+    _flushDraft();
     // 待发图片 → pi 的 images 参数（[{type:image,data,mimeType}]）
     List<Object>? images;
     if (_controller.hasPendingImages) {

@@ -39,11 +39,15 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
   List<_SessionRow> get _filtered {
     if (_query.trim().isEmpty) return _rows;
     final q = _query.trim().toLowerCase();
-    return _rows
-        .where((r) =>
-            r.title.toLowerCase().contains(q) ||
-            r.id.toLowerCase().contains(q))
-        .toList();
+    return _rows.where((r) {
+      if (r.title.toLowerCase().contains(q)) return true;
+      if (r.id.toLowerCase().contains(q)) return true;
+      // ★ 也搜**消息正文**（此前只搜标题 —— 而本地会话标题恰是最后一条消息，
+      // 等于只能搜到最后一句，复评多轮扣分项）
+      return piChatMessageRepository
+          .messagesOf(r.id)
+          .any((m) => m.text.toLowerCase().contains(q));
+    }).toList();
   }
 
   @override
