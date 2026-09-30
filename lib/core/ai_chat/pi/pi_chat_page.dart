@@ -498,7 +498,14 @@ class _PiChatPageState extends State<PiChatPage> {
                   ),
                 Expanded(
                   child: _controller.messages.isEmpty
-                      ? _EmptyChatView(hasSession: _controller.sessionId != null)
+                      ? _EmptyChatView(
+                          hasSession: _controller.sessionId != null,
+                          onStarter: (text) {
+                            _input.text = text;
+                            _input.selection = TextSelection.collapsed(
+                                offset: text.length);
+                          },
+                        )
                       : Stack(
                           children: [
                             ListView.builder(
@@ -583,9 +590,16 @@ class _PiChatPageState extends State<PiChatPage> {
                           controller: _input,
                           onSend: _send,
                           onAttach: _pickImage,
-                          onStop: _controller.abort,
+                          // 停止键只在「会话已建立」的生成中可点 ——
+                          // 建会话窗口（sessionId 未定，最长 180s）里 abort
+                          // 是死按钮（第 13 次复评前置 3），转圈更诚实。
+                          onStop: _controller.sessionId == null
+                              ? null
+                              : _controller.abort,
                           sending: _controller.sending,
-                          creating: _controller.creating,
+                          creating: _controller.creating ||
+                              (_controller.sending &&
+                                  _controller.sessionId == null),
                         ),
                       ],
                     ),
@@ -673,6 +687,31 @@ class _Bubble extends StatelessWidget {
                           onPressed: () => _copy(context),
                         ),
                       ),
+                    // 已发图片回显（复评 #6：发出的图此前看完即消失）。
+                    // 文字行而非缩略图：缩略需要 downscale 落库，否则要么
+                    // 消息体积爆炸、要么截断 base64 根本解不出图（都试过）。
+                    if (isUser && message.imageCount > 0) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.image_outlined,
+                                size: 14,
+                                color: fg.withValues(alpha: 0.55)),
+                            const SizedBox(width: 4),
+                            Text(
+                              message.imageCount == 1
+                                  ? '已发送 1 张图片'
+                                  : '已发送 ${message.imageCount} 张图片',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: fg.withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     // 工具活动（agent 的核心过程）：显示在正文之前，
                     // 让用户在等待时看得到「它在干活」
                     if (message.toolActivity.isNotEmpty) ...[
@@ -912,8 +951,9 @@ class _NotConfiguredView extends StatelessWidget {
 /// 空态：企业级做法是给「这是什么 + 下一步做什么」，而不是一行灰字。
 class _EmptyChatView extends StatelessWidget {
   final bool hasSession;
+  final ValueChanged<String> onStarter;
 
-  const _EmptyChatView({required this.hasSession});
+  const _EmptyChatView({required this.hasSession, required this.onStarter});
 
   @override
   Widget build(BuildContext context) {
@@ -949,6 +989,24 @@ class _EmptyChatView extends StatelessWidget {
                 height: 1.6,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
               ),
+            ),
+            const SizedBox(height: 16),
+            // 引导动作（复评 #4：空态只有说明文字无 starter）
+            Wrap(
+              spacing: PiChatTokens.s2,
+              runSpacing: PiChatTokens.s2,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final starter in const [
+                  '总结这个目录的代码',
+                  '帮我写一个单元测试',
+                  '解释这段代码的作用',
+                ])
+                  ActionChip(
+                    label: Text(starter, style: theme.textTheme.labelSmall),
+                    onPressed: () => onStarter(starter),
+                  ),
+              ],
             ),
           ],
         ),

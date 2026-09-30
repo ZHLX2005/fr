@@ -60,6 +60,16 @@ class PiChatMessage extends HiveObject {
   @HiveField(9, defaultValue: '')
   String id;
 
+  /// 本轮随消息发出的图片数（0 = 无图）。
+  /// 只记**张数 + 首图缩略**，不存 base64 全量（复评 #6：发出的图此前不回显，
+  /// 用户在记录里找不到自己发过的图）。
+  @HiveField(11, defaultValue: 0)
+  int imageCount;
+
+  /// 首图缩略 base64（最长 200 字符的 data 前缀，仅用于气泡预览）。
+  @HiveField(12, defaultValue: '')
+  String firstImageThumb;
+
   /// 本轮工具活动摘要（每行一个工具；纯工具轮靠它才不是空气泡）。
   /// agent 产品的核心信息：用户在等的时候需要看到「它在读文件/跑命令」。
   @HiveField(10, defaultValue: '')
@@ -76,6 +86,8 @@ class PiChatMessage extends HiveObject {
     this.pending = false,
     this.stopped = false,
     this.toolActivity = '',
+    this.imageCount = 0,
+    this.firstImageThumb = '',
     String? id,
   })  : id = id ?? _newId(),
         createdAt = createdAt ?? DateTime.now();

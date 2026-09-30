@@ -27,6 +27,8 @@ class PiChatMessageAdapter extends TypeAdapter<PiChatMessage> {
       pending: fields[7] as bool,
       stopped: fields[8] == null ? false : fields[8] as bool,
       toolActivity: fields[10] == null ? '' : fields[10] as String,
+      imageCount: fields[11] == null ? 0 : fields[11] as int,
+      firstImageThumb: fields[12] == null ? '' : fields[12] as String,
       id: fields[9] == null ? '' : fields[9] as String?,
     );
   }
@@ -34,7 +36,7 @@ class PiChatMessageAdapter extends TypeAdapter<PiChatMessage> {
   @override
   void write(BinaryWriter writer, PiChatMessage obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.sessionId)
       ..writeByte(1)
@@ -55,6 +57,10 @@ class PiChatMessageAdapter extends TypeAdapter<PiChatMessage> {
       ..write(obj.stopped)
       ..writeByte(9)
       ..write(obj.id)
+      ..writeByte(11)
+      ..write(obj.imageCount)
+      ..writeByte(12)
+      ..write(obj.firstImageThumb)
       ..writeByte(10)
       ..write(obj.toolActivity);
   }

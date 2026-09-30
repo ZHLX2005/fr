@@ -268,9 +268,15 @@ class PiChatController extends ChangeNotifier {
       String? aKey = target?.key as String?;
 
       // 本轮还没有 assistant 气泡 → 新起一条（另一台设备发起、或合并只补了
-      // 尾部 user 的场景）
+      // 尾部 user 的场景）。
+      // ★ 竞态守卫必须在 **append 之前**（第 13 次复评探针 I：此前在
+      // append 之后才让位 → 新建的空正文 done=false 气泡落库后无人收口，
+      // 内存永久「生成中」、磁盘永久残留，重启变成「已停止」空气泡）。
       if (target == null) {
         if (lastUserIdx < 0) return;
+        if (_sending || _sub != null || _sessionId != sessionId || _disposed) {
+          return;
+        }
         final created = await _repo.append(PiChatMessage(
           sessionId: sessionId,
           role: 'assistant',
@@ -674,11 +680,18 @@ class PiChatController extends ChangeNotifier {
         }
       }
       if (userKey == null) {
+        final imgCount = images?.length ?? 0;
         userKey = await _repo.append(PiChatMessage(
           sessionId: sid,
           role: 'user',
           text: trimmed,
           pending: true,
+          // 图片回显元数据（复评 #6：发出的图此前不回显，记录里找不到）
+          imageCount: imgCount,
+          // 首图缩略**不再落 base64**（一张 1600px 图 300KB+，会把消息体积
+          // 炸掉）；回显用 imageCount 的文字行 —— 数据真实体积为零，
+          // downscale 缩略等需要时再加（第 13 次复评前置 4 的最终取舍）。
+          firstImageThumb: '',
         ));
         _messages.add(_repo.getByKey(userKey)!);
       _bumpMessages();
