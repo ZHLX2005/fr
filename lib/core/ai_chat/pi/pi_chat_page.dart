@@ -12,6 +12,7 @@ import 'pi_chat_controller.dart';
 import 'pi_chat_message.dart';
 import 'pi_chat_settings.dart';
 import 'pi_chat_settings_page.dart';
+import 'pi_chat_ui.dart';
 
 /// pi 聊天页 —— 建会话 / 发消息 / SSE 流式渲染 / 历史回读。
 ///
@@ -656,16 +657,15 @@ class _Bubble extends StatelessWidget {
     final hasError = message.error != null;
     final isStreaming = !message.done;
 
-    final color = isUser
-        ? theme.colorScheme.primaryContainer
-        : (hasError
-            ? theme.colorScheme.errorContainer
-            : theme.colorScheme.surfaceContainerHighest);
-    final fg = isUser
-        ? theme.colorScheme.onPrimaryContainer
-        : (hasError
-            ? theme.colorScheme.onErrorContainer
-            : theme.colorScheme.onSurface);
+    // 自绘配色（不再用 surfaceContainerHighest —— 部分主题下与背景无对比，
+    // 一片灰就是「塑料感」的来源）
+    final pi = PiChatColors.of(theme);
+    final color = hasError
+        ? theme.colorScheme.errorContainer
+        : (isUser ? pi.mineBubble : pi.theirsBubble);
+    final fg = hasError
+        ? theme.colorScheme.onErrorContainer
+        : (isUser ? pi.mineText : pi.theirsText);
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -689,43 +689,39 @@ class _Bubble extends StatelessWidget {
                         MediaQuery.of(context).size.width * 0.78, 520)),
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(14),
+                  // 非对称尾角（靠说话人一侧收窄）——「对话感」的关键细节
+                  borderRadius: isUser
+                      ? PiChatTokens.bubbleMine
+                      : PiChatTokens.bubbleTheirs,
+                  border: isUser || hasError
+                      ? null
+                      : Border.all(color: pi.bubbleBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 复制按钮（第 11 次复评探针 H1：长按在 SelectableText/
+                    // SelectionArea 分支上被手势竞技场赢走，助手回复反而
+                    // 复制不了 —— 显式按钮不依赖竞技场）
+                    if (message.text.isNotEmpty && !isStreaming)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          tooltip: '复制',
+                          iconSize: 14,
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                              minWidth: 28, minHeight: 24),
+                          icon: Icon(Icons.content_copy_outlined,
+                              color: fg.withValues(alpha: 0.45)),
+                          onPressed: () => _copy(context),
+                        ),
+                      ),
                     // 工具活动（agent 的核心过程）：显示在正文之前，
                     // 让用户在等待时看得到「它在干活」
                     if (message.toolActivity.isNotEmpty) ...[
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.build_outlined,
-                                size: 14,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.55)),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                message.toolActivity,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.7),
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      PiToolStrip(text: message.toolActivity),
                     ],
                     if (message.text.isEmpty && message.pending)
                       Text('发送中…',
@@ -752,8 +748,8 @@ class _Bubble extends StatelessWidget {
                       // selectable:false（全项目共享组件的性能取舍，不在这里改它），
                       // 但回复恰恰最需要选中复制（复评多轮扣分项）。
                       SelectionArea(
-                        // 代码块增强：独立容器 + 横向滚动 + 复制按钮
-                        //（复评 #6：agent 输出代码是高频内容，此前只能整条复制）
+                        // 长按走系统选择菜单（不再用外层 GestureDetector 抢 ——
+                        // 那个在 selectable 子树里根本触发不了）
                         child: MarkdownBody(
                           data: message.text,
                           selectable: false,
@@ -868,7 +864,7 @@ class _Bubble extends StatelessWidget {
       return theme.colorScheme.primary;
     }
     if (!message.done) return theme.colorScheme.tertiary;
-    return theme.colorScheme.onSurface.withValues(alpha: 0.45);
+    return PiChatColors.of(theme).metaText.withValues(alpha: 0.75);
   }
 
   void _copy(BuildContext context) {

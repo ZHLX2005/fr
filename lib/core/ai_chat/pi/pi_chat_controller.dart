@@ -47,6 +47,11 @@ class PiChatController extends ChangeNotifier {
   String? _lastError;
   bool _disposed = false;
 
+  /// 订阅是否被**主动取消**（切会话/中止/dispose）。取消会关掉底层 HTTP 流，
+  /// 客户端会收到 `Connection closed while receiving data` —— 那是正常副作用，
+  /// 不是对话失败，必须静默（用户实测：退出再进入会弹这个异常）。
+  bool _subCancelled = false;
+
   /// pi 服务端 sessionId（null = 尚未建会话）。
   String? get sessionId => _sessionId;
 
@@ -93,6 +98,18 @@ class PiChatController extends ChangeNotifier {
     if (pendingImages.isEmpty) return;
     pendingImages.clear();
     _notify();
+  }
+
+  /// 主动断流（切会话/中止/dispose 都走这里）：置标记后再 cancel，
+  /// 让 onError 能区分「我们主动关的」与「真断流」。
+  Future<void> _cancelSub() async {
+    final sub = _sub;
+    if (sub == null) return;
+    _subCancelled = true;
+    _sub = null;
+    try {
+      await sub.cancel();
+    } catch (_) {}
   }
 
   /// 安全通知：dispose 后不再 notify（第 7 次复评探针 D —— prompt POST 在途
@@ -198,8 +215,7 @@ class PiChatController extends ChangeNotifier {
     // 切走前把当前会话未完成的气泡标停（否则 Hive 里永久残留「生成中」，
     // 复评 P1：发送中可点「新建会话」泄漏）。user pending 一并清。
     await _stopUnfinishedBubbles(clearUserPending: true);
-    _sub?.cancel();
-    _sub = null;
+    await _cancelSub();
     _sessionId = sessionId;
     _messages
       ..clear()
@@ -231,14 +247,33 @@ class PiChatController extends ChangeNotifier {
       final streaming = st['isStreaming'] == true;
       if (!streaming || _sessionId != sessionId || _disposed) return;
 
-      // 服务端在跑：把本地被误标「已停止」的当轮气泡恢复为生成中
-      for (final m in _messages) {
-        if (m.role == 'assistant' && m.done && m.stopped && m.key != null) {
-          m
-            ..done = false
-            ..stopped = false;
-          await m.save();
+      // ★ 只恢复**本轮**（最后一条 assistant）气泡 —— 第 11 次复评探针 F1：
+      // 此前遍历全部 _messages，把历史里昨天中止的回复也复活成「生成中」，
+      // 用户无法分辨哪条真在跑（与 A2b 同一种「全量扫描」反模式）。
+      String? aKey;
+      PiChatMessage? target;
+      for (final m in _messages.reversed) {
+        if (m.role == 'assistant' && m.key != null) {
+          aKey = m.key as String;
+          target = m;
+          break;
         }
+      }
+      if (aKey == null || target == null) return;
+
+      // ★ 竞态守卫（第 11 次复评探针 R1）：state() 是个未受保护的窗口，
+      // 用户在此窗口内 send() 的话，继续挂流会掐掉 send 的订阅并覆盖句柄
+      // （实测：事件流开 2 份、正文重复叠加）。本轮已开始就让位。
+      if (_sending || _sub != null || _sessionId != sessionId || _disposed) {
+        return;
+      }
+
+      // 恢复本轮气泡为生成中
+      if (target.done && target.stopped) {
+        target
+          ..done = false
+          ..stopped = false;
+        await target.save();
       }
       _bumpMessages();
       _sending = true;
@@ -252,15 +287,6 @@ class PiChatController extends ChangeNotifier {
           break;
         }
       }
-      // 当轮 assistant 气泡的 key（最后一条 assistant）
-      String? aKey;
-      for (final m in _messages.reversed) {
-        if (m.role == 'assistant' && m.key != null) {
-          aKey = m.key as String;
-          break;
-        }
-      }
-      if (aKey == null) return;
       final assistantMsg = _repo.getByKey(aKey);
       if (assistantMsg == null) return;
 
@@ -268,7 +294,9 @@ class PiChatController extends ChangeNotifier {
       var sawTurnEnd = false;
       final finalParts = <String>[];
       var finalLocked = false;
+      // 重建流（上一轮已收口后订阅已被取消）：先断旧再挂新，并复位取消标记
       await _sub?.cancel();
+      _subCancelled = false;
       _sub = _agent.events(sessionId).listen((e) {
         if (e.isAssistantDelta && !finalLocked) {
           buf.write(e.textDelta);
@@ -296,18 +324,20 @@ class PiChatController extends ChangeNotifier {
           assistantMsg
             ..text = settled
             ..done = true;
-          // 回调非 async：fire-and-forget 落库（aKey/uKey 是外层可空变量，
-          // 闭包内类型提升失效 → 先拷成非空局部）
+          // 回调非 async：fire-and-forget 落库。
+          // ★ 用户气泡只清 pending，**绝不改正文**（第 11 次复评探针 F2：
+          // 此前写 '' 把用户原话清成空串，内存+磁盘双丢，成功主路径上的
+          // 破坏性数据丢失）。repo.markUserDelivered 只清标志不动 text。
           final String ak = aKey ?? '';
           final String uk = uKey ?? '';
           if (ak.isNotEmpty) _repo.updateText(ak, settled, done: true);
-          if (uk.isNotEmpty) _repo.updateText(uk, '', done: true);
+          if (uk.isNotEmpty) _repo.markUserDelivered(uk);
           _sending = false;
-          unawaited(_sub?.cancel());
-          _sub = null;
+          unawaited(_cancelSub());
           _notify();
         }
       }, onError: (Object err) {
+        if (_subCancelled || _disposed) return;
         if (!assistantMsg.done) {
           assistantMsg
             ..error = err is PiApiException ? err.message : '$err'
@@ -675,7 +705,9 @@ class PiChatController extends ChangeNotifier {
           if (!_disposed) notifyListeners();
         });
       }
+      // 重建流（新一轮）：复位取消标记，避免新流的错误被静默
       await _sub?.cancel();
+      _subCancelled = false;
       _sub = _agent.events(sid).listen(
         (e) {
           // 工具活动：agent 干活的核心过程，此前完全丢弃（复评 #6 最大缺口）
@@ -732,8 +764,7 @@ class PiChatController extends ChangeNotifier {
             // turnEnd 收口即断订阅：长连还在收心跳，若之后断流触发 onError，
             // 会把已成功的回复毒化成「失败+重发」（第 10 次复评探针 E）。
             // 下一轮 send() 会重新建流。回调非 async → unawaited。
-            unawaited(_sub?.cancel());
-            _sub = null;
+            unawaited(_cancelSub());
             _notify();
           }
           if (e.isError) {
@@ -751,6 +782,9 @@ class PiChatController extends ChangeNotifier {
           }
         },
         onError: (Object err) async {
+          // 主动取消（切会话/中止/退出）导致的 Connection closed 是正常副作用，
+          // 静默处理 —— 此前会把用户吓一跳（实测报错）。
+          if (_subCancelled || _disposed) return;
           final detail = err is PiApiException ? err.message : '$err';
           // 本轮已收口（turnEnd 已到）的气泡不再毒化 —— 长连断流不是内容失败
           if (!assistantMsg.done) {
@@ -871,8 +905,7 @@ class PiChatController extends ChangeNotifier {
     } on PiApiException catch (e) {
       // 中止请求失败也必须复位 sending —— 否则发送按钮永久禁用（复评 P1）。
       _lastError = '中止失败: ${e.message}';
-      await _sub?.cancel();
-      _sub = null;
+      await _cancelSub();
       await _finalizeAbort();
       _sending = false;
       _notify();
@@ -881,20 +914,30 @@ class PiChatController extends ChangeNotifier {
 
   /// 中止的本地收口（成功/失败两路共用，第 9 次复评：手抄两份必然分叉）。
   Future<void> _finalizeAbort() async {
-    await _sub?.cancel();
-    _sub = null;
-    // 有终稿但流没走完（无 turnEnd）的轮次：补「已停止」标记——
-    // 否则用户把截断文本当完整答案（第 9 次复评探针 A 后半）。
-    for (final m in _messages) {
-      if (m.role == 'assistant' && m.done && !m.stopped &&
-          m.text.isNotEmpty) {
-        m.stopped = true;
-        await m.save();
-      }
+    // 走统一入口：置 _subCancelled 后取消，让 onError 把随后的
+    // Connection closed 当正常副作用静默掉（用户实测报错）。
+    await _cancelSub();
+    // ★ 只处理**本轮**气泡（第 11 次复评探针 A2b，第二次要求）：
+    // 此前遍历全部 _messages，把上一轮已成功的回复也追溯标 stopped ——
+    // 内存+磁盘双污染，用户回看时自己的成功回答变成「已停止」。
+    // 上一轮 commit message 声称引入过 _currentAssistantKey，实际没写 —— 这次是真代码。
+    final current = _currentAssistant();
+    if (current != null && current.done && !current.stopped &&
+        current.text.isNotEmpty) {
+      current.stopped = true;
+      await current.save();
     }
     await _stopUnfinishedBubbles(clearUserPending: true);
     _sending = false;
     _notify();
+  }
+
+  /// 本轮 assistant 气泡（最后一条 assistant；未完成优先）。
+  PiChatMessage? _currentAssistant() {
+    for (final m in _messages.reversed) {
+      if (m.role == 'assistant') return m;
+    }
+    return null;
   }
 
   /// 清空本地记录（不影响服务端会话）。
@@ -985,6 +1028,7 @@ class PiChatController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _subCancelled = true;
     _sub?.cancel();
     // 与 _stopUnfinishedBubbles 同一份收口（此前手抄了一份只管 assistant 的
     // 内联循环 —— 两份逻辑必然分叉，user pending 就是从那个缝隙漏掉的，

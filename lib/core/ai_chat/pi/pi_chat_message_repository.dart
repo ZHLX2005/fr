@@ -104,6 +104,17 @@ class PiChatMessageRepository implements HiveRepository {
     await _box.put(key, msg);
   }
 
+  /// 标记用户消息**已送达**（只清 pending，不改正文）。
+  ///
+  /// 区别于 updateText：后者需要调用方提供 text，跟随路径曾误传 '' 把
+  /// 用户原话清成空串（第 11 次复评探针 F2）。
+  Future<void> markUserDelivered(String key) async {
+    final msg = _box.get(key);
+    if (msg == null) return;
+    msg.pending = false;
+    await _box.put(key, msg);
+  }
+
   /// 标记错误（prompt 被拒 / 网络失败）。
   Future<void> markError(String key, String error) async {
     final msg = _box.get(key);
