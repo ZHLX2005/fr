@@ -2,7 +2,6 @@
 name: flutter-ui-game-skin-pipeline
 description: 游戏资源公开 KV 管线 —— 皮肤 / 封面 / 曲库 / 表情包四条线统一走 File API + KV public（groupId=190），从图片或音频资源到客户端免发版生效的完整链路。当要"新增/更换一套皮肤/封面/歌曲/表情包"、"更新 chess_skin:index / gomoku_skin:index / game-center_skin:index / line_song:index / emoji_*_skin:index"、"排查皮肤不生效 / 图挂了 / 曲库空白 / 表情发不出去"时触发。含可执行上传脚本与端到端 SOP。
 ---
-
 # Game Skin Pipeline — 游戏资源公开 KV 管线（5 条线统一）
 
 > 一句话：**新增资源 = 走 File API 上传拿 file_id → 拼 meta JSON → 写进 KV public（groupId=190）→ 客户端下次启动自动生效，无需发版。**
@@ -11,56 +10,57 @@ description: 游戏资源公开 KV 管线 —— 皮肤 / 封面 / 曲库 / 表�
 
 本 skill 统一管理 5 条公开 KV 索引管线（共享同一后端 / 同一种 tag 命名约定 / 同一族脚本）：
 
-| 管线 | KV key | tag 前缀 | 资产维度 | 事实源 / 客户端 |
-|---|---|---|---|---|
-| 国际象棋皮肤 | `chess_skin:index` | `chess-skin` | 12 棋子（`wK…bp`） | `lib/core/chess/skins/chess_skin_meta.dart` → `chess_skin_meta_sync.dart` |
-| 五子棋皮肤 | `gomoku_skin:index` | `gomoku-skin` | 3（`black / white / board`） | `lib/core/gomoku/skins/` |
-| 游戏中心封面 | `game-center_skin:index` | `game-center-skin` | 2（`small / large`，skinId = demo slug） | `lib/core/game_kit/skin/game_center_skin_spec.dart` |
-| 音游「线」曲库 | `line_song:index` | `line-song` | 3（`audio / cover / chart`，谱面走 File） | `lib/core/line/io/chart_repository.dart` |
-| 表情包 | `emoji_<scope>:index` | `<scope>-emoji` | 单文件（任意 `image/*` / `gif`） | `lib/core/game_kit/emoji/emoji_bundle.dart` |
+| 管线           | KV key                     | tag 前缀             | 资产维度                                    | 事实源 / 客户端                                                                |
+| -------------- | -------------------------- | -------------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| 国际象棋皮肤   | `chess_skin:index`       | `chess-skin`       | 12 棋子（`wK…bp`）                       | `lib/core/chess/skins/chess_skin_meta.dart` → `chess_skin_meta_sync.dart` |
+| 五子棋皮肤     | `gomoku_skin:index`      | `gomoku-skin`      | 3（`black / white / board`）              | `lib/core/gomoku/skins/`                                                     |
+| 游戏中心封面   | `game-center_skin:index` | `game-center-skin` | 2（`small / large`，skinId = demo slug）  | `lib/core/game_kit/skin/game_center_skin_spec.dart`                          |
+| 音游「线」曲库 | `line_song:index`        | `line-song`        | 3（`audio / cover / chart`，谱面走 File） | `lib/core/line/io/chart_repository.dart`                                     |
+| 表情包         | `emoji_<scope>:index`    | `<scope>-emoji`    | 单文件（任意`image/*` / `gif`）         | `lib/core/game_kit/emoji/emoji_bundle.dart`                                  |
 
 加 1 条**目录发布线**（不走 File，只发 JSON array）：
 
-| 管线 | KV key | tag | 事实源 |
-|---|---|---|---|
+| 管线         | KV key                        | tag                     | 事实源                                                                   |
+| ------------ | ----------------------------- | ----------------------- | ------------------------------------------------------------------------ |
 | 游戏中心目录 | `game-center_catalog:index` | `game-center-catalog` | `lib/core/game_kit/game_center_catalog.dart` 的 `kGameCenterCatalog` |
 
 ## 序列总览（先读这里）
 
-| 代号 | 类别 | 何时读该序列 | 成员 |
-| --- | --- | --- | --- |
-| A | 操作 SOP（动手相关） | 新增资源 / 排查故障 / 理解加载链路 / 表情包特定时 | [[A01-端到端SOP与故障排查]] / [[A02-加载架构与文件地图]] / [[A03-表情包端到端SOP]] |
+| 代号 | 类别                 | 何时读该序列                                      | 成员   |
+| ---- | -------------------- | ------------------------------------------------- | ------ |
+| A    | 操作 SOP（动手相关） | 新增资源 / 排查故障 / 理解加载链路 / 表情包特定时 | [[A01-端到端SOP与故障排查]] / [[A02-加载架构与文件地图]] / [[A03-表情包端到端SOP]] |
 
 ## 何时读哪个 ref / 用哪个脚本
 
-| 场景 | 读/用 | 路径 |
-| --- | --- | --- |
-| **新增一套游戏皮肤（任意 gameId）** | [[A01-端到端SOP与故障排查]] §2 全流程走一遍 | `references/A01-端到端SOP与故障排查.md` |
-| **新增一款游戏封面（game-center）** | [[A01-端到端SOP与故障排查]] §4 | `references/A01-端到端SOP与故障排查.md` |
-| **新增一款游戏（fr 新上线，管理端要能配封面）** | 先登记 `kGameCenterCatalog` + 重发目录，再走封面 SOP | `lib/core/game_kit/game_center_catalog.dart` + [[A01-端到端SOP与故障排查]] §4.3 |
-| **新增一首歌（line songs）** | [[A01-端到端SOP与故障排查]] §5 | `references/A01-端到端SOP与故障排查.md` |
-| **新增一套表情包（任意 scope）** | [[A01-端到端SOP与故障排查]] §6 + [[A03-表情包端到端SOP]] | `references/A01-端到端SOP与故障排查.md` §6 + `references/A03-表情包端到端SOP.md` |
-| 发布游戏中心目录（新增/下线游戏） | 跑 `tool/publish_game_center_index.dart` | `tool/publish_game_center_index.dart` |
-| 上传图片/音频/表情拿 file_id | 跑 `scripts/add_<thing>.py` | `scripts/add_skin.py` / `scripts/add_emoji_pack.py` |
-| 一次性给旧 chess 文件补 tag | 跑 `retag_existing.py` | `scripts/retag_existing.py` |
-| 把 line 曲库从 Supabase 迁过来 | 跑 `migrate_line_from_supabase.py` | `scripts/migrate_line_from_supabase.py` |
-| 理解加载链路（混合三层 + 文件地图） | [[A02-加载架构与文件地图]] | `references/A02-加载架构与文件地图.md` |
-| 皮肤/曲库/表情不生效 → 排查 | [[A01-端到端SOP与故障排查]] §7 | `references/A01-端到端SOP与故障排查.md` §7 |
+| 场景                                                  | 读/用                                                 | 路径                                                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **新增一套游戏皮肤（任意 gameId）**             | [[A01-端到端SOP与故障排查]] §2 全流程走一遍                                     | `references/A01-端到端SOP与故障排查.md`                                             |
+| **新增一款游戏封面（game-center）**             | [[A01-端到端SOP与故障排查]] §4                                                  | `references/A01-端到端SOP与故障排查.md`                                             |
+| **新增一款游戏（fr 新上线，管理端要能配封面）** | 先登记`kGameCenterCatalog` + 重发目录，再走封面 SOP | `lib/core/game_kit/game_center_catalog.dart` + [[A01-端到端SOP与故障排查]] §4.3                               |
+| **新增一首歌（line songs）**                    | [[A01-端到端SOP与故障排查]] §5                                                  | `references/A01-端到端SOP与故障排查.md`                                             |
+| **新增一套表情包（任意 scope）**                | [[A01-端到端SOP与故障排查]] §6 + [[A03-表情包端到端SOP]]                                               | `references/A01-端到端SOP与故障排查.md` §6 + `references/A03-表情包端到端SOP.md` |
+| 发布游戏中心目录（新增/下线游戏）                     | 跑`tool/publish_game_center_index.dart`             | `tool/publish_game_center_index.dart`                                               |
+| 上传图片/音频/表情拿 file_id                          | 跑`scripts/add_<thing>.py`                          | `scripts/add_skin.py` / `scripts/add_emoji_pack.py`                               |
+| 一次性给旧 chess 文件补 tag                           | 跑`retag_existing.py`                               | `scripts/retag_existing.py`                                                         |
+| 把 line 曲库从 Supabase 迁过来                        | 跑`migrate_line_from_supabase.py`                   | `scripts/migrate_line_from_supabase.py`                                             |
+| 理解加载链路（混合三层 + 文件地图）                   | [[A02-加载架构与文件地图]]                                                      | `references/A02-加载架构与文件地图.md`                                              |
+| 皮肤/曲库/表情不生效 → 排查                          | [[A01-端到端SOP与故障排查]] §7                                                  | `references/A01-端到端SOP与故障排查.md` §7                                         |
 
 ## 核心事实（后端能力，已实测）
 
-| 能力 | 接口 | 鉴权 |
-|---|---|---|
-| 文件上传 | `POST /api/v1/files`（multipart，`file` 字段 + `key`/`accessLevel=public` + `tags[]`） | **需登录** |
-| 文件下载 | `GET /files/<fileId>` | **匿名 ✅** |
-| 文件补 tag | `PATCH /api/v1/files/<fileId>` body=`{tags: [...], groupId: N}`（**replace 语义**） | **需登录** |
-| KV 写入 | `POST /api/v1/kv`（`visibility=public`，`groupId=190`，`tags` 可选） | **需登录** |
-| KV public 匿名读 | `GET /api/v1/kv/public/<key>?groupId=<gid>` | **匿名 ✅** |
-| KV 标准读 | `GET /api/v1/kv/<key>` | 需登录 ❌（勿用） |
-| KV share 访问 | `GET /api/v1/kv/share/<code>` | 需登录 ❌（勿用） |
-| KV tag facet | `GET /api/v1/kv/tags?groupId=<gid>` → `{tag, count}[]` | **需登录** |
+| 能力             | 接口                                                                                             | 鉴权              |
+| ---------------- | ------------------------------------------------------------------------------------------------ | ----------------- |
+| 文件上传         | `POST /api/v1/files`（multipart，`file` 字段 + `key`/`accessLevel=public` + `tags[]`） | **需登录**  |
+| 文件下载         | `GET /files/<fileId>`                                                                          | **匿名 ✅** |
+| 文件补 tag       | `PATCH /api/v1/files/<fileId>` body=`{tags: [...], groupId: N}`（**replace 语义**）    | **需登录**  |
+| KV 写入          | `POST /api/v1/kv`（`visibility=public`，`groupId=190`，`tags` 可选）                     | **需登录**  |
+| KV public 匿名读 | `GET /api/v1/kv/public/<key>?groupId=<gid>`                                                    | **匿名 ✅** |
+| KV 标准读        | `GET /api/v1/kv/<key>`                                                                         | 需登录 ❌（勿用） |
+| KV share 访问    | `GET /api/v1/kv/share/<code>`                                                                  | 需登录 ❌（勿用） |
+| KV tag facet     | `GET /api/v1/kv/tags?groupId=<gid>` → `{tag, count}[]`                                      | **需登录**  |
 
 > 🚨 **六个实测踩坑，勿重蹈**：
+>
 > 1. 上传路径是 `/api/v1/files`（multipart field 必须叫 `file`），**不是** `/api/v1/upload`（404）。
 > 2. KV 匿名读**必须**走 `/api/v1/kv/public/<key>?groupId=N`（N≥1，用 190 shared 公共组）；标准 `/api/v1/kv/<key>` 匿名一律 401。
 > 3. KV share（`/kv/share/:code`）在 MustAuth 组内，**不是**匿名通道，本管线勿用。
@@ -84,15 +84,16 @@ KV tags（kvV1.set tags=）:
 
 按线展开：
 
-| 线 | domain-kind | resourceId | asset | KV tag |
-|---|---|---|---|---|
-| chess | `chess-skin` | skinId（数字/小写） | `wK / wQ / wR / wB / wN / wp / bK / bQ / bR / bB / bN / bp` | `chess-skin` |
-| gomoku | `gomoku-skin` | skinId | `black / white / board` | `gomoku-skin` |
-| game-center | `game-center-skin` | demo slug | `small / large` | `game-center-skin` |
-| line | `line-song` | songId（kebab-case） | `audio / cover / chart` | `line-song` |
-| emoji | `<scope>-emoji`（scope=common 或 gameId） | packId（`default` 或自命名） | `<emojiId>` | `<scope>-emoji` |
+| 线          | domain-kind                                 | resourceId                     | asset                                                         | KV tag               |
+| ----------- | ------------------------------------------- | ------------------------------ | ------------------------------------------------------------- | -------------------- |
+| chess       | `chess-skin`                              | skinId（数字/小写）            | `wK / wQ / wR / wB / wN / wp / bK / bQ / bR / bB / bN / bp` | `chess-skin`       |
+| gomoku      | `gomoku-skin`                             | skinId                         | `black / white / board`                                     | `gomoku-skin`      |
+| game-center | `game-center-skin`                        | demo slug                      | `small / large`                                             | `game-center-skin` |
+| line        | `line-song`                               | songId（kebab-case）           | `audio / cover / chart`                                     | `line-song`        |
+| emoji       | `<scope>-emoji`（scope=common 或 gameId） | packId（`default` 或自命名） | `<emojiId>`                                                 | `<scope>-emoji`    |
 
 **设计动机**（全 5 条线通用）：
+
 - 共同的 `<domain>-<kind>` 让 `GET /api/v1/kv/tags?groupId=190` 一眼能看出"我有多少种资源"
 - `<domain>-<kind>:<id>` 让前端能 `GET /files?tags=chess-skin:3` 一次拉某资源全部资产（已可用于预览/批量换图 UI）
 - `<domain>-<kind>:<id>:<asset>` 粒度最细，未来按资产增量更新直接定位 file
@@ -192,21 +193,21 @@ python .claude/skills/flutter-ui-game-skin-pipeline/scripts/migrate_line_from_su
 
 ## 通用故障排查入口
 
-| 症状 | 排查 |
-|---|---|
-| 新增游戏后 ve 管理端「游戏封面」看不到 | ① `kGameCenterCatalog` 是否已登记该 slug；② 是否重跑 `dart run tool/publish_game_center_index.dart`；③ 匿名读验证：`curl 'http://…/api/v1/kv/public/game-center_catalog:index?groupId=190'` 应含该 slug |
-| 资源没出现在列表 | ① 匿名读验证：`curl 'http://47.110.80.47:8988/api/v1/kv/public/<key>?groupId=190'` 应返回 code 0；② value 是否合法 JSON array 且无重复 id（parseList 整批拒绝）；③ 客户端是否真重启（fetch 仅启动拉一次） |
-| 列表有资源但显示空白 | ① file_id 是否 32-hex 且真实存在：`curl -I 'http://…/files/<id>'`（HEAD 404 是已知怪癖，用 GET/字节计数验证）；② 本地缓存目录是否半残：app 文档目录删掉重下 |
-| 换了图但不更新 | KV index 是全量覆盖语义：重新 publish（version+1 + 新 fileId）；本地已缓存的旧图按资源目录持久化 —— **改图必须换新 id 或让用户清缓存** |
-| upload 脚本 401 | `kvcli auth whoami` 检查登录；token 过期重登 |
-| upload 404 | 用了错误路径（`/api/v1/upload`）——本 skill 脚本已用正确路径，检查是否被改动 |
-| KV 写成功但匿名读 404 | 写入时 `visibility` 不是 `public`，或 `groupId` 不是 190 |
-| emoji 发了但客户端不显示 | ① scope 是否正确（common vs game）；② emoji id 是否匹配 `^[a-z0-9][a-z0-9-_]{0,31}$`；③ 客户端日志里看 KV 读取是否 200 |
+| 症状                                   | 排查                                                                                                                                                                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新增游戏后 ve 管理端「游戏封面」看不到 | ①`kGameCenterCatalog` 是否已登记该 slug；② 是否重跑 `dart run tool/publish_game_center_index.dart`；③ 匿名读验证：`curl 'http://…/api/v1/kv/public/game-center_catalog:index?groupId=190'` 应含该 slug |
+| 资源没出现在列表                       | ① 匿名读验证：`curl 'http://47.110.80.47:8988/api/v1/kv/public/<key>?groupId=190'` 应返回 code 0；② value 是否合法 JSON array 且无重复 id（parseList 整批拒绝）；③ 客户端是否真重启（fetch 仅启动拉一次）   |
+| 列表有资源但显示空白                   | ① file_id 是否 32-hex 且真实存在：`curl -I 'http://…/files/<id>'`（HEAD 404 是已知怪癖，用 GET/字节计数验证）；② 本地缓存目录是否半残：app 文档目录删掉重下                                                 |
+| 换了图但不更新                         | KV index 是全量覆盖语义：重新 publish（version+1 + 新 fileId）；本地已缓存的旧图按资源目录持久化 ——**改图必须换新 id 或让用户清缓存**                                                                    |
+| upload 脚本 401                        | `kvcli auth whoami` 检查登录；token 过期重登                                                                                                                                                                   |
+| upload 404                             | 用了错误路径（`/api/v1/upload`）——本 skill 脚本已用正确路径，检查是否被改动                                                                                                                                  |
+| KV 写成功但匿名读 404                  | 写入时`visibility` 不是 `public`，或 `groupId` 不是 190                                                                                                                                                    |
+| emoji 发了但客户端不显示               | ① scope 是否正确（common vs game）；② emoji id 是否匹配`^[a-z0-9][a-z0-9-_]{0,31}$`；③ 客户端日志里看 KV 读取是否 200                                                                                       |
 
 ## 引用索引
 
-| 代号 | ref | 何时读取 | 路径 |
-| --- | --- | --- | --- |
-| A01 | [[A01-端到端SOP与故障排查]] | 新增/更换资源、端到端 SOP、故障排查 | `references/A01-端到端SOP与故障排查.md` |
-| A02 | [[A02-加载架构与文件地图]] | 理解加载链路、KV value schema、文件地图 | `references/A02-加载架构与文件地图.md` |
-| A03 | [[A03-表情包端到端SOP]] | 表情包特定：scope 合并、id 命名、pack meta 解析 | `references/A03-表情包端到端SOP.md` |
+| 代号 | ref | 何时读取                                        | 路径                                      |
+| ---- | --- | ----------------------------------------------- | ----------------------------------------- |
+| A01  | [[A01-端到端SOP与故障排查]]    | 新增/更换资源、端到端 SOP、故障排查             | `references/A01-端到端SOP与故障排查.md` |
+| A02  | [[A02-加载架构与文件地图]]    | 理解加载链路、KV value schema、文件地图         | `references/A02-加载架构与文件地图.md`  |
+| A03  | [[A03-表情包端到端SOP]]    | 表情包特定：scope 合并、id 命名、pack meta 解析 | `references/A03-表情包端到端SOP.md`     |

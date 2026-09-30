@@ -274,12 +274,30 @@ const double kGcPagePadding = 16.0;
 /// 卡片圆角
 const double kGcCardRadius = 18.0;
 
-/// Hero 头部高度（不含状态栏与 AppBar）。
-/// 刻意压矮：头部只承担"我在哪 + 一行概览"，纵向空间留给游戏本身。
-const double kGcHeaderHeight = 76.0;
+// 顶部功能行（返回键 + 搜索框）—— H3R-C「搜索框即头」头部方案：
+// 不再有标题 / 渐变横幅，状态栏下第一行就是 40px 功能行。
+// 视觉规格源自 temp/game-center-header-ui/h3-redesign/c-searchfirst.html 定稿。
 
-/// Hero 头部底部圆角（露出内容区背景，形成"内容区盖住头部"的层次）
-const double kGcHeaderBottomRadius = 24.0;
+/// 功能行高度（返回钮与搜索框同高）
+const double kGcTopRowHeight = 40.0;
+
+/// 状态栏 → 功能行的间距（有刘海/状态栏 inset 的机型用 inset + 此值）
+const double kGcTopRowGapTop = 6.0;
+
+/// 无状态栏 inset（桌面 web / 横屏）时的默认顶部间距，避免功能行贴顶
+const double kGcTopRowGapTopFallback = 16.0;
+
+/// 功能行 → 内容区（分节标题）的间距
+const double kGcTopRowGapBottom = 12.0;
+
+/// 搜索框描边宽度（border-emphasis：透明底，靠主题色描边定义形状）
+const double kGcSearchBorderWidth = 2.0;
+
+/// 搜索框圆角
+const double kGcSearchRadius = 12.0;
+
+/// 搜索框内嵌「搜索」提交钮高度
+const double kGcSearchButtonHeight = 30.0;
 
 /// 精选横滑卡高度
 const double kGcFeaturedHeight = 196.0;
@@ -297,7 +315,17 @@ const double kGcRevealMaxDelay = 0.6;
 const double kGcRevealItemDuration = 0.3;
 const double kGcRevealTranslateY = 20.0;
 
-/// 滚动到该偏移时，AppBar 的同色渐变与标题完全淡入。
-/// 取 Hero 头部高度：头部正文刚滑出视野的那一刻，AppBar 恰好补齐同色底，
-/// 视觉上就是"banner 收拢成头部"。
-const double kGcTitleFadeDistance = kGcHeaderHeight;
+/// 滚动到该偏移时，毛玻璃标题条完全淡入。
+/// 头部区总高 = topGap + 功能行 40 + bottomGap（约 58px），
+/// 再加一档余量：头部刚滑出视野就开始出现，滑过半屏细条已完全实。
+const double kGcGlassBarThreshold = 60.0;
+
+// ══════════════════════════════════════════════════════════════
+// 搜索
+// ══════════════════════════════════════════════════════════════
+
+/// 搜索历史在 SharedPreferences 的存储键（字符串列表，最新在前，封顶去重）
+const String kGcSearchHistoryKey = 'game_center_search_history';
+
+/// 搜索历史最多保留条数
+const int kGcSearchHistoryMax = 8;

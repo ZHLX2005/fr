@@ -1,11 +1,17 @@
 // 游戏中心 — 独立游戏列表页（主页直入）
 //
 // 结构（CustomScrollView，自上而下）：
-//   ① 透明 AppBar（滚动后标题+底色淡入，返回键始终可点）
-//   ② 渐变 Hero 头部：标题 + "N 款游戏 / M 款联机 / K 收藏"统计
-//   ③ 收藏轮播横滑（仅"全部"筛选下出现；收藏为空显示空态引导）
-//   ④ 分类过滤 chip（border-emphasis，带数量）
-//   ⑤ 自适应列数网格（MaxCrossAxisExtent，平板自动多列）
+//   ① 顶部功能行：返回键 + 描边搜索框（H3R-C「搜索框即头」，无标题无渐变）
+//   ② 收藏轮播横滑（仅"全部"筛选下出现；收藏为空显示空态引导）
+//   ③ 分类过滤 chip（border-emphasis，带数量）
+//   ④ 自适应列数网格（MaxCrossAxisExtent，平板自动多列）
+//
+// 滚动越过阈值后顶部淡入一条毛玻璃细条（返回箭头 + 标题 + 搜索/历史 mini 图标），
+// 替代原 AppBar 的同色渐变揭示。
+//
+// 搜索：输入实时过滤网格与分节标题；「搜索」钮 / 提交收键盘并记入搜索历史
+//（SharedPreferences，最新在前封顶 8 条）；占位文字取历史首条。
+// 历史入口在玻璃条 history 图标 → 底部弹层，可点词回填、可清空。
 //
 // 分类 / 配色 / 图标登记表在 game_center/const_game_center.dart；
 // 卡片组件在 game_center/game_center_cards.dart；封面在 game_center_artwork.dart。
@@ -16,9 +22,11 @@
 // 本文件无需改动。
 
 import 'dart:async' show unawaited;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
@@ -42,14 +50,19 @@ class _GameCenterPageState extends State<GameCenterPage>
   final _scrollController = ScrollController();
   final _chipScrollController = ScrollController();
   final _featuredController = PageController(viewportFraction: 0.88);
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   late final AnimationController _revealController;
 
   /// 全部 game 类 demo（按注册顺序，别名 slug 已按实例去重）
   late final List<DemoPage> _games;
 
   String _selected = GameCategory.all;
-  double _titleReveal = 0.0;
+  double _glassReveal = 0.0;
   int _featuredIndex = 0;
+
+  /// 搜索历史（最新在前；SharedPreferences 持久化）
+  List<String> _searchHistory = const [];
 
   @override
   void initState() {
@@ -100,6 +113,8 @@ class _GameCenterPageState extends State<GameCenterPage>
 
     _scrollController.addListener(_onScroll);
     _provider.addListener(_onProviderChanged);
+    _searchController.addListener(_onSearchChanged);
+    unawaited(_loadSearchHistory());
 
     // 封面加载（id58 修复：KV 拉取结果落盘，离线/下次进入也能显示线上封面）：
     //   1. 先恢复上次持久化的封面索引（零网络，首屏即可显示线上封面）；
@@ -128,6 +143,9 @@ class _GameCenterPageState extends State<GameCenterPage>
     _chipScrollController.dispose();
     _featuredController.dispose();
     _revealController.dispose();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     _provider.removeListener(_onProviderChanged);
     super.dispose();
   }
@@ -138,13 +156,70 @@ class _GameCenterPageState extends State<GameCenterPage>
   }
 
   void _onScroll() {
-    final next = (_scrollController.offset / kGcTitleFadeDistance).clamp(
+    // 滚动越过阈值 → 毛玻璃细条整体淡入（opacity + 轻微下移入场）
+    final next = (_scrollController.offset / kGcGlassBarThreshold).clamp(
       0.0,
       1.0,
     );
-    if ((next - _titleReveal).abs() > 0.01) {
-      setState(() => _titleReveal = next);
+    if ((next - _glassReveal).abs() > 0.01) {
+      setState(() => _glassReveal = next);
     }
+  }
+
+  // ── 搜索 ────────────────────────────────────────────────────
+
+  Future<void> _loadSearchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      // getStringList 返回不可修改列表，必须拷贝 —— 否则 _commitSearch 的
+      // remove/insert 直接抛 UnsupportedError
+      _searchHistory = List<String>.of(
+        prefs.getStringList(kGcSearchHistoryKey) ?? const [],
+      );
+    });
+  }
+
+  Future<void> _saveSearchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(kGcSearchHistoryKey, _searchHistory);
+  }
+
+  /// 「搜索」钮 / 键盘提交：记录历史（去重置顶）并收键盘。
+  Future<void> _commitSearch() async {
+    final q = _searchController.text.trim();
+    if (q.isNotEmpty) {
+      setState(() {
+        _searchHistory
+          ..remove(q)
+          ..insert(0, q);
+        if (_searchHistory.length > kGcSearchHistoryMax) {
+          _searchHistory.removeRange(kGcSearchHistoryMax, _searchHistory.length);
+        }
+      });
+      unawaited(_saveSearchHistory());
+    }
+    _searchFocusNode.unfocus();
+  }
+
+  /// 输入即重算列表；有词时跳回"全部"分类，
+  /// 避免在非全部分类下搜索看起来像没结果。
+  void _onSearchChanged() {
+    setState(() {});
+    if (_searchController.text.trim().isEmpty) return;
+    if (_selected != GameCategory.all) _select(GameCategory.all);
+  }
+
+  /// 占位文字：最近搜索的首条；无历史时用通用提示。
+  String get _searchHint =>
+      _searchHistory.isEmpty ? '搜索游戏 · 玩法 · 分类' : _searchHistory.first;
+
+  /// 搜索命中：标题 / 描述大小写不敏感包含匹配
+  bool _matchSearch(DemoPage demo, String query) {
+    if (query.isEmpty) return true;
+    final q = query.toLowerCase();
+    return demo.title.toLowerCase().contains(q) ||
+        demo.description.toLowerCase().contains(q);
   }
 
   // ── 数据 ────────────────────────────────────────────────────
@@ -162,11 +237,17 @@ class _GameCenterPageState extends State<GameCenterPage>
   }
 
   List<DemoPage> _bucket(String category) {
-    if (category == GameCategory.all) return _games;
-    if (category == GameCategory.favorites) {
-      return _games.where((d) => _provider.isFavorite(d.title)).toList();
+    final query = _searchController.text.trim();
+    Iterable<DemoPage> pool = _games;
+    // 有搜索词时按词过滤（分类过滤在搜索结果上继续生效）
+    if (query.isNotEmpty) {
+      pool = pool.where((d) => _matchSearch(d, query));
     }
-    return _games
+    if (category == GameCategory.all) return pool.toList();
+    if (category == GameCategory.favorites) {
+      return pool.where((d) => _provider.isFavorite(d.title)).toList();
+    }
+    return pool
         .where((d) => gameMetaOf(d.slug).categories.contains(category))
         .toList();
   }
@@ -220,174 +301,282 @@ class _GameCenterPageState extends State<GameCenterPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final list = _bucket(_selected);
-    final showFeatured = _selected == GameCategory.all;
+    final query = _searchController.text.trim();
+    final showFeatured = _selected == GameCategory.all && query.isEmpty;
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        // 「banner 收拢成头部」：AppBar 自身用与 Hero 头部**同一套渐变**按滚动
-        // 进度淡入 —— 头部滑走多少，AppBar 就补上多少同色底，交界处不换色系。
-        // 前景恒定白色：AppBar 始终压在蓝色上（先是身后的 Hero，后是自己的渐变），
-        // 不再出现"白底浅色"与蓝头部对撞的突兀感。
-        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-        foregroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        flexibleSpace: IgnorePointer(
-          child: Opacity(
-            opacity: _titleReveal,
-            // 必须 SizedBox.expand：AppBar 用 StackFit.passthrough 传下来的是
-            // **松约束**，无 child 的 DecoratedBox 会取 constraints.smallest
-            // 塌成 0 高，表现就是"滚动后头部整块透明"。
-            child: SizedBox.expand(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: _headerGradient(scheme),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(
-                        alpha: 0.10 * _titleReveal,
-                      ),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+    // H3R-C「搜索框即头」：无渐变头部，纸面恒浅底 —— 状态栏图标恒深色
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            GestureDetector(
+              // 垂直列表仍走 CustomScrollView；水平甩动切换分类 tab。
+              // 收藏轮播 PageView / chip 横滑条在手势竞技场中优先，不抢它们的横向滑动。
+              onHorizontalDragEnd: _onHorizontalDragEnd,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
+                slivers: [
+                  SliverToBoxAdapter(child: _buildHeader(theme)),
+                  if (showFeatured) ...[
+                    SliverToBoxAdapter(
+                      child: _SectionTitle(
+                        title: '我的收藏',
+                        subtitle: _featured.isEmpty
+                            ? '收藏的游戏会自动展示在这里'
+                            : '${_featured.length} 款 · 点星标管理',
+                        icon: Icons.star_rounded,
+                      ),
+                    ),
+                    if (_featured.isEmpty)
+                      const SliverToBoxAdapter(child: _EmptyFeatured())
+                    else
+                      SliverToBoxAdapter(child: _buildFeatured()),
+                  ],
+                  SliverToBoxAdapter(child: _buildCategoryBar()),
+                  if (list.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyBucket(
+                        category: _selected,
+                        isSearch: query.isNotEmpty,
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        kGcPagePadding,
+                        4,
+                        kGcPagePadding,
+                        28,
+                      ),
+                      sliver: SliverGrid.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: kGcGridMaxExtent,
+                              childAspectRatio: kGcGridAspectRatio,
+                              mainAxisSpacing: 14,
+                              crossAxisSpacing: 14,
+                            ),
+                        itemCount: list.length,
+                        itemBuilder: (context, index) {
+                          final demo = list[index];
+                          return RevealItem(
+                            index: index,
+                            controller: _revealController,
+                            delayStep: kGcRevealDelayStep,
+                            maxDelay: kGcRevealMaxDelay,
+                            itemDuration: kGcRevealItemDuration,
+                            translateY: kGcRevealTranslateY,
+                            child: GameGridCard(
+                              demo: demo,
+                              onTap: () => _open(demo),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
               ),
             ),
-          ),
-        ),
-        title: Opacity(opacity: _titleReveal, child: const Text('游戏中心')),
-      ),
-      body: GestureDetector(
-        // 垂直列表仍走 CustomScrollView；水平甩动切换分类 tab。
-        // 收藏轮播 PageView / chip 横滑条在手势竞技场中优先，不抢它们的横向滑动。
-        onHorizontalDragEnd: _onHorizontalDragEnd,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(theme)),
-            if (showFeatured) ...[
-              SliverToBoxAdapter(
-                child: _SectionTitle(
-                  title: '我的收藏',
-                  subtitle: _featured.isEmpty
-                      ? '收藏的游戏会自动展示在这里'
-                      : '${_featured.length} 款 · 点星标管理',
-                  icon: Icons.star_rounded,
-                ),
-              ),
-              if (_featured.isEmpty)
-                const SliverToBoxAdapter(child: _EmptyFeatured())
-              else
-                SliverToBoxAdapter(child: _buildFeatured()),
-            ],
-            SliverToBoxAdapter(child: _buildCategoryBar()),
-            if (list.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _EmptyBucket(category: _selected),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  kGcPagePadding,
-                  4,
-                  kGcPagePadding,
-                  28,
-                ),
-                sliver: SliverGrid.builder(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: kGcGridMaxExtent,
-                    childAspectRatio: kGcGridAspectRatio,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                  ),
-                  itemCount: list.length,
-                  itemBuilder: (context, index) {
-                    final demo = list[index];
-                    return RevealItem(
-                      index: index,
-                      controller: _revealController,
-                      delayStep: kGcRevealDelayStep,
-                      maxDelay: kGcRevealMaxDelay,
-                      itemDuration: kGcRevealItemDuration,
-                      translateY: kGcRevealTranslateY,
-                      child: GameGridCard(demo: demo, onTap: () => _open(demo)),
-                    );
-                  },
-                ),
-              ),
+            // 滚动后淡入的毛玻璃细条（返回箭头 + 标题 + 搜索/历史 mini 图标）
+            _buildGlassBar(theme),
           ],
         ),
       ),
     );
   }
 
+  /// 顶部功能行：返回键 + 描边搜索框（H3R-C 定稿：状态栏下第一行就是功能件）
   Widget _buildHeader(ThemeData theme) {
-    final scheme = theme.colorScheme;
-    final topInset = MediaQuery.paddingOf(context).top + kToolbarHeight;
-    final onlineCount =
-        _games.where((d) => gameMetaOf(d.slug).isOnline).length;
-    final favCount = _games.where((d) => _provider.isFavorite(d.title)).length;
-
-    return Container(
-      height: topInset + kGcHeaderHeight,
-      decoration: BoxDecoration(
-        // 只用 gradient，不叠 color（叠加会出双重色调）；
-        // 与 AppBar 共用 _headerGradient，保证滚动衔接不断色。
-        gradient: _headerGradient(scheme),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(kGcHeaderBottomRadius),
-          bottomRight: Radius.circular(kGcHeaderBottomRadius),
+    final topInset = MediaQuery.paddingOf(context).top;
+    // 有状态栏 inset（刘海屏）用 inset+6；无 inset（桌面/横屏）给固定呼吸空间
+    final topGap = topInset > 0
+        ? topInset + kGcTopRowGapTop
+        : kGcTopRowGapTopFallback;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        kGcPagePadding,
+        topGap,
+        kGcPagePadding,
+        kGcTopRowGapBottom,
+      ),
+      child: SizedBox(
+        height: kGcTopRowHeight,
+        child: Row(
+          children: [
+            _BackButton(onTap: () => Navigator.maybePop(context)),
+            const SizedBox(width: 10),
+            Expanded(child: _buildSearchField(theme)),
+          ],
         ),
       ),
-      child: Stack(
-        children: [
-          // 一处极淡的光斑即可，多了会把矮头部塞满
-          Positioned(
-            right: -34,
-            top: topInset - 44,
-            child: const _Blob(size: 108, alpha: 0.10),
+    );
+  }
+
+  /// 描边式搜索框：透明底 + 主题色 2px 描边 + 内嵌「搜索」提交钮。
+  /// 占位文字 = 最近搜索的首条（隐性展示历史行为）。
+  Widget _buildSearchField(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final borderColor = scheme.primary.withValues(alpha: 0.55);
+    return GestureDetector(
+      // 框内任意空白（图标 / 文字上下空隙）点按都聚焦输入
+      onTap: () => _searchFocusNode.requestFocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: kGcTopRowHeight,
+        padding: const EdgeInsets.only(right: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(kGcSearchRadius),
+          border: Border.all(
+            color: borderColor,
+            width: kGcSearchBorderWidth,
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              kGcPagePadding + 4,
-              topInset,
-              kGcPagePadding + 4,
-              18,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '游戏中心',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.surface,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 14),
+            Icon(Icons.search_rounded, size: 19, color: scheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              // Center + isCollapsed：TextField 固有高度即一行字，
+              // 垂直居中不依赖 textAlignVertical（后者在紧高度下不可靠）
+              child: Center(
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  cursorColor: scheme.primary,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => unawaited(_commitSearch()),
+                  style: theme.textTheme.bodyMedium,
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                    hintText: _searchHint,
+                    hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                // 概览压成一行小字：数量是参考信息，不该占据视觉主位
-                Text(
-                  '${_games.length} 款 · 联机 $onlineCount · 收藏 $favCount',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.78),
-                    letterSpacing: 0.2,
+              ),
+            ),
+            _SearchGoButton(onTap: () => unawaited(_commitSearch())),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 毛玻璃标题条：surface 82% + blur，左端返回箭头 + 「游戏中心」，
+  /// 右侧 search（回顶聚焦搜索框）/ history（搜索历史弹层）两枚 mini 图标。
+  Widget _buildGlassBar(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final topInset = MediaQuery.paddingOf(context).top;
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      child: IgnorePointer(
+        // 未完全显现时不拦截手势，保证滚动自然
+        ignoring: _glassReveal < 0.99,
+        child: Opacity(
+          opacity: _glassReveal,
+          child: Transform.translate(
+            offset: Offset(0, -8 * (1 - _glassReveal)),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surface.withValues(alpha: 0.82),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(14, topInset, 18, 10),
+                    child: SizedBox(
+                      height: 28,
+                      child: Row(
+                        children: [
+                          _GlassIcon(
+                            icon: Icons.arrow_back_ios_new_rounded,
+                            onTap: () => Navigator.maybePop(context),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '游戏中心',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          _GlassIcon(
+                            icon: Icons.search_rounded,
+                            onTap: _scrollToSearch,
+                          ),
+                          const SizedBox(width: 14),
+                          _GlassIcon(
+                            icon: Icons.history_rounded,
+                            onTap: _showSearchHistorySheet,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  /// 玻璃条 search 图标：回顶并聚焦搜索框
+  void _scrollToSearch() {
+    _searchFocusNode.requestFocus();
+    if (_scrollController.hasClients && _scrollController.offset != 0) {
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+  }
+
+  /// 搜索历史底部弹层：点词条回填搜索框，可一键清空
+  Future<void> _showSearchHistorySheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => _SearchHistorySheet(
+        history: List.unmodifiable(_searchHistory),
+        onUse: (term) {
+          Navigator.pop(sheetContext);
+          _searchController.text = term;
+          _searchController.selection = TextSelection.collapsed(
+            offset: term.length,
+          );
+          _searchFocusNode.requestFocus();
+        },
+        onClear: () {
+          Navigator.pop(sheetContext);
+          setState(() => _searchHistory = const []);
+          unawaited(_saveSearchHistory());
+        },
       ),
     );
   }
@@ -487,30 +676,6 @@ class _GameCenterPageState extends State<GameCenterPage>
 // 页面内小组件
 // ══════════════════════════════════════════════════════════════
 
-/// Hero 头部与 AppBar 共用的渐变。
-///
-/// 两处必须同源：AppBar 是"头部滑走后补上的那一截"，用不同色系会在
-/// 滚动中途出现明显的色带断层。
-///
-/// 调性：头部是**背景**不是主角，所以
-///   - 降饱和（primary 的 60%）—— 原 primary→tertiary 双色相太艳；
-///   - 亮度夹到 0.30~0.44 —— 深浅主题下都足够暗，白字始终可读；
-///   - 渐变只做 5% 亮度差、同一色相 —— 有层次但不喧宾夺主。
-LinearGradient _headerGradient(ColorScheme scheme) {
-  final hsl = HSLColor.fromColor(scheme.primary);
-  final base = hsl
-      .withSaturation((hsl.saturation * 0.60).clamp(0.0, 1.0))
-      .withLightness(hsl.lightness.clamp(0.30, 0.44));
-  return LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [
-      base.toColor(),
-      base.withLightness((base.lightness + 0.05).clamp(0.0, 1.0)).toColor(),
-    ],
-  );
-}
-
 /// 分节标题：左侧主题色竖条 + 标题 + 次要说明
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
@@ -568,25 +733,6 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _Blob extends StatelessWidget {
-  const _Blob({required this.size, required this.alpha});
-
-  final double size;
-  final double alpha;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: alpha),
-      ),
-    );
-  }
-}
-
 /// 收藏轮播空态引导（无收藏时展示在"我的收藏"区块）
 class _EmptyFeatured extends StatelessWidget {
   const _EmptyFeatured();
@@ -634,11 +780,14 @@ class _EmptyFeatured extends StatelessWidget {
   }
 }
 
-/// 空分类占位
+/// 空分类占位（含搜索无结果）
 class _EmptyBucket extends StatelessWidget {
-  const _EmptyBucket({required this.category});
+  const _EmptyBucket({required this.category, this.isSearch = false});
 
   final String category;
+
+  /// true = 因搜索无命中而非分类本身为空，文案随之切换
+  final bool isSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -650,20 +799,24 @@ class _EmptyBucket extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isFav ? Icons.star_border_rounded : Icons.videogame_asset_off,
+            isSearch
+                ? Icons.search_off_rounded
+                : isFav
+                    ? Icons.star_border_rounded
+                    : Icons.videogame_asset_off,
             size: 56,
             color: theme.colorScheme.outline,
           ),
           const SizedBox(height: 14),
           Text(
-            isFav ? '还没有收藏的游戏' : '暂无此类游戏',
+            isSearch ? '没有找到相关游戏' : isFav ? '还没有收藏的游戏' : '暂无此类游戏',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.outline,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            isFav ? '点卡片右上角的星标即可收藏' : '换个分类看看',
+            isSearch ? '换个关键词试试，比如「棋」「联机」' : isFav ? '点卡片右上角的星标即可收藏' : '换个分类看看',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.outline,
             ),
@@ -676,3 +829,178 @@ class _EmptyBucket extends StatelessWidget {
 
 // 入场动画使用共享 RevealItem（reveal_item.dart），节奏常量见
 // const_game_center.dart 的 kGcReveal*。
+
+// ══════════════════════════════════════════════════════════════
+// 头部功能行小组件
+// ══════════════════════════════════════════════════════════════
+
+/// 返回钮：40px 方形热区、透明底、radius 12，按下时主题色 18% 底。
+/// 对应原型 .backbtn（含玻璃条左端的返回箭头同款规格）。
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(kGcSearchRadius),
+        child: SizedBox(
+          width: kGcTopRowHeight,
+          height: kGcTopRowHeight,
+          child: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 21,
+            color: scheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 搜索框内嵌「搜索」提交钮：主色实底、白字、radius 9（原型 .go）。
+class _SearchGoButton extends StatelessWidget {
+  const _SearchGoButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.primary,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          height: kGcSearchButtonHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          child: Text(
+            '搜索',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: scheme.onPrimary,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 毛玻璃条右侧 mini 图标钮（search / history / 返回箭头共用）
+class _GlassIcon extends StatelessWidget {
+  const _GlassIcon({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, size: 19, color: scheme.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+}
+
+/// 搜索历史底部弹层：词条可点回填，右上角一键清空。
+class _SearchHistorySheet extends StatelessWidget {
+  const _SearchHistorySheet({
+    required this.history,
+    required this.onUse,
+    required this.onClear,
+  });
+
+  final List<String> history;
+  final ValueChanged<String> onUse;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.history_rounded, size: 18, color: scheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '搜索历史',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: onClear,
+                  style: TextButton.styleFrom(
+                    foregroundColor: scheme.onSurfaceVariant,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  child: const Text('清空'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (history.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Center(
+                  child: Text(
+                    '暂无搜索历史',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.outline,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final term in history)
+                    ActionChip(
+                      label: Text(term),
+                      labelStyle: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurface,
+                      ),
+                      side: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.6),
+                      ),
+                      backgroundColor: scheme.surfaceContainerHighest
+                          .withValues(alpha: 0.35),
+                      onPressed: () => onUse(term),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
