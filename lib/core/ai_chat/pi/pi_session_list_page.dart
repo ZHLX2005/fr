@@ -64,6 +64,7 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
       final localIds = repo.sessionIds();
 
       List<PiSessionSummary> remote = const [];
+      var runningIds = <String>{};
       try {
         final endpoint = PiSessionsEndpoint(
           config: () => widget.settings.toApiConfig(),
@@ -71,8 +72,10 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
         try {
           // 加载超时：弱网/测试环境下 HTTP 挂起会让界面永远转圈（视觉上=白屏）。
           // 超时降级为「仅本地」，不阻塞列表展示。
-          remote = (await endpoint.list().timeout(const Duration(seconds: 10)))
-              .sessions;
+          final page = await endpoint.list()
+              .timeout(const Duration(seconds: 10));
+          remote = page.sessions;
+          runningIds = page.runningSessionIds;
         } finally {
           endpoint.close();
         }
@@ -96,6 +99,7 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
           title: s.displayName,
           updatedAt: s.updatedAt,
           fromLocal: false,
+          running: runningIds.contains(s.id),
         ));
       }
       for (final id in localIds) {
@@ -109,6 +113,7 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
               : '本地会话 ${id.substring(0, 8)}',
           updatedAt: last?.createdAt,
           fromLocal: true,
+          running: runningIds.contains(id),
         ));
       }
       // 有时间戳的按时间倒序，无时间戳的排后面
@@ -379,11 +384,34 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: Text(
+              subtitle: Row(
+                children: [
+                  if (row.running) ...[
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Text('生成中 · ',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        )),
+                  ],
+                  Expanded(
+                    child: Text(
                 row.subtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
               onTap: () => _open(row),
             ),
@@ -401,11 +429,15 @@ class _SessionRow {
   final DateTime? updatedAt;
   final bool fromLocal;
 
+  /// 服务端正在生成（runningSessionIds 此前解析了却零 UI —— 复评多轮）
+  final bool running;
+
   const _SessionRow({
     required this.id,
     required this.title,
     this.updatedAt,
     required this.fromLocal,
+    this.running = false,
   });
 
   /// 标题可能很长（本地会话标题取的是最后一条消息），列表里截断。

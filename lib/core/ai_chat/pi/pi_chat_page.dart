@@ -184,7 +184,8 @@ class _PiChatPageState extends State<PiChatPage> {
           {
             'type': 'image',
             'data': img.base64,
-            'mimeType': img.name.endsWith('.png') ? 'image/png' : 'image/jpeg',
+            // 魔数嗅探（不靠扩展名猜：iOS 相册给 .heic，webp/gif 会被谎报）
+            'mimeType': _sniffMime(img.base64),
           },
       ];
     }
@@ -353,7 +354,7 @@ class _PiChatPageState extends State<PiChatPage> {
                 ((_controller.contextUsage?['percent'] as num?) ?? 0) <= 0)
             ? null
             : PreferredSize(
-                preferredSize: const Size.fromHeight(14),
+                preferredSize: const Size.fromHeight(22),
                 child: _ContextBar(usage: _controller.contextUsage!),
               ),
         title: GestureDetector(
@@ -403,6 +404,8 @@ class _PiChatPageState extends State<PiChatPage> {
             onSelected: (v) {
               if (v == 'settings') {
                 _openSettings();
+              } else if (v == 'rename') {
+                _renameDialog();
               } else if (v.startsWith('think:')) {
                 _controller.setThinkingLevel(v.substring(6));
               }
@@ -433,6 +436,16 @@ class _PiChatPageState extends State<PiChatPage> {
                   ),
                 ),
               const PopupMenuDivider(),
+              if (_controller.sessionId != null)
+                const PopupMenuItem(
+                  value: 'rename',
+                  height: 40,
+                  child: Row(children: [
+                    Icon(Icons.edit_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('重命名会话'),
+                  ]),
+                ),
               const PopupMenuItem(
                 value: 'settings',
                 height: 40,
@@ -985,6 +998,25 @@ class _ThinkingDotsState extends State<_ThinkingDots>
       },
     );
   }
+}
+
+/// 按**魔数**判断图片 MIME（扩展名不可靠：iOS 相册给 .heic）。
+String _sniffMime(String base64) {
+  try {
+    final b = base64Decode(base64.substring(0, base64.length.clamp(0, 24)));
+    if (b.length >= 4) {
+      if (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) {
+        return 'image/png';
+      }
+      if (b[0] == 0xFF && b[1] == 0xD8) return 'image/jpeg';
+      if (b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) return 'image/gif';
+      if (b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46) {
+        return 'image/webp';
+      }
+    }
+  } catch (_) {}
+  // 未知（含 heic）：交给服务端按内容判断
+  return 'application/octet-stream';
 }
 
 /// 两个时间是否同一天。
