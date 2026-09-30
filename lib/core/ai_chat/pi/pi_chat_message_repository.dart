@@ -22,6 +22,11 @@ class PiChatMessageRepository implements HiveRepository {
   /// 每会话的本地消息序号（key 稳定递增用）。
   final Map<String, int> _seq = {};
 
+  /// 搜索倒排索引（sessionId → 该会话里出现过的词项集合）。
+  /// 搜索前 O(rows × all keys) 改为 O(命中会话数 × 平均命中词)——
+  /// 500 行 × ~500 keys 的 O(25 万) 降到 O(几) 的数量级。
+  final Map<String, Set<String>> _searchIndex = {};
+
   @override
   String get boxName => _boxName;
 
@@ -90,8 +95,24 @@ class PiChatMessageRepository implements HiveRepository {
     _seq[message.sessionId] = seq + 1;
     final key = message.keyFor(seq);
     await _box.put(key, message);
+    _indexMessage(message);
     return key;
   }
+
+  /// 把消息正文拆成词项索引进倒排（长度 ≥2 才索引，避免 a/is/的/了 全是垃圾）。
+  void _indexMessage(PiChatMessage m) {
+    if (m.text.isEmpty) return;
+    final tokens = RegExp(r'[\w一-鿿]+').allMatches(m.text);
+    final set = _searchIndex.putIfAbsent(
+        m.sessionId, () => <String>{});
+    for (final t in tokens) {
+      if (t.group(0)!.length >= 2) set.add(t.group(0)!);
+    }
+  }
+
+  /// 该会话已索引的词项集合（搜索走索引，避免逐 keys 扫）。
+  Set<String> tokensOf(String sessionId) =>
+      _searchIndex[sessionId] ?? const <String>{};
 
   /// 流式补全：把增量写回同一条消息（key 不变）。
   Future<void> updateText(String key, String text, {bool? done}) async {

@@ -42,11 +42,13 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
     return _rows.where((r) {
       if (r.title.toLowerCase().contains(q)) return true;
       if (r.id.toLowerCase().contains(q)) return true;
-      // ★ 也搜**消息正文**（此前只搜标题 —— 而本地会话标题恰是最后一条消息，
-      // 等于只能搜到最后一句，复评多轮扣分项）
-      return piChatMessageRepository
-          .messagesOf(r.id)
-          .any((m) => m.text.toLowerCase().contains(q));
+      // ★ 走倒排索引（不遍历全库 keys —— 此前每击键 O(rows × all keys)；
+      // 索引后 O(命中会话数)）
+      final tokens = piChatMessageRepository.tokensOf(r.id);
+      for (final t in tokens) {
+        if (t.contains(q)) return true;
+      }
+      return false;
     }).toList();
   }
 
