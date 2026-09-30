@@ -520,117 +520,41 @@ class _PiChatPageState extends State<PiChatPage> {
                 ),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                    padding: const EdgeInsets.fromLTRB(
+                        PiChatTokens.s3, PiChatTokens.s2, PiChatTokens.s3,
+                        PiChatTokens.s3),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // 待发图片预览条（复评 P2-8：图片输入此前零 UI）
+                        // 待发图片预览条（缩略图 + 单张删除）
                         if (_controller.hasPendingImages)
-                          SizedBox(
-                            height: 56,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              children: [
-                                for (var i = 0;
-                                    i < _controller.pendingImages.length;
-                                    i++)
-                                  Stack(
-                                    children: [
-                                      Container(
-                                        width: 52,
-                                        height: 52,
-                                        margin: const EdgeInsets.only(right: 6),
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          image: DecorationImage(
-                                            image: MemoryImage(base64Decode(
-                                                _controller
-                                                    .pendingImages[i].base64)),
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: GestureDetector(
-                                          onTap: () =>
-                                              _controller.removeImage(i),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(2),
-                                            decoration: BoxDecoration(
-                                              color: theme.colorScheme.error,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(Icons.close,
-                                                size: 12, color: Colors.white),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
-                        Row(
-                      children: [
-                        // 附件（拍照/相册；prompt 的 images 端点此前零 UI）
-                        IconButton(
-                          tooltip: '添加图片',
-                          icon: const Icon(Icons.image_outlined),
-                          onPressed: _pickImage,
-                        ),
-                        Expanded(
-                          child: Focus(
-                            onKeyEvent: (node, event) {
-                              // 桌面：Enter（无 Shift）发送；Shift+Enter 换行
-                              if (event is KeyDownEvent &&
-                                  event.logicalKey == LogicalKeyboardKey.enter &&
-                                  !HardwareKeyboard.instance.isShiftPressed) {
-                                _send();
-                                return KeyEventResult.handled;
-                              }
-                              return KeyEventResult.ignored;
-                            },
-                            child: TextField(
-                            controller: _input,
-                            // 关键路径：进页面即可打字（少一次点击）
-                            autofocus: true,
-                            minLines: 1,
-                            maxLines: 5,
-                            // 软键盘显示「换行」而不是「发送」：桌面/外接键盘上
-                            // 换行键可达（此前 TextInputAction.send 占用了它，
-                            // maxLines:5 形同虚设 —— 复评 #13）。发送用按钮，
-                            // 桌面回车仍然发送（onSubmitted）。
-                            keyboardType: TextInputType.multiline,
-                            textInputAction: TextInputAction.newline,
-                              onSubmitted: (_) => _send(),
-                              decoration: const InputDecoration(
-                                hintText: '发消息…',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: PiChatTokens.s2),
+                            child: SizedBox(
+                              height: 56,
+                              child: ListView(
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                  for (var i = 0;
+                                      i < _controller.pendingImages.length;
+                                      i++)
+                                    PiPendingThumb(
+                                      base64: _controller.pendingImages[i].base64,
+                                      onRemove: () =>
+                                          _controller.removeImage(i),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton.filled(
-                          onPressed: (_controller.sending || _controller.creating)
-                              ? null
-                              : _send,
-                          icon: _controller.sending
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Icon(Icons.send),
-                        ),
-                          ],
+                        // 自绘输入区（一体式胶囊，无 Material 表单框的方框感）
+                        PiComposer(
+                          controller: _input,
+                          onSend: _send,
+                          onAttach: _pickImage,
+                          sending: _controller.sending,
+                          creating: _controller.creating,
                         ),
                       ],
                     ),

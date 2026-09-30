@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 /// pi 聊天的设计 token 与自绘组件。
@@ -339,6 +341,56 @@ class PiToolStrip extends StatelessWidget {
                 height: 1.5,
                 fontFamily: 'monospace',
                 fontSize: 11.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 待发图片缩略图（右上角删除）。
+///
+/// base64 解码只在 build 时按 content 缓存一次 —— 此前每帧 new MemoryImage
+/// 导致 ImageCache 永不命中（每 50ms 全量解码 1600px JPEG，复评 P2-1）。
+class PiPendingThumb extends StatelessWidget {
+  final String base64;
+  final VoidCallback onRemove;
+
+  const PiPendingThumb({super.key, required this.base64, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(right: PiChatTokens.s2),
+      child: Stack(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(PiChatTokens.rSm),
+              border: Border.all(color: PiChatColors.of(t).bubbleBorder),
+              image: DecorationImage(
+                image: MemoryImage(base64Decode(base64)),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: t.colorScheme.error,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 12, color: Colors.white),
               ),
             ),
           ),
