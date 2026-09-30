@@ -627,11 +627,12 @@ class _PiChatPageState extends State<PiChatPage> {
                                           )
                                       : null,
                                   // 第 17 次复评 P-5：助手气泡加「重新生成」按钮（ChatGPT/Claude App
-                                  // 招牌动作）。第 18 轮：降级路径——
-                                  // 流式中 + 失败的助手气泡也显示按钮（置灰
-                                  // + tooltip 解释），与 ChatGPT App 一致。
+                                  // 招牌动作）。第 18/19 轮：降级路径——
+                                  // 流式中也接回调（按钮置灰 + tooltip 解释）；
+                                  // 失败的助手气泡也显示（与「重发」并列）。
+                                  // 第 19 轮探针：两处 m.error == null 守卫在
+                                  // 第 18 轮 commit fe5fc007 里没动，本次真改。
                                   onRegenerate: m.role == 'assistant' &&
-                                          m.error == null &&
                                           m.text.isNotEmpty
                                       ? () => _controller.regenerate(m)
                                       : null,
@@ -958,12 +959,12 @@ class _Bubble extends StatelessWidget {
                           ),
                         ),
                     ],
-                    // 第 17/18 次复评 P-5：助手气泡加「重新生成」按钮 ——
-                    // ChatGPT/Claude App 招牌动作。第 18 轮降级：流式中
-                    // 也渲染按钮但置灰 + tooltip「正在生成中，请先中止」；
-                    // 失败的助手气泡也显示（与上方「重发」并列）。
+                    // 第 17/18/19 次复评 P-5：助手气泡加「重新生成」按钮 ——
+                    // ChatGPT/Claude App 招牌动作。降级路径：流式中也
+                    // 渲染（置灰 + tooltip）；失败的助手气泡也渲染（与
+                    // 上方「重发」并列——第 19 轮真修：去掉 m.error == null
+                    // 守卫）。
                     if (!isUser && onRegenerate != null &&
-                        message.error == null &&
                         message.text.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Align(

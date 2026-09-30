@@ -89,6 +89,15 @@ void main() {
         reason: '_Bubble 必须有 regenerateEnabled 字段');
     expect(src.contains('正在生成中，请先中止'), isTrue,
         reason: '降级 tooltip 必须存在');
+    // 第 19 轮：失败气泡（m.error != null）的「重新生成」入口必须真打开
+    // —— commit fe5fc007 声称"失败的助手气泡也显示"，但代码两处
+    // m.error == null 守卫没去掉；本次真改后必须在活跃代码里 0 命中。
+    final liveCode = src.split('\n').where((l) {
+      final t = l.trimLeft();
+      return !t.startsWith('//') && !t.startsWith('///') && !t.startsWith('*');
+    }).join('\n');
+    expect(liveCode.contains('m.error == null'), isFalse,
+        reason: '第 19 轮真修：活跃代码里 m.error == null 守卫必须清除');
   });
 
   test('P-2：输入区 maxHeight=140 + maxLines=null 仍在', () async {
