@@ -145,6 +145,11 @@ class PiChatController extends ChangeNotifier {
     _messagesView = null;
   }
 
+  /// 多段终稿拼接（空行分隔）。独立函数：字符串字面量里的换行转义
+  /// 在 heredoc/转义链路上太容易碎。
+  static String _joinParts(List<String> parts) =>
+      parts.join(String.fromCharCode(10) + String.fromCharCode(10));
+
   bool get sending => _sending;
 
   String? get lastError => _lastError;
@@ -186,6 +191,117 @@ class PiChatController extends ChangeNotifier {
     // 异步拉服务端历史合并（复评三大问题之一：换机/清缓存后本地 Hive
     // 为空，服务端 JSONL 才是完整真相）。不阻塞首屏。
     unawaited(_mergeServerHistory(sessionId));
+    // ★ 订阅事件流（复评 #6 连续扣分：此前进入一个服务端正在生成的会话
+    // 只能看到冻结快照，且上面的收口还会把活跃气泡误标「已停止」）。
+    // 若服务端 isStreaming，把 done=false 的气泡恢复成「生成中」并挂流跟随。
+    unawaited(_followIfStreaming(sessionId));
+  }
+
+  /// 进入会话时检查服务端是否正在生成；是则恢复未完成气泡并挂流跟随。
+  Future<void> _followIfStreaming(String sessionId) async {
+    try {
+      final st = await _agent.state(sessionId);
+      final streaming = st['isStreaming'] == true;
+      if (!streaming || _sessionId != sessionId || _disposed) return;
+
+      // 服务端在跑：把本地被误标「已停止」的当轮气泡恢复为生成中
+      for (final m in _messages) {
+        if (m.role == 'assistant' && m.done && m.stopped && m.key != null) {
+          m
+            ..done = false
+            ..stopped = false;
+          await m.save();
+        }
+      }
+      _bumpMessages();
+      _sending = true;
+      _notify();
+
+      // 挂流跟随（与 send 的流处理同一套收口语义）
+      String? uKey;
+      for (final m in _messages.reversed) {
+        if (m.role == 'user' && m.key != null) {
+          uKey = m.key as String;
+          break;
+        }
+      }
+      // 当轮 assistant 气泡的 key（最后一条 assistant）
+      String? aKey;
+      for (final m in _messages.reversed) {
+        if (m.role == 'assistant' && m.key != null) {
+          aKey = m.key as String;
+          break;
+        }
+      }
+      if (aKey == null) return;
+      final assistantMsg = _repo.getByKey(aKey);
+      if (assistantMsg == null) return;
+
+      final buf = StringBuffer(assistantMsg.text);
+      var sawTurnEnd = false;
+      final finalParts = <String>[];
+      var finalLocked = false;
+      await _sub?.cancel();
+      _sub = _agent.events(sessionId).listen((e) {
+        if (e.isAssistantDelta && !finalLocked) {
+          buf.write(e.textDelta);
+          assistantMsg.text = buf.toString();
+          _notify();
+        }
+        if (e.type == 'message_end' && e.role == 'assistant' && e.text != null) {
+          finalParts.add(e.text!);
+          finalLocked = true;
+          assistantMsg
+            ..text = _joinParts(finalParts)
+            ..done = true;
+          _notify();
+        }
+        if (e.isToolEvent) {
+          final name = e.toolName ?? '工具';
+          final line = '正在调用 $name…';
+          assistantMsg.toolActivity = line;
+          _notify();
+        }
+        if (e.isTurnEnd) {
+          sawTurnEnd = true;
+          final settled =
+              finalLocked ? _joinParts(finalParts) : buf.toString();
+          assistantMsg
+            ..text = settled
+            ..done = true;
+          // 回调非 async：fire-and-forget 落库（aKey/uKey 是外层可空变量，
+          // 闭包内类型提升失效 → 先拷成非空局部）
+          final String ak = aKey ?? '';
+          final String uk = uKey ?? '';
+          if (ak.isNotEmpty) _repo.updateText(ak, settled, done: true);
+          if (uk.isNotEmpty) _repo.updateText(uk, '', done: true);
+          _sending = false;
+          unawaited(_sub?.cancel());
+          _sub = null;
+          _notify();
+        }
+      }, onError: (Object err) {
+        if (!assistantMsg.done) {
+          assistantMsg
+            ..error = err is PiApiException ? err.message : '$err'
+            ..done = true;
+        }
+        _sending = false;
+        _notify();
+      }, onDone: () async {
+        if (!assistantMsg.done) {
+          assistantMsg
+            ..text = buf.toString()
+            ..done = true
+            ..stopped = !sawTurnEnd;
+          await assistantMsg.save();
+        }
+        _sending = false;
+        _notify();
+      });
+    } catch (_) {
+      // 跟随失败不影响已展示的快照
+    }
   }
 
   /// 从服务端回读会话历史并合并进本地（缺的补上，不覆盖本地已有的）。
