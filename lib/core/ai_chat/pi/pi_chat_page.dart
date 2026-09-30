@@ -793,11 +793,13 @@ class _Bubble extends StatelessWidget {
                     // 复制按钮（第 16 次复评探针 P-1：长按在 SelectableText
                     // 子分支上被系统选择菜单赢走，**双向气泡**都得有显式按钮，
                     // 不依赖手势竞技场 —— ChatGPT App/Claude App 的做法）。
+                    //
+                    // 双向气泡内复制按钮都贴**右下**（与文字尾对齐）：
+                    // 用户气泡靠页面右、容器内文字左起 → 复制按钮贴右下
+                    // 即与气泡内文字末行右侧对齐，视觉统一。
                     if (message.text.isNotEmpty && !isStreaming)
                       Align(
-                        alignment: isUser
-                            ? Alignment.centerLeft
-                            : Alignment.centerRight,
+                        alignment: Alignment.centerRight,
                         child: IconButton(
                           tooltip: '复制',
                           iconSize: 14,
