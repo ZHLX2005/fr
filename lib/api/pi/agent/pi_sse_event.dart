@@ -139,12 +139,21 @@ class PiSseEvent {
       toolPhase = phaseSource
           .replaceFirst('tool_execution_', '')
           .replaceFirst('toolcall_', '');
-      final holders = [map, map['toolCall'], map['tool_call'], ame];
+      // 拍平形态（第 10 次复评探针 T，pi core 实证）：
+      // assistantMessageEvent.toolCall.{id,name,arguments}
+      final holders = [
+        map,
+        map['toolCall'],
+        map['tool_call'],
+        ame,
+        ame is Map ? ame['toolCall'] : null,
+      ];
       for (final h in holders) {
         if (h is! Map) continue;
         toolName ??= h['toolName']?.toString() ?? h['name']?.toString();
         toolCallId ??= h['toolCallId']?.toString() ?? h['id']?.toString();
         toolDetail ??= h['command']?.toString() ??
+            h['arguments']?.toString() ??
             h['args']?.toString() ??
             h['partialResult']?.toString() ??
             h['result']?.toString();

@@ -1083,6 +1083,18 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   _CodeBlockBuilder({required this.theme, required this.fg});
 
   @override
+  Widget? visitText(md.Text text, TextStyle? preferredStyle) {
+    // ★ flutter_markdown 的块级 builder 契约：visitText 必须产内容。
+    // 缺这个会让「行内样式元素 + 代码块收尾」形态（agent 回复最高频：
+    // 「行内样式元素 + 代码块收尾」形态触发 builder.dart:267 断言崩溃
+    //（第 10 次复评探针 S5c 实锤 debug 红屏）。文本交给 visitElementAfter。
+    return Text(
+      text.text,
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5),
+    );
+  }
+
+  @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     return _build(element.textContent);
   }

@@ -271,7 +271,9 @@ class PiChatController extends ChangeNotifier {
 
   Future<void> _loadSessionName(String sessionId) async {
     try {
-      // 顺手同步当前模型（模型选择器的选中态）
+      // 顺手同步当前模型 + 思考档位 + 上下文用量（第 9/10 次复评：
+      // 这三样全在同一个 state() 响应里，此前只读了 model；
+      // 档位不回填 → 菜单单选永远显示本地 off，对服务端撒谎）
       try {
         final st = await _agent.state(sessionId);
         final model = st['model'];
@@ -281,6 +283,14 @@ class PiChatController extends ChangeNotifier {
           if (p != null && m != null && m != 'unknown') {
             _currentModelId = '$p/$m';
           }
+        }
+        final tl = st['thinkingLevel']?.toString();
+        if (tl != null && tl.isNotEmpty && !_disposed) {
+          _thinkingLevel = tl;
+        }
+        final cu = st['contextUsage'];
+        if (cu is Map<String, dynamic> && !_disposed) {
+          _contextUsage = cu;
         }
       } catch (_) {
         // 模型态拿不到就算了
@@ -492,8 +502,13 @@ class PiChatController extends ChangeNotifier {
       final toolLines = <String>[];
       // message_end 的完整正文（权威终稿）；锁定后 agent_end/onDone 不得用
       // delta 累积覆盖（第 8 次复评探针 B）
-      String? finalText;
+      // ★ 工具循环会产生多段 assistant 消息（第 10 次复评探针 M：前言+正文
+      // 都在），finalText 按段用空行拼接而不是覆盖；finalLocked 只在
+      // turnEnd 落锁（此后 buf 的 delta 不再进正文）。
+      final finalParts = <String>[];
       var finalLocked = false;
+      String finalTextOf() =>
+          finalParts.join('\n\n');
       // 到这里 userKey/assistantKey 必然已赋值（落库成功才会走到）；
       // 局部拷贝成非空给 SSE 回调用。
       final String uKey = userKey;
@@ -542,12 +557,11 @@ class PiChatController extends ChangeNotifier {
             // 终稿：服务端给的完整正文是权威（delta 可能丢帧）。
             // ★ 记入 finalText 并锁定，agent_end 不得再用 delta 累积覆盖它
             //（第 8 次复评探针 B：终稿被覆盖成只剩增量的残句）。
-            finalText = e.text!;
-            finalLocked = true;
+            if (e.text!.trim().isNotEmpty) finalParts.add(e.text!);
             // 监听回调非 async：fire-and-forget 落库（内存立即更新）
-            _repo.updateText(aKey, finalText!, done: true);
+            _repo.updateText(aKey, finalTextOf(), done: true);
             assistantMsg
-              ..text = finalText!
+              ..text = finalTextOf()
               ..done = true;
             _notify();
           }
@@ -558,7 +572,8 @@ class PiChatController extends ChangeNotifier {
             // 若只靠 onDone，生产环境每轮成功回复后发送按钮永久转圈、
             // user 气泡永久「发送中」。空回复（纯工具调用轮）也置 done。
             // 终稿已锁定时用它（探针 B：不得被 delta 累积覆盖成残句）
-            final settledText = finalLocked ? finalText! : buf.toString();
+            if (finalParts.isNotEmpty) finalLocked = true;
+            final settledText = finalLocked ? finalTextOf() : buf.toString();
             buf
               ..clear()
               ..write(settledText);
@@ -570,6 +585,11 @@ class PiChatController extends ChangeNotifier {
             // 不该带门 —— isError/onDone 都无条件，唯独这里带门不是完整收口）
             _repo.updateText(uKey, trimmed, done: true);
             _sending = false;
+            // turnEnd 收口即断订阅：长连还在收心跳，若之后断流触发 onError，
+            // 会把已成功的回复毒化成「失败+重发」（第 10 次复评探针 E）。
+            // 下一轮 send() 会重新建流。回调非 async → unawaited。
+            unawaited(_sub?.cancel());
+            _sub = null;
             _notify();
           }
           if (e.isError) {
@@ -588,10 +608,14 @@ class PiChatController extends ChangeNotifier {
         },
         onError: (Object err) async {
           final detail = err is PiApiException ? err.message : '$err';
-          _repo.markError(aKey, detail);
-          assistantMsg
-            ..error = detail
-            ..done = true;
+          // 本轮已收口（turnEnd 已到）的气泡不再毒化 —— 长连断流不是内容失败
+          if (!assistantMsg.done) {
+            _repo.markError(aKey, detail);
+            assistantMsg
+              ..error = detail
+              ..done = true;
+          }
+
           // user 气泡同样要收口：断流时清 pending，否则 meta 行永远「发送中」，
           // 且与旁边的「失败+重发」并存成矛盾态（复评 #3）。
           try {
@@ -602,7 +626,8 @@ class PiChatController extends ChangeNotifier {
           _notify();
         },
         onDone: () async {
-          final settled = finalLocked ? finalText! : buf.toString();
+          if (finalParts.isNotEmpty) finalLocked = true;
+          final settled = finalLocked ? finalTextOf() : buf.toString();
           assistantMsg
             ..text = settled
             ..done = true;
