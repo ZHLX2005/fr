@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -173,13 +175,43 @@ class _PiChatPageState extends State<PiChatPage> {
     }
     _input.clear();
     widget.settings.setDraft(_draftKey, '');
-    final accepted = await _controller.send(text);
+    // 待发图片 → pi 的 images 参数（[{type:image,data,mimeType}]）
+    List<Object>? images;
+    if (_controller.hasPendingImages) {
+      images = [
+        for (final img in _controller.pendingImages)
+          {
+            'type': 'image',
+            'data': img.base64,
+            'mimeType': img.name.endsWith('.png') ? 'image/png' : 'image/jpeg',
+          },
+      ];
+    }
+    final accepted = await _controller.send(text, images: images);
     // 未被受理（建会话失败/网络不通等）→ 把文本**回填输入框**，
     // 否则用户输入被永久吞掉（第 8 次复评 P2 实锤）。
     if (!accepted && mounted && _input.text.isEmpty) {
       _input.text = text;
       _input.selection =
           TextSelection.collapsed(offset: _input.text.length);
+    }
+  }
+
+  /// 选图（相册）→ base64 入待发队列。
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final x = await picker.pickImage(
+          source: ImageSource.gallery, maxWidth: 1600, imageQuality: 85);
+      if (x == null) return;
+      final bytes = await x.readAsBytes();
+      _controller.addImage(x.name, base64Encode(bytes));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('选图失败: $e')),
+        );
+      }
     }
   }
 
@@ -488,8 +520,66 @@ class _PiChatPageState extends State<PiChatPage> {
                 SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                    child: Row(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        // 待发图片预览条（复评 P2-8：图片输入此前零 UI）
+                        if (_controller.hasPendingImages)
+                          SizedBox(
+                            height: 56,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: [
+                                for (var i = 0;
+                                    i < _controller.pendingImages.length;
+                                    i++)
+                                  Stack(
+                                    children: [
+                                      Container(
+                                        width: 52,
+                                        height: 52,
+                                        margin: const EdgeInsets.only(right: 6),
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          image: DecorationImage(
+                                            image: MemoryImage(base64Decode(
+                                                _controller
+                                                    .pendingImages[i].base64)),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: GestureDetector(
+                                          onTap: () =>
+                                              _controller.removeImage(i),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(2),
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.error,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.close,
+                                                size: 12, color: Colors.white),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        Row(
+                      children: [
+                        // 附件（拍照/相册；prompt 的 images 端点此前零 UI）
+                        IconButton(
+                          tooltip: '添加图片',
+                          icon: const Icon(Icons.image_outlined),
+                          onPressed: _pickImage,
+                        ),
                         Expanded(
                           child: Focus(
                             onKeyEvent: (node, event) {
@@ -538,6 +628,8 @@ class _PiChatPageState extends State<PiChatPage> {
                                       strokeWidth: 2),
                                 )
                               : const Icon(Icons.send),
+                        ),
+                          ],
                         ),
                       ],
                     ),

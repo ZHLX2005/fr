@@ -68,6 +68,33 @@ class PiChatController extends ChangeNotifier {
     }
   }
 
+  // ── 图片输入（复评 P2-8：prompt 的 images 参数此前零 UI）──
+
+  /// 待发送的图片（base64 data，不含前缀；image_picker 的 xfile 转）。
+  final List<({String name, String base64})> pendingImages = [];
+
+  /// 是否有待发图片。
+  bool get hasPendingImages => pendingImages.isNotEmpty;
+
+  /// 添加图片（调用方负责选择；这里只收 base64）。
+  void addImage(String name, String base64) {
+    pendingImages.add((name: name, base64: base64));
+    _notify();
+  }
+
+  /// 移除一张待发图片。
+  void removeImage(int index) {
+    if (index < 0 || index >= pendingImages.length) return;
+    pendingImages.removeAt(index);
+    _notify();
+  }
+
+  void clearImages() {
+    if (pendingImages.isEmpty) return;
+    pendingImages.clear();
+    _notify();
+  }
+
   /// 安全通知：dispose 后不再 notify（第 7 次复评探针 D —— prompt POST 在途
   /// 时退出页面会抛 `A PiChatController was used after being disposed`）。
   void _notify() {
@@ -526,7 +553,8 @@ class PiChatController extends ChangeNotifier {
   /// false = 未被受理（未配置/忙/建会话失败），调用方应把文本回填输入框，
   /// 否则用户输入会被永久吞掉（第 8 次复评 P2 实锤：建会话失败时文本既不
   /// 落库也不在输入框，无重发载体）。
-  Future<bool> send(String text, {bool reuseUserMessage = false}) async {
+  Future<bool> send(String text,
+      {bool reuseUserMessage = false, List<Object>? images}) async {
     final trimmed = text.trim();
     // creating 期间同样拒绝（controller 层互斥，不依赖 UI 禁用）
     if (trimmed.isEmpty || _sending || _creating) return false;
@@ -757,8 +785,9 @@ class PiChatController extends ChangeNotifier {
         },
       );
 
-      // 4) 发送 prompt（受理即返回；正文走上面的流）
-      await _agent.prompt(sid, trimmed);
+      // 4) 发送 prompt（受理即返回；正文走上面的流；带图则在受理后清空）
+      await _agent.prompt(sid, trimmed, images: images);
+      clearImages();
       _notify();
       return true;
     } on PiApiException catch (e) {
