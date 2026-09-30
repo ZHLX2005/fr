@@ -66,7 +66,9 @@ class PiChatMessage extends HiveObject {
   @HiveField(11, defaultValue: 0)
   int imageCount;
 
-  /// 首图缩略 base64（最长 200 字符的 data 前缀，仅用于气泡预览）。
+  /// 首图缩略（**预留恒空**：截断 base64 解不出图、全量落库炸体积，两个
+  /// 方案都否决了 —— 回显用 [imageCount] 文字行。downscale 缩略真需要时
+  /// 再启用此字段）。
   @HiveField(12, defaultValue: '')
   String firstImageThumb;
 

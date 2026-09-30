@@ -212,14 +212,6 @@ class PiChatController extends ChangeNotifier {
   /// 配置是否齐全（不齐时 UI 引导设置）。
   bool get canChat => _settings.isConfigured;
 
-  /// 流式进行中的助手消息（UI 用于打字指示）。
-  PiChatMessage? get streamingMessage {
-    for (final m in _messages.reversed) {
-      if (m.role == 'assistant' && !m.done) return m;
-    }
-    return null;
-  }
-
   /// 进入一个已有会话（从会话列表点进来 / 重启恢复）。
   Future<void> openSession(String sessionId) async {
     await _repo.init();

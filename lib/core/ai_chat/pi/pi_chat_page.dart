@@ -216,12 +216,14 @@ class _PiChatPageState extends State<PiChatPage> {
     }
   }
 
-  /// 选图（相册）→ base64 入待发队列。
-  Future<void> _pickImage() async {
+  /// 选图 → base64 入待发队列。长按附件按钮走相机。
+  Future<void> _pickImage({bool fromCamera = false}) async {
     try {
       final picker = ImagePicker();
       final x = await picker.pickImage(
-          source: ImageSource.gallery, maxWidth: 1600, imageQuality: 85);
+          source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+          maxWidth: 1600,
+          imageQuality: 85);
       if (x == null) return;
       final bytes = await x.readAsBytes();
       _controller.addImage(x.name, base64Encode(bytes));
@@ -374,17 +376,14 @@ class _PiChatPageState extends State<PiChatPage> {
                 preferredSize: const Size.fromHeight(22),
                 child: _ContextBar(usage: _controller.contextUsage!),
               ),
-        title: GestureDetector(
-          onLongPress: _controller.sessionId == null
-              ? null
-              : () => _renameDialog(),
-          child: Text(() {
-            final name = _controller.sessionName;
-            if (name != null && name.isNotEmpty) return 'pi · $name';
-            if (_controller.sessionId == null) return 'pi 新对话';
-            return 'pi 对话';
-          }()),
-        ),
+        // 会话名优先（服务端 rename 的结果）。改名走「更多」菜单的**单一**
+        // 条目 —— 第 14 次复评：长按标题与菜单项双入口重复且长按更隐蔽。
+        title: Text(() {
+          final name = _controller.sessionName;
+          if (name != null && name.isNotEmpty) return 'pi · $name';
+          if (_controller.sessionId == null) return 'pi 新对话';
+          return 'pi 对话';
+        }()),
         actions: [
           // 模型切换（复评 #9：端点全在库里却让用户手填字符串）
           IconButton(
@@ -609,6 +608,7 @@ class _PiChatPageState extends State<PiChatPage> {
                           controller: _input,
                           onSend: _send,
                           onAttach: _pickImage,
+                          onAttachCamera: () => _pickImage(fromCamera: true),
                           // 停止键只在「会话已建立」的生成中可点 ——
                           // 建会话窗口（sessionId 未定，最长 180s）里 abort
                           // 是死按钮（第 13 次复评前置 3），转圈更诚实。

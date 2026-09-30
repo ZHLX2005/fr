@@ -120,9 +120,12 @@ class PiComposer extends StatelessWidget {
   final VoidCallback? onSend;
   final VoidCallback? onAttach;
 
-  /// 中止（生成中时发送键变停止键 —— 复评 P4：此前只有 AppBar 小图标，
+  /// 中止（生成中时发送键变停止键 —— 评 P4：此前只有 AppBar 小图标，
   /// 移动端单手够不到）。
   final VoidCallback? onStop;
+
+  /// 拍照入口（附件按钮长按）。
+  final VoidCallback? onAttachCamera;
   final bool sending;
   final bool creating;
 
@@ -132,6 +135,7 @@ class PiComposer extends StatelessWidget {
     this.focusNode,
     this.onSend,
     this.onAttach,
+    this.onAttachCamera,
     this.onStop,
     this.sending = false,
     this.creating = false,
@@ -157,8 +161,10 @@ class PiComposer extends StatelessWidget {
         children: [
           _ComposerIconButton(
             icon: Icons.add_photo_alternate_outlined,
-            tooltip: '添加图片',
+            // 点击=相册；长按=相机（第 14 次复评：此前只有相册入口）
+            tooltip: '添加图片（长按拍照）',
             onTap: busy ? null : onAttach,
+            onLongPress: busy ? null : onAttachCamera,
           ),
           Expanded(
             child: ConstrainedBox(
@@ -229,11 +235,13 @@ class _ComposerIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const _ComposerIconButton({
     required this.icon,
     required this.tooltip,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -243,6 +251,7 @@ class _ComposerIconButton extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(PiChatTokens.rPill),
         child: Padding(
           padding: const EdgeInsets.all(PiChatTokens.s2),
