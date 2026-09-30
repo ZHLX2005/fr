@@ -247,19 +247,43 @@ class PiChatController extends ChangeNotifier {
       final streaming = st['isStreaming'] == true;
       if (!streaming || _sessionId != sessionId || _disposed) return;
 
-      // ★ 只恢复**本轮**（最后一条 assistant）气泡 —— 第 11 次复评探针 F1：
-      // 此前遍历全部 _messages，把历史里昨天中止的回复也复活成「生成中」，
-      // 用户无法分辨哪条真在跑（与 A2b 同一种「全量扫描」反模式）。
-      String? aKey;
-      PiChatMessage? target;
-      for (final m in _messages.reversed) {
-        if (m.role == 'assistant' && m.key != null) {
-          aKey = m.key as String;
-          target = m;
+      // ★ 本轮 =「最后一条 user 之后」的 assistant（第 12 次复评探针 F3：
+      // 取「最后一条 assistant」在本轮还没有 assistant 时会命中上一轮，
+      // 把本轮增量追加到上一轮回答上 —— 答案挂错问题，且助手气泡只剩一条）。
+      var lastUserIdx = -1;
+      for (var i = _messages.length - 1; i >= 0; i--) {
+        if (_messages[i].role == 'user') {
+          lastUserIdx = i;
           break;
         }
       }
-      if (aKey == null || target == null) return;
+      // 本轮已有的 assistant（在 lastUser 之后）
+      PiChatMessage? target;
+      for (var i = lastUserIdx + 1; i < _messages.length; i++) {
+        if (_messages[i].role == 'assistant') {
+          target = _messages[i];
+          break;
+        }
+      }
+      String? aKey = target?.key as String?;
+
+      // 本轮还没有 assistant 气泡 → 新起一条（另一台设备发起、或合并只补了
+      // 尾部 user 的场景）
+      if (target == null) {
+        if (lastUserIdx < 0) return;
+        final created = await _repo.append(PiChatMessage(
+          sessionId: sessionId,
+          role: 'assistant',
+          text: '',
+          done: false,
+        ));
+        aKey = created;
+        final fresh = _repo.getByKey(created);
+        if (fresh == null) return;
+        target = fresh;
+        _messages.add(fresh);
+        _bumpMessages();
+      }
 
       // ★ 竞态守卫（第 11 次复评探针 R1）：state() 是个未受保护的窗口，
       // 用户在此窗口内 send() 的话，继续挂流会掐掉 send 的订阅并覆盖句柄
@@ -267,6 +291,9 @@ class PiChatController extends ChangeNotifier {
       if (_sending || _sub != null || _sessionId != sessionId || _disposed) {
         return;
       }
+
+      // 已完成且未停止 → 这不是「正在跑的那一轮」，不复活（复评 #4）
+      if (target.done && !target.stopped) return;
 
       // 恢复本轮气泡为生成中
       if (target.done && target.stopped) {
@@ -287,7 +314,9 @@ class PiChatController extends ChangeNotifier {
           break;
         }
       }
-      final assistantMsg = _repo.getByKey(aKey);
+      final aKey2 = aKey;
+      if (aKey2 == null) return;
+      final assistantMsg = _repo.getByKey(aKey2);
       if (assistantMsg == null) return;
 
       final buf = StringBuffer(assistantMsg.text);
@@ -328,7 +357,7 @@ class PiChatController extends ChangeNotifier {
           // ★ 用户气泡只清 pending，**绝不改正文**（第 11 次复评探针 F2：
           // 此前写 '' 把用户原话清成空串，内存+磁盘双丢，成功主路径上的
           // 破坏性数据丢失）。repo.markUserDelivered 只清标志不动 text。
-          final String ak = aKey ?? '';
+          final String ak = aKey2;
           final String uk = uKey ?? '';
           if (ak.isNotEmpty) _repo.updateText(ak, settled, done: true);
           if (uk.isNotEmpty) _repo.markUserDelivered(uk);

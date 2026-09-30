@@ -527,7 +527,7 @@ class _PiChatPageState extends State<PiChatPage> {
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    _DayDivider(day: m.createdAt),
+                                    PiDayDivider(label: _DayLabel.of(m.createdAt)),
                                     bubble,
                                   ],
                                 );
@@ -583,6 +583,7 @@ class _PiChatPageState extends State<PiChatPage> {
                           controller: _input,
                           onSend: _send,
                           onAttach: _pickImage,
+                          onStop: _controller.abort,
                           sending: _controller.sending,
                           creating: _controller.creating,
                         ),
@@ -657,7 +658,7 @@ class _Bubble extends StatelessWidget {
                     // 复制按钮（第 11 次复评探针 H1：长按在 SelectableText/
                     // SelectionArea 分支上被手势竞技场赢走，助手回复反而
                     // 复制不了 —— 显式按钮不依赖竞技场）
-                    if (message.text.isNotEmpty && !isStreaming)
+                    if (message.text.isNotEmpty && !isStreaming && !isUser)
                       Align(
                         alignment: Alignment.centerRight,
                         child: IconButton(
@@ -1041,12 +1042,9 @@ bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
 /// 日期分隔条（今天 / 昨天 / 具体日期）。
-class _DayDivider extends StatelessWidget {
-  final DateTime day;
-
-  const _DayDivider({required this.day});
-
-  static String label(DateTime d) {
+/// 日期标签（今天 / 昨天 / YYYY-MM-DD）。
+abstract final class _DayLabel {
+  static String of(DateTime d) {
     final now = DateTime.now();
     if (_sameDay(d, now)) return '今天';
     final y = now.subtract(const Duration(days: 1));
@@ -1054,45 +1052,8 @@ class _DayDivider extends StatelessWidget {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}'
         '-${d.day.toString().padLeft(2, '0')}';
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color:
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            label(day),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-/// 思考档位的中文标签。
-String _thinkingLabel(String level) => const {
-      'off': '关闭',
-      'minimal': '最少',
-      'low': '低',
-      'medium': '中',
-      'high': '高',
-      'xhigh': '极高',
-      'max': '最大',
-    }[level] ??
-    level;
-
-/// AppBar 下方的上下文占用细条（ChatGPT/Claude 的容量提示）。
 class _ContextBar extends StatelessWidget {
   final Map<String, dynamic> usage;
 
@@ -1210,3 +1171,15 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     );
   }
 }
+
+/// 思考档位的中文标签。
+String _thinkingLabel(String level) => const {
+      'off': '关闭',
+      'minimal': '最少',
+      'low': '低',
+      'medium': '中',
+      'high': '高',
+      'xhigh': '极高',
+      'max': '最大',
+    }[level] ??
+    level;

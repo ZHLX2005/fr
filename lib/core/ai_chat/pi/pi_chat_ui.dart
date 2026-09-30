@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// pi 聊天的设计 token 与自绘组件。
 ///
@@ -118,6 +119,10 @@ class PiComposer extends StatelessWidget {
   final FocusNode? focusNode;
   final VoidCallback? onSend;
   final VoidCallback? onAttach;
+
+  /// 中止（生成中时发送键变停止键 —— 复评 P4：此前只有 AppBar 小图标，
+  /// 移动端单手够不到）。
+  final VoidCallback? onStop;
   final bool sending;
   final bool creating;
 
@@ -127,6 +132,7 @@ class PiComposer extends StatelessWidget {
     this.focusNode,
     this.onSend,
     this.onAttach,
+    this.onStop,
     this.sending = false,
     this.creating = false,
   });
@@ -158,13 +164,28 @@ class PiComposer extends StatelessWidget {
             child: ConstrainedBox(
               // 单行时与按钮等高（垂直居中），多行时自增高
               constraints: const BoxConstraints(minHeight: 36),
-              child: TextField(
+              child: Focus(
+                // ★ 回车的语义（重构时误删，复评 P1）：桌面/外接键盘
+                // Enter 发送、Shift+Enter 换行；软键盘仍是换行键。
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.enter &&
+                      !HardwareKeyboard.instance.isShiftPressed) {
+                    onSend?.call();
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
                 controller: controller,
                 focusNode: focusNode,
+                // ★ 进页面即可打字（重构时误删，复评 P1）
+                autofocus: true,
                 minLines: 1,
                 maxLines: 6,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
+                onSubmitted: (_) => onSend?.call(),
                 cursorColor: cs.primary,
                 cursorRadius: const Radius.circular(2),
                 style: t.textTheme.bodyMedium?.copyWith(height: 1.45),
@@ -180,11 +201,17 @@ class PiComposer extends StatelessWidget {
                     color: colors.metaText.withValues(alpha: 0.7),
                   ),
                 ),
+                ),
               ),
             ),
           ),
           const SizedBox(width: PiChatTokens.s1),
-          _SendButton(sending: sending, creating: creating, onSend: onSend),
+          _SendButton(
+            sending: sending,
+            creating: creating,
+            onSend: onSend,
+            onStop: onStop,
+          ),
         ],
       ),
     );
@@ -231,17 +258,21 @@ class _SendButton extends StatelessWidget {
   final bool sending;
   final bool creating;
   final VoidCallback? onSend;
+  final VoidCallback? onStop;
 
   const _SendButton({
     required this.sending,
     required this.creating,
     this.onSend,
+    this.onStop,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final busy = sending || creating;
+    // 生成中 → 停止键（可点）；创建中 → 转圈（不可点）
+    final showStop = sending && onStop != null;
     return AnimatedContainer(
       duration: PiChatTokens.fast,
       curve: PiChatTokens.ease,
@@ -254,20 +285,22 @@ class _SendButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: busy ? null : onSend,
+          onTap: showStop ? onStop : (busy ? null : onSend),
           customBorder: const CircleBorder(),
           child: Center(
-            child: busy
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: cs.onSurface.withValues(alpha: 0.5),
-                    ),
-                  )
-                : Icon(Icons.arrow_upward_rounded,
-                    size: 20, color: cs.onPrimary),
+            child: showStop
+                ? Icon(Icons.stop_rounded, size: 20, color: cs.onSurface)
+                : busy
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.onSurface.withValues(alpha: 0.5),
+                        ),
+                      )
+                    : Icon(Icons.arrow_upward_rounded,
+                        size: 20, color: cs.onPrimary),
           ),
         ),
       ),
@@ -354,6 +387,17 @@ class PiToolStrip extends StatelessWidget {
 ///
 /// base64 解码只在 build 时按 content 缓存一次 —— 此前每帧 new MemoryImage
 /// 导致 ImageCache 永不命中（每 50ms 全量解码 1600px JPEG，复评 P2-1）。
+/// 缩略图 bytes 缓存。
+///
+/// 为什么必须有：`base64Decode` 每次返回**新** Uint8List，而 `Uint8List ==`
+/// 是身份比较 → `MemoryImage` 每次 build 都是新 provider → ImageCache 永不
+/// 命中 → 流式期间每 50ms 重解码一次 1600px JPEG（第 12 次复评探针实锤：
+/// 4 次 build 后 imageCache 1→4）。按 base64 字符串缓存 bytes 即可命中。
+final Map<String, Uint8List> _thumbBytesCache = {};
+
+Uint8List _bytesOf(String base64) =>
+    _thumbBytesCache.putIfAbsent(base64, () => base64Decode(base64));
+
 class PiPendingThumb extends StatelessWidget {
   final String base64;
   final VoidCallback onRemove;
@@ -374,7 +418,7 @@ class PiPendingThumb extends StatelessWidget {
               borderRadius: BorderRadius.circular(PiChatTokens.rSm),
               border: Border.all(color: PiChatColors.of(t).bubbleBorder),
               image: DecorationImage(
-                image: MemoryImage(base64Decode(base64)),
+                image: MemoryImage(_bytesOf(base64)),
                 fit: BoxFit.cover,
               ),
             ),
