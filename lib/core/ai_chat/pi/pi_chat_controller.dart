@@ -780,11 +780,22 @@ class PiChatController extends ChangeNotifier {
             final line = e.toolPhase == 'start'
                 ? '正在调用 $name$detail'
                 : '$name$detail';
-            if (!toolLines.contains(line)) {
+            // 按 toolCallId 归类（一次调用一行；update 时替换 start 那条）——
+            // 此前按整行去重：同工具不同参数调用 6 次出 11 行等宽小字卡片
+            // （第 15 次复评 P1-2：长任务下卡片会顶爆气泡）。
+            if (e.toolCallId != null) {
+              final tag = 'tool#${e.toolCallId}';
+              toolLines.removeWhere((l) => l.startsWith('$tag\t'));
+              toolLines.add('$tag\t$line');
+            } else if (!toolLines.contains(line)) {
               toolLines.add(line);
-              assistantMsg.toolActivity = toolLines.join('\n');
-              _notify();
             }
+            // 折叠：保留前 4 行 + 「…等 N 步」
+            final visible = toolLines.length > 4
+                ? '${toolLines.take(4).join('\n')}\n…等 ${toolLines.length - 4} 步'
+                : toolLines.join('\n');
+            assistantMsg.toolActivity = visible;
+            _notify();
           }
           if (e.isAssistantDelta) {
             buf.write(e.textDelta);

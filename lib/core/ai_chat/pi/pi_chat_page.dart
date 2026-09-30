@@ -552,8 +552,10 @@ class _PiChatPageState extends State<PiChatPage> {
                             // 「滚动到底」浮标：用户上翻看历史时出现，一键回到最新
                             if (_showScrollToBottom)
                               Positioned(
+                                // composer 在列底时把浮标右移 + 上抬 ——
+                                // 760 列宽屏下不复盖 composer 右下角。
                                 right: 12,
-                                bottom: 12,
+                                bottom: 64,
                                 child: FloatingActionButton.small(
                                   heroTag: 'pi_scroll_bottom',
                                   onPressed: _jumpToBottom,
