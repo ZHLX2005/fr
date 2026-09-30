@@ -166,6 +166,9 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
     if (mounted) await _load();
   }
 
+  /// 真删除的延后 Timer（撤销窗口期内可取消）。
+  Timer? _pendingDeleteTimer;
+
   Future<void> _delete(_SessionRow row) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -185,11 +188,37 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
       ),
     );
     if (ok != true) return;
+    // ★ 第 16 次复评 P-4：撤销窗（4s 内可从 SnackBar 点撤销）
+    // 立刻把移动 1）UI 上移除、2）真删延后到 4s 后。撤销窗结束才落
+    // 服务端 + 本地 —— 取消的就是完成两步中的真删。
+    final pending = _PendingDelete(row: row, controller: this);
+    _pendingDeleteTimer?.cancel();
+    _pendingDeleteTimer = Timer(const Duration(seconds: 4), pending.commit);
+    setState(() {
+      _rows = _rows.where((r) => r.id != row.id).toList();
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已删除「${row.shortTitle}」'),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '撤销',
+            onPressed: pending.undo,
+          ),
+        ),
+      );
+    }
+  }
+
+  /// 真删除（撤销窗口结束后才走）：服务端 + 本地。
+  Future<void> _actuallyDelete(String id, String shortTitle) async {
     try {
       final endpoint =
           PiSessionsEndpoint(config: () => widget.settings.toApiConfig());
       try {
-        await endpoint.delete(row.id);
+        await endpoint.delete(id);
       } finally {
         endpoint.close();
       }
@@ -200,11 +229,30 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
         );
       }
     }
-    await piChatMessageRepository.clearSession(row.id);
-    if (widget.settings.lastSessionId == row.id) {
+    await piChatMessageRepository.clearSession(id);
+    if (widget.settings.lastSessionId == id) {
       await widget.settings.setLastSessionId('');
     }
-    if (mounted) await _load();
+  }
+
+  @override
+  void dispose() {
+    _pendingDeleteTimer?.cancel();
+    super.dispose();
+  }
+
+  /// 撤销时把 row 重新插入 _rows（保持按时间倒序）。
+  void _restoreRow(_SessionRow row) {
+    setState(() {
+      _rows = [..._rows, row];
+      _rows.sort((a, b) {
+        final ta = a.updatedAt, tb = b.updatedAt;
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return tb.compareTo(ta);
+      });
+    });
   }
 
   @override
@@ -458,5 +506,30 @@ class _SessionRow {
             '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
     final src = fromLocal ? '本地' : '服务端';
     return stamp.isEmpty ? src : '$src · $stamp';
+  }
+}
+
+/// 待真删的会话（撤销窗内可回滚，第 16 次复评 P-4）。
+///
+/// 撤销时把 row 重新插入 `_rows`，并取消延迟 timer；4s 窗口结束后
+/// timer 走进 `_actuallyDelete` 才落服务端与本地。
+class _PendingDelete {
+  final _SessionRow row;
+  final _PiSessionListPageState controller;
+  bool _committed = false;
+
+  _PendingDelete({required this.row, required this.controller});
+
+  Future<void> commit() async {
+    if (_committed) return;
+    _committed = true;
+    await controller._actuallyDelete(row.id, row.shortTitle);
+  }
+
+  void undo() {
+    if (_committed) return;
+    _committed = true;
+    controller._pendingDeleteTimer?.cancel();
+    controller._restoreRow(row);
   }
 }

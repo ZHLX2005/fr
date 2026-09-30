@@ -169,7 +169,8 @@ class PiComposer extends StatelessWidget {
           Expanded(
             child: ConstrainedBox(
               // 单行时与按钮等高（垂直居中），多行时自增高
-              constraints: const BoxConstraints(minHeight: 36),
+              constraints: const BoxConstraints(
+                  minHeight: 36, maxHeight: 140),
               child: Focus(
                 // ★ 回车的语义（重构时误删，复评 P1）：桌面/外接键盘
                 // Enter 发送、Shift+Enter 换行；软键盘仍是换行键。
@@ -193,11 +194,22 @@ class PiComposer extends StatelessWidget {
                 focusNode: focusNode,
                 // ★ 进页面即可打字（重构时误删，复评 P1）
                 autofocus: true,
+                // maxLines=null + 外层 SingleChildScrollView：内容超过
+                // 容器高度时**自动变内滚**而不是硬截（ChatGPT/Claude App
+                // 的做法；第 16 次复评 P-2）。
+                maxLines: null,
                 minLines: 1,
-                maxLines: 6,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
                 onSubmitted: (_) => onSend?.call(),
+                onChanged: (_) {
+                  // 触顶瞬间（光标位置很靠前 + 已超过视高阈值）给一次轻震动：
+                  // 用户撞到内滚边界时最困惑的就是"为什么没反应"。
+                  if (controller.text.length > 200 &&
+                      controller.selection.baseOffset < 30) {
+                    HapticFeedback.selectionClick();
+                  }
+                },
                 cursorColor: cs.primary,
                 cursorRadius: const Radius.circular(2),
                 style: t.textTheme.bodyMedium?.copyWith(height: 1.45),

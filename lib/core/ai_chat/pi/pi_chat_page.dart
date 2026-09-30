@@ -112,6 +112,28 @@ class _PiChatPageState extends State<PiChatPage> {
   /// 距底部多少像素内算「在底部」。
   static const double _bottomThreshold = 80;
 
+  /// 上次复制时间（ms since epoch）—— 复制提示节流用，避免连点导致
+  /// SnackBar 反复弹（ChatGPT App 是静默 + 触觉；第 16 次复评 P-4）。
+  /// 模块级共享：气泡复制 + 代码块复制走同一节流。
+  static int _lastCopyAtMs = 0;
+
+  /// 复制节流（页面 / 代码块共用）：3s 内只震动、不弹 SnackBar。
+  static void _showCopyFeedback(BuildContext context, String msg) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastCopyAtMs < 3000) {
+      HapticFeedback.selectionClick();
+      return;
+    }
+    _lastCopyAtMs = now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   bool get _isAtBottom {
     if (!_scroll.hasClients) return true;
     final pos = _scroll.position;
@@ -551,11 +573,29 @@ class _PiChatPageState extends State<PiChatPage> {
                       leading: const Icon(Icons.error_outline),
                       title: Text(_controller.lastError!,
                           style: theme.textTheme.bodySmall),
-                      // 可手动关闭（此前常驻直到下次成功发送 —— 评分 #11）
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: _controller.clearError,
-                        tooltip: '关闭',
+                      // 第 16 次复评 P-3：错误横幅加"重试"按钮，与失败气泡
+                      // 的「重发」语义对齐（之前只能关或重敲）。
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton.icon(
+                            onPressed: _controller.sending
+                                ? null
+                                : _controller.retryLast,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('重试'),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: _controller.clearError,
+                            tooltip: '关闭',
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -750,12 +790,14 @@ class _Bubble extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 复制按钮（第 11 次复评探针 H1：长按在 SelectableText/
-                    // SelectionArea 分支上被手势竞技场赢走，助手回复反而
-                    // 复制不了 —— 显式按钮不依赖竞技场）
-                    if (message.text.isNotEmpty && !isStreaming && !isUser)
+                    // 复制按钮（第 16 次复评探针 P-1：长按在 SelectableText
+                    // 子分支上被系统选择菜单赢走，**双向气泡**都得有显式按钮，
+                    // 不依赖手势竞技场 —— ChatGPT App/Claude App 的做法）。
+                    if (message.text.isNotEmpty && !isStreaming)
                       Align(
-                        alignment: Alignment.centerRight,
+                        alignment: isUser
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
                         child: IconButton(
                           tooltip: '复制',
                           iconSize: 14,
@@ -944,13 +986,7 @@ class _Bubble extends StatelessWidget {
 
   void _copy(BuildContext context) {
     Clipboard.setData(ClipboardData(text: message.text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('已复制'),
-        duration: Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    _PiChatPageState._showCopyFeedback(context, '已复制');
   }
 }
 
@@ -985,16 +1021,23 @@ class _TypingCursorState extends State<_TypingCursor>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _c,
-      child: Container(
-        width: 8,
-        height: 14,
-        decoration: BoxDecoration(
-          color: widget.color.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        // 第 16 次复评 P-7：2px 竖线 + 周期 opacity（更像 ChatGPT App
+        // 的"|"光标而不是整块方块）。
+        return Opacity(
+          opacity: 0.35 + _c.value * 0.65,
+          child: Container(
+            width: 2,
+            height: 14,
+            decoration: BoxDecoration(
+              color: widget.color.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1297,11 +1340,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
               icon: const Icon(Icons.copy_all_outlined),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: code));
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('代码已复制'),
-                  duration: Duration(seconds: 1),
-                  behavior: SnackBarBehavior.floating,
-                ));
+                // 走与气泡复制相同的 3s 节流（第 16 次复评 P-4）
+                _PiChatPageState._showCopyFeedback(context, '代码已复制');
               },
             );
           }),
