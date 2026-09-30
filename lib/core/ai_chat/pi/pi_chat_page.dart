@@ -408,7 +408,9 @@ class _PiChatPageState extends State<PiChatPage> {
                 ? () => _controller.newSession()
                 : null,
           ),
-          if (_controller.sending)
+          // canAbort 单一谓词（第 14 次复评探针 A：两处手写分叉 ——
+          // 建会话窗口的 stop 图标可点但 abort 静默无效 = 死按钮）
+          if (_controller.canAbort)
             IconButton(
               tooltip: '中止',
               icon: const Icon(Icons.stop_circle_outlined),
@@ -572,7 +574,12 @@ class _PiChatPageState extends State<PiChatPage> {
                     padding: const EdgeInsets.fromLTRB(
                         PiChatTokens.s3, PiChatTokens.s2, PiChatTokens.s3,
                         PiChatTokens.s3),
-                    child: Column(
+                    // 与消息列同宽（第 14 次复评：气泡居中 760、输入条铺满
+                    // 全宽 = 视觉断裂）
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                          maxWidth: PiChatTokens.contentMaxWidth),
+                      child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // 待发图片预览条（缩略图 + 单张删除）
@@ -605,15 +612,13 @@ class _PiChatPageState extends State<PiChatPage> {
                           // 停止键只在「会话已建立」的生成中可点 ——
                           // 建会话窗口（sessionId 未定，最长 180s）里 abort
                           // 是死按钮（第 13 次复评前置 3），转圈更诚实。
-                          onStop: _controller.sessionId == null
-                              ? null
-                              : _controller.abort,
+                          onStop: _controller.canAbort ? _controller.abort : null,
                           sending: _controller.sending,
                           creating: _controller.creating ||
-                              (_controller.sending &&
-                                  _controller.sessionId == null),
+                              _controller.creatingSession,
                         ),
                       ],
+                    ),
                     ),
                   ),
                 ),

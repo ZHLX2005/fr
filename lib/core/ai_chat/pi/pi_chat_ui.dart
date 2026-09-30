@@ -171,6 +171,12 @@ class PiComposer extends StatelessWidget {
                   if (event is KeyDownEvent &&
                       event.logicalKey == LogicalKeyboardKey.enter &&
                       !HardwareKeyboard.instance.isShiftPressed) {
+                    // ★ IME composing 守卫（第 14 次复评前置 5）：中文输入法
+                    // 组合期间按 Enter 是「确认候选词」，不是发送 —— 否则
+                    // 会把半成品拼音直发出去（中文 App 的真实受众）。
+                    if (controller.value.composing != TextRange.empty) {
+                      return KeyEventResult.ignored;
+                    }
                     onSend?.call();
                     return KeyEventResult.handled;
                   }

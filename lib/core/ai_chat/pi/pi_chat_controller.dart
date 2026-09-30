@@ -196,6 +196,17 @@ class PiChatController extends ChangeNotifier {
 
   bool get sending => _sending;
 
+  /// ★ 能否中止（AppBar 与 composer **共用这一个谓词**）。
+  ///
+  /// 第 14 次复评探针 A：两处手写同一谓词必然分叉 —— 建会话窗口
+  /// （sending=true 且 sessionId 未定，最长 180s）AppBar 的 stop 图标
+  /// 可点但 abort() 静默无效 = 死按钮。单一事实源。
+  bool get canAbort => _sending && _sessionId != null;
+
+  /// 是否处于「建会话窗口」（sending 但 sessionId 未定）：UI 显示转圈，
+  /// 不显示停止键。
+  bool get creatingSession => _sending && _sessionId == null;
+
   String? get lastError => _lastError;
 
   /// 配置是否齐全（不齐时 UI 引导设置）。
@@ -283,6 +294,14 @@ class PiChatController extends ChangeNotifier {
           text: '',
           done: false,
         ));
+        // ★ append 是 await：窗口内用户可能已 send()。二次守卫触发时
+        // **回滚刚落库的气泡**（第 14 次复评探针 I 同型：不回滚则磁盘
+        // 留下 done=false 孤儿 → 重启变「已停止」空气泡）。
+        if (_sending || _sub != null || _sessionId != sessionId || _disposed) {
+          final ghost = _repo.getByKey(created);
+          if (ghost != null) await ghost.delete();
+          return;
+        }
         aKey = created;
         final fresh = _repo.getByKey(created);
         if (fresh == null) return;
