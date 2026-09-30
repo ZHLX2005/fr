@@ -112,26 +112,12 @@ class _PiChatPageState extends State<PiChatPage> {
   /// 距底部多少像素内算「在底部」。
   static const double _bottomThreshold = 80;
 
-  /// 上次复制时间（ms since epoch）—— 复制提示节流用，避免连点导致
-  /// SnackBar 反复弹（ChatGPT App 是静默 + 触觉；第 16 次复评 P-4）。
-  /// 模块级共享：气泡复制 + 代码块复制走同一节流。
-  static int _lastCopyAtMs = 0;
-
-  /// 复制节流（页面 / 代码块共用）：3s 内只震动、不弹 SnackBar。
+  /// 复制节流（第 17 次复评 P-3）：对齐 ChatGPT/Claude App 的零反馈
+  /// 静默 + 触觉 —— 之前是 3s 内只震动、超出 3s 弹 1s SnackBar，
+  /// 视觉/触觉噪声大。改为任何时候都只震动不弹条；保留入口签名
+  /// 是为了将来需要 SnackBar 时不必改调用方。
   static void _showCopyFeedback(BuildContext context, String msg) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastCopyAtMs < 3000) {
-      HapticFeedback.selectionClick();
-      return;
-    }
-    _lastCopyAtMs = now;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        duration: const Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    HapticFeedback.selectionClick();
   }
 
   bool get _isAtBottom {
@@ -640,6 +626,15 @@ class _PiChatPageState extends State<PiChatPage> {
                                             failedMessage: m,
                                           )
                                       : null,
+                                  // 第 17 次复评 P-5：完成的助手气泡加
+                                  // 「重新生成」按钮（ChatGPT/Claude App
+                                  // 招牌动作）。
+                                  onRegenerate: m.role == 'assistant' &&
+                                          m.done &&
+                                          m.error == null &&
+                                          m.text.isNotEmpty
+                                      ? () => _controller.regenerate(m)
+                                      : null,
                                 );
                                 if (!showDay) return bubble;
                                 return Column(
@@ -738,7 +733,15 @@ class _Bubble extends StatelessWidget {
   /// 失败重发回调（仅 assistant 错误气泡用；null 表示不可重发）。
   final VoidCallback? onRetry;
 
-  const _Bubble({required this.message, this.onRetry});
+  /// 重新生成回调（第 17 次复评 P-5：ChatGPT 招牌动作）。
+  /// 仅已完成且非流式的助手气泡显示，null 表示不渲染按钮。
+  final VoidCallback? onRegenerate;
+
+  const _Bubble({
+    required this.message,
+    this.onRetry,
+    this.onRegenerate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -944,6 +947,26 @@ class _Bubble extends StatelessWidget {
                             ),
                           ),
                         ),
+                    ],
+                    // 第 17 次复评 P-5：完成的助手气泡（无错误、非流式）
+                    // 加「重新生成」按钮 —— ChatGPT/Claude App 的招牌动作。
+                    if (!isUser && onRegenerate != null && message.done &&
+                        message.error == null && message.text.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: onRegenerate,
+                          icon: const Icon(Icons.replay_outlined, size: 14),
+                          label: const Text('重新生成'),
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8),
+                            foregroundColor: fg.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),

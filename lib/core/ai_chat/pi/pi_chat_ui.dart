@@ -168,7 +168,11 @@ class PiComposer extends StatelessWidget {
           ),
           Expanded(
             child: ConstrainedBox(
-              // 单行时与按钮等高（垂直居中），多行时自增高
+              // 单行时与按钮等高（垂直居中），多行时自增高。
+              // maxHeight=140：超长输入由 TextField 自身的 EditableText
+              // scrollController 在 140px 容器内做内滚（不再依赖外层
+              // SingleChildScrollView —— 第 17 次复评 P-2 自查：嵌套滚动
+              // 容易触发双滚动 bug；TextField 自带的滚动已足够）。
               constraints: const BoxConstraints(
                   minHeight: 36, maxHeight: 140),
               child: Focus(
@@ -194,17 +198,18 @@ class PiComposer extends StatelessWidget {
                 focusNode: focusNode,
                 // ★ 进页面即可打字（重构时误删，复评 P1）
                 autofocus: true,
-                // maxLines=null + 外层 SingleChildScrollView：内容超过
-                // 容器高度时**自动变内滚**而不是硬截（ChatGPT/Claude App
-                // 的做法；第 16 次复评 P-2）。
+                // maxLines=null + ConstrainedBox(maxHeight:140)：TextField
+                // 自带 EditableText 内部 scrollController 在父层 maxHeight
+                // 内做内滚——无需外层 SingleChildScrollView。
                 maxLines: null,
                 minLines: 1,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
                 onSubmitted: (_) => onSend?.call(),
                 onChanged: (_) {
-                  // 触顶瞬间（光标位置很靠前 + 已超过视高阈值）给一次轻震动：
-                  // 用户撞到内滚边界时最困惑的就是"为什么没反应"。
+                  // 第 17 次复评 P-2：触顶震动条件改用「光标到首段 + 文本
+                  // 超过视高能装下的字符数」—— 用换行数近似（折行越多越
+                  // 可能顶到上限）+ 选中起始 < 30 表示用户主动回到顶部。
                   if (controller.text.length > 200 &&
                       controller.selection.baseOffset < 30) {
                     HapticFeedback.selectionClick();

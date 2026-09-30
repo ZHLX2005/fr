@@ -166,8 +166,13 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
     if (mounted) await _load();
   }
 
-  /// 真删除的延后 Timer（撤销窗口期内可取消）。
-  Timer? _pendingDeleteTimer;
+  /// 待真删的会话表（per-sessionId Timer，第 17 次复评 P-1）。
+  ///
+  /// 修复前是单例 `_pendingDeleteTimer`：连删两条会话时第一条 Timer
+  /// 被第二条的 `cancel()` 干掉但 UI 已移除——服务端 + 本地都没删，
+  /// 4s 撤销窗消失后**没人知道这条会话还在**，reload 回魂（ghost-zombie）。
+  /// 改为 map：每条会话独立 4s Timer，互不干扰。
+  final Map<String, _PendingDelete> _pending = {};
 
   Future<void> _delete(_SessionRow row) async {
     final ok = await showDialog<bool>(
@@ -188,12 +193,17 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
       ),
     );
     if (ok != true) return;
-    // ★ 第 16 次复评 P-4：撤销窗（4s 内可从 SnackBar 点撤销）
-    // 立刻把移动 1）UI 上移除、2）真删延后到 4s 后。撤销窗结束才落
-    // 服务端 + 本地 —— 取消的就是完成两步中的真删。
-    final pending = _PendingDelete(row: row, controller: this);
-    _pendingDeleteTimer?.cancel();
-    _pendingDeleteTimer = Timer(const Duration(seconds: 4), pending.commit);
+    // ★ 第 16/17 次复评 P-4/P-1：撤销窗（4s 内可从 SnackBar 点撤销）
+    // 立刻 1）UI 上移除、2）真删延后到 4s 后。撤销窗结束才落服务端 +
+    // 本地。per-sessionId Timer（map）—— 修复前单例 timer 让连删 N 条
+    // 时前 N-1 条 Timer 被 cancel 但服务端/本地都没删（ghost-zombie）。
+    final pending = _PendingDelete(
+      id: row.id,
+      row: row,
+      controller: this,
+    );
+    pending.startTimer(const Duration(seconds: 4));
+    _pending[row.id] = pending;
     setState(() {
       _rows = _rows.where((r) => r.id != row.id).toList();
     });
@@ -237,7 +247,10 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
 
   @override
   void dispose() {
-    _pendingDeleteTimer?.cancel();
+    for (final p in _pending.values) {
+      p._timer?.cancel();
+    }
+    _pending.clear();
     super.dispose();
   }
 
@@ -509,27 +522,46 @@ class _SessionRow {
   }
 }
 
-/// 待真删的会话（撤销窗内可回滚，第 16 次复评 P-4）。
+/// 待真删的会话（per-sessionId Timer，第 16/17 次复评 P-4/P-1）。
 ///
-/// 撤销时把 row 重新插入 `_rows`，并取消延迟 timer；4s 窗口结束后
-/// timer 走进 `_actuallyDelete` 才落服务端与本地。
+/// 撤销时把 row 重新插入 `_rows`，并取消本条 timer；4s 窗口结束后
+/// timer 走进 `commit()` 才落服务端与本地。每条会话独立 timer，连
+/// 删 N 条互不影响。
 class _PendingDelete {
+  final String id;
   final _SessionRow row;
   final _PiSessionListPageState controller;
+  Timer? _timer;
   bool _committed = false;
 
-  _PendingDelete({required this.row, required this.controller});
+  _PendingDelete({
+    required this.id,
+    required this.row,
+    required this.controller,
+  });
+
+  /// 启动 4s 撤销窗 timer；与构造拆开是因为 Timer 回调需要 self，
+  /// self 在构造里还不可见。
+  void startTimer(Duration d) {
+    _timer = Timer(d, commit);
+  }
 
   Future<void> commit() async {
     if (_committed) return;
     _committed = true;
+    controller._pending.remove(id);
     await controller._actuallyDelete(row.id, row.shortTitle);
   }
 
   void undo() {
     if (_committed) return;
     _committed = true;
-    controller._pendingDeleteTimer?.cancel();
+    _timer?.cancel();
+    controller._pending.remove(id);
     controller._restoreRow(row);
   }
+
+  /// 测试用：检查 timer 是否还活着（撤销窗未结束）。
+  @visibleForTesting
+  bool get hasTimer => _timer != null && _timer!.isActive;
 }

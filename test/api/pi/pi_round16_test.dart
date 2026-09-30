@@ -42,11 +42,15 @@ void main() {
     final src = File('lib/core/ai_chat/pi/pi_chat_page.dart').readAsStringSync();
     expect(src.contains('_showCopyFeedback'), isTrue,
         reason: '第 16 轮必须落地复制节流静态入口');
-    expect(src.contains('_lastCopyAtMs'), isTrue,
-        reason: '第 16 轮必须有节流时间戳字段');
-    // 节流阈值 3s（不能漏掉 — 阈值太小失去效果，太大破坏体验）
-    expect(src.contains('3000'), isTrue,
-        reason: '节流阈值必须显式落地为 3000ms');
+    // 第 17 轮：节流策略改为彻底静默（任何时候都只震动）——
+    // _lastCopyAtMs 时间戳字段已删除，_showCopyFeedback 只调震动。
+    expect(src.contains('HapticFeedback.selectionClick()'), isTrue,
+        reason: '第 17 轮：_showCopyFeedback 必须仍调震动反馈');
+    // 复制反馈不得弹 SnackBar（与 ChatGPT/Claude 一致的零反馈静默）
+    final methodBody = src.split('_showCopyFeedback(BuildContext')[1]
+        .split('\n  }')[0];
+    expect(methodBody.contains('showSnackBar'), isFalse,
+        reason: '第 17 轮：_showCopyFeedback 内部不得有 showSnackBar');
   });
 
   test('P-4：会话列表撤销窗辅助类已落地', () async {

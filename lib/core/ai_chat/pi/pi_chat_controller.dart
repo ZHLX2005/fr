@@ -1089,6 +1089,35 @@ class PiChatController extends ChangeNotifier {
     await send(lastUserText, reuseUserMessage: true);
   }
 
+  /// 重新生成助手回复（第 17 次复评 P-5：ChatGPT 招牌动作）。
+  ///
+  /// 区别于 `retryLast`：后者只重发**失败**的助手气泡（error != null）；
+  /// 本方法**任意**助手气泡（包括完成的）都可重新生成 —— 与 ChatGPT App
+  /// 「点击助手气泡下方「重新生成」按钮」语义一致。
+  ///
+  /// 实现：删指定助手气泡，复用其前一条 user 文本走 [send]。
+  /// 比 `retryLast` 多一步：定位 user 用气泡 id 锚点而不是 lastUserText
+  /// 倒序查找（更可控）。
+  Future<void> regenerate(PiChatMessage assistant) async {
+    if (_sending) return;
+    final idx = _messages.indexWhere((m) => m.id == assistant.id);
+    if (idx < 0) return;
+    String? userText;
+    for (var i = idx - 1; i >= 0; i--) {
+      final m = _messages[i];
+      if (m.role == 'user' && m.text.isNotEmpty) {
+        userText = m.text;
+        break;
+      }
+    }
+    if (userText == null) return;
+    _messages.removeAt(idx);
+    _bumpMessages();
+    await assistant.delete();
+    _notify();
+    await send(userText, reuseUserMessage: true);
+  }
+
   /// 确保基础设施已初始化（main.dart 启动期也可调）。
   Future<void> ensureInit() async {
     await HiveStore.instance.init();
