@@ -84,6 +84,11 @@ void main() {
         reason: '按钮文本必须是「重新生成」');
     expect(src.contains('_controller.regenerate(m)'), isTrue,
         reason: '调用方必须把 _Bubble.onRegenerate 接到 controller.regenerate');
+    // 第 18 轮：降级路径 — regenerateEnabled 字段 + tooltip
+    expect(src.contains('regenerateEnabled'), isTrue,
+        reason: '_Bubble 必须有 regenerateEnabled 字段');
+    expect(src.contains('正在生成中，请先中止'), isTrue,
+        reason: '降级 tooltip 必须存在');
   });
 
   test('P-2：输入区 maxHeight=140 + maxLines=null 仍在', () async {

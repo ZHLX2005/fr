@@ -626,15 +626,19 @@ class _PiChatPageState extends State<PiChatPage> {
                                             failedMessage: m,
                                           )
                                       : null,
-                                  // 第 17 次复评 P-5：完成的助手气泡加
-                                  // 「重新生成」按钮（ChatGPT/Claude App
-                                  // 招牌动作）。
+                                  // 第 17 次复评 P-5：助手气泡加「重新生成」按钮（ChatGPT/Claude App
+                                  // 招牌动作）。第 18 轮：降级路径——
+                                  // 流式中 + 失败的助手气泡也显示按钮（置灰
+                                  // + tooltip 解释），与 ChatGPT App 一致。
                                   onRegenerate: m.role == 'assistant' &&
-                                          m.done &&
                                           m.error == null &&
                                           m.text.isNotEmpty
                                       ? () => _controller.regenerate(m)
                                       : null,
+                                  // 流式生成中 regenerate 置灰（防与
+                                  // 当前 agent 运行重入）。
+                                  regenerateEnabled:
+                                      !_controller.sending,
                                 );
                                 if (!showDay) return bubble;
                                 return Column(
@@ -734,13 +738,19 @@ class _Bubble extends StatelessWidget {
   final VoidCallback? onRetry;
 
   /// 重新生成回调（第 17 次复评 P-5：ChatGPT 招牌动作）。
-  /// 仅已完成且非流式的助手气泡显示，null 表示不渲染按钮。
+  /// 第 18 轮降级：流式中 + 完成的助手气泡都接收回调，渲染时
+  /// 用 [regenerateEnabled] 决定置灰与否；null 表示不渲染按钮。
   final VoidCallback? onRegenerate;
+
+  /// 第 18 轮 P-5：regenerate 是否可点（false 时按钮 disabled）。
+  /// 流式中（sending=true）置灰——否则会与现有 agent 运行重入。
+  final bool regenerateEnabled;
 
   const _Bubble({
     required this.message,
     this.onRetry,
     this.onRegenerate,
+    this.regenerateEnabled = true,
   });
 
   @override
@@ -948,22 +958,30 @@ class _Bubble extends StatelessWidget {
                           ),
                         ),
                     ],
-                    // 第 17 次复评 P-5：完成的助手气泡（无错误、非流式）
-                    // 加「重新生成」按钮 —— ChatGPT/Claude App 的招牌动作。
-                    if (!isUser && onRegenerate != null && message.done &&
-                        message.error == null && message.text.isNotEmpty) ...[
+                    // 第 17/18 次复评 P-5：助手气泡加「重新生成」按钮 ——
+                    // ChatGPT/Claude App 招牌动作。第 18 轮降级：流式中
+                    // 也渲染按钮但置灰 + tooltip「正在生成中，请先中止」；
+                    // 失败的助手气泡也显示（与上方「重发」并列）。
+                    if (!isUser && onRegenerate != null &&
+                        message.error == null &&
+                        message.text.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: onRegenerate,
-                          icon: const Icon(Icons.replay_outlined, size: 14),
-                          label: const Text('重新生成'),
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8),
-                            foregroundColor: fg.withValues(alpha: 0.7),
+                        child: Tooltip(
+                          message: !regenerateEnabled
+                              ? '正在生成中，请先中止当前回复'
+                              : '基于上一条提问重新生成助手回复',
+                          child: TextButton.icon(
+                            onPressed: regenerateEnabled ? onRegenerate : null,
+                            icon: const Icon(Icons.replay_outlined, size: 14),
+                            label: const Text('重新生成'),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8),
+                              foregroundColor: fg.withValues(alpha: 0.7),
+                            ),
                           ),
                         ),
                       ),
