@@ -274,15 +274,16 @@ const double kGcPagePadding = 16.0;
 /// 卡片圆角
 const double kGcCardRadius = 18.0;
 
-// 顶部功能行（返回键 + 搜索框）—— H3R-C「搜索框即头」头部方案：
-// 不再有标题 / 渐变横幅，状态栏下第一行就是 40px 功能行。
-// 视觉规格源自 temp/game-center-header-ui/h3-redesign/c-searchfirst.html 定稿。
+// 顶部功能行（返回热区 + 搜索框合体胶囊）—— H3R2-V3「合体胶囊」方案：
+// 整行只剩一根描边胶囊，返回键内嵌在胶囊左端（细分隔线隔开），
+// 「返回键与搜索框的占比」从结构上不存在。视觉规格源自
+// temp/game-center-header-ui/h3r2-proportion/v3-merged-capsule.html 定稿。
 
-/// 功能行高度（返回钮与搜索框同高）
-const double kGcTopRowHeight = 40.0;
+/// 胶囊高度（= 功能行高）
+const double kGcTopRowHeight = 44.0;
 
 /// 状态栏 → 功能行的间距（有刘海/状态栏 inset 的机型用 inset + 此值）
-const double kGcTopRowGapTop = 6.0;
+const double kGcTopRowGapTop = 12.0;
 
 /// 无状态栏 inset（桌面 web / 横屏）时的默认顶部间距，避免功能行贴顶
 const double kGcTopRowGapTopFallback = 16.0;
@@ -293,11 +294,23 @@ const double kGcTopRowGapBottom = 12.0;
 /// 搜索框描边宽度（border-emphasis：透明底，靠主题色描边定义形状）
 const double kGcSearchBorderWidth = 2.0;
 
-/// 搜索框圆角
-const double kGcSearchRadius = 12.0;
+/// 搜索框圆角（胶囊整体）
+const double kGcSearchRadius = 13.0;
+
+/// 胶囊左端返回热区宽度
+const double kGcBackZoneWidth = 44.0;
+
+/// 胶囊内返回热区与搜索区之间的分隔线宽度
+const double kGcBackZoneDividerWidth = 1.0;
+
+/// 搜索区左内边距（返回热区分隔线 → 搜索图标）
+const double kGcSearchZonePadLeft = 13.0;
+
+/// 搜索区右内边距（「搜索」提交钮 → 胶囊描边）
+const double kGcSearchZonePadRight = 6.0;
 
 /// 搜索框内嵌「搜索」提交钮高度
-const double kGcSearchButtonHeight = 30.0;
+const double kGcSearchButtonHeight = 32.0;
 
 /// 精选横滑卡高度
 const double kGcFeaturedHeight = 196.0;
@@ -316,9 +329,9 @@ const double kGcRevealItemDuration = 0.3;
 const double kGcRevealTranslateY = 20.0;
 
 /// 滚动到该偏移时，毛玻璃标题条完全淡入。
-/// 头部区总高 = topGap + 功能行 40 + bottomGap（约 58px），
+/// 头部区总高 = topGap + 胶囊 44 + bottomGap（约 68px），
 /// 再加一档余量：头部刚滑出视野就开始出现，滑过半屏细条已完全实。
-const double kGcGlassBarThreshold = 60.0;
+const double kGcGlassBarThreshold = 68.0;
 
 // ══════════════════════════════════════════════════════════════
 // 搜索

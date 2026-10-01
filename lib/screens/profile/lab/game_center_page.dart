@@ -391,10 +391,11 @@ class _GameCenterPageState extends State<GameCenterPage>
     );
   }
 
-  /// 顶部功能行：返回键 + 描边搜索框（H3R-C 定稿：状态栏下第一行就是功能件）
+  /// 顶部合体胶囊：返回热区内嵌在描边搜索框左端（H3R2-V3 定稿）。
+  /// 整行只有一根胶囊——返回键与搜索框不再并列，「占比」问题结构性消除。
   Widget _buildHeader(ThemeData theme) {
     final topInset = MediaQuery.paddingOf(context).top;
-    // 有状态栏 inset（刘海屏）用 inset+6；无 inset（桌面/横屏）给固定呼吸空间
+    // 有状态栏 inset（刘海屏）用 inset+12；无 inset（桌面/横屏）给固定呼吸空间
     final topGap = topInset > 0
         ? topInset + kGcTopRowGapTop
         : kGcTopRowGapTopFallback;
@@ -407,65 +408,71 @@ class _GameCenterPageState extends State<GameCenterPage>
       ),
       child: SizedBox(
         height: kGcTopRowHeight,
-        child: Row(
-          children: [
-            _BackButton(onTap: () => Navigator.maybePop(context)),
-            const SizedBox(width: 10),
-            Expanded(child: _buildSearchField(theme)),
-          ],
-        ),
+        child: _buildSearchField(theme),
       ),
     );
   }
 
-  /// 描边式搜索框：透明底 + 主题色 2px 描边 + 内嵌「搜索」提交钮。
+  /// 合体胶囊：透明底 + 主题色 2px 描边 + radius 13；左端返回热区（细分隔线隔开）
+  /// + 搜索图标 + 输入 + 内嵌「搜索」提交钮。
   /// 占位文字 = 最近搜索的首条（隐性展示历史行为）。
   Widget _buildSearchField(ThemeData theme) {
     final scheme = theme.colorScheme;
     final borderColor = scheme.primary.withValues(alpha: 0.55);
-    return GestureDetector(
-      // 框内任意空白（图标 / 文字上下空隙）点按都聚焦输入
-      onTap: () => _searchFocusNode.requestFocus(),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: kGcTopRowHeight,
-        padding: const EdgeInsets.only(right: 5),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(kGcSearchRadius),
-          border: Border.all(
-            color: borderColor,
-            width: kGcSearchBorderWidth,
-          ),
+    return Container(
+      // 胶囊描边画在外层；内部 hit-test 用 opaque 的 GestureDetector 覆盖三段
+      height: kGcTopRowHeight,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(kGcSearchRadius),
+        border: Border.all(color: borderColor, width: kGcSearchBorderWidth),
+      ),
+      child: ClipRRect(
+        // 热区按压水波/底色裁进胶囊圆角
+        borderRadius: BorderRadius.circular(
+          kGcSearchRadius - kGcSearchBorderWidth,
         ),
         child: Row(
           children: [
-            const SizedBox(width: 14),
-            Icon(Icons.search_rounded, size: 19, color: scheme.primary),
-            const SizedBox(width: 10),
+            _BackButton(onTap: () => Navigator.maybePop(context)),
             Expanded(
-              // Center + isCollapsed：TextField 固有高度即一行字，
-              // 垂直居中不依赖 textAlignVertical（后者在紧高度下不可靠）
-              child: Center(
-                child: TextField(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  cursorColor: scheme.primary,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => unawaited(_commitSearch()),
-                  style: theme.textTheme.bodyMedium,
-                  decoration: InputDecoration(
-                    isCollapsed: true,
-                    border: InputBorder.none,
-                    hintText: _searchHint,
-                    hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      letterSpacing: 0.2,
+              child: GestureDetector(
+                // 框内任意空白（图标 / 文字上下空隙）点按都聚焦输入
+                onTap: () => _searchFocusNode.requestFocus(),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    const SizedBox(width: kGcSearchZonePadLeft),
+                    Icon(Icons.search_rounded, size: 19, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      // Center + isCollapsed：TextField 固有高度即一行字，
+                      // 垂直居中不依赖 textAlignVertical（后者在紧高度下不可靠）
+                      child: Center(
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          cursorColor: scheme.primary,
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => unawaited(_commitSearch()),
+                          style: theme.textTheme.bodyMedium,
+                          decoration: InputDecoration(
+                            isCollapsed: true,
+                            border: InputBorder.none,
+                            hintText: _searchHint,
+                            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    _SearchGoButton(onTap: () => unawaited(_commitSearch())),
+                    const SizedBox(width: kGcSearchZonePadRight),
+                  ],
                 ),
               ),
             ),
-            _SearchGoButton(onTap: () => unawaited(_commitSearch())),
           ],
         ),
       ),
@@ -834,8 +841,9 @@ class _EmptyBucket extends StatelessWidget {
 // 头部功能行小组件
 // ══════════════════════════════════════════════════════════════
 
-/// 返回钮：40px 方形热区、透明底、radius 12，按下时主题色 18% 底。
-/// 对应原型 .backbtn（含玻璃条左端的返回箭头同款规格）。
+/// 返回热区：胶囊左端 44px 全高、透明底、右缘 1px outline 分隔线，
+/// 按下时主题色 18% 底（被外层 ClipRRect 裁进胶囊圆角）。
+/// 对应原型 v3 .backzone。
 class _BackButton extends StatelessWidget {
   const _BackButton({required this.onTap});
 
@@ -848,13 +856,20 @@ class _BackButton extends StatelessWidget {
       color: scheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(kGcSearchRadius),
-        child: SizedBox(
-          width: kGcTopRowHeight,
-          height: kGcTopRowHeight,
+        child: Container(
+          width: kGcBackZoneWidth,
+          decoration: BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                color: scheme.outline.withValues(alpha: 0.9),
+                width: kGcBackZoneDividerWidth,
+              ),
+            ),
+          ),
+          alignment: Alignment.center,
           child: Icon(
             Icons.arrow_back_ios_new_rounded,
-            size: 21,
+            size: 22,
             color: scheme.onSurface,
           ),
         ),
