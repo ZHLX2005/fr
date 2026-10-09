@@ -29,11 +29,13 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   bool _connecting = false;
   String? _error;
 
-  // 配对页输入
-  final _serverController = TextEditingController();
+  // 配对页状态：服务器地址内置（kRemoteTypeServerUrl），流程 = 先选 PC → 再填 key
   final _keyController = TextEditingController();
-  final _clientIdController = TextEditingController();
   final _tokenController = TextEditingController();
+  List<String> _clients = const [];
+  bool _clientsLoading = false;
+  String? _selectedClient;
+  Timer? _pollTimer;
 
   // 输入页状态
   final _textController = TextEditingController();
@@ -49,13 +51,41 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   String _asrBase = '';
 
   @override
+  void initState() {
+    super.initState();
+    _refreshClients();
+    // 配对页可见期间轮询在线列表（连上后页面切换，轮询空转开销可忽略）
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (_session == null) _refreshClients();
+    });
+  }
+
+  Future<void> _refreshClients() async {
+    if (_clientsLoading) return;
+    _clientsLoading = true;
+    try {
+      final list = await RtSession.listClients(kRemoteTypeServerUrl);
+      if (!mounted) return;
+      setState(() {
+        _clients = list;
+        // 单台在线自动预选（仍可改选）；已选的掉线则清空
+        if (_selectedClient == null && list.length == 1) _selectedClient = list.single;
+        if (_selectedClient != null && !list.contains(_selectedClient)) _selectedClient = null;
+      });
+    } catch (_) {
+      // 服务器暂不可达：保留旧列表，空态文案由列表为空时展示
+    } finally {
+      _clientsLoading = false;
+    }
+  }
+
+  @override
   void dispose() {
+    _pollTimer?.cancel();
     _debounce?.cancel();
     _eventSub?.cancel();
     _textController.dispose();
-    _serverController.dispose();
     _keyController.dispose();
-    _clientIdController.dispose();
     _tokenController.dispose();
     if (_listening) _stt.stop();
     _session?.dispose();
@@ -65,12 +95,19 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   // ================= 连接 =================
 
   Future<void> _connect() async {
-    final server = _serverController.text.trim();
     final key = _keyController.text.trim();
-    var clientId = _clientIdController.text.trim();
+    final token = _tokenController.text.trim();
 
-    if (server.isEmpty || key.isEmpty) {
-      setState(() => _error = '请填写服务器地址与配对 key');
+    if (_selectedClient == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先在列表中选择要连接的 PC')),
+      );
+      return;
+    }
+    if (key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入配对 key')),
+      );
       return;
     }
 
@@ -79,45 +116,11 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
       _error = null;
     });
 
-    // 目标 PC 留空时：拉在线列表，唯一在线则自动选中
-    if (clientId.isEmpty) {
-      try {
-        final online = await RtSession.listClients(server);
-        if (online.isEmpty) {
-          setState(() {
-            _connecting = false;
-            _error = '服务器上没有在线的 PC——请先在电脑上运行 remotetype serve';
-          });
-          return;
-        }
-        if (online.length > 1) {
-          setState(() {
-            _connecting = false;
-            _error = '有多台 PC 在线（${online.join('、 ')}），请填写目标 clientId';
-          });
-          return;
-        }
-        clientId = online.single;
-      } on RtSessionException catch (e) {
-        setState(() {
-          _connecting = false;
-          _error = e.message;
-        });
-        return;
-      } catch (e) {
-        setState(() {
-          _connecting = false;
-          _error = '无法访问服务器（$e）';
-        });
-        return;
-      }
-    }
-
     final session = RtSession(
-      serverUrl: server,
+      serverUrl: kRemoteTypeServerUrl,
       key: key,
-      targetClientId: clientId,
-      token: _tokenController.text.trim().isEmpty ? null : _tokenController.text.trim(),
+      targetClientId: _selectedClient!,
+      token: token.isEmpty ? null : token,
     );
     try {
       await session.connect();
@@ -277,6 +280,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   }
 
   Widget _buildPairing() {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -292,33 +296,69 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 24),
-            TextField(
-              controller: _serverController,
-              decoration: const InputDecoration(
-                labelText: '服务器地址',
-                hintText: '如 http://192.168.1.10:8899',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.url,
+            // ① 选 PC（列表自动轮询，单台在线自动预选）
+            Row(
+              children: [
+                Text('① 选择电脑', style: Theme.of(context).textTheme.titleSmall),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _refreshClients,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('刷新'),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            if (_clients.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  _clientsLoading ? '正在获取在线 PC…' : '暂无 PC 上线——请先在电脑上运行 remotetype serve --align',
+                  style: TextStyle(color: cs.outline),
+                ),
+              )
+            else
+              ..._clients.map((cid) {
+                final selected = cid == _selectedClient;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _selectedClient = cid),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: selected ? cs.primary : cs.outlineVariant),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                            size: 18,
+                            color: selected ? cs.primary : cs.outline,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(cid, style: const TextStyle(fontFamily: 'monospace')),
+                          ),
+                          Text('在线', style: TextStyle(fontSize: 11, color: cs.outline)),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            const SizedBox(height: 8),
+            // ② 填 key
+            Text('② 配对 key', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
             TextField(
               controller: _keyController,
               decoration: const InputDecoration(
-                labelText: '配对 key',
                 hintText: '电脑端 remotetype serve --align 打印的 key',
                 border: OutlineInputBorder(),
               ),
               textCapitalization: TextCapitalization.characters,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _clientIdController,
-              decoration: const InputDecoration(
-                labelText: '目标 PC（可选）',
-                hintText: '留空 = 自动选择唯一在线 PC',
-                border: OutlineInputBorder(),
-              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -332,7 +372,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _connecting ? null : _connect,
-              child: Text(_connecting ? '连接中…' : '连接电脑'),
+              child: Text(_connecting ? '连接中…' : '实时同步连接'),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),

@@ -1,7 +1,10 @@
 // lib/lab/demos/remotetype/rt_constants.dart
 //
 // RemoteType（远程输入）lab demo 常量。
-// 直连模式：唯一后端是 mn-rt 的 server.js（地址由用户输入，不硬编码）。
+// 直连模式：唯一后端是 mn-rt 的 server.js（固定部署地址内置，用户不填）。
+
+/// mn-rt server 固定部署地址（server 托管的网页控制台同源）
+const String kRemoteTypeServerUrl = 'http://1.94.101.189:8790';
 
 /// 房间号字母表：与 mn-rt rt-crypto.js 的 ROOM_ALPHABET 逐字符一致。
 /// 直连模式下派生房间号不再用于路由，仅作为 AAD 上下文标签（两端一致即可）。
