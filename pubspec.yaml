@@ -161,6 +161,8 @@ dependencies:
   # FFI helper (calloc / malloc for passing strings to native code — used by
   # the metronome Oboe bridge in lib/lab/demos/metronome/ffi_bindings.dart).
   ffi: ^2.1.0
+  speech_to_text: ^7.4.0
+  characters: ^1.4.1
 
 dev_dependencies:
   flutter_test:

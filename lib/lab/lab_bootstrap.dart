@@ -49,6 +49,7 @@ import 'demos/recorder_demo.dart' show registerRecorderDemo;
 import 'demos/relation_calc_demo.dart' show registerRelationCalcDemo;
 import 'demos/chess_online_demo.dart' show registerChessOnlineDemo;
 import 'demos/sudoku_lua/sudoku_demo.dart' show registerSudokuLuaDemo;
+import 'demos/remotetype_demo.dart' show registerRemoteTypeDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -98,6 +99,7 @@ void registerAllDemos() {
   registerRelationCalcDemo();
   registerChessOnlineDemo();
   registerSudokuLuaDemo();
+  registerRemoteTypeDemo();
 }
 
 // 初始化 Lab 模块
