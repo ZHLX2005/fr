@@ -205,7 +205,16 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
 
     if (!_sttAvailable) {
       _sttAvailable = await _stt.initialize(
-        onError: (e) => debugPrint('stt error: ${e.errorMsg}'),
+        onError: (e) {
+          debugPrint('stt error: ${e.errorMsg}');
+          // 引擎层错误上浮；no_match / speech_timeout 是说话停顿的正常反馈，不打扰
+          const benign = {'error_no_match', 'error_speech_timeout'};
+          if (mounted && !benign.contains(e.errorMsg)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('语音识别错误：${e.errorMsg}')),
+            );
+          }
+        },
         onStatus: (status) {
           if (status == 'done' || status == 'notListening') {
             if (mounted && _listening) {
@@ -228,23 +237,36 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
     }
 
     _asrBase = _textController.text;
-    await _stt.listen(
-      onResult: (result) {
-        final words = result.recognizedWords;
-        final text = _asrBase + (result.finalResult ? '' : words);
-        _textController.value = TextEditingValue(
-          text: text,
-          selection: TextSelection.collapsed(offset: text.length),
+    try {
+      await _stt.listen(
+        // speech_to_text 契约：partial 与 final 的 recognizedWords 都是
+        // 「本段完整识别文本」（Android SpeechToTextPlugin.updateResults
+        // 只取 RESULTS_RECOGNITION[0]），final 到达时把该段并入 base。
+        // 不能在 final 时丢弃 words——那会把刚说完的话整段清空。
+        onResult: (result) {
+          final text = _asrBase + result.recognizedWords;
+          _textController.value = TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          );
+          if (result.finalResult) _asrBase = text;
+        },
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: true,
+          listenMode: stt.ListenMode.dictation,
+          localeId: 'zh_CN',
+        ),
+      );
+    } catch (e) {
+      // listen 抛异常（如引擎服务缺失）不能无声吞掉，否则按钮像坏了
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('语音启动失败：$e')),
         );
-        if (result.finalResult) _asrBase = text;
-      },
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: true,
-        cancelOnError: true,
-        listenMode: stt.ListenMode.dictation,
-        localeId: 'zh_CN',
-      ),
-    );
+      }
+      return;
+    }
     setState(() => _listening = true);
   }
 
