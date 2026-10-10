@@ -1,9 +1,11 @@
 // 应用设置：主题入口 + 底栏容量 + 分 Tab 钉选（搜索 / 拖拽排序）。
-// iOS inset grouped 手感：分段控件、弹簧开关、ReorderableListView。
+// iOS inset grouped 手感：滑动胶囊分段、弹簧切换、拖拽 Q 弹。
 
 import 'dart:async';
+import 'dart:math' show exp, cos;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/nav/nav_catalog.dart';
@@ -12,6 +14,26 @@ import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
 import '../profile/lab/game_center/const_game_center.dart';
 import '../profile/theme/theme_page.dart';
+
+/// iOS 轻弹簧：略过冲后回落。
+class _IosSpring extends Curve {
+  const _IosSpring();
+
+  @override
+  double transform(double t) {
+    return 1 - exp(-6.0 * t) * cos(9.0 * t);
+  }
+}
+
+/// 拖拽抬起时的 Q 弹（略强过冲）。
+class _IosDragSpring extends Curve {
+  const _IosDragSpring();
+
+  @override
+  double transform(double t) {
+    return 1 - exp(-4.8 * t) * cos(11.5 * t);
+  }
+}
 
 enum _SettingsTab { general, pinned, core, ai, lab, games }
 
@@ -85,9 +107,36 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
             ),
             Expanded(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                switchInCurve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 420),
+                switchInCurve: const _IosSpring(),
                 switchOutCurve: Curves.easeInCubic,
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: Alignment.topCenter,
+                  children: [...previous, ?current],
+                ),
+                transitionBuilder: (child, anim) {
+                  final fade = CurvedAnimation(
+                    parent: anim,
+                    curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+                    reverseCurve: Curves.easeIn,
+                  );
+                  final slide = Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(anim);
+                  final scale = Tween<double>(begin: 0.96, end: 1).animate(anim);
+                  return FadeTransition(
+                    opacity: fade,
+                    child: SlideTransition(
+                      position: slide,
+                      child: ScaleTransition(
+                        scale: scale,
+                        alignment: Alignment.topCenter,
+                        child: child,
+                      ),
+                    ),
+                  );
+                },
                 child: KeyedSubtree(
                   key: ValueKey(_tab),
                   child: switch (_tab) {
@@ -299,6 +348,37 @@ class _PinPool extends ConsumerWidget {
                   ? ReorderableListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                       itemCount: entries.length,
+                      buildDefaultDragHandles: false,
+                      proxyDecorator: (child, index, animation) {
+                        return AnimatedBuilder(
+                          animation: animation,
+                          builder: (context, child) {
+                            final t = const _IosDragSpring()
+                                .transform(animation.value);
+                            return Transform.scale(
+                              scale: 1.0 + 0.055 * t,
+                              child: Transform.translate(
+                                offset: Offset(0, -4 * t),
+                                child: Material(
+                                  elevation: 2 + 14 * t,
+                                  shadowColor:
+                                      Colors.black.withValues(alpha: 0.22),
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: child,
+                                ),
+                              ),
+                            );
+                          },
+                          child: child,
+                        );
+                      },
+                      onReorderStart: (_) {
+                        HapticFeedback.mediumImpact();
+                      },
+                      onReorderEnd: (_) {
+                        HapticFeedback.lightImpact();
+                      },
                       onReorder: (oldIndex, newIndex) {
                         // 在完整 pin 列表上按 id 重排
                         final full = [...pinnedIds];
@@ -380,27 +460,23 @@ class _PinTile extends ConsumerWidget {
             ? '⋯'
             : '未钉选';
 
-    final leading = dragIndex != null
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ReorderableDragStartListener(
-                index: dragIndex!,
-                child: Icon(Icons.drag_handle, color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(width: 4),
-              _LeadingIcon(entry: entry, showThumb: showThumb),
-            ],
-          )
-        : _LeadingIcon(entry: entry, showThumb: showThumb);
-
-    return Card(
+    final tile = Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       color: cs.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: leading,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dragIndex != null) ...[
+              Icon(Icons.drag_handle_rounded, color: cs.onSurfaceVariant),
+              const SizedBox(width: 4),
+            ],
+            _LeadingIcon(entry: entry, showThumb: showThumb),
+          ],
+        ),
         title: Text(entry.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           '${entry.groupLabel} · $slot',
@@ -418,6 +494,15 @@ class _PinTile extends ConsumerWidget {
         ),
       ),
     );
+
+    // 整行长按拖拽（iOS 列表排序手感）；开关区域仍可点。
+    if (dragIndex != null) {
+      return ReorderableDelayedDragStartListener(
+        index: dragIndex!,
+        child: tile,
+      );
+    }
+    return tile;
   }
 }
 
@@ -462,7 +547,8 @@ class _LeadingIcon extends StatelessWidget {
   }
 }
 
-class _IosSegmented extends StatelessWidget {
+/// iOS UISegmentedControl：底层滑动圆角胶囊 + 弹簧插值。
+class _IosSegmented extends StatefulWidget {
   const _IosSegmented({
     required this.tabs,
     required this.value,
@@ -474,6 +560,94 @@ class _IosSegmented extends StatelessWidget {
   final ValueChanged<_SettingsTab> onChanged;
 
   @override
+  State<_IosSegmented> createState() => _IosSegmentedState();
+}
+
+class _IosSegmentedState extends State<_IosSegmented>
+    with SingleTickerProviderStateMixin {
+  final _rowKey = GlobalKey();
+  final List<GlobalKey> _tabKeys = [];
+  late final AnimationController _ctrl;
+  late Animation<double> _left;
+  late Animation<double> _width;
+  double _pillLeft = 0;
+  double _pillWidth = 0;
+  bool _measured = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabKeys.addAll(List.generate(widget.tabs.length, (_) => GlobalKey()));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _left = AlwaysStoppedAnimation(0);
+    _width = AlwaysStoppedAnimation(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _snapTo(widget.value));
+  }
+
+  @override
+  void didUpdateWidget(covariant _IosSegmented old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value) {
+      _animateTo(widget.value);
+    }
+    if (old.tabs.length != widget.tabs.length) {
+      _tabKeys
+        ..clear()
+        ..addAll(List.generate(widget.tabs.length, (_) => GlobalKey()));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _snapTo(widget.value));
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  (double, double)? _rectOf(_SettingsTab tab) {
+    final i = widget.tabs.indexWhere((e) => e.$2 == tab);
+    if (i < 0) return null;
+    final rowBox = _rowKey.currentContext?.findRenderObject() as RenderBox?;
+    final tabBox = _tabKeys[i].currentContext?.findRenderObject() as RenderBox?;
+    if (rowBox == null || tabBox == null || !rowBox.hasSize || !tabBox.hasSize) {
+      return null;
+    }
+    final offset = tabBox.localToGlobal(Offset.zero, ancestor: rowBox);
+    return (offset.dx, tabBox.size.width);
+  }
+
+  void _snapTo(_SettingsTab tab) {
+    final r = _rectOf(tab);
+    if (r == null) return;
+    setState(() {
+      _pillLeft = r.$1;
+      _pillWidth = r.$2;
+      _measured = true;
+      _left = AlwaysStoppedAnimation(_pillLeft);
+      _width = AlwaysStoppedAnimation(_pillWidth);
+    });
+  }
+
+  void _animateTo(_SettingsTab tab) {
+    final r = _rectOf(tab);
+    if (r == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _animateTo(tab));
+      return;
+    }
+    final curve = const _IosSpring();
+    _left = Tween<double>(begin: _pillLeft, end: r.$1)
+        .animate(CurvedAnimation(parent: _ctrl, curve: curve));
+    _width = Tween<double>(begin: _pillWidth, end: r.$2)
+        .animate(CurvedAnimation(parent: _ctrl, curve: curve));
+    _pillLeft = r.$1;
+    _pillWidth = r.$2;
+    _ctrl.forward(from: 0);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(
@@ -482,55 +656,97 @@ class _IosSegmented extends StatelessWidget {
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Row(
-          children: [
-            for (final (label, tab) in tabs)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  decoration: BoxDecoration(
-                    color: value == tab ? cs.surface : Colors.transparent,
-                    borderRadius: BorderRadius.circular(11),
-                    boxShadow: value == tab
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(11),
-                      onTap: () => onChanged(tab),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: value == tab
-                                ? cs.onSurface
-                                : cs.onSurfaceVariant,
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, _) {
+            final left = _measured
+                ? (_ctrl.isAnimating ? _left.value : _pillLeft)
+                : 0.0;
+            final width = _measured
+                ? (_ctrl.isAnimating ? _width.value : _pillWidth)
+                : 0.0;
+            return Stack(
+              key: _rowKey,
+              alignment: Alignment.centerLeft,
+              children: [
+                if (_measured && width > 0)
+                  Positioned(
+                    left: left,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: width,
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        borderRadius: BorderRadius.circular(13),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
+                Row(
+                  children: [
+                    for (var i = 0; i < widget.tabs.length; i++)
+                      KeyedSubtree(
+                        key: _tabKeys[i],
+                        child: _SegTab(
+                          label: widget.tabs[i].$1,
+                          selected: widget.value == widget.tabs[i].$2,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            widget.onChanged(widget.tabs[i].$2);
+                          },
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-          ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SegTab extends StatelessWidget {
+  const _SegTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: onTap,
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 280),
+          curve: const _IosSpring(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: selected ? cs.onSurface : cs.onSurfaceVariant,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Text(label),
+          ),
         ),
       ),
     );
