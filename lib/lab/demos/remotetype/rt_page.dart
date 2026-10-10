@@ -56,8 +56,6 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   // 联调可观测性：本次会话已发出的同步包数（对照 PC 端 envelopesOk，
   // 立刻区分「手机没发」还是「电脑没收」）
   int _syncSent = 0;
-  // 焦点漂移：PC 端告诉我们焦点离开了目标输入框（注入已暂停）
-  bool _focusPaused = false;
 
   // ASR
   final stt.SpeechToText _stt = stt.SpeechToText();
@@ -172,7 +170,6 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
       _connected = true;
       _e2eOk = false;
       _e2eHintShown = false;
-      _focusPaused = false;
     });
   }
 
@@ -182,10 +179,6 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
       case RtEventKind.e2eConfirmed:
         _e2eHintTimer?.cancel();
         setState(() => _e2eOk = true);
-      case RtEventKind.focusPaused:
-        setState(() => _focusPaused = true);
-      case RtEventKind.focusResumed:
-        setState(() => _focusPaused = false);
       case RtEventKind.connected:
         setState(() => _connected = true);
       case RtEventKind.disconnected:
@@ -417,7 +410,6 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
                   _e2eOk = false;
                   _listening = false;
                   _e2eHintShown = false;
-                  _focusPaused = false;
                 });
               },
             ),
@@ -542,24 +534,6 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   Widget _buildInput(BuildContext context) {
     return Column(
       children: [
-        if (_focusPaused)
-          Container(
-            width: double.infinity,
-            color: Colors.orange.shade100,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                Icon(Icons.pause_circle, size: 18, color: Colors.orange.shade800),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '电脑端焦点已离开目标输入框，注入暂停\n点回原输入框后自动恢复',
-                    style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
-                  ),
-                ),
-              ],
-            ),
-          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: Row(
