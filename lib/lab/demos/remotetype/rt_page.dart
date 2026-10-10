@@ -43,6 +43,10 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   bool _e2eOk = false;
   bool _connected = false;
   StreamSubscription<RtEvent>? _eventSub;
+  // 配对未确认提示：key 不一致时 PC 端会静默丢弃全部信封，
+  // 不提示的话用户只看到「打了字没同步」，无从自查
+  Timer? _e2eHintTimer;
+  bool _e2eHintShown = false;
 
   // ASR
   final stt.SpeechToText _stt = stt.SpeechToText();
@@ -83,6 +87,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   void dispose() {
     _pollTimer?.cancel();
     _debounce?.cancel();
+    _e2eHintTimer?.cancel();
     _eventSub?.cancel();
     _textController.dispose();
     _keyController.dispose();
@@ -145,6 +150,8 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
       _session = session;
       _connecting = false;
       _connected = true;
+      _e2eOk = false;
+      _e2eHintShown = false;
     });
   }
 
@@ -152,6 +159,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
     if (!mounted) return;
     switch (e.kind) {
       case RtEventKind.e2eConfirmed:
+        _e2eHintTimer?.cancel();
         setState(() => _e2eOk = true);
       case RtEventKind.connected:
         setState(() => _connected = true);
@@ -182,6 +190,24 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   void _scheduleSync() {
     final session = _session;
     if (session == null) return;
+    // 配对未确认：延迟 2.5s 仍无 ACK 则提示一次（正常 ACK 往返 < 1s）
+    if (!_e2eOk) {
+      _e2eHintTimer?.cancel();
+      _e2eHintTimer = Timer(const Duration(milliseconds: 2500), () {
+        if (mounted && !_e2eOk && !_e2eHintShown) {
+          _e2eHintShown = true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('电脑端未确认配对：请核对两端配对 key 是否完全一致'
+                  '（电脑端重启 serve 会生成新 key）'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      });
+    } else {
+      _e2eHintTimer?.cancel();
+    }
     _debounce?.cancel();
     _debounce = Timer(kRtSyncDebounce, () {
       final text = _textController.text;
@@ -195,6 +221,17 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
 
   // ================= ASR =================
 
+  /// 复位录音状态：错误路径下 onStatus 不一定回调 done/notListening，
+  /// 不主动复位按钮会卡在「停止」态且识别器不释放。
+  void _resetListening() {
+    if (_listening) {
+      unawaited(_stt.stop());
+    }
+    if (mounted) {
+      setState(() => _listening = false);
+    }
+  }
+
   Future<void> _toggleListening() async {
     if (_listening) {
       await _stt.stop();
@@ -207,13 +244,24 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
       _sttAvailable = await _stt.initialize(
         onError: (e) {
           debugPrint('stt error: ${e.errorMsg}');
-          // 引擎层错误上浮；no_match / speech_timeout 是说话停顿的正常反馈，不打扰
+          if (!mounted) return;
+          // 引擎层错误上浮；no_match / speech_timeout 是说话停顿的非致命反馈，不打扰
           const benign = {'error_no_match', 'error_speech_timeout'};
-          if (mounted && !benign.contains(e.errorMsg)) {
+          if (benign.contains(e.errorMsg)) return;
+          // 识别引擎被其他组件占用（典型：键盘自带的语音输入还握着麦克风/识别服务）
+          if (e.errorMsg == 'error_recognizer_busy') {
+            _resetListening();
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('语音识别错误：${e.errorMsg}')),
+              const SnackBar(
+                content: Text('识别引擎被占用：请切回普通键盘（停止键盘的语音输入）后再点语音'),
+              ),
             );
+            return;
           }
+          _resetListening();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('语音识别错误：${e.errorMsg}')),
+          );
         },
         onStatus: (status) {
           if (status == 'done' || status == 'notListening') {
@@ -287,11 +335,13 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
                 _session?.dispose();
                 _session = null;
                 _debounce?.cancel();
+                _e2eHintTimer?.cancel();
                 if (_listening) _stt.stop();
                 setState(() {
                   _connected = false;
                   _e2eOk = false;
                   _listening = false;
+                  _e2eHintShown = false;
                 });
               },
             ),
