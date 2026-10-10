@@ -1,9 +1,10 @@
 // 应用设置：主题入口 + 底栏容量 + 分 Tab 钉选（搜索 / 拖拽排序）。
-// iOS inset grouped 手感：滑动胶囊分段、弹簧切换、拖拽 Q 弹。
+// Tab：Cupertino 原生滑动分段 + 轻淡入；拖拽：本地排序 + 轻量抬起态。
 
 import 'dart:async';
-import 'dart:math' show exp, cos;
+import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,27 +16,16 @@ import '../../core/theme/state/theme_provider.dart';
 import '../profile/lab/game_center/const_game_center.dart';
 import '../profile/theme/theme_page.dart';
 
-/// iOS 轻弹簧：略过冲后回落。
-class _IosSpring extends Curve {
-  const _IosSpring();
-
-  @override
-  double transform(double t) {
-    return 1 - exp(-6.0 * t) * cos(9.0 * t);
-  }
-}
-
-/// 拖拽抬起时的 Q 弹（略强过冲）。
-class _IosDragSpring extends Curve {
-  const _IosDragSpring();
-
-  @override
-  double transform(double t) {
-    return 1 - exp(-4.8 * t) * cos(11.5 * t);
-  }
-}
-
 enum _SettingsTab { general, pinned, core, ai, lab, games }
+
+String _slotLabel(NavPinsState pins, String id) {
+  final vis = pins.visibleIds;
+  final i = vis.indexOf(id);
+  if (i == 0) return '底栏 · 首页';
+  if (i > 0) return '底栏 ${i + 1}';
+  if (pins.overflowIds.contains(id)) return '⋯';
+  return '未钉选';
+}
 
 class AppSettingsPage extends ConsumerStatefulWidget {
   const AppSettingsPage({super.key});
@@ -86,16 +76,8 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: _IosSegmented(
-                tabs: const [
-                  ('通用', _SettingsTab.general),
-                  ('已钉选', _SettingsTab.pinned),
-                  ('核心', _SettingsTab.core),
-                  ('AI', _SettingsTab.ai),
-                  ('实验室', _SettingsTab.lab),
-                  ('游戏', _SettingsTab.games),
-                ],
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: _CupertinoSettingsTabs(
                 value: _tab,
                 onChanged: (t) {
                   setState(() => _tab = t);
@@ -106,37 +88,13 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
               ),
             ),
             Expanded(
+              // 仅淡入淡出：无缩放/滑移叠层，避免「难看」的弹簧感
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 420),
-                switchInCurve: const _IosSpring(),
-                switchOutCurve: Curves.easeInCubic,
-                layoutBuilder: (current, previous) => Stack(
-                  alignment: Alignment.topCenter,
-                  children: [...previous, ?current],
-                ),
-                transitionBuilder: (child, anim) {
-                  final fade = CurvedAnimation(
-                    parent: anim,
-                    curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
-                    reverseCurve: Curves.easeIn,
-                  );
-                  final slide = Tween<Offset>(
-                    begin: const Offset(0.04, 0),
-                    end: Offset.zero,
-                  ).animate(anim);
-                  final scale = Tween<double>(begin: 0.96, end: 1).animate(anim);
-                  return FadeTransition(
-                    opacity: fade,
-                    child: SlideTransition(
-                      position: slide,
-                      child: ScaleTransition(
-                        scale: scale,
-                        alignment: Alignment.topCenter,
-                        child: child,
-                      ),
-                    ),
-                  );
-                },
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, anim) =>
+                    FadeTransition(opacity: anim, child: child),
                 child: KeyedSubtree(
                   key: ValueKey(_tab),
                   child: switch (_tab) {
@@ -286,7 +244,7 @@ class _GeneralPanel extends ConsumerWidget {
   }
 }
 
-class _PinPool extends ConsumerWidget {
+class _PinPool extends ConsumerStatefulWidget {
   const _PinPool({
     required this.searchHint,
     required this.onSearch,
@@ -304,17 +262,60 @@ class _PinPool extends ConsumerWidget {
   final bool showThumb;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PinPool> createState() => _PinPoolState();
+}
+
+class _PinPoolState extends ConsumerState<_PinPool> {
+  /// 拖拽中的本地顺序，避免 provider 回写打断 Reorderable 动画。
+  List<NavEntry>? _dragOrder;
+
+  @override
+  void didUpdateWidget(covariant _PinPool old) {
+    super.didUpdateWidget(old);
+    if (!widget.reorderable) {
+      _dragOrder = null;
+      return;
+    }
+    // 外部列表变化且不在拖拽时，丢弃本地缓存
+    if (_dragOrder == null) return;
+    final localIds = _dragOrder!.map((e) => e.id).join(',');
+    final nextIds = widget.entries.map((e) => e.id).join(',');
+    if (localIds == nextIds) _dragOrder = null;
+  }
+
+  List<NavEntry> get _entries => _dragOrder ?? widget.entries;
+
+  String _slotFor(String id) {
+    final pins = ref.read(navPinsProvider);
+    // 拖拽时用本地顺序估算槽位，避免整表 watch
+    if (_dragOrder != null) {
+      final ids = _dragOrder!.map((e) => e.id).toList();
+      final cap = pins.capacity;
+      final visCount = cap - 1;
+      final i = ids.indexOf(id);
+      if (i < 0) return '未钉选';
+      if (i == 0) return '底栏 · 首页';
+      if (i < visCount) return '底栏 ${i + 1}';
+      return '⋯';
+    }
+    return _slotLabel(pins, id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final entries = _entries;
+    final pins = ref.watch(navPinsProvider);
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: TextField(
-            key: ValueKey(searchHint),
-            onChanged: onSearch,
+            key: ValueKey(widget.searchHint),
+            onChanged: widget.onSearch,
             decoration: InputDecoration(
-              hintText: searchHint,
+              hintText: widget.searchHint,
               prefixIcon: const Icon(Icons.search, size: 20),
               filled: true,
               fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.55),
@@ -326,11 +327,11 @@ class _PinPool extends ConsumerWidget {
             ),
           ),
         ),
-        if (reorderable)
+        if (widget.reorderable)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              '长按拖拽排序。顺序 = 底栏 → ⋯',
+              '长按拖动排序。顺序 = 底栏 → ⋯',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -344,29 +345,32 @@ class _PinPool extends ConsumerWidget {
                     style: TextStyle(color: cs.onSurfaceVariant),
                   ),
                 )
-              : reorderable
+              : widget.reorderable
                   ? ReorderableListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                       itemCount: entries.length,
                       buildDefaultDragHandles: false,
+                      // 提高跟手滚动速度
+                      autoScrollerVelocityScalar: 40,
                       proxyDecorator: (child, index, animation) {
+                        final curved = CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                          reverseCurve: Curves.easeInCubic,
+                        );
                         return AnimatedBuilder(
-                          animation: animation,
+                          animation: curved,
                           builder: (context, child) {
-                            final t = const _IosDragSpring()
-                                .transform(animation.value);
+                            final t = curved.value;
                             return Transform.scale(
-                              scale: 1.0 + 0.055 * t,
-                              child: Transform.translate(
-                                offset: Offset(0, -4 * t),
-                                child: Material(
-                                  elevation: 2 + 14 * t,
-                                  shadowColor:
-                                      Colors.black.withValues(alpha: 0.22),
-                                  color: Colors.transparent,
-                                  borderRadius: BorderRadius.circular(18),
-                                  child: child,
-                                ),
+                              scale: lerpDouble(1.0, 1.03, t)!,
+                              child: Material(
+                                elevation: lerpDouble(0, 10, t)!,
+                                shadowColor:
+                                    Colors.black.withValues(alpha: 0.18),
+                                color: cs.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                child: child,
                               ),
                             );
                           },
@@ -375,33 +379,32 @@ class _PinPool extends ConsumerWidget {
                       },
                       onReorderStart: (_) {
                         HapticFeedback.mediumImpact();
+                        setState(() => _dragOrder = [...widget.entries]);
                       },
                       onReorderEnd: (_) {
-                        HapticFeedback.lightImpact();
+                        HapticFeedback.selectionClick();
                       },
                       onReorder: (oldIndex, newIndex) {
-                        // 在完整 pin 列表上按 id 重排
-                        final full = [...pinnedIds];
-                        final id = entries[oldIndex].id;
-                        final from = full.indexOf(id);
-                        if (from < 0) return;
-                        var toId = newIndex >= entries.length
-                            ? null
-                            : entries[newIndex > oldIndex
-                                    ? newIndex - 1
-                                    : newIndex]
-                                .id;
-                        var to = toId == null
-                            ? full.length
-                            : full.indexOf(toId);
-                        if (to < 0) return;
-                        if (newIndex > oldIndex) to += 1;
-                        ref
-                            .read(navPinsProvider.notifier)
-                            .reorderPins(from, to);
+                        final local = [...(_dragOrder ?? widget.entries)];
+                        if (newIndex > oldIndex) newIndex -= 1;
+                        final item = local.removeAt(oldIndex);
+                        local.insert(newIndex, item);
+                        setState(() => _dragOrder = local);
+
+                        final full = local.map((e) => e.id).toList();
+                        // 若当前是过滤视图，把未显示的 pin 接在后面
+                        final shown = full.toSet();
+                        for (final id in widget.pinnedIds) {
+                          if (!shown.contains(id)) full.add(id);
+                        }
+                        ref.read(navPinsProvider.notifier).setPins(full);
                         ref
                             .read(navMetricsProvider.notifier)
                             .recordClick('设置 · 拖拽排序');
+                        // 下一帧清本地，避免与 provider 打架
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() => _dragOrder = null);
+                        });
                       },
                       itemBuilder: (context, index) {
                         final e = entries[index];
@@ -409,8 +412,17 @@ class _PinPool extends ConsumerWidget {
                           key: ValueKey(e.id),
                           entry: e,
                           pinned: true,
-                          showThumb: showThumb,
+                          slotLabel: _slotFor(e.id),
+                          showThumb: widget.showThumb,
                           dragIndex: index,
+                          onToggle: () {
+                            ref
+                                .read(navPinsProvider.notifier)
+                                .togglePin(e.id);
+                            ref.read(navMetricsProvider.notifier).recordClick(
+                                  '设置 · 关闭 ${e.title}',
+                                );
+                          },
                         );
                       },
                     )
@@ -419,11 +431,21 @@ class _PinPool extends ConsumerWidget {
                       itemCount: entries.length,
                       itemBuilder: (context, index) {
                         final e = entries[index];
+                        final pinned = pins.pinIds.contains(e.id);
                         return _PinTile(
                           key: ValueKey(e.id),
                           entry: e,
-                          pinned: pinnedIds.contains(e.id),
-                          showThumb: showThumb,
+                          pinned: pinned,
+                          slotLabel: _slotLabel(pins, e.id),
+                          showThumb: widget.showThumb,
+                          onToggle: () {
+                            ref
+                                .read(navPinsProvider.notifier)
+                                .togglePin(e.id);
+                            ref.read(navMetricsProvider.notifier).recordClick(
+                                  '设置 · ${pinned ? '关闭' : '打开'} ${e.title}',
+                                );
+                          },
                         );
                       },
                     ),
@@ -433,40 +455,35 @@ class _PinPool extends ConsumerWidget {
   }
 }
 
-class _PinTile extends ConsumerWidget {
+class _PinTile extends StatelessWidget {
   const _PinTile({
     super.key,
     required this.entry,
     required this.pinned,
+    required this.slotLabel,
+    required this.onToggle,
     this.showThumb = false,
     this.dragIndex,
   });
 
   final NavEntry entry;
   final bool pinned;
+  final String slotLabel;
+  final VoidCallback onToggle;
   final bool showThumb;
   final int? dragIndex;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final pins = ref.watch(navPinsProvider);
-    final vis = pins.visibleIds;
-    final slot = vis.contains(entry.id)
-        ? (vis.indexOf(entry.id) == 0
-            ? '底栏 · 首页'
-            : '底栏 ${vis.indexOf(entry.id) + 1}')
-        : pins.overflowIds.contains(entry.id)
-            ? '⋯'
-            : '未钉选';
 
-    final tile = Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      color: cs.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
+    final tile = Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -479,23 +496,18 @@ class _PinTile extends ConsumerWidget {
         ),
         title: Text(entry.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
-          '${entry.groupLabel} · $slot',
+          '${entry.groupLabel} · $slotLabel',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Switch.adaptive(
           value: pinned,
-          onChanged: (_) {
-            ref.read(navPinsProvider.notifier).togglePin(entry.id);
-            ref.read(navMetricsProvider.notifier).recordClick(
-                  '设置 · ${pinned ? '关闭' : '打开'} ${entry.title}',
-                );
-          },
+          onChanged: (_) => onToggle(),
         ),
+      ),
       ),
     );
 
-    // 整行长按拖拽（iOS 列表排序手感）；开关区域仍可点。
     if (dragIndex != null) {
       return ReorderableDelayedDragStartListener(
         index: dragIndex!,
@@ -547,206 +559,57 @@ class _LeadingIcon extends StatelessWidget {
   }
 }
 
-/// iOS UISegmentedControl：底层滑动圆角胶囊 + 弹簧插值。
-class _IosSegmented extends StatefulWidget {
-  const _IosSegmented({
-    required this.tabs,
+/// 系统 Cupertino 滑动分段（原生胶囊跟手，无自定义弹簧过冲）。
+class _CupertinoSettingsTabs extends StatelessWidget {
+  const _CupertinoSettingsTabs({
     required this.value,
     required this.onChanged,
   });
 
-  final List<(String, _SettingsTab)> tabs;
   final _SettingsTab value;
   final ValueChanged<_SettingsTab> onChanged;
 
-  @override
-  State<_IosSegmented> createState() => _IosSegmentedState();
-}
-
-class _IosSegmentedState extends State<_IosSegmented>
-    with SingleTickerProviderStateMixin {
-  final _rowKey = GlobalKey();
-  final List<GlobalKey> _tabKeys = [];
-  late final AnimationController _ctrl;
-  late Animation<double> _left;
-  late Animation<double> _width;
-  double _pillLeft = 0;
-  double _pillWidth = 0;
-  bool _measured = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabKeys.addAll(List.generate(widget.tabs.length, (_) => GlobalKey()));
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 420),
-    );
-    _left = AlwaysStoppedAnimation(0);
-    _width = AlwaysStoppedAnimation(0);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _snapTo(widget.value));
-  }
-
-  @override
-  void didUpdateWidget(covariant _IosSegmented old) {
-    super.didUpdateWidget(old);
-    if (old.value != widget.value) {
-      _animateTo(widget.value);
-    }
-    if (old.tabs.length != widget.tabs.length) {
-      _tabKeys
-        ..clear()
-        ..addAll(List.generate(widget.tabs.length, (_) => GlobalKey()));
-      WidgetsBinding.instance.addPostFrameCallback((_) => _snapTo(widget.value));
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  (double, double)? _rectOf(_SettingsTab tab) {
-    final i = widget.tabs.indexWhere((e) => e.$2 == tab);
-    if (i < 0) return null;
-    final rowBox = _rowKey.currentContext?.findRenderObject() as RenderBox?;
-    final tabBox = _tabKeys[i].currentContext?.findRenderObject() as RenderBox?;
-    if (rowBox == null || tabBox == null || !rowBox.hasSize || !tabBox.hasSize) {
-      return null;
-    }
-    final offset = tabBox.localToGlobal(Offset.zero, ancestor: rowBox);
-    return (offset.dx, tabBox.size.width);
-  }
-
-  void _snapTo(_SettingsTab tab) {
-    final r = _rectOf(tab);
-    if (r == null) return;
-    setState(() {
-      _pillLeft = r.$1;
-      _pillWidth = r.$2;
-      _measured = true;
-      _left = AlwaysStoppedAnimation(_pillLeft);
-      _width = AlwaysStoppedAnimation(_pillWidth);
-    });
-  }
-
-  void _animateTo(_SettingsTab tab) {
-    final r = _rectOf(tab);
-    if (r == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _animateTo(tab));
-      return;
-    }
-    final curve = const _IosSpring();
-    _left = Tween<double>(begin: _pillLeft, end: r.$1)
-        .animate(CurvedAnimation(parent: _ctrl, curve: curve));
-    _width = Tween<double>(begin: _pillWidth, end: r.$2)
-        .animate(CurvedAnimation(parent: _ctrl, curve: curve));
-    _pillLeft = r.$1;
-    _pillWidth = r.$2;
-    _ctrl.forward(from: 0);
-  }
+  static const _tabs = <(String, _SettingsTab)>[
+    ('通用', _SettingsTab.general),
+    ('已钉选', _SettingsTab.pinned),
+    ('核心', _SettingsTab.core),
+    ('AI', _SettingsTab.ai),
+    ('实验室', _SettingsTab.lab),
+    ('游戏', _SettingsTab.games),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) {
-            final left = _measured
-                ? (_ctrl.isAnimating ? _left.value : _pillLeft)
-                : 0.0;
-            final width = _measured
-                ? (_ctrl.isAnimating ? _width.value : _pillWidth)
-                : 0.0;
-            return Stack(
-              key: _rowKey,
-              alignment: Alignment.centerLeft,
-              children: [
-                if (_measured && width > 0)
-                  Positioned(
-                    left: left,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: width,
-                      decoration: BoxDecoration(
-                        color: cs.surface,
-                        borderRadius: BorderRadius.circular(13),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
+    return SizedBox(
+      width: double.infinity,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: CupertinoSlidingSegmentedControl<_SettingsTab>(
+          groupValue: value,
+          backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+          thumbColor: cs.surface,
+          padding: const EdgeInsets.all(3),
+          children: {
+            for (final (label, tab) in _tabs)
+              tab: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight:
+                        value == tab ? FontWeight.w700 : FontWeight.w600,
+                    color: value == tab ? cs.onSurface : cs.onSurfaceVariant,
                   ),
-                Row(
-                  children: [
-                    for (var i = 0; i < widget.tabs.length; i++)
-                      KeyedSubtree(
-                        key: _tabKeys[i],
-                        child: _SegTab(
-                          label: widget.tabs[i].$1,
-                          selected: widget.value == widget.tabs[i].$2,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            widget.onChanged(widget.tabs[i].$2);
-                          },
-                        ),
-                      ),
-                  ],
                 ),
-              ],
-            );
+              ),
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _SegTab extends StatelessWidget {
-  const _SegTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(13),
-        onTap: onTap,
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 280),
-          curve: const _IosSpring(),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: selected ? cs.onSurface : cs.onSurfaceVariant,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            child: Text(label),
-          ),
+          onValueChanged: (v) {
+            if (v == null) return;
+            HapticFeedback.selectionClick();
+            onChanged(v);
+          },
         ),
       ),
     );
