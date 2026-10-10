@@ -13,7 +13,7 @@
     --ink-soft: #5a6574;
     --line: rgba(28, 36, 48, 0.08);
     --separator: rgba(60, 60, 67, 0.12);
-    --glass: rgba(255, 255, 255, 0.78);
+    --glass: rgba(255, 255, 255, 0.28);
     --surface: #f2f2f7; /* iOS grouped bg */
     --card: #ffffff;
     --accent: #2f6f6a;
@@ -168,7 +168,8 @@
   .page {
     position: absolute;
     inset: 0;
-    padding: 8px 16px 108px;
+    /* 内容伸入底栏后方，玻璃才能「采到」背后页面 */
+    padding: 8px 16px calc(88px + env(safe-area-inset-bottom, 0px));
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
@@ -629,11 +630,11 @@
   }
   .hero-quiet p { font-size: 13px; color: var(--ink-soft); line-height: 1.45; }
 
-  /* Bottom bar */
+  /* Bottom bar — 对齐 FR QuickNavBottomBar 液态玻璃近似 */
   .dock-wrap {
     position: absolute;
     left: 0; right: 0; bottom: 0;
-    padding: 0 28px calc(14px + env(safe-area-inset-bottom, 0px));
+    padding: 0 28px calc(16px + env(safe-area-inset-bottom, 0px));
     pointer-events: none;
     z-index: 30;
   }
@@ -641,24 +642,50 @@
     pointer-events: auto;
     height: var(--bar-h);
     border-radius: 999px;
-    background: var(--glass);
-    border: 1px solid rgba(255,255,255,0.65);
-    box-shadow: 0 12px 40px rgba(28,36,48,0.14);
-    backdrop-filter: blur(18px) saturate(1.2);
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.42) 0%,
+        rgba(255, 255, 255, 0.28) 35%,
+        rgba(255, 255, 255, 0.22) 100%
+      );
+    border: 0.8px solid rgba(255, 255, 255, 0.55);
+    box-shadow:
+      0 12px 32px rgba(28, 36, 48, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(28px) saturate(1.35);
+    -webkit-backdrop-filter: blur(28px) saturate(1.35);
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     align-items: center;
     position: relative;
     overflow: hidden;
+    isolation: isolate;
+  }
+  .dock::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.28) 0%,
+      transparent 45%,
+      rgba(255, 255, 255, 0.08) 100%
+    );
+    pointer-events: none;
+    z-index: 0;
   }
   .dock.cap3 { grid-template-columns: repeat(3, 1fr); }
   .dock-pill {
     position: absolute;
-    top: 7px;
-    height: 50px;
+    top: 8px;
+    height: 48px;
     width: 78px;
     border-radius: 999px;
-    background: var(--accent-soft);
+    background: rgba(47, 111, 106, 0.16);
+    border: 1px solid rgba(47, 111, 106, 0.12);
+    box-shadow: 0 0 12px rgba(47, 111, 106, 0.08);
     transition: left .34s cubic-bezier(.2,.85,.2,1), width .2s ease;
     z-index: 0;
   }
@@ -821,6 +848,7 @@
         <li><strong>游戏浏览</strong>：KV 远程封面网格</li>
         <li><strong>实验室浏览</strong>：小卡片打开 demo</li>
         <li><strong>设置</strong>：通用 / 钉选 / 核心 / AI / 实验 / 游戏</li>
+        <li><strong>底栏</strong>：透明液态玻璃（内容透出 + blur）</li>
       </ul>
       <div class="metrics">
         <div class="metric">
