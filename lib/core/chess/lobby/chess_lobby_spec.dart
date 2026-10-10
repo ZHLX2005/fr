@@ -47,6 +47,7 @@ final GameLobbySpec kChessLobbySpec = GameLobbySpec(
     hintText: '与朋友约定同一房间号：谁先进入谁是房主，后到者为对手。规则由房主在准备阶段配置。',
     aliasFieldHint: '如：小白',
     codeFieldHint: '4–6 位大写字母数字',
+    enterBrushWipe: true,
   ),
 );
 

@@ -202,30 +202,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             children: stackKids,
           );
 
-    final mq = MediaQuery.of(context);
-    // extendBody：页面画到底栏背后，BackdropFilter 才能采到内容（液态玻璃前提）。
-    final bodyPadding = mq.padding.copyWith(
-      bottom: QuickNavBottomBar.reserveHeight(context),
-    );
-
     return Stack(
       children: [
         Scaffold(
-          extendBody: true,
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          body: MediaQuery(
-            data: mq.copyWith(padding: bodyPadding),
-            child: body,
-          ),
-          bottomNavigationBar: Material(
-            type: MaterialType.transparency,
-            child: QuickNavBottomBar(
-              visibleEntries: visibleEntries,
-              selectedId: selected,
-              moreSelected: moreSelected,
-              onSelect: (id) => _select(id, source: '底栏'),
-              onMore: () => _openMore(pins),
-            ),
+          body: body,
+          bottomNavigationBar: QuickNavBottomBar(
+            visibleEntries: visibleEntries,
+            selectedId: selected,
+            moreSelected: moreSelected,
+            onSelect: (id) => _select(id, source: '底栏'),
+            onMore: () => _openMore(pins),
           ),
         ),
         const ApkAutoUpdateMount(),

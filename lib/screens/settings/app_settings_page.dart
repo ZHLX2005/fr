@@ -326,20 +326,43 @@ class _PinPoolState extends ConsumerState<_PinPool> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: TextField(
-            key: ValueKey(widget.searchHint),
-            onChanged: widget.onSearch,
-            decoration: InputDecoration(
-              hintText: widget.searchHint,
-              prefixIcon: const Icon(Icons.search, size: 20),
-              filled: true,
-              fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: Material(
+            color: cs.surface,
+            elevation: 0,
+            shadowColor: cs.onSurface.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(980),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(980),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.onSurface.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                  BoxShadow(
+                    color: cs.onSurface.withValues(alpha: 0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              child: TextField(
+                key: ValueKey(widget.searchHint),
+                onChanged: widget.onSearch,
+                decoration: InputDecoration(
+                  hintText: widget.searchHint,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  filled: true,
+                  fillColor: cs.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(980),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
             ),
           ),
         ),
@@ -385,7 +408,7 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                                 shadowColor:
                                     Colors.black.withValues(alpha: 0.18),
                                 color: cs.surface,
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(24),
                                 child: child,
                               ),
                             );
@@ -493,34 +516,73 @@ class _PinTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
+    // 浮卡列表（原型 feature-list：大圆角 + 软阴影，不融进底）
     final tile = Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (dragIndex != null) ...[
-              Icon(Icons.drag_handle_rounded, color: cs.onSurfaceVariant),
-              const SizedBox(width: 4),
-            ],
-            _LeadingIcon(entry: entry, showThumb: showThumb),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: cs.onSurface.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+            BoxShadow(
+              color: cs.onSurface.withValues(alpha: 0.07),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
           ],
         ),
-        title: Text(entry.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          '${entry.groupLabel} · $slotLabel',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.fromLTRB(14, 10, 12, 10),
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (dragIndex != null) ...[
+                  Icon(Icons.drag_handle_rounded,
+                      color: cs.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                ],
+                _LeadingIcon(
+                  entry: entry,
+                  showThumb: showThumb,
+                  pinned: pinned,
+                ),
+              ],
+            ),
+            title: Text(
+              entry.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+              ),
+            ),
+            subtitle: Text(
+              '${entry.groupLabel} · $slotLabel',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            trailing: Switch.adaptive(
+              value: pinned,
+              onChanged: (_) => onToggle(),
+            ),
+          ),
         ),
-        trailing: Switch.adaptive(
-          value: pinned,
-          onChanged: (_) => onToggle(),
-        ),
-      ),
       ),
     );
 
@@ -535,10 +597,15 @@ class _PinTile extends StatelessWidget {
 }
 
 class _LeadingIcon extends StatelessWidget {
-  const _LeadingIcon({required this.entry, required this.showThumb});
+  const _LeadingIcon({
+    required this.entry,
+    required this.showThumb,
+    required this.pinned,
+  });
 
   final NavEntry entry;
   final bool showThumb;
+  final bool pinned;
 
   @override
   Widget build(BuildContext context) {
@@ -550,10 +617,10 @@ class _LeadingIcon extends StatelessWidget {
       final cover = gameCenterCoverOf(slug, kGameCenterSkinSmall);
       if (cover != null) {
         return ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           child: SizedBox(
-            width: 36,
-            height: 36,
+            width: 46,
+            height: 46,
             child: Image(
               image: cover,
               fit: BoxFit.cover,
@@ -566,33 +633,39 @@ class _LeadingIcon extends StatelessWidget {
       if (meta != null) return _gameFallback(meta, entry.icon);
     }
     return Container(
-      width: 36,
-      height: 36,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+        color: pinned
+            ? cs.primaryContainer.withValues(alpha: 0.85)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.9),
+        shape: BoxShape.circle,
       ),
-      child: Icon(entry.icon, color: cs.primary, size: 18),
+      child: Icon(
+        entry.icon,
+        color: pinned ? cs.onPrimaryContainer : cs.primary,
+        size: 20,
+      ),
     );
   }
 
   Widget _gameFallback(GameMeta? meta, IconData icon) {
     if (meta == null) {
       return Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
+        width: 46,
+        height: 46,
+        decoration: const BoxDecoration(
           color: Colors.black12,
-          borderRadius: BorderRadius.circular(10),
+          shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 18),
+        child: Icon(icon, size: 20),
       );
     }
     return Container(
-      width: 36,
-      height: 36,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        shape: BoxShape.circle,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

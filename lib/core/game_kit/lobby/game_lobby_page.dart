@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import '../../../services/lua/lua_game_alias.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '_lobby_form.dart';
+import 'brush_wipe_overlay.dart';
 import 'game_lobby_slots.dart';
 import 'game_lobby_spec.dart';
 
@@ -48,6 +49,8 @@ class GameLobbyPageState extends State<GameLobbyPage> {
   final TextEditingController _aliasCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
   bool _busy = false;
+  bool _wiping = false;
+  VoidCallback? _pendingStarted;
   String? _error;
 
   // dualEntry-only：
@@ -142,7 +145,13 @@ class GameLobbyPageState extends State<GameLobbyPage> {
       // （team_card: needsConfig 等基于 snapshot 的判断）
       final ctx = LobbyStartedCtx();
       widget.slots.onStartedExtras?.call(ctx, h);
-      widget.onStarted(h, ctx);
+      void fire() => widget.onStarted(h, ctx);
+      if (widget.spec.copy.enterBrushWipe) {
+        _pendingStarted = fire;
+        setState(() => _wiping = true);
+      } else {
+        fire();
+      }
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
       setState(() {
@@ -299,32 +308,50 @@ class GameLobbyPageState extends State<GameLobbyPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: Text(widget.spec.title),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        actions: [
-          ...?widget.slots.actionsBuilder?.call(context),
-          if (widget.spec.flow == LobbyFlowType.dualEntry &&
-              _phase == _DualEntryPhase.room)
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: _resetToEntry,
-              tooltip: '断开',
+    final cs = Theme.of(context).colorScheme;
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: cs.surfaceContainerLowest,
+          appBar: AppBar(
+            title: Text(widget.spec.title),
+            backgroundColor: cs.surfaceContainerLowest,
+            elevation: 0,
+            actions: [
+              ...?widget.slots.actionsBuilder?.call(context),
+              if (widget.spec.flow == LobbyFlowType.dualEntry &&
+                  _phase == _DualEntryPhase.room)
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: _resetToEntry,
+                  tooltip: '断开',
+                ),
+            ],
+          ),
+          body: SafeArea(
+            child: switch (widget.spec.flow) {
+              LobbyFlowType.smartMatch => _buildSmartMatchEntry(),
+              LobbyFlowType.dualEntry =>
+                _phase == _DualEntryPhase.entry
+                    ? _buildDualEntryEntry()
+                    : const Center(child: CircularProgressIndicator()),
+            },
+          ),
+        ),
+        if (_wiping)
+          Positioned.fill(
+            child: BrushWipeOverlay(
+              tint: cs.primary,
+              onDone: () {
+                if (!mounted) return;
+                setState(() => _wiping = false);
+                final pending = _pendingStarted;
+                _pendingStarted = null;
+                pending?.call();
+              },
             ),
-        ],
-      ),
-      body: SafeArea(
-        child: switch (widget.spec.flow) {
-          LobbyFlowType.smartMatch => _buildSmartMatchEntry(),
-          LobbyFlowType.dualEntry =>
-            _phase == _DualEntryPhase.entry
-                ? _buildDualEntryEntry()
-                : const Center(child: CircularProgressIndicator()),
-        },
-      ),
+          ),
+      ],
     );
   }
 

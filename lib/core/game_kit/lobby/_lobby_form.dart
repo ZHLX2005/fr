@@ -139,69 +139,100 @@ class _LobbyFormState extends State<LobbyForm> {
               ],
               Icon(
                 widget.spec.heroIcon,
-                size: 56,
-                color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                size: 52,
+                color: theme.colorScheme.primary.withValues(alpha: 0.55),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 widget.spec.heroTagline,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 24),
-
-              // 昵称字段
-              TextField(
-                controller: widget.aliasCtrl,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  labelText: '昵称',
-                  hintText: copy.aliasFieldHint,
-                  prefixIcon: const Icon(Icons.person_outline),
-                ),
-                onChanged: LuaGameAlias.save,
-              ),
-              const SizedBox(height: 12),
-
-              // 房间号字段（可选随机号按钮 suffix）
-              TextField(
-                controller: widget.codeCtrl,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  labelText: '房间号',
-                  hintText: copy.codeFieldHint,
-                  prefixIcon: const Icon(Icons.tag),
-                  suffixIcon: copy.randomCodeEnabled
-                      ? IconButton(
-                          icon: const Icon(Icons.casino_outlined),
-                          tooltip: copy.randomCodeHint ?? '生成随机号',
-                          onPressed: _generateRandomCode,
-                        )
-                      : null,
-                ),
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  letterSpacing: 4,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  height: 1.35,
                 ),
-                textCapitalization: TextCapitalization.characters,
-                maxLength: maxLen,
-                onSubmitted: (_) =>
-                    widget.busy ? null : widget.onPrimary(),
+              ),
+              const SizedBox(height: 28),
+
+              // 浮卡表单（原型 feature-list 落盘）
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                    BoxShadow(
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.07),
+                      blurRadius: 28,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: widget.aliasCtrl,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 16,
+                          ),
+                          labelText: '昵称',
+                          hintText: copy.aliasFieldHint,
+                          prefixIcon: const Icon(Icons.person_outline),
+                        ),
+                        onChanged: LuaGameAlias.save,
+                      ),
+                      Divider(
+                        height: 1,
+                        indent: 14,
+                        endIndent: 14,
+                        color: theme.colorScheme.outline
+                            .withValues(alpha: 0.35),
+                      ),
+                      TextField(
+                        controller: widget.codeCtrl,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 16,
+                          ),
+                          labelText: '房间号',
+                          hintText: copy.codeFieldHint,
+                          prefixIcon: const Icon(Icons.tag),
+                          counterText: '',
+                          suffixIcon: copy.randomCodeEnabled
+                              ? IconButton(
+                                  icon: const Icon(Icons.casino_outlined),
+                                  tooltip: copy.randomCodeHint ?? '生成随机号',
+                                  onPressed: _generateRandomCode,
+                                )
+                              : null,
+                        ),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          letterSpacing: 4,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                        maxLength: maxLen,
+                        onSubmitted: (_) =>
+                            widget.busy ? null : widget.onPrimary(),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 4),
 
@@ -209,29 +240,33 @@ class _LobbyFormState extends State<LobbyForm> {
               if (widget.formExtras != null)
                 ...widget.formExtras!(context),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
 
-              // 主按钮
+              // 主按钮 — 胶囊
               FilledButton(
                 onPressed: widget.busy ? null : widget.onPrimary,
                 style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  minimumSize: const Size(double.infinity, 56),
+                  backgroundColor: theme.colorScheme.tertiary,
+                  foregroundColor: theme.colorScheme.onTertiary,
+                  elevation: 0,
+                  shape: const StadiumBorder(),
                 ),
                 child: widget.busy
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.onTertiary,
+                        ),
                       )
                     : Text(
                         copy.primaryBtnText,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 2,
+                          letterSpacing: 1.5,
                         ),
                       ),
               ),
@@ -239,29 +274,24 @@ class _LobbyFormState extends State<LobbyForm> {
               // 次按钮（仅 dualEntry）
               if (widget.showSecondaryButton &&
                   copy.secondaryBtnText != null) ...[
-                const SizedBox(height: 8),
-                OutlinedButton(
+                const SizedBox(height: 10),
+                TextButton(
                   onPressed: widget.busy ? null : widget.onSecondary,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
                   child: Text(
                     copy.secondaryBtnText!,
-                    style: const TextStyle(
-                      fontSize: 14,
+                    style: TextStyle(
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               // 提示行（在下面）
-              if (copy.hintPosition == HintPosition.bottom) _HintCard(spec: widget.spec),
+              if (copy.hintPosition == HintPosition.bottom)
+                _HintCard(spec: widget.spec),
 
               // 错误块
               if (widget.error != null) ...[
@@ -307,32 +337,26 @@ class _HintCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final copy = spec.copy;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: Text(
-              copy.hintIcon,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                fontSize: 13,
-              ),
+          Text(
+            copy.hintIcon,
+            style: TextStyle(
+              color: theme.colorScheme.primary,
+              fontSize: 14,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               copy.hintText,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
-                height: 1.4,
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.55,
+                fontSize: 13,
               ),
             ),
           ),
