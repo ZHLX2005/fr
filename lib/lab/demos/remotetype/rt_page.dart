@@ -48,8 +48,11 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   Timer? _e2eHintTimer;
   bool _e2eHintShown = false;
   // 合成区缓滞上传：输入法语音识别常把已识别汉字长期留在 composing 区
-  // 且结束合成时不再触发文本变更，仅靠「合成结束补发」会永久不同步
   Timer? _composingTimer;
+  // 控制器事件状态：onChanged 只在文本变化时触发，「结束合成」（composing
+  // 清空但文本不变）那帧只有 controller 监听能捕获——语音文字卡同步的根因
+  bool _wasComposing = false;
+  String _lastEventText = '';
   // 联调可观测性：本次会话已发出的同步包数（对照 PC 端 envelopesOk，
   // 立刻区分「手机没发」还是「电脑没收」）
   int _syncSent = 0;
@@ -69,6 +72,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   @override
   void initState() {
     super.initState();
+    _textController.addListener(_onControllerChanged);
     _refreshClients();
     // 配对页可见期间轮询在线列表（连上后页面切换，轮询空转开销可忽略）
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
@@ -102,6 +106,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
     _composingTimer?.cancel();
     _e2eHintTimer?.cancel();
     _eventSub?.cancel();
+    _textController.removeListener(_onControllerChanged);
     _textController.dispose();
     _keyController.dispose();
     _tokenController.dispose();
@@ -191,22 +196,40 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
 
   // ================= 同步 =================
 
-  void _onTextChanged(String _) {
-    final value = _textController.value;
-    if (value.composing != TextRange.empty) {
-      // IME 合成中挂起。但输入法语音识别常把「已识别的汉字」长期置于合成区，
-      // 且部分输入法结束合成时不触发文本变更——只等补发会永久不同步。
-      // 缓解：合成区内容含 CJK（语音中间结果已是汉字）时，静默 1.5s 直接上传；
-      // 纯 ASCII（拼音拼写中）继续等合成结束，避免把拼音中间态推给电脑。
+  /// 控制器级监听（不用 onChanged：它只在文本变化时触发，收尾帧捕获不到）。
+  ///
+  /// 输入法语音的完整事件序列：
+  ///   ① 语音逐字上屏：文本变 + composing 挂着 → 挂起（拼音中间态不上传）
+  ///   ② 结束合成：composing 清空但【文本不变】→ 只有这里能捕获 → 补发
+  ///   ③ 部分输入法从不结束合成 → 静默 1.5s 且合成区已是汉字 → 直接上传
+  void _onControllerChanged() {
+    final v = _textController.value;
+    final composing = v.composing != TextRange.empty;
+    final textChanged = v.text != _lastEventText;
+
+    if (composing) {
+      _wasComposing = true;
+      if (!textChanged) return; // 纯光标/选区移动
+      _lastEventText = v.text;
       _composingTimer?.cancel();
       _composingTimer = Timer(const Duration(milliseconds: 1500), () {
-        final v = _textController.value;
-        if (!mounted || v.composing == TextRange.empty) return;
-        if (_hasCjk(v.composing.textInside(v.text))) _scheduleSync();
+        final vv = _textController.value;
+        if (!mounted || vv.composing == TextRange.empty) return;
+        if (_hasCjk(vv.composing.textInside(vv.text))) {
+          _lastEventText = vv.text;
+          _scheduleSync();
+        }
       });
       return;
     }
-    _scheduleSync();
+
+    _composingTimer?.cancel();
+    final wasComposing = _wasComposing;
+    _wasComposing = false;
+    if (textChanged || wasComposing) {
+      _lastEventText = v.text;
+      _scheduleSync();
+    }
   }
 
   /// 是否含 CJK 统表汉字（语音识别中间结果；拼音拼写中间态只含 ASCII）
@@ -538,7 +561,6 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
             padding: const EdgeInsets.all(12),
             child: TextField(
               controller: _textController,
-              onChanged: _onTextChanged,
               onTapOutside: (_) {
                 // 点输入框外通常触发 IME 收起/合成结束；合成区仍挂着时兜底强制同步，
                 // 覆盖「合成永不结束也不再有文本变更」的输入法
