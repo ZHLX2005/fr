@@ -394,6 +394,9 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 键盘不压缩页面：输入框固定高度，键盘直接覆盖底部（与网页控制台一致）。
+      // 配对页自行用 viewInsets 兜底（见 _buildPairing）。
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('远程输入（联机）'),
         actions: [
@@ -425,9 +428,13 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
 
   Widget _buildPairing() {
     final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+    // Scaffold 已关 resizeToAvoidBottomInset：这里用 viewInsets 把整块内容
+    // 抬到键盘上方，SingleChildScrollView 保证极小屏仍可滚动
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -532,111 +539,137 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
           ],
         ),
       ),
+      ),
     );
   }
 
   Widget _buildInput(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Row(
-            children: [
-              Icon(
-                _e2eOk ? Icons.lock : Icons.lock_open,
-                size: 16,
-                color: _e2eOk ? Colors.green : Colors.orange,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${_e2eOk
-                      ? '端到端已建立'
-                      : (_connected ? '已连接，等待电脑确认（发一条消息即确认）' : '连接中…')}'
-                  '　已发 $_syncSent 包 · $kRtBuildTag',
-                  style: const TextStyle(fontSize: 12),
+    // 输入框固定高度（屏高的 40%，夹在 180-340 之间）：Scaffold 已关
+    // resizeToAvoidBottomInset，键盘弹起时布局纹丝不动，键盘直接盖住底部。
+    final double fieldHeight =
+        (MediaQuery.sizeOf(context).height * 0.4).clamp(180.0, 340.0);
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(
+              children: [
+                Icon(
+                  _e2eOk ? Icons.lock : Icons.lock_open,
+                  size: 16,
+                  color: _e2eOk ? Colors.green : Colors.orange,
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${_e2eOk
+                        ? '端到端已建立'
+                        : (_connected ? '已连接，等待电脑确认（发一条消息即确认）' : '连接中…')}'
+                    '　已发 $_syncSent 包 · $kRtBuildTag',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        Expanded(
-          child: Padding(
+          // 回车注入开关独占一行：此前挤在语音/清空按钮行里，大字体或手势条
+          // 遮挡时 Row 溢出裁剪，最右侧「换行」段点不到（切换失灵的根因）
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+            child: Row(
+              children: [
+                Text('回车注入', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                const SizedBox(width: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'enter',
+                      label: Text('发送', style: TextStyle(fontSize: 13)),
+                      tooltip: '电脑端敲普通 Enter——多数输入框即「发送」',
+                    ),
+                    ButtonSegment(
+                      value: 'shift_enter',
+                      label: Text('换行', style: TextStyle(fontSize: 13)),
+                      tooltip: '电脑端敲 Shift+Enter——微信等框里只换行不发送',
+                    ),
+                  ],
+                  selected: {_enterMode},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (selection) {
+                    setState(() => _enterMode = selection.first);
+                  },
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _enterMode == 'enter' ? '电脑端敲 Enter（= 发送）' : '电脑端敲 Shift+Enter（换行不发送）',
+                    textAlign: TextAlign.right,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _textController,
-              onTapOutside: (_) {
-                // 点输入框外通常触发 IME 收起/合成结束；合成区仍挂着时兜底强制同步，
-                // 覆盖「合成永不结束也不再有文本变更」的输入法
-                if (_textController.value.composing != TextRange.empty) {
-                  _scheduleSync();
-                }
-              },
-              maxLines: null,
-              expands: true,
-              maxLength: kRtMaxTextLength,
-              textAlignVertical: TextAlignVertical.top,
-              decoration: const InputDecoration(
-                hintText: '在这里打字或说话，内容（含删除）实时对齐到电脑焦点输入框…',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
+            child: SizedBox(
+              height: fieldHeight,
+              child: TextField(
+                controller: _textController,
+                onTapOutside: (_) {
+                  // 点输入框外通常触发 IME 收起/合成结束；合成区仍挂着时兜底强制同步，
+                  // 覆盖「合成永不结束也不再有文本变更」的输入法
+                  if (_textController.value.composing != TextRange.empty) {
+                    _scheduleSync();
+                  }
+                },
+                maxLines: null,
+                maxLength: kRtMaxTextLength,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: const InputDecoration(
+                  hintText: '在这里打字或说话，内容（含删除）实时对齐到电脑焦点输入框…',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
               ),
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          child: Row(
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: _toggleListening,
-                icon: Icon(_listening ? Icons.stop : Icons.mic),
-                label: Text(_listening ? '停止' : '语音'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _listening ? Colors.red.shade100 : null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: () {
-                  _asrBase = '';
-                  _textController.clear();
-                },
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('清空'),
-              ),
-              const SizedBox(width: 8),
-              // 回车注入方式：发送(Enter) / 换行(Shift+Enter)。
-              // compact 防窄屏溢出；切换即时生效（下一条快照就带新模式）
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'enter',
-                    label: Text('发送', style: TextStyle(fontSize: 12)),
-                    tooltip: '电脑端敲普通 Enter——多数输入框即「发送」',
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Row(
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: _toggleListening,
+                  icon: Icon(_listening ? Icons.stop : Icons.mic),
+                  label: Text(_listening ? '停止' : '语音'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _listening ? Colors.red.shade100 : null,
                   ),
-                  ButtonSegment(
-                    value: 'shift_enter',
-                    label: Text('换行', style: TextStyle(fontSize: 12)),
-                    tooltip: '电脑端敲 Shift+Enter——微信等框里只换行不发送',
-                  ),
-                ],
-                selected: {_enterMode},
-                showSelectedIcon: false,
-                onSelectionChanged: (selection) {
-                  setState(() => _enterMode = selection.first);
-                },
-              ),
-              const Spacer(),
-              if (_listening)
-                const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Icon(Icons.graphic_eq, color: Colors.red),
                 ),
-            ],
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    _asrBase = '';
+                    _textController.clear();
+                  },
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('清空'),
+                ),
+                const Spacer(),
+                if (_listening)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Icon(Icons.graphic_eq, color: Colors.red),
+                  ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
