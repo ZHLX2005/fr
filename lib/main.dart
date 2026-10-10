@@ -7,6 +7,9 @@ import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
 import 'core/theme/state/theme_provider.dart';
+import 'core/nav/nav_bootstrap.dart';
+import 'core/nav/nav_metrics_notifier.dart';
+import 'core/nav/nav_pins_notifier.dart';
 import 'services/ai_chat/ai_chat_provider.dart';
 import 'services/ai_chat/agent_chat_provider.dart';
 import 'lab/lab_bootstrap.dart';
@@ -91,6 +94,7 @@ void main() async {
   // bootstrapLab + registerAllFrRoutes 是同步操作,放进这里既保证
   // handler 注册时 routing infrastructure 已就绪,又不会拖慢冷启动。
   bootstrapLab();
+  registerNavBuilders();
   registerAllFrRoutes();
   // ★ 注册桌面 widget MethodChannel（必须在 runApp 之前,handler 在 widget 树之外也可调用）
   const channel = MethodChannel(_kWidgetChannel);
@@ -156,6 +160,8 @@ void main() async {
   // 这样首帧渲染就能拿到正确主题，避免 flash-to-default。
   await container.read(themeNotifierProvider.notifier).hydrate();
   await container.read(TimetableStore.provider.notifier).hydrate();
+  await container.read(navPinsProvider.notifier).hydrate();
+  await container.read(navMetricsProvider.notifier).hydrate();
   // 全局圆环开关：预加载，避免首帧先画出圆环再被关掉（闪一下）
   await container.read(ringEnabledProvider.notifier).load();
 

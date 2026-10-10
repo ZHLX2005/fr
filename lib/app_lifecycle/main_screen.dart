@@ -1,149 +1,257 @@
-// 主屏：底部三 Tab 容器 + 传送带切换动画。
+// 主壳：可配置快捷底栏。
 //
-// 入口即 `_MainScreenState`：
-//   - 左：ProfilePage（主页）
-//   - 中：FocusHomePage（Time 心流）
-//   - 右：HomePage（AI 助手）
-//
-// 切换用双 Transform.translate + RepaintBoundary 缓存渲染层实现"传送带"效果，
-// 只移 GPU 图层不重建 widget 树，详见 fr #3 性能优化注释。
+// - 首页 = 钉选列表第 1 项
+// - 可见槽 IndexedStack + RepaintBoundary（性能）
+// - ⋯ 溢出：Modal sheet，按需 push / 切换
+// - iOS 手感：弹簧胶囊 + 轻量页切换
 
 import 'package:flutter/material.dart';
-import '../screens/profile/profile_page.dart';
-import '../core/focus/focus_home_page.dart';
-import '../screens/chat/home_page.dart';
-import '../widgets/xiaodouzi_bottom_bar.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/nav/nav_catalog.dart';
+import '../core/nav/nav_metrics_notifier.dart';
+import '../core/nav/nav_pins_notifier.dart';
+import '../widgets/quick_nav_bottom_bar.dart';
 import 'apk_auto_update_host.dart';
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen>
-    with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
-
-  // RepaintBoundary 缓存渲染层，Transform 平移时只移 GPU 图层
-  final List<Widget> _pages = const [
-    RepaintBoundary(child: ProfilePage()),    // 主页（左）
-    RepaintBoundary(child: FocusHomePage()),  // Time（中）
-    RepaintBoundary(child: HomePage()),       // AI 助手（右）
-  ];
-
-  late final AnimationController _ctrl;
-  late final CurvedAnimation _pageCurve;
-  bool _isAnimating = false;
-  int _toIndex = 0;
+class _MainScreenState extends ConsumerState<MainScreen> {
+  String? _selectedId;
+  final Map<String, Widget> _pageCache = {};
 
   @override
   void initState() {
     super.initState();
-    // 预热 banner 路径，消除首页切换时 ProfilePage State 重建的占位帧（fr #3）
-    HomeBannerCache.warmUp();
-    _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _pageCurve = CurvedAnimation(
-      parent: _ctrl,
-      curve: Curves.easeInOutQuint,
-    );
-    _ctrl.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        setState(() {
-          _selectedIndex = _toIndex;
-          _isAnimating = false;
-        });
-        _ctrl.reset();
-      }
+    // 目录依赖 lab bootstrap；首次进页时清缓存确保完整
+    invalidateNavCatalogCache();
+  }
+
+  String _resolveSelected(NavPinsState pins) {
+    final id = _selectedId;
+    if (id != null && pins.pinIds.contains(id)) return id;
+    return pins.homeId;
+  }
+
+  Widget _pageFor(String id) {
+    return _pageCache.putIfAbsent(id, () {
+      final entry = navEntryById(id);
+      final child = entry?.builder(context) ??
+          const Center(child: Text('入口不存在'));
+      return RepaintBoundary(child: child);
     });
   }
 
-  @override
-  void dispose() {
-    _pageCurve.dispose();
-    _ctrl.dispose();
-    super.dispose();
+  void _select(String id, {required String source}) {
+    final entry = navEntryById(id);
+    if (entry == null) return;
+    ref.read(navMetricsProvider.notifier).recordClick('$source · ${entry.title}');
+    setState(() => _selectedId = id);
   }
 
-  void _onItemTapped(int index) {
-    if (index == _selectedIndex || _isAnimating) return;
-    _startTransition(index);
-  }
+  Future<void> _openMore(NavPinsState pins) async {
+    ref.read(navMetricsProvider.notifier).recordClick('底栏 · 更多');
+    final overflow = pins.overflowIds
+        .map(navEntryById)
+        .whereType<NavEntry>()
+        .toList();
 
-  void _onAddPressed() {
-    if (_isAnimating) return;
-    _startTransition(2);
-  }
-
-  void _startTransition(int target) {
-    _toIndex = target;
-    _isAnimating = true;
-    setState(() {});
-    _ctrl.forward(from: 0);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 40,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 12, 8, 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          '更多',
+                          style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _select('core-settings', source: '更多');
+                          },
+                          child: const Text('设置'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (overflow.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                      child: Text(
+                        '没有溢出快捷。在设置里打开更多入口，或把容量调成 3。',
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
+                      child: GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        children: [
+                          for (final e in overflow)
+                            _MoreCell(
+                              entry: e,
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                _select(e.id, source: '更多');
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final pins = ref.watch(navPinsProvider);
+    // pin 变更时丢弃已移除页的缓存，避免泄漏
+    _pageCache.removeWhere((id, _) => !pins.pinIds.contains(id) && id != _selectedId);
+
+    final selected = _resolveSelected(pins);
+    _selectedId = selected;
+
+    final visibleEntries = pins.visibleIds
+        .map(navEntryById)
+        .whereType<NavEntry>()
+        .toList();
+
+    final visibleIndex = visibleEntries.indexWhere((e) => e.id == selected);
+    final moreSelected = visibleIndex < 0;
+
+    // 可见槽始终留在 IndexedStack（带 Key），避免切到 ⋯ 时丢掉 State。
+    // 溢出页作为额外末位子节点，仅在 moreSelected 时显示。
+    final stackKids = <Widget>[
+      for (final e in visibleEntries)
+        KeyedSubtree(key: ValueKey(e.id), child: _pageFor(e.id)),
+      if (moreSelected)
+        KeyedSubtree(
+          key: ValueKey('overflow-$selected'),
+          child: _pageFor(selected),
+        ),
+    ];
+    final body = stackKids.isEmpty
+        ? const SizedBox.shrink()
+        : IndexedStack(
+            index: moreSelected
+                ? stackKids.length - 1
+                : visibleIndex.clamp(0, stackKids.length - 1),
+            sizing: StackFit.expand,
+            children: stackKids,
+          );
+
     return Stack(
       children: [
         Scaffold(
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              final w = constraints.maxWidth;
-              return Stack(
-                children: [
-                  // 底层：目标页面（静止不动）
-                  SizedBox(
-                    width: w,
-                    child: _pages[_isAnimating ? _toIndex : _selectedIndex],
-                  ),
-                  // 覆盖层：双页同时平移（传送带效果）
-                  if (_isAnimating)
-                    AnimatedBuilder(
-                      animation: _pageCurve,
-                      builder: (context, _) {
-                        final isForward = _toIndex > _selectedIndex;
-                        final t = _pageCurve.value;
-                        // 新页从异侧滑入，旧页往同侧滑出
-                        final newDx = isForward ? (1 - t) * w : -(1 - t) * w;
-                        final oldDx = isForward ? -t * w : t * w;
-                        return SizedBox(
-                          width: w,
-                          child: Stack(
-                            children: [
-                              Transform.translate(
-                                offset: Offset(newDx, 0),
-                                child:
-                                    SizedBox(width: w, child: _pages[_toIndex]),
-                              ),
-                              Transform.translate(
-                                offset: Offset(oldDx, 0),
-                                child: SizedBox(
-                                    width: w,
-                                    child: _pages[_selectedIndex]),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                ],
-              );
-            },
-          ),
-          bottomNavigationBar: XiaoDouZiBottomBar(
-            currentIndex: _isAnimating ? _toIndex : _selectedIndex,
-            onItemSelected: _onItemTapped,
-            onAddPressed: _onAddPressed,
+          body: body,
+          bottomNavigationBar: QuickNavBottomBar(
+            visibleEntries: visibleEntries,
+            selectedId: selected,
+            moreSelected: moreSelected,
+            onSelect: (id) => _select(id, source: '底栏'),
+            onMore: () => _openMore(pins),
           ),
         ),
-        // 隐藏宿主：开关开启时挂载 APK 自动检查/下载触发逻辑（0x0 不可见）
         const ApkAutoUpdateMount(),
       ],
+    );
+  }
+}
+
+class _MoreCell extends StatelessWidget {
+  const _MoreCell({required this.entry, required this.onTap});
+
+  final NavEntry entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(entry.icon, color: cs.primary, size: 18),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                entry.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

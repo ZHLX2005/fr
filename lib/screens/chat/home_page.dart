@@ -10,7 +10,7 @@ import '../../core/ai_chat/system_messages/system_messages_page.dart';
 ///
 /// 一个条目 = 一份配置：纯数据 + 目标页面构造闭包，
 /// 将「有哪些功能」与「怎么渲染」解耦。新增功能只需往
-/// [_entries] 追加一项。
+/// [kAssistantEntries] 追加一项。
 class AssistantEntry {
   final IconData icon;
   final String title; // 主题
@@ -33,7 +33,9 @@ class AssistantEntry {
 }
 
 /// 功能列表单一数据源。加第 N 个功能 = 在此追加一项。
-final List<AssistantEntry> _entries = [
+///
+/// 快捷导航目录 [buildNavCatalog] 复用此列表，使 AI 拆分与本页入口一致。
+final List<AssistantEntry> kAssistantEntries = [
   AssistantEntry(
     icon: Icons.assistant,
     title: 'Agent',
@@ -121,14 +123,14 @@ class HomePage extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _entries.length,
+                itemCount: kAssistantEntries.length,
                 separatorBuilder: (context, index) => const Divider(
                   height: 1,
                   indent: 84,
                   endIndent: 16,
                 ),
                 itemBuilder: (context, index) =>
-                    _AssistantTile(entry: _entries[index]),
+                    _AssistantTile(entry: kAssistantEntries[index]),
               ),
             ),
           ],

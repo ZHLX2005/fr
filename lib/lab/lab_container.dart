@@ -37,6 +37,11 @@ abstract class DemoPage {
   /// 时间页：true 时在 Focus 主页显示入口，并从 Lab 列表隐藏。
   /// 与 [type] 正交（一个 demo 可同时是 game 或 util，timePage 只决定是否进 Focus）。
   bool get timePage => false;
+
+  /// 快捷导航 / 底栏图标。null 时由 nav 目录回退：
+  /// 游戏 → GameMeta.icon；其它 → DemoType 默认 icon。
+  /// 与 [slug] 一样 co-located：需要独特图标时在本 demo 文件 override。
+  IconData? get navIcon => null;
 }
 
 /// Demo 分类 - 用于按类型过滤（如游戏中心）

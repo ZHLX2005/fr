@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小豆子 · 主壳导航原型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1c2430;
+    --ink-soft: #5a6574;
+    --line: rgba(28, 36, 48, 0.08);
+    --separator: rgba(60, 60, 67, 0.12);
+    --glass: rgba(255, 255, 255, 0.78);
+    --surface: #f2f2f7; /* iOS grouped bg */
+    --card: #ffffff;
+    --accent: #2f6f6a;
+    --accent-soft: rgba(47, 111, 106, 0.12);
+    --danger: #ff3b30;
+    --shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+    --r-sm: 12px;
+    --r-md: 16px;
+    --r-lg: 28px;
+    --bar-h: 64px;
+    --phone-w: 390px;
+    --phone-h: 844px;
+    /* iOS-ish curves */
+    --ease-ios: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+    --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+    --press: 0.97;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  body {
+    font-family: "Figtree", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(900px 500px at 15% 10%, #d9e8e4 0%, transparent 55%),
+      radial-gradient(700px 480px at 90% 80%, #efe4d4 0%, transparent 50%),
+      linear-gradient(160deg, #e8ebe7, #f6f3ee 45%, #e7ecec);
+    display: grid;
+    place-items: center;
+    padding: 32px 16px;
+    gap: 28px;
+  }
+
+  .stage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 36px;
+    align-items: flex-start;
+    justify-content: center;
+    max-width: 1100px;
+  }
+
+  .brief {
+    width: min(340px, 100%);
+    padding: 8px 4px;
+  }
+  .brief h1 {
+    font-family: "Syne", sans-serif;
+    font-size: 28px;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .brief p {
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+  .brief ul {
+    list-style: none;
+    display: grid;
+    gap: 8px;
+  }
+  .brief li {
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+  }
+  .brief li strong { color: var(--accent); font-weight: 700; }
+  .metrics {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .metric {
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--ink);
+    color: #f7f4ee;
+  }
+  .metric .n {
+    font-family: "Syne", sans-serif;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+  }
+  .metric .l { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+
+  /* Phone */
+  .phone {
+    width: var(--phone-w);
+    height: var(--phone-h);
+    border-radius: 44px;
+    background: #0f1216;
+    padding: 12px;
+    box-shadow:
+      0 40px 80px rgba(20, 28, 36, 0.28),
+      inset 0 0 0 1px rgba(255,255,255,0.08);
+    position: relative;
+  }
+  .phone-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 34px;
+    overflow: hidden;
+    background: var(--surface);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .notch {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 118px;
+    height: 28px;
+    background: #0f1216;
+    border-radius: 20px;
+    z-index: 20;
+  }
+  .status {
+    height: 54px;
+    padding: 18px 22px 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    position: relative;
+    z-index: 5;
+  }
+
+  .screen {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .page {
+    position: absolute;
+    inset: 0;
+    padding: 8px 16px 108px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    opacity: 0;
+    transform: translateX(12px) scale(0.992);
+    filter: blur(0);
+    pointer-events: none;
+    transition:
+      opacity .38s var(--ease-ios),
+      transform .48s var(--ease-ios);
+    will-change: transform, opacity;
+  }
+  .page.active {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .page.exit-left {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.992);
+  }
+
+  .page-head {
+    margin: 8px 0 18px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .page-head h2 {
+    font-family: "Syne", sans-serif;
+    font-size: 28px;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .page-head .sub {
+    margin-top: 6px;
+    color: var(--ink-soft);
+    font-size: 13px;
+  }
+
+  /* Lab */
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(118, 118, 128, 0.12);
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    transition: background .2s ease, transform .22s var(--ease-spring);
+  }
+  .search:focus-within {
+    background: rgba(118, 118, 128, 0.18);
+  }
+  .search input {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    width: 100%;
+    font: inherit;
+    font-size: 16px; /* iOS avoids zoom */
+    color: var(--ink);
+  }
+  .search input::placeholder { color: rgba(60,60,67,0.45); }
+  .chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 14px;
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto;
+    border: 0;
+    background: rgba(255,255,255,0.65);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .18s ease;
+  }
+  .chip.on {
+    background: var(--ink);
+    color: #f7f4ee;
+    border-color: var(--ink);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .card {
+    background: var(--card);
+    border: 0;
+    border-radius: var(--r-md);
+    padding: 14px 12px 12px;
+    min-height: 112px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
+    cursor: pointer;
+    transform: translateY(10px);
+    opacity: 0;
+    animation: rise .55s var(--ease-ios) forwards;
+    transition: transform .22s var(--ease-spring), box-shadow .22s ease;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card:nth-child(1) { animation-delay: .02s; }
+  .card:nth-child(2) { animation-delay: .05s; }
+  .card:nth-child(3) { animation-delay: .08s; }
+  .card:nth-child(4) { animation-delay: .11s; }
+  .card:nth-child(5) { animation-delay: .14s; }
+  .card:nth-child(6) { animation-delay: .17s; }
+  .card:active { transform: scale(var(--press)); }
+  .card .ico {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+  .card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .card p {
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.35;
+  }
+  .pin {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    border: 0;
+    background: transparent;
+    color: #b0b7c0;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .pin.on { color: var(--accent); }
+
+  @keyframes rise {
+    to { opacity: 1; transform: none; }
+  }
+
+  /* Game Center — cover storefront (keeps artwork system) */
+  .cover-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .cover {
+    position: relative;
+    border: 0;
+    padding: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    aspect-ratio: 0.92;
+    cursor: pointer;
+    text-align: left;
+    color: #fff;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.14);
+    transform: translateY(12px) scale(0.98);
+    opacity: 0;
+    animation: rise .6s var(--ease-ios) forwards;
+    transition: transform .24s var(--ease-spring);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cover:nth-child(1) { animation-delay: .03s; }
+  .cover:nth-child(2) { animation-delay: .07s; }
+  .cover:nth-child(3) { animation-delay: .11s; }
+  .cover:nth-child(4) { animation-delay: .15s; }
+  .cover:nth-child(5) { animation-delay: .19s; }
+  .cover:nth-child(6) { animation-delay: .23s; }
+  .cover:active { transform: scale(var(--press)); }
+  .cover .art {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.28), transparent 45%),
+      radial-gradient(circle at 80% 70%, rgba(0,0,0,0.18), transparent 40%),
+      var(--g, linear-gradient(145deg, #3d6b66, #1f3d3a));
+  }
+  .cover .art::after {
+    content: attr(data-glyph);
+    position: absolute;
+    right: 10px;
+    top: 14px;
+    font-size: 42px;
+    opacity: 0.22;
+    line-height: 1;
+  }
+  .cover .meta {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 28px 12px 12px;
+    background: linear-gradient(transparent, rgba(12,16,20,0.72));
+  }
+  .cover .tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 6px;
+  }
+  .cover h3 {
+    font-family: "Syne", sans-serif;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+  .cover p {
+    margin-top: 2px;
+    font-size: 10px;
+    opacity: 0.8;
+  }
+
+  /* AI / Time / Settings content blocks */
+  .stack { display: grid; gap: 10px; }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: var(--card);
+    border: 0;
+    border-radius: var(--r-md);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+    cursor: pointer;
+    transition: transform .22s var(--ease-spring), background .2s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .row:active { transform: scale(var(--press)); background: #f7f7f8; }
+  .row .ico {
+    width: 38px; height: 38px; border-radius: 12px;
+    display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); font-size: 17px;
+  }
+  .row .txt { flex: 1; min-width: 0; }
+  .row .txt b { display: block; font-size: 14px; margin-bottom: 2px; }
+  .row .txt span { font-size: 12px; color: var(--ink-soft); }
+  .row .chev { color: #b7bec8; font-size: 16px; }
+
+  .group {
+    background: var(--card);
+    border: 0;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+  }
+  .group .item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 16px;
+    border-bottom: 0.5px solid var(--separator);
+    font-size: 15px;
+    min-height: 48px;
+    transition: background .15s ease;
+  }
+  .group .item:active { background: rgba(0,0,0,0.04); }
+  .group .item:last-child { border-bottom: 0; }
+  .seg {
+    display: flex;
+    background: rgba(28,36,48,0.06);
+    border-radius: 10px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .seg button {
+    border: 0;
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .seg button.on {
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .toggle {
+    width: 51px; height: 31px; border-radius: 999px;
+    background: rgba(120,120,128,0.32); position: relative; border: 0; cursor: pointer;
+    transition: background .28s var(--ease-ios);
+    flex: 0 0 auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: "";
+    position: absolute; top: 2px; left: 2px;
+    width: 27px; height: 27px; border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.08);
+    transition: transform .38s var(--ease-spring);
+  }
+  .toggle.on::after { transform: translateX(20px); }
+  .toggle:active::after { width: 30px; }
+
+  .pin-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 0.5px solid var(--separator);
+    background: var(--card);
+    transition: background .2s ease, box-shadow .28s var(--ease-ios), transform .28s var(--ease-spring);
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pin-row:last-child { border-bottom: 0; }
+  .pin-row.dragging {
+    opacity: 0.96;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+    transform: scale(1.03);
+    z-index: 5;
+    position: relative;
+    border-radius: 14px;
+  }
+  .pin-row.drag-over {
+    background: rgba(47,111,106,0.08);
+  }
+  .pin-row .grip {
+    width: 18px;
+    color: #b0b7c0;
+    font-size: 14px;
+    letter-spacing: -2px;
+    cursor: grab;
+    flex: 0 0 auto;
+    line-height: 1;
+  }
+  .pin-row .grip:active { cursor: grabbing; }
+  .pin-row .pico {
+    width: 32px; height: 32px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); font-size: 14px;
+    flex: 0 0 auto;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+  }
+  .pin-row .pico.has-cover {
+    color: transparent;
+    box-shadow: inset 0 0 0 1px rgba(28,36,48,0.08);
+  }
+  .cover .kv {
+    position: absolute;
+    top: 10px; left: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(12,16,20,0.45);
+    backdrop-filter: blur(6px);
+    z-index: 2;
+  }
+  .cover .art.has-photo {
+    background-size: cover !important;
+    background-position: center !important;
+  }
+  .cover .art.has-photo::after { opacity: 0.12; }
+  .pin-row .ptxt { flex: 1; min-width: 0; }
+  .pin-row .ptxt b { display: block; font-size: 13px; font-weight: 700; }
+  .pin-row .ptxt span { font-size: 10px; color: var(--ink-soft); }
+  .badge {
+    font-size: 10px; font-weight: 700;
+    padding: 2px 6px; border-radius: 6px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .badge.off { background: rgba(28,36,48,0.06); color: var(--ink-soft); }
+
+  .settings-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    margin-bottom: 12px;
+    padding: 3px;
+    background: rgba(28,36,48,0.06);
+    border-radius: 14px;
+    scrollbar-width: none;
+  }
+  .settings-tabs::-webkit-scrollbar { display: none; }
+  .settings-tabs button {
+    flex: 1 0 auto;
+    border: 0;
+    background: transparent;
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: .18s ease;
+  }
+  .settings-tabs button.on {
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .settings-panel-hint {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin: -4px 0 10px;
+    line-height: 1.4;
+  }
+  .empty-pool {
+    padding: 22px 14px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .hero-quiet {
+    margin-top: 24px;
+    padding: 22px 18px;
+    border-radius: var(--r-md);
+    background:
+      linear-gradient(145deg, rgba(47,111,106,0.14), transparent 55%),
+      var(--card);
+    border: 1px solid var(--line);
+  }
+  .hero-quiet h3 {
+    font-family: "Syne", sans-serif;
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  .hero-quiet p { font-size: 13px; color: var(--ink-soft); line-height: 1.45; }
+
+  /* Bottom bar */
+  .dock-wrap {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 0 28px calc(14px + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+    z-index: 30;
+  }
+  .dock {
+    pointer-events: auto;
+    height: var(--bar-h);
+    border-radius: 999px;
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,0.65);
+    box-shadow: 0 12px 40px rgba(28,36,48,0.14);
+    backdrop-filter: blur(18px) saturate(1.2);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .dock.cap3 { grid-template-columns: repeat(3, 1fr); }
+  .dock-pill {
+    position: absolute;
+    top: 7px;
+    height: 50px;
+    width: 78px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    transition: left .34s cubic-bezier(.2,.85,.2,1), width .2s ease;
+    z-index: 0;
+  }
+  .tab {
+    position: relative;
+    z-index: 1;
+    border: 0;
+    background: transparent;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    gap: 2px;
+    cursor: pointer;
+    color: rgba(47,111,106,0.45);
+    transition: color .2s ease, transform .12s ease;
+  }
+  .tab:active { transform: scale(0.94); }
+  .tab.on { color: var(--accent); }
+  .tab .glyph { font-size: 20px; line-height: 1; }
+  .tab .label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  /* More sheet */
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(16, 20, 26, 0.28);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease;
+    z-index: 40;
+  }
+  .scrim.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: absolute;
+    left: 10px; right: 10px; bottom: 10px;
+    max-height: 72%;
+    background: #fffcf8;
+    border-radius: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+    transform: translateY(110%);
+    transition: transform .38s cubic-bezier(.2,.85,.2,1);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sheet.show { transform: none; }
+  .sheet-handle {
+    width: 36px; height: 4px; border-radius: 99px;
+    background: #d7d2c8; margin: 10px auto 6px;
+  }
+  .sheet-head {
+    padding: 4px 18px 12px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .sheet-head h3 {
+    font-family: "Syne", sans-serif;
+    font-size: 18px;
+  }
+  .sheet-head button {
+    border: 0; background: transparent;
+    color: var(--accent); font: inherit; font-weight: 700; font-size: 13px;
+    cursor: pointer;
+  }
+  .sheet-body {
+    padding: 0 14px 18px;
+    overflow: auto;
+  }
+  .sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .mini {
+    border: 0;
+    background: #f4f1ea;
+    border-radius: 16px;
+    padding: 12px 6px 10px;
+    cursor: pointer;
+    transition: transform .14s ease, background .14s ease;
+  }
+  .mini:active { transform: scale(0.95); }
+  .mini .mico {
+    width: 36px; height: 36px; margin: 0 auto 8px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    background: #fff; color: var(--accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    font-size: 16px;
+  }
+  .mini span {
+    display: block;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .sheet-section {
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding-left: 4px;
+  }
+
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 96px;
+    transform: translateX(-50%) translateY(12px);
+    background: var(--ink);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+    transition: .25s ease;
+    z-index: 60;
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .hint {
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: center;
+    margin-top: 8px;
+  }
+  @media (max-width: 820px) {
+    body { align-content: start; }
+    .brief { order: 2; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <aside class="brief">
+      <h1>主壳导航<br/>交互原型</h1>
+      <p>
+        <strong>钉选单元 = 一个 demo 模块。</strong>
+        游戏中心 / 实验室只是浏览壳（封面 vs 小卡片），不改变钉选粒度。
+      </p>
+      <ul>
+        <li><strong>钉选</strong>：始终 1 demo = 1 快捷单元</li>
+        <li><strong>游戏浏览</strong>：KV 远程封面网格打开 demo</li>
+        <li><strong>实验室浏览</strong>：小卡片打开 demo</li>
+        <li><strong>设置 · 游戏</strong>：列表旁缩略封面，体现已接入封面</li>
+      </ul>
+      <div class="metrics">
+        <div class="metric">
+          <div class="n" id="clickCount">0</div>
+          <div class="l">点击次数（原型计数）</div>
+        </div>
+        <div class="metric">
+          <div class="n" id="searchCount">0</div>
+          <div class="l">检索次数（原型计数）</div>
+        </div>
+      </div>
+      <p class="hint">右侧手机可点：底栏 · ⋯ · 搜索 · 设置里改容量</p>
+    </aside>
+
+    <div class="phone" aria-label="手机原型">
+      <div class="phone-inner">
+        <div class="notch"></div>
+        <div class="status">
+          <span>9:41</span>
+          <span>▮▮▮ ◎</span>
+        </div>
+
+        <div class="screen">
+          <!-- AI Chat (default first pin) -->
+          <section class="page active" data-page="ai-chat">
+            <div class="page-head">
+              <div class="eyebrow">Shortcut 01</div>
+              <h2>AI 对话</h2>
+              <div class="sub">默认首页 = 钉选列表第一项</div>
+            </div>
+            <div class="hero-quiet">
+              <h3>今天想聊点什么？</h3>
+              <p>主壳不再展示入口墙。从底栏直达，或从 ⋯ 打开其它拆分入口。</p>
+            </div>
+            <div class="stack" style="margin-top:14px">
+              <div class="row" data-click="ai-chat-thread">
+                <div class="ico">✦</div>
+                <div class="txt"><b>继续上次对话</b><span>关于课程表同步的草稿</span></div>
+                <div class="chev">›</div>
+              </div>
+              <div class="row" data-click="ai-chat-new">
+                <div class="ico">＋</div>
+                <div class="txt"><b>新对话</b><span>计入一次点击</span></div>
+                <div class="chev">›</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Lab = tools / utils only -->
+          <section class="page" data-page="lab">
+            <div class="page-head">
+              <div class="eyebrow">Tools</div>
+              <h2>实验室</h2>
+              <div class="sub">浏览壳 · 点开的仍是单个 demo 单元</div>
+            </div>
+            <label class="search">
+              <span aria-hidden="true">⌕</span>
+              <input id="labSearch" type="search" placeholder="搜索工具" autocomplete="off" />
+            </label>
+            <div class="chips" id="labChips"></div>
+            <div class="grid" id="labGrid"></div>
+          </section>
+
+          <!-- Game Center = cover storefront -->
+          <section class="page" data-page="games">
+            <div class="page-head">
+              <div class="eyebrow">Storefront</div>
+              <h2>游戏中心</h2>
+              <div class="sub">KV 远程封面优先 · 无则程序化兜底</div>
+            </div>
+            <label class="search">
+              <span aria-hidden="true">⌕</span>
+              <input id="gameSearch" type="search" placeholder="搜索游戏" autocomplete="off" />
+            </label>
+            <div class="chips" id="gameChips"></div>
+            <div class="cover-grid" id="gameGrid"></div>
+          </section>
+
+          <!-- Time -->
+          <section class="page" data-page="time">
+            <div class="page-head">
+              <div class="eyebrow">Focus</div>
+              <h2>Time</h2>
+              <div class="sub">专注入口（可整体钉选）</div>
+            </div>
+            <div class="hero-quiet">
+              <h3>25:00</h3>
+              <p>番茄钟主视图占位。拆分项（统计 / 科目）放在 ⋯ 或后续再钉。</p>
+            </div>
+          </section>
+
+          <!-- Agent -->
+          <section class="page" data-page="ai-agent">
+            <div class="page-head">
+              <div class="eyebrow">AI Split</div>
+              <h2>Agent</h2>
+              <div class="sub">从对话拆出，单独计点击</div>
+            </div>
+            <div class="stack">
+              <div class="row" data-click="agent-run"><div class="ico">◎</div><div class="txt"><b>运行任务</b><span>独立入口</span></div><div class="chev">›</div></div>
+            </div>
+          </section>
+
+          <!-- AI Settings -->
+          <section class="page" data-page="ai-settings">
+            <div class="page-head">
+              <div class="eyebrow">AI Split</div>
+              <h2>AI 设置</h2>
+            </div>
+            <div class="group">
+              <div class="item"><span>模型</span><span style="color:var(--ink-soft)">默认</span></div>
+              <div class="item"><span>系统提示</span><span style="color:var(--ink-soft)">›</span></div>
+            </div>
+          </section>
+
+          <!-- System messages -->
+          <section class="page" data-page="sys-msg">
+            <div class="page-head">
+              <div class="eyebrow">AI Split</div>
+              <h2>系统消息</h2>
+            </div>
+            <div class="stack">
+              <div class="row"><div class="ico">☰</div><div class="txt"><b>同步完成</b><span>2 分钟前</span></div></div>
+              <div class="row"><div class="ico">☰</div><div class="txt"><b>登录成功</b><span>昨天</span></div></div>
+            </div>
+          </section>
+
+          <!-- Generic lab demo host -->
+          <section class="page" data-page="demo-host">
+            <div class="page-head">
+              <div class="eyebrow" id="demoEyebrow">Lab Split</div>
+              <h2 id="demoTitle">Demo</h2>
+              <div class="sub">从实验室拆出的独立入口。钉选只在设置里改。</div>
+            </div>
+            <div class="hero-quiet">
+              <h3 id="demoHero">占位内容</h3>
+              <p>实际 App 会打开对应 demo 页。此处只证明「一个入口 = 一次点击」。</p>
+            </div>
+          </section>
+
+          <!-- App Settings -->
+          <section class="page" data-page="settings">
+            <nav class="settings-tabs" id="settingsTabs" aria-label="设置板块" style="margin-top:8px">
+              <button type="button" data-tab="general" class="on">通用</button>
+              <button type="button" data-tab="pinned">已钉选</button>
+              <button type="button" data-tab="core">核心</button>
+              <button type="button" data-tab="ai">AI</button>
+              <button type="button" data-tab="lab">实验室</button>
+              <button type="button" data-tab="games">游戏</button>
+            </nav>
+
+            <div class="settings-panel" data-panel="general">
+              <div class="sheet-section" style="margin-top:0">外观</div>
+              <div class="group" style="margin-bottom:14px">
+                <div class="item">
+                  <span>主题</span>
+                  <span style="color:var(--ink-soft)">茶禅 ›</span>
+                </div>
+              </div>
+              <div class="sheet-section">底栏</div>
+              <div class="group" style="margin-bottom:14px">
+                <div class="item">
+                  <span>容量（含 ⋯）</span>
+                  <div class="seg" id="capSeg">
+                    <button type="button" data-cap="3">3</button>
+                    <button type="button" data-cap="4" class="on">4</button>
+                  </div>
+                </div>
+              </div>
+              <div class="sheet-section">观测（原型）</div>
+              <div class="group">
+                <div class="item"><span>记录点击</span><button class="toggle on" id="togClick" type="button" aria-label="toggle"></button></div>
+                <div class="item"><span>记录检索</span><button class="toggle on" id="togSearch" type="button" aria-label="toggle"></button></div>
+              </div>
+            </div>
+
+            <div class="settings-panel" data-panel="pinned" hidden>
+              <label class="search">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchPinned" type="search" placeholder="搜索已钉选入口" autocomplete="off" />
+              </label>
+              <p class="settings-panel-hint">按住左侧 ≡ 拖拽排序。顺序 = 底栏前几项 → ⋯ 溢出。</p>
+              <div class="group" id="pinnedList"></div>
+            </div>
+
+            <div class="settings-panel" data-panel="core" hidden>
+              <label class="search">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchCore" type="search" placeholder="搜索核心入口" autocomplete="off" />
+              </label>
+              <p class="settings-panel-hint">可选浏览壳与系统页。钉选主单位仍在「实验室 / 游戏」里的各 demo。</p>
+              <div class="group" id="corePool"></div>
+            </div>
+
+            <div class="settings-panel" data-panel="ai" hidden>
+              <label class="search">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchAi" type="search" placeholder="搜索 AI 入口" autocomplete="off" />
+              </label>
+              <p class="settings-panel-hint">对话 / Agent / AI 设置 / 系统消息</p>
+              <div class="group" id="aiPool"></div>
+            </div>
+
+            <div class="settings-panel" data-panel="lab" hidden>
+              <label class="search">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchLab" type="search" placeholder="搜索实验室 demo" autocomplete="off" />
+              </label>
+              <p class="settings-panel-hint">每个实验室 demo = 一个钉选单元。</p>
+              <div class="group" id="labPool"></div>
+            </div>
+
+            <div class="settings-panel" data-panel="games" hidden>
+              <label class="search">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchGames" type="search" placeholder="搜索游戏 demo" autocomplete="off" />
+              </label>
+              <p class="settings-panel-hint">每个游戏 demo = 一个钉选单元。左侧缩略图 = KV 远程封面（无则程序化兜底）。</p>
+              <div class="group" id="gamesPool"></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="dock-wrap">
+          <nav class="dock" id="dock" aria-label="快捷导航">
+            <div class="dock-pill" id="dockPill"></div>
+          </nav>
+        </div>
+
+        <div class="scrim" id="scrim"></div>
+        <div class="sheet" id="sheet" role="dialog" aria-label="更多快捷">
+          <div class="sheet-handle"></div>
+          <div class="sheet-head">
+            <h3>更多</h3>
+            <button type="button" id="openSettings">设置</button>
+          </div>
+          <div class="sheet-body">
+            <div class="sheet-section">溢出快捷（设置里已开，底栏放不下）</div>
+            <div class="sheet-grid" id="overflowGrid"></div>
+          </div>
+        </div>
+
+        <div class="toast" id="toast"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const CATALOG = [
+    { id: "ai-chat", title: "AI 对话", icon: "💬", group: "ai", page: "ai-chat" },
+    { id: "ai-agent", title: "Agent", icon: "◎", group: "ai", page: "ai-agent" },
+    { id: "ai-settings", title: "AI 设置", icon: "⚙", group: "ai", page: "ai-settings" },
+    { id: "sys-msg", title: "系统消息", icon: "☰", group: "ai", page: "sys-msg" },
+    { id: "time", title: "Time", icon: "⏱", group: "core", page: "time" },
+    { id: "lab", title: "实验室", icon: "⚗", group: "core", page: "lab", hint: "浏览壳 · 非 demo 单元" },
+    { id: "games", title: "游戏中心", icon: "🎮", group: "core", page: "games", hint: "浏览壳 · 非 demo 单元" },
+    { id: "settings", title: "设置", icon: "○", group: "core", page: "settings" },
+    // pin unit = one demo module（实验室）
+    { id: "novel", title: "小说阅读", icon: "文", group: "lab", tag: "tool", unit: "demo" },
+    { id: "palette", title: "调色板", icon: "◐", group: "lab", tag: "tool", unit: "demo" },
+    { id: "qr", title: "二维码", icon: "▣", group: "lab", tag: "util", unit: "demo" },
+    { id: "torch", title: "手电筒", icon: "✶", group: "lab", tag: "util", unit: "demo" },
+    { id: "clock", title: "时钟", icon: "◔", group: "lab", tag: "tool", unit: "demo" },
+    // games：cover 模拟 KV remoteCover（真实 App = gameCenterCoverOf(slug)）
+    { id: "game-2048", title: "2048", icon: "▦", group: "game", tag: "puzzle", unit: "demo", grad: "linear-gradient(145deg,#f0a35e,#c45c4a)", blurb: "益智", cover: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&q=80" },
+    { id: "chess", title: "国际象棋", icon: "♞", group: "game", tag: "board", unit: "demo", grad: "linear-gradient(145deg,#3d5a80,#1b2838)", blurb: "棋游 · 联机", cover: "https://images.unsplash.com/photo-1586165368502-1bad197a6461?w=400&q=80" },
+    { id: "snake", title: "贪吃蛇", icon: "∿", group: "game", tag: "arcade", unit: "demo", grad: "linear-gradient(145deg,#6bbf59,#2f6f3a)", blurb: "街机", cover: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&q=80" },
+    { id: "gomoku", title: "五子棋", icon: "◉", group: "game", tag: "board", unit: "demo", grad: "linear-gradient(145deg,#c9a227,#5c4030)", blurb: "棋游", cover: null },
+    { id: "sudoku", title: "数独", icon: "9", group: "game", tag: "puzzle", unit: "demo", grad: "linear-gradient(145deg,#7aa2c8,#3a4f6a)", blurb: "益智", cover: "https://images.unsplash.com/photo-1611996575749-79a3a250f79e?w=400&q=80" },
+    { id: "tetris", title: "俄罗斯方块", icon: "▤", group: "game", tag: "arcade", unit: "demo", grad: "linear-gradient(145deg,#8b6cff,#3d2a7a)", blurb: "街机", cover: null },
+  ];
+
+  const LAB_DEMOS = CATALOG.filter(x => x.group === "lab");
+  const GAMES = CATALOG.filter(x => x.group === "game");
+  const state = {
+    capacity: 4,
+    // 钉选单元全是单个 demo（+ 可选 AI）；浏览壳默认不钉
+    pins: ["ai-chat", "chess", "novel", "tetris", "palette"],
+    activeId: "ai-chat",
+    labFilter: "all",
+    gameFilter: "all",
+    query: "",
+    gameQuery: "",
+    settingsTab: "general",
+    settingsQuery: { pinned: "", core: "", ai: "", lab: "", games: "" },
+    clicks: 0,
+    searches: 0,
+    trackClick: true,
+    trackSearch: true,
+  };
+
+  const dock = document.getElementById("dock");
+  const dockPill = document.getElementById("dockPill");
+  const overflowGrid = document.getElementById("overflowGrid");
+  const sheet = document.getElementById("sheet");
+  const scrim = document.getElementById("scrim");
+  const toast = document.getElementById("toast");
+  const labChips = document.getElementById("labChips");
+  const labGrid = document.getElementById("labGrid");
+  const gameChips = document.getElementById("gameChips");
+  const gameGrid = document.getElementById("gameGrid");
+  const clickCount = document.getElementById("clickCount");
+  const searchCount = document.getElementById("searchCount");
+
+  const byId = id => CATALOG.find(x => x.id === id);
+  const dedicatedPages = new Set(["ai-chat", "ai-agent", "ai-settings", "sys-msg", "time", "lab", "games", "settings"]);
+
+  function visiblePinIds() {
+    return state.pins.slice(0, state.capacity - 1);
+  }
+  function overflowPinIds() {
+    return state.pins.slice(state.capacity - 1);
+  }
+
+  function bumpClick(label) {
+    if (!state.trackClick) return;
+    state.clicks += 1;
+    clickCount.textContent = state.clicks;
+    showToast(`点击 +1 · ${label}`);
+  }
+  function bumpSearch() {
+    if (!state.trackSearch) return;
+    state.searches += 1;
+    searchCount.textContent = state.searches;
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 1200);
+  }
+
+  function openSheet() {
+    sheet.classList.add("show");
+    scrim.classList.add("show");
+  }
+  function closeSheet() {
+    sheet.classList.remove("show");
+    scrim.classList.remove("show");
+  }
+
+  function fillDemoHost(item) {
+    document.getElementById("demoEyebrow").textContent = (item.tag || "lab").toUpperCase();
+    document.getElementById("demoTitle").textContent = item.title;
+    document.getElementById("demoHero").textContent = item.title;
+  }
+
+  function showPage(id) {
+    const item = byId(id);
+    const pageId = dedicatedPages.has(id) ? (item.page || id) : "demo-host";
+    if (pageId === "demo-host") fillDemoHost(item);
+    state.activeId = id;
+    document.querySelectorAll(".page").forEach(p => {
+      p.classList.toggle("active", p.dataset.page === pageId);
+    });
+    if (id === "lab") renderLab();
+    if (id === "games") renderGames();
+    if (id === "settings") {
+      applySettingsTab();
+      renderSettingsPools();
+    }
+    renderDock();
+    closeSheet();
+  }
+
+  function applySettingsTab() {
+    document.querySelectorAll("#settingsTabs button").forEach(b => {
+      b.classList.toggle("on", b.dataset.tab === state.settingsTab);
+    });
+    document.querySelectorAll(".settings-panel").forEach(p => {
+      p.hidden = p.dataset.panel !== state.settingsTab;
+    });
+  }
+
+  function renderDock() {
+    const pins = visiblePinIds();
+    dock.classList.toggle("cap3", state.capacity === 3);
+    dock.querySelectorAll(".tab").forEach(el => el.remove());
+
+    pins.forEach((id) => {
+      const item = byId(id);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tab" + (state.activeId === id ? " on" : "");
+      btn.innerHTML = `<span class="glyph">${item.icon}</span><span class="label">${item.title}</span>`;
+      btn.addEventListener("click", () => {
+        bumpClick(`底栏 · ${item.title}`);
+        showPage(id);
+      });
+      dock.appendChild(btn);
+    });
+
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "tab" + (!visiblePinIds().includes(state.activeId) ? " on" : "");
+    more.innerHTML = `<span class="glyph">⋯</span><span class="label">更多</span>`;
+    more.addEventListener("click", () => {
+      bumpClick("底栏 · 更多");
+      renderOverflow();
+      openSheet();
+      requestAnimationFrame(placePill);
+    });
+    dock.appendChild(more);
+    requestAnimationFrame(placePill);
+  }
+
+  function placePill() {
+    const tabs = [...dock.querySelectorAll(".tab")];
+    let idx = tabs.findIndex(t => t.classList.contains("on"));
+    if (idx < 0) idx = tabs.length - 1;
+    const tab = tabs[idx];
+    if (!tab) return;
+    const dockRect = dock.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    const w = Math.min(78, tabRect.width - 8);
+    dockPill.style.width = w + "px";
+    dockPill.style.left = (tabRect.left - dockRect.left + (tabRect.width - w) / 2) + "px";
+  }
+
+  function renderOverflow() {
+    overflowGrid.innerHTML = "";
+    const ids = overflowPinIds();
+    if (!ids.length) {
+      overflowGrid.innerHTML = `<div style="grid-column:1/-1;font-size:12px;color:var(--ink-soft);padding:8px">没有溢出项。在设置里打开更多入口，或把容量调成 3。</div>`;
+      return;
+    }
+    ids.forEach(id => {
+      const item = byId(id);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mini";
+      b.innerHTML = `<div class="mico">${item.icon}</div><span>${item.title}</span>`;
+      b.addEventListener("click", () => {
+        bumpClick(`更多 · ${item.title}`);
+        showPage(id);
+      });
+      overflowGrid.appendChild(b);
+    });
+  }
+
+  function slotLabel(id) {
+    const vis = visiblePinIds();
+    const i = vis.indexOf(id);
+    if (i >= 0) return i === 0 ? "底栏 · 首页" : `底栏 ${i + 1}`;
+    const o = overflowPinIds().indexOf(id);
+    if (o >= 0) return `⋯ ${o + 1}`;
+    return "未钉选";
+  }
+
+  function matchQuery(item, q) {
+    if (!q) return true;
+    const s = q.trim().toLowerCase();
+    if (!s) return true;
+    return item.title.toLowerCase().includes(s)
+      || item.id.includes(s)
+      || (item.tag || "").includes(s)
+      || (item.group || "").includes(s);
+  }
+
+  function renderPinRow(item, { draggable }) {
+    const pinned = state.pins.includes(item.id);
+    const row = document.createElement("div");
+    row.className = "pin-row";
+    row.dataset.id = item.id;
+    if (draggable) row.draggable = true;
+    const hasCover = !!(item.cover);
+    const picoStyle = hasCover
+      ? `style="background-image:url('${item.cover}')"`
+      : item.grad
+        ? `style="background:${item.grad};color:#fff"`
+        : "";
+    const sub = item.group === "game"
+      ? (hasCover ? "KV 封面 · demo 单元" : "程序化兜底 · demo 单元")
+      : (item.unit === "demo" ? "demo 单元" : (item.hint || item.group));
+    row.innerHTML = `
+      ${draggable ? `<div class="grip" title="拖拽排序">⋮⋮</div>` : `<div class="grip" style="visibility:hidden">⋮⋮</div>`}
+      <div class="pico ${hasCover ? "has-cover" : ""}" ${picoStyle}>${hasCover ? "" : item.icon}</div>
+      <div class="ptxt">
+        <b>${item.title}</b>
+        <span>${sub} · ${slotLabel(item.id)}</span>
+      </div>
+      <span class="badge ${pinned ? "" : "off"}">${pinned ? "开" : "关"}</span>
+      <button class="toggle ${pinned ? "on" : ""}" type="button" data-pin="${item.id}" aria-label="钉选"></button>
+    `;
+    const tog = row.querySelector("[data-pin]");
+    tog.addEventListener("click", (e) => {
+      e.stopPropagation();
+      togglePin(item.id);
+      bumpClick(`设置 · ${pinned ? "关闭" : "打开"} ${item.title}`);
+    });
+    if (draggable) bindDrag(row);
+    return row;
+  }
+
+  function togglePin(id) {
+    if (state.pins.includes(id)) {
+      if (state.pins.length <= 1) {
+        showToast("至少保留一个快捷入口");
+        return;
+      }
+      state.pins = state.pins.filter(x => x !== id);
+      if (state.activeId === id) state.activeId = state.pins[0];
+    } else {
+      state.pins.push(id);
+    }
+    renderSettingsPools();
+    renderDock();
+  }
+
+  function reorderPins(from, to) {
+    if (!from || !to || from === to) return;
+    const next = [...state.pins];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    state.pins = next;
+    bumpClick("设置 · 拖拽排序");
+    renderSettingsPools();
+    renderDock();
+  }
+
+  function bindDrag(row) {
+    const grip = row.querySelector(".grip");
+    let dragging = false;
+    let fromId = null;
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const over = el && el.closest("#pinnedList .pin-row");
+      document.querySelectorAll("#pinnedList .pin-row.drag-over").forEach(r => {
+        if (r !== over) r.classList.remove("drag-over");
+      });
+      if (over && over.dataset.id !== fromId) over.classList.add("drag-over");
+    };
+
+    const onUp = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      row.classList.remove("dragging");
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const over = el && el.closest("#pinnedList .pin-row");
+      document.querySelectorAll("#pinnedList .pin-row.drag-over").forEach(r => r.classList.remove("drag-over"));
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      if (over) reorderPins(fromId, over.dataset.id);
+      fromId = null;
+    };
+
+    grip.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      dragging = true;
+      fromId = row.dataset.id;
+      row.classList.add("dragging");
+      grip.setPointerCapture?.(e.pointerId);
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    });
+
+    // desktop HTML5 fallback
+    row.draggable = true;
+    row.addEventListener("dragstart", (e) => {
+      fromId = row.dataset.id;
+      row.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", fromId);
+    });
+    row.addEventListener("dragend", () => {
+      row.classList.remove("dragging");
+      document.querySelectorAll(".pin-row.drag-over").forEach(el => el.classList.remove("drag-over"));
+    });
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      if (row.dataset.id !== fromId) row.classList.add("drag-over");
+    });
+    row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      row.classList.remove("drag-over");
+      reorderPins(fromId || e.dataTransfer.getData("text/plain"), row.dataset.id);
+    });
+  }
+
+  function fillPool(el, items, draggable) {
+    el.innerHTML = "";
+    if (!items.length) {
+      el.innerHTML = `<div class="empty-pool">无匹配项</div>`;
+      return;
+    }
+    items.forEach(item => el.appendChild(renderPinRow(item, { draggable })));
+  }
+
+  function renderSettingsPools() {
+    const pinnedItems = state.pins.map(byId).filter(x => matchQuery(x, state.settingsQuery.pinned));
+    const coreItems = CATALOG.filter(x => x.group === "core" && matchQuery(x, state.settingsQuery.core));
+    const aiItems = CATALOG.filter(x => x.group === "ai" && matchQuery(x, state.settingsQuery.ai));
+    const labItems = LAB_DEMOS.filter(x => matchQuery(x, state.settingsQuery.lab));
+    const gameItems = GAMES.filter(x => matchQuery(x, state.settingsQuery.games));
+    fillPool(document.getElementById("pinnedList"), pinnedItems, true);
+    fillPool(document.getElementById("corePool"), coreItems, false);
+    fillPool(document.getElementById("aiPool"), aiItems, false);
+    fillPool(document.getElementById("labPool"), labItems, false);
+    fillPool(document.getElementById("gamesPool"), gameItems, false);
+  }
+
+  function renderLabChips() {
+    const filters = [
+      { id: "all", label: "全部" },
+      { id: "tool", label: "工具" },
+      { id: "util", label: "实用" },
+    ];
+    labChips.innerHTML = "";
+    filters.forEach(f => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip" + (state.labFilter === f.id ? " on" : "");
+      b.textContent = f.label;
+      b.addEventListener("click", () => {
+        state.labFilter = f.id;
+        bumpClick(`Lab 分类 · ${f.label}`);
+        renderLab();
+      });
+      labChips.appendChild(b);
+    });
+  }
+
+  function renderLab() {
+    renderLabChips();
+    const q = state.query.trim().toLowerCase();
+    let list = LAB_DEMOS.filter(x => state.labFilter === "all" || x.tag === state.labFilter);
+    if (q) list = list.filter(x => x.title.toLowerCase().includes(q) || x.id.includes(q));
+
+    labGrid.innerHTML = "";
+    list.forEach(item => {
+      const el = document.createElement("article");
+      el.className = "card";
+      el.innerHTML = `
+        <div class="ico">${item.icon}</div>
+        <h3>${item.title}</h3>
+        <p>${item.tag} · 打开（钉选请去设置）</p>
+      `;
+      el.addEventListener("click", () => {
+        bumpClick(`Lab 卡片 · ${item.title}`);
+        showPage(item.id);
+      });
+      labGrid.appendChild(el);
+    });
+    if (!list.length) {
+      labGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--ink-soft);font-size:13px;padding:28px 8px">无匹配结果</div>`;
+    }
+  }
+
+  function renderGameChips() {
+    const filters = [
+      { id: "all", label: "全部" },
+      { id: "board", label: "棋游" },
+      { id: "arcade", label: "街机" },
+      { id: "puzzle", label: "益智" },
+    ];
+    gameChips.innerHTML = "";
+    filters.forEach(f => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip" + (state.gameFilter === f.id ? " on" : "");
+      b.textContent = f.label;
+      b.addEventListener("click", () => {
+        state.gameFilter = f.id;
+        bumpClick(`游戏分类 · ${f.label}`);
+        renderGames();
+      });
+      gameChips.appendChild(b);
+    });
+  }
+
+  function renderGames() {
+    renderGameChips();
+    const q = state.gameQuery.trim().toLowerCase();
+    let list = GAMES.filter(x => state.gameFilter === "all" || x.tag === state.gameFilter);
+    if (q) list = list.filter(x => x.title.toLowerCase().includes(q) || x.id.includes(q));
+
+    gameGrid.innerHTML = "";
+    list.forEach(item => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cover";
+      const hasCover = !!item.cover;
+      const artStyle = hasCover
+        ? `background-image:url('${item.cover}');`
+        : `--g:${item.grad}`;
+      btn.innerHTML = `
+        <div class="kv">${hasCover ? "KV 封面" : "程序化"}</div>
+        <div class="art ${hasCover ? "has-photo" : ""}" style="${artStyle}" data-glyph="${item.icon}"></div>
+        <div class="meta">
+          <span class="tag">${item.blurb || item.tag}</span>
+          <h3>${item.title}</h3>
+          <p>${hasCover ? "remoteCover · 打开 demo" : "渐变兜底 · 打开 demo"}</p>
+        </div>
+      `;
+      btn.addEventListener("click", () => {
+        bumpClick(`游戏封面 · ${item.title}`);
+        showPage(item.id);
+      });
+      gameGrid.appendChild(btn);
+    });
+    if (!list.length) {
+      gameGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--ink-soft);font-size:13px;padding:28px 8px">无匹配结果</div>`;
+    }
+  }
+
+  let searchTimer;
+  document.getElementById("labSearch").addEventListener("input", (e) => {
+    state.query = e.target.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      if (state.query.trim()) bumpSearch();
+      renderLab();
+    }, 320);
+  });
+
+  let gameSearchTimer;
+  document.getElementById("gameSearch").addEventListener("input", (e) => {
+    state.gameQuery = e.target.value;
+    clearTimeout(gameSearchTimer);
+    gameSearchTimer = setTimeout(() => {
+      if (state.gameQuery.trim()) bumpSearch();
+      renderGames();
+    }, 320);
+  });
+
+  document.getElementById("settingsTabs").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-tab]");
+    if (!btn) return;
+    state.settingsTab = btn.dataset.tab;
+    bumpClick(`设置 · Tab ${btn.textContent}`);
+    applySettingsTab();
+    renderSettingsPools();
+  });
+
+  const settingsSearchMap = {
+    searchPinned: "pinned",
+    searchCore: "core",
+    searchAi: "ai",
+    searchLab: "lab",
+    searchGames: "games",
+  };
+  Object.entries(settingsSearchMap).forEach(([inputId, key]) => {
+    let t;
+    document.getElementById(inputId).addEventListener("input", (e) => {
+      state.settingsQuery[key] = e.target.value;
+      clearTimeout(t);
+      t = setTimeout(() => {
+        if (e.target.value.trim()) bumpSearch();
+        renderSettingsPools();
+      }, 280);
+    });
+  });
+
+  scrim.addEventListener("click", closeSheet);
+  document.getElementById("openSettings").addEventListener("click", () => {
+    bumpClick("更多 · 设置");
+    showPage("settings");
+  });
+
+  document.getElementById("capSeg").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-cap]");
+    if (!btn) return;
+    state.capacity = Number(btn.dataset.cap);
+    [...document.getElementById("capSeg").children].forEach(b => b.classList.toggle("on", b === btn));
+    bumpClick(`设置 · 容量 ${state.capacity}`);
+    renderSettingsPools();
+    renderDock();
+  });
+
+  document.getElementById("togClick").addEventListener("click", () => {
+    const tog = document.getElementById("togClick");
+    tog.classList.toggle("on");
+    state.trackClick = tog.classList.contains("on");
+  });
+  document.getElementById("togSearch").addEventListener("click", () => {
+    const tog = document.getElementById("togSearch");
+    tog.classList.toggle("on");
+    state.trackSearch = tog.classList.contains("on");
+  });
+
+  document.querySelectorAll("[data-click]").forEach(el => {
+    el.addEventListener("click", () => bumpClick(el.dataset.click));
+  });
+
+  window.addEventListener("resize", placePill);
+
+  state.activeId = state.pins[0];
+  showPage(state.activeId);
+})();
+</script>
+</body>
+</html>
