@@ -34,7 +34,7 @@ class RtSessionException implements Exception {
 }
 
 /// 会话阶段事件（UI 只消费这一个流）
-enum RtEventKind { connected, e2eConfirmed, disconnected, deliveryFailed, error }
+enum RtEventKind { connected, e2eConfirmed, disconnected, deliveryFailed, error, focusPaused, focusResumed }
 
 class RtEvent {
   RtEvent(this.kind, [this.detail]);
@@ -185,6 +185,10 @@ class RtSession {
       case 'ack':
         _openAck(msg['ack']);
         break;
+      case 'ctrl':
+        // 焦点漂移控制消息：与 ACK 共享 c2p 方向、PBKDF2/HKDF 密钥和 ackSeq 域
+        _openCtrl(msg['ctrl']);
+        break;
       default:
         break; // welcome / pong 等
     }
@@ -208,6 +212,34 @@ class RtSession {
       _events.add(RtEvent(RtEventKind.e2eConfirmed));
     } catch (_) {
       // key 不一致：保持未确认状态，由 UI 展示
+    }
+  }
+
+  /// PC 焦点漂移控制：共用 ackSeq 域防重放，仅按 plaintext.event 路由
+  Future<void> _openCtrl(dynamic ctrlDynamic) async {
+    final derived = _derived;
+    if (derived == null || ctrlDynamic is! Map) return;
+    final ctrl = ctrlDynamic.cast<String, dynamic>();
+    final ctrlSeq = (ctrl['seq'] as num?)?.toInt() ?? 0;
+    if (ctrlSeq <= _lastAckSeen) return;
+    _lastAckSeen = ctrlSeq;
+    try {
+      final plain = await rtOpen(
+        key: derived.keyPcToPhone,
+        aad: rtBuildAad(derived.room, kRtDirPcToPhone, ctrlSeq),
+        envelope: ctrl,
+      );
+      final event = plain['event']?.toString();
+      switch (event) {
+        case 'focus-paused':
+          _events.add(RtEvent(RtEventKind.focusPaused, '电脑端焦点漂移，注入已暂停'));
+        case 'focus-resumed':
+          _events.add(RtEvent(RtEventKind.focusResumed, '电脑端焦点已恢复'));
+        default:
+          break; // 未知 ctrl 事件忽略
+      }
+    } catch (_) {
+      // 解密失败（key 不一致等）：沉默
     }
   }
 
