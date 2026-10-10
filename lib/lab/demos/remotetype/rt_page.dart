@@ -56,6 +56,12 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   bool _listening = false;
   bool _sttAvailable = false;
   String _asrBase = '';
+  // 识别器楔死自救：插件跨 listen 复用 SpeechRecognizer 实例且错误路径不 destroy，
+  // 国产 ROM 厂商引擎（与输入法语音同源）会把出错实例楔在 busy 态——之后永久
+  // error_busy，直到 app 重启。翻转 onDevice 触发插件 createRecognizer 的
+  // 销毁重建分支，拿到全新实例（onDevice 可用时还顺带切到本地离线引擎）。
+  bool _sttRebuildTick = false;
+  bool _busyRetryPending = false; // busy 自动重试进行中，防递归
 
   @override
   void initState() {
@@ -269,17 +275,27 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
           // 引擎层错误上浮；no_match / speech_timeout 是说话停顿的非致命反馈，不打扰
           const benign = {'error_no_match', 'error_speech_timeout'};
           if (benign.contains(e.errorMsg)) return;
-          // 识别引擎被其他组件占用（典型：键盘自带的语音输入还握着麦克风/识别服务）
-          if (e.errorMsg == 'error_recognizer_busy') {
-            _resetListening();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('识别引擎被占用：请切回普通键盘（停止键盘的语音输入）后再点语音'),
-              ),
-            );
+          // 非 benign 错误一律强制重建识别器（见 _sttRebuildTick 注释），
+          // 否则厂商引擎的楔死实例会让后续每次 listen 都 busy
+          _sttRebuildTick = !_sttRebuildTick;
+          _resetListening();
+          // busy：实例楔死的典型表现，销毁重建后自动重试一次
+          if (e.errorMsg == 'error_busy') {
+            if (_busyRetryPending) {
+              _busyRetryPending = false;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('语音识别引擎繁忙：重试仍失败，请重启输入法（或重启手机）后再试'),
+                ),
+              );
+              return;
+            }
+            _busyRetryPending = true;
+            Timer(const Duration(milliseconds: 800), () {
+              if (mounted && !_listening) _toggleListening();
+            });
             return;
           }
-          _resetListening();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('语音识别错误：${e.errorMsg}')),
           );
@@ -325,6 +341,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
           cancelOnError: true,
           listenMode: stt.ListenMode.dictation,
           localeId: 'zh_CN',
+          onDevice: _sttRebuildTick,
         ),
       );
     } catch (e) {
@@ -336,6 +353,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
       }
       return;
     }
+    _busyRetryPending = false;
     setState(() => _listening = true);
   }
 
