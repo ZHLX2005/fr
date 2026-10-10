@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小豆子 · 设置 / 象棋大厅（对齐 FR）</title>
+<style>
+  /*
+   * 茶禅 ZenColors + 参考图「高级感」原则：
+   * 1. 大留白  2. 强调色稀用  3. 白卡浮在浅底（靠阴影分层，少描边）
+   * 4. 统一大圆角  5. 每屏一个视觉重心  6. 字重层级清晰
+   */
+  :root {
+    --sage: #7A9A7E;
+    --sage-ink: #2D4A2A;
+    --sage-soft: #E8F0E5;
+    --clay: #A0594A;          /* 对应参考图 terracotta 强调色 */
+    --clay-soft: #F3E6E1;
+    --ink: #2C2C2C;
+    --muted: #8A8475;
+    --bg: #F2EFE7;            /* 略深于卡片，做出分层 */
+    --surface: #FFFCF6;
+    --hair: rgba(44, 44, 44, 0.06);
+    --shadow: 0 2px 8px rgba(74, 69, 51, 0.04), 0 12px 32px rgba(74, 69, 51, 0.07);
+    --shadow-lift: 0 8px 28px rgba(74, 69, 51, 0.14);
+    --r: 24px;
+    --r-sm: 16px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --spring: cubic-bezier(0.34, 1.35, 0.64, 1);
+    --sheet: cubic-bezier(0.32, 0.72, 0, 1);
+    --phone-w: 390px;
+    --phone-h: 844px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+    background: #e8e4db;
+    padding: 24px 16px 56px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stage {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    justify-content: center;
+  }
+
+  .col { width: min(390px, 100%); }
+  .brief {
+    margin-bottom: 14px;
+  }
+  .brief h1 {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 6px;
+  }
+  .brief p {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .brief p strong { color: var(--ink); font-weight: 600; }
+
+  .phone {
+    width: var(--phone-w);
+    max-width: 100%;
+    height: var(--phone-h);
+    border-radius: 46px;
+    background: #1a1a1a;
+    padding: 12px;
+    box-shadow: 0 30px 60px rgba(44, 44, 44, 0.22);
+  }
+  .phone-inner {
+    height: 100%;
+    border-radius: 36px;
+    overflow: hidden;
+    background: var(--bg);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .notch {
+    position: absolute;
+    top: 11px; left: 50%;
+    transform: translateX(-50%);
+    width: 118px; height: 28px;
+    background: #1a1a1a;
+    border-radius: 20px;
+    z-index: 40;
+  }
+  .status {
+    height: 54px;
+    padding: 18px 28px 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .screen {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .home {
+    position: absolute;
+    bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 130px; height: 5px;
+    background: #1a1a1a;
+    border-radius: 3px;
+    opacity: 0.7;
+    z-index: 30;
+  }
+
+  /* ========== Settings ========== */
+  /* Cupertino-style 6-seg — matches _CupertinoSettingsTabs */
+  .seg {
+    display: flex;
+    margin: 8px 16px 8px;
+    padding: 2px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(232, 226, 214, 0.7);
+    box-sizing: border-box;
+  }
+  .seg button {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 560;
+    border-radius: 8px;
+    cursor: pointer;
+    transition:
+      background 0.24s var(--ease),
+      color 0.2s,
+      box-shadow 0.24s,
+      transform 0.24s var(--spring);
+  }
+  .seg button.on {
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 650;
+    box-shadow: 0 1px 4px rgba(40, 36, 28, 0.1);
+  }
+  .seg button:active { transform: scale(0.97); }
+
+  .pin-hint {
+    padding: 0 22px 8px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .general-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 16px 110px;
+  }
+  .general-panel[hidden],
+  .search-pill[hidden],
+  .list[hidden],
+  .pin-hint[hidden] { display: none !important; }
+  .g-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 12px 4px 8px;
+  }
+  .g-group {
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+  .g-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    min-height: 48px;
+  }
+  .g-row + .g-row { border-top: 1px solid var(--hair); }
+  .g-row .t { font-size: 16px; font-weight: 560; }
+  .g-row .trail {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .g-row .num { color: var(--clay); font-weight: 650; }
+  .cap-seg {
+    display: flex;
+    background: rgba(232, 226, 214, 0.65);
+    border-radius: 8px;
+    padding: 2px;
+  }
+  .cap-seg button {
+    border: 0;
+    min-width: 36px;
+    height: 30px;
+    border-radius: 6px;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .cap-seg button.on {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 3px rgba(40, 36, 28, 0.1);
+  }
+
+  .search-pill {
+    margin: 10px 22px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border-radius: 980px;
+    padding: 12px 18px;
+    box-shadow: var(--shadow);
+    color: var(--muted);
+    transition: transform 0.35s var(--spring), box-shadow 0.3s;
+  }
+  .search-pill:focus-within {
+    transform: scale(1.015);
+    box-shadow: var(--shadow-lift), 0 0 0 3px var(--clay-soft);
+  }
+  .search-pill input {
+    border: 0;
+    outline: none;
+    background: transparent;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    width: 100%;
+  }
+  .search-pill input::placeholder { color: #b5b0a4; }
+
+  .list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 22px 110px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Distinct floating cards — reference profile rows */
+  .card {
+    background: var(--surface);
+    border-radius: var(--r);
+    padding: 16px 16px 16px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    border: 1px solid transparent;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    will-change: transform, opacity;
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      transform 0.42s var(--spring),
+      box-shadow 0.35s var(--ease),
+      opacity 0.4s var(--ease),
+      background 0.25s;
+  }
+  .card.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .card:active:not(.dragging),
+  .card.press {
+    transform: scale(0.985);
+  }
+  .card.dragging {
+    cursor: grabbing;
+    z-index: 6;
+    position: relative;
+    transform: scale(1.03);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--clay-soft);
+  }
+  .card.settle {
+    transition: transform 0.48s var(--spring), box-shadow 0.35s;
+  }
+
+  .ico-wrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: #f0ebe3;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-size: 18px;
+    transition: transform 0.4s var(--spring), background 0.3s;
+  }
+  .card.dragging .ico-wrap {
+    background: var(--clay-soft);
+    transform: scale(1.06);
+  }
+  .ico-wrap.tint {
+    background: var(--sage-soft);
+    color: var(--sage-ink);
+  }
+
+  .body { flex: 1; min-width: 0; }
+  .body .value {
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .body .sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sw {
+    width: 52px;
+    height: 32px;
+    border-radius: 16px;
+    background: #e4dfd5;
+    border: 0;
+    position: relative;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.3s var(--ease);
+  }
+  .sw.on { background: var(--clay); }
+  .sw::after {
+    content: "";
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: transform 0.4s var(--spring);
+  }
+  .sw.on::after { transform: translateX(20px); }
+
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--ink);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 11px 18px;
+    border-radius: 980px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+    transition: opacity 0.35s, transform 0.45s var(--spring);
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ========== Lobby：茶禅匹配感（轻·圆扩展） ========== */
+  .lobby-screen {
+    --match: #E8F0E5; /* 与圆形扩展同色，交接无闪 */
+  }
+  .lobby-screen.matching {
+    background: var(--match);
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 4px;
+    min-height: 40px;
+    position: relative;
+    z-index: 5;
+  }
+  .topbar .back {
+    width: 40px; height: 40px;
+    border: 0;
+    background: var(--surface);
+    border-radius: 50%;
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    font-size: 18px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: transform 0.3s var(--spring);
+  }
+  .topbar .back:active { transform: scale(0.92); }
+  .topbar .more-spacer { width: 40px; height: 40px; }
+  .topbar .top-act {
+    border: 0;
+    background: none;
+    color: var(--sage-ink);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 4px;
+    cursor: pointer;
+    min-width: 40px;
+  }
+  .topbar .tt {
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  .lobby-scroll {
+    flex: 1;
+    overflow: hidden;
+    padding: 8px 28px 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Canvas 油刷：逐笔刷毛落点，斜下涂抹 */
+  .paint-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s linear;
+  }
+  .paint-canvas.on { opacity: 1; }
+
+  .entry-view {
+    width: 100%;
+    transition: opacity 0.45s, transform 0.5s var(--ease);
+  }
+  .entry-view.hide { display: none; }
+  .entry-view.dim {
+    opacity: 0;
+    transform: scale(0.97);
+    pointer-events: none;
+  }
+
+  .lobby-mark {
+    width: 88px;
+    height: 88px;
+    margin: 0 auto 22px;
+    border-radius: 28px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    display: grid;
+    place-items: center;
+    font-size: 42px;
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+    transition: opacity 0.45s var(--ease), transform 0.55s var(--spring);
+  }
+  .lobby-mark.in {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .lobby-title {
+    text-align: center;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.45s var(--ease) 0.05s, transform 0.5s var(--sheet) 0.05s;
+  }
+  .lobby-title.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .lobby-title h2 {
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.4;
+  }
+
+  .form-card {
+    margin-top: 28px;
+    background: var(--surface);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    padding: 4px 18px;
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.45s var(--ease) 0.1s, transform 0.55s var(--sheet) 0.1s;
+  }
+  .form-card.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 54px;
+  }
+  .field + .field { border-top: 1px solid var(--hair); }
+  .field label {
+    width: 48px;
+    flex-shrink: 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .field input {
+    flex: 1;
+    border: 0;
+    outline: none;
+    background: transparent;
+    font: inherit;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 0;
+    padding: 14px 0;
+  }
+  .field .rand {
+    border: 0;
+    background: none;
+    color: var(--clay);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 0 8px 8px;
+  }
+
+  .cta-block {
+    margin-top: 22px;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.45s var(--ease) 0.14s, transform 0.55s var(--sheet) 0.14s;
+  }
+  .cta-block.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .btn-main {
+    width: 100%;
+    border: 0;
+    height: 56px;
+    border-radius: 980px;
+    background: var(--clay);
+    color: #fff;
+    font: inherit;
+    font-size: 17px;
+    font-weight: 650;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(160, 89, 74, 0.26);
+    transition: transform 0.3s var(--spring), box-shadow 0.25s;
+    position: relative;
+    z-index: 1;
+  }
+  .btn-main:active {
+    transform: scale(0.975);
+    box-shadow: 0 4px 12px rgba(160, 89, 74, 0.2);
+  }
+  .btn-main.busy { pointer-events: none; opacity: 0.85; }
+
+  .lobby-hint {
+    margin: 20px 4px 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+    text-align: left;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.45s var(--ease) 0.2s, transform 0.55s var(--sheet) 0.2s;
+  }
+  .lobby-hint.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .lobby-hint span {
+    color: var(--sage-ink);
+    margin-right: 4px;
+  }
+
+  /* Wait — 对齐 ChessRoomPage._buildLobbyReady */
+  .wait-view {
+    display: none;
+    width: 100%;
+  }
+  .wait-view.show { display: block; }
+
+  .wait-inner {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.7s var(--ease) 0.08s, transform 0.8s var(--spring) 0.08s;
+    background: var(--surface);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    padding: 28px 22px;
+    text-align: center;
+  }
+  .wait-inner.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .wait-head {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+  }
+  .wait-rule {
+    width: 24px;
+    height: 2px;
+    margin: 8px auto 18px;
+    background: rgba(44, 44, 44, 0.18);
+  }
+  .wait-code {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 30px;
+    background: var(--sage-soft);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--ink);
+    margin-bottom: 18px;
+  }
+  .rules-chip {
+    text-align: left;
+    background: rgba(242, 239, 231, 0.85);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .rules-chip strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .seat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    padding: 8px 0;
+  }
+  .seat .av {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 650;
+    background: var(--sage-soft);
+    color: var(--sage-ink);
+    flex-shrink: 0;
+    border: 1.6px solid rgba(122, 154, 126, 0.35);
+  }
+  .seat .av.ready {
+    background: rgba(160, 89, 74, 0.12);
+    border-color: var(--clay);
+    color: var(--clay);
+  }
+  .seat .meta { flex: 1; min-width: 0; }
+  .seat .nm {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .seat .badge {
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(232, 226, 214, 0.8);
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .seat .badge.on {
+    background: rgba(160, 89, 74, 0.12);
+    color: var(--clay);
+  }
+
+  .wait-empty {
+    margin: 14px 0 4px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .wait-empty[hidden] { display: none !important; }
+
+  .wait-actions {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .btn-ready, .btn-deal {
+    width: 100%;
+    height: 48px;
+    border: 0;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .btn-ready {
+    background: var(--clay);
+    color: #fff;
+  }
+  .btn-deal {
+    background: var(--sage-ink);
+    color: #fff;
+  }
+  .btn-ready[hidden], .btn-deal[hidden] { display: none !important; }
+
+  .btn-cancel {
+    margin-top: 4px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 560;
+    height: 40px;
+    cursor: pointer;
+  }
+  .btn-cancel:active { transform: scale(0.97); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="col">
+      <div class="brief">
+        <h1>设置 · 对齐 FR</h1>
+        <p>
+          对齐 <strong>AppSettingsPage</strong>：6 Tab、默认钉选
+          <code>pi · Time · 实验室</code>、槽位与容量 3/4。
+        </p>
+      </div>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="notch"></div>
+          <div class="status"><span>9:41</span><span>●●●</span></div>
+          <div class="screen">
+            <div class="seg" id="chips" role="tablist">
+              <button type="button" data-tab="general" class="on">通用</button>
+              <button type="button" data-tab="pinned">钉选</button>
+              <button type="button" data-tab="core">核心</button>
+              <button type="button" data-tab="ai">AI</button>
+              <button type="button" data-tab="lab">实验</button>
+              <button type="button" data-tab="games">游戏</button>
+            </div>
+
+            <div class="search-pill" id="searchWrap" hidden>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+              <input id="search" type="search" placeholder="搜索已钉选" />
+            </div>
+
+            <div class="pin-hint" id="pinHint" hidden>长按拖动排序。顺序 = 底栏 → ⋯</div>
+            <div class="general-panel" id="generalPanel"></div>
+            <div class="list" id="list" hidden></div>
+            <div class="toast" id="toast">已更新</div>
+          </div>
+          <div class="home"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="brief">
+        <h1>联机 · 对齐 chess</h1>
+        <p>
+          入口对齐 <strong>kChessLobbySpec</strong>；
+          进房后卡片对齐 <strong>ChessRoomPage</strong> 准备态。油漆刷仅进房。
+        </p>
+      </div>
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="notch"></div>
+          <div class="status"><span>9:41</span><span>●●●</span></div>
+          <div class="screen lobby-screen" id="lobbyScreen">
+            <canvas class="paint-canvas" id="paintCanvas" aria-hidden="true"></canvas>
+            <div class="topbar">
+              <button type="button" class="back" id="back">‹</button>
+              <div class="tt">国际象棋（联机）</div>
+              <button type="button" class="top-act" id="skinAct" title="换肤">换肤</button>
+            </div>
+
+            <div class="lobby-scroll">
+              <div class="entry-view" id="entryView">
+                <div class="lobby-mark" id="lobbyMark">⌂</div>
+                <div class="lobby-title" id="lobbyTitle">
+                  <h2>输入房间号，与朋友对弈</h2>
+                </div>
+                <div class="form-card" id="formCard">
+                  <div class="field">
+                    <label>昵称</label>
+                    <input id="alias" type="text" value="小白" placeholder="如：小白" />
+                  </div>
+                  <div class="field">
+                    <label>房间号</label>
+                    <input type="text" id="code" value="K7M2" maxlength="6"
+                      placeholder="4–6 位大写字母数字"
+                      style="letter-spacing:0.14em" />
+                  </div>
+                </div>
+                <div class="cta-block" id="ctaBlock">
+                  <button type="button" class="btn-main" id="enterBtn">进入对局</button>
+                </div>
+                <p class="lobby-hint" id="lobbyHint">
+                  <span>◐</span>
+                  与朋友约定同一房间号：谁先进入谁是房主，后到者为对手。规则由房主在准备阶段配置。
+                </p>
+              </div>
+
+              <div class="wait-view" id="waitView">
+                <div class="wait-inner" id="waitInner">
+                  <div class="wait-head" id="waitHead">等待对手</div>
+                  <div class="wait-rule"></div>
+                  <div class="wait-code" id="waitCode">K7M2</div>
+                  <div class="rules-chip">
+                    规则 · <strong>我执白（先手）</strong> · 标准开局<br />
+                    <span style="font-size:11px">房主可在准备阶段改规则</span>
+                  </div>
+                  <div class="seat" id="hostSeat">
+                    <div class="av" id="hostAv">白</div>
+                    <div class="meta"><div class="nm" id="hostNm">小白  (我) · 执白（先手）</div></div>
+                    <span class="badge" id="hostBadge">未准备</span>
+                  </div>
+                  <div class="seat" id="guestSeat" hidden>
+                    <div class="av" id="guestAv">对</div>
+                    <div class="meta"><div class="nm" id="guestNm">对手 · 执黑（后手）</div></div>
+                    <span class="badge" id="guestBadge">未准备</span>
+                  </div>
+                  <div class="wait-empty" id="waitEmpty">把房间号发给朋友</div>
+                  <div class="wait-actions">
+                    <button type="button" class="btn-ready" id="readyBtn" hidden>准备</button>
+                    <button type="button" class="btn-deal" id="dealBtn" hidden>开始游戏 ▸</button>
+                    <button type="button" class="btn-cancel" id="cancel">离开房间</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="toast" id="lobbyToast">对手已加入</div>
+          </div>
+          <div class="home"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  /* ── Settings：对齐 nav_catalog + kDefaultNavPins + AppSettingsPage ── */
+  const GROUP = { core: "核心", ai: "AI", lab: "实验室", game: "游戏" };
+  const CATALOG = [
+    { id: "core-time", group: "core", title: "Time", icon: "◷" },
+    { id: "core-lab", group: "core", title: "实验室", icon: "⚗" },
+    { id: "core-games", group: "core", title: "游戏中心", icon: "▣" },
+    { id: "core-profile", group: "core", title: "个人", icon: "☺" },
+    { id: "core-settings", group: "core", title: "设置", icon: "⚙" },
+    { id: "core-theme", group: "core", title: "主题", icon: "◐" },
+    { id: "ai-settings", group: "ai", title: "AI 设置", icon: "⚙" },
+    { id: "ai-agent", group: "ai", title: "Agent", icon: "◎" },
+    { id: "ai-format", group: "ai", title: "Format", icon: "☰" },
+    { id: "ai-receipt", group: "ai", title: "小票", icon: "▤" },
+    { id: "ai-sys-msg", group: "ai", title: "小助手", icon: "✉" },
+    { id: "ai-pi", group: "ai", title: "pi", icon: "✦" },
+    { id: "demo:rive-demo", group: "lab", title: "Rive 演示", icon: "◇" },
+    { id: "demo:clock", group: "lab", title: "时钟", icon: "◷" },
+    { id: "demo:network", group: "lab", title: "网络", icon: "◎" },
+    { id: "demo:block-editor", group: "lab", title: "块编辑器", icon: "✎" },
+    { id: "demo:pigment-palette", group: "lab", title: "调色板", icon: "◉" },
+    { id: "demo:sensor", group: "lab", title: "传感器", icon: "▣" },
+    { id: "demo:github", group: "lab", title: "GitHub", icon: "⌥" },
+    { id: "demo:torch", group: "lab", title: "手电筒", icon: "☀" },
+    { id: "demo:recorder", group: "lab", title: "录音机", icon: "◉" },
+    { id: "demo:chess-online", group: "game", title: "国际象棋（联机）", icon: "♞" },
+    { id: "demo:gomoku-lua", group: "game", title: "五子棋（联机）", icon: "●" },
+    { id: "demo:go-lua", group: "game", title: "围棋（联机）", icon: "◉" },
+    { id: "demo:tetris-lua", group: "game", title: "俄罗斯方块（联机）", icon: "▤" },
+    { id: "demo:reversi-lua", group: "game", title: "黑白翻转棋", icon: "◐" },
+    { id: "demo:sudoku-lua", group: "game", title: "数独（联机）", icon: "▦" },
+    { id: "demo:jungle-chess-lua", group: "game", title: "斗兽棋（联机）", icon: "🐾" },
+    { id: "demo:surround-game-lua", group: "game", title: "围追堵截（联机）", icon: "╬" },
+    { id: "demo:team-card-lua", group: "game", title: "团建卡牌（联机）", icon: "♤" },
+    { id: "demo:snake", group: "game", title: "贪吃蛇", icon: "〜" },
+    { id: "demo:game-2048", group: "game", title: "2048", icon: "▦" },
+  ];
+  const BY_ID = Object.fromEntries(CATALOG.map((e) => [e.id, e]));
+  const SEARCH_HINT = {
+    pinned: "搜索已钉选",
+    core: "搜索核心入口",
+    ai: "搜索 AI 入口",
+    lab: "搜索实验室 demo",
+    games: "搜索游戏 demo",
+  };
+
+  let capacity = 4;
+  let pinIds = ["ai-pi", "core-time", "core-lab"];
+  let metrics = { clicks: 12, searches: 3 };
+  let tab = "general";
+  let query = "";
+
+  const list = document.getElementById("list");
+  const toast = document.getElementById("toast");
+  const search = document.getElementById("search");
+  const searchWrap = document.getElementById("searchWrap");
+  const pinHint = document.getElementById("pinHint");
+  const generalPanel = document.getElementById("generalPanel");
+
+  function showToast(el, text) {
+    el.textContent = text;
+    el.classList.add("show");
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove("show"), 1300);
+  }
+
+  function slotLabel(id) {
+    const visCount = capacity - 1;
+    const i = pinIds.indexOf(id);
+    if (i < 0) return "未钉选";
+    if (i === 0) return "底栏 · 首页";
+    if (i < visCount) return `底栏 ${i + 1}`;
+    return "⋯";
+  }
+
+  function togglePin(id) {
+    const i = pinIds.indexOf(id);
+    if (i >= 0) {
+      if (pinIds.length <= 1) {
+        showToast(toast, "至少保留 1 个钉选");
+        return;
+      }
+      pinIds.splice(i, 1);
+      showToast(toast, `已取消 ${BY_ID[id]?.title || id}`);
+    } else {
+      pinIds.push(id);
+      showToast(toast, `已钉选 ${BY_ID[id]?.title || id}`);
+    }
+    metrics.clicks += 1;
+    render();
+  }
+
+  function entriesForTab() {
+    if (tab === "pinned") {
+      return pinIds.map((id) => BY_ID[id]).filter(Boolean);
+    }
+    const g =
+      tab === "games" ? "game" :
+      tab === "lab" ? "lab" :
+      tab === "ai" ? "ai" : "core";
+    return CATALOG.filter((e) => e.group === g);
+  }
+
+  function filtered(entries) {
+    const q = query.trim().toLowerCase();
+    if (!q) return entries;
+    return entries.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        e.id.toLowerCase().includes(q) ||
+        GROUP[e.group].includes(q)
+    );
+  }
+
+  function wireDrag(card) {
+    let hold = null, startY = 0, active = false;
+    const clear = () => { clearTimeout(hold); hold = null; };
+
+    card.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".sw")) return;
+      startY = e.clientY;
+      card.setPointerCapture(e.pointerId);
+      hold = setTimeout(() => {
+        active = true;
+        card.classList.add("dragging");
+        if (navigator.vibrate) navigator.vibrate(6);
+      }, 200);
+    });
+
+    card.addEventListener("pointermove", (e) => {
+      if (!active) {
+        if (hold && Math.abs(e.clientY - startY) > 8) clear();
+        return;
+      }
+      const dy = e.clientY - startY;
+      card.style.transform = `translateY(${dy}px) scale(1.03)`;
+      card.style.zIndex = "6";
+      const cards = [...list.querySelectorAll(".card")];
+      const mid = card.getBoundingClientRect().top + card.offsetHeight / 2;
+      for (const c of cards.filter((x) => x !== card)) {
+        const cm = c.getBoundingClientRect().top + c.offsetHeight / 2;
+        const ci = cards.indexOf(c);
+        const mi = cards.indexOf(card);
+        if (mid < cm && mi > ci) {
+          list.insertBefore(card, c);
+          startY = e.clientY;
+          card.style.transform = "translateY(0) scale(1.03)";
+          break;
+        }
+        if (mid > cm && mi < ci) {
+          list.insertBefore(card, c.nextSibling);
+          startY = e.clientY;
+          card.style.transform = "translateY(0) scale(1.03)";
+          break;
+        }
+      }
+    });
+
+    const end = () => {
+      clear();
+      if (!active) { card.classList.remove("press"); return; }
+      active = false;
+      card.classList.add("settle");
+      card.style.transform = "";
+      card.style.zIndex = "";
+      card.classList.remove("dragging");
+      setTimeout(() => card.classList.remove("settle"), 450);
+      const visible = [...list.querySelectorAll(".card")].map((c) => c.dataset.id);
+      const hidden = pinIds.filter((id) => !visible.includes(id));
+      pinIds = [...visible, ...hidden];
+      showToast(toast, "顺序已更新");
+      render();
+    };
+    card.addEventListener("pointerup", end);
+    card.addEventListener("pointercancel", end);
+  }
+
+  function renderGeneral() {
+    searchWrap.hidden = true;
+    pinHint.hidden = true;
+    list.hidden = true;
+    generalPanel.hidden = false;
+    generalPanel.innerHTML = `
+      <div class="g-label">外观</div>
+      <div class="g-group">
+        <div class="g-row">
+          <span class="t">主题</span>
+          <span class="trail">茶禅主题 <span aria-hidden="true">›</span></span>
+        </div>
+      </div>
+      <div class="g-label">底栏</div>
+      <div class="g-group">
+        <div class="g-row">
+          <span class="t">容量（含 ⋯）</span>
+          <div class="cap-seg" id="capSeg">
+            <button type="button" data-cap="3" class="${capacity === 3 ? "on" : ""}">3</button>
+            <button type="button" data-cap="4" class="${capacity === 4 ? "on" : ""}">4</button>
+          </div>
+        </div>
+      </div>
+      <div class="g-label">观测</div>
+      <div class="g-group">
+        <div class="g-row">
+          <span class="t">点击次数</span>
+          <span class="num">${metrics.clicks}</span>
+        </div>
+        <div class="g-row">
+          <span class="t">检索次数</span>
+          <span class="num">${metrics.searches}</span>
+        </div>
+      </div>
+    `;
+    generalPanel.querySelectorAll("#capSeg button").forEach((b) => {
+      b.addEventListener("click", () => {
+        capacity = +b.dataset.cap;
+        metrics.clicks += 1;
+        showToast(toast, `容量 ${capacity}`);
+        render();
+      });
+    });
+  }
+
+  function renderList() {
+    searchWrap.hidden = false;
+    list.hidden = false;
+    generalPanel.hidden = true;
+    pinHint.hidden = tab !== "pinned";
+    search.placeholder = SEARCH_HINT[tab] || "搜索入口";
+
+    const drag = tab === "pinned";
+    const entries = filtered(entriesForTab());
+    list.innerHTML = "";
+
+    if (!entries.length) {
+      const empty = document.createElement("div");
+      empty.className = "pin-hint";
+      empty.style.textAlign = "center";
+      empty.style.paddingTop = "40px";
+      empty.textContent = "无匹配项";
+      list.appendChild(empty);
+      return;
+    }
+
+    entries.forEach((item, i) => {
+      const pinned = pinIds.includes(item.id);
+      const el = document.createElement("div");
+      el.className = "card";
+      el.dataset.id = item.id;
+      el.innerHTML = `
+        <div class="ico-wrap ${pinned ? "tint" : ""}">${item.icon}</div>
+        <div class="body">
+          <div class="value">${item.title}</div>
+          <div class="sub">${GROUP[item.group]} · ${slotLabel(item.id)}</div>
+        </div>
+        <button type="button" class="sw ${pinned ? "on" : ""}" aria-label="钉选"></button>
+      `;
+      el.querySelector(".sw").addEventListener("click", (e) => {
+        e.stopPropagation();
+        togglePin(item.id);
+      });
+      if (drag) wireDrag(el);
+      else {
+        el.addEventListener("pointerdown", () => el.classList.add("press"));
+        const up = () => el.classList.remove("press");
+        el.addEventListener("pointerup", up);
+        el.addEventListener("pointerleave", up);
+      }
+      list.appendChild(el);
+      requestAnimationFrame(() => setTimeout(() => el.classList.add("in"), 30 + i * 45));
+    });
+  }
+
+  function render() {
+    if (tab === "general") renderGeneral();
+    else renderList();
+  }
+
+  document.querySelectorAll("#chips button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("on")) return;
+      document.querySelectorAll("#chips button").forEach((b) => b.classList.remove("on"));
+      btn.classList.add("on");
+      tab = btn.dataset.tab;
+      query = "";
+      search.value = "";
+      render();
+    });
+  });
+
+  let searchTimer = null;
+  search.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const next = search.value;
+      if (next.trim() && next !== query) metrics.searches += 1;
+      query = next;
+      if (tab !== "general") renderList();
+    }, 160);
+  });
+
+  render();
+
+  /* Lobby — Canvas bristle brush TL → BR；对齐 kChessLobbySpec smartMatch */
+  const lobbyScreen = document.getElementById("lobbyScreen");
+  const canvas = document.getElementById("paintCanvas");
+  const ctx = canvas.getContext("2d", { alpha: true });
+  const entryView = document.getElementById("entryView");
+  const waitView = document.getElementById("waitView");
+  const waitInner = document.getElementById("waitInner");
+  const enterBtn = document.getElementById("enterBtn");
+  const code = document.getElementById("code");
+  const alias = document.getElementById("alias");
+  const lobbyToast = document.getElementById("lobbyToast");
+  const entryParts = ["lobbyMark", "lobbyTitle", "formCard", "ctaBlock", "lobbyHint"].map((id) =>
+    document.getElementById(id)
+  );
+  let timer = null;
+  let transitioning = false;
+  let paintRaf = 0;
+
+  /**
+   * 干刷 PNG：
+   * - 每笔沿 右上→左下 逐渐画出（不是整笔瞬盖）
+   * - 4 笔中心沿 左上→右下 错峰推进，时间窗重叠更丝滑
+   */
+  const brushImg = new Image();
+  brushImg.src = "assets/brush-stroke.png";
+  let brushReady = false;
+  brushImg.onload = () => { brushReady = true; };
+
+  const TINT = "#7A9A7E";
+
+  function enterAnim() {
+    entryParts.forEach((el) => el.classList.remove("in"));
+    void lobbyScreen.offsetWidth;
+    requestAnimationFrame(() => {
+      entryParts.forEach((el) => el.classList.add("in"));
+    });
+  }
+
+  function sizeCanvas() {
+    const r = lobbyScreen.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(r.width * dpr);
+    canvas.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w: r.width, h: r.height };
+  }
+
+  function smoothstep(t) {
+    const x = Math.min(1, Math.max(0, t));
+    return x * x * (3 - 2 * x);
+  }
+
+  /** 原图水平左→右；旋转 135° 后 = 右上→左下 */
+  function brushAngle() {
+    return Math.atan2(1, -1);
+  }
+
+  function makeTintedBrush(length, thickness) {
+    const oc = document.createElement("canvas");
+    oc.width = Math.max(2, Math.round(length));
+    oc.height = Math.max(2, Math.round(thickness));
+    const o = oc.getContext("2d");
+    o.clearRect(0, 0, oc.width, oc.height);
+    o.drawImage(brushImg, 0, 0, oc.width, oc.height);
+    o.globalCompositeOperation = "source-in";
+    o.fillStyle = TINT;
+    o.fillRect(0, 0, oc.width, oc.height);
+    return oc;
+  }
+
+  function strokePlan(w, h) {
+    const length = Math.hypot(w, h) * 1.4;
+    const thickness = Math.max(h * 0.4, w * 0.58);
+    const angle = brushAngle();
+    const us = [0.14, 0.38, 0.62, 0.86];
+    return us.map((u, i) => ({
+      cx: w * u + (i % 2 ? 10 : -10),
+      cy: h * u + (i % 2 ? -8 : 8),
+      angle: angle + (i - 1.5) * 0.018,
+      length,
+      thickness,
+      tinted: null,
+    }));
+  }
+
+  /** 时间窗：4 笔错峰，每笔约占 38% 总时长，互相重叠 */
+  function strokeWindows(n) {
+    const win = [];
+    for (let i = 0; i < n; i++) {
+      const start = i * 0.2;
+      const end = Math.min(1, start + 0.38);
+      win.push({ start, end });
+    }
+    win[n - 1].end = 1;
+    return win;
+  }
+
+  function localStrokeT(globalT, win) {
+    if (globalT <= win.start) return 0;
+    if (globalT >= win.end) return 1;
+    return smoothstep((globalT - win.start) / (win.end - win.start));
+  }
+
+  /**
+   * s: 0→1 沿笔向露出（左→右 = 右上→左下）
+   * 硬裁切，不羽化——笔锋毛边完全交给贴图 alpha（无卷边）
+   */
+  function drawStrokeSweep(stroke, s, erase) {
+    if (!brushReady || s <= 0.001) return;
+    if (!stroke.tinted) {
+      stroke.tinted = makeTintedBrush(stroke.length, stroke.thickness);
+    }
+    const len = stroke.length;
+    const th = stroke.thickness;
+    const reveal = Math.max(1, len * Math.min(1, s));
+
+    ctx.save();
+    ctx.translate(stroke.cx, stroke.cy);
+    ctx.rotate(stroke.angle);
+    ctx.beginPath();
+    ctx.rect(-len / 2, -th / 2, reveal, th);
+    ctx.clip();
+
+    if (erase) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.drawImage(brushImg, -len / 2, -th / 2, len, th);
+    } else {
+      ctx.globalAlpha = 1;
+      ctx.drawImage(stroke.tinted, -len / 2, -th / 2);
+    }
+    ctx.restore();
+  }
+
+  function fillRest(w, h, alpha) {
+    ctx.fillStyle = `rgba(232, 240, 229, ${alpha})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  function runBrushPaint({ reverse, duration, onDone, alreadyFilled }) {
+    cancelAnimationFrame(paintRaf);
+    const { w, h } = sizeCanvas();
+    const plan = strokePlan(w, h);
+    const wins = strokeWindows(plan.length);
+    canvas.classList.add("on");
+
+    if (!brushReady) {
+      fillRest(w, h, 1);
+      onDone && onDone();
+      return;
+    }
+
+    plan.forEach((s) => {
+      s.tinted = makeTintedBrush(s.length, s.thickness);
+    });
+
+    if (!reverse) {
+      ctx.clearRect(0, 0, w, h);
+    } else if (!alreadyFilled) {
+      ctx.clearRect(0, 0, w, h);
+      fillRest(w, h, 1);
+    } else {
+      // 已满屏，反向时先铺满再按笔向刮开
+      fillRest(w, h, 1);
+    }
+
+    const tStart = performance.now();
+
+    function frame(now) {
+      const p = Math.min(1, (now - tStart) / duration);
+      // 更柔的整体曲线
+      const ease = p < 0.5
+        ? 4 * p * p * p
+        : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
+      if (!reverse) {
+        ctx.clearRect(0, 0, w, h);
+        for (let i = 0; i < plan.length; i++) {
+          const s = localStrokeT(ease, wins[i]);
+          drawStrokeSweep(plan[i], s, false);
+        }
+        if (ease > 0.9) fillRest(w, h, (ease - 0.9) / 0.1);
+      } else {
+        // 反向：满屏底 → 从最后一笔的左下端往右上刮回
+        ctx.clearRect(0, 0, w, h);
+        fillRest(w, h, 1);
+        const revWins = strokeWindows(plan.length);
+        for (let k = 0; k < plan.length; k++) {
+          const stroke = plan[plan.length - 1 - k];
+          const eraseT = localStrokeT(ease, revWins[k]);
+          if (eraseT <= 0) continue;
+          const len = stroke.length;
+          const th = stroke.thickness;
+          const cut = len * eraseT;
+          ctx.save();
+          ctx.translate(stroke.cx, stroke.cy);
+          ctx.rotate(stroke.angle);
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.beginPath();
+          ctx.rect(len / 2 - cut - 1, -th / 2 - 4, cut + 3, th + 8);
+          ctx.clip();
+          ctx.drawImage(brushImg, -len / 2, -th / 2, len, th);
+          ctx.restore();
+        }
+        if (ease > 0.88) {
+          ctx.save();
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.globalAlpha = (ease - 0.88) / 0.12;
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, w, h);
+          ctx.restore();
+        }
+      }
+
+      if (p < 1) {
+        paintRaf = requestAnimationFrame(frame);
+      } else {
+        if (!reverse) {
+          ctx.clearRect(0, 0, w, h);
+          plan.forEach((s) => drawStrokeSweep(s, 1, false));
+          fillRest(w, h, 1);
+        } else {
+          ctx.clearRect(0, 0, w, h);
+          canvas.classList.remove("on");
+        }
+        onDone && onDone();
+      }
+    }
+    paintRaf = requestAnimationFrame(frame);
+  }
+
+  function hostLabel() {
+    return (alias.value || "小白").trim() || "小白";
+  }
+
+  let roomPhase = "waiting"; // waiting | joined | bothReady
+
+  function paintReadyCard() {
+    const host = hostLabel();
+    document.getElementById("waitCode").textContent = (code.value || "K7M2").toUpperCase();
+    document.getElementById("hostAv").textContent = host.slice(0, 1);
+    document.getElementById("hostNm").textContent =
+      `${host}  (我) · 执白（先手）`;
+    const head = document.getElementById("waitHead");
+    const guestSeat = document.getElementById("guestSeat");
+    const empty = document.getElementById("waitEmpty");
+    const readyBtn = document.getElementById("readyBtn");
+    const dealBtn = document.getElementById("dealBtn");
+    const hostBadge = document.getElementById("hostBadge");
+    const guestBadge = document.getElementById("guestBadge");
+    const hostAv = document.getElementById("hostAv");
+    const guestAv = document.getElementById("guestAv");
+
+    if (roomPhase === "waiting") {
+      head.textContent = "等待对手";
+      guestSeat.hidden = true;
+      empty.hidden = false;
+      readyBtn.hidden = true;
+      dealBtn.hidden = true;
+      hostBadge.textContent = "未准备";
+      hostBadge.classList.remove("on");
+      hostAv.classList.remove("ready");
+    } else if (roomPhase === "joined") {
+      head.textContent = "等待对手";
+      guestSeat.hidden = false;
+      empty.hidden = true;
+      readyBtn.hidden = false;
+      readyBtn.textContent = "准备";
+      dealBtn.hidden = true;
+      hostBadge.textContent = "未准备";
+      hostBadge.classList.remove("on");
+      guestBadge.textContent = "未准备";
+      guestBadge.classList.remove("on");
+      hostAv.classList.remove("ready");
+      guestAv.classList.remove("ready");
+      document.getElementById("guestNm").textContent = "对手 · 执黑（后手）";
+    } else {
+      head.textContent = "双方已就绪";
+      guestSeat.hidden = false;
+      empty.hidden = true;
+      readyBtn.hidden = true;
+      dealBtn.hidden = false;
+      hostBadge.textContent = "已准备 ✓";
+      hostBadge.classList.add("on");
+      guestBadge.textContent = "已准备 ✓";
+      guestBadge.classList.add("on");
+      hostAv.classList.add("ready");
+      guestAv.classList.add("ready");
+      hostAv.textContent = "✓";
+      guestAv.textContent = "✓";
+    }
+  }
+
+  function revealWait() {
+    roomPhase = "waiting";
+    paintReadyCard();
+    entryView.classList.add("hide");
+    entryView.classList.remove("dim");
+    waitView.classList.add("show");
+    lobbyScreen.classList.add("matching");
+    waitInner.classList.remove("in");
+    void waitInner.offsetWidth;
+    requestAnimationFrame(() => waitInner.classList.add("in"));
+
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      roomPhase = "joined";
+      paintReadyCard();
+      showToast(lobbyToast, "对手已加入");
+    }, 2000);
+  }
+
+  function expandFrom() {
+    if (transitioning) return;
+    const name = (alias.value || "").trim();
+    if (!name) {
+      showToast(lobbyToast, "请输入昵称");
+      return;
+    }
+    const room = (code.value || "").trim().toUpperCase();
+    if (room.length < 4 || room.length > 6) {
+      showToast(lobbyToast, "房间号为 4–6 位大写字母数字");
+      return;
+    }
+    if (/[0O1IL]/.test(room)) {
+      showToast(lobbyToast, "房间号不能包含 0/O/1/I/L（易混淆）");
+      return;
+    }
+    alias.value = name;
+    code.value = room;
+    transitioning = true;
+    enterBtn.classList.add("busy");
+    entryView.classList.add("dim");
+
+    const start = () => {
+      runBrushPaint({
+        reverse: false,
+        duration: 2600,
+        onDone: () => {
+          revealWait();
+          canvas.classList.remove("on");
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          enterBtn.classList.remove("busy");
+          transitioning = false;
+        },
+      });
+    };
+
+    if (brushReady) start();
+    else brushImg.onload = () => { brushReady = true; start(); };
+  }
+
+  function collapseToEntry() {
+    cancelAnimationFrame(paintRaf);
+    clearTimeout(timer);
+    transitioning = false;
+    enterBtn.classList.remove("busy");
+
+    canvas.classList.remove("on");
+    if (canvas.width && canvas.height) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    waitView.classList.remove("show");
+    waitInner.classList.remove("in");
+    entryView.classList.remove("hide", "dim");
+    lobbyScreen.classList.remove("matching");
+    enterAnim();
+  }
+
+  enterBtn.addEventListener("click", () => expandFrom());
+  document.getElementById("cancel").addEventListener("click", collapseToEntry);
+  document.getElementById("back").addEventListener("click", () => {
+    if (waitView.classList.contains("show")) collapseToEntry();
+  });
+  document.getElementById("skinAct").addEventListener("click", () => {
+    showToast(lobbyToast, "换肤（原型占位）");
+  });
+  document.getElementById("readyBtn").addEventListener("click", () => {
+    roomPhase = "bothReady";
+    paintReadyCard();
+    showToast(lobbyToast, "双方已就绪");
+  });
+  document.getElementById("dealBtn").addEventListener("click", () => {
+    showToast(lobbyToast, "开始游戏（原型止步）");
+  });
+
+  enterAnim();
+})();
+</script>
+</body>
+</html>

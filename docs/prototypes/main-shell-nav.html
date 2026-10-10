@@ -811,16 +811,16 @@
 <body>
   <div class="stage">
     <aside class="brief">
-      <h1>主壳导航<br/>交互原型</h1>
+      <h1>主壳导航<br/>对齐 FR</h1>
       <p>
-        <strong>钉选单元 = 一个 demo 模块。</strong>
-        游戏中心 / 实验室只是浏览壳（封面 vs 小卡片），不改变钉选粒度。
+        目录 / 默认钉选 / 设置 Tab 与
+        <strong>nav_catalog + AppSettingsPage</strong> 一致。无「设置」大标题。
       </p>
       <ul>
-        <li><strong>钉选</strong>：始终 1 demo = 1 快捷单元</li>
-        <li><strong>游戏浏览</strong>：KV 远程封面网格打开 demo</li>
+        <li><strong>默认钉选</strong>：pi · Time · 实验室</li>
+        <li><strong>游戏浏览</strong>：KV 远程封面网格</li>
         <li><strong>实验室浏览</strong>：小卡片打开 demo</li>
-        <li><strong>设置 · 游戏</strong>：列表旁缩略封面，体现已接入封面</li>
+        <li><strong>设置</strong>：通用 / 钉选 / 核心 / AI / 实验 / 游戏</li>
       </ul>
       <div class="metrics">
         <div class="metric">
@@ -844,16 +844,16 @@
         </div>
 
         <div class="screen">
-          <!-- AI Chat (default first pin) -->
+          <!-- pi (kDefaultNavPins[0] → ai-pi) -->
           <section class="page active" data-page="ai-chat">
             <div class="page-head">
-              <div class="eyebrow">Shortcut 01</div>
-              <h2>AI 对话</h2>
+              <div class="eyebrow">ai-pi</div>
+              <h2>pi</h2>
               <div class="sub">默认首页 = 钉选列表第一项</div>
             </div>
             <div class="hero-quiet">
-              <h3>今天想聊点什么？</h3>
-              <p>主壳不再展示入口墙。从底栏直达，或从 ⋯ 打开其它拆分入口。</p>
+              <h3>nx-as 对话（流式）</h3>
+              <p>主壳不再展示入口墙。从底栏直达，或从 ⋯ 打开其它入口。</p>
             </div>
             <div class="stack" style="margin-top:14px">
               <div class="row" data-click="ai-chat-thread">
@@ -939,8 +939,8 @@
           <!-- System messages -->
           <section class="page" data-page="sys-msg">
             <div class="page-head">
-              <div class="eyebrow">AI Split</div>
-              <h2>系统消息</h2>
+              <div class="eyebrow">ai-sys-msg</div>
+              <h2>小助手</h2>
             </div>
             <div class="stack">
               <div class="row"><div class="ico">☰</div><div class="txt"><b>同步完成</b><span>2 分钟前</span></div></div>
@@ -965,10 +965,10 @@
           <section class="page" data-page="settings">
             <nav class="settings-tabs" id="settingsTabs" aria-label="设置板块" style="margin-top:8px">
               <button type="button" data-tab="general" class="on">通用</button>
-              <button type="button" data-tab="pinned">已钉选</button>
+              <button type="button" data-tab="pinned">钉选</button>
               <button type="button" data-tab="core">核心</button>
               <button type="button" data-tab="ai">AI</button>
-              <button type="button" data-tab="lab">实验室</button>
+              <button type="button" data-tab="lab">实验</button>
               <button type="button" data-tab="games">游戏</button>
             </nav>
 
@@ -977,7 +977,7 @@
               <div class="group" style="margin-bottom:14px">
                 <div class="item">
                   <span>主题</span>
-                  <span style="color:var(--ink-soft)">茶禅 ›</span>
+                  <span style="color:var(--ink-soft)">茶禅主题 ›</span>
                 </div>
               </div>
               <div class="sheet-section">底栏</div>
@@ -990,19 +990,19 @@
                   </div>
                 </div>
               </div>
-              <div class="sheet-section">观测（原型）</div>
+              <div class="sheet-section">观测</div>
               <div class="group">
-                <div class="item"><span>记录点击</span><button class="toggle on" id="togClick" type="button" aria-label="toggle"></button></div>
-                <div class="item"><span>记录检索</span><button class="toggle on" id="togSearch" type="button" aria-label="toggle"></button></div>
+                <div class="item"><span>点击次数</span><span id="setClicks" style="color:var(--accent);font-weight:650">0</span></div>
+                <div class="item"><span>检索次数</span><span id="setSearches" style="color:var(--accent);font-weight:650">0</span></div>
               </div>
             </div>
 
             <div class="settings-panel" data-panel="pinned" hidden>
               <label class="search">
                 <span aria-hidden="true">⌕</span>
-                <input id="searchPinned" type="search" placeholder="搜索已钉选入口" autocomplete="off" />
+                <input id="searchPinned" type="search" placeholder="搜索已钉选" autocomplete="off" />
               </label>
-              <p class="settings-panel-hint">按住左侧 ≡ 拖拽排序。顺序 = 底栏前几项 → ⋯ 溢出。</p>
+              <p class="settings-panel-hint">长按拖动排序。顺序 = 底栏 → ⋯</p>
               <div class="group" id="pinnedList"></div>
             </div>
 
@@ -1070,37 +1070,45 @@
 
 <script>
 (() => {
+  const GROUP = { core: "核心", ai: "AI", lab: "实验室", game: "游戏" };
+  /* 对齐 nav_catalog + kDefaultNavPins + kAssistantEntries */
   const CATALOG = [
-    { id: "ai-chat", title: "AI 对话", icon: "💬", group: "ai", page: "ai-chat" },
-    { id: "ai-agent", title: "Agent", icon: "◎", group: "ai", page: "ai-agent" },
+    { id: "core-time", title: "Time", icon: "⏱", group: "core", page: "time" },
+    { id: "core-lab", title: "实验室", icon: "⚗", group: "core", page: "lab", hint: "工具浏览壳" },
+    { id: "core-games", title: "游戏中心", icon: "🎮", group: "core", page: "games", hint: "封面浏览壳" },
+    { id: "core-profile", title: "个人", icon: "☺", group: "core" },
+    { id: "core-settings", title: "设置", icon: "○", group: "core", page: "settings" },
+    { id: "core-theme", title: "主题", icon: "◐", group: "core" },
     { id: "ai-settings", title: "AI 设置", icon: "⚙", group: "ai", page: "ai-settings" },
-    { id: "sys-msg", title: "系统消息", icon: "☰", group: "ai", page: "sys-msg" },
-    { id: "time", title: "Time", icon: "⏱", group: "core", page: "time" },
-    { id: "lab", title: "实验室", icon: "⚗", group: "core", page: "lab", hint: "浏览壳 · 非 demo 单元" },
-    { id: "games", title: "游戏中心", icon: "🎮", group: "core", page: "games", hint: "浏览壳 · 非 demo 单元" },
-    { id: "settings", title: "设置", icon: "○", group: "core", page: "settings" },
-    // pin unit = one demo module（实验室）
-    { id: "novel", title: "小说阅读", icon: "文", group: "lab", tag: "tool", unit: "demo" },
-    { id: "palette", title: "调色板", icon: "◐", group: "lab", tag: "tool", unit: "demo" },
-    { id: "qr", title: "二维码", icon: "▣", group: "lab", tag: "util", unit: "demo" },
-    { id: "torch", title: "手电筒", icon: "✶", group: "lab", tag: "util", unit: "demo" },
-    { id: "clock", title: "时钟", icon: "◔", group: "lab", tag: "tool", unit: "demo" },
-    // games：cover 模拟 KV remoteCover（真实 App = gameCenterCoverOf(slug)）
-    { id: "game-2048", title: "2048", icon: "▦", group: "game", tag: "puzzle", unit: "demo", grad: "linear-gradient(145deg,#f0a35e,#c45c4a)", blurb: "益智", cover: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&q=80" },
-    { id: "chess", title: "国际象棋", icon: "♞", group: "game", tag: "board", unit: "demo", grad: "linear-gradient(145deg,#3d5a80,#1b2838)", blurb: "棋游 · 联机", cover: "https://images.unsplash.com/photo-1586165368502-1bad197a6461?w=400&q=80" },
-    { id: "snake", title: "贪吃蛇", icon: "∿", group: "game", tag: "arcade", unit: "demo", grad: "linear-gradient(145deg,#6bbf59,#2f6f3a)", blurb: "街机", cover: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&q=80" },
-    { id: "gomoku", title: "五子棋", icon: "◉", group: "game", tag: "board", unit: "demo", grad: "linear-gradient(145deg,#c9a227,#5c4030)", blurb: "棋游", cover: null },
-    { id: "sudoku", title: "数独", icon: "9", group: "game", tag: "puzzle", unit: "demo", grad: "linear-gradient(145deg,#7aa2c8,#3a4f6a)", blurb: "益智", cover: "https://images.unsplash.com/photo-1611996575749-79a3a250f79e?w=400&q=80" },
-    { id: "tetris", title: "俄罗斯方块", icon: "▤", group: "game", tag: "arcade", unit: "demo", grad: "linear-gradient(145deg,#8b6cff,#3d2a7a)", blurb: "街机", cover: null },
+    { id: "ai-agent", title: "Agent", icon: "◎", group: "ai", page: "ai-agent" },
+    { id: "ai-format", title: "Format", icon: "☰", group: "ai" },
+    { id: "ai-receipt", title: "小票", icon: "▤", group: "ai" },
+    { id: "ai-sys-msg", title: "小助手", icon: "✉", group: "ai", page: "sys-msg" },
+    { id: "ai-pi", title: "pi", icon: "✦", group: "ai", page: "ai-chat" },
+    { id: "demo:block-editor", title: "块编辑器", icon: "✎", group: "lab", tag: "tool", unit: "demo" },
+    { id: "demo:pigment-palette", title: "调色板", icon: "◐", group: "lab", tag: "tool", unit: "demo" },
+    { id: "demo:torch", title: "手电筒", icon: "✶", group: "lab", tag: "util", unit: "demo" },
+    { id: "demo:clock", title: "时钟", icon: "◔", group: "lab", tag: "tool", unit: "demo" },
+    { id: "demo:rive-demo", title: "Rive 演示", icon: "◇", group: "lab", tag: "tool", unit: "demo" },
+    { id: "demo:network", title: "网络", icon: "◎", group: "lab", tag: "util", unit: "demo" },
+    { id: "demo:github", title: "GitHub", icon: "⌥", group: "lab", tag: "tool", unit: "demo" },
+    { id: "demo:recorder", title: "录音机", icon: "◉", group: "lab", tag: "util", unit: "demo" },
+    { id: "demo:chess-online", title: "国际象棋（联机）", icon: "♞", group: "game", tag: "board", unit: "demo", grad: "linear-gradient(145deg,#3d5a80,#1b2838)", blurb: "棋游 · 联机", cover: "https://images.unsplash.com/photo-1586165368502-1bad197a6461?w=400&q=80" },
+    { id: "demo:gomoku-lua", title: "五子棋（联机）", icon: "◉", group: "game", tag: "board", unit: "demo", grad: "linear-gradient(145deg,#c9a227,#5c4030)", blurb: "棋游", cover: null },
+    { id: "demo:go-lua", title: "围棋（联机）", icon: "○", group: "game", tag: "board", unit: "demo", grad: "linear-gradient(145deg,#1e293b,#475569)", blurb: "棋游", cover: null },
+    { id: "demo:tetris-lua", title: "俄罗斯方块（联机）", icon: "▤", group: "game", tag: "arcade", unit: "demo", grad: "linear-gradient(145deg,#8b6cff,#3d2a7a)", blurb: "街机", cover: null },
+    { id: "demo:sudoku-lua", title: "数独（联机）", icon: "9", group: "game", tag: "puzzle", unit: "demo", grad: "linear-gradient(145deg,#7aa2c8,#3a4f6a)", blurb: "益智", cover: "https://images.unsplash.com/photo-1611996575749-79a3a250f79e?w=400&q=80" },
+    { id: "demo:snake", title: "贪吃蛇", icon: "∿", group: "game", tag: "arcade", unit: "demo", grad: "linear-gradient(145deg,#6bbf59,#2f6f3a)", blurb: "街机", cover: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&q=80" },
+    { id: "demo:game-2048", title: "2048", icon: "▦", group: "game", tag: "puzzle", unit: "demo", grad: "linear-gradient(145deg,#f0a35e,#c45c4a)", blurb: "益智", cover: "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&q=80" },
+    { id: "demo:team-card-lua", title: "团建卡牌（联机）", icon: "♤", group: "game", tag: "arcade", unit: "demo", grad: "linear-gradient(145deg,#c2185b,#f06292)", blurb: "派对", cover: null },
   ];
 
   const LAB_DEMOS = CATALOG.filter(x => x.group === "lab");
   const GAMES = CATALOG.filter(x => x.group === "game");
   const state = {
     capacity: 4,
-    // 钉选单元全是单个 demo（+ 可选 AI）；浏览壳默认不钉
-    pins: ["ai-chat", "chess", "novel", "tetris", "palette"],
-    activeId: "ai-chat",
+    pins: ["ai-pi", "core-time", "core-lab"],
+    activeId: "ai-pi",
     labFilter: "all",
     gameFilter: "all",
     query: "",
@@ -1109,8 +1117,6 @@
     settingsQuery: { pinned: "", core: "", ai: "", lab: "", games: "" },
     clicks: 0,
     searches: 0,
-    trackClick: true,
-    trackSearch: true,
   };
 
   const dock = document.getElementById("dock");
@@ -1127,7 +1133,6 @@
   const searchCount = document.getElementById("searchCount");
 
   const byId = id => CATALOG.find(x => x.id === id);
-  const dedicatedPages = new Set(["ai-chat", "ai-agent", "ai-settings", "sys-msg", "time", "lab", "games", "settings"]);
 
   function visiblePinIds() {
     return state.pins.slice(0, state.capacity - 1);
@@ -1136,16 +1141,23 @@
     return state.pins.slice(state.capacity - 1);
   }
 
-  function bumpClick(label) {
-    if (!state.trackClick) return;
-    state.clicks += 1;
+  function syncMetricsUi() {
     clickCount.textContent = state.clicks;
+    searchCount.textContent = state.searches;
+    const sc = document.getElementById("setClicks");
+    const ss = document.getElementById("setSearches");
+    if (sc) sc.textContent = state.clicks;
+    if (ss) ss.textContent = state.searches;
+  }
+
+  function bumpClick(label) {
+    state.clicks += 1;
+    syncMetricsUi();
     showToast(`点击 +1 · ${label}`);
   }
   function bumpSearch() {
-    if (!state.trackSearch) return;
     state.searches += 1;
-    searchCount.textContent = state.searches;
+    syncMetricsUi();
   }
 
   let toastTimer;
@@ -1166,24 +1178,27 @@
   }
 
   function fillDemoHost(item) {
-    document.getElementById("demoEyebrow").textContent = (item.tag || "lab").toUpperCase();
+    if (!item) return;
+    document.getElementById("demoEyebrow").textContent =
+      (GROUP[item.group] || item.tag || "demo").toUpperCase();
     document.getElementById("demoTitle").textContent = item.title;
     document.getElementById("demoHero").textContent = item.title;
   }
 
   function showPage(id) {
     const item = byId(id);
-    const pageId = dedicatedPages.has(id) ? (item.page || id) : "demo-host";
+    const pageId = (item && item.page) || "demo-host";
     if (pageId === "demo-host") fillDemoHost(item);
     state.activeId = id;
     document.querySelectorAll(".page").forEach(p => {
       p.classList.toggle("active", p.dataset.page === pageId);
     });
-    if (id === "lab") renderLab();
-    if (id === "games") renderGames();
-    if (id === "settings") {
+    if (pageId === "lab") renderLab();
+    if (pageId === "games") renderGames();
+    if (pageId === "settings") {
       applySettingsTab();
       renderSettingsPools();
+      syncMetricsUi();
     }
     renderDock();
     closeSheet();
@@ -1205,6 +1220,7 @@
 
     pins.forEach((id) => {
       const item = byId(id);
+      if (!item) return;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "tab" + (state.activeId === id ? " on" : "");
@@ -1267,9 +1283,9 @@
   function slotLabel(id) {
     const vis = visiblePinIds();
     const i = vis.indexOf(id);
-    if (i >= 0) return i === 0 ? "底栏 · 首页" : `底栏 ${i + 1}`;
-    const o = overflowPinIds().indexOf(id);
-    if (o >= 0) return `⋯ ${o + 1}`;
+    if (i === 0) return "底栏 · 首页";
+    if (i > 0) return `底栏 ${i + 1}`;
+    if (overflowPinIds().includes(id)) return "⋯";
     return "未钉选";
   }
 
@@ -1295,15 +1311,12 @@
       : item.grad
         ? `style="background:${item.grad};color:#fff"`
         : "";
-    const sub = item.group === "game"
-      ? (hasCover ? "KV 封面 · demo 单元" : "程序化兜底 · demo 单元")
-      : (item.unit === "demo" ? "demo 单元" : (item.hint || item.group));
     row.innerHTML = `
       ${draggable ? `<div class="grip" title="拖拽排序">⋮⋮</div>` : `<div class="grip" style="visibility:hidden">⋮⋮</div>`}
       <div class="pico ${hasCover ? "has-cover" : ""}" ${picoStyle}>${hasCover ? "" : item.icon}</div>
       <div class="ptxt">
         <b>${item.title}</b>
-        <span>${sub} · ${slotLabel(item.id)}</span>
+        <span>${GROUP[item.group] || item.group} · ${slotLabel(item.id)}</span>
       </div>
       <span class="badge ${pinned ? "" : "off"}">${pinned ? "开" : "关"}</span>
       <button class="toggle ${pinned ? "on" : ""}" type="button" data-pin="${item.id}" aria-label="钉选"></button>
@@ -1586,7 +1599,7 @@
   scrim.addEventListener("click", closeSheet);
   document.getElementById("openSettings").addEventListener("click", () => {
     bumpClick("更多 · 设置");
-    showPage("settings");
+    showPage("core-settings");
   });
 
   document.getElementById("capSeg").addEventListener("click", (e) => {
@@ -1599,17 +1612,6 @@
     renderDock();
   });
 
-  document.getElementById("togClick").addEventListener("click", () => {
-    const tog = document.getElementById("togClick");
-    tog.classList.toggle("on");
-    state.trackClick = tog.classList.contains("on");
-  });
-  document.getElementById("togSearch").addEventListener("click", () => {
-    const tog = document.getElementById("togSearch");
-    tog.classList.toggle("on");
-    state.trackSearch = tog.classList.contains("on");
-  });
-
   document.querySelectorAll("[data-click]").forEach(el => {
     el.addEventListener("click", () => bumpClick(el.dataset.click));
   });
@@ -1617,6 +1619,7 @@
   window.addEventListener("resize", placePill);
 
   state.activeId = state.pins[0];
+  syncMetricsUi();
   showPage(state.activeId);
 })();
 </script>
