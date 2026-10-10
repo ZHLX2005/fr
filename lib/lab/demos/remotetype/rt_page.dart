@@ -268,8 +268,24 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
     _debounce?.cancel();
     _debounce = Timer(kRtSyncDebounce, () {
       final text = _textController.text;
-      session.syncText(text, enterMode: _enterMode).then((_) {
-        if (mounted) setState(() => _syncSent += 1);
+      // 发送模式 + 句尾 Enter =「发送」：PC 端注入 Enter 后目标框清空、
+      // mirror 归零（rt-align commitApplied），手机端同步清空开始新一条，
+      // 两侧对齐到空。空卡回车（只有换行）不发包，直接开新卡。
+      final flushAfterSend = _enterMode == 'enter' && text.endsWith('\n');
+      if (flushAfterSend && text.trim().isEmpty) {
+        _asrBase = '';
+        _textController.clear();
+        return;
+      }
+      session.syncText(text, enterMode: _enterMode).then((sent) {
+        if (!mounted) return;
+        if (sent) {
+          setState(() => _syncSent += 1);
+          if (flushAfterSend) {
+            _asrBase = '';
+            _textController.clear();
+          }
+        }
       }).catchError((Object e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('同步失败：$e')));
@@ -598,6 +614,9 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
                   showSelectedIcon: false,
                   onSelectionChanged: (selection) {
                     setState(() => _enterMode = selection.first);
+                    // 模式随快照传输：立即补发一条，切换即刻生效
+                    //（否则要等下一次文本变化才带上新模式）
+                    _scheduleSync();
                   },
                 ),
                 const SizedBox(width: 8),

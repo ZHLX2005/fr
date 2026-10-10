@@ -233,12 +233,15 @@ class RtSession {
 
   /// 同步全文到 PC（全文快照语义，调用方负责防抖）。
   ///
+  /// 返回 true = 信封已实际发出（WS 未连接时返回 false，调用方可据此
+  /// 决定是否做「发送后清空」一类不可逆动作）。
+  ///
   /// [enterMode]：'\n' 在 PC 侧的注入方式（'enter'=普通 Enter / 'shift_enter'
   /// = Shift+Enter，微信等「Enter=发送」的框里只换行不发送）。null/空 = 不带
   /// 字段，PC 端走本地配置兜底（老版本 PC 忽略未知字段，双向兼容）。
-  Future<void> syncText(String text, {String? enterMode}) async {
+  Future<bool> syncText(String text, {String? enterMode}) async {
     final derived = await _derivedFuture;
-    if (_ws == null) return;
+    if (_ws == null) return false;
     _seq += 1;
     final envelope = await rtSeal(
       key: derived.keyPhoneToPc,
@@ -253,6 +256,7 @@ class RtSession {
       seq: _seq,
     );
     _sendJson({'clientId': _target, 'text': jsonEncode(envelope)});
+    return true;
   }
 
   void _sendJson(Map<String, dynamic> obj) {
