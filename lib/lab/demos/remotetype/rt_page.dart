@@ -56,6 +56,10 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   // 联调可观测性：本次会话已发出的同步包数（对照 PC 端 envelopesOk，
   // 立刻区分「手机没发」还是「电脑没收」）
   int _syncSent = 0;
+  // 回车注入方式：'enter'=发送（电脑端敲普通 Enter）/ 'shift_enter'=换行
+  // （电脑端敲 Shift+Enter，微信等「Enter=发送」的框里只换行不发送）。
+  // 随每条快照下发，可即时切换；页面级内存态（本页其他配置同样不持久化）
+  String _enterMode = 'enter';
 
   // ASR
   final stt.SpeechToText _stt = stt.SpeechToText();
@@ -264,7 +268,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
     _debounce?.cancel();
     _debounce = Timer(kRtSyncDebounce, () {
       final text = _textController.text;
-      session.syncText(text).then((_) {
+      session.syncText(text, enterMode: _enterMode).then((_) {
         if (mounted) setState(() => _syncSent += 1);
       }).catchError((Object e) {
         if (mounted) {
@@ -600,6 +604,28 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
                 },
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('清空'),
+              ),
+              const SizedBox(width: 8),
+              // 回车注入方式：发送(Enter) / 换行(Shift+Enter)。
+              // compact 防窄屏溢出；切换即时生效（下一条快照就带新模式）
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'enter',
+                    label: Text('发送', style: TextStyle(fontSize: 12)),
+                    tooltip: '电脑端敲普通 Enter——多数输入框即「发送」',
+                  ),
+                  ButtonSegment(
+                    value: 'shift_enter',
+                    label: Text('换行', style: TextStyle(fontSize: 12)),
+                    tooltip: '电脑端敲 Shift+Enter——微信等框里只换行不发送',
+                  ),
+                ],
+                selected: {_enterMode},
+                showSelectedIcon: false,
+                onSelectionChanged: (selection) {
+                  setState(() => _enterMode = selection.first);
+                },
               ),
               const Spacer(),
               if (_listening)

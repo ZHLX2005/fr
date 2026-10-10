@@ -23,6 +23,26 @@ import 'rt_crypto.dart';
 /// 连接失败的可区分错误（文案直接对应用户动作）
 enum RtJoinErrorKind { serverUnreachable, pcOffline, authFailed, other }
 
+/// RT1 P2C 快照明文（与 mn-rt client/lib/rt-align.js 的解析端对齐）。
+///
+/// [enterMode] 非空时携带（'enter' | 'shift_enter'），空串视为未选择；
+/// 老版本 PC 解析 JSON 时忽略未知字段，双向兼容。独立成顶层纯函数
+/// 以便单测（向量对拍不感知该字段，加密层无改动）。
+Map<String, dynamic> rtSyncPlaintext(
+  String text,
+  int ts,
+  String phoneId, {
+  String? enterMode,
+}) {
+  final hasMode = enterMode != null && enterMode.isNotEmpty;
+  return {
+    'text': text,
+    'ts': ts,
+    'phoneId': phoneId,
+    if (hasMode) 'enterMode': enterMode,
+  };
+}
+
 class RtSessionException implements Exception {
   RtSessionException(this.kind, this.message);
 
@@ -211,19 +231,24 @@ class RtSession {
     }
   }
 
-  /// 同步全文到 PC（全文快照语义，调用方负责防抖）
-  Future<void> syncText(String text) async {
+  /// 同步全文到 PC（全文快照语义，调用方负责防抖）。
+  ///
+  /// [enterMode]：'\n' 在 PC 侧的注入方式（'enter'=普通 Enter / 'shift_enter'
+  /// = Shift+Enter，微信等「Enter=发送」的框里只换行不发送）。null/空 = 不带
+  /// 字段，PC 端走本地配置兜底（老版本 PC 忽略未知字段，双向兼容）。
+  Future<void> syncText(String text, {String? enterMode}) async {
     final derived = await _derivedFuture;
     if (_ws == null) return;
     _seq += 1;
     final envelope = await rtSeal(
       key: derived.keyPhoneToPc,
       aad: rtBuildAad(derived.room, kRtDirPhoneToPc, _seq),
-      plaintext: {
-        'text': text,
-        'ts': DateTime.now().millisecondsSinceEpoch,
-        'phoneId': _phoneId,
-      },
+      plaintext: rtSyncPlaintext(
+        text,
+        DateTime.now().millisecondsSinceEpoch,
+        _phoneId,
+        enterMode: enterMode,
+      ),
       sid: _sid,
       seq: _seq,
     );
