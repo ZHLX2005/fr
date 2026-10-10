@@ -7,6 +7,7 @@ import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
 import 'core/theme/state/theme_provider.dart';
+import 'core/nav/game_cover_warmup.dart';
 import 'core/nav/nav_bootstrap.dart';
 import 'core/nav/nav_metrics_notifier.dart';
 import 'core/nav/nav_pins_notifier.dart';
@@ -95,6 +96,8 @@ void main() async {
   // handler 注册时 routing infrastructure 已就绪,又不会拖慢冷启动。
   bootstrapLab();
   registerNavBuilders();
+  // 游戏封面 KV 预热（设置缩略 / 导航可立刻读到，不依赖先进游戏中心）
+  scheduleGameCenterCoverWarmUp();
   registerAllFrRoutes();
   // ★ 注册桌面 widget MethodChannel（必须在 runApp 之前,handler 在 widget 树之外也可调用）
   const channel = MethodChannel(_kWidgetChannel);

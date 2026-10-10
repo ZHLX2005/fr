@@ -4,11 +4,12 @@
 import 'dart:async';
 import 'dart:ui' show lerpDouble;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/game_kit/skin/game_center_skin_spec.dart';
+import '../../core/nav/game_cover_warmup.dart';
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_metrics_notifier.dart';
 import '../../core/nav/nav_pins_notifier.dart';
@@ -38,6 +39,17 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
   _SettingsTab _tab = _SettingsTab.general;
   final _queries = <_SettingsTab, String>{};
   Timer? _searchDebounce;
+  /// 封面预热完成后刷新游戏缩略图。
+  var _coversReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 进设置时再确保拉一次（启动预热可能尚未完成）
+    warmUpGameCenterCovers().then((_) {
+      if (mounted) setState(() => _coversReady = true);
+    });
+  }
 
   @override
   void dispose() {
@@ -151,6 +163,8 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
                             .toList(),
                         pinnedIds: pins.pinIds,
                         showThumb: true,
+                        // 触发封面到位后的缩略刷新
+                        coverEpoch: _coversReady ? 1 : 0,
                       ),
                   },
                 ),
@@ -252,6 +266,7 @@ class _PinPool extends ConsumerStatefulWidget {
     required this.pinnedIds,
     this.reorderable = false,
     this.showThumb = false,
+    this.coverEpoch = 0,
   });
 
   final String searchHint;
@@ -260,6 +275,7 @@ class _PinPool extends ConsumerStatefulWidget {
   final List<String> pinnedIds;
   final bool reorderable;
   final bool showThumb;
+  final int coverEpoch;
 
   @override
   ConsumerState<_PinPool> createState() => _PinPoolState();
@@ -433,7 +449,7 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                         final e = entries[index];
                         final pinned = pins.pinIds.contains(e.id);
                         return _PinTile(
-                          key: ValueKey(e.id),
+                          key: ValueKey('${e.id}-${widget.coverEpoch}'),
                           entry: e,
                           pinned: pinned,
                           slotLabel: _slotLabel(pins, e.id),
@@ -527,25 +543,27 @@ class _LeadingIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // 游戏：用 meta 渐变块暗示封面体系（完整封面仍在游戏中心）
     if (showThumb && entry.id.startsWith('demo:')) {
       final slug = entry.id.substring(5);
       final meta = kGameMeta[slug];
-      if (meta != null) {
-        return Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: meta.gradient,
+      // KV 远程封面（small）→ 程序化渐变兜底
+      final cover = gameCenterCoverOf(slug, kGameCenterSkinSmall);
+      if (cover != null) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Image(
+              image: cover,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => _gameFallback(meta, entry.icon),
             ),
           ),
-          child: Icon(meta.icon, color: Colors.white, size: 18),
         );
       }
+      if (meta != null) return _gameFallback(meta, entry.icon);
     }
     return Container(
       width: 36,
@@ -557,9 +575,36 @@ class _LeadingIcon extends StatelessWidget {
       child: Icon(entry.icon, color: cs.primary, size: 18),
     );
   }
+
+  Widget _gameFallback(GameMeta? meta, IconData icon) {
+    if (meta == null) {
+      return Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 18),
+      );
+    }
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: meta.gradient,
+        ),
+      ),
+      child: Icon(meta.icon, color: Colors.white, size: 18),
+    );
+  }
 }
 
-/// 系统 Cupertino 滑动分段（原生胶囊跟手，无自定义弹簧过冲）。
+/// 等宽收进一屏的分段控件（不横向滚动）。
 class _CupertinoSettingsTabs extends StatelessWidget {
   const _CupertinoSettingsTabs({
     required this.value,
@@ -569,49 +614,89 @@ class _CupertinoSettingsTabs extends StatelessWidget {
   final _SettingsTab value;
   final ValueChanged<_SettingsTab> onChanged;
 
+  /// 短标签，保证 6 格塞进手机宽度。
   static const _tabs = <(String, _SettingsTab)>[
     ('通用', _SettingsTab.general),
-    ('已钉选', _SettingsTab.pinned),
+    ('钉选', _SettingsTab.pinned),
     ('核心', _SettingsTab.core),
     ('AI', _SettingsTab.ai),
-    ('实验室', _SettingsTab.lab),
+    ('实验', _SettingsTab.lab),
     ('游戏', _SettingsTab.games),
   ];
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: double.infinity,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: CupertinoSlidingSegmentedControl<_SettingsTab>(
-          groupValue: value,
-          backgroundColor: cs.surfaceContainerHighest.withValues(alpha: 0.7),
-          thumbColor: cs.surface,
-          padding: const EdgeInsets.all(3),
-          children: {
-            for (final (label, tab) in _tabs)
-              tab: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight:
-                        value == tab ? FontWeight.w700 : FontWeight.w600,
-                    color: value == tab ? cs.onSurface : cs.onSurfaceVariant,
+    final selected = _tabs.indexWhere((e) => e.$2 == value).clamp(0, 5);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final innerW = constraints.maxWidth - 4;
+        final cellW = innerW / _tabs.length;
+        return Container(
+          height: 36,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.all(2),
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                left: selected * cellW,
+                top: 0,
+                bottom: 0,
+                width: cellW,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                 ),
               ),
-          },
-          onValueChanged: (v) {
-            if (v == null) return;
-            HapticFeedback.selectionClick();
-            onChanged(v);
-          },
-        ),
-      ),
+              Row(
+                children: [
+                  for (final (label, tab) in _tabs)
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          onChanged(tab);
+                        },
+                        child: Center(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: value == tab
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: value == tab
+                                  ? cs.onSurface
+                                  : cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
