@@ -47,6 +47,9 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   // 不提示的话用户只看到「打了字没同步」，无从自查
   Timer? _e2eHintTimer;
   bool _e2eHintShown = false;
+  // 合成区缓滞上传：输入法语音识别常把已识别汉字长期留在 composing 区
+  // 且结束合成时不再触发文本变更，仅靠「合成结束补发」会永久不同步
+  Timer? _composingTimer;
 
   // ASR
   final stt.SpeechToText _stt = stt.SpeechToText();
@@ -87,6 +90,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   void dispose() {
     _pollTimer?.cancel();
     _debounce?.cancel();
+    _composingTimer?.cancel();
     _e2eHintTimer?.cancel();
     _eventSub?.cancel();
     _textController.dispose();
@@ -180,11 +184,28 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
 
   void _onTextChanged(String _) {
     final value = _textController.value;
-    // IME 合成中挂起（合成结束的变更会再次触发本回调）
     if (value.composing != TextRange.empty) {
+      // IME 合成中挂起。但输入法语音识别常把「已识别的汉字」长期置于合成区，
+      // 且部分输入法结束合成时不触发文本变更——只等补发会永久不同步。
+      // 缓解：合成区内容含 CJK（语音中间结果已是汉字）时，静默 1.5s 直接上传；
+      // 纯 ASCII（拼音拼写中）继续等合成结束，避免把拼音中间态推给电脑。
+      _composingTimer?.cancel();
+      _composingTimer = Timer(const Duration(milliseconds: 1500), () {
+        final v = _textController.value;
+        if (!mounted || v.composing == TextRange.empty) return;
+        if (_hasCjk(v.composing.textInside(v.text))) _scheduleSync();
+      });
       return;
     }
     _scheduleSync();
+  }
+
+  /// 是否含 CJK 统表汉字（语音识别中间结果；拼音拼写中间态只含 ASCII）
+  static bool _hasCjk(String s) {
+    for (final r in s.runes) {
+      if ((r >= 0x4E00 && r <= 0x9FFF) || (r >= 0x3400 && r <= 0x4DBF)) return true;
+    }
+    return false;
   }
 
   void _scheduleSync() {
@@ -335,6 +356,7 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
                 _session?.dispose();
                 _session = null;
                 _debounce?.cancel();
+                _composingTimer?.cancel();
                 _e2eHintTimer?.cancel();
                 if (_listening) _stt.stop();
                 setState(() {
