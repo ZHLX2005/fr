@@ -50,6 +50,9 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   // 合成区缓滞上传：输入法语音识别常把已识别汉字长期留在 composing 区
   // 且结束合成时不再触发文本变更，仅靠「合成结束补发」会永久不同步
   Timer? _composingTimer;
+  // 联调可观测性：本次会话已发出的同步包数（对照 PC 端 envelopesOk，
+  // 立刻区分「手机没发」还是「电脑没收」）
+  int _syncSent = 0;
 
   // ASR
   final stt.SpeechToText _stt = stt.SpeechToText();
@@ -238,7 +241,9 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
     _debounce?.cancel();
     _debounce = Timer(kRtSyncDebounce, () {
       final text = _textController.text;
-      session.syncText(text).catchError((Object e) {
+      session.syncText(text).then((_) {
+        if (mounted) setState(() => _syncSent += 1);
+      }).catchError((Object e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('同步失败：$e')));
         }
@@ -516,11 +521,14 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
                 color: _e2eOk ? Colors.green : Colors.orange,
               ),
               const SizedBox(width: 6),
-              Text(
-                _e2eOk
-                    ? '端到端已建立'
-                    : (_connected ? '已连接，等待电脑确认（发一条消息即确认）' : '连接中…'),
-                style: const TextStyle(fontSize: 12),
+              Expanded(
+                child: Text(
+                  '${_e2eOk
+                      ? '端到端已建立'
+                      : (_connected ? '已连接，等待电脑确认（发一条消息即确认）' : '连接中…')}'
+                  '　已发 $_syncSent 包 · $kRtBuildTag',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -531,6 +539,13 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
             child: TextField(
               controller: _textController,
               onChanged: _onTextChanged,
+              onTapOutside: (_) {
+                // 点输入框外通常触发 IME 收起/合成结束；合成区仍挂着时兜底强制同步，
+                // 覆盖「合成永不结束也不再有文本变更」的输入法
+                if (_textController.value.composing != TextRange.empty) {
+                  _scheduleSync();
+                }
+              },
               maxLines: null,
               expands: true,
               maxLength: kRtMaxTextLength,

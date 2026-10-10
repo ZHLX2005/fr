@@ -35,3 +35,6 @@ const Duration kRtSyncDebounce = Duration(milliseconds: 250);
 
 /// 全文上限（与 mn-rt sanitize 截断上限一致）
 const int kRtMaxTextLength = 5000;
+
+/// 构建标识：联调时核对手机上跑的是不是最新修复（每次改动 demo 逻辑时递增）
+const String kRtBuildTag = 'b4-composing-flush+asr-rebuild';
