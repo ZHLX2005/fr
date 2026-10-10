@@ -34,7 +34,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   String _resolveSelected(NavPinsState pins) {
     final id = _selectedId;
-    if (id != null && pins.pinIds.contains(id)) return id;
+    // 允许未钉选但仍有效的入口（⋯ 里的「设置」等），不能只认 pinIds，
+    // 否则选中后下一帧会被打回 homeId，表现为「设置点了没反应」。
+    if (id != null && navEntryById(id) != null) return id;
     return pins.homeId;
   }
 
@@ -110,7 +112,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         TextButton(
                           onPressed: () {
                             Navigator.pop(ctx);
-                            _select('core-settings', source: '更多');
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (!mounted) return;
+                              _select('core-settings', source: '更多');
+                            });
                           },
                           child: const Text('设置'),
                         ),
@@ -139,8 +144,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                             _MoreCell(
                               entry: e,
                               onTap: () {
+                                final id = e.id;
                                 Navigator.pop(ctx);
-                                _select(e.id, source: '更多');
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (!mounted) return;
+                                  _select(id, source: '更多');
+                                });
                               },
                             ),
                         ],
