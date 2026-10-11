@@ -1,8 +1,7 @@
-import '../../api/authhub/authhub_config.dart';
 import '../../api/authhub/authhub_exception.dart';
 import '../../api/authhub/authhub_models.dart';
+import '../../api/authhub/authhub_native_login.dart';
 import '../../api/authhub/authhub_oidc_endpoint.dart';
-import '../../api/authhub/authhub_pkce.dart';
 import '../../api/token/token_manager.dart';
 import '../../api/token/token_storage.dart';
 import '../../api/user/user_auth_service.dart';
@@ -23,11 +22,16 @@ class AuthSession {
   final int? backendUserId;
   final String? backendNickname;
 
+  /// 登录用的账号名，仅用于过期后重新登录时**预填**。
+  /// 口令不在此列 —— 见 signInWithPassword 的说明。
+  final String? username;
+
   const AuthSession({
     required this.idp,
     required this.expiresAt,
     this.backendUserId,
     this.backendNickname,
+    this.username,
   });
 
   String get displayName {
@@ -35,22 +39,6 @@ class AuthSession {
     if (n != null && n.isNotEmpty) return n;
     return idp.displayName;
   }
-}
-
-/// 发起授权所需的一切（URL + 那把只有本机知道的 PKCE 私货）。
-///
-/// 必须成对返回并成对持有：code_verifier 与 state 只在发起方内存里，
-/// 一旦分开传，回调时就没人能验证"这个 code 是回给我的"。
-class SignInRequest {
-  final String authorizeUrl;
-  final AuthPkce pkce;
-  final String redirectUri;
-
-  const SignInRequest({
-    required this.authorizeUrl,
-    required this.pkce,
-    required this.redirectUri,
-  });
 }
 
 /// 统一登录编排：认证中心授权 → 存 token → 让业务后端认领本地账号。
@@ -69,6 +57,7 @@ class SignInRequest {
 class UnifiedAuthService {
   final TokenManager _tokenManager;
   final AuthHubOidcEndpoint _oidc;
+  final AuthHubNativeLoginFlow _native;
   final UserAuthService Function() _userApi;
 
   /// [userApi] 是工厂而不是实例：业务后端的账号服务在 GetIt 里是单例，
@@ -77,9 +66,11 @@ class UnifiedAuthService {
   const UnifiedAuthService({
     required TokenManager tokenManager,
     required AuthHubOidcEndpoint oidc,
+    required AuthHubNativeLoginFlow native,
     required UserAuthService Function() userApi,
   })  : _tokenManager = tokenManager,
         _oidc = oidc,
+        _native = native,
         _userApi = userApi;
 
   /// 认证中心是否可达。
@@ -95,83 +86,24 @@ class UnifiedAuthService {
     }
   }
 
-  /// 生成授权请求。每次调用都产生全新的 PKCE / state / nonce / 端口。
+  /// 用账号口令完成一次原生登录，返回会话快照。
   ///
-  /// 端口随机是为了让"同一次安装的多次登录"之间不互相干扰；
-  /// 认证中心白名单放行 `127.0.0.1:*`，所以任意端口都合法。
-  Future<SignInRequest> beginSignIn() async {
-    final e = await _oidc.discover();
-    final pkce = AuthPkce.generate();
-    final port = 30000 + (DateTime.now().microsecondsSinceEpoch % 20000);
-    final redirectUri = AuthHubConfig.redirectUriFor(port);
-
-    final params = <String, String>{
-      'response_type': 'code',
-      'client_id': AuthHubConfig.clientId,
-      'redirect_uri': redirectUri,
-      'scope': AuthHubConfig.scopes.join(' '),
-      'state': pkce.state,
-      'nonce': pkce.nonce,
-      ...pkce.challengeParams,
-    };
-
-    final url = Uri.parse(e.authorizationEndpoint)
-        .replace(queryParameters: {..._queryOf(e.authorizationEndpoint), ...params})
-        .toString();
-
-    return SignInRequest(authorizeUrl: url, pkce: pkce, redirectUri: redirectUri);
-  }
-
-  /// 用回调 URL 里的 code 完成登录。
-  ///
-  /// [callbackUrl] 是 WebView 拦下来的那条 redirect_uri 完整地址。
-  /// 这里做两件不能省的事：校验 state、以及从 URL 里区分"带了 code"和
-  /// "带了 error"（用户在认证中心点拒绝时是后者）。
-  Future<AuthSession> completeSignIn({
-    required String callbackUrl,
-    required SignInRequest request,
+  /// 口令只在本次调用内存在：不写日志、不进异常消息、也不缓存在字段里
+  /// （缓存在内存里"以便静默续期"看着方便，但那等于把口令的生命周期
+  /// 从一次操作拉长到整个进程，而进程可能被 dump、可能被截图工具读到）。
+  /// 因此过期时界面上就是"重新输一次口令"—— 这是选原生表单 +
+  /// 不存长期凭据这个组合必然要付的代价，如实呈现比藏起来好。
+  Future<AuthSession> signInWithPassword({
+    required String username,
+    required String password,
   }) async {
-    final uri = Uri.tryParse(callbackUrl);
-    if (uri == null) {
-      throw const AuthHubException(
-        error: AuthHubException.errNoCode,
-        message: '回调地址无法解析',
-      );
-    }
-
-    final q = uri.queryParameters;
-    if ((q['state'] ?? '') != request.pkce.state) {
-      // 不匹配只有两种可能：回调被串了，或者有人试图伪造一次授权完成。
-      // 两种都必须中止，且不能退化成"那就当没这回事重试一次"。
-      throw const AuthHubException(
-        error: AuthHubException.errStateMismatch,
-        message: '授权回调的 state 与发起时不一致，已中止登录',
-      );
-    }
-    if (q['error'] != null) {
-      throw AuthHubException(
-        error: q['error']!,
-        message: q['error_description'] ?? '认证中心拒绝了这次授权',
-      );
-    }
-    final code = q['code'] ?? '';
-    if (code.isEmpty) {
-      throw const AuthHubException(
-        error: AuthHubException.errNoCode,
-        message: '回调里没有 authorization code',
-      );
-    }
-
-    final set = await _oidc.exchangeCode(
-      code: code,
-      codeVerifier: request.pkce.codeVerifier,
-      // 必须回传发起时那一个 redirect_uri（含端口）：两边不一致认证中心直接拒
-      redirectUri: request.redirectUri,
+    final set = await _native.signInWithPassword(
+      username: username,
+      password: password,
     );
 
-    // 只存 access_token。令牌端点同时返回的 refresh_token 在这里**被丢弃**：
-    // 它是 7 天有效、无设备绑定的账号级凭据，而本机的持久化层是明文
-    // SharedPreferences（且 allowBackup 默认为 true）。详见 TokenManager 注释。
+    // 只存 access_token。令牌端点同时返回的 refresh_token 在这里被丢弃：
+    // 它是 7 天有效、无设备绑定的账号级凭据，而本机持久化层是明文存储。
     await _tokenManager.setTokens(
       accessToken: set.accessToken,
       expiresAt: set.expiresAt,
@@ -179,12 +111,13 @@ class UnifiedAuthService {
     );
 
     final idp = await _oidc.userinfo(set.accessToken);
-    final session = AuthSession(
+    return _attachBackendIdentity(AuthSession(
       idp: idp,
       expiresAt: set.expiresAt,
-      backendUserId: null,
-    );
-    return _attachBackendIdentity(session);
+      // 顺手记下账号，供过期后重新登录时预填 —— 预填用户名不涉及任何凭据，
+      // 却能把"重输一遍"的摩擦砍掉一半。
+      username: username,
+    ));
   }
 
   /// 已有会话则取回（App 启动时判断"我是谁"）。未登录返回 null。
@@ -235,15 +168,10 @@ class UnifiedAuthService {
         expiresAt: session.expiresAt,
         backendUserId: uid,
         backendNickname: data['nickname'] as String?,
+        username: session.username,
       );
     } catch (_) {
       return session;
     }
-  }
-
-  Map<String, String> _queryOf(String url) {
-    final u = Uri.tryParse(url);
-    if (u == null) return const {};
-    return u.queryParameters;
   }
 }

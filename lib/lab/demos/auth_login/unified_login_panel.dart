@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_it/get_it.dart';
 
 import '../../../api/authhub/authhub_config.dart';
 import '../../../api/authhub/authhub_exception.dart';
+import '../../../api/providers/api_providers.dart';
 import '../../../api/user/user_auth_service.dart';
 import '../../../services/auth/auth_providers.dart';
-import '../../../services/auth/auth_webview_page.dart';
 import '../../../services/auth/unified_auth_service.dart';
 import 'const_auth_login.dart';
 
-/// 统一登录面板：显示当前身份、发起/退出登录、认证中心可达性。
+/// 统一登录面板 —— 纯原生表单，不打开任何 WebView / 浏览器。
+///
+/// 三态：未登录（表单）、已登录（身份卡）、已过期（表单 + 预填账号）。
+/// 把"过期"单独成一态而不是静默掉回未登录，是因为用户刚扫完码突然被要求
+/// 重输一遍，界面若不说原因，他只会认为功能坏了。
 class UnifiedLoginPanel extends ConsumerStatefulWidget {
   const UnifiedLoginPanel({super.key});
 
@@ -19,24 +23,34 @@ class UnifiedLoginPanel extends ConsumerStatefulWidget {
 }
 
 class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
+  final TextEditingController _username = TextEditingController();
+  final TextEditingController _password = TextEditingController();
+
   AuthSession? _session;
   bool _busy = false;
   bool _idpReachable = true;
+  bool _expired = false;
+  bool _needsReauth = false;
   String? _error;
-  bool _restored = false;
 
   UnifiedAuthService get _svc => ref.read(unifiedAuthProvider);
 
   @override
   void initState() {
     super.initState();
-    // initState 里不能同步读 SharedPreferences / 网络，只能异步起一次。
-    // 这里刻意不 await：面板要先画出来，登录态到了再刷新。
     WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
   }
 
+  @override
+  void dispose() {
+    // 口令只活在这个 controller 里，随页面销毁一起清掉。
+    _password.clear();
+    _username.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
   Future<void> _restore() async {
-    if (!mounted) return;
     setState(() => _busy = true);
     final reachable = await _svc.probeIdp();
     final session = reachable ? await _svc.restore() : null;
@@ -44,62 +58,54 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
     setState(() {
       _idpReachable = reachable;
       _session = session;
+      _expired = false;
       _busy = false;
-      _restored = true;
     });
+    await _refreshReauthFlag();
+  }
+
+  Future<void> _refreshReauthFlag() async {
+    final need = await ref.read(tokenManagerProvider).needsReauth;
+    if (!mounted) return;
+    setState(() => _needsReauth = need);
   }
 
   Future<void> _signIn() async {
+    final u = _username.text.trim();
+    final p = _password.text;
+    if (u.isEmpty) {
+      setState(() => _error = '请输入账号或邮箱');
+      return;
+    }
+    if (p.isEmpty) {
+      setState(() => _error = '请输入密码');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final request = await _svc.beginSignIn();
+      final session = await _svc.signInWithPassword(username: u, password: p);
       if (!mounted) return;
-      final host = Uri.parse(AuthHubConfig.issuer).host;
-      final callback = await Navigator.of(context).push<String>(
-        MaterialPageRoute(
-          builder: (_) => AuthWebViewPage(
-            authorizeUrl: request.authorizeUrl,
-            redirectUri: request.redirectUri,
-            identityHost: host,
-          ),
-        ),
-      );
-      if (callback == null) {
-        // 用户主动取消是一种正常结局，不是错误：报"失败"会让人以为
-        // 认证中心坏了，进而反复重试。
-        if (!mounted) return;
-        setState(() {
-          _busy = false;
-          _error = '已取消登录';
-        });
-        return;
-      }
-      final session = await _svc.completeSignIn(
-        callbackUrl: callback,
-        request: request,
-      );
-      if (!mounted) return;
+      // 成功就抹掉口令：它已经换成 token 了，留在输入框里只是多一处泄露面
+      _password.clear();
       setState(() {
         _session = session;
-        _busy = false;
+        _expired = false;
         _idpReachable = true;
+        _busy = false;
       });
+      await _refreshReauthFlag();
     } on AuthHubException catch (e) {
       if (!mounted) return;
+      _password.clear();
       setState(() {
         _error = e.message;
         _busy = false;
-        _idpReachable = e.error != AuthHubException.errDiscovery &&
-            e.error != AuthHubException.errNetwork;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '登录失败：$e';
-        _busy = false;
+        // 认证中心明确拒绝口令/账号，说明服务是通的；只有网络类错误才算不可达
+        _idpReachable = e.error != AuthHubException.errNetwork &&
+            e.error != AuthHubException.errDiscovery;
       });
     }
   }
@@ -110,7 +116,22 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
     if (!mounted) return;
     setState(() {
       _session = null;
+      _expired = false;
+      _needsReauth = false;
       _busy = false;
+    });
+  }
+
+  /// 令牌过期：回到表单，但把账号留下。
+  Future<void> _reauth() async {
+    final name = _session?.username ?? _session?.idp.preferredUsername ?? '';
+    await _svc.signOut();
+    if (!mounted) return;
+    setState(() {
+      _session = null;
+      _expired = true;
+      _needsReauth = false;
+      if (name.isNotEmpty) _username.text = name;
     });
   }
 
@@ -124,45 +145,35 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    s == null ? AuthLoginConst.hintNoSession : '已登录：${s.displayName}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  _kv(context, '认证中心', AuthHubConfig.issuer),
-                  _kv(context, 'client_id', AuthHubConfig.clientId),
-                  if (s != null) ...[
-                    _kv(context, 'sub', s.idp.sub),
-                    _kv(context, 'email', s.idp.email ?? '（未提供）'),
-                    _kv(context, '业务后端账号',
-                        s.backendUserId == null ? '未认领' : '#${s.backendUserId}'),
-                  ],
-                  _kv(context, '认证中心可达', _idpReachable ? '是' : '否'),
-                ],
-              ),
+          if (s != null)
+            _SessionCard(session: s)
+          else
+            _LoginForm(
+              username: _username,
+              password: _password,
+              busy: _busy,
+              expired: _expired,
+              onSubmit: _signIn,
             ),
-          ),
-          const SizedBox(height: 12),
-          if (!_idpReachable)
+          if (!_idpReachable) ...[
+            const SizedBox(height: 12),
             _notice(context, scheme.error, AuthLoginConst.hintIdpUnreachable),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 10),
             Text(_error!, style: TextStyle(color: scheme.error)),
           ],
-          const SizedBox(height: 16),
-          if (s == null)
-            FilledButton(
-              onPressed: _busy ? null : _signIn,
-              child: Text(_busy ? '处理中…' : AuthLoginConst.btnSignIn),
-            )
-          else
+          if (s != null) ...[
+            const SizedBox(height: 12),
+            if (_needsReauth) ...[
+              _notice(
+                context,
+                scheme.tertiary,
+                '登录态已过期或即将过期。认证中心的 access_token 只有 10 分钟，'
+                    '而客户端刻意不保存长期凭据，因此需要重新登录一次。',
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(
@@ -173,46 +184,24 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: FilledButton.tonal(
-                    onPressed: _busy ? null : _signOut,
-                    child: const Text(AuthLoginConst.btnSignOut),
-                  ),
+                  child: _needsReauth
+                      ? FilledButton(
+                          onPressed: _busy ? null : _reauth,
+                          child: const Text('重新登录'),
+                        )
+                      : FilledButton.tonal(
+                          onPressed: _busy ? null : _signOut,
+                          child: const Text(AuthLoginConst.btnSignOut),
+                        ),
                 ),
               ],
             ),
-          if (s == null) const FallbackPasswordForm(),
-          if (_restored && s == null && _idpReachable) ...[
-            const SizedBox(height: 14),
-            Text(
-              '登录后即可在「扫码批准」页批准其他设备；'
-              '业务后端（dev_ctr_hello）现在也接受这张认证中心令牌，'
-              '不再需要它自己的账号密码。',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
           ],
+          const FallbackPasswordForm(),
         ],
       ),
     );
   }
-
-  Widget _kv(BuildContext context, String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 96,
-              child: Text(k, style: Theme.of(context).textTheme.labelMedium),
-            ),
-            Expanded(
-              child: SelectableText(
-                v,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          ],
-        ),
-      );
 
   Widget _notice(BuildContext context, Color color, String text) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -225,18 +214,133 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
       );
 }
 
-/// 邮箱密码登录（降级路径）。
+/// 原生登录表单。
+class _LoginForm extends StatelessWidget {
+  final TextEditingController username;
+  final TextEditingController password;
+  final bool busy;
+  final bool expired;
+  final VoidCallback onSubmit;
+
+  const _LoginForm({
+    required this.username,
+    required this.password,
+    required this.busy,
+    required this.expired,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              expired ? '登录已过期，请重新登录' : '统一登录',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '认证中心 ${Uri.parse(AuthHubConfig.issuer).host}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: username,
+              enabled: !busy,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: '账号或邮箱',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: password,
+              enabled: !busy,
+              obscureText: true,
+              onSubmitted: (_) => onSubmit(),
+              decoration: const InputDecoration(
+                labelText: '密码',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            FilledButton(
+              onPressed: busy ? null : onSubmit,
+              child: Text(busy ? '登录中…' : AuthLoginConst.btnSignIn),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 已登录时的身份卡。
+class _SessionCard extends StatelessWidget {
+  final AuthSession session;
+  const _SessionCard({required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = session;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('已登录：${s.displayName}',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            _kv(context, '认证中心', AuthHubConfig.issuer),
+            _kv(context, 'sub', s.idp.sub),
+            _kv(context, '邮箱', s.idp.email ?? '（未提供）'),
+            _kv(context, '业务后端账号',
+                s.backendUserId == null ? '未认领' : '#${s.backendUserId}'),
+            _kv(context, '令牌到期',
+                s.expiresAt.toLocal().toString().substring(0, 19)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kv(BuildContext context, String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 100,
+              child: Text(k, style: Theme.of(context).textTheme.labelMedium),
+            ),
+            Expanded(
+              child: SelectableText(v,
+                  style: Theme.of(context).textTheme.bodySmall),
+            ),
+          ],
+        ),
+      );
+}
+
+/// 邮箱密码登录（业务后端账号）—— 认证中心不可达时的降级路径。
 ///
-/// 保留它的唯一理由：**认证中心是单点**。它一挂，如果本 App 只有统一登录
-/// 一条路，那所有用户在故障期间连自己的数据都打不开 —— 这比"多一条老路径"
-/// 的代价大得多。所以这条入口不是历史包袱，是刻意留的兜底。
-///
-/// 刻意做成折叠的：默认收起，不让它在认证中心健康时抢主入口的注意力。
+/// 刻意做成折叠：默认收起，不让它在认证中心健康时抢主入口的注意力。
 class FallbackPasswordForm extends ConsumerStatefulWidget {
   const FallbackPasswordForm({super.key});
 
   @override
-  ConsumerState<FallbackPasswordForm> createState() => _FallbackPasswordFormState();
+  ConsumerState<FallbackPasswordForm> createState() =>
+      _FallbackPasswordFormState();
 }
 
 class _FallbackPasswordFormState extends ConsumerState<FallbackPasswordForm> {
@@ -247,6 +351,7 @@ class _FallbackPasswordFormState extends ConsumerState<FallbackPasswordForm> {
 
   @override
   void dispose() {
+    _pwd.clear();
     _email.dispose();
     _pwd.dispose();
     super.dispose();
@@ -258,15 +363,15 @@ class _FallbackPasswordFormState extends ConsumerState<FallbackPasswordForm> {
       _msg = null;
     });
     try {
-      // 走 GetIt 里的同一个实例：登录卡片、云同步面板用的都是它，
-      // 另起一个实例会带来第二套 token 读写路径。
+      // 走 GetIt 里的同一个实例：登录卡片、云同步面板用的都是它
       final r = await GetIt.instance<UserAuthService>()
           .login(_email.text.trim(), _pwd.text);
       if (!mounted) return;
+      _pwd.clear();
       setState(() {
         _busy = false;
         _msg = r.isSuccess
-            ? '已用业务后端账号登录（降级路径：扫码批准功能不可用）'
+            ? '已用业务后端账号登录（降级路径：无法批准扫码，那需要认证中心身份）'
             : '登录失败：${r.message}';
       });
     } catch (e) {
@@ -297,19 +402,22 @@ class _FallbackPasswordFormState extends ConsumerState<FallbackPasswordForm> {
               TextField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: '邮箱', isDense: true),
+                decoration:
+                    const InputDecoration(labelText: '邮箱', isDense: true),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _pwd,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: '密码', isDense: true),
+                decoration:
+                    const InputDecoration(labelText: '密码', isDense: true),
               ),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: _busy || _email.text.trim().isEmpty ? null : _submit,
+                  onPressed:
+                      _busy || _email.text.trim().isEmpty ? null : _submit,
                   child: Text(_busy ? '登录中…' : '登录'),
                 ),
               ),

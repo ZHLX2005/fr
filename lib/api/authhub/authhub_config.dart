@@ -54,6 +54,23 @@ class AuthHubConfig {
   /// 在端点命名变更时会静默拼出 404，而 404 会被调用方的容错吞掉。
   static const String revokePath = '/oauth2/revoke';
 
+  /// 原生表单登录要用到的三个端点路径。
+  ///
+  /// 授权端点是 `/oauth2/auth` 而不是标准的 `/authorize` —— 认证中心用的
+  /// 是自己的命名，这里必须逐字对齐，写错只会得到一个 404。
+  static const String authPath = '/oauth2/auth';
+  static const String tokenPath = '/oauth2/token';
+  static const String loginPath = '/api/login';
+  static const String consentPath = '/api/consent';
+
+  /// 认证中心的全局会话 Cookie 名（与后端 consts.SessionCookieName 一致）。
+  ///
+  /// 跨语言重复一份是事实，不是设计偏好：后端把它当不透明的 Set-Cookie 发出，
+  /// 客户端必须知道名字才能在自己的 Cookie 容器里认出它。
+  /// 改后端这个名字时**必须同步改这里** —— 否则原生登录会在
+  /// "登录成功但未获得会话凭据"那一步失败（有断言兜着，不会静默）。
+  static const String sessionCookieName = 'idp_session';
+
   /// 扫码登录端点前缀。
   static const String qrBasePath = '/api/qr/sessions';
 
