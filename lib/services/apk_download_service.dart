@@ -67,13 +67,45 @@ class ApkDownloadService {
     );
   }
 
-  /// 启动 Foreground Service
-  Future<void> startService() async {
+  /// 启动 Foreground Service，并等到后台 isolate 注册完 `download_command`
+  /// 监听后再返回。
+  ///
+  /// 旧实现：`startService()` 一返回就立刻 `invoke('start')`。isolate 启动
+  /// 与 listener 注册之间有窗口，事件会被静默丢弃 → UI 卡在
+  /// `isDownloading=true`、看门狗 60s 后退场、自动下载永久被挡。
+  /// 现在握手：bg 注册完监听后 `invoke('ready')`，主 isolate 收到再继续。
+  Future<void> startService({
+    Duration readyTimeout = const Duration(seconds: 10),
+  }) async {
     await initialize();
     final service = FlutterBackgroundService();
-    if (!await service.isRunning()) {
-      await service.startService();
+
+    // 已在跑：不能盲信 isRunning——sticky 重启后可能尚无 listener。
+    // ping → ready 确认 isolate 能收指令；超时则视为僵死服务。
+    if (await service.isRunning()) {
+      final ready = service.on('ready').first;
+      service.invoke('download_command', {'action': 'ping'});
+      await ready.timeout(
+        readyTimeout,
+        onTimeout: () => throw TimeoutException(
+          'APK download bg isolate ping timeout (${readyTimeout.inSeconds}s)',
+        ),
+      );
+      return;
     }
+
+    // 必须先订阅再 start，否则 ready 可能在订阅前发出而丢失。
+    final ready = service.on('ready').first;
+    final started = await service.startService();
+    if (!started) {
+      throw StateError('FlutterBackgroundService.startService() returned false');
+    }
+    await ready.timeout(
+      readyTimeout,
+      onTimeout: () => throw TimeoutException(
+        'APK download bg isolate ready timeout (${readyTimeout.inSeconds}s)',
+      ),
+    );
   }
 
   /// 停止 Foreground Service
@@ -165,15 +197,22 @@ void apkDownloadServiceHandler(ServiceInstance service) {
     final action = event?['action'] as String?;
     final ctrl = _bgState!.controller;
 
-    // 收到任何指令都说明服务确实在被使用，撤掉两个看门狗（各自按需重设）
-    startupWatchdog?.cancel();
-    startupWatchdog = null;
-    pauseWatchdog?.cancel();
-    pauseWatchdog = null;
+    // ping 只是探测，不撤启动看门狗（否则空服务被 ping 后会永久挂着）
+    if (action != null && action != 'ping') {
+      startupWatchdog?.cancel();
+      startupWatchdog = null;
+      pauseWatchdog?.cancel();
+      pauseWatchdog = null;
+    }
 
     switch (action) {
+      case 'ping':
+        // 主 isolate 探测 listener 是否存活（见 startService isRunning 分支）
+        service.invoke('ready');
       case 'start':
         ctrl.reset();
+        // 先 ack，让主 isolate 确认指令已落地（避免「服务在跑但没开始下」）
+        service.invoke('data', {'type': 'started'});
         await _runDownload(service, ctrl);
       case 'pause':
         ctrl.pause();
@@ -192,6 +231,9 @@ void apkDownloadServiceHandler(ServiceInstance service) {
         await service.stopSelf();
     }
   });
+
+  // 监听已挂上 → 通知主 isolate 可以 sendCommand，消除启动竞态。
+  service.invoke('ready');
 }
 
 /// 后台 isolate 中的实际下载逻辑

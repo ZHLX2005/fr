@@ -97,6 +97,15 @@ class ApkDownloadManager {
   StreamSubscription<Map<String, dynamic>?>? _bgSubscription;
   bool _bgMode = false;
 
+  /// 启动握手看门狗：ready→start 之后若迟迟收不到 started/progress，
+  /// 说明指令仍丢失或 isolate 挂了——必须清掉 isDownloading，否则
+  /// 自动检查 / 手动重试会被永久挡住。
+  Timer? _bgStartWatchdog;
+  static const _kBgStartAckTimeout = Duration(seconds: 15);
+
+  /// 每次 _startBgDownload 递增；超时回调与晚到事件用它丢弃过期会话。
+  int _bgStartGeneration = 0;
+
   static const _kDownloadedApkPathKey = 'downloaded_apk_path';
   static const _kDownloadedApkSizeKey = 'downloaded_apk_size';
   static const _kApkMetadataKey = 'apk_metadata';
@@ -118,10 +127,25 @@ class ApkDownloadManager {
     _bgSubscription?.cancel();
     _bgSubscription = _bgService.dataStream.listen((data) {
       if (data == null) return;
+      // 启动失败/超时后 _bgMode=false：忽略晚到的 started/progress，
+      // 否则会再次把 isDownloading 粘死。
+      if (!_bgMode) return;
       final type = data['type'] as String?;
 
       switch (type) {
+        case 'started':
+          // 后台 isolate 已收到 start，清掉启动看门狗；进度随后到来。
+          _bgStartWatchdog?.cancel();
+          _bgStartWatchdog = null;
+          state.value = state.value.copyWith(
+            isDownloading: true,
+            isPaused: false,
+            statusMessage: '正在连接服务器...',
+          );
+          break;
         case 'progress':
+          _bgStartWatchdog?.cancel();
+          _bgStartWatchdog = null;
           state.value = state.value.copyWith(
             isDownloading: true,
             isPaused: false,
@@ -133,6 +157,8 @@ class ApkDownloadManager {
           );
           break;
         case 'paused':
+          _bgStartWatchdog?.cancel();
+          _bgStartWatchdog = null;
           state.value = state.value.copyWith(
             isDownloading: false,
             isPaused: true,
@@ -140,6 +166,8 @@ class ApkDownloadManager {
           );
           break;
         case 'cancelled':
+          _bgStartWatchdog?.cancel();
+          _bgStartWatchdog = null;
           state.value = state.value.copyWith(
             isDownloading: false,
             isPaused: false,
@@ -153,6 +181,8 @@ class ApkDownloadManager {
           _bgService.stopService();
           break;
         case 'completed':
+          _bgStartWatchdog?.cancel();
+          _bgStartWatchdog = null;
           final path = data['path'] as String?;
           final size = (data['size'] as num?)?.toInt();
           if (path != null && size != null) {
@@ -176,6 +206,8 @@ class ApkDownloadManager {
           _bgService.stopService();
           break;
         case 'error':
+          _bgStartWatchdog?.cancel();
+          _bgStartWatchdog = null;
           state.value = state.value.copyWith(
             isDownloading: false,
             isPaused: false,
@@ -302,6 +334,8 @@ class ApkDownloadManager {
       final status = '发现新版本 ($dateStr)';
 
       final prefs = await SharedPreferences.getInstance();
+      // 覆盖前先读出「上次检查到的服务器版本」，用于判断暂停 temp 是否仍匹配。
+      final previousServerUtc = prefs.getString(_kApkUpdateTimeKey) ?? '';
       await prefs.setString(_kApkMetadataKey, sizeStr);
       await prefs.setString(_kApkUpdateTimeKey, updateTime ?? '');
 
@@ -320,12 +354,13 @@ class ApkDownloadManager {
       // 仍应自动下载（旧版会被覆盖）。
       final rawLastSeenUtc = prefs.getString(_kLastSeenUploadTimeKey) ?? '';
       final s = state.value;
+      // 允许 isPaused：冷启动若残留 temp（服务已死）会落成暂停态，旧逻辑
+      // `!isPaused` 会让自动下载永久不触发；startDownload 本身会 Range 续传。
       final shouldAuto = s.autoDownloadOnUpdate &&
           updateTime != null &&
           updateTime.isNotEmpty &&
           updateTime != rawLastSeenUtc &&
-          !s.isDownloading &&
-          !s.isPaused;
+          !s.isDownloading;
       // ignore: avoid_print
       print(
         '[apk-auto] shouldAuto=$shouldAuto | server=$updateTime | '
@@ -338,6 +373,20 @@ class ApkDownloadManager {
           title: '检测到新版本，启动自动下载',
           detail: '服务器上传时间：${_formatLocalTime(updateTime)}',
         );
+        // 跨版本暂停 temp：Range 续传会拼出损坏 APK，先清掉再下。
+        // 同版本（previousServerUtc == updateTime）保留 temp 续传。
+        final sameTarget = previousServerUtc.isNotEmpty &&
+            previousServerUtc == updateTime;
+        if (s.isPaused && !sameTarget) {
+          await ApiService.clearApkTempFile();
+          await prefs.remove(_kApkPausedTotalKey);
+          state.value = state.value.copyWith(
+            isPaused: false,
+            progress: 0.0,
+            receivedBytes: 0,
+            totalBytes: 0,
+          );
+        }
         // 不 await：让 UI 立即恢复，避免阻塞 checkUpdate 的状态更新
         unawaited(startDownload());
       } else if (s.autoDownloadOnUpdate &&
@@ -350,8 +399,7 @@ class ApkDownloadManager {
           detail: '上次下载版本：${_formatLocalTime(updateTime)}',
         );
       } else if (s.autoDownloadOnUpdate) {
-        // 开关开启、版本不一致、但不满足 shouldAuto（如正在暂停中）
-        // 记录一条信息，避免用户以为自动检查没工作
+        // 开关开启但不满足 shouldAuto（例如正在下载中）
         _emitSystemEvent(
           eventType: 'auto_apk_check_started',
           title: '检查完成，暂未触发下载',
@@ -395,9 +443,10 @@ class ApkDownloadManager {
       return;
     }
     _lastAutoCheckAt = now;
-    // 并发保护：正在下载/暂停中不做检查（暂停中的 temp 文件走 Range 续传，
-    // 换版本会拼接出损坏 APK）
-    if (state.value.isDownloading || state.value.isPaused) return;
+    // 并发保护：仅跳过真正进行中的下载。暂停态允许检查——shouldAuto 会走
+    // startDownload 续传；若服务器版本变了，旧 temp 应由用户取消或覆盖路径处理，
+    // 不能让残留暂停态永久关掉自动下载。
+    if (state.value.isDownloading) return;
 
     _emitSystemEvent(
       eventType: 'auto_apk_check_started',
@@ -591,18 +640,50 @@ class ApkDownloadManager {
       statusMessage: wasPaused ? '继续下载...' : '开始下载...',
     );
 
+    // 先挂 listener，再 start/ready 握手，避免 ready/started 事件丢失。
     _initBgListener();
     _bgMode = true;
+    _bgStartWatchdog?.cancel();
+    final generation = ++_bgStartGeneration;
 
     try {
       await _bgService.startService();
       _bgService.sendCommand('start');
+      // 兜底：握手成功但 start 指令仍丢 / isolate 异常时，清掉卡死的下载态
+      _bgStartWatchdog = Timer(_kBgStartAckTimeout, () {
+        if (generation != _bgStartGeneration) return;
+        if (!state.value.isDownloading) return;
+        // ignore: avoid_print
+        print('[apk-bg] start ack timeout — reset isDownloading');
+        _bgMode = false;
+        _bgService.stopService();
+        state.value = state.value.copyWith(
+          isDownloading: false,
+          isPaused: false,
+          statusMessage: '后台下载启动超时，请重试',
+        );
+        _emitSystemEvent(
+          eventType: 'auto_apk_download_failed',
+          title: '后台下载启动超时',
+          detail: '未收到 bg isolate 的 started/progress 确认',
+        );
+      });
     } catch (e) {
       _bgMode = false;
+      _bgStartWatchdog?.cancel();
+      _bgStartWatchdog = null;
+      try {
+        _bgService.stopService();
+      } catch (_) {}
       state.value = state.value.copyWith(
         statusMessage: '启动后台服务失败: $e',
         isDownloading: false,
         isPaused: false,
+      );
+      _emitSystemEvent(
+        eventType: 'auto_apk_download_failed',
+        title: '启动后台服务失败',
+        detail: '$e',
       );
     }
   }
