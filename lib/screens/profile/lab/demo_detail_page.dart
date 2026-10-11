@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
 
 class DemoDetailPage extends StatelessWidget {
@@ -17,11 +18,14 @@ class DemoDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 钉在快捷底栏时是壳根页，不能 pop → 隐藏返回。
+    final canPop = context.navCanPop;
     return Scaffold(
       appBar: demo.preferFullScreen
           ? null
           : AppBar(
               toolbarHeight: 48,
+              automaticallyImplyLeading: canPop,
               titleTextStyle: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),

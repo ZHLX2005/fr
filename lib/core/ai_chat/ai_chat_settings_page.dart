@@ -4,6 +4,7 @@ import '../../services/ai_chat/ai_chat_provider.dart';
 import '../../services/ai_chat/agent_chat_provider.dart';
 import '../../services/ai_chat/ai_chat_models.dart';
 import '../design/emphasis_button.dart';
+import '../nav/nav_route.dart';
 
 /// AI 聊天设置页面
 class AIChatSettingsPage extends StatefulWidget {
@@ -105,6 +106,7 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
       appBar: AppBar(
         title: const Text('AI 聊天设置'),
         centerTitle: true,
+        automaticallyImplyLeading: navCanPop(context),
         actions: [
           TextButton.icon(
             onPressed: _isSaving ? null : _saveSettings,

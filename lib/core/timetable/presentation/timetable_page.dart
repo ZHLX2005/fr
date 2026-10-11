@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../nav/nav_route.dart';
 import '../data/timetable_repository.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
@@ -155,10 +156,8 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
+        // 快捷钉选根页隐藏返回；从 Time 工具 push 进来时显示。
+        automaticallyImplyLeading: navCanPop(context),
         title: Text(
           '时间周期',
           style: theme.textTheme.titleLarge?.copyWith(

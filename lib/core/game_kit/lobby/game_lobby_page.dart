@@ -22,6 +22,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../services/lua/lua_game_alias.dart';
+import '../../nav/nav_route.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '_lobby_form.dart';
 import 'brush_wipe_overlay.dart';
@@ -317,6 +318,8 @@ class GameLobbyPageState extends State<GameLobbyPage> {
             title: Text(widget.spec.title),
             backgroundColor: cs.surfaceContainerLowest,
             elevation: 0,
+            // 快捷钉选根页不显示返回；从游戏中心 push 进来时保留。
+            automaticallyImplyLeading: navCanPop(context),
             actions: [
               ...?widget.slots.actionsBuilder?.call(context),
               if (widget.spec.flow == LobbyFlowType.dualEntry &&

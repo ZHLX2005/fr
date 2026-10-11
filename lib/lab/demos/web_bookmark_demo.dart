@@ -1543,7 +1543,8 @@ class _WebViewPageState extends State<_WebViewPage> {
     if (await _webViewController.canGoBack()) {
       await _webViewController.goBack();
     } else {
-      Navigator.pop(context);
+      // 快捷根页无栈可退时 maybePop 空转，不抛异常。
+      await Navigator.of(context).maybePop();
     }
   }
 

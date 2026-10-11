@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
 import '../../../services/lab_image_cache_service.dart';
 import 'demo_detail_page.dart';
@@ -286,6 +287,7 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
               },
               child: AppBar(
                 toolbarHeight: 48,
+                automaticallyImplyLeading: navCanPop(context),
                 title: const Text('Lab'),
                 actions: [
                   IconButton(

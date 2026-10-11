@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/nav/nav_route.dart';
 import '../../../core/theme/state/theme_provider.dart';
 
 /// 主题设置页面
@@ -15,7 +16,11 @@ class ThemePage extends ConsumerWidget {
     final currentMode = ref.watch(themeNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('主题设置'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('主题设置'),
+        centerTitle: true,
+        automaticallyImplyLeading: navCanPop(context),
+      ),
       body: _ThemeList(
         currentMode: currentMode,
         onSelect: (mode) => ref

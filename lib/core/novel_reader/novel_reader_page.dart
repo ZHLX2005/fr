@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 
+import '../nav/nav_route.dart';
 import 'canvas_reader_engine.dart';
 import '../design/emphasis_button.dart';
 import 'novel_reader_constants.dart';
@@ -235,6 +236,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           elevation: 0,
+          automaticallyImplyLeading: navCanPop(context),
           title: const Text(NovelReaderConstants.title),
         ),
         body: Center(
@@ -260,6 +262,7 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
           appBar: AppBar(
             backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
             elevation: 0,
+            automaticallyImplyLeading: navCanPop(context),
             title: const Text(NovelReaderConstants.title),
           ),
           body: SafeArea(
@@ -770,6 +773,7 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
           elevation: 0,
+          automaticallyImplyLeading: navCanPop(context),
           title: Text(widget.book.title),
         ),
         body: Center(
@@ -1370,10 +1374,11 @@ class _ReaderTopBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             children: [
-              IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: Icon(Icons.arrow_back_rounded),
-              ),
+              if (context.navCanPop)
+                IconButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: Icon(Icons.arrow_back_rounded),
+                ),
               Expanded(
                 child: Text(
                   title,

@@ -30,6 +30,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
+import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
 import 'demo_detail_page.dart';
 import 'game_center/const_game_center.dart';
@@ -446,7 +447,10 @@ class _GameCenterPageState extends State<GameCenterPage>
         borderRadius: BorderRadius.circular(kGcSearchRadius),
         child: Row(
           children: [
-            _BackButton(onTap: () => Navigator.maybePop(context)),
+            // 快捷底栏根页 canPop=false：不画返回（点了也空转）。
+            // 从个人/Lab push 进来时保留左端返回热区。
+            if (context.navCanPop)
+              _BackButton(onTap: () => Navigator.maybePop(context)),
             Expanded(
               child: GestureDetector(
                 // 框内任意空白（图标 / 文字上下空隙）点按都聚焦输入
@@ -526,11 +530,13 @@ class _GameCenterPageState extends State<GameCenterPage>
                       height: 28,
                       child: Row(
                         children: [
-                          _GlassIcon(
-                            icon: Icons.arrow_back_ios_new_rounded,
-                            onTap: () => Navigator.maybePop(context),
-                          ),
-                          const SizedBox(width: 8),
+                          if (context.navCanPop) ...[
+                            _GlassIcon(
+                              icon: Icons.arrow_back_ios_new_rounded,
+                              onTap: () => Navigator.maybePop(context),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           Text(
                             '游戏中心',
                             style: theme.textTheme.titleMedium?.copyWith(

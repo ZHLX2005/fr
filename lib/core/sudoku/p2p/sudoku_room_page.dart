@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../../widgets/context_colors.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
+import '../../nav/nav_route.dart';
 import '../engine/sudoku_generator.dart';
 import '../engine/sudoku_validator.dart';
 import '../models/sudoku_board.dart';
@@ -319,11 +320,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         backgroundColor: isLobbyReady ? scheme.surfaceContainerLowest : null,
         elevation: 0,
         title: Text('房间 ${snap.roomCode}'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-          tooltip: '返回',
-        ),
+        automaticallyImplyLeading: navCanPop(context),
       ),
       body: body,
     );
