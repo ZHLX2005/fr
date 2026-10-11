@@ -146,7 +146,7 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (signedIn)
-            _CredentialCard(state: s!, rtGrant: _rtGrant)
+            _CredentialCard(state: s, rtGrant: _rtGrant)
           else
             _LoginForm(
               username: _username,
@@ -301,7 +301,7 @@ class _CredentialCard extends StatelessWidget {
   String _expirySuffix(int expiresAtMs) {
     if (expiresAtMs <= 0) return '';
     final t = DateTime.fromMillisecondsSinceEpoch(expiresAtMs);
-    final two = (int n) => n.toString().padLeft(2, '0');
+    String two(int n) => n.toString().padLeft(2, '0');
     return '（${t.year}-${two(t.month)}-${two(t.day)} 到期）';
   }
 
