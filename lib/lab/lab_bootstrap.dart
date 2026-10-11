@@ -50,6 +50,7 @@ import 'demos/relation_calc_demo.dart' show registerRelationCalcDemo;
 import 'demos/chess_online_demo.dart' show registerChessOnlineDemo;
 import 'demos/sudoku_lua/sudoku_demo.dart' show registerSudokuLuaDemo;
 import 'demos/remotetype_demo.dart' show registerRemoteTypeDemo;
+import 'demos/auth_login_demo.dart' show registerAuthLoginDemo;
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -84,6 +85,7 @@ void registerAllDemos() {
   registerReversiLuaDemo();
   registerJungleChessDemo();
   registerKvcliTodoDemo();
+  registerAuthLoginDemo();
   registerNotionImageHostDemo();
   registerReactionTestDemo();
   registerMetronomeDemo();
