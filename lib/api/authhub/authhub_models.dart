@@ -7,6 +7,8 @@ library;
 /// 令牌集（`POST /oauth2/token` 的响应）。
 class AuthTokenSet {
   final String accessToken;
+  /// 令牌端点会返回它，但客户端**刻意不持有**（见 TokenManager 的说明）。
+  /// 保留这个字段只是为了如实反映线上协议的样子，不要把它写进任何持久层。
   final String? refreshToken;
 
   /// 认证中心的 access_token 是**不透明随机串**（后端查 oauth_access_tokens 表校验），

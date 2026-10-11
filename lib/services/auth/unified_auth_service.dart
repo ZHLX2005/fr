@@ -169,9 +169,11 @@ class UnifiedAuthService {
       redirectUri: request.redirectUri,
     );
 
+    // 只存 access_token。令牌端点同时返回的 refresh_token 在这里**被丢弃**：
+    // 它是 7 天有效、无设备绑定的账号级凭据，而本机的持久化层是明文
+    // SharedPreferences（且 allowBackup 默认为 true）。详见 TokenManager 注释。
     await _tokenManager.setTokens(
       accessToken: set.accessToken,
-      refreshToken: set.refreshToken,
       expiresAt: set.expiresAt,
       kind: AuthTokenKind.idp,
     );
@@ -209,10 +211,9 @@ class UnifiedAuthService {
   /// "从这个 App 登出"和"从统一登录平台登出"是两件事，混做一次会很伤人。
   Future<void> signOut() async {
     final token = await _tokenManager.accessToken;
-    final refresh = await _tokenManager.refreshToken;
-    if (refresh != null && refresh.isNotEmpty) {
-      await _oidc.revoke(refresh);
-    } else if (token != null && token.isNotEmpty) {
+    // 吊销 access_token（不再有 refresh_token 可吊销 —— 客户端从未持有）。
+    // 认证中心对未知/已失效 token 也返回 200，所以不能拿返回值判断成败。
+    if (token != null && token.isNotEmpty) {
       await _oidc.revoke(token);
     }
     await _tokenManager.clear();

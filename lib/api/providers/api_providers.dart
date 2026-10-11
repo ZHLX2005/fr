@@ -3,8 +3,6 @@ import '../api_config.dart';
 import '../api_client.dart';
 import '../token/token_storage.dart';
 import '../token/token_manager.dart';
-import '../authhub/authhub_config.dart';
-import '../authhub/authhub_exception.dart';
 import '../authhub/authhub_oidc_endpoint.dart';
 import '../authhub/authhub_qr_endpoint.dart';
 import '../goframe/kv/kv_endpoint.dart';
@@ -26,39 +24,9 @@ final tokenStorageProvider = Provider<TokenStorage>((_) => SharedPrefsTokenStora
 
 final tokenManagerProvider = Provider<TokenManager>((ref) {
   final storage = ref.watch(tokenStorageProvider);
-  final tm = TokenManager(
-    storage: storage,
-    // 认证中心的 access_token 只有 10 分钟，必须提前刷；不留提前量就会
-    // 撞上"发出请求时还剩 3 秒、往返路上过期"这种随机失败。
-    refreshSkew: AuthHubConfig.refreshSkew,
-  );
-
-  // 续期回调里用 ref.read 而不是 ref.watch：tokenManager 需要 authhub 端点
-  // 去刷票，而那次刷票又要写回 tokenManager —— 构造期解析会成环。
-  // read 在真正要刷的那一刻才解析，环就断了。
-  tm.attachRefresher((refreshToken) async {
-    final oidc = ref.read(authHubOidcEndpointProvider);
-    try {
-      final set = await oidc.refresh(refreshToken);
-      await tm.setTokens(
-        accessToken: set.accessToken,
-        refreshToken: set.refreshToken,
-        expiresAt: set.expiresAt,
-        kind: AuthTokenKind.idp,
-      );
-      return true;
-    } on AuthHubException catch (e) {
-      // 只有认证中心明确说"这票不行了"才清凭据；网络抖动、5xx 一律保留，
-      // 让下一次请求再试。清错的代价是用户被迫重新登录，
-      // 不清的代价只是一次请求失败 —— 两者不对称。
-      if (e.isFatalAuthError) {
-        await tm.clear();
-      }
-      return false;
-    }
-  });
-
-  return tm;
+  // 刻意不再 attachRefresher：客户端不持有长期凭据，也就没有续期这回事。
+  // 过期由 TokenManager.needsReauth 暴露给上层，走一次 WebView 重新授权。
+  return TokenManager(storage: storage);
 });
 
 // ── Config / Client ────────────────────────────────────────────────

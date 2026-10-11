@@ -60,24 +60,22 @@ class AuthHubOidcEndpoint {
     });
   }
 
-  /// 用 refresh_token 续期。
-  Future<AuthTokenSet> refresh(String refreshToken) async {
-    final e = await discover();
-    return _postForm(e.tokenEndpoint, {
-      'grant_type': 'refresh_token',
-      'refresh_token': refreshToken,
-      'client_id': AuthHubConfig.clientId,
-    });
-  }
+  // 刻意不提供 refresh()：客户端不持有 refresh_token（7 天有效、无设备绑定，
+  // 而本机持久化层是明文 SharedPreferences），因此不存在"续期"这条路径。
+  // 过期就走一次 WebView 重新授权。留着这个方法，等于给后人留一条
+  // "顺手把它存起来"的邀请 —— 而那正是本次要消除的东西。
 
-  /// 吊销 refresh_token（RFC 7009）。登出时调用。
+  /// 吊销一枚令牌（RFC 7009）。登出时用它吊销 access_token。
   ///
-  /// 认证中心对未知 token 也返回 200（否则这里就成了令牌有效性探测口），
-  /// 所以**不能**用返回值判断"是否真的吊销成功"。
+  /// 认证中心对未知或已失效的 token 也返回 200 —— 否则这里就成了
+  /// "令牌是否有效"的探测口。因此**不能**拿返回值判断吊销是否真的成功。
+  ///
+  /// 注意它吊销不了"从来没存过"的东西：客户端不持有 refresh_token，
+  /// 所以登出时能撤销的只有 access_token 这一枚。
   Future<void> revoke(String token) async {
     // 直接按 issuer 拼，不从 tokenEndpoint 反推：
     // "把结尾的 /token 削掉再加 /revoke" 这种字符串戏法，
-    // 端点命名一变就静默拼出一个 404，而 404 在这里被下面吞掉，没人知道。
+    // 端点命名一变就会静默拼出一个 404，而 404 被下面的容错吞掉，没人知道。
     final url = '$_issuer${AuthHubConfig.revokePath}';
     try {
       await _client
@@ -87,7 +85,7 @@ class AuthHubOidcEndpoint {
           })
           .timeout(AuthHubConfig.httpTimeout);
     } on http.ClientException {
-      // 吊销失败不阻断登出：本地已经清掉了凭据，远端多留一会儿可接受。
+      // 吊销失败不阻断登出：本地凭据已经清掉了，远端多留一会儿可接受。
       // 反过来（因为吊销失败就不让用户登出）会把一次网络抖动变成界面卡死。
     }
   }

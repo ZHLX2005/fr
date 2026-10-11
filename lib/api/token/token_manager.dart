@@ -1,52 +1,48 @@
 import 'token_storage.dart';
 
-/// 续期回调：拿 refresh_token 换一枚新的 access_token，成功返回 true。
-///
-/// 为什么用注入的回调而不是让 TokenManager 自己去调认证中心：
-/// `token/` 的职责是"token 生命周期"，规范明确禁止它碰 HTTP 细节
-/// （见 api-module-auth 的职责边界表）。让它 import authhub 端点，
-/// 两者就会互相依赖；而且"怎么续期"是个业务事实，
-/// 焊死在基础设施层里等于每换一个签发方都要回来改这里。
-typedef TokenRefreshHandler = Future<bool> Function(String refreshToken);
-
 /// Token / API Key 生命周期管理。
 ///
-/// 现在同时服务两种签发方（见 [AuthTokenKind]）。统一认证中心的 access_token
-/// 只有 10 分钟，所以**必须**能自动续期 —— 否则接了统一登录的 App
-/// 会在十几分钟后所有业务接口集体 401，而用户刚登录完什么也没做错。
+/// ── 为什么这里不再有 refresh_token ──────────────────────────────────────
+///
+/// 认证中心的 refresh_token 有效期 7 天、**没有任何发送方绑定**
+/// （refresh 请求不带 PKCE、不校验设备），拿到字符串就等于拿到一周内随时
+/// 铸造新 access_token 的能力；而接入扫码之后，这个能力还包括
+/// **批准其他设备登录**。一枚泄露的 refresh_token ≈ 一周的完整账号接管。
+///
+/// 而本机的持久化层是 SharedPreferences —— 应用私有目录下的明文 XML，
+/// 且 `android:allowBackup` 从未设置（默认 true）、也没有排除规则，
+/// 意味着它会被自动备份带离设备。那种量级的凭据放这里是成立的不了。
+///
+/// 所以结论：**长期凭据不落客户端**。这里只存短命的 access_token，
+/// 过期就走一次 WebView 重新授权（认证中心若仍保有全局会话，通常是无感的）。
+///
+/// ── 代价，说清楚不藏着 ──────────────────────────────────────────────────
+///
+/// access_token 只有 10 分钟。静置十分钟后再次操作就需要重新走一次授权，
+/// 这是"不存长期凭据"的直接后果，不是 bug —— 想要永不掉线就得存
+/// refresh_token，两者只能取其一。将来若要兼顾体验，正确做法是把凭据放进
+/// Android Keystore 背书的安全存储（flutter_secure_storage），
+/// 而不是放回 SharedPreferences。
 class TokenManager {
   String? _accessToken;
-  String? _refreshToken;
   DateTime? _expiresAt;
   AuthTokenKind _kind = AuthTokenKind.none;
   final TokenStorage _storage;
 
-  /// 提前多久就视为该续期。为 null 表示不做主动续期，只在 401 后被动刷。
-  final Duration? refreshSkew;
-
-  TokenRefreshHandler? _refresher;
-
-  /// 进行中的续期。并发的多个 401 只应触发一次 refresh ——
-  /// 同一枚 refresh_token 被并发用两次，第二次可能被判为重放而整条续期链作废。
-  Future<bool>? _inflight;
-
-  TokenManager({required TokenStorage storage, this.refreshSkew})
-      : _storage = storage;
-
-  /// 装配期注入续期实现。
+  /// 距过期多久就视为"该重新授权了"。
   ///
-  /// 用 setter 而不是构造参数：TokenManager 是基础设施、authhub 端点是某个
-  /// 后端的实现，构造参数会把两者焊成一条依赖链，DI 图里谁也测不了谁。
-  void attachRefresher(TokenRefreshHandler handler) => _refresher = handler;
+  /// 留提前量是为了避开"发出请求时还剩 3 秒、往返路上过期"这种
+  /// 在边界上随机失败的竞态。
+  final Duration reauthLead;
+
+  TokenManager({
+    required TokenStorage storage,
+    this.reauthLead = const Duration(seconds: 60),
+  }) : _storage = storage;
 
   Future<String?> get accessToken async {
     if (_accessToken != null && !_isExpired) return _accessToken;
     await _hydrate();
-    // 主动续期放在这个 getter 里，而不是让每个调用方自己判断还剩几分钟：
-    // "凭据快到期了"这件事全仓库只该有一个处理点，漏一处就是一次莫名的 401。
-    if (_accessToken != null && _accessToken!.isNotEmpty && _nearExpiry) {
-      await tryRefresh();
-    }
     return _accessToken;
   }
 
@@ -56,101 +52,60 @@ class TokenManager {
     return _kind;
   }
 
-  /// 当前 refresh_token（登出时用于吊销）。
+  /// 是否已过期或即将过期 —— 调用方据此主动触发重新授权。
   ///
-  /// 单独开这个口子，是为了不把 `_refreshToken` 变成 public final：
-  /// 它是续期与吊销的唯一凭据，暴露成可写字段就等于允许任何地方悄悄改掉它。
-  Future<String?> get refreshToken async {
-    final cached = _refreshToken;
-    if (cached != null) return cached;
-    _refreshToken = await _storage.refreshToken;
-    return _refreshToken;
+  /// 这是"不存 refresh_token"换来的唯一新义务：续期做不了了，
+  /// 就必须有人负责在过期前把用户带回授权页。把它做成一个明确的查询，
+  /// 比让每个调用方自己去比时间戳可靠得多（漏一处就是一次莫名的 401）。
+  Future<bool> get needsReauth async {
+    final token = await accessToken;
+    if (token == null || token.isEmpty) return true;
+    final exp = _expiresAt;
+    if (exp == null) return false; // 不知道有效期就别瞎猜
+    return DateTime.now().add(reauthLead).isAfter(exp);
   }
 
   bool get _isExpired =>
       _expiresAt != null && DateTime.now().isAfter(_expiresAt!);
-
-  bool get _nearExpiry {
-    final exp = _expiresAt;
-    final skew = refreshSkew;
-    if (exp == null) return false; // 不知道有效期就别瞎刷
-    if (skew == null) return DateTime.now().isAfter(exp);
-    return DateTime.now().add(skew).isAfter(exp);
-  }
 
   Future<void> setAccessToken(String token) async {
     _accessToken = token;
     await _storage.save(accessToken: token);
   }
 
-  /// 写入一整套凭据。
+  /// 写入一次登录得到的凭据。
   ///
-  /// [kind] 必须显式传：签发方决定能不能续期，猜错的症状是
-  /// "过一会儿全体掉线"，现场完全指不到根因上。
+  /// [kind] 必须显式传：签发方决定这枚 token 能用在哪些接口上，
+  /// 猜错的症状是"过一会儿全体 401"，而现场完全指不到根因。
   ///
-  /// 注意这里对 `refreshToken == null` 的处理是**保留旧值**，与字段名直觉相反：
-  /// 认证中心的 refresh_token 不是滚动签发的，续期响应里常常没有新
-  /// refresh_token；若照单全收地把内存里的置成 null，一次续期成功
-  /// 就会永久断掉后续所有续期能力 —— 而且要到 7 天后才第一次暴露。
+  /// 参数里**没有** refreshToken —— 令牌端点会返回它，但这里刻意不接。
+  /// 在边界上就丢掉，比"传进来再指望某人别存"可靠：字段一旦存在于签名里，
+  /// 迟早会有某条路径把它写进磁盘。
   Future<void> setTokens({
     required String accessToken,
-    String? refreshToken,
     DateTime? expiresAt,
     AuthTokenKind kind = AuthTokenKind.idp,
   }) async {
     _accessToken = accessToken;
     _kind = kind;
-    if (refreshToken != null) _refreshToken = refreshToken;
     if (expiresAt != null) _expiresAt = expiresAt;
     await _storage.save(
       accessToken: accessToken,
-      refreshToken: refreshToken,
       expiresAt: expiresAt,
       kind: kind,
     );
   }
 
-  /// 尝试续期。返回 false 表示"刷不动了"，调用方应当引导重新登录。
-  Future<bool> tryRefresh() async {
-    final inflight = _inflight;
-    if (inflight != null) return inflight;
-
-    final future = _doRefresh();
-    _inflight = future;
-    try {
-      return await future;
-    } finally {
-      _inflight = null;
-    }
-  }
-
-  Future<bool> _doRefresh() async {
-    final token = _refreshToken ?? await _storage.refreshToken;
-    if (token == null || token.isEmpty) return false;
-
-    final kind = _kind == AuthTokenKind.none
-        ? await _storage.tokenKind
-        : _kind;
-    // legacyBackend 没有续期端点。硬去调认证中心会拿回一个 invalid_grant，
-    // 把"本来就该重新登录"伪装成"认证中心拒绝了我"。
-    if (kind != AuthTokenKind.idp) return false;
-
-    final handler = _refresher;
-    if (handler == null) return false;
-
-    try {
-      return await handler(token);
-    } catch (_) {
-      // 续期失败一律收敛成"这次没刷动"，不外抛：调用方（拦截器）要的是
-      // "要不要带新 token 重试一次"这个布尔值，抛出去会让一次网络抖动
-      // 变成未捕获异常。
-      return false;
-    }
-  }
+  /// 兼容 `AuthInterceptor` 的 401 重试钩子：当前架构下**永远刷不动**。
+  ///
+  /// 保留这个方法而不是删掉，是因为"客户端不持有长期凭据"就意味着
+  /// 401 无法自愈，而返回 false 会让拦截器把 401 原样抛给上层，
+  /// 上层据此引导重新授权 —— 那是对的。把它伪装成成功，或者直接删掉
+  /// 让拦截器改不动，都会把一次正常的过期变成一处难查的死循环。
+  Future<bool> tryRefresh() async => false;
 
   Future<void> clear() async {
     _accessToken = null;
-    _refreshToken = null;
     _expiresAt = null;
     _kind = AuthTokenKind.none;
     await _storage.clear();
@@ -158,7 +113,6 @@ class TokenManager {
 
   Future<void> _hydrate() async {
     _accessToken = await _storage.accessToken;
-    _refreshToken = await _storage.refreshToken;
     _expiresAt = await _storage.expiresAt;
     _kind = await _storage.tokenKind;
   }
