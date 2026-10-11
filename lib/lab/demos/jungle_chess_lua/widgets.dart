@@ -24,6 +24,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../../core/game_kit/lobby/game_ready_style.dart';
 
 import 'package:xiaodouzi_fr/core/jungle_chess/constants/jungle_constants.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/engine/jungle_engine.dart';
@@ -283,7 +284,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final title = bothReady ? '双方已就绪' : '等待对手';
 
     return Scaffold(
-      backgroundColor: theme.boardSurface,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -291,20 +292,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Container(
-                decoration: BoxDecoration(
-                  color: theme.panelBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.panelBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                decoration: GameReadyFloatCard.decoration(
+                  Theme.of(context).colorScheme,
                 ),
                 padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
                 child: Column(

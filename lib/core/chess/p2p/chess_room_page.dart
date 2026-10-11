@@ -30,6 +30,7 @@ import 'package:flutter/material.dart';
 
 import '../../../widgets/context_chess_colors.dart';
 import '../../game_audio/piece_sound.dart';
+import '../../game_kit/lobby/game_ready_style.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
@@ -1572,11 +1573,18 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       body = _buildPlaying(skin, board);
     }
 
+    final isLobbyReady = state == 'lobby' || state == 'ready';
+    final scheme = Theme.of(context).colorScheme;
+
     // resizeToAvoidBottomInset: false —— 键盘不得挤 body；对话 FAB/composer
     // 在棋盘区右上角 absolute 浮层，不依赖键盘抬升。
     return Scaffold(
       resizeToAvoidBottomInset: false,
+      // 准备态跟壳层暖底；对局中保持默认（棋盘皮肤主导）。
+      backgroundColor: isLobbyReady ? scheme.surfaceContainerLowest : null,
       appBar: AppBar(
+        backgroundColor: isLobbyReady ? scheme.surfaceContainerLowest : null,
+        elevation: 0,
         // 徽标（圆点 + 文字 + 重连 spinner）需要比默认 48 宽的 leading 槽。
         leadingWidth: 86,
         leading: ChessConnectionStatusBadge(handle: widget.handle),
@@ -1622,9 +1630,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   // ── lobby / ready 卡片（共用，按 phase 切按钮态）──
 
-  Widget _buildLobbyReady(ChessSkin skin) {
+  Widget _buildLobbyReady(ChessSkin _) {
     final snap = _snapshot!;
-    final colors = context.chessColors;
+    final scheme = Theme.of(context).colorScheme;
     final code = snap.roomCode;
     final hostId = ChessRoom.hostId(snap);
     final players = ChessRoom.players(snap);
@@ -1641,254 +1649,129 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: colors.gridLine.withValues(alpha: 0.3)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.06),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+          child: GameReadyFloatCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  bothReady ? '双方已就绪' : '等待对手',
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const GameReadyTitleRule(),
+                const SizedBox(height: 16),
+                GameReadyRoomCodeChip(code: code),
+                const SizedBox(height: 20),
+
+                // 房间规则：host 可改；guest 只读。改规则会清 ready。
+                ChessRoomRulesPanel(
+                  editable: _isHost && !_setRulesLock,
+                  hostColor: ChessRoom.hostColor(snap),
+                  firstMover: ChessRoom.initialSide(snap),
+                  isEndgame: ChessRoom.isEndgameRoom(snap) ||
+                      widget.initialEndgame != null,
+                  endgameLabel: ChessRoom.endgameLabel(snap) ??
+                      widget.initialEndgame?.label,
+                  onChanged: _isHost ? _applyRules : null,
+                  onPickEndgame: _isHost ? _pickEndgame : null,
+                  onClearEndgame: _isHost ? _clearEndgameRules : null,
+                ),
+                const SizedBox(height: 12),
+
+                ...players.entries.map((e) {
+                  final isMe = e.key == myId;
+                  final isReady = readyMap[e.key] == true;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(children: [
+                      GameReadyAvatar(label: e.value, isReady: isReady),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          '${e.value}${isMe ? "  (我)" : ""}'
+                          '${e.key == hostId ? " · $_colorLabelHost" : " · $_colorLabelGuest"}',
+                          style: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 15,
+                            fontWeight:
+                                isMe ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      GameReadyStatusBadge(isReady: isReady),
+                    ]),
+                  );
+                }),
+
+                if (players.length < 2) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    '把房间号发给朋友',
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
-              ),
-              padding: const EdgeInsets.fromLTRB(28, 28, 28, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    bothReady ? '双方已就绪' : '等待对手',
-                    style: TextStyle(
-                      color: colors.coordinateLabel,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(width: 24, height: 2, color: colors.gridLine),
-                  const SizedBox(height: 18),
 
-                  // 房间号 chip
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: colors.lightSquare.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                          color: colors.gridLine.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      code,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 8,
-                        color: colors.coordinateLabel,
-                      ),
-                    ),
-                  ),
+                if (players.length >= 2) ...[
                   const SizedBox(height: 22),
-
-                  // 房间规则：host 可改；guest 只读。改规则会清 ready。
-                  ChessRoomRulesPanel(
-                    editable: _isHost && !_setRulesLock,
-                    hostColor: ChessRoom.hostColor(snap),
-                    firstMover: ChessRoom.initialSide(snap),
-                    isEndgame: ChessRoom.isEndgameRoom(snap) ||
-                        widget.initialEndgame != null,
-                    endgameLabel: ChessRoom.endgameLabel(snap) ??
-                        widget.initialEndgame?.label,
-                    onChanged: _isHost ? _applyRules : null,
-                    onPickEndgame: _isHost ? _pickEndgame : null,
-                    onClearEndgame: _isHost ? _clearEndgameRules : null,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 玩家头像列表
-                  ...players.entries.map((e) {
-                    final isMe = e.key == myId;
-                    final isReady = readyMap[e.key] == true;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isReady
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withValues(alpha: 0.12)
-                                : colors.lightSquare.withValues(alpha: 0.5),
-                            border: Border.all(
-                              color: isReady
-                                  ? Theme.of(context).colorScheme.primary
-                                  : colors.gridLine.withValues(alpha: 0.4),
-                              width: isReady ? 2.4 : 1.6,
+                  if (bothReady)
+                    canDeal
+                        ? FilledButton(
+                            onPressed: _dealLock ? null : _deal,
+                            style: GameReadyCtaStyle.filled(scheme),
+                            child: const Text(
+                              '开始游戏 ▸',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.5,
+                              ),
                             ),
-                          ),
-                          alignment: Alignment.center,
-                          child: isReady
-                              ? Icon(Icons.check_rounded,
-                                  size: 22,
-                                  color: Theme.of(context).colorScheme.primary)
-                              : Text(
-                                  e.value.isNotEmpty
-                                      ? e.value[0].toUpperCase()
-                                      : '?',
-                                  style: TextStyle(
-                                    color: colors.coordinateLabel,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            '${e.value}${isMe ? "  (我)" : ""}'
-                            '${e.key == hostId ? " · $_colorLabelHost" : " · $_colorLabelGuest"}',
+                          )
+                        : Text(
+                            '等待房主开始…',
                             style: TextStyle(
-                              color: colors.coordinateLabel,
-                              fontSize: 15,
-                              fontWeight:
-                                  isMe ? FontWeight.w600 : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isReady
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withValues(alpha: 0.12)
-                                : colors.lightSquare.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            isReady ? '已准备 ✓' : '未准备',
-                            style: TextStyle(
-                              color: isReady
-                                  ? Theme.of(context).colorScheme.primary
-                                  : colors.coordinateLabel
-                                      .withValues(alpha: 0.7),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurfaceVariant,
+                              fontSize: 13,
                               letterSpacing: 1,
                             ),
-                          ),
+                          )
+                  else if (iAmReady)
+                    FilledButton(
+                      onPressed: null,
+                      style: GameReadyCtaStyle.filled(scheme),
+                      child: const Text(
+                        '已准备 ✓',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
                         ),
-                      ]),
-                    );
-                  }),
-
-                  if (players.length < 2) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      '把房间号发给朋友',
-                      style: TextStyle(
-                        color: colors.coordinateLabel.withValues(alpha: 0.6),
-                        fontSize: 12,
+                      ),
+                    )
+                  else
+                    OutlinedButton(
+                      onPressed: canAck ? _ack : null,
+                      style: GameReadyCtaStyle.outlined(scheme),
+                      child: const Text(
+                        '准备好了',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
                       ),
                     ),
-                  ],
-
-                  if (players.length >= 2) ...[
-                    const SizedBox(height: 22),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: bothReady
-                          ? (canDeal
-                              ? FilledButton(
-                                  onPressed: _dealLock ? null : _deal,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: colors.gridLine,
-                                    foregroundColor: colors.lightSquare,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  child: const Text('开始游戏 ▸',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 2,
-                                      )),
-                                )
-                              : Center(
-                                  child: Text(
-                                    '等待房主开始…',
-                                    style: TextStyle(
-                                      color: colors.coordinateLabel
-                                          .withValues(alpha: 0.7),
-                                      fontSize: 13,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ))
-                          : (iAmReady
-                              ? FilledButton(
-                                  onPressed: null,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: colors.gridLine
-                                        .withValues(alpha: 0.4),
-                                    foregroundColor: colors.lightSquare,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  child: const Text('已准备 ✓',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 2,
-                                      )),
-                                )
-                              : OutlinedButton(
-                                  onPressed: canAck ? _ack : null,
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
-                                    side: BorderSide(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                      width: 1.6,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                  child: const Text('准备好了',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 2,
-                                      )),
-                                )),
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
           ),
         ),

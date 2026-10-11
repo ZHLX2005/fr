@@ -439,26 +439,31 @@ class GameCategoryChip extends StatelessWidget {
           curve: Curves.easeOut,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
+            // 选中走 primaryContainer（五主题含 Lemon/Rose 的 onPrimaryContainer 可读）
             color: selected
-                ? accent.withValues(alpha: 0.10)
-                : scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                ? scheme.primaryContainer
+                : scheme.surface.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: selected
-                  ? accent.withValues(alpha: 0.45)
-                  : scheme.outlineVariant.withValues(alpha: 0.6),
+                  ? scheme.primary.withValues(alpha: 0.35)
+                  : scheme.outline.withValues(alpha: 0.35),
               width: selected ? 1.5 : 1,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: fg),
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? scheme.onPrimaryContainer : fg,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: fg,
+                  color: selected ? scheme.onPrimaryContainer : fg,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
@@ -466,7 +471,8 @@ class GameCategoryChip extends StatelessWidget {
               Text(
                 '$count',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: fg.withValues(alpha: 0.75),
+                  color: (selected ? scheme.onPrimaryContainer : fg)
+                      .withValues(alpha: 0.75),
                 ),
               ),
             ],

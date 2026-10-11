@@ -17,6 +17,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/game_kit/lobby/game_ready_style.dart';
 import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart'
@@ -118,7 +119,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final n = ps.length;
 
     return Scaffold(
-      backgroundColor: theme.boardSurface,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(
         backgroundColor: theme.boardSurface,
         foregroundColor: theme.btnText,
@@ -139,17 +140,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Container(
-                decoration: BoxDecoration(
-                  color: theme.panelBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.panelBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                decoration: GameReadyFloatCard.decoration(
+                  Theme.of(context).colorScheme,
                 ),
                 padding: EdgeInsets.fromLTRB(28, 28, 28, 28),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [

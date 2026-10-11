@@ -305,10 +305,16 @@ class _GameCenterPageState extends State<GameCenterPage>
     final query = _searchController.text.trim();
     final showFeatured = _selected == GameCategory.all && query.isEmpty;
 
-    // H3R-C「搜索框即头」：无渐变头部，纸面恒浅底 —— 状态栏图标恒深色
+    // H3R-C「搜索框即头」：无渐变头部；底色跟壳层 surfaceContainerLowest，
+    // 五主题（含暮紫 dark）自动切换。
+    final scheme = theme.colorScheme;
+    final overlay = scheme.brightness == Brightness.dark
+        ? SystemUiOverlayStyle.light
+        : SystemUiOverlayStyle.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: overlay,
       child: Scaffold(
+        backgroundColor: scheme.surfaceContainerLowest,
         body: Stack(
           children: [
             GestureDetector(
@@ -413,24 +419,31 @@ class _GameCenterPageState extends State<GameCenterPage>
     );
   }
 
-  /// 合体胶囊：透明底 + 主题色 2px 描边 + radius 13；左端返回热区（细分隔线隔开）
-  /// + 搜索图标 + 输入 + 内嵌「搜索」提交钮。
+  /// 合体搜索浮卡：surface + 双层软阴影（对齐大厅/设置浮卡），
+  /// 左端返回热区 + 搜索图标 + 输入 + 内嵌「搜索」提交钮。
   /// 占位文字 = 最近搜索的首条（隐性展示历史行为）。
   Widget _buildSearchField(ThemeData theme) {
     final scheme = theme.colorScheme;
-    final borderColor = scheme.primary.withValues(alpha: 0.55);
     return Container(
-      // 胶囊描边画在外层；内部 hit-test 用 opaque 的 GestureDetector 覆盖三段
       height: kGcTopRowHeight,
       decoration: BoxDecoration(
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(kGcSearchRadius),
-        border: Border.all(color: borderColor, width: kGcSearchBorderWidth),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.onSurface.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: scheme.onSurface.withValues(alpha: 0.07),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: ClipRRect(
-        // 热区按压水波/底色裁进胶囊圆角
-        borderRadius: BorderRadius.circular(
-          kGcSearchRadius - kGcSearchBorderWidth,
-        ),
+        borderRadius: BorderRadius.circular(kGcSearchRadius),
         child: Row(
           children: [
             _BackButton(onTap: () => Navigator.maybePop(context)),
@@ -752,11 +765,20 @@ class _EmptyFeatured extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 26),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLow,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(kGcCardRadius),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+            BoxShadow(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           children: [

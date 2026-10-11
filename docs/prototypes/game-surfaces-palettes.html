@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-palette="zen">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小豆子 · 全主题配色对照（游戏表面）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * 色值直接来自 lib/core/theme/tokens/color/theme/{zen,purple,ink,rose,lemon}.dart
+   * 映射：primary / onPrimary / primaryContainer / tertiary / surface /
+   *       surfaceContainerHighest / onSurface / onSurfaceVariant / outline
+   *
+   * 三块表面：游戏中心 · 房间就绪 · 大厅入口
+   */
+
+  :root, [data-palette="zen"] {
+    --font-ui: "DM Sans", "PingFang SC", sans-serif;
+    --font-display: "Instrument Serif", "Songti SC", serif;
+    --brightness: light;
+    --primary: #7A9A7E;
+    --on-primary: #FFFFFF;
+    --primary-container: #E8F0E5;
+    --on-primary-container: #2D4A2A;
+    --secondary: #8A8475;
+    --tertiary: #A0594A;
+    --on-tertiary: #FFFFFF;
+    --tertiary-container: #B1776B;
+    --surface: #FBF8F1;
+    --on-surface: #2C2C2C;
+    --on-surface-variant: #8A8475;
+    --surface-highest: #F4F1EA;
+    --outline: #D9D5C8;
+    --error: #A0594A;
+    --label: "茶禅 Zen";
+    --pitch: "sage 主色 ↔ 暖米环境。现网默认主题；主 CTA 走 primary，tertiary/clay 只做收藏与警告。";
+    --cover-1: linear-gradient(145deg, #5d7a62 0%, #2f4634 55%, #1c2a20 100%);
+    --cover-2: linear-gradient(145deg, #8b6b4a 0%, #4a3424 60%, #241810 100%);
+    --cover-3: linear-gradient(145deg, #6a7d8a 0%, #33424c 55%, #1a2329 100%);
+    --cover-4: linear-gradient(145deg, #9a6b5c 0%, #5a342c 55%, #2a1814 100%);
+  }
+
+  [data-palette="purple"] {
+    --brightness: dark;
+    --primary: #AB97BF;
+    --on-primary: #1B1722;
+    --primary-container: #3D2E5C;
+    --on-primary-container: #E0DAF0;
+    --secondary: #A8A394;
+    --tertiary: #C0A873;
+    --on-tertiary: #1B1722;
+    --tertiary-container: #CBB88C;
+    --surface: #201F1A;
+    --on-surface: #E3E2DD;
+    --on-surface-variant: #A8A499;
+    --surface-highest: #191713;
+    --outline: #3F3C34;
+    --error: #C99DBA;
+    --label: "暮紫 Purple";
+    --pitch: "暗色主题：暮紫主色 ↔ 鎏金 tertiary。适合夜间 / 房间等待；CTA 文字用 onPrimary 深色。";
+    --cover-1: linear-gradient(145deg, #6a5a80 0%, #2e2440 55%, #141018 100%);
+    --cover-2: linear-gradient(145deg, #8a7350 0%, #3a3020 60%, #16120c 100%);
+    --cover-3: linear-gradient(145deg, #5a5a68 0%, #2a2a34 55%, #121218 100%);
+    --cover-4: linear-gradient(145deg, #7a5a68 0%, #3a2830 55%, #161014 100%);
+  }
+
+  [data-palette="ink"] {
+    --brightness: light;
+    --primary: #1A1A1A;
+    --on-primary: #FFFFFF;
+    --primary-container: #E8E8E8;
+    --on-primary-container: #0D0D0D;
+    --secondary: #6E6E6E;
+    --tertiary: #8C5A4F;
+    --on-tertiary: #FFFFFF;
+    --tertiary-container: #E5D2CB;
+    --surface: #FAFAFA;
+    --on-surface: #1A1A1A;
+    --on-surface-variant: #707070;
+    --surface-highest: #F0F0F0;
+    --outline: #D0D0D0;
+    --error: #B04650;
+    --label: "墨白 Ink";
+    --pitch: "墨黑主色 + 纯纸白底 + 墨赭 tertiary。极简纸墨感；主按钮近黑，强调靠章印赭。";
+    --cover-1: linear-gradient(145deg, #3a3a3a 0%, #1a1a1a 55%, #0a0a0a 100%);
+    --cover-2: linear-gradient(145deg, #6a4a42 0%, #3a2824 60%, #181010 100%);
+    --cover-3: linear-gradient(145deg, #505050 0%, #282828 55%, #101010 100%);
+    --cover-4: linear-gradient(145deg, #7a5a50 0%, #3a2a24 55%, #14100c 100%);
+  }
+
+  [data-palette="rose"] {
+    --brightness: light;
+    --primary: #F49399;
+    --on-primary: #3A2A2D;
+    --primary-container: #FECBCB;
+    --on-primary-container: #4A1F24;
+    --secondary: #A69297;
+    --tertiary: #7CA9A4;
+    --on-tertiary: #1E3A36;
+    --tertiary-container: #D8E9E5;
+    --surface: #FFF9F9;
+    --on-surface: #3A2A2D;
+    --on-surface-variant: #8A6F74;
+    --surface-highest: #EDD8DC;
+    --outline: #EADEE1;
+    --error: #B04650;
+    --label: "粉雾海盐 Rose";
+    --pitch: "粉主色 + 海盐薄荷 tertiary。主 CTA 用粉，文字走 onPrimary 深褐；收藏可用薄荷。";
+    --cover-1: linear-gradient(145deg, #c87880 0%, #7a4048 55%, #3a2024 100%);
+    --cover-2: linear-gradient(145deg, #6a9a94 0%, #3a5a56 60%, #1a2a28 100%);
+    --cover-3: linear-gradient(145deg, #a08088 0%, #5a4048 55%, #2a1c20 100%);
+    --cover-4: linear-gradient(145deg, #d09070 0%, #7a4a38 55%, #3a2418 100%);
+  }
+
+  [data-palette="lemon"] {
+    --brightness: light;
+    --primary: #FFD54F;
+    --on-primary: #37474F;
+    --primary-container: #FFF9C4;
+    --on-primary-container: #37474F;
+    --secondary: #90A4AE;
+    --tertiary: #81C784;
+    --on-tertiary: #1B5E20;
+    --tertiary-container: #E8F5E9;
+    --surface: #FFFEF8;
+    --on-surface: #37474F;
+    --on-surface-variant: #78909C;
+    --surface-highest: #FFFDE7;
+    --outline: #EAE5D6;
+    --error: #E57373;
+    --label: "柠檬鼠尾草 Lemon";
+    --pitch: "闲鱼风亮柠檬黄 + 鼠尾草绿 tertiary。主 CTA 黄底深字；绿只作互补强调，勿当主按钮。";
+    --cover-1: linear-gradient(145deg, #c8a830 0%, #6a5a18 55%, #2a2410 100%);
+    --cover-2: linear-gradient(145deg, #5a9a60 0%, #2a5a30 60%, #142818 100%);
+    --cover-3: linear-gradient(145deg, #6a8a96 0%, #3a5058 55%, #1a282c 100%);
+    --cover-4: linear-gradient(145deg, #c87840 0%, #6a4020 55%, #2a180c 100%);
+  }
+
+  /* aliases used by UI */
+  [data-palette] {
+    --ink: var(--on-surface);
+    --muted: var(--on-surface-variant);
+    --bg: var(--surface-highest);
+    --bg-deep: color-mix(in srgb, var(--surface-highest) 85%, var(--on-surface) 15%);
+    --surface-2: color-mix(in srgb, var(--surface) 70%, var(--surface-highest));
+    --primary-soft: var(--primary-container);
+    --primary-ink: var(--on-primary-container);
+    --accent: var(--tertiary);
+    --accent-soft: color-mix(in srgb, var(--tertiary) 18%, transparent);
+    --hair: color-mix(in srgb, var(--outline) 80%, transparent);
+    --shadow: 0 2px 8px color-mix(in srgb, var(--on-surface) 6%, transparent),
+               0 12px 32px color-mix(in srgb, var(--on-surface) 8%, transparent);
+    --shadow-lift: 0 10px 30px color-mix(in srgb, var(--on-surface) 14%, transparent);
+  }
+  [data-palette="purple"] {
+    --bg-deep: #12110e;
+    --shadow: 0 2px 8px rgba(0,0,0,0.35), 0 16px 40px rgba(0,0,0,0.45);
+    --shadow-lift: 0 12px 40px rgba(0,0,0,0.55);
+    --accent-soft: color-mix(in srgb, var(--tertiary) 22%, transparent);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  html, body { min-height: 100%; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--ink);
+    background:
+      radial-gradient(900px 520px at 12% 8%, color-mix(in srgb, var(--primary) 22%, var(--bg)) 0%, transparent 55%),
+      radial-gradient(760px 480px at 92% 86%, color-mix(in srgb, var(--tertiary) 18%, var(--bg)) 0%, transparent 50%),
+      linear-gradient(160deg, var(--bg-deep), var(--bg) 48%, var(--bg-deep));
+    padding: 28px 16px 64px;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.45s ease, color 0.25s ease;
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; }
+
+  .hero {
+    display: grid;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+  @media (min-width: 960px) {
+    .hero { grid-template-columns: 1fr 1.35fr; align-items: end; }
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-bottom: 8px;
+  }
+  .hero .sub {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+    max-width: 48ch;
+  }
+  .hero .sub strong { color: var(--ink); font-weight: 600; }
+
+  .palette-switch {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  @media (min-width: 720px) {
+    .palette-switch { grid-template-columns: repeat(5, 1fr); }
+  }
+  .pal-btn {
+    text-align: left;
+    border: 1px solid var(--hair);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 12px 12px 11px;
+    cursor: pointer;
+    color: var(--ink);
+    font: inherit;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .pal-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .pal-btn[aria-pressed="true"] {
+    border-color: color-mix(in srgb, var(--primary) 55%, var(--outline));
+    box-shadow: var(--shadow);
+    background: var(--surface);
+  }
+  .pal-btn .swatches {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+  .pal-btn .swatches i {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    display: block;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+  }
+  .pal-btn .name { font-size: 12.5px; font-weight: 700; letter-spacing: -0.01em; }
+  .pal-btn .hint { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+
+  .token-strip {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .token {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .token i {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+  }
+
+  .active-pitch {
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .active-pitch b {
+    font-family: var(--font-display);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+
+  .surface-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .surface-tabs button {
+    border: 1px solid var(--hair);
+    background: color-mix(in srgb, var(--surface) 80%, transparent);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+  }
+  .surface-tabs button[aria-selected="true"] {
+    background: var(--primary);
+    color: var(--on-primary);
+    border-color: transparent;
+  }
+
+  .panels { display: none; }
+  .panels.is-active { display: block; }
+
+  .stage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .col { width: min(390px, 100%); }
+  .brief { margin-bottom: 12px; min-height: 72px; }
+  .brief h2 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .brief p { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .brief code {
+    font-size: 11px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    padding: 1px 6px;
+    border-radius: 6px;
+  }
+
+  .phone {
+    width: 100%;
+    height: 844px;
+    border-radius: 46px;
+    background: #111;
+    padding: 12px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.22);
+  }
+  .phone-inner {
+    height: 100%;
+    border-radius: 36px;
+    overflow: hidden;
+    background: var(--bg);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.35s ease;
+  }
+  .notch {
+    position: absolute;
+    top: 11px; left: 50%;
+    transform: translateX(-50%);
+    width: 118px; height: 28px;
+    background: #111;
+    border-radius: 20px;
+    z-index: 40;
+  }
+  .status {
+    height: 54px;
+    padding: 18px 28px 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .screen {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .home {
+    position: absolute;
+    left: 50%; bottom: 8px;
+    transform: translateX(-50%);
+    width: 128px; height: 5px;
+    background: color-mix(in srgb, var(--ink) 35%, transparent);
+    border-radius: 99px;
+    z-index: 30;
+  }
+
+  .appbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 16px 12px;
+    min-height: 44px;
+  }
+  .appbar .back, .appbar .more {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font-size: 18px;
+    display: grid;
+    place-items: center;
+  }
+  .appbar h3 {
+    flex: 1;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .search {
+    margin: 0 16px 14px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 14px;
+    overflow: auto;
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--hair);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+  }
+  .chip.on {
+    background: var(--primary-container);
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    color: var(--on-primary-container);
+  }
+
+  .scroll {
+    flex: 1;
+    overflow: auto;
+    padding: 0 16px 28px;
+    scrollbar-width: none;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  .section-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 4px 0 10px;
+  }
+
+  .featured {
+    height: 168px;
+    border-radius: 22px;
+    background: var(--cover-1);
+    box-shadow: var(--shadow-lift);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 18px;
+    color: #fff;
+    animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .featured::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.55));
+  }
+  .featured .meta {
+    position: absolute;
+    left: 16px; right: 16px; bottom: 14px;
+    z-index: 1;
+  }
+  .featured .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(8px);
+    padding: 4px 8px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+  }
+  .featured h4 {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .featured p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  .play-pill {
+    position: absolute;
+    top: 14px; right: 14px;
+    z-index: 1;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .gcard {
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .gcard:nth-child(1) { animation-delay: 0.05s; }
+  .gcard:nth-child(2) { animation-delay: 0.1s; }
+  .gcard:nth-child(3) { animation-delay: 0.15s; }
+  .gcard:nth-child(4) { animation-delay: 0.2s; }
+  .gcard .art { height: 96px; position: relative; }
+  .gcard:nth-child(1) .art { background: var(--cover-2); }
+  .gcard:nth-child(2) .art { background: var(--cover-3); }
+  .gcard:nth-child(3) .art { background: var(--cover-4); }
+  .gcard:nth-child(4) .art { background: var(--cover-1); }
+  .gcard .fav {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.28);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+  }
+  .gcard .body { padding: 10px 12px 12px; }
+  .gcard .body h5 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .gcard .body span { font-size: 11.5px; color: var(--muted); }
+
+  .room-bg {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(420px 280px at 50% 20%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 70%),
+      var(--bg);
+    padding: 8px 20px 28px;
+  }
+  .room-card {
+    margin: auto 0;
+    background: var(--surface);
+    border-radius: 24px;
+    box-shadow: var(--shadow-lift);
+    padding: 22px 20px 18px;
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .room-card.bordered { border: 1px solid var(--hair); }
+  .room-card h4 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  .room-code {
+    margin: 10px auto 18px;
+    width: fit-content;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+
+  .player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+  }
+  .avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--hair);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--muted);
+    background: var(--surface-2);
+  }
+  .avatar.ok {
+    border-color: var(--primary);
+    color: var(--on-primary-container);
+    background: var(--primary-container);
+  }
+  .player .who { flex: 1; }
+  .player .who b { display: block; font-size: 14px; }
+  .player .who span { font-size: 12px; color: var(--muted); }
+  .badge { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .badge.ok { color: var(--primary); }
+  [data-palette="lemon"] .badge.ok { color: var(--on-primary-container); }
+  [data-palette="rose"] .badge.ok { color: var(--on-primary-container); }
+
+  .cta {
+    margin-top: 16px;
+    width: 100%;
+    height: 50px;
+    border: none;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cta.primary {
+    background: var(--primary);
+    color: var(--on-primary);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+  .cta.accent {
+    background: var(--tertiary);
+    color: var(--on-tertiary);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--tertiary) 35%, transparent);
+  }
+  .cta.ghost {
+    margin-top: 8px;
+    background: transparent;
+    color: var(--on-primary-container);
+    border: 1.5px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  [data-palette="ink"] .cta.ghost { color: var(--primary); }
+  [data-palette="purple"] .cta.ghost { color: var(--primary); }
+
+  .hint-row {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .lobby {
+    flex: 1;
+    padding: 8px 20px 28px;
+    display: flex;
+    flex-direction: column;
+  }
+  .lobby-hero { margin: 8px 0 20px; }
+  .lobby-hero .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 6px;
+  }
+  [data-palette="lemon"] .lobby-hero .eyebrow,
+  [data-palette="rose"] .lobby-hero .eyebrow {
+    color: var(--on-primary-container);
+  }
+  .lobby-hero h4 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .lobby-hero p {
+    margin-top: 8px;
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .form-card {
+    background: var(--surface);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    padding: 18px 16px;
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%;
+    height: 46px;
+    border-radius: 14px;
+    border: 1px solid var(--hair);
+    background: var(--surface-2);
+    padding: 0 14px;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+  }
+  .field input:focus {
+    border-color: color-mix(in srgb, var(--primary) 50%, var(--outline));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  .compare {
+    margin-top: 28px;
+    padding: 18px 16px;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border: 1px solid var(--hair);
+    backdrop-filter: blur(8px);
+  }
+  .compare h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+  .compare table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .compare th, .compare td {
+    text-align: left;
+    padding: 8px 6px;
+    border-top: 1px solid var(--hair);
+    vertical-align: top;
+  }
+  .compare th { color: var(--muted); font-weight: 600; width: 18%; }
+  .compare td { color: var(--ink); line-height: 1.45; }
+  .note {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div>
+        <h1>全主题配色 · 游戏表面</h1>
+        <p class="sub">
+          对齐 <code>AppThemeMode</code> 五套主题：
+          <strong>茶禅 / 暮紫 / 墨白 / 粉雾海盐 / 柠檬鼠尾草</strong>。
+          色值取自 <code>lib/core/theme/tokens/color/theme/*.dart</code>，
+          切主题看游戏中心、房间就绪、大厅入口在各主题下的观感。
+        </p>
+      </div>
+      <div>
+        <div class="palette-switch" role="group" aria-label="App 主题">
+          <button class="pal-btn" data-set="zen" aria-pressed="true">
+            <span class="swatches">
+              <i style="background:#7A9A7E"></i>
+              <i style="background:#A0594A"></i>
+              <i style="background:#F4F1EA"></i>
+            </span>
+            <div class="name">茶禅 Zen</div>
+            <div class="hint">默认 · light</div>
+          </button>
+          <button class="pal-btn" data-set="purple" aria-pressed="false">
+            <span class="swatches">
+              <i style="background:#AB97BF"></i>
+              <i style="background:#C0A873"></i>
+              <i style="background:#191713"></i>
+            </span>
+            <div class="name">暮紫 Purple</div>
+            <div class="hint">暗色 · dark</div>
+          </button>
+          <button class="pal-btn" data-set="ink" aria-pressed="false">
+            <span class="swatches">
+              <i style="background:#1A1A1A"></i>
+              <i style="background:#8C5A4F"></i>
+              <i style="background:#F0F0F0"></i>
+            </span>
+            <div class="name">墨白 Ink</div>
+            <div class="hint">纸墨 · light</div>
+          </button>
+          <button class="pal-btn" data-set="rose" aria-pressed="false">
+            <span class="swatches">
+              <i style="background:#F49399"></i>
+              <i style="background:#7CA9A4"></i>
+              <i style="background:#EDD8DC"></i>
+            </span>
+            <div class="name">粉雾海盐 Rose</div>
+            <div class="hint">粉 + 薄荷 · light</div>
+          </button>
+          <button class="pal-btn" data-set="lemon" aria-pressed="false">
+            <span class="swatches">
+              <i style="background:#FFD54F"></i>
+              <i style="background:#81C784"></i>
+              <i style="background:#FFFDE7"></i>
+            </span>
+            <div class="name">柠檬鼠尾草 Lemon</div>
+            <div class="hint">黄 + 绿 · light</div>
+          </button>
+        </div>
+        <div class="token-strip" id="tokens" aria-hidden="false"></div>
+        <div class="active-pitch" id="pitch"><b id="pitch-label">茶禅 Zen</b><span id="pitch-text">sage 主色 ↔ 暖米环境。现网默认主题；主 CTA 走 primary，tertiary/clay 只做收藏与警告。</span></div>
+      </div>
+    </header>
+
+    <nav class="surface-tabs" role="tablist">
+      <button type="button" role="tab" aria-selected="true" data-panel="all">三屏并排</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="center">游戏中心</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="room">房间就绪</button>
+      <button type="button" role="tab" aria-selected="false" data-panel="lobby">大厅入口</button>
+    </nav>
+
+    <section class="panels is-active" id="panel-all">
+      <div class="stage">
+        <div class="col" data-phone="center"></div>
+        <div class="col" data-phone="room"></div>
+        <div class="col" data-phone="lobby"></div>
+      </div>
+    </section>
+    <section class="panels" id="panel-center">
+      <div class="stage"><div class="col" data-phone="center"></div></div>
+    </section>
+    <section class="panels" id="panel-room">
+      <div class="stage">
+        <div class="col" data-phone="room"></div>
+        <div class="col" data-phone="room-alt"></div>
+      </div>
+    </section>
+    <section class="panels" id="panel-lobby">
+      <div class="stage">
+        <div class="col" data-phone="lobby"></div>
+        <div class="col" data-phone="lobby-accent"></div>
+      </div>
+    </section>
+
+    <section class="compare">
+      <h3>五主题速查</h3>
+      <table>
+        <tr>
+          <th>Zen</th>
+          <td>默认。sage CTA + 暖米底；tertiary clay 只做收藏/错误。</td>
+        </tr>
+        <tr>
+          <th>Purple</th>
+          <td>唯一 dark。暮紫 CTA + 鎏金 tertiary；房间深底最贴。</td>
+        </tr>
+        <tr>
+          <th>Ink</th>
+          <td>近黑 CTA + 纸白底；墨赭 tertiary 作章印强调。</td>
+        </tr>
+        <tr>
+          <th>Rose</th>
+          <td>粉 CTA（深字）+ 海盐薄荷 tertiary；表面偏粉雾。</td>
+        </tr>
+        <tr>
+          <th>Lemon</th>
+          <td>亮黄 CTA（深字）+ 鼠尾草绿 tertiary；最跳、最「闲鱼」。</td>
+        </tr>
+        <tr>
+          <th>落地约束</th>
+          <td>游戏表面必须吃 <code>ColorScheme</code>，不要写死 sage/clay；Lemon/Rose/Purple 的 onPrimary 不是白，按钮文字跟 token。</td>
+        </tr>
+      </table>
+      <p class="note">
+        文件：<code>docs/prototypes/game-surfaces-palettes.html</code> ·
+        源：<code>zen.dart / purple.dart / ink.dart / rose.dart / lemon.dart</code>
+      </p>
+    </section>
+  </div>
+
+<template id="tpl-center">
+  <div class="brief">
+    <h2>游戏中心</h2>
+    <p>对标 <code>game_center_page</code>：搜索头 + chip + 精选大卡 + 网格。收藏色 = tertiary。</p>
+  </div>
+  <div class="phone"><div class="phone-inner">
+    <div class="notch"></div>
+    <div class="status"><span>9:41</span><span>▮▮▮ ☀</span></div>
+    <div class="screen">
+      <div class="appbar"><h3>游戏中心</h3><button class="more" aria-label="more">···</button></div>
+      <div class="search">⌕ 搜索象棋、围棋、数独…</div>
+      <div class="chips">
+        <div class="chip on">全部</div>
+        <div class="chip">棋类</div>
+        <div class="chip">益智</div>
+        <div class="chip">联机</div>
+      </div>
+      <div class="scroll">
+        <div class="section-label">精选联机</div>
+        <div class="featured">
+          <div class="play-pill">开始</div>
+          <div class="meta">
+            <div class="tag">Online</div>
+            <h4>中国象棋</h4>
+            <p>智能匹配 · 残局挑战</p>
+          </div>
+        </div>
+        <div class="section-label">全部游戏</div>
+        <div class="grid">
+          <div class="gcard"><div class="art"><div class="fav">♥</div></div><div class="body"><h5>围棋</h5><span>联机 · Lua</span></div></div>
+          <div class="gcard"><div class="art"><div class="fav">♡</div></div><div class="body"><h5>五子棋</h5><span>开局学习</span></div></div>
+          <div class="gcard"><div class="art"><div class="fav">♡</div></div><div class="body"><h5>数独</h5><span>房间规则</span></div></div>
+          <div class="gcard"><div class="art"><div class="fav">♥</div></div><div class="body"><h5>翻转棋</h5><span>热座 / 联机</span></div></div>
+        </div>
+      </div>
+      <div class="home"></div>
+    </div>
+  </div></div>
+</template>
+
+<template id="tpl-room">
+  <div class="brief">
+    <h2>房间就绪 · 推荐</h2>
+    <p>对标 <code>chess_room_page</code>：浮卡、无硬描边、stadium 主按钮吃 primary/onPrimary。</p>
+  </div>
+  <div class="phone"><div class="phone-inner">
+    <div class="notch"></div>
+    <div class="status"><span>9:41</span><span>▮▮▮ ☀</span></div>
+    <div class="screen">
+      <div class="appbar">
+        <button class="back">‹</button>
+        <h3>象棋房间</h3>
+        <button class="more">···</button>
+      </div>
+      <div class="room-bg">
+        <div class="room-card">
+          <h4>等待对手</h4>
+          <div class="room-code">ROOM 8F2K</div>
+          <div class="player">
+            <div class="avatar ok">我</div>
+            <div class="who"><b>阿豆</b><span>房主</span></div>
+            <div class="badge ok">已准备 ✓</div>
+          </div>
+          <div class="player">
+            <div class="avatar">对</div>
+            <div class="who"><b>小林</b><span>访客</span></div>
+            <div class="badge">未准备</div>
+          </div>
+          <button class="cta primary">准备就绪</button>
+          <div class="hint-row">双方准备后由房主开局</div>
+        </div>
+      </div>
+      <div class="home"></div>
+    </div>
+  </div></div>
+</template>
+
+<template id="tpl-room-alt">
+  <div class="brief">
+    <h2>房间就绪 · 现状对照</h2>
+    <p>带 border 的旧观感，并排对比。</p>
+  </div>
+  <div class="phone"><div class="phone-inner">
+    <div class="notch"></div>
+    <div class="status"><span>9:41</span><span>▮▮▮ ☀</span></div>
+    <div class="screen">
+      <div class="appbar">
+        <button class="back">‹</button>
+        <h3>象棋房间</h3>
+        <button class="more">···</button>
+      </div>
+      <div class="room-bg">
+        <div class="room-card bordered">
+          <h4>等待对手</h4>
+          <div class="room-code">ROOM 8F2K</div>
+          <div class="player">
+            <div class="avatar ok">我</div>
+            <div class="who"><b>阿豆</b><span>房主</span></div>
+            <div class="badge ok">已准备 ✓</div>
+          </div>
+          <div class="player">
+            <div class="avatar">对</div>
+            <div class="who"><b>小林</b><span>访客</span></div>
+            <div class="badge">未准备</div>
+          </div>
+          <button class="cta primary">准备就绪</button>
+          <div class="hint-row">带 border 的旧观感（不推荐）</div>
+        </div>
+      </div>
+      <div class="home"></div>
+    </div>
+  </div></div>
+</template>
+
+<template id="tpl-lobby">
+  <div class="brief">
+    <h2>大厅入口 · Primary CTA</h2>
+    <p>对标 <code>_lobby_form</code>：主按钮 = primary / onPrimary。</p>
+  </div>
+  <div class="phone"><div class="phone-inner">
+    <div class="notch"></div>
+    <div class="status"><span>9:41</span><span>▮▮▮ ☀</span></div>
+    <div class="screen">
+      <div class="appbar">
+        <button class="back">‹</button>
+        <h3>中国象棋</h3>
+      </div>
+      <div class="lobby">
+        <div class="lobby-hero">
+          <div class="eyebrow">Online Match</div>
+          <h4>找人对弈</h4>
+          <p>输入昵称后智能匹配，或创建/加入房间码。</p>
+        </div>
+        <div class="form-card">
+          <div class="field">
+            <label>昵称</label>
+            <input value="阿豆" readonly />
+          </div>
+          <div class="field">
+            <label>房间码（可选）</label>
+            <input placeholder="留空则智能匹配" readonly />
+          </div>
+          <button class="cta primary">智能匹配</button>
+          <button class="cta ghost">创建房间</button>
+        </div>
+      </div>
+      <div class="home"></div>
+    </div>
+  </div></div>
+</template>
+
+<template id="tpl-lobby-accent">
+  <div class="brief">
+    <h2>大厅入口 · Tertiary CTA（对照）</h2>
+    <p>主按钮改 tertiary，仅对照；默认仍建议 primary。</p>
+  </div>
+  <div class="phone"><div class="phone-inner">
+    <div class="notch"></div>
+    <div class="status"><span>9:41</span><span>▮▮▮ ☀</span></div>
+    <div class="screen">
+      <div class="appbar">
+        <button class="back">‹</button>
+        <h3>中国象棋</h3>
+      </div>
+      <div class="lobby">
+        <div class="lobby-hero">
+          <div class="eyebrow">Online Match</div>
+          <h4>找人对弈</h4>
+          <p>同一布局，主按钮改 tertiary，感受权重变化。</p>
+        </div>
+        <div class="form-card">
+          <div class="field">
+            <label>昵称</label>
+            <input value="阿豆" readonly />
+          </div>
+          <div class="field">
+            <label>房间码（可选）</label>
+            <input placeholder="留空则智能匹配" readonly />
+          </div>
+          <button class="cta accent">智能匹配</button>
+          <button class="cta ghost">创建房间</button>
+        </div>
+      </div>
+      <div class="home"></div>
+    </div>
+  </div></div>
+</template>
+
+<script>
+  const pitches = {
+    zen: {
+      label: "茶禅 Zen",
+      text: "sage 主色 ↔ 暖米环境。现网默认主题；主 CTA 走 primary，tertiary/clay 只做收藏与警告。",
+      tokens: [
+        ["primary", "#7A9A7E"],
+        ["onPrimary", "#FFFFFF"],
+        ["tertiary", "#A0594A"],
+        ["surface", "#FBF8F1"],
+        ["surfaceHighest", "#F4F1EA"],
+      ],
+    },
+    purple: {
+      label: "暮紫 Purple",
+      text: "暗色主题：暮紫主色 ↔ 鎏金 tertiary。适合夜间 / 房间等待；CTA 文字用 onPrimary 深色。",
+      tokens: [
+        ["primary", "#AB97BF"],
+        ["onPrimary", "#1B1722"],
+        ["tertiary", "#C0A873"],
+        ["surface", "#201F1A"],
+        ["surfaceHighest", "#191713"],
+      ],
+    },
+    ink: {
+      label: "墨白 Ink",
+      text: "墨黑主色 + 纯纸白底 + 墨赭 tertiary。极简纸墨感；主按钮近黑，强调靠章印赭。",
+      tokens: [
+        ["primary", "#1A1A1A"],
+        ["onPrimary", "#FFFFFF"],
+        ["tertiary", "#8C5A4F"],
+        ["surface", "#FAFAFA"],
+        ["surfaceHighest", "#F0F0F0"],
+      ],
+    },
+    rose: {
+      label: "粉雾海盐 Rose",
+      text: "粉主色 + 海盐薄荷 tertiary。主 CTA 用粉，文字走 onPrimary 深褐；收藏可用薄荷。",
+      tokens: [
+        ["primary", "#F49399"],
+        ["onPrimary", "#3A2A2D"],
+        ["tertiary", "#7CA9A4"],
+        ["surface", "#FFF9F9"],
+        ["surfaceHighest", "#EDD8DC"],
+      ],
+    },
+    lemon: {
+      label: "柠檬鼠尾草 Lemon",
+      text: "闲鱼风亮柠檬黄 + 鼠尾草绿 tertiary。主 CTA 黄底深字；绿只作互补强调，勿当主按钮。",
+      tokens: [
+        ["primary", "#FFD54F"],
+        ["onPrimary", "#37474F"],
+        ["tertiary", "#81C784"],
+        ["surface", "#FFFEF8"],
+        ["surfaceHighest", "#FFFDE7"],
+      ],
+    },
+  };
+
+  const templates = {
+    center: "tpl-center",
+    room: "tpl-room",
+    "room-alt": "tpl-room-alt",
+    lobby: "tpl-lobby",
+    "lobby-accent": "tpl-lobby-accent",
+  };
+
+  function renderTokens(name) {
+    const strip = document.getElementById("tokens");
+    strip.innerHTML = pitches[name].tokens.map(([k, v]) =>
+      `<span class="token"><i style="background:${v}"></i>${k} ${v}</span>`
+    ).join("");
+  }
+
+  function mountPhones(root = document) {
+    root.querySelectorAll("[data-phone]").forEach((slot) => {
+      const key = slot.getAttribute("data-phone");
+      const tpl = document.getElementById(templates[key]);
+      if (!tpl) return;
+      slot.innerHTML = "";
+      slot.appendChild(tpl.content.cloneNode(true));
+    });
+  }
+
+  function setPalette(name) {
+    document.documentElement.setAttribute("data-palette", name);
+    document.querySelectorAll(".pal-btn").forEach((btn) => {
+      btn.setAttribute("aria-pressed", String(btn.dataset.set === name));
+    });
+    const p = pitches[name];
+    document.getElementById("pitch-label").textContent = p.label;
+    document.getElementById("pitch-text").textContent = p.text;
+    renderTokens(name);
+    mountPhones();
+  }
+
+  document.querySelectorAll(".pal-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setPalette(btn.dataset.set));
+  });
+
+  document.querySelectorAll(".surface-tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.panel;
+      document.querySelectorAll(".surface-tabs button").forEach((b) => {
+        b.setAttribute("aria-selected", String(b === btn));
+      });
+      document.querySelectorAll(".panels").forEach((panel) => {
+        panel.classList.toggle("is-active", panel.id === `panel-${id}`);
+      });
+      mountPhones(document.getElementById(`panel-${id}`));
+    });
+  });
+
+  renderTokens("zen");
+  mountPhones();
+</script>
+</body>
+</html>
