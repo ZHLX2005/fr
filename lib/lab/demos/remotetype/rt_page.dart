@@ -20,7 +20,9 @@ import '../../../api/remotetype/remotetype.dart';
 import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
 import 'rt_constants.dart';
+import 'rt_prefs.dart';
 import 'rt_session.dart';
+import 'rt_shortcut_bar.dart';
 
 class RemoteTypePage extends ConsumerStatefulWidget {
   const RemoteTypePage({super.key});
@@ -73,6 +75,11 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   // 随每条快照下发，可即时切换；页面级内存态（本页其他配置同样不持久化）
   String _enterMode = 'enter';
 
+  // 快捷键条（可编排）+ 历史输入
+  List<RtShortcutItem> _shortcuts = kDefaultRtShortcuts();
+  List<String> _history = const [];
+  String? _firingShortcutId;
+
   // ASR
   final stt.SpeechToText _stt = stt.SpeechToText();
   bool _listening = false;
@@ -90,9 +97,20 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     super.initState();
     _textController.addListener(_onControllerChanged);
     _bootstrap();
+    unawaited(_loadPrefs());
     // 配对页可见期间轮询在线列表（连上后页面切换，轮询空转开销可忽略）
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_session == null) _refreshClients();
+    });
+  }
+
+  Future<void> _loadPrefs() async {
+    final shortcuts = await RtPrefs.loadShortcuts();
+    final history = await RtPrefs.loadHistory();
+    if (!mounted) return;
+    setState(() {
+      _shortcuts = shortcuts;
+      _history = history;
     });
   }
 
@@ -353,11 +371,16 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         _textController.clear();
         return;
       }
-      session.syncText(text, enterMode: _enterMode).then((sent) {
+      session.syncText(text, enterMode: _enterMode).then((sent) async {
         if (!mounted) return;
         if (sent) {
           setState(() => _syncSent += 1);
           if (flushAfterSend) {
+            final body = text.replaceFirst(RegExp(r'\n+$'), '').trim();
+            if (body.isNotEmpty) {
+              final next = await RtPrefs.pushHistory(body);
+              if (mounted) setState(() => _history = next);
+            }
             _asrBase = '';
             _textController.clear();
           }
@@ -481,26 +504,100 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     setState(() => _listening = true);
   }
 
-  // ================= 快捷键面板 =================
+  // ================= 快捷键 / 历史 =================
 
-  /// 弹出快捷键网格。onFire 回调在每次点击时读取当前 `_session`：
-  /// 断开重连后 sheet 里拿到的是新会话，不用重建面板。
-  void _showShortcutSheet() {
-    showModalBottomSheet<void>(
+  /// 发送快捷键。
+  ///
+  /// **根因修复**：旧 UI 在 `!_e2eOk` 时整表禁用——端到端只靠文字同步 ACK
+  /// 解锁，用户连上后直接点快捷键会一直灰掉，表现为「快捷键不生效」。
+  /// 快捷键与全文共用加密路径，WS 已连接即可发；ACK 同样可确认 e2e。
+  Future<void> _fireShortcut(RtShortcutItem item) async {
+    if (_firingShortcutId != null) return;
+    final session = _session;
+    if (session == null || !_connected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('未连接电脑')),
+      );
+      return;
+    }
+    // Win+L 等锁屏类：条上一点即发，误触代价高，先确认。
+    final isLock = item.keys.length == 2 &&
+        item.keys.first == 'win' &&
+        item.keys.last == 'l';
+    if (isLock) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('锁屏？'),
+          content: Text('将向电脑发送 ${item.label}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('锁屏'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    setState(() => _firingShortcutId = item.id);
+    String? error;
+    try {
+      final sent = await session.syncHotkey(item.keys);
+      if (sent) {
+        if (mounted) setState(() => _syncSent += 1);
+      } else {
+        error = '发送失败（连接已断开？）';
+      }
+    } catch (e) {
+      error = '发送异常：$e';
+    }
+    if (!mounted) return;
+    setState(() => _firingShortcutId = null);
+    // 常驻条：成功不刷 SnackBar，只报错。
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _editShortcuts() async {
+    final next = await showRtShortcutEditor(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (_) => _ShortcutPanel(
-        e2eOk: () => _e2eOk,
-        onFire: (keys) async {
-          final session = _session;
-          if (session == null) return '未连接电脑';
-          if (!_e2eOk) return '等待端到端确认（先发一条消息）';
-          final sent = await session.syncHotkey(keys);
-          return sent ? null : '发送失败（连接已断开？）';
-        },
-      ),
+      current: _shortcuts,
     );
+    if (next == null || !mounted) return;
+    await RtPrefs.saveShortcuts(next);
+    if (!mounted) return;
+    setState(() => _shortcuts = next);
+  }
+
+  Future<void> _openHistory() async {
+    final picked = await showRtHistorySheet(
+      context: context,
+      history: _history,
+      onClear: () async {
+        await RtPrefs.clearHistory();
+        if (mounted) setState(() => _history = const []);
+      },
+    );
+    if (picked == null || !mounted) return;
+    final text = picked;
+    _textController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _asrBase = text;
+    _scheduleSync();
   }
 
   // ================= UI =================
@@ -837,6 +934,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
               ],
             ),
           ),
+          // 快捷键在输入框上方（边框强调小卡片）；历史 / 编排入口同排。
+          RtShortcutBar(
+            shortcuts: _shortcuts,
+            connected: _connected,
+            firingId: _firingShortcutId,
+            onFire: _fireShortcut,
+            onEdit: _editShortcuts,
+            onHistory: _openHistory,
+          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: SizedBox(
@@ -883,12 +989,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('清空'),
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _showShortcutSheet,
-                  icon: const Icon(Icons.keyboard_command_key),
-                  label: const Text('快捷键'),
-                ),
                 const Spacer(),
                 if (_listening)
                   const Padding(
@@ -899,123 +999,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 快捷键网格（bottom sheet 内容）。
-///
-/// 预设来自 [kShortcutPresets]（两端协议约定：末位主键、其余修饰键）。
-/// 每个按钮独立 in-flight 态：发送中转圈禁点，结果用 SnackBar 反馈——
-/// PC 端对 hotkey 是「受理即 ACK」，点完就该假定已触发，不做重试。
-class _ShortcutPanel extends StatefulWidget {
-  const _ShortcutPanel({
-    required this.e2eOk,
-    required this.onFire,
-  });
-
-  /// 每次点击时实时读取（E2E 确认可能在面板打开期间才完成）。
-  final bool Function() e2eOk;
-
-  /// 返回 null = 成功；非 null = 给用户看的错误文案。
-  final Future<String?> Function(List<String> keys) onFire;
-
-  @override
-  State<_ShortcutPanel> createState() => _ShortcutPanelState();
-}
-
-class _ShortcutPanelState extends State<_ShortcutPanel> {
-  /// 正在发送的预设下标；null = 空闲。同一时刻只允许一个在途。
-  int? _firing;
-
-  Future<void> _fire(int index) async {
-    if (_firing != null) return;
-    setState(() => _firing = index);
-    final label = kShortcutLabels[index];
-    String? error;
-    try {
-      error = await widget.onFire(kShortcutPresets[index]);
-    } catch (e) {
-      error = '发送异常：$e';
-    }
-    if (!mounted) return;
-    setState(() => _firing = null);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(error ?? '✅ 已发送 $label'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    if (error == null) Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final e2eReady = widget.e2eOk();
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text('快捷键',
-                    style: Theme.of(context).textTheme.titleMedium),
-                const Spacer(),
-                Text(
-                  e2eReady ? '点击即发送到电脑' : '端到端未确认，暂不可用',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: e2eReady ? cs.outline : cs.error,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: kShortcutPresets.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                // 一行放得下「Ctrl+Shift+Esc 任务管理器」这种长标签
-                childAspectRatio: 3.4,
-              ),
-              itemBuilder: (context, index) {
-                final busy = _firing == index;
-                final disabled = busy || !e2eReady;
-                return FilledButton.tonal(
-                  onPressed: disabled ? null : () => _fire(index),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                  ),
-                  child: busy
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cs.onSecondaryContainer,
-                          ),
-                        )
-                      : Text(
-                          kShortcutLabels[index],
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                );
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -990,11 +990,6 @@
                   </div>
                 </div>
               </div>
-              <div class="sheet-section">观测</div>
-              <div class="group">
-                <div class="item"><span>点击次数</span><span id="setClicks" style="color:var(--accent);font-weight:650">0</span></div>
-                <div class="item"><span>检索次数</span><span id="setSearches" style="color:var(--accent);font-weight:650">0</span></div>
-              </div>
             </div>
 
             <div class="settings-panel" data-panel="pinned" hidden>
@@ -1144,10 +1139,6 @@
   function syncMetricsUi() {
     clickCount.textContent = state.clicks;
     searchCount.textContent = state.searches;
-    const sc = document.getElementById("setClicks");
-    const ss = document.getElementById("setSearches");
-    if (sc) sc.textContent = state.clicks;
-    if (ss) ss.textContent = state.searches;
   }
 
   function bumpClick(label) {

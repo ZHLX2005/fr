@@ -1,12 +1,129 @@
 // 进房油漆刷过渡（原型 feature-list-and-lobby 落盘）。
 // TL→BR 铺开；每笔沿 TR→BL 扫出。取消/回退不做反向动画。
+//
+// 遮罩必须挂在 Navigator 的 Overlay 上（见 [runBrushWipeTransition]），
+// 否则 opaque push 会立刻盖住页面内 Stack 里的刷子，变成「满屏刷色硬切」。
 
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+
+/// 在根 [Overlay] 上播放刷子过渡：铺满 → [underCover]（含 push）→ 淡出揭开。
+///
+/// 挂在 Overlay 而非页面 Stack，保证 push 后遮罩仍盖在新 route 之上。
+Future<void> runBrushWipeTransition({
+  required BuildContext context,
+  required FutureOr<void> Function() underCover,
+  Color? tint,
+  Color? coverColor,
+  Duration paintDuration = const Duration(milliseconds: 2200),
+  Duration revealDuration = const Duration(milliseconds: 420),
+}) {
+  final theme = Theme.of(context);
+  final overlay = Overlay.of(context, rootOverlay: true);
+  final done = Completer<void>();
+  var removed = false;
+  late OverlayEntry entry;
+
+  void finish() {
+    if (removed) return;
+    removed = true;
+    entry.remove();
+    if (!done.isCompleted) done.complete();
+  }
+
+  entry = OverlayEntry(
+    builder: (ctx) => _BrushWipeHost(
+      tint: tint ?? theme.colorScheme.primary,
+      coverColor: coverColor ?? theme.colorScheme.surfaceContainerLowest,
+      paintDuration: paintDuration,
+      revealDuration: revealDuration,
+      underCover: underCover,
+      onFinished: finish,
+    ),
+  );
+  overlay.insert(entry);
+  return done.future;
+}
+
+class _BrushWipeHost extends StatefulWidget {
+  const _BrushWipeHost({
+    required this.tint,
+    required this.coverColor,
+    required this.paintDuration,
+    required this.revealDuration,
+    required this.underCover,
+    required this.onFinished,
+  });
+
+  final Color tint;
+  final Color coverColor;
+  final Duration paintDuration;
+  final Duration revealDuration;
+  final FutureOr<void> Function() underCover;
+  final VoidCallback onFinished;
+
+  @override
+  State<_BrushWipeHost> createState() => _BrushWipeHostState();
+}
+
+class _BrushWipeHostState extends State<_BrushWipeHost>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _fade = AnimationController(
+      vsync: this,
+      duration: widget.revealDuration,
+      value: 1,
+    );
+  }
+
+  @override
+  void dispose() {
+    _fade.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onPaintDone() async {
+    try {
+      try {
+        final result = widget.underCover();
+        if (result is Future) await result;
+        // 等新 route 至少画完一帧，再揭开，避免淡出时露出大厅或 loading。
+        await SchedulerBinding.instance.endOfFrame;
+        await Future<void>.delayed(Duration.zero);
+        await SchedulerBinding.instance.endOfFrame;
+      } catch (_) {
+        // underCover 失败也要揭开，避免遮罩卡住。
+      }
+      if (mounted) await _fade.reverse();
+    } finally {
+      widget.onFinished();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: AbsorbPointer(
+        child: BrushWipeOverlay(
+          tint: widget.tint,
+          coverColor: widget.coverColor,
+          duration: widget.paintDuration,
+          onDone: _onPaintDone,
+        ),
+      ),
+    );
+  }
+}
 
 /// 全屏刷子覆盖层；扫完后 await [onDone]（用于在遮罩下完成 push）。
 class BrushWipeOverlay extends StatefulWidget {
@@ -15,11 +132,15 @@ class BrushWipeOverlay extends StatefulWidget {
     required this.onDone,
     this.duration = const Duration(milliseconds: 2200),
     this.tint = const Color(0xFF7A9A7E),
+    this.coverColor = const Color(0xFFE8F0E5),
   });
 
   final FutureOr<void> Function() onDone;
   final Duration duration;
   final Color tint;
+
+  /// 铺满收尾色，应与准备页底色一致以免揭开时闪色。
+  final Color coverColor;
 
   @override
   State<BrushWipeOverlay> createState() => _BrushWipeOverlayState();
@@ -71,20 +192,19 @@ class _BrushWipeOverlayState extends State<BrushWipeOverlay>
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, _) {
-          return CustomPaint(
-            painter: _BrushWipePainter(
-              progress: Curves.easeInOutCubic.transform(_ctrl.value),
-              brush: _brush,
-              tint: widget.tint,
-            ),
-            size: Size.infinite,
-          );
-        },
-      ),
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        return CustomPaint(
+          painter: _BrushWipePainter(
+            progress: Curves.easeInOutCubic.transform(_ctrl.value),
+            brush: _brush,
+            tint: widget.tint,
+            coverColor: widget.coverColor,
+          ),
+          size: Size.infinite,
+        );
+      },
     );
   }
 }
@@ -94,11 +214,13 @@ class _BrushWipePainter extends CustomPainter {
     required this.progress,
     required this.brush,
     required this.tint,
+    required this.coverColor,
   });
 
   final double progress;
   final ui.Image? brush;
   final Color tint;
+  final Color coverColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -140,7 +262,7 @@ class _BrushWipePainter extends CustomPainter {
       final a = ((progress - 0.9) / 0.1).clamp(0.0, 1.0);
       canvas.drawRect(
         Offset.zero & size,
-        Paint()..color = const Color(0xFFE8F0E5).withValues(alpha: a),
+        Paint()..color = coverColor.withValues(alpha: a),
       );
     }
   }
@@ -198,5 +320,8 @@ class _BrushWipePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BrushWipePainter old) =>
-      old.progress != progress || old.brush != brush || old.tint != tint;
+      old.progress != progress ||
+      old.brush != brush ||
+      old.tint != tint ||
+      old.coverColor != coverColor;
 }

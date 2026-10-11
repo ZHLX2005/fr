@@ -944,7 +944,6 @@
 
   let capacity = 4;
   let pinIds = ["ai-pi", "core-time", "core-lab"];
-  let metrics = { clicks: 12, searches: 3 };
   let tab = "general";
   let query = "";
 
@@ -984,7 +983,6 @@
       pinIds.push(id);
       showToast(toast, `已钉选 ${BY_ID[id]?.title || id}`);
     }
-    metrics.clicks += 1;
     render();
   }
 
@@ -1096,22 +1094,10 @@
           </div>
         </div>
       </div>
-      <div class="g-label">观测</div>
-      <div class="g-group">
-        <div class="g-row">
-          <span class="t">点击次数</span>
-          <span class="num">${metrics.clicks}</span>
-        </div>
-        <div class="g-row">
-          <span class="t">检索次数</span>
-          <span class="num">${metrics.searches}</span>
-        </div>
-      </div>
     `;
     generalPanel.querySelectorAll("#capSeg button").forEach((b) => {
       b.addEventListener("click", () => {
         capacity = +b.dataset.cap;
-        metrics.clicks += 1;
         showToast(toast, `容量 ${capacity}`);
         render();
       });
@@ -1189,9 +1175,7 @@
   search.addEventListener("input", () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
-      const next = search.value;
-      if (next.trim() && next !== query) metrics.searches += 1;
-      query = next;
+      query = search.value;
       if (tab !== "general") renderList();
     }, 160);
   });

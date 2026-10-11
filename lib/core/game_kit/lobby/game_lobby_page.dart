@@ -50,8 +50,6 @@ class GameLobbyPageState extends State<GameLobbyPage> {
   final TextEditingController _aliasCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
   bool _busy = false;
-  bool _wiping = false;
-  FutureOr<void> Function()? _pendingStarted;
   String? _error;
 
   // dualEntry-only：
@@ -147,8 +145,11 @@ class GameLobbyPageState extends State<GameLobbyPage> {
       final ctx = LobbyStartedCtx();
       widget.slots.onStartedExtras?.call(ctx, h);
       if (widget.spec.copy.enterBrushWipe) {
-        _pendingStarted = () => widget.onStarted(h, ctx);
-        setState(() => _wiping = true);
+        // Overlay 级遮罩：push 后仍盖在新 route 上，再淡出揭开准备页。
+        unawaited(runBrushWipeTransition(
+          context: context,
+          underCover: () => widget.onStarted(h, ctx),
+        ));
       } else {
         // 无刷子：仍可能是 async onStarted，不阻塞按钮态恢复
         unawaited(Future.sync(() => widget.onStarted(h, ctx)));
@@ -310,56 +311,34 @@ class GameLobbyPageState extends State<GameLobbyPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Stack(
-      children: [
-        Scaffold(
-          backgroundColor: cs.surfaceContainerLowest,
-          appBar: AppBar(
-            title: Text(widget.spec.title),
-            backgroundColor: cs.surfaceContainerLowest,
-            elevation: 0,
-            // 快捷钉选根页不显示返回；从游戏中心 push 进来时保留。
-            automaticallyImplyLeading: navCanPop(context),
-            actions: [
-              ...?widget.slots.actionsBuilder?.call(context),
-              if (widget.spec.flow == LobbyFlowType.dualEntry &&
-                  _phase == _DualEntryPhase.room)
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: _resetToEntry,
-                  tooltip: '断开',
-                ),
-            ],
-          ),
-          body: SafeArea(
-            child: switch (widget.spec.flow) {
-              LobbyFlowType.smartMatch => _buildSmartMatchEntry(),
-              LobbyFlowType.dualEntry =>
-                _phase == _DualEntryPhase.entry
-                    ? _buildDualEntryEntry()
-                    : const Center(child: CircularProgressIndicator()),
-            },
-          ),
-        ),
-        if (_wiping)
-          Positioned.fill(
-            child: BrushWipeOverlay(
-              tint: cs.primary,
-              // 刷子盖住期间完成 onStarted（含 push）；揭开前不能拆层，
-              // 否则会闪回大厅再叠默认 Material 滑入。
-              onDone: () async {
-                final pending = _pendingStarted;
-                _pendingStarted = null;
-                try {
-                  final result = pending?.call();
-                  if (result is Future) await result;
-                } finally {
-                  if (mounted) setState(() => _wiping = false);
-                }
-              },
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      appBar: AppBar(
+        title: Text(widget.spec.title),
+        backgroundColor: cs.surfaceContainerLowest,
+        elevation: 0,
+        // 快捷钉选根页不显示返回；从游戏中心 push 进来时保留。
+        automaticallyImplyLeading: navCanPop(context),
+        actions: [
+          ...?widget.slots.actionsBuilder?.call(context),
+          if (widget.spec.flow == LobbyFlowType.dualEntry &&
+              _phase == _DualEntryPhase.room)
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: _resetToEntry,
+              tooltip: '断开',
             ),
-          ),
-      ],
+        ],
+      ),
+      body: SafeArea(
+        child: switch (widget.spec.flow) {
+          LobbyFlowType.smartMatch => _buildSmartMatchEntry(),
+          LobbyFlowType.dualEntry =>
+            _phase == _DualEntryPhase.entry
+                ? _buildDualEntryEntry()
+                : const Center(child: CircularProgressIndicator()),
+        },
+      ),
     );
   }
 

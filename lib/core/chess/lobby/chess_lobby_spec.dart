@@ -6,6 +6,7 @@
 //   · smartMatch 单入口「进入对局」→ tryJoinOrCreate（先到 = 房主）
 //   · 房间规则（host_color / first_mover / 残局）在准备阶段由房主配置
 //     （ChessRoomPage lobby/ready + Lua SET_RULES），不在进房前配
+//   · 进房刷子过渡由 ChessOnlineDemo 在皮肤门禁后播放（非 LobbyCopy.enterBrushWipe）
 //   · ChessIdentity（登录 uid 优先）身份通道
 //   · AppBar 换肤按钮（actionsBuilder 插槽）；残局库改到准备卡内
 //
@@ -47,7 +48,9 @@ final GameLobbySpec kChessLobbySpec = GameLobbySpec(
     hintText: '与朋友约定同一房间号：谁先进入谁是房主，后到者为对手。规则由房主在准备阶段配置。',
     aliasFieldHint: '如：小白',
     codeFieldHint: '4–6 位大写字母数字',
-    enterBrushWipe: true,
+    // 刷子由 ChessOnlineDemo 在皮肤门禁通过后自行播放（Overlay 级），
+    // 避免根 Overlay 遮罩盖住皮肤下载弹窗。
+    enterBrushWipe: false,
   ),
 );
 

@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/nav/nav_catalog.dart';
-import '../core/nav/nav_metrics_notifier.dart';
 import '../core/nav/nav_pins_notifier.dart';
 import '../widgets/quick_nav_bottom_bar.dart';
 import 'apk_auto_update_host.dart';
@@ -49,15 +48,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
-  void _select(String id, {required String source}) {
-    final entry = navEntryById(id);
-    if (entry == null) return;
-    ref.read(navMetricsProvider.notifier).recordClick('$source · ${entry.title}');
+  void _select(String id) {
+    if (navEntryById(id) == null) return;
     setState(() => _selectedId = id);
   }
 
   Future<void> _openMore(NavPinsState pins) async {
-    ref.read(navMetricsProvider.notifier).recordClick('底栏 · 更多');
     final overflow = pins.overflowIds
         .map(navEntryById)
         .whereType<NavEntry>()
@@ -114,7 +110,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                             Navigator.pop(ctx);
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!mounted) return;
-                              _select('core-settings', source: '更多');
+                              _select('core-settings');
                             });
                           },
                           child: const Text('设置'),
@@ -148,7 +144,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                 Navigator.pop(ctx);
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
                                   if (!mounted) return;
-                                  _select(id, source: '更多');
+                                  _select(id);
                                 });
                               },
                             ),
@@ -210,7 +206,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             visibleEntries: visibleEntries,
             selectedId: selected,
             moreSelected: moreSelected,
-            onSelect: (id) => _select(id, source: '底栏'),
+            onSelect: _select,
             onMore: () => _openMore(pins),
           ),
         ),

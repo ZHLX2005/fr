@@ -1,7 +1,6 @@
 // 应用设置：主题入口 + 底栏容量 + 分 Tab 钉选（搜索 / 拖拽排序）。
 // Tab：Cupertino 原生滑动分段 + 轻淡入；拖拽：本地排序 + 轻量抬起态。
 
-import 'dart:async';
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -11,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../core/nav/game_cover_warmup.dart';
 import '../../core/nav/nav_catalog.dart';
-import '../../core/nav/nav_metrics_notifier.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
 import '../profile/lab/game_center/const_game_center.dart';
@@ -38,7 +36,6 @@ class AppSettingsPage extends ConsumerStatefulWidget {
 class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
   _SettingsTab _tab = _SettingsTab.general;
   final _queries = <_SettingsTab, String>{};
-  Timer? _searchDebounce;
   /// 封面预热完成后刷新游戏缩略图。
   var _coversReady = false;
 
@@ -51,20 +48,8 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
     });
   }
 
-  @override
-  void dispose() {
-    _searchDebounce?.cancel();
-    super.dispose();
-  }
-
   void _onSearch(_SettingsTab tab, String value) {
     setState(() => _queries[tab] = value);
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
-      if (value.trim().isNotEmpty) {
-        ref.read(navMetricsProvider.notifier).recordSearch(value);
-      }
-    });
   }
 
   bool _match(NavEntry e, String? q) {
@@ -80,7 +65,6 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
     final cs = Theme.of(context).colorScheme;
     final pins = ref.watch(navPinsProvider);
     final themeMode = ref.watch(themeNotifierProvider);
-    final metrics = ref.watch(navMetricsProvider);
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
@@ -91,12 +75,7 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: _CupertinoSettingsTabs(
                 value: _tab,
-                onChanged: (t) {
-                  setState(() => _tab = t);
-                  ref
-                      .read(navMetricsProvider.notifier)
-                      .recordClick('设置 · Tab ${t.name}');
-                },
+                onChanged: (t) => setState(() => _tab = t),
               ),
             ),
             Expanded(
@@ -113,8 +92,6 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
                     _SettingsTab.general => _GeneralPanel(
                         themeLabel: AppTheme.getThemeDisplayName(themeMode),
                         capacity: pins.capacity,
-                        clicks: metrics.clicks,
-                        searches: metrics.searches,
                         onCapacity: (c) => ref
                             .read(navPinsProvider.notifier)
                             .setCapacity(c),
@@ -177,23 +154,19 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
   }
 }
 
-class _GeneralPanel extends ConsumerWidget {
+class _GeneralPanel extends StatelessWidget {
   const _GeneralPanel({
     required this.themeLabel,
     required this.capacity,
-    required this.clicks,
-    required this.searches,
     required this.onCapacity,
   });
 
   final String themeLabel;
   final int capacity;
-  final int clicks;
-  final int searches;
   final ValueChanged<int> onCapacity;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
@@ -211,7 +184,6 @@ class _GeneralPanel extends ConsumerWidget {
                 ],
               ),
               onTap: () {
-                ref.read(navMetricsProvider.notifier).recordClick('设置 · 主题');
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ThemePage()),
                 );
@@ -244,26 +216,8 @@ class _GeneralPanel extends ConsumerWidget {
                   ButtonSegment(value: 4, label: Text('4')),
                 ],
                 selected: {capacity},
-                onSelectionChanged: (s) {
-                  onCapacity(s.first);
-                  ref
-                      .read(navMetricsProvider.notifier)
-                      .recordClick('设置 · 容量 ${s.first}');
-                },
+                onSelectionChanged: (s) => onCapacity(s.first),
               ),
-            ),
-          ],
-        ),
-        _SectionLabel('观测'),
-        _Grouped(
-          children: [
-            ListTile(
-              title: const Text('点击次数'),
-              trailing: Text('$clicks', style: TextStyle(color: cs.primary)),
-            ),
-            ListTile(
-              title: const Text('检索次数'),
-              trailing: Text('$searches', style: TextStyle(color: cs.primary)),
             ),
           ],
         ),
@@ -451,9 +405,6 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                           if (!shown.contains(id)) full.add(id);
                         }
                         ref.read(navPinsProvider.notifier).setPins(full);
-                        ref
-                            .read(navMetricsProvider.notifier)
-                            .recordClick('设置 · 拖拽排序');
                         // 下一帧清本地，避免与 provider 打架
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) setState(() => _dragOrder = null);
@@ -472,9 +423,6 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                             ref
                                 .read(navPinsProvider.notifier)
                                 .togglePin(e.id);
-                            ref.read(navMetricsProvider.notifier).recordClick(
-                                  '设置 · 关闭 ${e.title}',
-                                );
                           },
                         );
                       },
@@ -495,9 +443,6 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                             ref
                                 .read(navPinsProvider.notifier)
                                 .togglePin(e.id);
-                            ref.read(navMetricsProvider.notifier).recordClick(
-                                  '设置 · ${pinned ? '关闭' : '打开'} ${e.title}',
-                                );
                           },
                         );
                       },

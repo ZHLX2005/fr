@@ -9,7 +9,6 @@ import 'package:rive/rive.dart' hide Animation;
 import 'core/theme/state/theme_provider.dart';
 import 'core/nav/game_cover_warmup.dart';
 import 'core/nav/nav_bootstrap.dart';
-import 'core/nav/nav_metrics_notifier.dart';
 import 'core/nav/nav_pins_notifier.dart';
 import 'services/ai_chat/ai_chat_provider.dart';
 import 'services/ai_chat/agent_chat_provider.dart';
@@ -164,7 +163,6 @@ void main() async {
   await container.read(themeNotifierProvider.notifier).hydrate();
   await container.read(TimetableStore.provider.notifier).hydrate();
   await container.read(navPinsProvider.notifier).hydrate();
-  await container.read(navMetricsProvider.notifier).hydrate();
   // 全局圆环开关：预加载，避免首帧先画出圆环再被关掉（闪一下）
   await container.read(ringEnabledProvider.notifier).load();
 
