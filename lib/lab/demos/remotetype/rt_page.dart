@@ -1,7 +1,8 @@
 // lib/lab/demos/remotetype/rt_page.dart
 //
 // RemoteType demo 主页面：两态。
-//   配对页 —— 服务器地址 + 配对 key + 目标 PC（留空自动选唯一在线 PC）
+//   配对页 —— 优先「统一登录 → 我名下的电脑 → 点一下即连」；
+//             服务端没开启统一登录时才退回「选 PC + 填配对 key」
 //   输入页 —— 全文同步输入框 + ASR 麦克风 + 端到端指示
 //
 // 同步触发规则（见 plan §5）：
@@ -12,27 +13,38 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../../api/remotetype/remotetype.dart';
+import '../../../services/remotetype/remotetype_providers.dart';
+import '../../../services/remotetype/remotetype_service.dart';
 import 'rt_constants.dart';
 import 'rt_session.dart';
 
-class RemoteTypePage extends StatefulWidget {
+class RemoteTypePage extends ConsumerStatefulWidget {
   const RemoteTypePage({super.key});
 
   @override
-  State<RemoteTypePage> createState() => _RemoteTypePageState();
+  ConsumerState<RemoteTypePage> createState() => _RemoteTypePageState();
 }
 
-class _RemoteTypePageState extends State<RemoteTypePage> {
+class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   RtSession? _session;
   bool _connecting = false;
   String? _error;
 
-  // 配对页状态：服务器地址内置（kRemoteTypeServerUrl），流程 = 先选 PC → 再填 key
+  // 配对页状态：服务器地址内置（kRemoteTypeServerUrl）
+  //
+  // 两条路径并存，因为线上同时存在两种部署：
+  //   统一登录（首选）—— 列出**我名下**的电脑，密钥由服务端按属主下发，零输入；
+  //   手工配对（兜底）—— 服务端没开统一登录时，仍按老办法填 key。
+  // _unified == null 表示还没探完，UI 不预设任何一条路径的界面。
+  bool? _unified;
+  RemoteTypeReadiness? _readiness;
   final _keyController = TextEditingController();
-  final _tokenController = TextEditingController();
   List<String> _clients = const [];
+  List<RtComputer> _computers = const [];
   bool _clientsLoading = false;
   String? _selectedClient;
   Timer? _pollTimer;
@@ -77,25 +89,71 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   void initState() {
     super.initState();
     _textController.addListener(_onControllerChanged);
-    _refreshClients();
+    _bootstrap();
     // 配对页可见期间轮询在线列表（连上后页面切换，轮询空转开销可忽略）
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_session == null) _refreshClients();
     });
   }
 
+  /// 先探一次"这台服务器走不走统一登录"，再决定配对页长什么样。
+  ///
+  /// 探测结果必须落到界面上而不是只在日志里：服务端开着开关但连不上认证中心时，
+  /// 不探的话用户看到的是"点了没反应"，探了才能一句话说清是谁的问题。
+  Future<void> _bootstrap() async {
+    final ready = await ref.read(remoteTypeServiceProvider).readiness();
+    if (!mounted) return;
+    setState(() {
+      _unified = ready.available;
+      _readiness = ready;
+    });
+    _refreshClients();
+  }
+
   Future<void> _refreshClients() async {
     if (_clientsLoading) return;
     _clientsLoading = true;
+    final unified = _unified == true;
     try {
-      final list = await RtSession.listClients(kRemoteTypeServerUrl);
+      if (unified) {
+        final list =
+            await ref.read(remoteTypeServiceProvider).myComputers();
+        if (!mounted) return;
+        setState(() {
+          _computers = list;
+          // 单台在线自动预选（仍可改选）；已选的掉线则清空
+          final online = list.where((c) => c.online).toList();
+          if (_selectedClient == null && online.length == 1) {
+            _selectedClient = online.single.clientId;
+          }
+          if (_selectedClient != null &&
+              !list.any((c) => c.clientId == _selectedClient && c.online)) {
+            _selectedClient = null;
+          }
+        });
+      } else {
+        final list = await RtSession.listClients(kRemoteTypeServerUrl);
+        if (!mounted) return;
+        setState(() {
+          _clients = list;
+          if (_selectedClient == null && list.length == 1) {
+            _selectedClient = list.single;
+          }
+          if (_selectedClient != null && !list.contains(_selectedClient)) {
+            _selectedClient = null;
+          }
+        });
+      }
+    } on RemoteTypeException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _clients = list;
-        // 单台在线自动预选（仍可改选）；已选的掉线则清空
-        if (_selectedClient == null && list.length == 1) _selectedClient = list.single;
-        if (_selectedClient != null && !list.contains(_selectedClient)) _selectedClient = null;
-      });
+      // 凭据失效不静默：清掉后重新探一次，让界面回到"要么能列、要么说清为什么不能"
+      if (e.kind == RemoteTypeErrorKind.unauthorized) {
+        await ref.read(remoteTypeServiceProvider).signOut();
+        setState(() => _error = e.message);
+        _bootstrap();
+      } else {
+        setState(() => _error = e.message);
+      }
     } catch (_) {
       // 服务器暂不可达：保留旧列表，空态文案由列表为空时展示
     } finally {
@@ -113,7 +171,6 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
     _textController.removeListener(_onControllerChanged);
     _textController.dispose();
     _keyController.dispose();
-    _tokenController.dispose();
     if (_listening) _stt.stop();
     _session?.dispose();
     super.dispose();
@@ -122,16 +179,19 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
   // ================= 连接 =================
 
   Future<void> _connect() async {
-    final key = _keyController.text.trim();
-    final token = _tokenController.text.trim();
+    final unified = _unified == true;
+    // 不是 final：统一登录路径下密钥由服务端下发，要在这里覆盖掉输入框的内容
+    var key = _keyController.text.trim();
 
     if (_selectedClient == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在列表中选择要连接的 PC')),
+        const SnackBar(content: Text('请先在列表中选择要连接的电脑')),
       );
       return;
     }
-    if (key.isEmpty) {
+    // 统一登录路径下 key 来自服务端；走到这里还拿不到就是列表过期了，
+    // 提示刷新比让用户去填一个他不知道的 key 有用得多。
+    if (!unified && key.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请输入配对 key')),
       );
@@ -143,11 +203,27 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
       _error = null;
     });
 
+    String? deviceToken;
+    if (unified) {
+      final matched = _computers.where((c) => c.clientId == _selectedClient);
+      if (matched.isEmpty || matched.first.sessionKey.isEmpty) {
+        setState(() {
+          _connecting = false;
+          _error = '设备列表已过期，请下拉刷新后重试';
+        });
+        return;
+      }
+      key = matched.first.sessionKey;
+      final grant =
+          await ref.read(remoteTypeServiceProvider).ensureGrant();
+      deviceToken = grant?.token;
+    }
+
     final session = RtSession(
       serverUrl: kRemoteTypeServerUrl,
       key: key,
       targetClientId: _selectedClient!,
-      token: token.isEmpty ? null : token,
+      deviceToken: deviceToken,
     );
     try {
       await session.connect();
@@ -463,98 +539,205 @@ class _RemoteTypePageState extends State<RemoteTypePage> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 24),
-            // ① 选 PC（列表自动轮询，单台在线自动预选）
-            Row(
-              children: [
-                Text('① 选择电脑', style: Theme.of(context).textTheme.titleSmall),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _refreshClients,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('刷新'),
-                ),
-              ],
-            ),
-            if (_clients.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  _clientsLoading ? '正在获取在线 PC…' : '暂无 PC 上线——请先在电脑上运行 remotetype serve --align',
-                  style: TextStyle(color: cs.outline),
-                ),
+            if (_unified == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
               )
+            else if (_unified!)
+              // ── 统一登录：我名下的电脑，点一下即连 ──────────────────────
+              // 没有 key 输入框，也没有 token 输入框。密钥由服务端按属主下发，
+              // 用户不需要知道它的存在，也就没有"复制错一台"这种事。
+              ...[
+                Row(
+                  children: [
+                    Text('我的电脑', style: Theme.of(context).textTheme.titleSmall),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _clientsLoading ? null : _refreshClients,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('刷新'),
+                    ),
+                  ],
+                ),
+                if (_computers.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      _clientsLoading
+                          ? '正在获取你的电脑…'
+                          : '还没有登记在你名下的电脑。\n'
+                              '在电脑上执行：npx nx-rt auth login --url ${kRemoteTypeServerUrl.replaceFirst('http', 'ws')}/ws\n'
+                              '然后再执行 npx nx-rt 即可。',
+                      style: TextStyle(color: cs.outline),
+                    ),
+                  )
+                else
+                  ..._computers.map(_buildComputerTile),
+              ]
             else
-              ..._clients.map((cid) {
-                final selected = cid == _selectedClient;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => setState(() => _selectedClient = cid),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: selected ? cs.primary : cs.outlineVariant),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                            size: 18,
-                            color: selected ? cs.primary : cs.outline,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(cid, style: const TextStyle(fontFamily: 'monospace')),
-                          ),
-                          Text('在线', style: TextStyle(fontSize: 11, color: cs.outline)),
-                        ],
-                      ),
+              // ── 兜底：服务端没开统一登录，回到手工配对 key ───────────────
+              ...[
+                if (_readiness != null && _readiness!.reason.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _readiness!.reason,
+                      style: TextStyle(fontSize: 12, color: cs.outline),
                     ),
                   ),
-                );
-              }),
-            const SizedBox(height: 8),
-            // ② 填 key
-            Text('② 配对 key', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _keyController,
-              decoration: const InputDecoration(
-                hintText: '电脑端 remotetype serve --align 打印的 key',
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.characters,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _tokenController,
-              decoration: const InputDecoration(
-                labelText: '访问 token（可选）',
-                hintText: '服务器设了 RT_TOKEN 时填写',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text('① 选择电脑',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _refreshClients,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('刷新'),
+                    ),
+                  ],
+                ),
+                if (_clients.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      _clientsLoading
+                          ? '正在获取在线 PC…'
+                          : '暂无 PC 上线——请先在电脑上运行 remotetype serve --align',
+                      style: TextStyle(color: cs.outline),
+                    ),
+                  )
+                else
+                  ..._clients.map((cid) {
+                    final selected = cid == _selectedClient;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => setState(() => _selectedClient = cid),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color:
+                                    selected ? cs.primary : cs.outlineVariant),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                selected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_off,
+                                size: 18,
+                                color: selected ? cs.primary : cs.outline,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(cid,
+                                    style:
+                                        const TextStyle(fontFamily: 'monospace')),
+                              ),
+                              Text('在线',
+                                  style: TextStyle(
+                                      fontSize: 11, color: cs.outline)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 8),
+                Text('② 配对 key',
+                    style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _keyController,
+                  decoration: const InputDecoration(
+                    hintText: '电脑端 remotetype serve --align 打印的 key',
+                    border: OutlineInputBorder(),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 12),
+              ],
             FilledButton(
               onPressed: _connecting ? null : _connect,
-              child: Text(_connecting ? '连接中…' : '实时同步连接'),
+              child: Text(_connecting
+                  ? '连接中…'
+                  : (_unified == true ? '连接选中的电脑' : '实时同步连接')),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(_error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 24),
-            const Text(
-              '端到端加密：文本在手机加密、电脑解密，中转服务器只经手密文。\n'
-              'key 即凭据，请勿外传。',
+            Text(
+              _unified == true
+                  ? '文本在手机加密、电脑解密；会话密钥由统一登录按账号下发，\n'
+                      '同一账号下的手机与电脑自动配对，无需复制任何 key。\n'
+                      '注意：密钥经服务端分发，服务方可读明文（详见 mn-rt README）。'
+                  : '端到端加密：文本在手机加密、电脑解密，中转服务器只经手密文。\n'
+                      'key 即凭据，请勿外传。',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
       ),
+      ),
+    );
+  }
+
+  /// 一台我名下的电脑。在线才可点，且**点一下就直接连**——不再分"选中"和"连接"两步。
+  Widget _buildComputerTile(RtComputer c) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        // 离线也可选中（连着不存在的电脑没意义，但报错信息比按钮灰掉更有用）
+        onTap: () {
+          setState(() => _selectedClient = c.clientId);
+          if (c.online) _connect();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: c.clientId == _selectedClient ? cs.primary : cs.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                c.online ? Icons.desktop_windows : Icons.desktop_access_disabled,
+                size: 18,
+                color: c.online ? cs.primary : cs.outline,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c.label),
+                    Text(
+                      c.clientId,
+                      style: TextStyle(fontSize: 11, color: cs.outline),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                c.online ? '在线 · 点击连接' : '不在线',
+                style: TextStyle(fontSize: 11, color: cs.outline),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

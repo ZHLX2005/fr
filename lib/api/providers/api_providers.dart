@@ -5,6 +5,7 @@ import '../token/token_storage.dart';
 import '../token/token_manager.dart';
 import '../authhub/authhub_qr_endpoint.dart';
 import '../authhub/idp_session_store.dart';
+import '../remotetype/remotetype.dart';
 import '../goframe/kv/kv_endpoint.dart';
 import '../goframe/group/group_endpoint.dart';
 import '../goframe/file/file_endpoint.dart';
@@ -141,6 +142,23 @@ final piModelsEndpointProvider = Provider<PiModelsEndpoint>((ref) {
 final authHubQrEndpointProvider = Provider<AuthHubQrEndpoint>((ref) {
   final endpoint = AuthHubQrEndpoint(
     sessionStore: ref.watch(idpSessionStoreProvider),
+  );
+  ref.onDispose(endpoint.close);
+  return endpoint;
+});
+
+// ── RemoteType（远程输入桥 mn-rt）─────────────────────────────────────────
+//
+// 又一个独立后端，同样自持 http.Client（规范 Rule 3）。
+// 凭据用闭包注入而不是把令牌当参数传：Provider 重建时不能把一枚旧凭据冻进
+// 端点对象，而"每次调用现读"也正是 myComputers() 不接受 token 形参的前提。
+
+final remoteTypeGrantStoreProvider =
+    Provider<RemoteTypeGrantStore>((_) => RemoteTypeGrantStore());
+
+final remoteTypeEndpointProvider = Provider<RemoteTypeEndpoint>((ref) {
+  final endpoint = RemoteTypeEndpoint(
+    grantReader: () => ref.read(remoteTypeGrantStoreProvider).read(),
   );
   ref.onDispose(endpoint.close);
   return endpoint;

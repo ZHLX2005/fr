@@ -69,16 +69,22 @@ class RtSession {
     required String key,
     required String targetClientId,
     String? token,
+    String? deviceToken,
   })  : _target = targetClientId,
         _token = token,
+        _deviceToken = deviceToken,
         _phoneId = _randomHex(8),
         _sid = _randomHex(4) {
     _derivedFuture = rtDeriveFromKey(key);
     _serverBase = serverUrl.replaceAll(RegExp(r'/+$'), '');
   }
 
-  /// 服务器设了 RT_TOKEN 时必须携带同一值，否则注册被 4403 拒绝
+  /// 服务器设了 RT_TOKEN 时必须携带同一值，否则注册被 4403 拒绝（旧门禁）
   final String? _token;
+
+  /// 统一登录换来的本服务凭据（新门禁）。服务端开启统一登录后，
+  /// 注册帧必须带它，否则 4401 关闭。两条门禁可以并存，各带各的即可。
+  final String? _deviceToken;
 
   late final String _serverBase;
   late final Future<RtDerived> _derivedFuture;
@@ -155,6 +161,8 @@ class RtSession {
       'role': 'phone',
       'phoneId': _phoneId,
       if (_token != null && _token.isNotEmpty) 'token': _token,
+      if (_deviceToken != null && _deviceToken.isNotEmpty)
+        'deviceToken': _deviceToken,
     });
     _registerTimeout = Timer(const Duration(seconds: 8), () {
       if (_registered.isCompleted) return;
@@ -180,19 +188,30 @@ class RtSession {
         if (!_registered.isCompleted) _registered.complete();
         break;
       case 'error':
-        // 注册阶段的 error 帧要转成可理解的异常（如服务器设了 RT_TOKEN 而本端未携带）
+        // 注册阶段的 error 帧要转成可理解的异常：不同原因对应完全不同的动作
         if (!_registered.isCompleted) {
           final reason = msg['error']?.toString() ?? '';
-          _registered.completeError(
-            RtSessionException(
-              reason.contains('token')
-                  ? RtJoinErrorKind.authFailed
-                  : RtJoinErrorKind.other,
-              reason.contains('token')
-                  ? '服务器开启了访问 token（RT_TOKEN），请在连接页填写同一 token'
-                  : '服务器拒绝：$reason',
-            ),
-          );
+          if (reason == 'auth_required' || reason.contains('auth_required')) {
+            _registered.completeError(
+              RtSessionException(
+                RtJoinErrorKind.authFailed,
+                '服务器要求统一登录：先在统一登录平台登录，再回到本页',
+              ),
+            );
+          } else if (reason.contains('token')) {
+            _registered.completeError(
+              RtSessionException(
+                RtJoinErrorKind.authFailed,
+                msg['hint']?.toString() != null
+                    ? '服务器拒绝了本机凭据：${msg['hint']}'
+                    : '服务器开启了访问 token（RT_TOKEN），请在连接页填写同一 token',
+              ),
+            );
+          } else {
+            _registered.completeError(
+              RtSessionException(RtJoinErrorKind.other, '服务器拒绝：$reason'),
+            );
+          }
         } else if (!_events.isClosed) {
           _events.add(RtEvent(RtEventKind.error, '服务器：${msg['error']}'));
         }
