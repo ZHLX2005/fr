@@ -49,8 +49,15 @@ class AuthHubQrEndpoint {
   // ── 手机侧（批准端）──────────────────────────────────────────────────────
 
   /// 取"要被登录的那台机器"的画像，供确认页展示。
+  ///
+  /// 注意路径是 `{ticket}/preview` 而**不是** `{ticket}`：后者是 PC 侧的轮询
+  /// 端点，返回 `{status, expires_in}`，没有 `pc` 字段，而且对没有 qr_ctx 的
+  /// 调用方一律回 `pending`。少写这一段不会报错、HTTP 200 一切正常，
+  /// 只是画像全空 —— 于是确认页判定"无法核对"而禁掉确认按钮，
+  /// 症状是"扫码登录完全不可用"，但没有任何一处报错指向真正的原因。
   Future<QrPreview> preview(String accessToken, String ticket) async {
-    final data = await _call('GET', _path(ticket), accessToken: accessToken);
+    final data =
+        await _call('GET', '${_path(ticket)}/preview', accessToken: accessToken);
     return QrPreview.fromJson(data);
   }
 
