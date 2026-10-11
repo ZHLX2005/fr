@@ -109,13 +109,20 @@ class UserAuthService {
   /// 登录 data 里 userId 的两种形态兼容：
   ///   · 顶层 `data['userId']`（register 接口同款）
   ///   · 嵌套 `data['user']['id']`（后端可能带完整 user 对象）
+  ///
+  /// 写之前先 clear()：这条是**业务后端自己签的** JWT，签发方与认证中心不同。
+  /// 只覆盖 accessToken 而不清掉上一次统一登录留下的 refresh_token 与 kind，
+  /// TokenManager 会以为手里那枚还是认证中心的票，拿一个认证中心从未签发过的
+  /// refresh_token 去续期 —— 结果是每次请求都失败在 invalid_grant 上，
+  /// 而报错完全指不到"这里是两条不同的登录路径串了状态"。
   Future<AuthResult> login(String email, String password) async {
     final r = await _post('/user/login', {'email': email, 'password': password});
     if (r.isSuccess && r.data != null) {
       final data = r.data!;
       final token = data['token'] as String?;
       if (token != null && token.isNotEmpty) {
-        await _storage.save(accessToken: token);
+        await _storage.clear();
+        await _storage.save(accessToken: token, kind: AuthTokenKind.legacyBackend);
       }
       final userId = (data['userId'] ?? (data['user'] as Map?)?['id']) as int?;
       if (userId != null) {

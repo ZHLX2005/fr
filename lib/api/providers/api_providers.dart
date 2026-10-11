@@ -3,6 +3,10 @@ import '../api_config.dart';
 import '../api_client.dart';
 import '../token/token_storage.dart';
 import '../token/token_manager.dart';
+import '../authhub/authhub_config.dart';
+import '../authhub/authhub_exception.dart';
+import '../authhub/authhub_oidc_endpoint.dart';
+import '../authhub/authhub_qr_endpoint.dart';
 import '../goframe/kv/kv_endpoint.dart';
 import '../goframe/group/group_endpoint.dart';
 import '../goframe/file/file_endpoint.dart';
@@ -16,13 +20,45 @@ import '../notion/page_endpoint.dart';
 import '../notion/file_endpoint.dart';
 import '../pi/pi.dart';
 
-// ── Token ──────────────────────────────────────────────────────────
+// ── Token ─────────────────────────────────────────────────────────
 
 final tokenStorageProvider = Provider<TokenStorage>((_) => SharedPrefsTokenStorage());
 
 final tokenManagerProvider = Provider<TokenManager>((ref) {
   final storage = ref.watch(tokenStorageProvider);
-  return TokenManager(storage: storage);
+  final tm = TokenManager(
+    storage: storage,
+    // 认证中心的 access_token 只有 10 分钟，必须提前刷；不留提前量就会
+    // 撞上"发出请求时还剩 3 秒、往返路上过期"这种随机失败。
+    refreshSkew: AuthHubConfig.refreshSkew,
+  );
+
+  // 续期回调里用 ref.read 而不是 ref.watch：tokenManager 需要 authhub 端点
+  // 去刷票，而那次刷票又要写回 tokenManager —— 构造期解析会成环。
+  // read 在真正要刷的那一刻才解析，环就断了。
+  tm.attachRefresher((refreshToken) async {
+    final oidc = ref.read(authHubOidcEndpointProvider);
+    try {
+      final set = await oidc.refresh(refreshToken);
+      await tm.setTokens(
+        accessToken: set.accessToken,
+        refreshToken: set.refreshToken,
+        expiresAt: set.expiresAt,
+        kind: AuthTokenKind.idp,
+      );
+      return true;
+    } on AuthHubException catch (e) {
+      // 只有认证中心明确说"这票不行了"才清凭据；网络抖动、5xx 一律保留，
+      // 让下一次请求再试。清错的代价是用户被迫重新登录，
+      // 不清的代价只是一次请求失败 —— 两者不对称。
+      if (e.isFatalAuthError) {
+        await tm.clear();
+      }
+      return false;
+    }
+  });
+
+  return tm;
 });
 
 // ── Config / Client ────────────────────────────────────────────────
@@ -120,4 +156,21 @@ final piSessionsEndpointProvider = Provider<PiSessionsEndpoint>((ref) {
 
 final piModelsEndpointProvider = Provider<PiModelsEndpoint>((ref) {
   return PiModelsEndpoint(config: () => ref.read(piConfigProvider));
+});
+
+// ── AuthHub（统一认证中心：OIDC 登录 + 扫码批准）────────────────────
+//
+// 两个端点各自持有 http.Client（规范 Rule 3），所以生命周期由 Provider 管：
+// ref.onDispose 里关掉，避免 Lab 反复进出时泄漏连接。
+
+final authHubOidcEndpointProvider = Provider<AuthHubOidcEndpoint>((ref) {
+  final endpoint = AuthHubOidcEndpoint();
+  ref.onDispose(endpoint.close);
+  return endpoint;
+});
+
+final authHubQrEndpointProvider = Provider<AuthHubQrEndpoint>((ref) {
+  final endpoint = AuthHubQrEndpoint();
+  ref.onDispose(endpoint.close);
+  return endpoint;
 });

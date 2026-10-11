@@ -66,6 +66,10 @@ dependencies:
   # WebView
   webview_flutter: ^4.10.0
 
+  # QR 扫码（统一登录的手机端批准：扫 PC 上那张码）
+  # 7.x 要求 minSdk 21（Flutter 默认值即满足）；相机权限 AndroidManifest 里已声明。
+  mobile_scanner: ^5.2.1
+
   # Date Formatting
   intl: ^0.20.1
 
