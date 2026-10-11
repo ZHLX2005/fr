@@ -43,6 +43,23 @@ Map<String, dynamic> rtSyncPlaintext(
   };
 }
 
+/// RT1 P2C 快捷键指令明文（v0.5.4+ 两端协议）。
+///
+/// [keys] 末位是主键、其余是修饰键（['win','r'] = Win+R）。PC 端把它当
+/// 「事件」处理（不进全文快照 diff）。独立成顶层纯函数以便单测，
+/// 与 [rtSyncPlaintext] 同款理由。
+Map<String, dynamic> rtHotkeyPlaintext(
+  List<String> keys,
+  int ts,
+  String phoneId,
+) {
+  return {
+    'hotkey': List<String>.of(keys),
+    'ts': ts,
+    'phoneId': phoneId,
+  };
+}
+
 class RtSessionException implements Exception {
   RtSessionException(this.kind, this.message);
 
@@ -270,6 +287,34 @@ class RtSession {
         DateTime.now().millisecondsSinceEpoch,
         _phoneId,
         enterMode: enterMode,
+      ),
+      sid: _sid,
+      seq: _seq,
+    );
+    _sendJson({'clientId': _target, 'text': jsonEncode(envelope)});
+    return true;
+  }
+
+  /// 发送一条快捷键指令（v0.5.4+ 两端协议）。
+  ///
+  /// [keys] 末位是主键、其余是修饰键（['win','r'] = Win+R），合法名字见
+  /// `rt_constants.dart` 的 kShortcutPresets 注释。与 [syncText] 共用 seq 域
+  /// 与加密路径；PC 端把它当「事件」处理（不进全文快照 diff，无 mirror
+  /// 推进），重复发送会重复触发——调用方不需要也不应该做去重。
+  ///
+  /// 返回 true = 信封已实际发出（WS 未连接返回 false）。
+  Future<bool> syncHotkey(List<String> keys) async {
+    if (keys.isEmpty) return false;
+    final derived = await _derivedFuture;
+    if (_ws == null) return false;
+    _seq += 1;
+    final envelope = await rtSeal(
+      key: derived.keyPhoneToPc,
+      aad: rtBuildAad(derived.room, kRtDirPhoneToPc, _seq),
+      plaintext: rtHotkeyPlaintext(
+        keys,
+        DateTime.now().millisecondsSinceEpoch,
+        _phoneId,
       ),
       sid: _sid,
       seq: _seq,

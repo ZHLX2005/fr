@@ -481,6 +481,28 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     setState(() => _listening = true);
   }
 
+  // ================= 快捷键面板 =================
+
+  /// 弹出快捷键网格。onFire 回调在每次点击时读取当前 `_session`：
+  /// 断开重连后 sheet 里拿到的是新会话，不用重建面板。
+  void _showShortcutSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _ShortcutPanel(
+        e2eOk: () => _e2eOk,
+        onFire: (keys) async {
+          final session = _session;
+          if (session == null) return '未连接电脑';
+          if (!_e2eOk) return '等待端到端确认（先发一条消息）';
+          final sent = await session.syncHotkey(keys);
+          return sent ? null : '发送失败（连接已断开？）';
+        },
+      ),
+    );
+  }
+
   // ================= UI =================
 
   @override
@@ -861,6 +883,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('清空'),
                 ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _showShortcutSheet,
+                  icon: const Icon(Icons.keyboard_command_key),
+                  label: const Text('快捷键'),
+                ),
                 const Spacer(),
                 if (_listening)
                   const Padding(
@@ -871,6 +899,123 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 快捷键网格（bottom sheet 内容）。
+///
+/// 预设来自 [kShortcutPresets]（两端协议约定：末位主键、其余修饰键）。
+/// 每个按钮独立 in-flight 态：发送中转圈禁点，结果用 SnackBar 反馈——
+/// PC 端对 hotkey 是「受理即 ACK」，点完就该假定已触发，不做重试。
+class _ShortcutPanel extends StatefulWidget {
+  const _ShortcutPanel({
+    required this.e2eOk,
+    required this.onFire,
+  });
+
+  /// 每次点击时实时读取（E2E 确认可能在面板打开期间才完成）。
+  final bool Function() e2eOk;
+
+  /// 返回 null = 成功；非 null = 给用户看的错误文案。
+  final Future<String?> Function(List<String> keys) onFire;
+
+  @override
+  State<_ShortcutPanel> createState() => _ShortcutPanelState();
+}
+
+class _ShortcutPanelState extends State<_ShortcutPanel> {
+  /// 正在发送的预设下标；null = 空闲。同一时刻只允许一个在途。
+  int? _firing;
+
+  Future<void> _fire(int index) async {
+    if (_firing != null) return;
+    setState(() => _firing = index);
+    final label = kShortcutLabels[index];
+    String? error;
+    try {
+      error = await widget.onFire(kShortcutPresets[index]);
+    } catch (e) {
+      error = '发送异常：$e';
+    }
+    if (!mounted) return;
+    setState(() => _firing = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? '✅ 已发送 $label'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    if (error == null) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final e2eReady = widget.e2eOk();
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text('快捷键',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                Text(
+                  e2eReady ? '点击即发送到电脑' : '端到端未确认，暂不可用',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: e2eReady ? cs.outline : cs.error,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: kShortcutPresets.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                // 一行放得下「Ctrl+Shift+Esc 任务管理器」这种长标签
+                childAspectRatio: 3.4,
+              ),
+              itemBuilder: (context, index) {
+                final busy = _firing == index;
+                final disabled = busy || !e2eReady;
+                return FilledButton.tonal(
+                  onPressed: disabled ? null : () => _fire(index),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
+                  child: busy
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cs.onSecondaryContainer,
+                          ),
+                        )
+                      : Text(
+                          kShortcutLabels[index],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
