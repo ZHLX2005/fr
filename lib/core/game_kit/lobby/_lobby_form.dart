@@ -242,13 +242,11 @@ class _LobbyFormState extends State<LobbyForm> {
 
               const SizedBox(height: 22),
 
-              // 主按钮 — 胶囊
+              // 主按钮 — 胶囊；色走 theme primary（禁止 tertiary 反色抢戏）
               FilledButton(
                 onPressed: widget.busy ? null : widget.onPrimary,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 56),
-                  backgroundColor: theme.colorScheme.tertiary,
-                  foregroundColor: theme.colorScheme.onTertiary,
                   elevation: 0,
                   shape: const StadiumBorder(),
                 ),
@@ -258,7 +256,7 @@ class _LobbyFormState extends State<LobbyForm> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: theme.colorScheme.onTertiary,
+                          color: theme.colorScheme.onPrimary,
                         ),
                       )
                     : Text(
@@ -271,18 +269,26 @@ class _LobbyFormState extends State<LobbyForm> {
                       ),
               ),
 
-              // 次按钮（仅 dualEntry）
+              // 次按钮（仅 dualEntry）— outline，同色系，不另起撞色
               if (widget.showSecondaryButton &&
                   copy.secondaryBtnText != null) ...[
                 const SizedBox(height: 10),
-                TextButton(
+                OutlinedButton(
                   onPressed: widget.busy ? null : widget.onSecondary,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                    foregroundColor: theme.colorScheme.primary,
+                    side: BorderSide(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.45),
+                    ),
+                    shape: const StadiumBorder(),
+                  ),
                   child: Text(
                     copy.secondaryBtnText!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),

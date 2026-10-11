@@ -225,6 +225,20 @@ class _GeneralPanel extends ConsumerWidget {
             ListTile(
               title: const Text('容量（含 ⋯）'),
               trailing: SegmentedButton<int>(
+                style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return cs.onPrimary;
+                    }
+                    return cs.onSurfaceVariant;
+                  }),
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return cs.primary;
+                    }
+                    return cs.surfaceContainerHighest;
+                  }),
+                ),
                 segments: const [
                   ButtonSegment(value: 3, label: Text('3')),
                   ButtonSegment(value: 4, label: Text('4')),
