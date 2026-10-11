@@ -134,6 +134,15 @@ class RtSession {
       throw RtSessionException(RtJoinErrorKind.serverUnreachable, '服务器响应 ${resp.statusCode}');
     }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    // 统一登录开启后这里不再是公开在线表：带身份也只回 200+ok:false（提示改用
+    // /my/devices）。必须做成可识别的失败而不是返回空表——空表会让上层把
+    // 「列表拿不到」误判成「确认没有 PC 在线」，那是一个假的结论。
+    if (body['ok'] == false) {
+      throw RtSessionException(
+        RtJoinErrorKind.other,
+        (body['hint'] ?? '该部署已收口 /clients（统一登录模式）').toString(),
+      );
+    }
     final clients = body['clients'];
     if (clients is! List) return const [];
     return [
@@ -147,7 +156,14 @@ class RtSession {
     final derived = await _derivedFuture;
     _derived = derived;
 
-    // 先探目标 PC 是否在线（给出比 WS 超时更明确的错误）
+    // 先探目标 PC 是否在线（给出比 WS 超时更明确的错误）。
+    //
+    // 只有「拿到真实在线表且目标不在其中」才拦；探测通道本身不可用绝不能拦：
+    // 统一登录开启后 /clients 收口成 401（未带身份）或 200+ok:false（带了身份，
+    // 提示改用 /my/devices）——两种都是**预期内**的响应，不是服务器不可达。
+    // 这里曾经把 RtSessionException 一律 rethrow，结果是连接永远死在探测上、
+    // 报「服务器响应 401」，WS 注册一步都没走到：列表能出（走 /my/devices）
+    // 而连接必挂，就是那个 bug。
     try {
       final online = await listClients(_serverBase);
       if (!online.contains(_target)) {
@@ -158,8 +174,9 @@ class RtSession {
               : '目标 PC $_target 不在线；在线：${online.join(', ')}',
         );
       }
-    } on RtSessionException {
-      rethrow;
+    } on RtSessionException catch (e) {
+      if (e.kind == RtJoinErrorKind.pcOffline) rethrow;
+      // 其余（401/403/接口收口/解析失败）→ 不阻断，让 WS 注册自己说话
     } catch (_) {
       // /clients 探测失败不阻断——有的部署可能关掉该接口，让 WS 自己说
     }

@@ -4,6 +4,8 @@ import 'package:get_it/get_it.dart';
 
 import '../../../api/authhub/authhub_config.dart';
 import '../../../api/authhub/authhub_exception.dart';
+import '../../../api/providers/api_providers.dart';
+import '../../../api/remotetype/remotetype_models.dart';
 import '../../../api/user/user_auth_service.dart';
 import '../../../services/auth/auth_providers.dart';
 import '../../../services/auth/unified_auth_service.dart';
@@ -28,6 +30,11 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
   final TextEditingController _password = TextEditingController();
 
   AppAuthState? _state;
+
+  /// 远程输入桥（mn-rt）的凭据。与两份主凭据分开读：它的获取是懒式的
+  /// （进「远程输入」页才铸），缺它不代表登录失败，只代表还没用到那个服务。
+  RtGrant? _rtGrant;
+
   bool _busy = false;
   String? _error;
 
@@ -51,9 +58,12 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
   Future<void> _restore() async {
     setState(() => _busy = true);
     final state = await _svc.restore();
+    // 只读本地磁盘（SharedPreferences），不发任何网络请求，失败就当没拿到
+    final rt = await ref.read(remoteTypeGrantStoreProvider).read();
     if (!mounted) return;
     setState(() {
       _state = state;
+      _rtGrant = rt;
       _busy = false;
     });
   }
@@ -112,9 +122,13 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
   Future<void> _signOut() async {
     setState(() => _busy = true);
     await _svc.signOut();
+    // 远程输入令牌也是这次登录的产物，退出时一起清：
+    // 换账号登录后留着一枚旧账号的令牌，列表会串到别人（旧自己）的电脑。
+    await ref.read(remoteTypeGrantStoreProvider).clear();
     if (!mounted) return;
     setState(() {
       _state = null;
+      _rtGrant = null;
       _busy = false;
       _error = null;
     });
@@ -132,7 +146,7 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (signedIn)
-            _CredentialCard(state: s!)
+            _CredentialCard(state: s!, rtGrant: _rtGrant)
           else
             _LoginForm(
               username: _username,
@@ -178,10 +192,14 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
   }
 }
 
-/// 两份凭据各自的状态。
+/// 三份凭据各自的状态。
 class _CredentialCard extends StatelessWidget {
   final AppAuthState state;
-  const _CredentialCard({required this.state});
+
+  /// 远程输入桥（mn-rt）的凭据；null = 还没获得（懒式获取，不算异常）。
+  final RtGrant? rtGrant;
+
+  const _CredentialCard({required this.state, this.rtGrant});
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +231,7 @@ class _CredentialCard extends StatelessWidget {
                   ? '用于所有业务接口；失效时会自动用登录态重铸'
                   : '业务接口暂不可用，可点「重试换令牌」',
             ),
+            ..._remoteTypeRow(context),
             if (s.idp != null) ...[
               const Divider(height: 24),
               _kv(context, '认证中心', AuthHubConfig.issuer),
@@ -247,6 +266,43 @@ class _CredentialCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 远程输入令牌那一行。它不像业务令牌那样登录即铸，而是进对应页面时懒式获取，
+  /// 所以「未获得」是正常态，提示语要说清去哪一步会拿到，别让人以为出了故障。
+  List<Widget> _remoteTypeRow(BuildContext context) {
+    final g = rtGrant;
+    if (g == null) {
+      return [
+        _row(
+          context,
+          label: '远程输入令牌（mn-rt）',
+          value: '未获得',
+          ok: false,
+          hint: '进入「远程输入」页时会用登录态自动获取',
+        ),
+      ];
+    }
+    final expired = g.isExpired;
+    return [
+      _row(
+        context,
+        label: '远程输入令牌（mn-rt）',
+        value: expired ? '已过期' : '已获得${_expirySuffix(g.expiresAtMs)}',
+        ok: !expired,
+        hint: expired
+            ? '进入「远程输入」页时会自动重取'
+            : '用于「远程输入」连接我的电脑；失效时会自动用登录态重铸',
+      ),
+    ];
+  }
+
+  /// 到期时间后缀。服务端 365 天有效期，给个日子比给秒数有用。
+  String _expirySuffix(int expiresAtMs) {
+    if (expiresAtMs <= 0) return '';
+    final t = DateTime.fromMillisecondsSinceEpoch(expiresAtMs);
+    final two = (int n) => n.toString().padLeft(2, '0');
+    return '（${t.year}-${two(t.month)}-${two(t.day)} 到期）';
   }
 
   Widget _row(BuildContext context,
