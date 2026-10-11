@@ -50,7 +50,7 @@ class GameLobbyPageState extends State<GameLobbyPage> {
   final TextEditingController _codeCtrl = TextEditingController();
   bool _busy = false;
   bool _wiping = false;
-  VoidCallback? _pendingStarted;
+  FutureOr<void> Function()? _pendingStarted;
   String? _error;
 
   // dualEntry-only：
@@ -145,12 +145,12 @@ class GameLobbyPageState extends State<GameLobbyPage> {
       // （team_card: needsConfig 等基于 snapshot 的判断）
       final ctx = LobbyStartedCtx();
       widget.slots.onStartedExtras?.call(ctx, h);
-      void fire() => widget.onStarted(h, ctx);
       if (widget.spec.copy.enterBrushWipe) {
-        _pendingStarted = fire;
+        _pendingStarted = () => widget.onStarted(h, ctx);
         setState(() => _wiping = true);
       } else {
-        fire();
+        // 无刷子：仍可能是 async onStarted，不阻塞按钮态恢复
+        unawaited(Future.sync(() => widget.onStarted(h, ctx)));
       }
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
@@ -268,7 +268,7 @@ class GameLobbyPageState extends State<GameLobbyPage> {
         _started = true;
         final ctx = LobbyStartedCtx();
         widget.slots.onStartedExtras?.call(ctx, h);
-        widget.onStarted(h, ctx);
+        unawaited(Future.sync(() => widget.onStarted(h, ctx)));
       }
     });
   }
@@ -342,12 +342,17 @@ class GameLobbyPageState extends State<GameLobbyPage> {
           Positioned.fill(
             child: BrushWipeOverlay(
               tint: cs.primary,
-              onDone: () {
-                if (!mounted) return;
-                setState(() => _wiping = false);
+              // 刷子盖住期间完成 onStarted（含 push）；揭开前不能拆层，
+              // 否则会闪回大厅再叠默认 Material 滑入。
+              onDone: () async {
                 final pending = _pendingStarted;
                 _pendingStarted = null;
-                pending?.call();
+                try {
+                  final result = pending?.call();
+                  if (result is Future) await result;
+                } finally {
+                  if (mounted) setState(() => _wiping = false);
+                }
               },
             ),
           ),

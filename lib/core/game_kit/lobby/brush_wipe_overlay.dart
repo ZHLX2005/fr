@@ -1,13 +1,14 @@
 // 进房油漆刷过渡（原型 feature-list-and-lobby 落盘）。
 // TL→BR 铺开；每笔沿 TR→BL 扫出。取消/回退不做反向动画。
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// 全屏刷子覆盖层；播完后调用 [onDone]。
+/// 全屏刷子覆盖层；扫完后 await [onDone]（用于在遮罩下完成 push）。
 class BrushWipeOverlay extends StatefulWidget {
   const BrushWipeOverlay({
     super.key,
@@ -16,7 +17,7 @@ class BrushWipeOverlay extends StatefulWidget {
     this.tint = const Color(0xFF7A9A7E),
   });
 
-  final VoidCallback onDone;
+  final FutureOr<void> Function() onDone;
   final Duration duration;
   final Color tint;
 
@@ -28,17 +29,25 @@ class _BrushWipeOverlayState extends State<BrushWipeOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   ui.Image? _brush;
+  var _finishing = false;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: widget.duration)
       ..addStatusListener((s) {
-        if (s == AnimationStatus.completed) widget.onDone();
+        if (s == AnimationStatus.completed) unawaited(_finish());
       });
     _loadBrush().then((_) {
       if (mounted) _ctrl.forward();
     });
+  }
+
+  Future<void> _finish() async {
+    if (_finishing) return;
+    _finishing = true;
+    final result = widget.onDone();
+    if (result is Future) await result;
   }
 
   Future<void> _loadBrush() async {

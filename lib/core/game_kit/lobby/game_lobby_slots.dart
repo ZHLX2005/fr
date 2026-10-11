@@ -13,6 +13,8 @@
 //   · trailingEntry  —— demo 卡片外次要入口
 //   · resetToEntry  —— 暴露给外部的「回到 entry 表单」句柄
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/net_engine/relay_v3/relay_v3_transport.dart';
@@ -103,7 +105,11 @@ class GameLobbyHandle {
 }
 
 /// onStarted 回调签名（两种 flow 共用）。
-typedef LobbyOnStarted = void Function(
+///
+/// 若 [LobbyCopy.enterBrushWipe] 开启：刷子层会 **await** 本回调结束后才揭开。
+/// 因此回调应在「目标页已 push」后返回，**不要** await 到用户 pop 回大厅
+/// （否则刷子会盖住整局）。pop 后的 reset 请用 `.then` / 独立 Future。
+typedef LobbyOnStarted = FutureOr<void> Function(
   RoomHandle handle,
   LobbyStartedCtx ctx,
 );

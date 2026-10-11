@@ -265,6 +265,7 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
     // v9：进房门禁 —— 入口页 initState 已开始预取，若用户在下载完成前点了
     // "进入对局"，这里阻塞等待皮肤就绪（弹进度遮罩）；失败则提示
     // "皮肤资源未下载完成"并留在大厅，不放行进房（避免对局内回退默认棋子）。
+    // 刷子过渡开启时本回调在覆盖层下执行，皮肤弹窗叠在刷子上。
     if (ChessSkinLocalizer.isSupported && !_localSkins.containsKey(_skinId)) {
       final ok = await showDialog<bool>(
         context: context,
@@ -286,18 +287,28 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
         return;
       }
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChessRoomPage(
+    // 零时长 push：房间页先落在刷子下方；刷子揭开即见准备态，避免
+    // MaterialPageRoute 默认滑入与满屏刷色割裂（生硬跳转根因）。
+    // 不 await pop —— 否则 enterBrushWipe 会一直盖住整局。
+    final nav = Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        opaque: true,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (context, animation, secondaryAnimation) => ChessRoomPage(
           handle: handle,
           skinId: _skinId,
           localSkin: _localSkins[_skinId],
           boardPalette: _boardPalette,
         ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            child,
       ),
     );
-    if (!mounted) return;
-    _lobbyKey.currentState?.exposed.resetToEntry();
+    unawaited(nav.then((_) {
+      if (!mounted) return;
+      _lobbyKey.currentState?.exposed.resetToEntry();
+    }));
   }
 
   void _applyBoardPalette(BoardPalette? palette) {
