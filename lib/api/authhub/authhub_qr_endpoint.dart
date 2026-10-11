@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'authhub_config.dart';
 import 'authhub_exception.dart';
 import 'authhub_models.dart';
+import 'idp_session_store.dart';
 
 /// 扫码登录端点（认证中心 `/api/qr/sessions*`）。
 ///
@@ -33,6 +34,19 @@ class AuthHubQrEndpoint {
   final http.Client _client;
   final String _issuer;
 
+  /// 登录态来源。
+  ///
+  /// 手机侧四条端点**不接收凭据参数**，一律从这里自己取。这不是省事，是堵漏洞：
+  /// 之前它们是 `String accessToken` 形参，改成用登录态之后，调用方继续传
+  /// 业务 token 一样能通过类型检查（都是 String），要等到运行时 401 才发现。
+  /// 把凭据从签名里拿掉，就没有"传错哪一种"这种事了 ——
+  /// 本项目已经栽在"一枚 String 兼两个用途"上过不止一次。
+  ///
+  /// 认证中心的手机侧端点同时接受 Bearer access_token 与 idp_session Cookie，
+  /// 本 App 用后者：批准扫码是几秒钟的一次性动作，不值得为它维持一个
+  /// token 生命周期。
+  final IdpSessionStore? sessionStore;
+
   /// 极简 Cookie 容器。
   ///
   /// `package:http` 的 `Client` **不自动处理 Cookie**，而 PC 侧的领取凭据
@@ -42,7 +56,7 @@ class AuthHubQrEndpoint {
   /// 只存 name=value，只回给同源的 /api/qr/* 请求。
   final Map<String, String> _cookies = {};
 
-  AuthHubQrEndpoint({http.Client? client, String? issuer})
+  AuthHubQrEndpoint({http.Client? client, String? issuer, this.sessionStore})
       : _client = client ?? http.Client(),
         _issuer = (issuer ?? AuthHubConfig.issuer).replaceAll(RegExp(r'/+$'), '');
 
@@ -55,9 +69,9 @@ class AuthHubQrEndpoint {
   /// 调用方一律回 `pending`。少写这一段不会报错、HTTP 200 一切正常，
   /// 只是画像全空 —— 于是确认页判定"无法核对"而禁掉确认按钮，
   /// 症状是"扫码登录完全不可用"，但没有任何一处报错指向真正的原因。
-  Future<QrPreview> preview(String accessToken, String ticket) async {
-    final data =
-        await _call('GET', '${_path(ticket)}/preview', accessToken: accessToken);
+  Future<QrPreview> preview(String ticket) async {
+    final data = await _call('GET', '${_path(ticket)}/preview',
+        requireSession: true);
     return QrPreview.fromJson(data);
   }
 
@@ -65,8 +79,9 @@ class AuthHubQrEndpoint {
   ///
   /// 这一步不是装饰：没有它，用户在手机上慢慢读设备信息的那几秒里，
   /// PC 那边始终是一张静止的二维码，他会以为没扫上，于是重复扫码。
-  Future<QrStatus> scan(String accessToken, String ticket) async {
-    final data = await _call('POST', '${_path(ticket)}/scan', accessToken: accessToken);
+  Future<QrStatus> scan(String ticket) async {
+    final data =
+        await _call('POST', '${_path(ticket)}/scan', requireSession: true);
     return QrStatus.parse(data['status'] as String?);
   }
 
@@ -75,14 +90,15 @@ class AuthHubQrEndpoint {
   /// 无请求体：批准者是谁只认服务端从 access_token 解析出的身份。
   /// 一旦允许 body 里带"我替谁批准"，授权面就从"手机持有者"转移到了
   /// "任何会发请求的人"。
-  Future<QrStatus> confirm(String accessToken, String ticket) async {
-    final data = await _call('POST', '${_path(ticket)}/confirm', accessToken: accessToken);
+  Future<QrStatus> confirm(String ticket) async {
+    final data = await _call('POST', '${_path(ticket)}/confirm',
+        requireSession: true);
     return QrStatus.parse(data['status'] as String?);
   }
 
   /// 「不是我操作」：作废这张票据。
-  Future<void> refuse(String accessToken, String ticket) =>
-      _call('POST', '${_path(ticket)}/refuse', accessToken: accessToken);
+  Future<void> refuse(String ticket) =>
+      _call('POST', '${_path(ticket)}/refuse', requireSession: true);
 
   // ── PC 侧（仅 Lab 自测使用）─────────────────────────────────────────────
 
@@ -117,11 +133,24 @@ class AuthHubQrEndpoint {
   /// **业务失败信封**，`error` 字段是调用方分支的依据。若按 HTTP 状态先判失败，
   /// "服务端明确拒绝了这次批准"与"服务压根没应答"就会报成同一个错，
   /// 而这两种情况的正确处置完全相反（前者清 token 重新登录，后者原样重试）。
-  Future<Map<String, dynamic>> _call(String method, String path, {String? accessToken}) async {
+  /// [requireSession] 为真时，没有登录态就直接抛错，而不是发一个不带 Cookie 的请求。
+  ///
+  /// 之所以宁可抛错也不"照发让服务端去拒"：那会让一个明显的调用错误
+  /// 变成一次网络往返加一个 401，报错信息（"需要先登录手机端账号"）
+  /// 离真正的根因（调用方压根没传凭据）更远。
+  Future<Map<String, dynamic>> _call(String method, String path,
+      {bool requireSession = false}) async {
     final url = '$_issuer$path';
     final headers = <String, String>{'Accept': 'application/json'};
-    if (accessToken != null && accessToken.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $accessToken';
+    final sess = await sessionStore?.read();
+    if ((sess ?? '').isEmpty && requireSession) {
+      throw const AuthHubException(
+        error: 'unauthenticated',
+        message: '调用统一登录平台的手机侧端点需要登录态，当前没有',
+      );
+    }
+    if ((sess ?? '').isNotEmpty) {
+      headers['Cookie'] = '${AuthHubConfig.sessionCookieName}=$sess';
     }
     // POST 一律带空对象：认证中心这些端点不读 body，但某些中间层会把
     // 完全没有 body 也没有 Content-Type 的 POST 判成畸形请求。

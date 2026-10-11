@@ -63,6 +63,9 @@ class AuthHubConfig {
   static const String loginPath = '/api/login';
   static const String consentPath = '/api/consent';
 
+  /// 查"当前登录态对应谁"。未登录时返回 code=0 且 data=null（正常态，不是错误）。
+  static const String mePath = '/api/me';
+
   /// 认证中心的全局会话 Cookie 名（与后端 consts.SessionCookieName 一致）。
   ///
   /// 跨语言重复一份是事实，不是设计偏好：后端把它当不透明的 Set-Cookie 发出，

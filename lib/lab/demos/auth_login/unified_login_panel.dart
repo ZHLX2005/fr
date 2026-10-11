@@ -4,17 +4,18 @@ import 'package:get_it/get_it.dart';
 
 import '../../../api/authhub/authhub_config.dart';
 import '../../../api/authhub/authhub_exception.dart';
-import '../../../api/providers/api_providers.dart';
 import '../../../api/user/user_auth_service.dart';
 import '../../../services/auth/auth_providers.dart';
 import '../../../services/auth/unified_auth_service.dart';
 import 'const_auth_login.dart';
 
-/// 统一登录面板 —— 纯原生表单，不打开任何 WebView / 浏览器。
+/// 统一登录面板 —— 纯原生表单，并**分别展示两份凭据的状态**。
 ///
-/// 三态：未登录（表单）、已登录（身份卡）、已过期（表单 + 预填账号）。
-/// 把"过期"单独成一态而不是静默掉回未登录，是因为用户刚扫完码突然被要求
-/// 重输一遍，界面若不说原因，他只会认为功能坏了。
+/// 界面上把两个凭据摊开显示不是啰嗦，而是这次架构修正的核心：
+/// 上一版之所以会衍生出"refresh_token 要不要存""TTL 要不要调"这些问题，
+/// 根因就是只有一个看不见的凭据在被同时当两样东西用。
+/// 让"登录态"和"业务 token"各占一行，谁缺失、谁失效一眼可见，
+/// 出问题时第一句排查的话也就有了落点。
 class UnifiedLoginPanel extends ConsumerStatefulWidget {
   const UnifiedLoginPanel({super.key});
 
@@ -26,11 +27,8 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
   final TextEditingController _username = TextEditingController();
   final TextEditingController _password = TextEditingController();
 
-  AuthSession? _session;
+  AppAuthState? _state;
   bool _busy = false;
-  bool _idpReachable = true;
-  bool _expired = false;
-  bool _needsReauth = false;
   String? _error;
 
   UnifiedAuthService get _svc => ref.read(unifiedAuthProvider);
@@ -52,22 +50,12 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
 
   Future<void> _restore() async {
     setState(() => _busy = true);
-    final reachable = await _svc.probeIdp();
-    final session = reachable ? await _svc.restore() : null;
+    final state = await _svc.restore();
     if (!mounted) return;
     setState(() {
-      _idpReachable = reachable;
-      _session = session;
-      _expired = false;
+      _state = state;
       _busy = false;
     });
-    await _refreshReauthFlag();
-  }
-
-  Future<void> _refreshReauthFlag() async {
-    final need = await ref.read(tokenManagerProvider).needsReauth;
-    if (!mounted) return;
-    setState(() => _needsReauth = need);
   }
 
   Future<void> _signIn() async {
@@ -86,28 +74,39 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
       _error = null;
     });
     try {
-      final session = await _svc.signInWithPassword(username: u, password: p);
+      final state = await _svc.signInWithPassword(username: u, password: p);
       if (!mounted) return;
-      // 成功就抹掉口令：它已经换成 token 了，留在输入框里只是多一处泄露面
+      // 成功就抹掉口令：它已经换成登录态了，留在输入框里只是多一处泄露面
       _password.clear();
       setState(() {
-        _session = session;
-        _expired = false;
-        _idpReachable = true;
+        _state = state;
         _busy = false;
+        // 登录态拿到了但业务 token 没换到，是一句需要单独说的告警：
+        // 它意味着业务接口暂时不可用，而用户会以为登录彻底失败了。
+        _error = state.hasIdpSession && !state.hasBackendToken
+            ? '已拿到统一登录平台登录态，但换取业务后端令牌失败。'
+                '业务接口暂不可用，可点「重试换令牌」再来一次。'
+            : null;
       });
-      await _refreshReauthFlag();
     } on AuthHubException catch (e) {
       if (!mounted) return;
       _password.clear();
       setState(() {
         _error = e.message;
         _busy = false;
-        // 认证中心明确拒绝口令/账号，说明服务是通的；只有网络类错误才算不可达
-        _idpReachable = e.error != AuthHubException.errNetwork &&
-            e.error != AuthHubException.errDiscovery;
       });
     }
+  }
+
+  Future<void> _retryMint() async {
+    setState(() => _busy = true);
+    final ok = await _svc.reauthBackendToken();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = ok ? null : '换取业务后端令牌仍然失败，请确认业务后端可达';
+      _state = ok ? _state : _state;
+    });
   }
 
   Future<void> _signOut() async {
@@ -115,65 +114,38 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
     await _svc.signOut();
     if (!mounted) return;
     setState(() {
-      _session = null;
-      _expired = false;
-      _needsReauth = false;
+      _state = null;
       _busy = false;
-    });
-  }
-
-  /// 令牌过期：回到表单，但把账号留下。
-  Future<void> _reauth() async {
-    final name = _session?.username ?? _session?.idp.preferredUsername ?? '';
-    await _svc.signOut();
-    if (!mounted) return;
-    setState(() {
-      _session = null;
-      _expired = true;
-      _needsReauth = false;
-      if (name.isNotEmpty) _username.text = name;
+      _error = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final s = _session;
+    final s = _state;
+    final signedIn = s != null && s.hasIdpSession;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (s != null)
-            _SessionCard(session: s)
+          if (signedIn)
+            _CredentialCard(state: s!)
           else
             _LoginForm(
               username: _username,
               password: _password,
               busy: _busy,
-              expired: _expired,
               onSubmit: _signIn,
             ),
-          if (!_idpReachable) ...[
-            const SizedBox(height: 12),
-            _notice(context, scheme.error, AuthLoginConst.hintIdpUnreachable),
-          ],
           if (_error != null) ...[
             const SizedBox(height: 10),
             Text(_error!, style: TextStyle(color: scheme.error)),
           ],
-          if (s != null) ...[
-            const SizedBox(height: 12),
-            if (_needsReauth) ...[
-              _notice(
-                context,
-                scheme.tertiary,
-                '登录态已过期或即将过期。认证中心的 access_token 只有 10 分钟，'
-                    '而客户端刻意不保存长期凭据，因此需要重新登录一次。',
-              ),
-              const SizedBox(height: 12),
-            ],
+          if (signedIn) ...[
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -184,15 +156,17 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _needsReauth
-                      ? FilledButton(
-                          onPressed: _busy ? null : _reauth,
-                          child: const Text('重新登录'),
-                        )
-                      : FilledButton.tonal(
-                          onPressed: _busy ? null : _signOut,
-                          child: const Text(AuthLoginConst.btnSignOut),
-                        ),
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _retryMint,
+                    child: const Text('重试换令牌'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: _busy ? null : _signOut,
+                    child: const Text(AuthLoginConst.btnSignOut),
+                  ),
                 ),
               ],
             ),
@@ -202,15 +176,129 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
       ),
     );
   }
+}
 
-  Widget _notice(BuildContext context, Color color, String text) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
-          borderRadius: BorderRadius.circular(8),
+/// 两份凭据各自的状态。
+class _CredentialCard extends StatelessWidget {
+  final AppAuthState state;
+  const _CredentialCard({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final s = state;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('已登录：${s.displayName}',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            _row(
+              context,
+              label: '统一登录平台登录态',
+              value: '有效',
+              ok: true,
+              hint: '用于批准扫码，以及静默换取业务后端令牌',
+            ),
+            _row(
+              context,
+              label: '业务后端令牌',
+              value: s.hasBackendToken ? '已获得' : '未获得',
+              ok: s.hasBackendToken,
+              hint: s.hasBackendToken
+                  ? '用于所有业务接口；失效时会自动用登录态重铸'
+                  : '业务接口暂不可用，可点「重试换令牌」',
+            ),
+            if (s.idp != null) ...[
+              const Divider(height: 24),
+              _kv(context, '认证中心', AuthHubConfig.issuer),
+              _kv(context, '账号', s.idp!.username),
+              _kv(context, '邮箱', s.idp!.email.isEmpty ? '（未提供）' : s.idp!.email),
+            ],
+            if (s.rebound) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.tertiary.withValues(alpha: 0.10),
+                  border: Border.all(color: scheme.tertiary),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                // 改绑是用户能感知到"数据换了一个账号"的写操作，必须显式说出来。
+                // 后端刻意把它回带上来而不是静默迁移，就是因为静默改绑
+                // 会被用户当成丢数据。
+                child: Text(
+                  '注意：统一登录平台的身份本次被改绑到了另一个业务后端账号，'
+                  '你看到的数据可能随之变化。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+            if (s.provisioned) ...[
+              const SizedBox(height: 8),
+              Text('（业务后端原本没有这个邮箱的账号，本次已自动建档）',
+                  style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ],
         ),
-        child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+      ),
+    );
+  }
+
+  Widget _row(BuildContext context,
+      {required String label,
+      required String value,
+      required bool ok,
+      required String hint}) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ok ? Icons.check_circle_outline : Icons.error_outline,
+                size: 16,
+                color: ok ? scheme.primary : scheme.error,
+              ),
+              const SizedBox(width: 6),
+              Text(label, style: Theme.of(context).textTheme.bodyMedium),
+              const Spacer(),
+              Text(value,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: ok ? null : scheme.error,
+                      )),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(hint, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  Widget _kv(BuildContext context, String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 88,
+              child: Text(k, style: Theme.of(context).textTheme.labelMedium),
+            ),
+            Expanded(
+              child: SelectableText(v,
+                  style: Theme.of(context).textTheme.bodySmall),
+            ),
+          ],
+        ),
       );
 }
 
@@ -219,14 +307,12 @@ class _LoginForm extends StatelessWidget {
   final TextEditingController username;
   final TextEditingController password;
   final bool busy;
-  final bool expired;
   final VoidCallback onSubmit;
 
   const _LoginForm({
     required this.username,
     required this.password,
     required this.busy,
-    required this.expired,
     required this.onSubmit,
   });
 
@@ -239,15 +325,10 @@ class _LoginForm extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              expired ? '登录已过期，请重新登录' : '统一登录',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('统一登录', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(
-              '认证中心 ${Uri.parse(AuthHubConfig.issuer).host}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text('认证中心 ${Uri.parse(AuthHubConfig.issuer).host}',
+                style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 14),
             TextField(
               controller: username,
@@ -271,6 +352,12 @@ class _LoginForm extends StatelessWidget {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              '登录后同时获得两份凭据：统一登录平台的登录态，'
+              '以及业务后端的访问令牌（后者由前者静默换取，无需再次输入口令）。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 14),
             FilledButton(
               onPressed: busy ? null : onSubmit,
@@ -283,58 +370,9 @@ class _LoginForm extends StatelessWidget {
   }
 }
 
-/// 已登录时的身份卡。
-class _SessionCard extends StatelessWidget {
-  final AuthSession session;
-  const _SessionCard({required this.session});
-
-  @override
-  Widget build(BuildContext context) {
-    final s = session;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('已登录：${s.displayName}',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            _kv(context, '认证中心', AuthHubConfig.issuer),
-            _kv(context, 'sub', s.idp.sub),
-            _kv(context, '邮箱', s.idp.email ?? '（未提供）'),
-            _kv(context, '业务后端账号',
-                s.backendUserId == null ? '未认领' : '#${s.backendUserId}'),
-            _kv(context, '令牌到期',
-                s.expiresAt.toLocal().toString().substring(0, 19)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _kv(BuildContext context, String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 100,
-              child: Text(k, style: Theme.of(context).textTheme.labelMedium),
-            ),
-            Expanded(
-              child: SelectableText(v,
-                  style: Theme.of(context).textTheme.bodySmall),
-            ),
-          ],
-        ),
-      );
-}
-
 /// 邮箱密码登录（业务后端账号）—— 认证中心不可达时的降级路径。
 ///
-/// 刻意做成折叠：默认收起，不让它在认证中心健康时抢主入口的注意力。
+/// 折叠放置：默认收起，不让它在认证中心健康时抢主入口的注意力。
 class FallbackPasswordForm extends ConsumerStatefulWidget {
   const FallbackPasswordForm({super.key});
 
@@ -363,7 +401,7 @@ class _FallbackPasswordFormState extends ConsumerState<FallbackPasswordForm> {
       _msg = null;
     });
     try {
-      // 走 GetIt 里的同一个实例：登录卡片、云同步面板用的都是它
+      // 走 GetIt 里的同一个实例：登录卡片、云同步面板用的是同一个
       final r = await GetIt.instance<UserAuthService>()
           .login(_email.text.trim(), _pwd.text);
       if (!mounted) return;
@@ -371,7 +409,8 @@ class _FallbackPasswordFormState extends ConsumerState<FallbackPasswordForm> {
       setState(() {
         _busy = false;
         _msg = r.isSuccess
-            ? '已用业务后端账号登录（降级路径：无法批准扫码，那需要认证中心身份）'
+            ? '已用业务后端账号登录（降级路径：没有统一登录平台登录态，'
+                '因此无法批准扫码）'
             : '登录失败：${r.message}';
       });
     } catch (e) {
@@ -391,7 +430,7 @@ class _FallbackPasswordFormState extends ConsumerState<FallbackPasswordForm> {
       title: Text('用业务后端账号登录（降级）',
           style: Theme.of(context).textTheme.bodyMedium),
       subtitle: Text(
-        '仅在认证中心不可达时使用。此路径不产生认证中心身份，因此无法批准扫码。',
+        '仅在认证中心不可达时使用。此路径不产生登录态，因此无法批准扫码。',
         style: Theme.of(context).textTheme.bodySmall,
       ),
       children: [

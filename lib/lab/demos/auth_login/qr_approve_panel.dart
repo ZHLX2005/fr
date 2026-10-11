@@ -84,8 +84,9 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
       _preview = null;
     });
     try {
-      final token = await ref.read(tokenManagerProvider).accessToken;
-      if (token == null || token.isEmpty) {
+      // 凭据由端点自己从登录态存储里取；这里只判断「有没有登录态」，
+      // 因为要给用户的是可行动的提示，而不是一个从深处冒出来的 401。
+      if (!await ref.read(idpSessionStoreProvider).exists) {
         // 未登录不是"再等等"，而是一条必须明确说出来的前置条件：
         // 没有身份就没有批准权。静默重试只会让人以为相机坏了。
         throw const AuthHubException(
@@ -93,7 +94,7 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
           message: '还没有登录统一认证中心，请先在「统一登录」页完成登录后再扫码。',
         );
       }
-      final preview = await ref.read(authHubQrEndpointProvider).preview(token, ticket);
+      final preview = await ref.read(authHubQrEndpointProvider).preview(ticket);
       if (!mounted) return;
       setState(() {
         _preview = preview;
@@ -102,7 +103,7 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
       // 上报"已扫码"，让 PC 那边从"等待扫码"变成"已扫码，请在手机确认"。
       // 这一步失败不影响本机确认，所以只记不抛。
       if (preview.status == QrStatus.pending) {
-        unawaited(_safeScan(token, ticket));
+        unawaited(_safeScan(ticket));
       }
     } on AuthHubException catch (e) {
       if (!mounted) return;
@@ -115,9 +116,9 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
     }
   }
 
-  Future<void> _safeScan(String token, String ticket) async {
+  Future<void> _safeScan(String ticket) async {
     try {
-      await ref.read(authHubQrEndpointProvider).scan(token, ticket);
+      await ref.read(authHubQrEndpointProvider).scan(ticket);
     } catch (_) {
       // 并发下可能已被另一台设备扫过；pending|scanned → confirmed 两条路后端都认，
       // 所以这里静默即可，不该把一次无害竞态报成故障。
@@ -129,12 +130,11 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
     if (ticket == null) return;
     setState(() => _busy = true);
     try {
-      final token = await ref.read(tokenManagerProvider).accessToken;
       final qr = ref.read(authHubQrEndpointProvider);
       if (approve) {
-        await qr.confirm(token ?? '', ticket);
+        await qr.confirm(ticket);
       } else {
-        await qr.refuse(token ?? '', ticket);
+        await qr.refuse(ticket);
       }
       if (!mounted) return;
       setState(() {

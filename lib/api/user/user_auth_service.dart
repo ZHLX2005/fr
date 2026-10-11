@@ -121,8 +121,7 @@ class UserAuthService {
       final data = r.data!;
       final token = data['token'] as String?;
       if (token != null && token.isNotEmpty) {
-        await _storage.clear();
-        await _storage.save(accessToken: token, kind: AuthTokenKind.legacyBackend);
+        await _storage.save(accessToken: token);
       }
       final userId = (data['userId'] ?? (data['user'] as Map?)?['id']) as int?;
       if (userId != null) {

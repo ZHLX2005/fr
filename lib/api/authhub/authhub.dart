@@ -8,5 +8,6 @@ export 'authhub_config.dart';
 export 'authhub_exception.dart';
 export 'authhub_models.dart';
 export 'authhub_pkce.dart';
-export 'authhub_oidc_endpoint.dart';
 export 'authhub_qr_endpoint.dart';
+export 'authhub_session_client.dart';
+export 'idp_session_store.dart';

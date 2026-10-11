@@ -1,6 +1,6 @@
 /// GoFrame — 小豆子后端 (47.110.80.47:8988)。
 ///
-/// 子目录即端点分组：kv、file、download、article、ai。
+/// 子目录即端点分组：kv、file、download、article、ai、room、oidc。
 library;
 
 export 'goframe_config.dart';
@@ -10,4 +10,5 @@ export 'download/download.dart';
 export 'article/article.dart';
 export 'ai/ai.dart';
 export 'room/room.dart';
+export 'oidc/oidc.dart';
 

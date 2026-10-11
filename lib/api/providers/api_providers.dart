@@ -3,8 +3,8 @@ import '../api_config.dart';
 import '../api_client.dart';
 import '../token/token_storage.dart';
 import '../token/token_manager.dart';
-import '../authhub/authhub_oidc_endpoint.dart';
 import '../authhub/authhub_qr_endpoint.dart';
+import '../authhub/idp_session_store.dart';
 import '../goframe/kv/kv_endpoint.dart';
 import '../goframe/group/group_endpoint.dart';
 import '../goframe/file/file_endpoint.dart';
@@ -21,6 +21,13 @@ import '../pi/pi.dart';
 // ── Token ─────────────────────────────────────────────────────────
 
 final tokenStorageProvider = Provider<TokenStorage>((_) => SharedPrefsTokenStorage());
+
+/// 统一登录平台的登录态存储。
+///
+/// 定义在这里而不是 auth_providers：auth_providers 要用本文件的
+/// tokenManagerProvider / apiClientProvider，反向 import 会成环。
+/// 它本质是存储原语，与 tokenStorageProvider 同层。
+final idpSessionStoreProvider = Provider<IdpSessionStore>((_) => IdpSessionStore());
 
 final tokenManagerProvider = Provider<TokenManager>((ref) {
   final storage = ref.watch(tokenStorageProvider);
@@ -126,19 +133,15 @@ final piModelsEndpointProvider = Provider<PiModelsEndpoint>((ref) {
   return PiModelsEndpoint(config: () => ref.read(piConfigProvider));
 });
 
-// ── AuthHub（统一认证中心：OIDC 登录 + 扫码批准）────────────────────
+// ── AuthHub（统一认证中心：扫码批准）────────────────────────────────
 //
-// 两个端点各自持有 http.Client（规范 Rule 3），所以生命周期由 Provider 管：
+// 自持 http.Client（规范 Rule 3），生命周期由 Provider 管，
 // ref.onDispose 里关掉，避免 Lab 反复进出时泄漏连接。
 
-final authHubOidcEndpointProvider = Provider<AuthHubOidcEndpoint>((ref) {
-  final endpoint = AuthHubOidcEndpoint();
-  ref.onDispose(endpoint.close);
-  return endpoint;
-});
-
 final authHubQrEndpointProvider = Provider<AuthHubQrEndpoint>((ref) {
-  final endpoint = AuthHubQrEndpoint();
+  final endpoint = AuthHubQrEndpoint(
+    sessionStore: ref.watch(idpSessionStoreProvider),
+  );
   ref.onDispose(endpoint.close);
   return endpoint;
 });

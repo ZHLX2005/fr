@@ -1,34 +1,17 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 当前持有的这枚 access_token 是**谁签的**。
+/// 业务后端（dev_ctr_hello / 8988）会话凭据的持久化接口。
 ///
-/// 为什么必须记这件事：两种 token 的**用途和有效期**完全不同，而从字符串本身
-/// 看不出来 —— 认证中心的 access_token 是不透明随机串，业务后端的 JWT 是三段
-/// 点分 base64，长得像但含义毫无关系。靠"能不能 split('.')"去猜，
-/// 是一条将来一定会被改错的隐式契约。
-enum AuthTokenKind {
-  /// 本地没有 token
-  none,
-
-  /// 统一认证中心签发。短命（access_token 10 分钟），过期只能重新走一次授权 ——
-  /// 客户端刻意不持有 refresh_token，详见 TokenManager 的说明。
-  idp,
-
-  /// 业务后端自己签发（邮箱密码登录的降级路径；无刷新端点，过期只能重新登录）
-  legacyBackend,
-}
-
-/// Token/API Key 持久化接口。
+/// 这里**只放一枚 token**：业务后端自己签发的 JWT。
+/// 统一登录平台的登录态在 `lib/api/authhub/idp_session_store.dart` ——
+/// 两者回答的问题不同、生命周期不同、吊销路径也不同，所以不共用一个槽位。
+///
+/// 之前的 refreshToken / expiresAt / AuthTokenKind 三个字段已随
+/// "App 直连认证中心取 token"那条设计一起退场。
 abstract class TokenStorage {
   Future<String?> get accessToken;
-  Future<DateTime?> get expiresAt;
-  Future<AuthTokenKind> get tokenKind;
 
-  Future<void> save({
-    required String accessToken,
-    DateTime? expiresAt,
-    AuthTokenKind? kind,
-  });
+  Future<void> save({required String accessToken});
 
   Future<void> clear();
 }
@@ -37,11 +20,18 @@ abstract class TokenStorage {
 class SharedPrefsTokenStorage implements TokenStorage {
   static const _keyAccess = 'api_access_token';
 
-  /// 旧版本写过这个键。**只删不写** —— 保留键名是为了把已经落盘的凭据清掉；
-  /// 没有这一步，升级之后那个文件里的 refresh_token 会一直躺在磁盘上。
-  static const _legacyKeyRefresh = 'api_refresh_token';
-  static const _keyExpires = 'api_token_expires';
-  static const _keyKind = 'api_token_kind';
+  /// 升级前遗留的键：**只删不写**。
+  ///
+  /// 必须在 save() 里一起清掉，而不是只在 clear() 里删 ——
+  /// 装过旧版本的设备若用户从不主动登出，磁盘上那枚 refresh_token
+  /// 就会一直留着。"它不该存在于客户端"是个结论，
+  /// 不该依赖用户去做某个动作才成立。
+  static const _legacyKeys = [
+    'api_refresh_token',
+    'api_token_expires',
+    'api_token_kind',
+    'idp_session', // 登录态有自己的存储，别留两份
+  ];
 
   @override
   Future<String?> get accessToken async {
@@ -50,44 +40,11 @@ class SharedPrefsTokenStorage implements TokenStorage {
   }
 
   @override
-  Future<DateTime?> get expiresAt async {
-    final prefs = await SharedPreferences.getInstance();
-    final ms = prefs.getInt(_keyExpires);
-    return ms != null ? DateTime.fromMillisecondsSinceEpoch(ms) : null;
-  }
-
-  @override
-  Future<AuthTokenKind> get tokenKind async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_keyKind);
-    return AuthTokenKind.values.firstWhere(
-      (k) => k.name == raw,
-      // 认不出就按 legacyBackend：这是引入该字段之前唯一存在的状态。
-      // 老用户升级后不该突然变成"可刷新"，那会让他们对认证中心发出
-      // 一个它从没签发过的 refresh 请求，报回来的是难以理解的 invalid_grant。
-      orElse: () => AuthTokenKind.legacyBackend,
-    );
-  }
-
-  @override
-  Future<void> save({
-    required String accessToken,
-    DateTime? expiresAt,
-    AuthTokenKind? kind,
-  }) async {
+  Future<void> save({required String accessToken}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyAccess, accessToken);
-    // 自愈式清除遗留键：只在 clear() 里删的话，已经装着旧版的设备要等到
-    // 用户主动登出才会把磁盘上那枚 refresh_token 抹掉 —— 而"升级即清理"
-    // 才符合"它不该存在于客户端"这个结论。
-    if (prefs.containsKey(_legacyKeyRefresh)) {
-      await prefs.remove(_legacyKeyRefresh);
-    }
-    if (expiresAt != null) {
-      await prefs.setInt(_keyExpires, expiresAt.millisecondsSinceEpoch);
-    }
-    if (kind != null) {
-      await prefs.setString(_keyKind, kind.name);
+    for (final k in _legacyKeys) {
+      if (prefs.containsKey(k)) await prefs.remove(k);
     }
   }
 
@@ -95,8 +52,8 @@ class SharedPrefsTokenStorage implements TokenStorage {
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyAccess);
-    await prefs.remove(_legacyKeyRefresh);
-    await prefs.remove(_keyExpires);
-    await prefs.remove(_keyKind);
+    for (final k in _legacyKeys) {
+      await prefs.remove(k);
+    }
   }
 }

@@ -60,9 +60,10 @@ class _SelfTestPanelState extends ConsumerState<SelfTestPanel> {
     final qr = ref.read(authHubQrEndpointProvider);
     final tm = ref.read(tokenManagerProvider);
     try {
-      final token = await tm.accessToken;
-      if (token == null || token.isEmpty) {
-        _v('✗ 未登录认证中心 —— 先到「统一登录」页登录，扫码批准需要身份');
+      // 凭据不再由调用方传递（端点自己从登录态存储取），所以这里只做前置检查：
+      // 没有登录态就明确告诉用户去哪一步，而不是让深处抛一个 401。
+      if (!await ref.read(idpSessionStoreProvider).exists) {
+        _v('✗ 没有统一登录平台登录态 —— 先到「统一登录」页登录');
         return;
       }
 
@@ -80,10 +81,10 @@ class _SelfTestPanelState extends ConsumerState<SelfTestPanel> {
         _v('② 未批准就领取 → 已拒绝 ${e.error} ✓');
       }
 
-      final pv = await qr.preview(token, session.ticket);
+      final pv = await qr.preview(session.ticket);
       _v('③ 手机端预览：${pv.pcUa} / ${pv.pcGeo} ${pv.pcIp}');
 
-      await qr.scan(token, session.ticket);
+      await qr.scan(session.ticket);
       _v('④ 已上报扫码，PC 侧轮询应变成 scanned');
 
       var seenScanned = false;
@@ -93,7 +94,7 @@ class _SelfTestPanelState extends ConsumerState<SelfTestPanel> {
       }
       _v(seenScanned ? '⑤ PC 侧确认看到 scanned ✓' : '⑤ 未观察到 scanned（不影响后续）');
 
-      await qr.confirm(token, session.ticket);
+      await qr.confirm(session.ticket);
       _v('⑥ 手机端已批准');
 
       QrStatus? observed;
