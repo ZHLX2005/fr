@@ -134,6 +134,7 @@ class _ShortcutChip extends StatelessWidget {
       color: bg,
       elevation: busy ? 0 : 0.5,
       shadowColor: cs.shadow.withValues(alpha: 0.08),
+      surfaceTintColor: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled && !busy ? onTap : null,
@@ -488,6 +489,7 @@ class _HistorySheet extends StatelessWidget {
                           color: c.surface,
                           elevation: 0.5,
                           shadowColor: cs.shadow.withValues(alpha: 0.06),
+                          surfaceTintColor: Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           child: InkWell(
                             onTap: () => Navigator.pop(context, text),

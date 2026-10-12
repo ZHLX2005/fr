@@ -31,9 +31,10 @@
 final c = context.colors;
 final cs = c.scheme;
 Material(
-  color: c.surface,
-  elevation: 0.5,
+  color: c.surface, // 浮卡；页底用 surfaceContainerHighest（原型 --bg / --card）
+  elevation: 1,
   shadowColor: cs.shadow.withValues(alpha: 0.06),
+  surfaceTintColor: Colors.transparent, // 禁 M3 elevation 染 primary 色
   borderRadius: BorderRadius.circular(18),
   child: InkWell(
     borderRadius: BorderRadius.circular(18),
@@ -59,6 +60,8 @@ Material(
 | 坑 | 后果 | 正确做法 |
 | --- | --- | --- |
 | 卡片再用 `Border.all(outline)` 加厚 | 茶禅「少描边」失效，变 demo 网格 | 阴影分层；边框只留给选中态或就绪态 |
+| Scaffold / 浮卡都用 `surface`，且 Material 带 elevation tint | 卡与页同色或发绿/发紫，不像奶油浮卡 | 页底 `surfaceContainerHighest`；浮卡 `surface` + `surfaceTintColor: transparent` |
+| Composer `TextField` 只设 `border: none` | 焦点仍可能出 outline | `enabled/focused/errorBorder` 全 `InputBorder.none`，`filled: false` |
 | 每屏多个 clay CTA | 无重心 | clay/tertiary 每屏最多一个仪式主按钮（见 [[A08-胶囊与方圆角CTA]]） |
 | 导航 icon 彩虹色 | 与主文档「导航统一主题色」冲突 | 统一 `primary` / `primaryContainer` |
 | 把 A01 描边减负套到浮卡外框 | 双边框打架 | A01 管**按钮/icon 容器**；浮卡外框走本方案 |

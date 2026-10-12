@@ -673,12 +673,20 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = context.colors.scheme;
+    // 对齐原型 --bg / --card：页底走 tray（surfaceContainerHighest），
+    // 浮卡走 surface；禁止 M3 elevation surfaceTint 把奶油卡染成 sage。
+    final pageBg = cs.surfaceContainerHighest;
     return Scaffold(
       // 键盘不压缩页面：输入框固定高度，键盘直接覆盖底部（与网页控制台一致）。
       // 配对页自行用 viewInsets 兜底（见 _buildPairing）。
       resizeToAvoidBottomInset: false,
+      backgroundColor: pageBg,
       appBar: AppBar(
         title: const Text('远程输入'),
+        backgroundColor: pageBg,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         actions: [
           if (_session != null) ...[
             IconButton(
@@ -723,6 +731,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
             color: c.surface,
             elevation: 8,
             shadowColor: cs.shadow.withValues(alpha: 0.18),
+            surfaceTintColor: Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(28, 24, 28, 22),
@@ -838,16 +847,17 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Material(
                           color: c.surface,
-                          elevation: 0.5,
+                          elevation: 1,
                           shadowColor: cs.shadow.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(16),
+                          surfaceTintColor: Colors.transparent,
+                          borderRadius: BorderRadius.circular(18),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(18),
                             onTap: () =>
                                 setState(() => _selectedClient = cid),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
+                                  horizontal: 16, vertical: 14),
                               child: Row(
                                 children: [
                                   Icon(
@@ -884,12 +894,33 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _keyController,
+                    cursorColor: cs.primary,
                     decoration: InputDecoration(
                       hintText: '电脑端 remotetype serve --align 打印的 key',
                       filled: true,
                       fillColor: c.surface,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -969,22 +1000,23 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     );
   }
 
-  /// 一台我名下的电脑。整行可点即连——无显式「连接」按钮（对齐原型）。
+  /// 一台我名下的电脑。整行可点即连——无显式「连接」按钮（对齐原型 .pc）。
   Widget _buildComputerTile(RtComputer c) {
     final colors = context.colors;
     final cs = colors.scheme;
     final online = c.online;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Opacity(
         opacity: online ? 1 : 0.5,
         child: Material(
           color: colors.surface,
-          elevation: 0.5,
+          elevation: 1,
           shadowColor: cs.shadow.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(16),
+          surfaceTintColor: Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             onTap: online && !_connecting
                 ? () {
                     setState(() => _selectedClient = c.clientId);
@@ -992,7 +1024,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                   }
                 : null,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   Stack(
@@ -1015,8 +1047,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                       ),
                       if (online)
                         Positioned(
-                          right: 0,
-                          bottom: 0,
+                          right: 2,
+                          bottom: 2,
                           child: Container(
                             width: 10,
                             height: 10,
@@ -1051,7 +1083,11 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                   ),
                   Text(
                     online ? '在线 · 点击连接' : '不在线',
-                    style: TextStyle(fontSize: 11, color: colors.textMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -1094,7 +1130,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                 color: c.surface,
                 elevation: _syncFlash ? 3 : 1,
                 shadowColor: cs.shadow.withValues(alpha: 0.1),
+                surfaceTintColor: Colors.transparent,
                 borderRadius: BorderRadius.circular(18),
+                clipBehavior: Clip.antiAlias,
                 child: SizedBox(
                   height: fieldHeight,
                   child: Column(
@@ -1119,12 +1157,20 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                             color: c.text,
                           ),
                           cursorColor: cs.primary,
+                          // 对齐原型 .composer textarea：无描边、透明底，焦点也不出框。
                           decoration: InputDecoration(
                             hintText: '打字或说话，内容会同步到电脑…',
                             hintStyle: TextStyle(
                               color: c.textMuted.withValues(alpha: 0.7),
                             ),
+                            filled: false,
+                            isDense: true,
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
                             contentPadding: const EdgeInsets.fromLTRB(
                                 16, 16, 16, 6),
                             counterText: '',
@@ -1179,8 +1225,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
               alignment: Alignment.centerLeft,
               child: Material(
                 color: c.surface,
-                elevation: 0.5,
+                elevation: 1,
                 shadowColor: cs.shadow.withValues(alpha: 0.06),
+                surfaceTintColor: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   onTap: () {
@@ -1211,6 +1258,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                 elevation: 4,
                 shadowColor: (_listening ? cs.tertiary : cs.primary)
                     .withValues(alpha: 0.3),
+                surfaceTintColor: Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
                 child: InkWell(
                   onTap: _toggleListening,
