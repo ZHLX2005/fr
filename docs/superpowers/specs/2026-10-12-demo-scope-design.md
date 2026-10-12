@@ -1,9 +1,10 @@
 # Demo 运行时 Scope 设计文档（demo-scope）
 
-> 版本：2026-10-12（v1 评审稿，已过口头评审，未实施）
+> 版本：2026-10-12（v1.1：P0/P1 已落地，P2 落地中；活登记表见
+> `docs/architecture/demo-scope-audit.md`）
 > 定位：给 70 个 lab demo 定义**运行时归属**——page / session / global 三分组 + 唯一托管者
 > `DemoSessionHost`，把生命周期从「打开方式的偶然结果」变成「声明属性」。
-> 首租户：remotetype（远程输入）。
+> 首租户：remotetype（远程输入）——已接入，pop 不断连 + 回前台自动重连。
 
 ## 1. 问题定性：断连不是 bug，是所有权错位
 
@@ -141,16 +142,15 @@ class DemoSessionHost {
 
 ## 8. 实施路线（评审通过后）
 
-| 阶段 | 内容 | 验收 |
-|---|---|---|
-| P0 契约 | `DemoScope` + `scope` getter + `DemoSessionHost` 骨架 + 单测 | 零行为变化，analyze 绿 |
-| P1 首租户 | RtSession 接入 host；rt_page 改 reattach；前台自动重连 | pop 重进不断 / 切 APP 回来自动重连 / 显式断开才断，三者全绿 |
-| P2 治理 | detached 空闲回收 + host 调试面板 + 审计文档登记 scope 分组清单 | 每个已迁移 demo 在审计文档登记归属 |
-| P3 可选 | 进程死亡快照恢复（rt_prefs 已有基础） | 杀进程冷启动可一键回到上次会话 |
+| 阶段 | 内容 | 验收 | 状态 |
+|---|---|---|---|
+| P0 契约 | `DemoScope` + `scope` getter + `DemoSessionHost` 骨架 + 单测 | 零行为变化，analyze 绿 | ✅ `1e1f357c` |
+| P1 首租户 | RtSession 接入 host；rt_page 改 reattach；前台自动重连 | pop 重进不断 / 切 APP 回来自动重连 / 显式断开才断 | ✅ `be1561ff`+`18a93506`（真机行为待人工验收） |
+| P2 治理 | detached 空闲回收 + host 调试面板 + 审计文档登记 scope 分组清单 | 每个已迁移 demo 在审计文档登记归属 | ✅ 维护协程+面板「会话托管监视」+ `demo-scope-audit.md` |
+| P3 可选 | 进程死亡快照恢复（rt_prefs 已有基础） | 杀进程冷启动可一键回到上次会话 | 未启动 |
 
-## 9. 待确认项
+## 9. 待确认项（v1 落地时按默认值决议）
 
-1. 空闲回收阈值 15 min 是否合适（是否需要按 session 类型分别配置）；
-2. detached 期间是否需要全局可见入口（溢出 sheet badge /「正在播放」式 mini
-   条）——v1 倾向不做，重进 reattach 已覆盖主场景；
-3. P1 之后下一个迁租户（候选：联机房间类 demo）。
+1. ~~空闲回收阈值~~ → **15 min 固定**（`kSessionIdleReapTimeout`，检查周期 5 min）；
+2. ~~detached 全局可见入口~~ → v1 不做溢出 sheet badge，调试走 Lab「会话托管监视」面板；
+3. ~~下个迁租户~~ → 联机游戏 ×10（依赖确认 net_p2p/relay_v3 会话可脱离页面存活）。

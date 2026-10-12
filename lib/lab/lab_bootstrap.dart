@@ -22,6 +22,7 @@ import 'demos/pigment_palette_demo.dart';
 import 'demos/price_compare_demo.dart';
 import 'demos/schema_demo.dart';
 import 'demos/sensor_demo.dart';
+import 'demos/session_host_demo.dart' show registerSessionHostDemo;
 import 'demos/snake_game_demo.dart';
 import 'demos/storage_analyze_demo.dart';
 import 'demos/torch_demo.dart';
@@ -71,6 +72,7 @@ void registerAllDemos() {
   registerMessageNetDemo();
   registerGalleryDemo();
   registerSchemaDemo();
+  registerSessionHostDemo();
     registerGithubDemo();
   registerWebBookmarkDemo();
   registerDoubleTimeDemo();

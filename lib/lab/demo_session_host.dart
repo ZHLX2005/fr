@@ -14,8 +14,17 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../app_lifecycle/app_foreground.dart';
 import 'lab_container.dart' show DemoScope, demoRegistry;
+
+/// detached 会话的空闲回收阈值：超过没人认领即销毁（安全阀，防 70 个
+/// demo 各留一条僵尸连接）。改这里要同步 spec §3 生命周期表。
+const Duration kSessionIdleReapTimeout = Duration(minutes: 15);
+
+/// 空闲回收检查周期。
+const Duration kSessionReapCheckInterval = Duration(minutes: 5);
 
 /// 一个被托管的 demo 会话条目。[state] 对 host 完全不透明。
 class HostedSession {
@@ -73,6 +82,42 @@ class HostedSession {
 class DemoSessionHost {
   final Map<String, HostedSession> _sessions = {};
 
+  /// 空闲回收维护协程。首次 attach 拉起，会话清空后自停。
+  Timer? _reapTimer;
+
+  /// [maintenance] 仅供测试关掉：周期 timer 会拖住测试 isolate 的退出，
+  /// 纯单测一律 `DemoSessionHost(maintenance: false)`，回收走显式
+  /// [reapIdle] 或 fakeAsync 用例。
+  ///
+  /// [nowSource] 时钟缝隙：fakeAsync 只伪造 Timer/microtask、伪造不了
+  /// `DateTime.now()`，fakeAsync 用例须注入虚拟时间源，否则 detach 与
+  /// 回收判定用的是两个不相关的时间轴。
+  DemoSessionHost({
+    @visibleForTesting bool maintenance = true,
+    @visibleForTesting DateTime Function()? nowSource,
+  })  : _maintenance = maintenance,
+        _nowSource = nowSource ?? DateTime.now;
+  final bool _maintenance;
+  final DateTime Function() _nowSource;
+
+  /// 维护协程是否在跑（测试用）。
+  @visibleForTesting
+  bool get reapTimerActive => _reapTimer != null;
+
+  void _ensureReapTimer() {
+    if (!_maintenance || _reapTimer != null) return;
+    _reapTimer = Timer.periodic(kSessionReapCheckInterval, (_) {
+      unawaited(reapIdle(now: _nowSource()));
+    });
+  }
+
+  void _maybeStopReapTimer() {
+    if (_reapTimer != null && _sessions.isEmpty) {
+      _reapTimer!.cancel();
+      _reapTimer = null;
+    }
+  }
+
   // AppForeground → 前后台广播的联动。懒挂：首次 attach 时装上，幂等——
   // 不占 bootstrap 名额，没人托管会话时 host 完全静默。
   bool _foregroundLinked = false;
@@ -125,6 +170,7 @@ class DemoSessionHost {
     Future<void> Function()? onAppForeground,
   }) {
     _ensureForegroundLink();
+    _ensureReapTimer();
     // 契约防腐蚀：只有声明 session/global scope 的 demo 才能挂托管。
     // 「行为迁了、声明没跟」（或反过来）在这里炸出来，而不是留到
     // 审计文档对不上。demo 未注册（测试桩）时放行。
@@ -161,7 +207,7 @@ class DemoSessionHost {
   /// 等 reattach、空闲回收或显式 drop。对不存在的 slug 幂等。
   /// [now] 供测试钉时钟（与 [reapIdle] 的 now 同一缝隙）。
   void detach(String slug, {DateTime? now}) {
-    _sessions[slug]?.detachedAt = now ?? DateTime.now();
+    _sessions[slug]?.detachedAt = now ?? _nowSource();
   }
 
   /// 用户显式「断开 / 停止」：真正销毁并移除。对不存在的 slug 幂等。
@@ -169,14 +215,16 @@ class DemoSessionHost {
     final hs = _sessions.remove(slug);
     if (hs == null) return;
     await _disposeQuietly(hs);
+    _maybeStopReapTimer();
   }
 
   /// 空闲回收：detached 超过 [timeout] 的会话逐个销毁（attached 的永不动）。
   ///
   /// 单个 onDispose 抛错不影响其余回收——回收路径上没有可恢复动作，
   /// 死连接销毁失败也无妨，故错误被吞。返回被回收的 slug 列表（日志/测试用）。
+  /// 维护协程按 [kSessionReapCheckInterval] 周期调它；测试可传 now 钉时钟。
   Future<List<String>> reapIdle({
-    Duration timeout = const Duration(minutes: 15),
+    Duration timeout = kSessionIdleReapTimeout,
     DateTime? now,
   }) async {
     final deadline = (now ?? DateTime.now()).subtract(timeout);
@@ -188,6 +236,7 @@ class DemoSessionHost {
       _sessions.remove(hs.slug);
       await _disposeQuietly(hs);
     }
+    _maybeStopReapTimer();
     return stale.map((hs) => hs.slug).toList();
   }
 

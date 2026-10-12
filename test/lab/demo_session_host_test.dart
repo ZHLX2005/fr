@@ -1,5 +1,6 @@
 // DemoSessionHost 守卫测试：托管 / reattach / detach / drop / 空闲回收 / 前后台广播。
 // 设计全文：docs/superpowers/specs/2026-10-12-demo-scope-design.md
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/app_lifecycle/app_foreground.dart';
@@ -44,7 +45,7 @@ void main() {
 
   group('attach / reattach', () {
     test('首次 attach 创建并托管，二次 attach 复用同一对象（绝不重建）', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var created = 0;
       Object session() {
         created += 1;
@@ -61,7 +62,7 @@ void main() {
     });
 
     test('reattach 清除 detached 标记', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       host.attach('rt', Object.new, onDispose: () async {});
       host.detach('rt');
       expect(host.active['rt']!.detached, isTrue);
@@ -70,7 +71,7 @@ void main() {
     });
 
     test('reattach 刷新钩子——最新在场的页面说了算', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var oldForeground = 0;
       var newForeground = 0;
       host.attach('rt', Object.new, onDispose: () async {},
@@ -83,7 +84,7 @@ void main() {
     });
 
     test('不同 slug 各自独立托管', () {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       host.attach('rt', Object.new, onDispose: () async {});
       host.attach('go-room', Object.new, onDispose: () async {});
       expect(host.count, 2);
@@ -92,7 +93,7 @@ void main() {
 
   group('detach / drop', () {
     test('detach 只标记不销毁——onDispose 不被调用', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var disposed = 0;
       host.attach('rt', Object.new, onDispose: () async => disposed += 1);
       host.detach('rt');
@@ -102,12 +103,12 @@ void main() {
     });
 
     test('detach 未知 slug 幂等（page scope 页面可防御性调用）', () {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       expect(() => host.detach('nope'), returnsNormally);
     });
 
     test('drop 调用 onDispose 并移除', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var disposed = 0;
       host.attach('rt', Object.new, onDispose: () async => disposed += 1);
       await host.drop('rt');
@@ -116,7 +117,7 @@ void main() {
     });
 
     test('drop 未知 slug 幂等', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       await expectLater(host.drop('nope'), completes);
     });
   });
@@ -125,7 +126,7 @@ void main() {
     final t0 = DateTime(2026, 10, 12, 12);
 
     test('detached 未超时不回收；attached 的永不动', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       host.attach('attached', Object.new, onDispose: () async {});
       host.attach('fresh', Object.new, onDispose: () async {});
       host.detach('fresh', now: t0);
@@ -139,7 +140,7 @@ void main() {
     });
 
     test('detached 超时回收，返回被回收 slug 列表', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var disposed = 0;
       host.attach('stale', Object.new, onDispose: () async => disposed += 1);
       host.detach('stale', now: t0);
@@ -153,7 +154,7 @@ void main() {
     });
 
     test('回收后可重新 attach 全新对象', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       final first = host.attach('rt', Object.new, onDispose: () async {});
       host.detach('rt', now: t0);
       await host.reapIdle(
@@ -165,7 +166,7 @@ void main() {
     });
 
     test('单个 onDispose 抛错不阻断其余回收', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var goodDisposed = 0;
       host.attach('bad', Object.new, onDispose: () async => throw StateError('炸'));
       host.attach('good', Object.new, onDispose: () async => goodDisposed += 1);
@@ -183,7 +184,7 @@ void main() {
 
   group('前后台广播', () {
     test('转发给每个会话', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var aBg = 0, aFg = 0, bBg = 0;
       host.attach('a', Object.new, onDispose: () async {},
           onAppBackground: () async => aBg += 1,
@@ -198,7 +199,7 @@ void main() {
     });
 
     test('无钩子的会话静默跳过', () async {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       host.attach('bare', Object.new, onDispose: () async {});
       await expectLater(
         Future.wait([host.notifyAppBackground(), host.notifyAppForeground()]),
@@ -209,7 +210,7 @@ void main() {
 
   test('page scope 的 demo 挂 host 会被 assert 拦下（契约防腐蚀）', () {
     demoRegistry.register(_PageScopeDemo());
-    final host = DemoSessionHost();
+    final host = DemoSessionHost(maintenance: false);
     expect(
       () => host.attach<Object>(
         'page-only-slug',
@@ -219,6 +220,45 @@ void main() {
       throwsA(isA<AssertionError>()),
       reason: '「行为迁了、声明没跟」必须在 attach 现场炸出来',
     );
+  });
+
+  group('维护协程（fakeAsync，默认 maintenance: true）', () {
+    test('detached 超时会话被周期回收，attached 的不动', () {
+      fakeAsync((async) {
+        // fakeAsync 只伪造 Timer/microtask，伪造不了 DateTime.now()——
+        // 时间源必须注入并手动推进，与 elapse 保持同一虚拟时间轴。
+        var virtual = DateTime(2026, 10, 12, 12);
+        final host = DemoSessionHost(nowSource: () => virtual);
+        var staleDisposed = 0, liveDisposed = 0;
+        host.attach('stale', Object.new,
+            onDispose: () async => staleDisposed += 1);
+        host.attach('live', Object.new,
+            onDispose: () async => liveDisposed += 1);
+        host.detach('stale');
+        for (var i = 0; i < 4; i++) {
+          virtual = virtual.add(const Duration(minutes: 5));
+          async.elapse(const Duration(minutes: 5)); // 每步跨一个检查点
+        }
+        expect(staleDisposed, 1, reason: '15min 阈值在 20min 检查点触发');
+        expect(liveDisposed, 0, reason: 'attached 的永不被协程回收');
+        expect(host.count, 1);
+      });
+    });
+
+    test('会话清空后协程自停，再 attach 再拉起', () {
+      fakeAsync((async) {
+        final host = DemoSessionHost();
+        expect(host.reapTimerActive, isFalse, reason: '没会话不空转');
+        host.attach('a', Object.new, onDispose: () async {});
+        expect(host.reapTimerActive, isTrue);
+        async.flushMicrotasks();
+        return host.drop('a').then((_) {
+          expect(host.reapTimerActive, isFalse, reason: '空表自停');
+          host.attach('b', Object.new, onDispose: () async {});
+          expect(host.reapTimerActive, isTrue);
+        });
+      });
+    });
   });
 
   group('AppForeground 联动', () {
@@ -232,7 +272,7 @@ void main() {
 
     test('attach 后前台翻转自动广播给会话（无需手动 notify）', () async {
       AppForeground.resetForTest();
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       var fg = 0, bg = 0;
       host.attach(
         'rt',
@@ -251,7 +291,7 @@ void main() {
 
     test('没 attach 过就不挂监听（AppForeground 翻转不炸）', () async {
       AppForeground.resetForTest();
-      final host = DemoSessionHost(); // 从未 attach
+      final host = DemoSessionHost(maintenance: false); // 从未 attach
       AppForeground.setForTest(false);
       await drain();
       expect(host.count, 0);
@@ -259,11 +299,11 @@ void main() {
   });
 
   group('get<T> / active', () {    test('未知 slug 返回 null', () {
-      expect(DemoSessionHost().get<Object>('nope'), isNull);
+      expect(DemoSessionHost(maintenance: false).get<Object>('nope'), isNull);
     });
 
     test('命中返回托管对象；类型不匹配 assert 拦截', () {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       final session = Object();
       host.attach('rt', () => session, onDispose: () async {});
       expect(identical(host.get<Object>('rt'), session), isTrue);
@@ -275,7 +315,7 @@ void main() {
     });
 
     test('active 是只读视图', () {
-      final host = DemoSessionHost();
+      final host = DemoSessionHost(maintenance: false);
       host.attach('rt', Object.new, onDispose: () async {});
       expect(
         () => host.active.clear(),
