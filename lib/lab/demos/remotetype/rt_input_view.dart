@@ -1,7 +1,10 @@
 // lib/lab/demos/remotetype/rt_input_view.dart
 //
-// 输入页 UI（纯展示）：回车注入小开关 + 快捷键托盘 + 可伸展 composer
-// 浮卡（同步轻闪 / 字数）+ 清空。
+// 输入页 UI（纯展示）：顶部工具行（回车开关 + 清空/重放）+ 快捷键托盘 +
+// 固定高度 composer 浮卡（同步轻闪 / 字数）。
+// 全页面布局：不做底栏避让（底栏是 main_screen 的 Stack 浮层，键盘弹出自动
+// 隐藏）；composer 固定高度、不随键盘响应式伸缩——expands 输入框高度抖动会
+// 让 IME 重建合成区、把换行搅进正文（已踩坑：换行越打越多）。
 // 语音不再由 demo 内置（原 mic 大按钮 + speech_to_text 已移除）：用户用手机
 // 输入法自带的语音听写，识别文本直接落进输入框，走同一条全文同步管线。
 // 同步触发、连接状态都在 rt_page / rt_text_sync，这里只收 props 和回调。
@@ -9,7 +12,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../widgets/context_colors.dart';
-import '../../../widgets/quick_nav_bottom_bar.dart';
 import 'rt_constants.dart';
 import 'rt_prefs.dart';
 import 'rt_shortcut_bar.dart';
@@ -71,27 +73,31 @@ class RtInputView extends StatelessWidget {
     final c = context.colors;
     final cs = c.scheme;
     final charCount = controller.text.characters.length;
+    // 对齐原型：composer 固定矮卡——expands 输入框随键盘伸缩时 IME 会重建
+    // 合成区、往正文里搅换行（bug 根因），所以高度钉死、页面不做键盘避让。
+    const double fieldHeight = 148;
 
-    // 主壳浮层底栏：勿 SafeArea(bottom)，避免底部 Scaffold 色条。
+    // 全页面：底栏是 main_screen 的 Stack 浮层且键盘弹出自动隐藏，这里不做
+    // 避让预留；内容整体贴上排布。
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          8,
-          16,
-          12 + QuickNavBottomBar.bodyBottomReserve(context),
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 模式开关只是小控制，靠左占一行，不再做通栏大 tab。
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _EnterModeToggle(
-                enterMode: enterMode,
-                onChanged: onEnterModeChanged,
-              ),
+            // 顶部工具行：模式开关靠左，清空 / 重放收右边。
+            Row(
+              children: [
+                _EnterModeToggle(
+                  enterMode: enterMode,
+                  onChanged: onEnterModeChanged,
+                ),
+                const Spacer(),
+                _FlatMiniBtn(label: '清空', onTap: onClear),
+                const SizedBox(width: 6),
+                _FlatMiniBtn(label: '重放', onTap: onReplay),
+              ],
             ),
             const SizedBox(height: 10),
             RtShortcutBar(
@@ -105,19 +111,19 @@ class RtInputView extends StatelessWidget {
               onDisplay: onBarDisplay,
             ),
             const SizedBox(height: 12),
-            // 语音按钮移除后，纵向空间让给输入区：composer 占满剩余高度。
-            Expanded(
-              child: AnimatedScale(
-                scale: syncFlash ? 1.01 : 1.0,
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
-                child: Material(
-                  color: c.surface,
-                  elevation: syncFlash ? 3 : 1,
-                  shadowColor: cs.shadow.withValues(alpha: 0.1),
-                  surfaceTintColor: Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
-                  clipBehavior: Clip.antiAlias,
+            AnimatedScale(
+              scale: syncFlash ? 1.01 : 1.0,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              child: Material(
+                color: c.surface,
+                elevation: syncFlash ? 3 : 1,
+                shadowColor: cs.shadow.withValues(alpha: 0.1),
+                surfaceTintColor: Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  height: fieldHeight,
                   child: Column(
                     children: [
                       Expanded(
@@ -208,14 +214,6 @@ class RtInputView extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _FlatMiniBtn(label: '清空', onTap: onClear),
-                const SizedBox(width: 8),
-                _FlatMiniBtn(label: '重放', onTap: onReplay),
-              ],
             ),
           ],
         ),
