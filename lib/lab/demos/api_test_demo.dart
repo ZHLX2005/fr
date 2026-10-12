@@ -198,59 +198,63 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return SafeArea(
-      child: DefaultTabController(
-        length: 2,
-        child: Column(
-          children: [
-            // 标题栏
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
+    final cs = theme.colorScheme;
+    // 主壳浮层底栏：勿用 SafeArea(bottom)——会吃掉 MediaQuery.padding 后
+    // 露出外层 Scaffold 白条。页底色铺满，滚动区自行留白。
+    return ColoredBox(
+      color: cs.surfaceContainerHighest,
+      child: SafeArea(
+        bottom: false,
+        child: DefaultTabController(
+          length: 2,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      'API 测试',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    ValueListenableBuilder<ApkDownloadState>(
+                      valueListenable: _apkManager.state,
+                      builder: (context, apkState, child) {
+                        final isBusy = apkState.isCheckingUpdate;
+                        if (!isBusy) return const SizedBox.shrink();
+                        return const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  const Text(
-                    'API 测试',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  ValueListenableBuilder<ApkDownloadState>(
-                    valueListenable: _apkManager.state,
-                    builder: (context, apkState, child) {
-                      final isBusy = apkState.isCheckingUpdate;
-                      if (!isBusy) return const SizedBox.shrink();
-                      return const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      );
-                    },
-                  ),
+              const TabBar(
+                tabs: [
+                  Tab(text: 'APK 更新'),
+                  Tab(text: '语音合成'),
                 ],
               ),
-            ),
-            // Tab栏 - APK更新放在第一位
-            const TabBar(
-              tabs: [
-                Tab(text: 'APK 更新'),
-                Tab(text: '语音合成'),
-              ],
-            ),
-            // Tab内容
-            Expanded(
-              child: TabBarView(
-                children: [
-                  // APK 更新
-                  _buildApkTab(),
-                  // 语音合成
-                  const ApiSpeechTabPage(),
-                ],
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildApkTab(),
+                    const ApiSpeechTabPage(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -261,8 +265,10 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     return ValueListenableBuilder<ApkDownloadState>(
       valueListenable: _apkManager.state,
       builder: (context, apkState, child) {
+        // 主壳已把底栏高度注入 MediaQuery.padding.bottom。
+        final bottomPad = MediaQuery.paddingOf(context).bottom;
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
