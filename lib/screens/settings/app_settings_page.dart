@@ -12,6 +12,8 @@ import '../../core/nav/game_cover_warmup.dart';
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
+import '../../lab/lab_container.dart';
+import '../profile/lab/demo_detail_page.dart';
 import '../profile/lab/game_center/const_game_center.dart';
 import '../profile/theme/theme_page.dart';
 
@@ -212,6 +214,22 @@ class _GeneralPanel extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
       children: [
+        _SectionLabel('账号'),
+        _Grouped(
+          children: [
+            ListTile(
+              title: const Text('统一登录扫码'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                final demo = demoRegistry.getBySlug('auth-login');
+                if (demo == null) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => DemoDetailPage(demo: demo)),
+                );
+              },
+            ),
+          ],
+        ),
         _SectionLabel('外观'),
         _Grouped(
           children: [
