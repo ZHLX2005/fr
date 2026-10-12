@@ -198,19 +198,29 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             children: stackKids,
           );
 
-    // 底栏 Stack 浮层：保留胶囊外壳，同时避开 Scaffold.bottomNavigationBar
-    // 槽位那层矩形铺色（真凶）。勿再伪造 MediaQuery.padding，以免键盘避让失效。
+    // 底栏 Stack 浮层：页面铺满（无 Padding 留白），否则底部会透出 Scaffold
+    // 矩形铺色。避让只通过 body 内 MediaQuery.padding（继承 Scaffold 已消化
+    // 的 viewInsets，避免键盘二次压缩）。
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final navReserve = keyboard > 0
-        ? 0.0
-        : QuickNavBottomBar.bodyBottomReserve(context);
 
     return Stack(
       children: [
         Scaffold(
-          body: Padding(
-            padding: EdgeInsets.only(bottom: navReserve),
-            child: body,
+          body: Builder(
+            builder: (bodyCtx) {
+              final mq = MediaQuery.of(bodyCtx);
+              final keyboardOpen = keyboard > 0;
+              return MediaQuery(
+                data: mq.copyWith(
+                  padding: mq.padding.copyWith(
+                    bottom: keyboardOpen
+                        ? mq.padding.bottom
+                        : QuickNavBottomBar.bodyBottomReserve(context),
+                  ),
+                ),
+                child: body,
+              );
+            },
           ),
         ),
         Positioned(

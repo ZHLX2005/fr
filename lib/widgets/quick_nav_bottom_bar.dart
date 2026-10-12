@@ -218,6 +218,8 @@ class _NavTab extends StatelessWidget {
     required this.onTap,
   });
 
+  static const double _barH = QuickNavBottomBar.barHeight;
+
   final IconData icon;
   final String label;
   final bool selected;
@@ -227,31 +229,30 @@ class _NavTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = selected ? color : color.withValues(alpha: 0.42);
+    // 真机中文字体度量 > 理论高度，易撑破 64 → 黄黑 overflow 条。
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: AnimatedScale(
-        scale: 1,
-        duration: const Duration(milliseconds: 120),
-        child: SizedBox(
-          height: 64,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 22, color: c),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: c,
-                ),
+      child: SizedBox(
+        height: _barH,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20, color: c),
+            const SizedBox(height: 1),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9,
+                height: 1.0,
+                leadingDistribution: TextLeadingDistribution.even,
+                fontWeight: FontWeight.w700,
+                color: c,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
