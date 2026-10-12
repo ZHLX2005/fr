@@ -26,6 +26,12 @@ class RemoteTypeDemo extends DemoPage {
   @override
   DemoType get type => DemoType.tool;
 
+  /// P1 已迁 session scope：连接由 DemoSessionHost 托管（pop 不断连、
+  /// 回前台自动重连），判据 =「用户离开页面时预期它还在」。
+  /// 声明必须跟 rt_page 的实际托管行为一致——这里漏声明就是契约说谎。
+  @override
+  DemoScope get scope => DemoScope.session;
+
   @override
   Widget buildPage(BuildContext context) => const RemoteTypePage();
 }

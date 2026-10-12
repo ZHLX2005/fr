@@ -15,6 +15,7 @@
 import 'dart:async';
 
 import '../app_lifecycle/app_foreground.dart';
+import 'lab_container.dart' show DemoScope, demoRegistry;
 
 /// 一个被托管的 demo 会话条目。[state] 对 host 完全不透明。
 class HostedSession {
@@ -124,6 +125,14 @@ class DemoSessionHost {
     Future<void> Function()? onAppForeground,
   }) {
     _ensureForegroundLink();
+    // 契约防腐蚀：只有声明 session/global scope 的 demo 才能挂托管。
+    // 「行为迁了、声明没跟」（或反过来）在这里炸出来，而不是留到
+    // 审计文档对不上。demo 未注册（测试桩）时放行。
+    assert(
+      demoRegistry.getBySlug(slug)?.scope != DemoScope.page,
+      'slug=$slug 的 demo 声明是 page scope，不能挂进 host 托管——'
+      '先在 DemoPage 子类 override scope => DemoScope.session',
+    );
     final existing = _sessions[slug];
     if (existing != null) {
       assert(

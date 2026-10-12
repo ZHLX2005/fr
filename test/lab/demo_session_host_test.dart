@@ -18,6 +18,18 @@ class _FakeDemo extends DemoPage {
   Widget buildPage(BuildContext context) => const SizedBox.shrink();
 }
 
+/// page scope 桩：注册进全局表，验证 host 拒绝托管未声明的 demo。
+class _PageScopeDemo extends DemoPage {
+  @override
+  String get title => 'page 桩';
+  @override
+  String get description => '验证 host 契约防腐蚀';
+  @override
+  String get slug => 'page-only-slug';
+  @override
+  Widget buildPage(BuildContext context) => const SizedBox.shrink();
+}
+
 void main() {
   group('DemoPage.scope 默认值', () {
     test('未 override 时为 page——70 个既有 demo 零迁移', () {
@@ -193,6 +205,20 @@ void main() {
         completes,
       );
     });
+  });
+
+  test('page scope 的 demo 挂 host 会被 assert 拦下（契约防腐蚀）', () {
+    demoRegistry.register(_PageScopeDemo());
+    final host = DemoSessionHost();
+    expect(
+      () => host.attach<Object>(
+        'page-only-slug',
+        Object.new,
+        onDispose: () async {},
+      ),
+      throwsA(isA<AssertionError>()),
+      reason: '「行为迁了、声明没跟」必须在 attach 现场炸出来',
+    );
   });
 
   group('AppForeground 联动', () {
