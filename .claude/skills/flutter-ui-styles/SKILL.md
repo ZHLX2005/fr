@@ -1,124 +1,126 @@
 ---
 name: flutter-ui-styles
-description: Flutter 项目中"样式"相关工程的渐进式披露指南。当用户要做 UI 样式选型、视觉对齐复刻、画布/HTML mockup 与 Flutter 实现的双向对照、或在 Material 3 体系下选某一类样式（顶部 App Bar / Card / Button / NavigationBar / Modal 等）落地时触发。本 skill 是样式大类的总入口，所有方案的最终形态都登记在分类索引表里，按需加载对应方案文件。也用于把"看起来像 demo"的内容列表页（游戏中心 / 媒体库 / 作品集）改造成商店形态——程序化封面、横向精选、头部收拢成 AppBar。同时承载小豆子 FR 项目的 UI 设计原则与实战 bug 沉淀（功能型 vs 内容型页面分治、border-emphasis 边框强调式、嵌套 sheet race condition、多风格 lottery 投票挑选、左重右轻、三分颜色决策）。
----
+description: Flutter 项目中"样式"相关工程的渐进式披露指南。当用户要做 UI 样式选型、视觉对齐复刻、docs/prototypes HTML mockup 与 Flutter 双向对照、或在 Material 3 体系下选某一类样式（顶部 App Bar / Card / Button / NavigationBar / Modal / 浮卡 / 托盘分段 / 大厅就绪等）落地时触发。本 skill 是样式大类的总入口，方案按 A/B/C 序列编号登记在分类索引表里，按需加载。也用于把"看起来像 demo"的内容列表页改造成商店形态，并承载小豆子 FR 的 UI 设计原则（功能型 vs 内容型、border-emphasis、Zen 少描边、胶囊 vs 方圆角、原型 ColorScheme 契约）。
 ---
 
 # flutter-ui-styles — Flutter 样式工程渐进式披露
 
-> 本 skill 不在主文档里罗列实现细节。它的核心是**一张"样式大类 → 子类方案"索引表**，每条方案都独立成文件，按需查阅即可。
+> 本 skill 不在主文档里罗列实现细节。核心是**序列总览 +「样式大类 → 子类方案」索引表**；每条方案独立成 `references/<代号>-*.md`，按需查阅。
+>
+> HTML 真相源：`docs/prototypes/`（`main-shell-nav` / `feature-list-and-lobby` / `remotetype-input` / `game-surfaces-palettes`）。对照入口 → [[C00-原型对齐路由]]。
 
 ---
 
 ## 何时使用
 
-- "我要做顶部 Banner + 列表的视觉衔接 / 想用 Flutter 实现一个可拉伸 header / 我的 banner 与列表有发丝线"
-- "这种样式属于什么大类 / 圆角 mask 怎么做 / masked widget 怎么放"
-- "我要做一个 Card / Button / NavigationBar / Modal 类样式"
-- "这个页面还是 demo 形态 / 重构成更专业的 UIUX / 做成商店那样的列表"
-- 给定 HTML / Figma mock / 截图，要求 1:1 用 Flutter 复刻
-- 询问某段 Flutter 代码属于样式大类里的哪个子类
+- "我要做顶部 Banner + 列表的视觉衔接 / 可拉伸 header / banner 与列表有发丝线"
+- "这种样式属于什么大类 / 圆角 mask / Card / Button / NavigationBar / Modal"
+- "这个页面还是 demo 形态 / 做成商店那样的列表"
+- 给定 `docs/prototypes/*.html` / Figma / 截图，要求用 Flutter 对齐
+- Zen 浮卡少描边 / 嵌套托盘实心分段 / 胶囊 vs 方圆角 / 大厅房间就绪
+- 询问某段 Flutter 代码属于哪个子类方案
 
 ## 何时不触发
 
-- 业务逻辑、网络请求、状态管理、路由 → 别的 skill
-- 动画 timeline / 物理 / 缓动细节 → `flutter-work-flow` 或自定义动画 skill
-- 编译失败 / 运行时 crash → `flutter-debug-logging` / `bug-detective`
-- 性能调优（repaint / jank / memory） → 自带 perf skill（如有）
+- 业务逻辑、网络、状态管理、路由 → 别的 skill
+- 主题 token / ColorStrategy 架构本身 → `flutter-ui-theme-architecture`（本 skill 管「颜色用在哪里」）
+- 动画 timeline / 物理细节 → `flutter-work-flow` 等
+- 编译失败 / crash → `flutter-debug-logging` / `bug-detective`
 
 ---
 
 ## 核心原则（主文档承担，不在 ref 里）
 
-### 先定性：功能型页面 vs 内容型页面（最上位的判断）
+### 先定性：功能型页面 vs 内容型页面
 
 **同一条配色/权重规则在两类页面上结论相反，先定性再选方案。**
 
 | 页面性质 | 条目是什么 | 策略 |
 |---|---|---|
-| **功能型**（工具、表单、设置、密集按钮区） | 操作 | **减负**：统一主题色 + border-emphasis → [[A01-边框强调式减负]] |
-| **内容型**（游戏中心、媒体库、作品集、模板市场） | 作品 | **给身份**：每条内容专属封面/渐变/图案 → [[A04-商店式内容页]] |
+| **功能型**（工具、表单、设置、密集按钮区） | 操作 | **减负**：统一主题色 + border-emphasis → [[A01-边框强调式减负]]；Zen 列表浮卡 → [[A06-Zen浮卡少描边]] |
+| **内容型**（游戏中心、媒体库、作品集、模板市场） | 作品 | **给身份**：专属封面/渐变 → [[A04-商店式内容页]]；色随主题 → [[C01-游戏表面ColorScheme契约]] |
 
-把内容型页面按功能型做（统一占位 icon + 一律描边不填充），产出的就是"demo 形态"——
-**"看起来像 demo"绝大多数时候是内容缺少视觉身份，不是布局不够花哨。**
+把内容型页面按功能型做（统一占位 icon + 一律描边不填充）→ "demo 形态"。
 
 ### 视觉权重：填充只在该减负的地方减
 
-密集操作按钮区的填充式（饱和 `backgroundColor + white`）视觉重、"左重右轻"，改 **border-emphasis**：
-浅 tint 底 + 同色描边 + 同色前景。详见 [[A01-边框强调式减负]]。
-
-**但这不是全局禁令**：内容封面、Hero 头部、主 CTA 胶囊该填充就填充——
-它们的层次正是靠填充与色彩建立的。判据看上一节的页面性质，不要一刀切。
+密集操作区：border-emphasis（[[A01-边框强调式减负]]）。封面 / Hero / 仪式胶囊 CTA：该填充就填充（[[A08-胶囊与方圆角CTA]]）。
 
 ### 颜色决策：三分，不是二分
 
-- **导航 / 功能入口**（菜单卡 icon、tab、纯展示装饰）→ **统一主题色** `colorScheme.primary`
-- **操作按钮**（功能性）→ **撞色编码语义**：green=主操作、blue=查询、orange=暂停、red=危险、indigo=备用
-- **内容条目**（游戏、媒体、作品、模板）→ **每条专属识别色**，集中登记在 `const_xxx.dart` 的 slug 表里
-
-前两条详见 [[A01-边框强调式减负]]，第三条详见 [[A04-商店式内容页]]。
+- **导航 / 功能入口** → 统一 `colorScheme.primary`（及 container）
+- **操作按钮** → 撞色编码语义（主/查/停/危…）
+- **内容条目** → 专属识别色（`const_xxx.dart` slug 表）+ 游戏表面走 [[C01-游戏表面ColorScheme契约]]
 
 ### 异步数据加载：必须用 loading flag 保护
 
-嵌套 sheet 中（`ModalBottomSheet → ModalBottomSheet`），`initState` 里 `fire-and-forget` 调异步加载（SharedPreferences、网络），用户在加载完成前就点进下一层 sheet → 看到空数据 → 误以为"没有找到"。必须 `_loadingXxx` flag + try/finally + mounted 检查 + picker 守卫。详见 [[B01-嵌套sheet异步加载防race]]。
+嵌套 sheet 异步加载 → [[B01-嵌套sheet异步加载防race]]。
 
 ### 反模式黑名单
 
-- ❌ 给**导航/功能入口** icon 配彩虹独立色（应统一主题色）
-  ——但**内容条目**反过来：没有专属色才是错的
-- ❌ 给操作按钮统一主题色（应撞色编码）
-- ❌ 内容列表用统一占位 icon 当封面（demo 感的头号来源，见 [[A04-商店式内容页]]）
-- ❌ 折叠头部用浅色 `surface` 接住深色 banner（滚动中途色系断层）
-- ❌ 把"避免纯色填充"当全局禁令套到封面 / Hero 头部上（该有的层次全被抹平）
-- ❌ `withOpacity(x)`（analyze 报 deprecated_member_use，应 `withValues(alpha: x)`）
-- ❌ 删除/取消按钮去掉红色（破坏性操作永远保留 red）
-- ❌ 嵌套 sheet 里 `fire-and-forget` 异步加载（race condition 必现）
-- ❌ lottery 后续轮重新询问"你要什么风格"（应直接看保留文件推断偏好）—— lottery 流程已迁到 tool-isolation，详见 [[tool-isolation#lottery-workflow]]
-- ❌ lottery subagent 把代码/内容贴回聊天（上下文爆炸，应只写文件）
+- ❌ 导航/功能入口 icon 彩虹独立色（内容条目反过来要有专属色）
+- ❌ 操作按钮一律主题色（应撞色编码）
+- ❌ 内容列表统一占位 icon 当封面
+- ❌ 折叠头部浅 `surface` 接深色 banner
+- ❌ 把「避免纯色填充」当成全局禁令
+- ❌ `withOpacity`（用 `withValues(alpha:)`）
+- ❌ 破坏性操作去掉红色
+- ❌ 嵌套 sheet `fire-and-forget` 异步加载
+- ❌ 工具页 chrome 一律全胶囊（远程输入原型明确反对；见 [[A08-胶囊与方圆角CTA]]）
+- ❌ 游戏表面硬编码 Zen sage/clay hex（见 [[C01-游戏表面ColorScheme契约]]）
+- ❌ lottery 相关 → 已迁 tool-isolation
 
 ---
 
 ## 序列总览（先读这里）
 
-| 代号 | 类别 | 何时读该序列 | 成员 |
+| 代号 | 类别 | 何时读该序列 | 入口 / 成员 |
 | --- | --- | --- | --- |
-| A | 样式方案 SOP | 动手做某种样式 / 选方案前（成本 / 范围 / 流程） | [[A01-边框强调式减负]] / [[A02-可拉伸banner带圆角mask]] / [[A03-胶囊浮动底部导航]] / [[A04-商店式内容页]] / [[A05-批量subagent检查]] |
-| B | 排障 bug 模式 | 出 bug / 处理嵌套 sheet race condition 时单独读 | [[B01-嵌套sheet异步加载防race]] |
+| A | 样式方案 SOP | 动手做某种样式 / 选方案前 | [[A00-样式方案路由]] → A01–A09 |
+| B | 排障 bug 模式 | 嵌套 sheet race 等 | [[B01-嵌套sheet异步加载防race]]（单成员，无 B00） |
+| C | 原型 ↔ Flutter 契约 | HTML 对齐 / 五主题游戏表面 | [[C00-原型对齐路由]] → [[C01-游戏表面ColorScheme契约]] |
+
+---
 
 ## 何时读哪个 ref
 
 | 代号 | ref | 何时读取 |
 | --- | --- | --- |
-| A01 | [[A01-边框强调式减负]] | 改造纯色填充按钮/icon 容器 / 减负密集按钮区 / "左重右轻" / 装饰性 vs 功能性颜色决策 |
-| A02 | [[A02-可拉伸banner带圆角mask]] | 做 "顶部可拉伸 Banner + 圆角接列表" 时 |
-| A03 | [[A03-胶囊浮动底部导航]] | 做"固定宽胶囊容器 + 滑动胶囊指示器"的悬浮式底部导航时 |
-| A04 | [[A04-商店式内容页]] | 做游戏中心 / 媒体库 / 作品集 / 模板市场这类**内容型**列表页；程序化封面（无美术资源也要每条可辨）、横向精选 PageView、Hero 头部收拢成 AppBar、自适应列数网格；或要把"一堆一样的占位卡"改成商店形态时 |
-| A05 | [[A05-批量subagent检查]] | 需要对整个 lab/demos 目录（或某批 demo）统一做样式改造/检查（如 border-emphasis 转换、去 withOpacity、统一按钮风格）时；适用"批量发现 → 并行修复 → 统一验证"场景 |
-| B01 | [[B01-嵌套sheet异步加载防race]] | 嵌套 ModalBottomSheet 异步加载 race condition（"空空如也"/缓存竞态）；必须 `_loadingXxx` flag + try/finally + mounted 检查 + picker 守卫 |
+| A00 | [[A00-样式方案路由]] | 不确定 A 序列读哪份时先看 |
+| A01 | [[A01-边框强调式减负]] | 密集按钮减负 / 左重右轻 / 装饰 vs 功能色 |
+| A02 | [[A02-可拉伸banner带圆角mask]] | 顶部可拉伸 Banner + 圆角接列表 |
+| A03 | [[A03-胶囊浮动底部导航]] | 主壳胶囊底栏 / capacity / 溢出 sheet |
+| A04 | [[A04-商店式内容页]] | 游戏中心等**内容型**列表；程序化封面 |
+| A05 | [[A05-批量subagent检查]] | 批量给 lab/demos 做样式扫改 |
+| A06 | [[A06-Zen浮卡少描边]] | 茶禅浮卡、少描边、设置/peer 列表 |
+| A07 | [[A07-嵌套托盘与实心分段]] | 远程输入式托盘 + 实心滑动分段 |
+| A08 | [[A08-胶囊与方圆角CTA]] | 全胶囊 vs 12–20 方圆角判决 |
+| A09 | [[A09-大厅与房间就绪]] | 象棋大厅入口 / 房间就绪 / 匹配转场 |
+| B01 | [[B01-嵌套sheet异步加载防race]] | 嵌套 ModalBottomSheet 异步 race |
+| C00 | [[C00-原型对齐路由]] | 从 `docs/prototypes` 选对照方案时 |
+| C01 | [[C01-游戏表面ColorScheme契约]] | 五主题游戏表面禁写死 hex |
 
-> 当你要加入**新的样式方案**（例如 Card 自定义、Button 自定义、NavigationBar 自定义等），按相同规范在表里追加一行，并在 `references/` 目录下新增一个方案文件。两文件结构一致：**1. 实现思路** + **2. 踩坑总结**。
+> 新方案：在 `references/` 建 `<代号>-<slug>.md`（A 从 A10、B 从 B02、C 从 C02），结构为**一、实现思路** + **二、踩坑总结**，并在上表与对应 `*00` 路由表登记。方案文件 ≤ 200 行。
 
 ---
 
 ## 添加新方案的标准流程
 
-1. 在 `references/` 下创建 `<代号>-<slug>.md`（A 类方案从 A06 起、B 类从 B02 起，与 `[[代号-原名]]` 同名）
-2. 文件结构必须分**两节**：
-   - **一、实现思路**：落地步骤化、关键代码片段、可直接抄
-   - **二、踩坑总结**：本次实操踩出来的真坑（不要写"可能踩坑"，只写真踩过的）
-3. 在本 SKILL.md 的「何时读哪个 ref」表里**追加一行**，注明：
-   - 一句话触发场景
-   - 决定该用 A 还是 B 序列的判断理由
-4. 方案文件 ≤ 200 行
+1. 判定序列：控件配方 → A；运行时坑 → B；原型/主题契约 → C（先读对应 `*00`）
+2. 创建 `references/<代号>-<slug>.md`，两节结构，≤ 200 行
+3. 登记「序列总览」成员列（若新序列）+「何时读哪个 ref」+ `*00` 路由表
+4. 若引用原型，写清 `docs/prototypes/<file>.html`；`lib/` 示例禁裸 hex
+
+结构演化 / 拆 ref / 同步事实 → 用 `key_board`（X01/X02/X03），本 skill 不改自己的核心原则除非用户授权。
 
 ---
 
 ## 协作 skill
 
-- 与 `key_board` 协作：每个方案文件的"实现思路"小节就是用 `key_board` 元模板风格写的
-- 与 `subagent-driven-development` 协作：本 skill 不替它执行实现，只提供"该方案对应的 Flutter widget API 与已知坑"的知识
-- 与 `flutter-work-flow` 协作：本 skill 给出方案；flutter-work-flow 给出 build / lint / format 等工程流
-- 与 `flutter-ui-theme-architecture` 协作：主题配色机制走 [[flutter-ui-theme-architecture]]（ColorStrategy / scheme 派生）；本 skill 负责"颜色用在哪里"的设计决策
+- `key_board`：本 skill 的 ref 生命周期（序列号 A/B/C）
+- `flutter-ui-theme-architecture`：ColorStrategy / scheme 派生
+- `flutter-work-flow`：build / lint / format
+- `subagent-driven-development`：并行落地；本 skill 只提供方案知识
 
 ---
 
@@ -126,6 +128,13 @@ description: Flutter 项目中"样式"相关工程的渐进式披露指南。当
 
 | 错误操作 | 实际后果 | 正确做法 |
 |---------|---------|---------|
-| 把"避免纯色填充"写成**无适用边界**的全局核心原则 | 内容型页面照做 → 9 张卡共用一个占位 icon、零识别度，正是用户投诉的"demo 形态" | 原则必须带适用边界；先分「功能型 / 内容型」再选策略 |
-| 颜色决策只做「装饰性 vs 功能性」二分 | 内容条目（游戏/媒体、作品）被归进"装饰性"→ 强制统一主题色 → 无法建立内容身份 | 改三分：导航入口统一色 / 操作按钮撞色 / 内容条目专属色 |
-| 新增反向方案的 ref 后，旧 ref 原样保留 | 两份文档互相打架，加载哪份取决于运气 | 新增反向方案时**同步给旧 ref 加"适用边界"段**并双向互链 |
+| 把"避免纯色填充"写成无边界全局原则 | 内容页全变成占位卡 | 先分功能型/内容型 |
+| 颜色决策只做装饰/功能二分 | 内容条目失去识别色 | 三分：导航 / 操作 / 内容 |
+| 新增反向方案后旧 ref 不改边界 | 两份文档互殴 | 旧 ref 加适用边界并互链 |
+
+### [2026-10-12] 原型沉淀（key_board X01 + 序列号）
+
+| 操作 | 结果 |
+|---------|---------|
+| 阅读 `docs/prototypes` 四份 HTML | 沉淀 A06–A09 + C00/C01；补 A00；A03/A04 增量互链 |
+| 序列划分 | A=方案 SOP，B=排障，C=原型契约；多成员序列用 `*00` 元数据入口 |
