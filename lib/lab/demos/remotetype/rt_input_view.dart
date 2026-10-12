@@ -1,9 +1,10 @@
 // lib/lab/demos/remotetype/rt_input_view.dart
 //
-// 输入页 UI（纯展示）：回车注入分段条 + 快捷键托盘 + 固定高度 composer
-// 浮卡（同步轻闪 / 字数）+ 清空 + 麦克风大按钮。
-// 同步触发、ASR、连接状态都在 rt_page / rt_text_sync / rt_asr，
-// 这里只收 props 和回调。
+// 输入页 UI（纯展示）：回车注入小开关 + 快捷键托盘 + 可伸展 composer
+// 浮卡（同步轻闪 / 字数）+ 清空。
+// 语音不再由 demo 内置（原 mic 大按钮 + speech_to_text 已移除）：用户用手机
+// 输入法自带的语音听写，识别文本直接落进输入框，走同一条全文同步管线。
+// 同步触发、连接状态都在 rt_page / rt_text_sync，这里只收 props 和回调。
 
 import 'package:flutter/material.dart';
 
@@ -21,8 +22,6 @@ class RtInputView extends StatelessWidget {
     required this.enterMode,
     required this.onEnterModeChanged,
     required this.syncFlash,
-    required this.listening,
-    required this.onToggleMic,
     required this.onClear,
     required this.onComposerTapOutside,
     required this.onTextChanged,
@@ -43,9 +42,6 @@ class RtInputView extends StatelessWidget {
   /// 「已同步」轻闪（对齐原型 composer sync flash）。
   final bool syncFlash;
 
-  /// ASR 录音中（mic 按钮换色）。
-  final bool listening;
-  final VoidCallback onToggleMic;
   final VoidCallback onClear;
 
   /// 点到输入框外：composing 还挂着时补发一笔（收尾兜底）。
@@ -67,8 +63,6 @@ class RtInputView extends StatelessWidget {
     final c = context.colors;
     final cs = c.scheme;
     final charCount = controller.text.characters.length;
-    // 对齐原型：composer 固定矮卡，键盘直接盖住底部。
-    const double fieldHeight = 148;
 
     // 主壳浮层底栏：勿 SafeArea(bottom)，避免底部 Scaffold 色条。
     return SafeArea(
@@ -83,8 +77,15 @@ class RtInputView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _EnterSeg(enterMode: enterMode, onChanged: onEnterModeChanged),
-            const SizedBox(height: 16),
+            // 模式开关只是小控制，靠左占一行，不再做通栏大 tab。
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _EnterModeToggle(
+                enterMode: enterMode,
+                onChanged: onEnterModeChanged,
+              ),
+            ),
+            const SizedBox(height: 10),
             RtShortcutBar(
               shortcuts: shortcuts,
               connected: connected,
@@ -93,20 +94,20 @@ class RtInputView extends StatelessWidget {
               onEdit: onEdit,
               onHistory: onHistory,
             ),
-            const SizedBox(height: 16),
-            AnimatedScale(
-              scale: syncFlash ? 1.01 : 1.0,
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              child: Material(
-                color: c.surface,
-                elevation: syncFlash ? 3 : 1,
-                shadowColor: cs.shadow.withValues(alpha: 0.1),
-                surfaceTintColor: Colors.transparent,
-                borderRadius: BorderRadius.circular(18),
-                clipBehavior: Clip.antiAlias,
-                child: SizedBox(
-                  height: fieldHeight,
+            const SizedBox(height: 12),
+            // 语音按钮移除后，纵向空间让给输入区：composer 占满剩余高度。
+            Expanded(
+              child: AnimatedScale(
+                scale: syncFlash ? 1.01 : 1.0,
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                child: Material(
+                  color: c.surface,
+                  elevation: syncFlash ? 3 : 1,
+                  shadowColor: cs.shadow.withValues(alpha: 0.1),
+                  surfaceTintColor: Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
                       Expanded(
@@ -114,7 +115,8 @@ class RtInputView extends StatelessWidget {
                           controller: controller,
                           onChanged: (_) => onTextChanged(),
                           onTapOutside: (_) {
-                            if (controller.value.composing != TextRange.empty) {
+                            if (controller.value.composing !=
+                                TextRange.empty) {
                               onComposerTapOutside();
                             }
                           },
@@ -130,7 +132,7 @@ class RtInputView extends StatelessWidget {
                           cursorColor: cs.primary,
                           // 对齐原型 .composer textarea：无描边、透明底，焦点也不出框。
                           decoration: InputDecoration(
-                            hintText: '打字或说话，内容会同步到电脑…',
+                            hintText: '打字或语音听写，内容会同步到电脑…',
                             hintStyle: TextStyle(
                               color: c.textMuted.withValues(alpha: 0.7),
                             ),
@@ -226,32 +228,6 @@ class RtInputView extends StatelessWidget {
                 ),
               ),
             ),
-            const Spacer(),
-            Center(
-              child: Material(
-                color: listening ? cs.tertiary : cs.primary,
-                elevation: 4,
-                shadowColor: (listening ? cs.tertiary : cs.primary).withValues(
-                  alpha: 0.3,
-                ),
-                surfaceTintColor: Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-                child: InkWell(
-                  onTap: onToggleMic,
-                  borderRadius: BorderRadius.circular(20),
-                  child: SizedBox(
-                    width: 64,
-                    height: 64,
-                    child: Icon(
-                      Icons.mic,
-                      size: 26,
-                      color: listening ? cs.onTertiary : cs.onPrimary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
           ],
         ),
       ),
@@ -259,9 +235,10 @@ class RtInputView extends StatelessWidget {
   }
 }
 
-/// 全宽滑动分段：发送 / 换行（对齐原型 .seg）。
-class _EnterSeg extends StatelessWidget {
-  const _EnterSeg({required this.enterMode, required this.onChanged});
+/// 回车注入方式小开关（发送 / 换行）：本质只是模式控制，紧凑 pill，
+/// 点选切换。不再做成通栏大 tab（那是给高频误触场景的冗余面积）。
+class _EnterModeToggle extends StatelessWidget {
+  const _EnterModeToggle({required this.enterMode, required this.onChanged});
 
   final String enterMode;
   final ValueChanged<String> onChanged;
@@ -273,90 +250,69 @@ class _EnterSeg extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
       ),
-      padding: const EdgeInsets.all(3),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final half = constraints.maxWidth / 2;
-          return Stack(
-            children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 340),
-                curve: Curves.easeOutBack,
-                left: isEnter ? 0 : half,
-                top: 0,
-                bottom: 0,
-                width: half,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: cs.primary,
-                    borderRadius: BorderRadius.circular(11),
-                    boxShadow: [
-                      BoxShadow(
-                        color: cs.primary.withValues(alpha: 0.22),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _segBtn(
-                      context,
-                      label: '发送',
-                      selected: isEnter,
-                      onTap: () {
-                        if (enterMode == 'enter') return;
-                        onChanged('enter');
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: _segBtn(
-                      context,
-                      label: '换行',
-                      selected: !isEnter,
-                      onTap: () {
-                        if (enterMode == 'shift_enter') return;
-                        onChanged('shift_enter');
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
+      padding: const EdgeInsets.all(2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _seg(
+            context,
+            label: '发送',
+            selected: isEnter,
+            onTap: () {
+              if (enterMode == 'enter') return;
+              onChanged('enter');
+            },
+          ),
+          _seg(
+            context,
+            label: '换行',
+            selected: !isEnter,
+            onTap: () {
+              if (enterMode == 'shift_enter') return;
+              onChanged('shift_enter');
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _segBtn(
+  Widget _seg(
     BuildContext context, {
     required String label,
     required bool selected,
     required VoidCallback onTap,
   }) {
     final c = context.colors;
+    final cs = c.scheme;
     return Material(
-      color: Colors.transparent,
+      color: selected ? cs.primary : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 11),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: selected ? c.scheme.onPrimary : c.textMuted,
-            ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.keyboard_return,
+                size: 12,
+                color: selected ? cs.onPrimary : c.textMuted,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? cs.onPrimary : c.textMuted,
+                ),
+              ),
+            ],
           ),
         ),
       ),

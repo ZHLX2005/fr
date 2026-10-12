@@ -10,7 +10,9 @@
 //   rt_input_view.dart     输入页 UI
 //   rt_connecting_overlay.dart  连接中遮罩
 //   rt_text_sync.dart      文本同步管线（composing 挂起/补发 + 防抖）
-//   rt_asr.dart            语音识别控制器
+//
+// 语音不再由 demo 内置：用户用手机输入法自带的语音听写，识别文本直接落进
+// 输入框，与手动输入共用同一条全文同步管线（原 speech_to_text 已移除）。
 //
 // 同步触发规则（见 plan §5）：
 //   - IME composing 中挂起（拼音中间态不上传），合成结束补发
@@ -27,7 +29,6 @@ import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
 import '../../../widgets/context_colors.dart';
 import '../../demo_session_host.dart';
-import 'rt_asr.dart';
 import 'rt_constants.dart';
 import 'rt_connecting_overlay.dart';
 import 'rt_input_view.dart';
@@ -85,15 +86,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   List<String> _history = const [];
   String? _firingShortcutId;
 
-  // ASR（逻辑在 rt_asr.dart）
-  late final RtAsr _asr = RtAsr(
-    controller: _textController,
-    onChanged: () {
-      if (mounted) setState(() {});
-    },
-    showError: _showSnack,
-  );
-
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
     controller: _textController,
@@ -109,7 +101,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       if (mounted) setState(() => _history = next);
     },
     onFlushed: () {
-      _asr.base = '';
       _textController.clear();
     },
     onNotify: _showSnack,
@@ -233,7 +224,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _eventSub?.cancel();
     _textController.removeListener(_sync.onControllerChanged);
     _sync.dispose();
-    _asr.dispose();
     _textController.dispose();
     _keyController.dispose();
     // 托管契约：页面退出只 detach，不销毁——会话留给 host，重进原地接管
@@ -349,7 +339,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _sync.cancelPending();
     _sync.resetHint();
     _syncFlashTimer?.cancel();
-    _asr.reset();
     setState(() {
       _connected = false;
       _e2eOk = false;
@@ -364,7 +353,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _sync.cancelPending();
     _sync.resetHint();
     _syncFlashTimer?.cancel();
-    _asr.reset();
 
     final oldSub = _eventSub;
     _eventSub = null;
@@ -515,7 +503,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       text: text,
       selection: TextSelection.collapsed(offset: text.length),
     );
-    _asr.base = text;
     _sync.scheduleSync();
   }
 
@@ -578,10 +565,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                     _sync.scheduleSync();
                   },
                   syncFlash: _syncFlash,
-                  listening: _asr.listening,
-                  onToggleMic: _asr.toggle,
                   onClear: () {
-                    _asr.base = '';
                     _textController.clear();
                     setState(() {});
                   },
