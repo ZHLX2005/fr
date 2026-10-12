@@ -560,20 +560,10 @@ class _PinTile extends StatelessWidget {
           child: ListTile(
             contentPadding:
                 const EdgeInsets.fromLTRB(14, 10, 12, 10),
-            leading: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (dragIndex != null) ...[
-                  Icon(Icons.drag_handle_rounded,
-                      color: cs.onSurfaceVariant),
-                  const SizedBox(width: 4),
-                ],
-                _LeadingIcon(
-                  entry: entry,
-                  showThumb: showThumb,
-                  pinned: pinned,
-                ),
-              ],
+            leading: _LeadingIcon(
+              entry: entry,
+              showThumb: showThumb,
+              pinned: pinned,
             ),
             title: Text(
               entry.title,
@@ -594,12 +584,17 @@ class _PinTile extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
-            trailing: onToggle == null
-                ? null
-                : Switch.adaptive(
+            trailing: onToggle != null
+                ? Switch.adaptive(
                     value: pinned,
                     onChanged: (_) => onToggle!(),
-                  ),
+                  )
+                : dragIndex != null
+                    ? Icon(
+                        Icons.drag_handle_rounded,
+                        color: cs.onSurfaceVariant,
+                      )
+                    : null,
           ),
         ),
       ),

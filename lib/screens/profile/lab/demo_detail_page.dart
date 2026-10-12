@@ -21,6 +21,8 @@ class DemoDetailPage extends StatelessWidget {
     // 钉在快捷底栏时是壳根页，不能 pop → 隐藏返回。
     final canPop = context.navCanPop;
     return Scaffold(
+      // 全屏 demo（如远程输入）自管键盘；外层再 resize 会二次压缩导致空白。
+      resizeToAvoidBottomInset: !demo.preferFullScreen,
       appBar: demo.preferFullScreen
           ? null
           : AppBar(
