@@ -3,12 +3,12 @@
 > 从五子棋（gomoku_lua）的当前实现沉淀。**五子棋 = 本 skill 的标准案例**。
 > 适用 2 人互联网对战：象棋、围棋、五子棋、围追堵截、井字棋、坦克对战……
 
-> 本 ref 是**端到端落地模板**，综合调用前 4 个 ref：
-> - [[server-authoritative-client-state]] — 角色/状态用服务端字段
-> - [[action-permission-table]] — 按钮约束走权限表
-> - [[role-aware-board-mirror]] — 棋盘对称镜像（如需）
-> - [[team-card-lobby-pattern]] — 大厅/身份/就绪门（如需旁观者/身份）
-> - [[social-room-code-pattern]] — **社交房间号 + 单表单入口**（本模板前置）
+> 本 ref 是**端到端落地模板**，综合调用以下 ref：
+> - [[A01-server-authoritative-client-state]] — 角色/状态用服务端字段
+> - [[A03-action-permission-table]] — 按钮约束走权限表
+> - [[B03-role-aware-board-mirror]] — 棋盘对称镜像（如需）
+> - [[C01-team-card-lobby-pattern]] — 大厅/身份/就绪门（如需旁观者/身份）
+> - [[B02-social-room-code-pattern]] — **社交房间号 + 单表单入口**（本模板前置）
 
 > **何时读**：从 0 实现一个"2 人轮流行动、有胜负"的互联网对战游戏时通读。
 
@@ -25,7 +25,7 @@
 
 不满足的看其他 ref：
 - 纯聊天/白板 → 主 SKILL.md 模板
-- 多人 + 身份 + 大厅 → [[team-card-lobby-pattern]]
+- 多人 + 身份 + 大厅 → [[C01-team-card-lobby-pattern]]
 - 协作无胜负 → 不需要本模板的胜负/回合机制
 
 ---
@@ -310,11 +310,11 @@ c.action_permissions = {
 }
 ```
 
-> 🔴 **WIN 必须用 `non_current_player`**（不是 current_player）。这是第三次踩的坑——见 [[action-permission-table]] §5。错用会导致服务端静默拒绝 → 客户端死循环重发 → 闪屏。
+> 🔴 **WIN 必须用 `non_current_player`**（不是 current_player）。这是第三次踩的坑——见 [[A03-action-permission-table]] §5。错用会导致服务端静默拒绝 → 客户端死循环重发 → 闪屏。
 
 ### 2.4 max_players 校验（Lua 责任，服务端不管）
 
-服务端 `Join` **完全没有 max_players 校验**——业务规则由 Lua 通过 `rejected_join` 字段兜底。见 [[social-room-code-pattern]]。
+服务端 `Join` **完全没有 max_players 校验**——业务规则由 Lua 通过 `rejected_join` 字段兜底。见 [[B02-social-room-code-pattern]]。
 
 ```lua
 on_init = function(c, p)
@@ -433,7 +433,7 @@ if (e.statusCode == 409 && body.contains('code collision')) {
 }
 ```
 
-> 见 [[social-room-code-pattern]] 完整细节。
+> 见 [[B02-social-room-code-pattern]] 完整细节。
 
 ### 3.2 lobby / ready 阶段（同一张卡片，按钮三态原地切换）
 
@@ -491,7 +491,7 @@ child: bothReady
 | DEAL 按钮 | 房主：`FilledButton` 黑实底 + `开始游戏 ▸`；客方：`Text('等待房主开始…')` 居中 |
 | 乐观更新 | 点了立即变"已准备 ✓" + disabled（`_ackedLocally` 标志） |
 
-> `_ackedLocally` 见 [[server-authoritative-client-state]] §4 乐观更新合法用法。
+> `_ackedLocally` 见 [[A01-server-authoritative-client-state]] §4 乐观更新合法用法。
 
 **Flutter 落地关键点**：
 
@@ -515,7 +515,7 @@ Widget build(BuildContext context) {
 **核心三件套**（不变）：
 
 1. **回合状态条**（顶部）：`轮到你（黑方）落子` / `等待白方落子…` + 我方颜色标识
-2. **棋盘 + 落子交互**：统一手势范式（点击选中 + 二次点击落子 / 长按拖动）—— 见 [[board-gesture-patterns]] ref
+2. **棋盘 + 落子交互**：统一手势范式（点击选中 + 二次点击落子 / 长按拖动）—— 见 [[B04-board-gesture-patterns]] ref
 3. **底部操作栏**：认输 / 重新开始（host）/ 退出，全走 `_canPerform(action)`
 
 **落子是否需要确认**：
@@ -701,7 +701,7 @@ void _onSnapshot(Snapshot s) {
 | 胜负 | 连五（hasFiveInRow） | 走到对方底线（QuoridorEngine） |
 | 角色 | 黑/白 | top/bottom |
 
-**镜像判断标准**：棋盘有"终点方向"（如围追堵截 host 要走到对方底线）→ 需镜像；纯对称（五子棋/围棋）→ 不镜像。详见 [[role-aware-board-mirror]]。
+**镜像判断标准**：棋盘有"终点方向"（如围追堵截 host 要走到对方底线）→ 需镜像；纯对称（五子棋/围棋）→ 不镜像。详见 [[B03-role-aware-board-mirror]]。
 
 ---
 
@@ -761,7 +761,7 @@ Container(
 - **已激活/已完成**：`FilledButton` 灰色/主题实底 + disabled
 - **主要动作**（进入对局 / 开始游戏 / 再来一局）：`FilledButton` 黑色实底 + 圆角 10px
 
-配色决策见 [[server-authoritative-client-state]] §颜色决策；border-emphasis 规范见 flutter-ui-styles 的 `border-emphasis-style`。
+配色决策见 [[A01-server-authoritative-client-state]] §颜色决策；border-emphasis 规范见 flutter-ui-styles 的 `border-emphasis-style`。
 
 ### 6.3 状态徽章 + 圆环头像
 
@@ -828,7 +828,7 @@ VersusRoomShell(
    - **禁止**为 `ready` 起独立 build 分支或独立 Scaffold
    - 棋盘渲染调用
    - 落子交互（点击/拖动 + 确认）
-   - 镜像（如需，见 [[role-aware-board-mirror]]）
+   - 镜像（如需，见 [[B03-role-aware-board-mirror]]）
    - 文案/颜色
 6. **<game>_lua_demo.dart**：入口 + 卡片化主页（复制五子棋 `_EntryCard` 结构）
 7. **lab_bootstrap.dart**：注册
@@ -884,11 +884,11 @@ GomokuAliasPrefs.load().then((v) {
 
 | 阶段 | 先读 |
 |------|------|
-| 任何 v3 房间（必读） | [[server-authoritative-client-state]] |
-| 设计按钮约束 | [[action-permission-table]]（★ WIN 用 non_current_player） |
-| 棋盘有方向/需镜像 | [[role-aware-board-mirror]] |
-| 要旁观者/身份/双区 | [[team-card-lobby-pattern]] |
-| 单表单 + tryJoinOrCreate + 409 撞号提示 | [[social-room-code-pattern]] |
+| 任何 v3 房间（必读） | [[A01-server-authoritative-client-state]] |
+| 设计按钮约束 | [[A03-action-permission-table]]（★ WIN 用 non_current_player） |
+| 棋盘有方向/需镜像 | [[B03-role-aware-board-mirror]] |
+| 要旁观者/身份/双区 | [[C01-team-card-lobby-pattern]] |
+| 单表单 + tryJoinOrCreate + 409 撞号提示 | [[B02-social-room-code-pattern]] |
 | **4 个 Lua 游戏共用昵称 `lua_game.alias`** | **本 ref §1.1 + `lib/services/lua/lua_game_alias.dart`** |
 | **端到端落地** | **本 ref**（综合调用以上） |
 

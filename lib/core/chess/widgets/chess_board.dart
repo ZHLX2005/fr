@@ -7,7 +7,7 @@
 //   · 把每个非空格子的 [BoardState.cells] 通过 [ChessSkin] 找 [ImageProvider]
 //     渲染 [ChessPiece]
 //   · tap 通过 [onSquareTap] 透传（1D index）
-//   · 拖动（board-gesture-patterns）：传入 [onDragSquareStart]/[onDragSquareEnd]
+//   · 拖动（B04-board-gesture-patterns）：传入 [onDragSquareStart]/[onDragSquareEnd]
 //     后挂顶层手势层 —— tap + pan 收敛到单一 GestureDetector，pan 坐标
 //     （翻转感知）转成 1D index 回调；浮起棋子由 [draggingSquare]/
 //     [dragFingerPos] 参数驱动，跟手渲染。
@@ -628,7 +628,7 @@ class _LegalMarker extends StatelessWidget {
   }
 }
 
-/// 棋盘顶层手势层 —— 单 GestureDetector 收敛 tap + pan（board-gesture-patterns §3.1）。
+/// 棋盘顶层手势层 —— 单 GestureDetector 收敛 tap + pan（B04-board-gesture-patterns §3.1）。
 ///
 /// 挂在 8x8 网格 Stack 最顶（opaque）：拖动回调存在时由本层接管全部手势 ——
 /// tap 仍透传 [onSquareTap]（选中-点击两段式不变），pan 坐标（翻转感知）

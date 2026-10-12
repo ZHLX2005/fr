@@ -1,7 +1,7 @@
 # 社交房间号模式 — 自定义房间号 + 房主自动判定
 
 > 何时读：实现"用户自行约定房间号 + 第一个进入自动成为房主"的双人对战房间时。
-> 与 `[[versus-game-room-template]]` 互补——模板讲"先建后加"流程，本文讲"两边输入同一号码，谁先到谁是房主"。
+> 与 `[[B01-versus-game-room-template]]` 互补——模板讲"先建后加"流程，本文讲"两边输入同一号码，谁先到谁是房主"。
 
 ---
 
@@ -247,10 +247,10 @@ cd .tool/relay-room-tester && uv run python3 scripts/test_rooms.py
 
 | 场景 | 替代方案 |
 |---|---|
-| 旁观者制（主播+观众） | 用 `[[team-card-lobby-pattern]]` 双区槽位 |
-| 多人房间（>2）+ 身份分配 | `[[team-card-lobby-pattern]]` 私有身份分配 |
+| 旁观者制（主播+观众） | 用 `[[C01-team-card-lobby-pattern]]` 双区槽位 |
+| 多人房间（>2）+ 身份分配 | `[[C01-team-card-lobby-pattern]]` 私有身份分配 |
 | 私密房间（邀请制/密码） | 服务端需新增 password 字段，超出 v3 现成机制 |
-| 不想让玩家共享号码 | 仍走 `[[versus-game-room-template]]` 的 CreateRoom 流程 |
+| 不想让玩家共享号码 | 仍走 `[[B01-versus-game-room-template]]` 的 CreateRoom 流程 |
 
 ---
 
