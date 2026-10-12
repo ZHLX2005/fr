@@ -1,7 +1,7 @@
 // lib/lab/demos/surround_game_lua_demo.dart
 // 围追堵截（Quoridor）互联网双人对战 — v3 Lua 状态机版
 //
-// 流程（按 versus-game-room-template 标准）：
+// 流程（按 B01-versus-game-room-template 标准）：
 //   玩家输入昵称 + 房间码 → 点击"进入对局"
 //   → tryJoinOrCreate：先 join；不存在则用此号创建
 //   → snapshot.host_id == 我 ⇒ 我是 host（top）
@@ -11,7 +11,7 @@
 //   - 服务端存规范坐标（top = y0, bottom = y8）
 //   - host 端 y 方向翻转后渲染（host 自身在下方）
 //   - guest 端直接渲染
-//   - 触摸坐标也相应翻转（保留 role-aware-board-mirror 特化逻辑）
+//   - 触摸坐标也相应翻转（保留 B03-role-aware-board-mirror 特化逻辑）
 //
 // 入口：GameLobbyPage（lib/core/game_kit/lobby）—— 单表单 smartMatch。
 

@@ -190,11 +190,11 @@ Future<void> _ack() async {
 
 ---
 
-## 9. 与 [[role-aware-board-mirror]] 的关系
+## 9. 与 [[B03-role-aware-board-mirror]] 的关系
 
-[[role-aware-board-mirror]] 是"棋盘对称镜像"特化场景（含触摸坐标、ConfirmActions、Panel 翻转等）。本 ref 是更**上游的原则**——"任何状态判定都不自查"——适用于所有 v3 房间业务。
+[[B03-role-aware-board-mirror]] 是"棋盘对称镜像"特化场景（含触摸坐标、ConfirmActions、Panel 翻转等）。本 ref 是更**上游的原则**——"任何状态判定都不自查"——适用于所有 v3 房间业务。
 
-读 [[role-aware-board-mirror]] 时也**强烈建议先读本 ref**，理解为什么要用 `top_player_id` 字段。否则会重蹈"用 `isHost` 推 `imTop`"的覆辙。
+读 [[B03-role-aware-board-mirror]] 时也**强烈建议先读本 ref**，理解为什么要用 `top_player_id` 字段。否则会重蹈"用 `isHost` 推 `imTop`"的覆辙。
 
 ---
 

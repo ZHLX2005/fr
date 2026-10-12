@@ -701,7 +701,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   /// 棋盘 + 镜像翻转层。
   ///
-  /// 关键点（来自 role-aware-board-mirror ref）：
+  /// 关键点（来自 B03-role-aware-board-mirror ref）：
   ///   - 棋盘渲染层包在 `Transform.flip(rotationZ: π)` 内 → 整体翻转 180°
   ///   - JungleBoard 内部的 GestureDetector 已经在 board-local 坐标系工作，
   ///     而 Transform **不影响** 子 widget 自身的 localPosition，

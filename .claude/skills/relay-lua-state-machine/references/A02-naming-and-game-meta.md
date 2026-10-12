@@ -4,8 +4,8 @@
 > 任何在 `lib/lab/demos/<game>_lua*/` 下新增 v3 联机房间业务，都要先过本契约：
 > demo `title` 怎么写、slug 怎么对、`kGameMeta` 怎么加、`GameCategory` 怎么选。
 >
-> 是 [[versus-game-room-template]]（端到端模板）落地前的**命名/分类环节**——和
-> [[team-card-lobby-pattern]]（多人派对分类示例）配套使用。
+> 是 [[B01-versus-game-room-template]]（端到端模板）落地前的**命名/分类环节**——和
+> [[C01-team-card-lobby-pattern]]（多人派对分类示例）配套使用。
 
 ---
 

@@ -48,7 +48,7 @@
 ///
 /// 五子棋是**对称棋盘**（无终点方向），双方看同一棋盘，**不需要 Transform.flip**。
 const String kGomokuScript = r'''
--- 角色权限检查（与围追堵截同模式，见 action-permission-table ref）
+-- 角色权限检查（与围追堵截同模式，见 A03-action-permission-table ref）
 function role_check(c, p, action)
   local rule = c.action_permissions[action]
   if rule == nil or rule == "any" then return true end

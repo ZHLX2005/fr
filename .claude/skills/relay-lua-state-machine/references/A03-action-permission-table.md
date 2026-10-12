@@ -4,7 +4,7 @@
 
 > 从 surround_game_lua（围追堵截）反复出现"客方显示无效按钮"UX bug 沉淀。适用于 **action 类型多、规则趋于稳定的成熟业务**：当你发现客户端按钮可点性靠散落特判（`if (isHost)` / `if (isMyTurn)`）维护、且开始出现"无效按钮"类 bug 时，就读这个 ref。
 
-> 是 [[server-authoritative-client-state]] 的姊妹篇：那篇讲"**为什么**角色不能自查"，本篇讲"**怎么做**"——把 action 约束做成服务端表 + 客户端单点消费的完整落地模式。
+> 是 [[A01-server-authoritative-client-state]] 的姊妹篇：那篇讲"**为什么**角色不能自查"，本篇讲"**怎么做**"——把 action 约束做成服务端表 + 客户端单点消费的完整落地模式。
 
 ---
 
@@ -332,7 +332,7 @@ def test_action_permissions():
 
 | 场景 | 先读 |
 |------|------|
-| 任何 v3 房间业务（必读） | [[server-authoritative-client-state]] — 为什么角色不能自查 |
+| 任何 v3 房间业务（必读） | [[A01-server-authoritative-client-state]] — 为什么角色不能自查 |
 | 有按钮/操作约束 | **本 ref** — 怎么把约束做成表 |
-| 对称对战棋盘 | [[role-aware-board-mirror]] — 视觉翻转（按钮 isTopTurn 等） |
-| 大厅/身份/就绪门 | [[team-card-lobby-pattern]] — ACK/SIT 等也是 action，同样适用本表 |
+| 对称对战棋盘 | [[B03-role-aware-board-mirror]] — 视觉翻转（按钮 isTopTurn 等） |
+| 大厅/身份/就绪门 | [[C01-team-card-lobby-pattern]] — ACK/SIT 等也是 action，同样适用本表 |

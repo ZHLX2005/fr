@@ -2,7 +2,7 @@
 
 > 从斗兽棋互联网版沉淀（2026-08）：可拖动 + 可点击选择 + 点击落子（国际象棋 / 中国象棋的预备范式）。
 >
-> 与 [[role-aware-board-mirror]] 配合使用：本 ref 讲"手势层在做什么"；mirror ref 讲"host 视觉翻转怎么套到这些手势上"。
+> 与 [[B03-role-aware-board-mirror]] 配合使用：本 ref 讲"手势层在做什么"；mirror ref 讲"host 视觉翻转怎么套到这些手势上"。
 
 ---
 

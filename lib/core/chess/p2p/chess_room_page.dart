@@ -133,7 +133,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 当前选中格（1D index）。
   int? _selectedSquare;
 
-  /// 拖动状态（board-gesture-patterns）：正在拖动的格 + 手指位置 + 悬停格。
+  /// 拖动状态（B04-board-gesture-patterns）：正在拖动的格 + 手指位置 + 悬停格。
   /// 值来自 ChessBoard 顶层手势层回调并回传渲染（浮起棋子跟手）。
   int? _draggingSquare;
   Offset? _dragFingerPos;
@@ -616,7 +616,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     setState(() => _selectedSquare = null);
   }
 
-  // ─────────────────────────── 拖动（board-gesture-patterns） ───────────────────────────
+  // ─────────────────────────── 拖动（B04-board-gesture-patterns） ───────────────────────────
 
   /// 拖动开始：只有"我的回合 + 己方棋子"才抬起拖动，其余忽略。
   void _handleDragStart(int square, Offset fingerPos) {

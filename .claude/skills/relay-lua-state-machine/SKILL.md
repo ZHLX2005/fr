@@ -8,18 +8,28 @@ description: Relay-v3 Lua 状态机接入指南。新增一个互联网房间业
 
 > 本文档是 `relay-v3` 协议的**业务可编程层**接入参考。理解了 v3 协议后，业务复杂度只取决于 Lua 脚本 — **后端无需改 Go 代码**。
 
+## 序列总览（先读这里）
+
+ref 按读者路径分三个序列，代号 = `<序列字母><两位序号>`；01 为该序列主流程入口，按流程顺序递增。
+
+| 代号 | 类别 | 成员 |
+| --- | --- | --- |
+| **A** | 通用原则与契约（任何 v3 业务都读） | A01 服务端权威字段（上游原则）→ A02 命名与 kGameMeta 登记 → A03 权限表（成熟期） |
+| **B** | 对战游戏族（2 人互联网对战） | B01 端到端模板（入口，综合调用其余成员）→ B02 社交房号 → B03 棋盘镜像 → B04 棋盘手势 |
+| **C** | 大厅/多人业务族 | C01 大厅/身份/换区（单成员序列） |
+
 ## 何时读哪个 ref
 
-| ref | 何时读取 |
-|---|---|
-| [[team-card-lobby-pattern]] | **实现"大厅 + 身份 + 就绪门 + 双区"类业务时**（团建卡牌、狼人杀、谁是卧底、观众制直播、回合制棋牌）。包含 4 个可组合机制：私有身份分配（`assignments`）、ACK/UNACK 就绪门、双区槽位（`zones`）、SIT 换区。还含前端 `TeamCardRoom` 语义封装 + widget 分文件模板。 |
-| [[role-aware-board-mirror]] | **实现"对称对战棋盘"类业务时**（围追堵截/国际象棋/围棋/五子棋/军棋——双方都看到"自己在底部"）。这是**逐元素翻转决策**，不是统一镜像：触摸坐标手动镜像、确认按钮移出 flip 层、终局消息用角色推。还含**棋子图标对称**（LAN `flipped` 标记和外层 `Transform.flip` 的对消）+ 围追堵截 4 轮 fix 踩坑时间线。 |
-| [[board-gesture-patterns]] | **实现"棋盘手势交互"时**（象棋 / 国际象棋 / 中国象棋等需要"点击选中 → 二次点击落子"的预备范式）。统一手势层：点击选中 + 二次点击落子 + 长按拖动 + 悬停预览 + 非法目标静默拒绝。含 4 phase 状态机 + JungleBoard 单 GestureDetector 设计 + 4 轮踩坑记录。 |
-| [[server-authoritative-client-state]] | **所有 v3 互联网房间业务的"上游原则"**——客户端"我是谁/谁赢了/谁是房主"不能自查，必须用服务端权威字段（`host_id`/`top_player_id`/`winner`）。含 3 类典型自查 bug 案例（imTop/WIN/isHost）+ 乐观更新合法用法 + 围追堵截踩坑时间线。**任何业务先读这一篇。** |
-| [[action-permission-table]] | ⚠️ **成熟期优化，前期不推荐**——当 action 多（≥5）、规则稳定、出现"无效按钮"UX bug 时才引入。把"谁能做哪个 action"收敛到服务端 `c.action_permissions` 单一表 + `role_check` helper，客户端 `canPerform(action)` 单点消费，零特判代码。是 [[server-authoritative-client-state]] 的"怎么做"落地篇。含 5 种角色规则 + 服务端/客户端双保险 + 迁移步骤 + ★何时引入判断。 |
-| [[versus-game-room-template]] | **从 0 实现一个 2 人互联网对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋）时通读。端到端模板：六件套文件结构 + Lua 状态机/权限表设计 + 四阶段 UX 交互（lobby/ready/playing/ended）+ 胜负判定模式 + widget 抽象边界 + 新游戏 checklist。还含**WS 连接状态条 + 手动拉取快照**（§3.5）和**落子音接入**（§3.6）两节通用增强。综合调用前 4 个 ref。 |
-| [[social-room-code-pattern]] | **实现"用户自行约定房间号 + 第一个进入自动成为房主"的双人对战时**通读（社交场景：微信群喊号/线下面对面）。含服务端 `requested_code` 撞号机制、Lua `max_players` + `rejected_join` 完整写法、客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示、`.tool/relay-room-tester` 11 个端到端验证场景。是 `[[versus-game-room-template]]` 的"双方输入同一号码谁先到谁是房主"特化版。 |
-| [[naming-and-game-meta]] | **新增/修改任何 v3 联机 demo 前通读**——命名/分类契约：title 必须 `（联机）` 后缀（禁 `（Lua）` / `v3` / `在线`）、slug 与 `kGameMeta` 字符级一致、`GameCategory.multiplayer` 必含、`mode` 标签规范、3 步新增清单。涵盖 `const_game_center.dart` `kGameMeta` 条目与 demo `title` 的强约束。 |
+| 代号 | ref | 何时读取 |
+|---|---|---|
+| A01 | [[A01-server-authoritative-client-state]] | **所有 v3 互联网房间业务的"上游原则"**——客户端"我是谁/谁赢了/谁是房主"不能自查，必须用服务端权威字段（`host_id`/`top_player_id`/`winner`）。含 3 类典型自查 bug 案例（imTop/WIN/isHost）+ 乐观更新合法用法 + 围追堵截踩坑时间线。**任何业务先读这一篇。** |
+| A02 | [[A02-naming-and-game-meta]] | **新增/修改任何 v3 联机 demo 前通读**——命名/分类契约：title 必须 `（联机）` 后缀（禁 `（Lua）` / `v3` / `在线`）、slug 与 `kGameMeta` 字符级一致、`GameCategory.multiplayer` 必含、`mode` 标签规范、3 步新增清单。涵盖 `const_game_center.dart` `kGameMeta` 条目与 demo `title` 的强约束。 |
+| A03 | [[A03-action-permission-table]] | ⚠️ **成熟期优化，前期不推荐**——当 action 多（≥5）、规则稳定、出现"无效按钮"UX bug 时才引入。把"谁能做哪个 action"收敛到服务端 `c.action_permissions` 单一表 + `role_check` helper，客户端 `canPerform(action)` 单点消费，零特判代码。是 [[A01-server-authoritative-client-state]] 的"怎么做"落地篇。含 5 种角色规则 + 服务端/客户端双保险 + 迁移步骤 + ★何时引入判断。 |
+| B01 | [[B01-versus-game-room-template]] | **从 0 实现一个 2 人互联网对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋）时通读。端到端模板：六件套文件结构 + Lua 状态机/权限表设计 + 四阶段 UX 交互（lobby/ready/playing/ended）+ 胜负判定模式 + widget 抽象边界 + 新游戏 checklist。还含**WS 连接状态条 + 手动拉取快照**（§3.5）和**落子音接入**（§3.6）两节通用增强。综合调用 A01 / A03 / B02 / B03 / C01。 |
+| B02 | [[B02-social-room-code-pattern]] | **实现"用户自行约定房间号 + 第一个进入自动成为房主"的双人对战时**通读（社交场景：微信群喊号/线下面对面）。含服务端 `requested_code` 撞号机制、Lua `max_players` + `rejected_join` 完整写法、客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示、`.tool/relay-room-tester` 11 个端到端验证场景。是 `[[B01-versus-game-room-template]]` 的"双方输入同一号码谁先到谁是房主"特化版。 |
+| B03 | [[B03-role-aware-board-mirror]] | **实现"对称对战棋盘"类业务时**（围追堵截/国际象棋/围棋/五子棋/军棋——双方都看到"自己在底部"）。这是**逐元素翻转决策**，不是统一镜像：触摸坐标手动镜像、确认按钮移出 flip 层、终局消息用角色推。还含**棋子图标对称**（LAN `flipped` 标记和外层 `Transform.flip` 的对消）+ 围追堵截 4 轮 fix 踩坑时间线。 |
+| B04 | [[B04-board-gesture-patterns]] | **实现"棋盘手势交互"时**（象棋 / 国际象棋 / 中国象棋等需要"点击选中 → 二次点击落子"的预备范式）。统一手势层：点击选中 + 二次点击落子 + 长按拖动 + 悬停预览 + 非法目标静默拒绝。含 4 phase 状态机 + JungleBoard 单 GestureDetector 设计 + 4 轮踩坑记录。 |
+| C01 | [[C01-team-card-lobby-pattern]] | **实现"大厅 + 身份 + 就绪门 + 双区"类业务时**（团建卡牌、狼人杀、谁是卧底、观众制直播、回合制棋牌）。包含 4 个可组合机制：私有身份分配（`assignments`）、ACK/UNACK 就绪门、双区槽位（`zones`）、SIT 换区。还含前端 `TeamCardRoom` 语义封装 + widget 分文件模板。 |
 
 ---
 
@@ -308,12 +318,12 @@ await handle.applyAction(
 | 投票     | `on_action_VOTE` + `c.votes{}` `c.options[]`  | 0      |
 | 抢答     | `on_action_BUZZ` + `c.first_buzz`、`c.winner` | 0      |
 | 多人拼图 | `on_action_PLACE` + `c.board_state[][]`         | 0      |
-| **团建卡牌/狼人杀（大厅+身份+就绪+双区）** | 参照 [[team-card-lobby-pattern]] — 全套 4 机制 | 0 |
-| **对称对战棋盘（围追堵截/象棋/围棋，双方镜像视角）** | 参照 [[role-aware-board-mirror]] — 逐元素翻转决策表 | 0 |
-| **任何 v3 互联网房间**（必读） | **先用 [[server-authoritative-client-state]]** —— 角色/状态用服务端字段，不用客户端自查 | 0 |
-| **有按钮/操作约束的房间**（成熟期） | [[action-permission-table]] —— action_permissions 表驱动（前期 action 少时用特判更快） | 0 |
-| **双人对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋——2 人轮流 + 有胜负） | 参照 [[versus-game-room-template]] —— 端到端模板（六件套 + 状态机 + 四阶段 UX + 胜负判定 + 新游戏 checklist），综合调用以上 4 个 ref | 0 |
-| **社交场景双人对战（双方输入同一房间号，谁先到谁是房主）** | 参照 [[social-room-code-pattern]] —— 服务端 `requested_code` + Lua `rejected_join` + 客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示 | 0 |
+| **团建卡牌/狼人杀（大厅+身份+就绪+双区）** | 参照 [[C01-team-card-lobby-pattern]] — 全套 4 机制 | 0 |
+| **对称对战棋盘（围追堵截/象棋/围棋，双方镜像视角）** | 参照 [[B03-role-aware-board-mirror]] — 逐元素翻转决策表 | 0 |
+| **任何 v3 互联网房间**（必读） | **先用 [[A01-server-authoritative-client-state]]** —— 角色/状态用服务端字段，不用客户端自查 | 0 |
+| **有按钮/操作约束的房间**（成熟期） | [[A03-action-permission-table]] —— action_permissions 表驱动（前期 action 少时用特判更快） | 0 |
+| **双人对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋——2 人轮流 + 有胜负） | 参照 [[B01-versus-game-room-template]] —— 端到端模板（六件套 + 状态机 + 四阶段 UX + 胜负判定 + 新游戏 checklist），综合调用 A01 / A03 / B02 / B03 / C01 | 0 |
+| **社交场景双人对战（双方输入同一房间号，谁先到谁是房主）** | 参照 [[B02-social-room-code-pattern]] —— 服务端 `requested_code` + Lua `rejected_join` + 客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示 | 0 |
 
 **零 Go 代码改动。**
 
@@ -338,9 +348,9 @@ await handle.applyAction(
 
 | 错误操作 | 实际后果 | 正确做法 |
 |---------|---------|---------|
-| 把"图标对称"也独立成一个 ref | 和 `role-aware-board-mirror` 翻转决策表重复（都属于"棋盘对称"主题） | 在 `role-aware-board-mirror` 加 §4.5 一节，沿用其"翻转决策表"框架 |
-| 把"手势层"塞进 `versus-game-room-template` | 200+ 行让端到端模板臃肿，且未来"非对战棋盘"（围棋布局编辑器 / 解谜）也要用 | 独立 `board-gesture-patterns` ref，按"主题判据"（不是"内容多少"）拆 |
-| 把"WS 检测 + 快照拉取"独立成 ref | 适用范围狭窄（只互联网对战），但 `versus-game-room-template` 已经是"对战通用模板"，扩 §3.5 一节即可 | 扩 `versus-game-room-template.md`，加 §3.5 WS 状态条 + §3.6 落子音 |
+| 把"图标对称"也独立成一个 ref | 和 `B03-role-aware-board-mirror` 翻转决策表重复（都属于"棋盘对称"主题） | 在 `B03-role-aware-board-mirror` 加 §4.5 一节，沿用其"翻转决策表"框架 |
+| 把"手势层"塞进 `B01-versus-game-room-template` | 200+ 行让端到端模板臃肿，且未来"非对战棋盘"（围棋布局编辑器 / 解谜）也要用 | 独立 `B04-board-gesture-patterns` ref，按"主题判据"（不是"内容多少"）拆 |
+| 把"WS 检测 + 快照拉取"独立成 ref | 适用范围狭窄（只互联网对战），但 `B01-versus-game-room-template` 已经是"对战通用模板"，扩 §3.5 一节即可 | 扩 `B01-versus-game-room-template.md`，加 §3.5 WS 状态条 + §3.6 落子音 |
 | 把"音效"独立成 ref | 所有 4 个对战游戏都用同一个 `PieceSound`，不是 relay-v3 协议相关 | 同样扩 §3.6，不另起 ref |
 
 ### [2026-08-28] codebase-optimizer 反思（4 个新经验）
@@ -359,7 +369,7 @@ await handle.applyAction(
 
 **为什么不这么做会出问题：** 7 个 demo 每个写 30 行重复订阅代码 ≈ 200 行技术债，且 bug 修一处忘一处。
 
-**关联：** 配合 [[versus-game-room-template]] §3.5（WS 状态条）使用效果更好——该 ref 直接指向共享 widget。
+**关联：** 配合 [[B01-versus-game-room-template]] §3.5（WS 状态条）使用效果更好——该 ref 直接指向共享 widget。
 
 #### bad_eg：照搬其他游戏的 UI 模式不校验语义 ❌
 
@@ -419,7 +429,7 @@ static GameState rebuildBoard(List<JungleMoveRecord> history) {
 
 **为什么不这么做会出问题：** 如果 widget 暴露 `_wsConnected` 给 callers，7 个 demo 每个都要写 4 个状态字段 + 3 个 listener cancel，bug 同步成本高。
 
-**关联：** [[versus-game-room-template]] §3.5 直接引用此模式。
+**关联：** [[B01-versus-game-room-template]] §3.5 直接引用此模式。
 
 #### bad_eg：外层 GestureDetector + 内部 GestureDetector 双触发 ❌
 
@@ -442,4 +452,4 @@ GestureDetector(onTapDown: (d) => ctrl.onCellTap(...))
 
 **正确做法：** 复用 JungleBoard **内部** 的 GestureDetector，让 `localPosition` 在 board-local 坐标系（不受外层 `Transform.flip` 影响）。删除外层 wrapper。
 
-**预防：** 任何"在 widget 外层套 Listener / GestureDetector"的模式都要先**搜索基类是否已挂载**。详细决策表见 [[board-gesture-patterns]] §3.1。
+**预防：** 任何"在 widget 外层套 Listener / GestureDetector"的模式都要先**搜索基类是否已挂载**。详细决策表见 [[B04-board-gesture-patterns]] §3.1。
