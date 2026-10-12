@@ -1,8 +1,10 @@
 # 追剧模式自建后端 API —— 业务需求与接口规范
 
+> **何时读**：自建新番后端 API 的契约/联调 / 新增 `SelfHostedAnimeAdapter` / 改动 `/api/v1/anime/season` 字段语义时。客户端配套见 [[C03-Flutter-TimeTable-追剧模式专项]]。
+>
 > 状态：**✅ 已实现并上线**（2026-08-15，commit `83dcd9e`，CI build #31874490795 success）。
 > 后端基地址：`https://47.110.80.47:81/api/v1/anime/season`。
-> 客户端将新增 `SelfHostedAnimeAdapter` 注册进 `kAnimeSourceAdapters`（见 [anime-mode](anime-mode.md)）。
+> 客户端将新增 `SelfHostedAnimeAdapter` 注册进 `kAnimeSourceAdapters`（见 [[C03-Flutter-TimeTable-追剧模式专项]]）。
 > 本文档是前后端唯一契约，字段命名/语义以后端实现时以本文为准，改动需同步更新。
 
 ## 1. 背景与业务目标

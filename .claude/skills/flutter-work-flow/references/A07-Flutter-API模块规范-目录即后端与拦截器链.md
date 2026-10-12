@@ -1,9 +1,8 @@
----
-name: api-module-auth
-description: 小豆子 FR 的 lib/api/ 模块规范 — 目录即后端、深目录轻文件、全局拦截器链
----
-
 # 小豆子 FR — API 模块规范
+
+> **何时读**：新增 API 端点 / 接入新后端 / 业务代码要发 HTTP 请求 / `lib/api/` 防腐蚀自查时。核心一句话：**目录即后端、深目录轻文件、全局拦截器链**。
+>
+> **快照说明（2026-10 合并进 flutter-work-flow 时核对）**：下方目录树与行数为 2026-07 快照；此后 `lib/api/` 已新增 `authhub/`、`pi/`、`remotetype/`、`user/`、`goframe/{ai,room,group,oidc}/` 等同级后端目录（均遵守同一条"目录=后端"铁律）。铁律与 SOP 仍为现行规范，目录清单以实际 `lib/api/` 为准。
 
 ## 实际目录结构
 

@@ -1,5 +1,7 @@
 # Hive 存储 + 集中可视面板设计
 
+> **何时读**：需要设计新 feature 的 Hive 存储结构、手写 TypeAdapter、或理解 `Lab → 存储分析` 面板（BoxDescriptor 注册制）原理时。主干路由见 [[A08-Flutter-Hive存储工作流-调试与最佳实践]]。
+>
 > **主题**：在 Flutter 项目中使用 Hive 做结构化存储，并通过 StorageManager 集中观察所有 Hive Box 的内容。
 > **适用场景**：需要多个自包含的 typed box、并希望在 Lab → 存储分析 页面统一观察数据时。
 >
