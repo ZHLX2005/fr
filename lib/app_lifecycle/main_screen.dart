@@ -210,7 +210,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return Stack(
       children: [
         Scaffold(
-          backgroundColor: Colors.transparent,
+          // 主题底色兜底：透明壳根页（钉选的 demo 等自身不铺背景的页面）
+          // 靠这层拿到 surface 底色，否则一路透明透出 Flutter 黑窗。
           body: body,
         ),
         Positioned(
