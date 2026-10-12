@@ -37,7 +37,7 @@ enum _Phase {
 ///   · 墨白：primary 与 onSurface 同为 #1A1A1A，ready 与 idle 底色完全相同，
 ///     「变绿」那一刻画面毫无变化，测试无法进行；
 ///   · 暮紫：ready(primary) 与 waiting(error) 同属紫粉色系，红绿语义同时失效；
-///   · 粉雾海盐：ready(primary) 粉红比 waiting(error) 深红更「危险」，语义近似反转；
+///   · 粉雾：ready(primary) 粉红比 waiting(error) 深红更「危险」，语义近似反转；
 ///   · 柠檬鼠尾草：ready(primary) 是柠檬黄，绿语义丢失。
 /// 与 Torch 的补光输出色同类，属「规则视觉色 / 功能输出色」。
 ///

@@ -1,6 +1,6 @@
 ---
 name: flutter-ui-theme-architecture
-description: 本项目 zen / purple / ink / rose / lemon 五主题色彩与 UI 主题架构的总入口。当需要理解主题系统怎么运作、改主题配色、扩展语义角色、迁移组件到主题通道、新增组件样式、或评审目录用色是否合规时触发。首页只做 ref 导航，架构细节按需读对应子 ref。
+description: 本项目 zen / purple / ink / rose / lemon / cobalt 六主题色彩与 UI 主题架构的总入口。当需要理解主题系统怎么运作、改主题配色、扩展语义角色、迁移组件到主题通道、新增组件样式、或评审目录用色是否合规时触发。首页只做 ref 导航，架构细节按需读对应子 ref。
 ---
 
 # UI 主题架构（ref 导航页）

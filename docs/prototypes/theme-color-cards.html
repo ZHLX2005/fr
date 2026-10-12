@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小豆子 · 六主题色卡（现状诊断 → 提案）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1c1a16;
+    --muted: #6e685c;
+    --page: #ebe6dc;
+    --card: #fffdf8;
+    --line: rgba(28, 26, 22, 0.08);
+    --ok: #5f8a66;
+    --bad: #a0594a;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "DM Sans", "PingFang SC", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(900px 480px at 10% 0%, #dfe8d8 0%, transparent 55%),
+      radial-gradient(700px 420px at 100% 20%, #e8ddd0 0%, transparent 50%),
+      var(--page);
+    padding: 40px 20px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  header.hero {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 28px;
+    max-width: 720px;
+  }
+  header.hero h1 {
+    font-family: "Instrument Serif", "Songti SC", serif;
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  header.hero p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+  header.hero p strong { color: var(--ink); font-weight: 600; }
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+  .badge.ok { color: var(--ok); background: rgba(95, 138, 102, 0.14); }
+  .badge.wait { color: #8a6a20; background: rgba(200, 160, 60, 0.16); }
+  .badge.no { color: var(--bad); background: rgba(160, 89, 74, 0.12); }
+  .pane.rejected { opacity: 0.55; }
+  .pane.rejected h3 { color: var(--bad); }
+  .status-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+  .status-pill.ok { background: rgba(95,138,102,0.14); color: var(--ok); }
+  .status-pill.wait { background: rgba(122,154,126,0.16); color: #3d5c40; }
+  .status-pill.no { background: rgba(160,89,74,0.12); color: var(--bad); }
+  .pane.rejected { opacity: 0.55; filter: grayscale(0.25); }
+  .pane.rejected h3 { color: var(--bad); }
+
+  .diag {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+  .diag article {
+    background: var(--card);
+    border-radius: 18px;
+    padding: 16px 16px 14px;
+    box-shadow: 0 2px 8px rgba(74, 69, 51, 0.04), 0 12px 28px rgba(74, 69, 51, 0.06);
+  }
+  .diag h3 {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .diag p { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .diag .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bad);
+    background: rgba(160, 89, 74, 0.1);
+    padding: 3px 8px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .diag .tag.ok {
+    color: var(--ok);
+    background: rgba(95, 138, 102, 0.12);
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .toolbar span {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  .toolbar button {
+    border: 0;
+    background: rgba(255,253,248,0.7);
+    color: var(--muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: .2s var(--ease);
+  }
+  .toolbar button[aria-pressed="true"] {
+    background: var(--ink);
+    color: #fff;
+  }
+
+  .stack { display: grid; gap: 22px; }
+
+  .theme-card {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 22px;
+    box-shadow: 0 2px 8px rgba(74, 69, 51, 0.04), 0 14px 36px rgba(74, 69, 51, 0.07);
+  }
+  .theme-card[hidden] { display: none; }
+  .theme-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .theme-head h2 {
+    font-family: "Instrument Serif", serif;
+    font-size: 28px;
+    font-weight: 400;
+  }
+  .theme-head .meta { font-size: 12px; color: var(--muted); }
+  .verdict {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin-bottom: 18px;
+    max-width: 820px;
+  }
+  .verdict em { font-style: normal; color: var(--bad); font-weight: 600; }
+  .verdict b { color: var(--ink); }
+
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 860px) {
+    .cols { grid-template-columns: 1fr; }
+  }
+
+  .pane {
+    border-radius: 18px;
+    padding: 14px;
+    background: #f4f0e7;
+  }
+  .pane.prop { background: #e8efe6; }
+  .pane h3 {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    color: var(--muted);
+  }
+  .pane.prop h3 { color: var(--ok); }
+
+  .dirs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 4px;
+  }
+  @media (max-width: 960px) {
+    .dirs { grid-template-columns: 1fr; }
+  }
+  .dir {
+    border-radius: 18px;
+    padding: 14px;
+    background: #e8efe6;
+    border: 2px solid transparent;
+  }
+  .dir h3 {
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    color: var(--ok);
+  }
+  .dir .why {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-bottom: 10px;
+    min-height: 3.2em;
+  }
+  .dir .pick {
+    margin-top: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ok);
+  }
+
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 520px) {
+    .swatches { grid-template-columns: repeat(2, 1fr); }
+  }
+  .swatch {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .swatch .chip {
+    height: 48px;
+  }
+  .swatch .label {
+    padding: 6px 8px 8px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  .swatch .label strong {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .swatch .label code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  .swatch.dirty .chip { box-shadow: inset 0 0 0 2px var(--bad); }
+  .swatch.dirty .label strong::after {
+    content: " 脏";
+    color: var(--bad);
+    font-size: 10px;
+  }
+
+  .mini {
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .mini .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .mini .cardish {
+    flex: 1;
+    min-width: 120px;
+    border-radius: 14px;
+    padding: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .mini .tray {
+    flex: 1;
+    min-width: 120px;
+    border-radius: 12px;
+    padding: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .mini .btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: default;
+  }
+  .mini .btn.sq {
+    border-radius: 12px;
+  }
+  .mini .ghost {
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .rules {
+    margin-top: 36px;
+    background: var(--card);
+    border-radius: 22px;
+    padding: 22px;
+    box-shadow: 0 2px 8px rgba(74, 69, 51, 0.04), 0 12px 28px rgba(74, 69, 51, 0.06);
+  }
+  .rules h2 {
+    font-family: "Instrument Serif", serif;
+    font-size: 26px;
+    font-weight: 400;
+    margin-bottom: 10px;
+  }
+  .rules ol {
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.65;
+  }
+  .rules li { margin-bottom: 6px; }
+  .rules code {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 12px;
+    background: #f0ebe2;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+  footer.note {
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1>五主题色卡</h1>
+      <p>
+        现网六主题：茶禅 / 暮紫 / 墨白 / 粉雾 / 柠檬 / <strong>宝蓝（新增，ID'CAKE 蓝白）</strong>。
+      </p>
+    </header>
+
+    <section class="diag" aria-label="粉雾从图里学到什么">
+      <article>
+        <div class="tag ok">图样</div>
+        <h3>粉是点缀不是墙纸</h3>
+        <p>参考图正文区近白；粉只用在加号钮、确认下单、浅腮红信息卡。</p>
+      </article>
+      <article>
+        <div class="tag ok">提色</div>
+        <h3>尘玫瑰 CTA</h3>
+        <p>外框/按钮约 <code>#C8828E</code>；浅卡约 <code>#F5E4E8</code>；托盘近中性 <code>#F5F0F1</code>。</p>
+      </article>
+      <article>
+        <div class="tag">旧错</div>
+        <h3>为何以前脏</h3>
+        <p>旧板托盘 <code>#EDD8DC</code> + 薄荷；v1 又做成口红红。都违背「近白 + 稀粉」。</p>
+      </article>
+      <article>
+        <div class="tag ok">字色</div>
+        <h3>近黑正文</h3>
+        <p>参考图标题近黑，不用浊褐粉当 onSurface——干净感一半来自字色。</p>
+      </article>
+    </section>
+
+    <div class="toolbar" role="tablist" aria-label="主题">
+      <span>筛选</span>
+      <button type="button" data-filter="all" aria-pressed="true">全部</button>
+      <button type="button" data-filter="zen" aria-pressed="false">茶禅</button>
+      <button type="button" data-filter="purple" aria-pressed="false">暮紫</button>
+      <button type="button" data-filter="ink" aria-pressed="false">墨白</button>
+      <button type="button" data-filter="rose" aria-pressed="false">粉雾</button>
+      <button type="button" data-filter="lemon" aria-pressed="false">柠檬</button>
+      <button type="button" data-filter="cobalt" aria-pressed="false">宝蓝</button>
+    </div>
+
+    <div class="stack" id="themes"></div>
+
+    <section class="rules">
+      <h2>提案落地规则（改 token 时）</h2>
+      <ol>
+        <li><b>surface / surfaceContainerHighest</b>：ΔL 约 3–6，彩度接近；托盘不得比 primaryContainer 更艳。</li>
+        <li><b>secondary / onSurfaceVariant</b>：从 surface 家族取灰，禁止另起一条冷暖相反的灰轴（Lemon 禁蓝灰、Purple 禁棕灰）。</li>
+        <li><b>tertiary</b>：每屏稀用；与 primary 色相距 ≥ 60°；不要同时当大按钮底和大面积 container。</li>
+        <li><b>primary</b>：中低彩签名色；Filled 大按钮可接受，但 onPrimary 必须按对比度选（勿假定纯白）。</li>
+        <li><b>lib/ 仍禁裸 hex</b>：本页 hex 只服务提案；确认后写回 <code>*Colors.scheme</code>。</li>
+      </ol>
+      <p class="note">
+        六主题 token 已写入 <code>lib/core/theme/tokens/color/theme/*.dart</code>
+        （含新增 <code>cobalt.dart</code>），并同步原型页。
+      </p>
+    </section>
+  </div>
+
+<script>
+/**
+ * status: keep | landed | review | rejected
+ * current = 源码（或已落地）现状；proposed = 待审 / 已否决稿
+ */
+const THEMES = [
+  {
+    id: "zen",
+    name: "茶禅 Zen",
+    status: "keep",
+    verdict: "范本保留。<b>不改</b>。结构：近中性暖米环境 + 清晰低彩签名色 + 稀用同暖族 clay。",
+    current: {
+      primary: "#7A9A7E", onPrimary: "#FFFFFF",
+      primaryContainer: "#E8F0E5", onPrimaryContainer: "#2D4A2A",
+      secondary: "#8A8475", tertiary: "#A0594A", onTertiary: "#FFFFFF",
+      surface: "#FBF8F1", surfaceContainerHighest: "#F4F1EA",
+      onSurface: "#2C2C2C", onSurfaceVariant: "#8A8475", outline: "#D9D5C8",
+    },
+    proposed: null,
+    dirty: [],
+  },
+  {
+    id: "purple",
+    name: "暮紫 Purple",
+    status: "landed",
+    verdict: "提案<strong>已通过并落地</strong>。旧病：棕黑底 + 暖褐灰 secondary。现网：冷炭紫 <code>#1A1822</code> + 清晰暮紫 + 稀用鎏金。",
+    before: {
+      primary: "#AB97BF", onPrimary: "#1B1722",
+      primaryContainer: "#3D2E5C", onPrimaryContainer: "#E0DAF0",
+      secondary: "#A8A394", tertiary: "#C0A873", onTertiary: "#1B1722",
+      surface: "#201F1A", surfaceContainerHighest: "#191713",
+      onSurface: "#E3E2DD", onSurfaceVariant: "#A8A499", outline: "#3F3C34",
+    },
+    current: {
+      primary: "#B9A6D6", onPrimary: "#1A1524",
+      primaryContainer: "#3A2F54", onPrimaryContainer: "#EAE3F7",
+      secondary: "#9B97AB", tertiary: "#D2BA7A", onTertiary: "#1A1520",
+      surface: "#1A1822", surfaceContainerHighest: "#13111A",
+      onSurface: "#E8E6F0", onSurfaceVariant: "#9B97AB", outline: "#3A3648",
+    },
+    proposed: null,
+    dirty: [],
+  },
+  {
+    id: "ink",
+    name: "墨白 Ink",
+    status: "landed",
+    verdict: "提案<strong>已通过并落地</strong>。暖生宣 + 清晰章印朱红；去掉冷白纸与浊赭。",
+    before: {
+      primary: "#1A1A1A", onPrimary: "#FFFFFF",
+      primaryContainer: "#E8E8E8", onPrimaryContainer: "#0D0D0D",
+      secondary: "#6E6E6E", tertiary: "#8C5A4F", onTertiary: "#FFFFFF",
+      surface: "#FAFAFA", surfaceContainerHighest: "#F0F0F0",
+      onSurface: "#1A1A1A", onSurfaceVariant: "#707070", outline: "#D0D0D0",
+    },
+    current: {
+      primary: "#1A1A1A", onPrimary: "#FFFFFF",
+      primaryContainer: "#E8E4DE", onPrimaryContainer: "#141210",
+      secondary: "#7A756E", tertiary: "#C45C4A", onTertiary: "#FFFFFF",
+      surface: "#F7F5F2", surfaceContainerHighest: "#EEEBE6",
+      onSurface: "#1A1A1A", onSurfaceVariant: "#6B6560", outline: "#DDD8D0",
+    },
+    proposed: null,
+    dirty: [],
+  },
+  {
+    id: "rose",
+    name: "粉雾 Rose",
+    status: "landed",
+    verdict: "按 <b>TUTUMIYU 参考图</b>落地：近白页 + 尘玫瑰 CTA <code>#C8828E</code> + 浅腮红卡；扔掉薄荷与脏粉托盘。",
+    before: {
+      primary: "#F49399", onPrimary: "#3A2A2D",
+      primaryContainer: "#FECBCB", onPrimaryContainer: "#4A1F24",
+      secondary: "#A69297", tertiary: "#7CA9A4", onTertiary: "#1E3A36",
+      surface: "#FFF9F9", surfaceContainerHighest: "#EDD8DC",
+      onSurface: "#3A2A2D", onSurfaceVariant: "#8A6F74", outline: "#EADEE1",
+    },
+    current: {
+      primary: "#C8828E", onPrimary: "#FFFFFF",
+      primaryContainer: "#F5E4E8", onPrimaryContainer: "#5A3038",
+      secondary: "#9A8A8E", tertiary: "#B56B78", onTertiary: "#FFFFFF",
+      surface: "#FFFCFA", surfaceContainerHighest: "#F5F0F1",
+      onSurface: "#2A2426", onSurfaceVariant: "#8A7A7E", outline: "#E8DCE0",
+    },
+    proposed: null,
+    dirty: [],
+  },
+  {
+    id: "lemon",
+    name: "柠檬 Lemon",
+    status: "landed",
+    verdict: "提案<strong>已通过并落地</strong>。黄油 + 暖石 + 低彩鼠尾草；去掉闲鱼高彩黄与蓝灰轴。",
+    before: {
+      primary: "#FFD54F", onPrimary: "#37474F",
+      primaryContainer: "#FFF9C4", onPrimaryContainer: "#37474F",
+      secondary: "#90A4AE", tertiary: "#81C784", onTertiary: "#1B5E20",
+      surface: "#FFFEF8", surfaceContainerHighest: "#FFFDE7",
+      onSurface: "#37474F", onSurfaceVariant: "#78909C", outline: "#EAE5D6",
+    },
+    current: {
+      primary: "#E4C44A", onPrimary: "#2C2A22",
+      primaryContainer: "#F3EBC8", onPrimaryContainer: "#3A3520",
+      secondary: "#8A8578", tertiary: "#6B8F71", onTertiary: "#FFFFFF",
+      surface: "#FFFEFA", surfaceContainerHighest: "#F3F0E6",
+      onSurface: "#2C2A24", onSurfaceVariant: "#7A7568", outline: "#E5E0D4",
+    },
+    proposed: null,
+    dirty: [],
+  },
+  {
+    id: "cobalt",
+    name: "宝蓝 Cobalt",
+    status: "landed",
+    verdict: "<strong>新增</strong>，对照 ID'CAKE 蓝白高对比：primary 宝蓝作品牌底/CTA，surface 纯白卡片，近单色。",
+    before: null,
+    current: {
+      primary: "#163A94", onPrimary: "#FFFFFF",
+      primaryContainer: "#D9E3F7", onPrimaryContainer: "#0C2048",
+      secondary: "#6B7A96", tertiary: "#3D5AAD", onTertiary: "#FFFFFF",
+      surface: "#FFFFFF", surfaceContainerHighest: "#EEF1F7",
+      onSurface: "#1A1A1A", onSurfaceVariant: "#5A6578", outline: "#C8D0E0",
+    },
+    proposed: null,
+    dirty: [],
+  },
+];
+
+const ROLE_ORDER = [
+  ["primary", "onPrimary"],
+  ["primaryContainer", "onPrimaryContainer"],
+  ["secondary", "tertiary"],
+  ["surface", "surfaceContainerHighest"],
+  ["onSurface", "onSurfaceVariant"],
+  ["outline", "onPrimary"],
+];
+
+function swatch(role, hex, dirtyRoles) {
+  const dirty = dirtyRoles.includes(role) ? " dirty" : "";
+  return `<div class="swatch${dirty}">
+    <div class="chip" style="background:${hex}"></div>
+    <div class="label"><strong>${role}</strong><code>${hex}</code></div>
+  </div>`;
+}
+
+function swatchGrid(palette, dirtyRoles) {
+  const roles = [
+    "primary", "onPrimary", "primaryContainer", "onPrimaryContainer",
+    "secondary", "tertiary", "surface", "surfaceContainerHighest",
+    "onSurface", "onSurfaceVariant", "outline",
+  ];
+  return `<div class="swatches">${roles.map((r) => swatch(r, palette[r], dirtyRoles)).join("")}</div>`;
+}
+
+function miniUI(p) {
+  const onTer = p.onTertiary || "#FFFFFF";
+  return `<div class="mini" style="background:${p.surfaceContainerHighest};color:${p.onSurface}">
+    <div class="row">
+      <div class="cardish" style="background:${p.surface};color:${p.onSurface}">浮卡 surface</div>
+      <div class="tray" style="background:${p.surfaceContainerHighest};color:${p.onSurfaceVariant};box-shadow:inset 0 0 0 1px ${p.outline}">托盘 highest</div>
+    </div>
+    <div class="row">
+      <button type="button" class="btn" style="background:${p.primary};color:${p.onPrimary}">主按钮</button>
+      <button type="button" class="btn sq" style="background:${p.tertiary};color:${onTer}">强调</button>
+      <span class="ghost" style="background:${p.primaryContainer};color:${p.onPrimaryContainer}">ghost</span>
+      <span style="font-size:11px;color:${p.onSurfaceVariant}">muted 字色</span>
+    </div>
+  </div>`;
+}
+
+function pane(title, palette, dirtyRoles, { prop = false, rejected = false } = {}) {
+  const cls = `pane${prop ? " prop" : ""}${rejected ? " rejected" : ""}`;
+  return `<div class="${cls}">
+    <h3>${title}</h3>
+    ${swatchGrid(palette, prop || rejected ? [] : dirtyRoles)}
+    ${miniUI(palette)}
+  </div>`;
+}
+
+function statusBadge(status) {
+  if (status === "keep") return `<span class="badge ok">范本</span>`;
+  if (status === "landed") return `<span class="badge ok">已落地</span>`;
+  if (status === "explore") return `<span class="badge wait">三选一</span>`;
+  if (status === "rejected") return `<span class="badge no">提案否决</span>`;
+  return "";
+}
+
+function metaLine(t) {
+  if (t.status === "keep") return `范本 · tokens/${t.id}.dart`;
+  if (t.status === "landed") return `已写入 tokens/${t.id}.dart`;
+  if (t.status === "explore") return `源码旧板 · 新方向待选`;
+  if (t.status === "rejected") return `源码不动 · 提案否决`;
+  return `tokens/${t.id}.dart`;
+}
+
+function rightPane(t) {
+  if (t.status === "keep") {
+    return `<div class="pane prop"><h3>决议</h3><p style="font-size:13px;color:var(--ok);line-height:1.55;margin-bottom:10px">结构正确，保持现状。</p>${miniUI(t.current)}</div>`;
+  }
+  if (t.status === "landed") {
+    return pane("现网 landed", t.current, [], { prop: true });
+  }
+  if (t.status === "rejected") {
+    return pane("否决稿（勿落地）", t.proposed, [], { rejected: true });
+  }
+  return pane("提案", t.proposed, [], { prop: true });
+}
+
+function leftPane(t) {
+  if (t.status === "landed") {
+    if (!t.before) {
+      return `<div class="pane"><h3>新增主题</h3><p style="font-size:13px;color:var(--muted);line-height:1.55">无旧版对照；右侧为现网 landed。</p>${miniUI(t.current)}</div>`;
+    }
+    return pane("对照 · 旧版 before", t.before, ["secondary", "surface", "surfaceContainerHighest"], {});
+  }
+  return pane("现状 current（源码）", t.current, t.dirty, {});
+}
+
+function roseExplore(t) {
+  const dirs = (t.directions || []).map((d) => `
+    <div class="dir" data-dir="${d.id}">
+      <h3>${d.name}</h3>
+      <p class="why">${d.why}</p>
+      ${swatchGrid(d.palette, [])}
+      ${miniUI(d.palette)}
+      <p class="pick">回复「粉雾用${d.name}」即可落地</p>
+    </div>
+  `).join("");
+  return `
+    <div class="cols" style="grid-template-columns:1fr;margin-bottom:12px">
+      ${pane("现状 current（源码旧板）", t.current, t.dirty, {})}
+    </div>
+    <div class="dirs">${dirs}</div>
+  `;
+}
+
+function render() {
+  const root = document.getElementById("themes");
+  root.innerHTML = THEMES.map((t) => `
+    <article class="theme-card" data-id="${t.id}">
+      <div class="theme-head">
+        <h2>${t.name}${statusBadge(t.status)}</h2>
+        <div class="meta">${metaLine(t)}</div>
+      </div>
+      <p class="verdict">${t.verdict}</p>
+      ${t.status === "explore"
+        ? roseExplore(t)
+        : `<div class="cols">${leftPane(t)}${rightPane(t)}</div>`}
+    </article>
+  `).join("");
+}
+
+render();
+
+document.querySelectorAll(".toolbar button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".toolbar button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+    btn.setAttribute("aria-pressed", "true");
+    const f = btn.dataset.filter;
+    document.querySelectorAll(".theme-card").forEach((card) => {
+      card.hidden = !(f === "all" || card.dataset.id === f);
+    });
+  });
+});
+</script>
+</body>
+</html>

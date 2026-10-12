@@ -78,7 +78,7 @@ description: Flutter 项目中"样式"相关工程的渐进式披露指南。当
 | --- | --- | --- | --- |
 | A | 样式方案 SOP | 动手做某种样式 / 选方案前 | [[A00-样式方案路由]] → A01–A09 |
 | B | 排障 bug 模式 | 嵌套 sheet race 等 | [[B01-嵌套sheet异步加载防race]]（单成员，无 B00） |
-| C | 原型 ↔ Flutter 契约 | HTML 对齐 / 五主题游戏表面 | [[C00-原型对齐路由]] → [[C01-游戏表面ColorScheme契约]] |
+| C | 原型 ↔ Flutter 契约 | HTML 对齐 / 六主题游戏表面 | [[C00-原型对齐路由]] → [[C01-游戏表面ColorScheme契约]] |
 
 ---
 
@@ -98,7 +98,7 @@ description: Flutter 项目中"样式"相关工程的渐进式披露指南。当
 | A09 | [[A09-大厅与房间就绪]] | 象棋大厅入口 / 房间就绪 / 匹配转场 |
 | B01 | [[B01-嵌套sheet异步加载防race]] | 嵌套 ModalBottomSheet 异步 race |
 | C00 | [[C00-原型对齐路由]] | 从 `docs/prototypes` 选对照方案时 |
-| C01 | [[C01-游戏表面ColorScheme契约]] | 五主题游戏表面禁写死 hex |
+| C01 | [[C01-游戏表面ColorScheme契约]] | 六主题游戏表面禁写死 hex |
 
 > 新方案：在 `references/` 建 `<代号>-<slug>.md`（A 从 A10、B 从 B02、C 从 C02），结构为**一、实现思路** + **二、踩坑总结**，并在上表与对应 `*00` 路由表登记。方案文件 ≤ 200 行。
 

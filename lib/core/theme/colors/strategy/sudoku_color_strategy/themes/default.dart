@@ -3,7 +3,7 @@
 // 8 角色全部用 scheme 派生方法（SudokuColors.*From(scheme)），跟主题走。
 // 同一 scheme 调用 .of() 多次返回同一实例（scheme 相等缓存去重）。
 //
-// 5 主题（zen/purple/ink/rose/lemon）切换时，scheme 变了会重新派生，
+// 6 主题（zen/purple/ink/rose/lemon/cobalt）切换时，scheme 变了会重新派生，
 // 因此本类天然支持"全主题覆盖"而无需 per-theme 文件 —— 与 chess 行为一致。
 
 import 'package:flutter/material.dart';

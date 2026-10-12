@@ -61,7 +61,7 @@ class SudokuColors {
 
   // ─── scheme 派生（跟主题）───────────────────────────────
   //
-  // 设计目标：5 主题（zen/purple/ink/rose/lemon）切换时，
+  // 设计目标：6 主题（zen/purple/ink/rose/lemon/cobalt）切换时，
   // 数独棋盘三态格语义、错误警示、选中高亮始终保持，
   // 具体颜色暖度跟随环境色温。
 

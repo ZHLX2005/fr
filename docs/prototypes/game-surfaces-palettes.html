@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,500&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   /*
-   * 色值直接来自 lib/core/theme/tokens/color/theme/{zen,purple,ink,rose,lemon}.dart
+   * 色值直接来自 lib/core/theme/tokens/color/theme/{zen,purple,ink,rose,lemon,cobalt}.dart
    * 映射：primary / onPrimary / primaryContainer / tertiary / surface /
    *       surfaceContainerHighest / onSurface / onSurfaceVariant / outline
    *
@@ -44,22 +44,22 @@
 
   [data-palette="purple"] {
     --brightness: dark;
-    --primary: #AB97BF;
-    --on-primary: #1B1722;
-    --primary-container: #3D2E5C;
-    --on-primary-container: #E0DAF0;
-    --secondary: #A8A394;
-    --tertiary: #C0A873;
-    --on-tertiary: #1B1722;
-    --tertiary-container: #CBB88C;
-    --surface: #201F1A;
-    --on-surface: #E3E2DD;
-    --on-surface-variant: #A8A499;
-    --surface-highest: #191713;
-    --outline: #3F3C34;
-    --error: #C99DBA;
+    --primary: #B9A6D6;
+    --on-primary: #1A1524;
+    --primary-container: #3A2F54;
+    --on-primary-container: #EAE3F7;
+    --secondary: #9B97AB;
+    --tertiary: #D2BA7A;
+    --on-tertiary: #1A1520;
+    --tertiary-container: #3F3520;
+    --surface: #1A1822;
+    --on-surface: #E8E6F0;
+    --on-surface-variant: #9B97AB;
+    --surface-highest: #13111A;
+    --outline: #3A3648;
+    --error: #E090B0;
     --label: "暮紫 Purple";
-    --pitch: "暗色主题：暮紫主色 ↔ 鎏金 tertiary。适合夜间 / 房间等待；CTA 文字用 onPrimary 深色。";
+    --pitch: "冷炭紫底 + 清晰暮紫主色 + 稀用鎏金。CTA 文字用 onPrimary 深色；勿再掺棕黑/暖褐灰。";
     --cover-1: linear-gradient(145deg, #6a5a80 0%, #2e2440 55%, #141018 100%);
     --cover-2: linear-gradient(145deg, #8a7350 0%, #3a3020 60%, #16120c 100%);
     --cover-3: linear-gradient(145deg, #5a5a68 0%, #2a2a34 55%, #121218 100%);
@@ -70,72 +70,96 @@
     --brightness: light;
     --primary: #1A1A1A;
     --on-primary: #FFFFFF;
-    --primary-container: #E8E8E8;
-    --on-primary-container: #0D0D0D;
-    --secondary: #6E6E6E;
-    --tertiary: #8C5A4F;
+    --primary-container: #E8E4DE;
+    --on-primary-container: #141210;
+    --secondary: #7A756E;
+    --tertiary: #C45C4A;
     --on-tertiary: #FFFFFF;
-    --tertiary-container: #E5D2CB;
-    --surface: #FAFAFA;
+    --tertiary-container: #F0D8D2;
+    --surface: #F7F5F2;
     --on-surface: #1A1A1A;
-    --on-surface-variant: #707070;
-    --surface-highest: #F0F0F0;
-    --outline: #D0D0D0;
+    --on-surface-variant: #6B6560;
+    --surface-highest: #EEEBE6;
+    --outline: #DDD8D0;
     --error: #B04650;
     --label: "墨白 Ink";
-    --pitch: "墨黑主色 + 纯纸白底 + 墨赭 tertiary。极简纸墨感；主按钮近黑，强调靠章印赭。";
+    --pitch: "墨黑 + 暖生宣纸 + 清晰章印朱红。主按钮近黑；强调靠朱红 tertiary，勿用浊赭/冷白纸。";
     --cover-1: linear-gradient(145deg, #3a3a3a 0%, #1a1a1a 55%, #0a0a0a 100%);
-    --cover-2: linear-gradient(145deg, #6a4a42 0%, #3a2824 60%, #181010 100%);
+    --cover-2: linear-gradient(145deg, #8a4a40 0%, #4a2824 60%, #181010 100%);
     --cover-3: linear-gradient(145deg, #505050 0%, #282828 55%, #101010 100%);
     --cover-4: linear-gradient(145deg, #7a5a50 0%, #3a2a24 55%, #14100c 100%);
   }
 
   [data-palette="rose"] {
     --brightness: light;
-    --primary: #F49399;
-    --on-primary: #3A2A2D;
-    --primary-container: #FECBCB;
-    --on-primary-container: #4A1F24;
-    --secondary: #A69297;
-    --tertiary: #7CA9A4;
-    --on-tertiary: #1E3A36;
-    --tertiary-container: #D8E9E5;
-    --surface: #FFF9F9;
-    --on-surface: #3A2A2D;
-    --on-surface-variant: #8A6F74;
-    --surface-highest: #EDD8DC;
-    --outline: #EADEE1;
+    --primary: #C8828E;
+    --on-primary: #FFFFFF;
+    --primary-container: #F5E4E8;
+    --on-primary-container: #5A3038;
+    --secondary: #9A8A8E;
+    --tertiary: #B56B78;
+    --on-tertiary: #FFFFFF;
+    --tertiary-container: #F0D4DA;
+    --surface: #FFFCFA;
+    --on-surface: #2A2426;
+    --on-surface-variant: #8A7A7E;
+    --surface-highest: #F5F0F1;
+    --outline: #E8DCE0;
     --error: #B04650;
-    --label: "粉雾海盐 Rose";
-    --pitch: "粉主色 + 海盐薄荷 tertiary。主 CTA 用粉，文字走 onPrimary 深褐；收藏可用薄荷。";
+    --label: "粉雾 Rose";
+    --pitch: "TUTUMIYU 式干净粉：页面近白，尘玫瑰只做 CTA/点缀；浅腮红做信息卡。无薄荷、无脏粉托盘。";
     --cover-1: linear-gradient(145deg, #c87880 0%, #7a4048 55%, #3a2024 100%);
-    --cover-2: linear-gradient(145deg, #6a9a94 0%, #3a5a56 60%, #1a2a28 100%);
+    --cover-2: linear-gradient(145deg, #d4a0a8 0%, #8a5860 60%, #3a2428 100%);
     --cover-3: linear-gradient(145deg, #a08088 0%, #5a4048 55%, #2a1c20 100%);
     --cover-4: linear-gradient(145deg, #d09070 0%, #7a4a38 55%, #3a2418 100%);
   }
 
   [data-palette="lemon"] {
     --brightness: light;
-    --primary: #FFD54F;
-    --on-primary: #37474F;
-    --primary-container: #FFF9C4;
-    --on-primary-container: #37474F;
-    --secondary: #90A4AE;
-    --tertiary: #81C784;
-    --on-tertiary: #1B5E20;
-    --tertiary-container: #E8F5E9;
-    --surface: #FFFEF8;
-    --on-surface: #37474F;
-    --on-surface-variant: #78909C;
-    --surface-highest: #FFFDE7;
-    --outline: #EAE5D6;
-    --error: #E57373;
+    --primary: #E4C44A;
+    --on-primary: #2C2A22;
+    --primary-container: #F3EBC8;
+    --on-primary-container: #3A3520;
+    --secondary: #8A8578;
+    --tertiary: #6B8F71;
+    --on-tertiary: #FFFFFF;
+    --tertiary-container: #D8E6DA;
+    --surface: #FFFEFA;
+    --on-surface: #2C2A24;
+    --on-surface-variant: #7A7568;
+    --surface-highest: #F3F0E6;
+    --outline: #E5E0D4;
+    --error: #C45C4A;
     --label: "柠檬鼠尾草 Lemon";
-    --pitch: "闲鱼风亮柠檬黄 + 鼠尾草绿 tertiary。主 CTA 黄底深字；绿只作互补强调，勿当主按钮。";
+    --pitch: "黄油主色 + 暖石中性 + 低彩鼠尾草稀强调。主 CTA 黄油底深暖字；绿勿当主按钮、托盘勿尿黄。";
     --cover-1: linear-gradient(145deg, #c8a830 0%, #6a5a18 55%, #2a2410 100%);
-    --cover-2: linear-gradient(145deg, #5a9a60 0%, #2a5a30 60%, #142818 100%);
-    --cover-3: linear-gradient(145deg, #6a8a96 0%, #3a5058 55%, #1a282c 100%);
+    --cover-2: linear-gradient(145deg, #4a7a52 0%, #2a4a30 60%, #142818 100%);
+    --cover-3: linear-gradient(145deg, #6a6558 0%, #3a3830 55%, #1a1814 100%);
     --cover-4: linear-gradient(145deg, #c87840 0%, #6a4020 55%, #2a180c 100%);
+  }
+
+  [data-palette="cobalt"] {
+    --brightness: light;
+    --primary: #163A94;
+    --on-primary: #FFFFFF;
+    --primary-container: #D9E3F7;
+    --on-primary-container: #0C2048;
+    --secondary: #6B7A96;
+    --tertiary: #3D5AAD;
+    --on-tertiary: #FFFFFF;
+    --tertiary-container: #D0DAF2;
+    --surface: #FFFFFF;
+    --on-surface: #1A1A1A;
+    --on-surface-variant: #5A6578;
+    --surface-highest: #EEF1F7;
+    --outline: #C8D0E0;
+    --error: #B04650;
+    --label: "宝蓝 Cobalt";
+    --pitch: "ID'CAKE 式宝蓝 + 纯白高对比。主 CTA / 品牌底走 primary；卡片 surface 纯白；近单色，勿掺第二强调色。";
+    --cover-1: linear-gradient(145deg, #2a4aaa 0%, #142860 55%, #0a1430 100%);
+    --cover-2: linear-gradient(145deg, #4a6bb8 0%, #243868 60%, #101828 100%);
+    --cover-3: linear-gradient(145deg, #5a6578 0%, #2a3040 55%, #12161e 100%);
+    --cover-4: linear-gradient(145deg, #3d5aad 0%, #1e3060 55%, #0e1830 100%);
   }
 
   /* aliases used by UI */
@@ -155,7 +179,7 @@
     --shadow-lift: 0 10px 30px color-mix(in srgb, var(--on-surface) 14%, transparent);
   }
   [data-palette="purple"] {
-    --bg-deep: #12110e;
+    --bg-deep: #0e0c14;
     --shadow: 0 2px 8px rgba(0,0,0,0.35), 0 16px 40px rgba(0,0,0,0.45);
     --shadow-lift: 0 12px 40px rgba(0,0,0,0.55);
     --accent-soft: color-mix(in srgb, var(--tertiary) 22%, transparent);
@@ -780,8 +804,8 @@
       <div>
         <h1>全主题配色 · 游戏表面</h1>
         <p class="sub">
-          对齐 <code>AppThemeMode</code> 五套主题：
-          <strong>茶禅 / 暮紫 / 墨白 / 粉雾海盐 / 柠檬鼠尾草</strong>。
+          对齐 <code>AppThemeMode</code> 六套主题：
+          <strong>茶禅 / 暮紫 / 墨白 / 粉雾 / 柠檬 / 宝蓝</strong>。
           色值取自 <code>lib/core/theme/tokens/color/theme/*.dart</code>，
           切主题看游戏中心、房间就绪、大厅入口在各主题下的观感。
         </p>
@@ -799,9 +823,9 @@
           </button>
           <button class="pal-btn" data-set="purple" aria-pressed="false">
             <span class="swatches">
-              <i style="background:#AB97BF"></i>
-              <i style="background:#C0A873"></i>
-              <i style="background:#191713"></i>
+              <i style="background:#B9A6D6"></i>
+              <i style="background:#D2BA7A"></i>
+              <i style="background:#13111A"></i>
             </span>
             <div class="name">暮紫 Purple</div>
             <div class="hint">暗色 · dark</div>
@@ -809,29 +833,38 @@
           <button class="pal-btn" data-set="ink" aria-pressed="false">
             <span class="swatches">
               <i style="background:#1A1A1A"></i>
-              <i style="background:#8C5A4F"></i>
-              <i style="background:#F0F0F0"></i>
+              <i style="background:#C45C4A"></i>
+              <i style="background:#EEEBE6"></i>
             </span>
             <div class="name">墨白 Ink</div>
             <div class="hint">纸墨 · light</div>
           </button>
           <button class="pal-btn" data-set="rose" aria-pressed="false">
             <span class="swatches">
-              <i style="background:#F49399"></i>
-              <i style="background:#7CA9A4"></i>
-              <i style="background:#EDD8DC"></i>
+              <i style="background:#C8828E"></i>
+              <i style="background:#B56B78"></i>
+              <i style="background:#F5F0F1"></i>
             </span>
-            <div class="name">粉雾海盐 Rose</div>
-            <div class="hint">粉 + 薄荷 · light</div>
+            <div class="name">粉雾 Rose</div>
+            <div class="hint">近白 + 尘玫瑰 · light</div>
           </button>
           <button class="pal-btn" data-set="lemon" aria-pressed="false">
             <span class="swatches">
-              <i style="background:#FFD54F"></i>
-              <i style="background:#81C784"></i>
-              <i style="background:#FFFDE7"></i>
+              <i style="background:#E4C44A"></i>
+              <i style="background:#6B8F71"></i>
+              <i style="background:#F3F0E6"></i>
             </span>
             <div class="name">柠檬鼠尾草 Lemon</div>
             <div class="hint">黄 + 绿 · light</div>
+          </button>
+          <button class="pal-btn" data-set="cobalt" aria-pressed="false">
+            <span class="swatches">
+              <i style="background:#163A94"></i>
+              <i style="background:#3D5AAD"></i>
+              <i style="background:#FFFFFF"></i>
+            </span>
+            <div class="name">宝蓝 Cobalt</div>
+            <div class="hint">蓝 + 白 · light</div>
           </button>
         </div>
         <div class="token-strip" id="tokens" aria-hidden="false"></div>
@@ -870,7 +903,7 @@
     </section>
 
     <section class="compare">
-      <h3>五主题速查</h3>
+      <h3>六主题速查</h3>
       <table>
         <tr>
           <th>Zen</th>
@@ -882,24 +915,28 @@
         </tr>
         <tr>
           <th>Ink</th>
-          <td>近黑 CTA + 纸白底；墨赭 tertiary 作章印强调。</td>
+          <td>近黑 CTA + 纸白底；章印朱红 tertiary。</td>
         </tr>
         <tr>
           <th>Rose</th>
-          <td>粉 CTA（深字）+ 海盐薄荷 tertiary；表面偏粉雾。</td>
+          <td>近白页 + 尘玫瑰 CTA；浅腮红卡，无薄荷。</td>
         </tr>
         <tr>
           <th>Lemon</th>
-          <td>亮黄 CTA（深字）+ 鼠尾草绿 tertiary；最跳、最「闲鱼」。</td>
+          <td>黄油 CTA（深字）+ 低彩鼠尾草 tertiary。</td>
+        </tr>
+        <tr>
+          <th>Cobalt</th>
+          <td>ID'CAKE 式宝蓝 + 纯白；主 CTA / 品牌底走 primary，近单色。</td>
         </tr>
         <tr>
           <th>落地约束</th>
-          <td>游戏表面必须吃 <code>ColorScheme</code>，不要写死 sage/clay；Lemon/Rose/Purple 的 onPrimary 不是白，按钮文字跟 token。</td>
+          <td>游戏表面必须吃 <code>ColorScheme</code>，不要写死 sage/clay；Lemon/Purple 的 onPrimary 不是白，按钮文字跟 token。</td>
         </tr>
       </table>
       <p class="note">
         文件：<code>docs/prototypes/game-surfaces-palettes.html</code> ·
-        源：<code>zen.dart / purple.dart / ink.dart / rose.dart / lemon.dart</code>
+        源：<code>zen.dart / purple.dart / ink.dart / rose.dart / lemon.dart / cobalt.dart</code>
       </p>
     </section>
   </div>
@@ -1107,46 +1144,57 @@
     },
     purple: {
       label: "暮紫 Purple",
-      text: "暗色主题：暮紫主色 ↔ 鎏金 tertiary。适合夜间 / 房间等待；CTA 文字用 onPrimary 深色。",
+      text: "冷炭紫底 + 清晰暮紫主色 + 稀用鎏金。CTA 文字用 onPrimary 深色；勿再掺棕黑/暖褐灰。",
       tokens: [
-        ["primary", "#AB97BF"],
-        ["onPrimary", "#1B1722"],
-        ["tertiary", "#C0A873"],
-        ["surface", "#201F1A"],
-        ["surfaceHighest", "#191713"],
+        ["primary", "#B9A6D6"],
+        ["onPrimary", "#1A1524"],
+        ["tertiary", "#D2BA7A"],
+        ["surface", "#1A1822"],
+        ["surfaceHighest", "#13111A"],
       ],
     },
     ink: {
       label: "墨白 Ink",
-      text: "墨黑主色 + 纯纸白底 + 墨赭 tertiary。极简纸墨感；主按钮近黑，强调靠章印赭。",
+      text: "墨黑 + 暖生宣纸 + 清晰章印朱红。主按钮近黑；强调靠朱红 tertiary。",
       tokens: [
         ["primary", "#1A1A1A"],
         ["onPrimary", "#FFFFFF"],
-        ["tertiary", "#8C5A4F"],
-        ["surface", "#FAFAFA"],
-        ["surfaceHighest", "#F0F0F0"],
+        ["tertiary", "#C45C4A"],
+        ["surface", "#F7F5F2"],
+        ["surfaceHighest", "#EEEBE6"],
       ],
     },
     rose: {
-      label: "粉雾海盐 Rose",
-      text: "粉主色 + 海盐薄荷 tertiary。主 CTA 用粉，文字走 onPrimary 深褐；收藏可用薄荷。",
+      label: "粉雾 Rose",
+      text: "TUTUMIYU 式干净粉：页面近白，尘玫瑰只做 CTA/点缀；浅腮红做信息卡。无薄荷、无脏粉托盘。",
       tokens: [
-        ["primary", "#F49399"],
-        ["onPrimary", "#3A2A2D"],
-        ["tertiary", "#7CA9A4"],
-        ["surface", "#FFF9F9"],
-        ["surfaceHighest", "#EDD8DC"],
+        ["primary", "#C8828E"],
+        ["onPrimary", "#FFFFFF"],
+        ["tertiary", "#B56B78"],
+        ["surface", "#FFFCFA"],
+        ["surfaceHighest", "#F5F0F1"],
       ],
     },
     lemon: {
       label: "柠檬鼠尾草 Lemon",
-      text: "闲鱼风亮柠檬黄 + 鼠尾草绿 tertiary。主 CTA 黄底深字；绿只作互补强调，勿当主按钮。",
+      text: "黄油主色 + 暖石中性 + 低彩鼠尾草稀强调。主 CTA 黄油底深暖字。",
       tokens: [
-        ["primary", "#FFD54F"],
-        ["onPrimary", "#37474F"],
-        ["tertiary", "#81C784"],
-        ["surface", "#FFFEF8"],
-        ["surfaceHighest", "#FFFDE7"],
+        ["primary", "#E4C44A"],
+        ["onPrimary", "#2C2A22"],
+        ["tertiary", "#6B8F71"],
+        ["surface", "#FFFEFA"],
+        ["surfaceHighest", "#F3F0E6"],
+      ],
+    },
+    cobalt: {
+      label: "宝蓝 Cobalt",
+      text: "ID'CAKE 式宝蓝 + 纯白高对比。主 CTA / 品牌底走 primary；卡片 surface 纯白。",
+      tokens: [
+        ["primary", "#163A94"],
+        ["onPrimary", "#FFFFFF"],
+        ["tertiary", "#3D5AAD"],
+        ["surface", "#FFFFFF"],
+        ["surfaceHighest", "#EEF1F7"],
       ],
     },
   };

@@ -213,7 +213,7 @@ flutter analyze --no-pub        # 0 error
 flutter build apk --debug        # √ Built
 ```
 
-- 切到 zen / purple / ink / rose / lemon 五主题各审关键页一次（壳层、卡片、board 棋盘、game 色板）。
+- 切到 zen / purple / ink / rose / lemon / cobalt 六主题各审关键页一次（壳层、卡片、board 棋盘、game 色板）。
 - **特例页面**（tetris / team_card）跨主题审一次：切主题后该不动的角色必须不变。
 - 新增枚举 / 扩角色后，确认无遗漏 switch 分支（`getThemeData` / `materialThemeModeProvider` / displayName / icon）。
 - strategy 扩展后跑一次测试或至少 analyze，确认 `==`/`hashCode` 改动不崩。

@@ -1,13 +1,13 @@
-// 应用主题工厂（zen / purple / ink / rose / lemon 主题入口）。
+// 应用主题工厂（zen / purple / ink / rose / lemon / cobalt 主题入口）。
 //
 // 设计：v6.1「主色不动 · 环境染互补色温」——
 //   所有颜色统一从 ColorScheme 派生（theme.component/ 单数据源）。
-//   · 5 套 ColorScheme 在 tokens/color/theme/<mode>.dart 集中维护
-//   · 切主题 = 换 scheme 实例；strategy 层零主题感知（5 个 strategy 实现单一 default）
+//   · 6 套 ColorScheme 在 tokens/color/theme/<mode>.dart 集中维护
+//   · 切主题 = 换 scheme 实例；strategy 层零主题感知（strategy 实现单一 default）
 //
 // 依赖层级：
-//   tokens/         raw 原子色 + 5 套主题调色板 + 各用途色板
-//   colors/strategy/  6 个 strategy 默认派生规则
+//   tokens/         raw 原子色 + 6 套主题调色板 + 各用途色板
+//   colors/strategy/  strategy 默认派生规则
 //   extensions/     ThemeExtension 注入器
 //   component/      全局组件主题 + 家族/域专属子目录
 //   text_theme.dart AppTextThemes（与 ColorScheme 平级）
@@ -29,6 +29,7 @@ import 'tokens/color/theme/purple.dart' as purple_t;
 import 'tokens/color/theme/ink.dart' as ink_t;
 import 'tokens/color/theme/rose.dart' as rose_t;
 import 'tokens/color/theme/lemon.dart' as lemon_t;
+import 'tokens/color/theme/cobalt.dart' as cobalt_t;
 
 export 'colors/theme_mode.dart' show AppThemeMode;
 export 'tokens/colors.dart' show AppColorsExtension;
@@ -45,8 +46,9 @@ class AppTheme {
       AppThemeMode.purple => '暮紫主题',
       AppThemeMode.zen => '茶禅主题',
       AppThemeMode.ink => '墨白主题',
-      AppThemeMode.rose => '粉雾海盐主题',
+      AppThemeMode.rose => '粉雾主题',
       AppThemeMode.lemon => '柠檬鼠尾草主题',
+      AppThemeMode.cobalt => '宝蓝主题',
     };
   }
 
@@ -58,6 +60,7 @@ class AppTheme {
       AppThemeMode.ink => Icons.brush_outlined,
       AppThemeMode.rose => Icons.favorite,
       AppThemeMode.lemon => Icons.eco,
+      AppThemeMode.cobalt => Icons.water_drop_outlined,
     };
   }
 
@@ -88,6 +91,11 @@ class AppTheme {
       AppThemeMode.lemon => _buildTheme(
           scheme: lemon_t.LemonColors.scheme,
           ext: lemon_t.LemonColors.appColors,
+          cardShadow: Color(0x14000000),
+        ),
+      AppThemeMode.cobalt => _buildTheme(
+          scheme: cobalt_t.CobaltColors.scheme,
+          ext: cobalt_t.CobaltColors.appColors,
           cardShadow: Color(0x14000000),
         ),
     };

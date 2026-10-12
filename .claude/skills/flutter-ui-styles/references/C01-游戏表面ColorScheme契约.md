@@ -1,8 +1,8 @@
 # C01 · 游戏表面 ColorScheme 契约
 
-> 何时读：改游戏中心 / 房间就绪 / 大厅入口，且要跟 `AppThemeMode`（zen/purple/ink/rose/lemon）切换；或对照 `docs/prototypes/game-surfaces-palettes.html`。
+> 何时读：改游戏中心 / 房间就绪 / 大厅入口，且要跟 `AppThemeMode`（zen/purple/ink/rose/lemon/cobalt）切换；或对照 `docs/prototypes/game-surfaces-palettes.html`。
 >
-> 色值真相：`lib/core/theme/tokens/color/theme/{zen,purple,ink,rose,lemon}.dart`。主题机制见 `flutter-ui-theme-architecture`。
+> 色值真相：`lib/core/theme/tokens/color/theme/{zen,purple,ink,rose,lemon,cobalt}.dart`。主题机制见 `flutter-ui-theme-architecture`。
 
 ## 一、实现思路
 
@@ -13,7 +13,7 @@
 | 铬件颜色只来自 `Theme.of(context).colorScheme` / `context.colors` | 在游戏表面硬编码 sage `#7A9A7E` / clay `#A0594A` |
 | CTA 文字用 `onPrimary` / `onTertiary` | 假定 `onPrimary == white`（lemon/purple 为深色字） |
 | 收藏 / 警告点缀走 `tertiary` | 把 lemon 的绿味 tertiary 当主 CTA 底 |
-| 封面渐变用主题 cover token 或 slug 识别色表 | 五主题共用一套写死的深绿封面 |
+| 封面渐变用主题 cover token 或 slug 识别色表 | 六主题共用一套写死的深绿封面 |
 
 ### 角色速查（与原型 CSS 变量对齐）
 

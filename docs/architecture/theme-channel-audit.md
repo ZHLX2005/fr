@@ -2,20 +2,21 @@
 
 > 审计范围：`lib/**/*.dart`  
 > 审计日期：2026-06-16  
-> 更新：2026-09-21 补 `rose` / `lemon` 两套主题（原记录仅 3 套）、修正 `AppColorsExtension` 入口路径、登记 `ReactionPalette` 信号灯色豁免。
+> 更新：2026-09-21 补 `rose` / `lemon`；2026-10-12 补 `cobalt`（ID'CAKE 蓝白）。修正 `AppColorsExtension` 入口路径、登记 `ReactionPalette` 信号灯色豁免。
 > 审计目标：确认当前主题种类、主题通道覆盖情况，以及切换主题后仍保留固定颜色的具体组件。
 
 ## 1. 结论摘要
 
-当前全局提供 5 套主题：
+当前全局提供 6 套主题：
 
 | 模式 | 显示名称 | 明暗 | 视觉方向 |
 | --- | --- | --- | --- |
 | `AppThemeMode.purple` | 暮紫主题 | 深色 | 暮紫主色 + 鎏金暖黑环境 |
 | `AppThemeMode.zen` | 茶禅主题 | 浅色 | Sage 绿 + 暖米环境 + 陶土红强调 |
 | `AppThemeMode.ink` | 墨白主题 | 浅色 | 墨黑 + 纸白 + 墨赭强调 |
-| `AppThemeMode.rose` | 粉雾海盐主题 | 浅色 | 雾粉主色 + 灰青强调 |
-| `AppThemeMode.lemon` | 柠檬鼠尾草主题 | 浅色 | 柠檬黄主色 + 鼠尾草绿强调 |
+| `AppThemeMode.rose` | 粉雾主题 | 浅色 | 近白页 + 尘玫瑰 CTA |
+| `AppThemeMode.lemon` | 柠檬鼠尾草主题 | 浅色 | 黄油主色 + 低彩鼠尾草 |
+| `AppThemeMode.cobalt` | 宝蓝主题 | 浅色 | 宝蓝 + 纯白高对比（ID'CAKE） |
 
 主题入口与状态链路：
 
@@ -121,7 +122,7 @@ ThemeNotifier
 ### 3.3 `AppColorsExtension`
 
 入口：`lib/core/theme/tokens/color/app_colors_extension.dart`
-（5 套主题各持一份 const 实例，定义在 `lib/core/theme/tokens/color/theme/<theme>.dart`）
+（6 套主题各持一份 const 实例，定义在 `lib/core/theme/tokens/color/theme/<theme>.dart`）
 
 用于：
 
@@ -593,7 +594,7 @@ bone/muscle/joint/organ 色板属于数据语义，默认豁免；禁止把页�
 | 柠檬鼠尾草 lemon | ready(primary) 是柠檬黄，绿语义丢失 | 语义弱化 |
 | 茶禅 zen | primary 恰为灰绿，仅属巧合可用 | 巧合可用 |
 
-守卫测试：`test/lab/demos/reaction_test_demo_test.dart`（5 套主题 × 4 相位 + 对比度 ≥4.5:1）。
+守卫测试：`test/lab/demos/reaction_test_demo_test.dart`（主题 × 4 相位 + 对比度 ≥4.5:1）。
 
 ## 5. 整改优先级
 

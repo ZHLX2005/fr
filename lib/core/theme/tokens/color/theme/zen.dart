@@ -1,4 +1,4 @@
-// Layer 1 — Zen 主题调色板变量（5 套 ColorScheme + 5 套 AppColorsExtension）。
+// Layer 1 — Zen 主题调色板变量。
 //
 // 主题色全部集中在此 hex 文件，strategy/themes/zen.dart 引用 ZenColors.scheme/scheme 即可。
 

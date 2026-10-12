@@ -1,6 +1,6 @@
 // Layer 1 — AppColorsExtension 抽象（13 状态色 + 8 分类色板）。
 //
-// 5 套主题调色板（zen/purple/ink/rose/lemon）各持有一份 AppColorsExtension const 实例，
+// 6 套主题调色板（zen/purple/ink/rose/lemon/cobalt）各持有一份 AppColorsExtension const 实例，
 // 放在 tokens/color/theme/<theme>.dart 里。
 //
 // 与 ColorScheme 的区别：
