@@ -1,27 +1,36 @@
 ---
 name: flutter-work-flow
-description: flutter的开发操作流程,在dart-flutter任何问题都需要优先加载这个SKILL
+description: flutter的开发操作流程,在dart-flutter任何问题都需要优先加载这个SKILL（含 fr:// 路由/Lab 容器/时间页/游戏中心/API 模块/Hive 存储/课表/WebRTC 等扩展 SOP 与问题方案）
 ---
 `<doc-reference>`
-references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模块前读） B=问题与方案（遇到 bug / 做方案选择时读）
+references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模块前读） B=问题与方案（遇到 bug / 做方案选择时读） C=专项子系统深水区（带子 ref 的领域专用指南）
 ├── A01-Flutter-fr路由-注册规范与防腐蚀.md   # fr:// 日常使用：新页面注册SOP + 防腐蚀grep检测 + 反模式（加新页面/写跳转时读）
 ├── A02-Flutter-自定义Scheme路由中心化-fr-Router.md   # fr:// 路由机制：authority/path 拆分 + prefix 匹配 + handler 模式（理解系统/重构时读）
 ├── A03-Flutter-Lab容器-模块结构与重构模式.md   # lab/ 目录地图（lab_panel/demo_grid/game_center）+ ValueNotifier 双通道 + 手势收敛 + part→import 拆法
 ├── A04-Flutter-TimePage-Focus时间模块完整指南.md   # 整 time 模块单一长 ref：架构 + 加新工作流 / 改面板 / 统计与心流扩展 / Lab 过滤+深链 4 章（time 主题同源不拆文件）
 ├── A05-Flutter-游戏中心-扩展游戏路线.md   # 加新游戏/新分类/新封面图案的扩展点地图 + SOP（数据流/封面三级来源/真坑）
 ├── A06-Flutter-Demo-slug别名与Tab合并SOP.md   # demo 别名注册（旧 fr:// URL 兼容）+ 多 demo 合并 Tab 容器 SOP
+├── A07-Flutter-API模块规范-目录即后端与拦截器链.md   # lib/api/ 模块规范：目录=后端 + 深目录轻文件 + 拦截器链 + 5 条异味检测命令（含 Notion 3 步上传）
+├── A08-Flutter-Hive存储工作流-调试与最佳实践.md   # typed box 泛型访问 / 调试步骤 / 删除 key 类型处理 / StorageManager 集中面板（box 读写/删除/类型报错时读）
+├── A09-Flutter-Hive-存储面板BoxDescriptor注册制.md   # BoxDescriptor / StorageRegistry / StorageManager 原理 + 手写 TypeAdapter + 新 feature 4 步（设计面板存储时读）
+├── A10-Flutter-Hive-新模块存储Checklist.md   # 5 铁律（meta 集中/formatter 独立/typeId 常量）+ Step1-7 范本 + 仓库层统一（建带 Hive 模块时读）
 ├── B01-Flutter-Provider双重实例冲突-时钟wipe后数据恢复.md   # 根级/页面级双 Provider 各写同一 SP，wipe 后被旧实例定时快照回写
 ├── B02-Flutter-Hive-TypeAdapter-part文件CI构建失败问题.md   # Hive part文件CI构建连续失败3次,通过合并Adapter到主文件解决
 ├── B03-Android-FloatingWindow-常驻截屏模式适配Android14+.md   # Android 14+ MediaProjection token 一次性问题，常驻 VirtualDisplay 方案
-└── B04-Flutter-CollapsingHeader圆角渐变头部与白色内容区布局.md   # CustomScrollView + SliverPersistentHeader 实现圆角渐变头部，关键：pinned:false，只用gradient不用color
+├── B04-Flutter-CollapsingHeader圆角渐变头部与白色内容区布局.md   # CustomScrollView + SliverPersistentHeader 实现圆角渐变头部，关键：pinned:false，只用gradient不用color
+├── C01-Flutter-TimeTable课表模块-架构与扩展指南.md   # lib/core/timetable/ 模块地图 + E1-E4 扩展 SOP + 12 条关键机制勿破坏表（改课表任何文件时读）
+├── C02-WebRTC-视频通话基础设施与结构设计.md   # 信令→媒体→DataChannel→移动端 7 步架构指南 + 错误案例（实现 WebRTC 视频通话/P2P 时读）
+├── C03-Flutter-TimeTable-追剧模式专项.md   # 剧模型 SSOT / buildAnimeDsl / AnimeSourceAdapter 适配层 / 排期编辑页（扩展追剧模式时读）
+└── C04-Flutter-TimeTable-追剧后端API契约.md   # 自建新番后端 /api/v1/anime/season 唯一契约（联调/改契约字段时读）
 `</doc-reference>`
 
 ## 序列总览（先读这里）
 
 | 代号 | 类别 | 何时读该序列 | 成员 |
 | --- | --- | --- | --- |
-| A | 扩展 SOP | 动手扩展一个模块前（成本 / 范围 / 流程） | A01 fr路由注册 / A02 fr路由机制 / A03 Lab容器 / A04 TimePage / A05 游戏中心 / A06 Demo-slug别名 |
+| A | 扩展 SOP | 动手扩展一个模块前（成本 / 范围 / 流程） | A01 fr路由注册 / A02 fr路由机制 / A03 Lab容器 / A04 TimePage / A05 游戏中心 / A06 Demo-slug别名 / A07 API模块 / A08 Hive存储工作流 / A09 存储面板注册制 / A10 存储Checklist |
 | B | 问题与方案 | 遇到具体 bug / 做细节方案选择时单独读 | B01 Provider双实例 / B02 Hive CI坑 / B03 FloatingWindow适配 / B04 CollapsingHeader |
+| C | 专项子系统 | 进入课表 / WebRTC 等独立子系统深水区时（子系统主干 + 特化子 ref） | C01 课表模块 / C02 WebRTC / C03 追剧专项 / C04 追剧API契约 |
 
 ## 何时读哪个 ref
 
@@ -33,10 +42,18 @@ references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模�
 | A04 | Flutter-TimePage-Focus时间模块完整指南 | **改中间 Time tab 任何文件 / 改 timePage 标记 / kTimePageMeta / 心流空间 / Lab timePage 过滤 / 桌面 widget 深链时**（整 time 模块单一长 ref：架构 + 4 章 + 3 错误案例） |
 | A05 | Flutter-游戏中心-扩展游戏路线 | **往游戏中心加新游戏 / 加新分类 / 加新封面图案时**（扩展点地图 + 加游戏SOP + 封面三级来源 + slug拼错等真坑） |
 | A06 | Flutter-Demo-slug别名与Tab合并SOP | **给 demo 加别名 slug（旧 URL 兼容）/ 合并多个相关 demo 为统一 Tab 容器时** |
+| A07 | Flutter-API模块规范-目录即后端与拦截器链 | **新增 API 端点 / 接入新后端 / 业务代码要发 HTTP 请求 / lib/api/ 防腐蚀自查 / 改 Notion 端点时** |
+| A08 | Flutter-Hive存储工作流-调试与最佳实践 | **Hive box 读写/删除报错（type 不匹配/closed box）/ 存储面板看不到新 box 或显示 "Instance of xxx" / 新写 Hive 存储入口时** |
+| A09 | Flutter-Hive-存储面板BoxDescriptor注册制 | **设计新 feature 的 Hive 存储结构 / 手写 TypeAdapter / 想理解 `Lab → 存储分析` 面板注册制原理时** |
+| A10 | Flutter-Hive-新模块存储Checklist | **新建带 Hive 存储的模块时**（meta 集中 / formatter 独立 / init 四件套 / 仓库层统一 反模式自查） |
 | B01 | Flutter-Provider双重实例冲突-时钟wipe后数据恢复 | **Provider 擦数据后快照恢复 / 根级和页面级都有同一 Provider / wipe 失效 / 定时写 SP 的 Provider 行为异常时** |
 | B02 | Flutter-Hive-TypeAdapter-part文件CI构建失败问题 | Hive TypeAdapter / part 文件 CI 编译失败时 |
 | B03 | Android-FloatingWindow-常驻截屏模式适配Android14+ | Android 14+ MediaProjection / 悬浮窗截屏 / token 失效时 |
 | B04 | Flutter-CollapsingHeader圆角渐变头部与白色内容区布局 | 做 collapsing header / 圆角渐变头部布局时 |
+| C01 | Flutter-TimeTable课表模块-架构与扩展指南 | **改 lib/core/timetable/ 任何文件（新增模式/数据源适配器/DSL 语法/显示配置/多空间）/ 改 timetable_repository 时**（C03/C04 的入口 ref） |
+| C02 | WebRTC-视频通话基础设施与结构设计 | **实现 WebRTC 视频通话 / 设计 P2P 实时通信 / 搭建信令基础设施 / 音视频或 DataChannel 传输 / 移动端实时通信优化时** |
+| C03 | Flutter-TimeTable-追剧模式专项 | **扩展/修改追剧模式**（剧模型 / 适配层 / 排期编辑器 / 生成器 / 反推）时 |
+| C04 | Flutter-TimeTable-追剧后端API契约 | **自建新番后端契约联调 / 新增 SelfHostedAnimeAdapter / 改动 anime 契约字段时** |
 
 import: 任何不能立即完成的任务,请使用todolist相关的工具 先规划任务 然后再每个条目进行完成 禁止没有任何流程的进行代码控制
 

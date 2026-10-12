@@ -1,9 +1,6 @@
----
-name: webrtc-infrastructure
-description: 当用户要求实现 WebRTC 视频通话、设计 P2P 实时通信系统、搭建 WebRTC 信令基础设施、实现音视频传输或 DataChannel 数据传输时触发。提供从信令协议设计到移动端优化的完整架构指南。
----
-
 # WebRTC 视频电话基础设施与结构设计
+
+> **何时读**：实现 WebRTC 视频通话 / 设计 P2P 实时通信 / 搭建信令基础设施 / 音视频或 DataChannel 传输 / 移动端实时通信优化时。通用架构指南（不绑定本仓库具体代码）。
 
 ## 核心原则
 

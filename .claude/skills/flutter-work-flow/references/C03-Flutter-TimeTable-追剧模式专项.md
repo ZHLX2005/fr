@@ -1,6 +1,6 @@
 # 追剧/番模式专项（anime-mode）
 
-> 特化指导：只在扩展/修改追剧模式时读取。主干架构见主 SKILL.md。
+> 特化指导：只在扩展/修改追剧模式时读取。主干架构见 [[C01-Flutter-TimeTable课表模块-架构与扩展指南]]。
 
 ## 架构演进（fr 27 后）：剧模型 SSOT，非 DSL 快照
 
@@ -49,7 +49,7 @@ abstract class AnimeSourceAdapter {
 ```
 
 - `AnimeDraft`：title/startDateIso/weekday/time/episodes/sourceUrl，**可缺省**（后端字段已尽量补齐，缺字段时用户在排期页补）
-- 已登记来源：`SelfHostedAnimeAdapter`（自建聚合后端，详见 [anime-backend-api-spec](anime-backend-api-spec.md)）。后端已完成 Bangumi 中文名 + AniList `airingAt` 精确时刻 + MAL `broadcast` 兜底 + 完播剧时刻补齐。原先的 `BangumiCalendarAdapter` / `AniListSeasonAdapter` 已在 fr 28 移除（公开来源不稳定性 + 字段不全，已被自建后端替代）
+- 已登记来源：`SelfHostedAnimeAdapter`（自建聚合后端，详见 [[C04-Flutter-TimeTable-追剧后端API契约]]）。后端已完成 Bangumi 中文名 + AniList `airingAt` 精确时刻 + MAL `broadcast` 兜底 + 完播剧时刻补齐。原先的 `BangumiCalendarAdapter` / `AniListSeasonAdapter` 已在 fr 28 移除（公开来源不稳定性 + 字段不全，已被自建后端替代）
 - 导入对话框来源下拉仅剩「自建新番表」一项；空 time 导入为 `time=null`，生成器为每部独立扩容 cell（输入顺序在前，标签回退序号），用户补时间后自动归并
 - **水平泛化方向**：AnimeDraft → PeriodicEventDraft（直播/比赛/日程/影视更新），适配器跨领域复用
 

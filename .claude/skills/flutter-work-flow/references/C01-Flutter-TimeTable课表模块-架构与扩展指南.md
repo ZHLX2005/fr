@@ -1,15 +1,11 @@
----
-name: timetable-module
-description: 时间课表模块设计与扩展指南。当用户要求扩展时间课表（新增模式/数据源适配器/DSL 语法/显示配置/追剧功能/多空间/剧模型）、修改 lib/core/timetable/ 或 lib/core/storage/hive/timetable_repository.dart、讨论课表 DSL/周期事件可视化时触发。核心思想：模式只是 DSL 生成器预设，渲染由 config 驱动；追剧模式是剧模型 SSOT 自动派生；扩展优先走适配层与生成器，不碰渲染层。
----
-
 # 时间课表模块扩展指南
 
-> 本 skill 是 lib/core/timetable/ 模块的"事实架构 + 扩展点"速查。
+> 本 ref 是 lib/core/timetable/ 模块的"事实架构 + 扩展点"速查。
 > 完整设计文档：`docs/superpowers/specs/2026-08-15-timetable-module-design.md`
 > DSL 规范：`lib/core/timetable/DSL_FORMAT.md`
-> 依赖 skill（新 skill 运行时前置）：flutter-work-flow, flutter-hive-workflow
-> 如任一前置无法加载，先提示用户再动手。
+> 依赖 ref（同 skill 内）：Hive 存储四件套见 [[A08-Flutter-Hive存储工作流-调试与最佳实践]]（注册制 [[A09-Flutter-Hive-存储面板BoxDescriptor注册制]] / 新建模块 [[A10-Flutter-Hive-新模块存储Checklist]]）。
+>
+> **快照说明（2026-10 合并进 flutter-work-flow 时核对）**：下方模块地图为 2026-08~09 快照，此后 lib/core/timetable/ 新增 `timetable_prefs.dart` / `timetable_week_calculator.dart` / `sicau_import_dialog.dart` / `timetable_import_dialog.dart` / `cycle_visibility_selector.dart` / `timetable_editor_dialog.dart` / `需求_换课数据结构.md` 等文件。核心架构（模式=DSL 生成器预设，渲染/存储不感知模式）与扩展 SOP 仍有效。
 
 ## 核心思想（一切扩展围绕它）
 
@@ -22,7 +18,7 @@ description: 时间课表模块设计与扩展指南。当用户要求扩展时�
 
 - 新增模式 = 新增 DSL 生成器 + 设置页入口，**渲染层 0 改动**
 - DSL 导出/导入 = 完整配置迁移载体（config 段自动携带）
-- 追剧模式例外增强：**剧模型是 SSOT**，DSL 由模型自动派生（见 [[anime-mode]]）
+- 追剧模式例外增强：**剧模型是 SSOT**，DSL 由模型自动派生（见 [[C03-Flutter-TimeTable-追剧模式专项]]）
 
 ## 模块地图
 
@@ -64,7 +60,7 @@ lib/core/timetable/
 ## 扩展 SOP
 
 ### E1 新增数据源适配器（最常用，水平适配器方向）
-→ 见 [[anime-mode]] 适配层节（AnimeSourceAdapter 接口 + kAnimeSourceAdapters 登记 + PeriodicEventDraft 泛化方向）
+→ 见 [[C03-Flutter-TimeTable-追剧模式专项]] 适配层节（AnimeSourceAdapter 接口 + kAnimeSourceAdapters 登记 + PeriodicEventDraft 泛化方向）
 
 ### E1b 新增模式的 cell 编辑 UI（cell_actions 策略模式，fr 28）
 
@@ -83,7 +79,7 @@ lib/core/timetable/
 ### E2 新增模式（与学校/通用/追剧平级）
 1. `TimetableConfig` 加模式标志字段 + repo save/load 各一行 + settings 模式选择器四选
 2. 新建 DSL 生成器纯函数（复用 buildAnimeDsl 结构：时间分组/对齐周一/周期自适应/输出可回灌 DSL）
-3. 设置页数据来源区加入口；若该模式需要模型化（如剧模型），参照 [[anime-mode]] 的 SSOT 模式（模型 CRUD → store 自动派生）
+3. 设置页数据来源区加入口；若该模式需要模型化（如剧模型），参照 [[C03-Flutter-TimeTable-追剧模式专项]] 的 SSOT 模式（模型 CRUD → store 自动派生）
 4. 渲染层不动
 
 ### E3 新增 DSL 语法
@@ -131,11 +127,11 @@ lib/core/timetable/
 
 - `flutter analyze`（基线 197 issues，无新增）
 - `flutter test test/core/timetable/anime_dsl_generator_test.dart test/core/timetable/timetable_dsl_config_test.dart`（生成器/w 范围/反推/回灌/序列化）
-- 改动存储/原生后按 flutter-work-flow 要求验证
+- 改动存储/原生后按 flutter-work-flow 主 SKILL.md「检查」节要求验证
 
 ## 引用索引（按需加载）
 
 | ref | 何时读取 | 路径 |
 |---|---|---|
-| [[anime-mode]] | 扩展/修改追剧模式（剧模型/适配层/排期编辑器/生成器/反推）时 | references/anime-mode.md |
-| [[anime-backend-api-spec]] | 自建新番后端 API 的契约/联调/新增 SelfHostedAnimeAdapter 时 | references/anime-backend-api-spec.md |
+| [[C03-Flutter-TimeTable-追剧模式专项]] | 扩展/修改追剧模式（剧模型/适配层/排期编辑器/生成器/反推）时 | references/C03-Flutter-TimeTable-追剧模式专项.md |
+| [[C04-Flutter-TimeTable-追剧后端API契约]] | 自建新番后端 API 的契约/联调/新增 SelfHostedAnimeAdapter 时 | references/C04-Flutter-TimeTable-追剧后端API契约.md |

@@ -1,14 +1,6 @@
----
-name: flutter-hive-workflow
-description: |
-  Flutter Hive 存储管理调试和最佳实践。当遇到 Hive 存储相关问题时要使用此 skill：
-  - body_records 或其他使用 TypeAdapter 的对象无法读写
-  - 删除 Hive 数据失败（key 类型不匹配：string/int）
-  - Hive box 类型不匹配错误（"You must provide your type"）
-  - 存储面板 (`Lab → 存储分析`) 看不到新建的 box，或显示 "Instance of xxx"
-  - 任何 Hive box 打开/访问问题
----
-# Flutter Hive Storage Workflow
+# Flutter Hive 存储工作流 — 调试与最佳实践
+
+> **何时读**：Hive 存储相关问题——body_records 或其他使用 TypeAdapter 的对象无法读写 / 删除数据失败（key 类型不匹配：string/int）/ box 类型不匹配错误（"You must provide your type"）/ 存储面板（`Lab → 存储分析`）看不到新建的 box 或显示 "Instance of xxx" / 任何 Hive box 打开访问问题。面板注册制原理见 [[A09-Flutter-Hive-存储面板BoxDescriptor注册制]]，新建模块 checklist 见 [[A10-Flutter-Hive-新模块存储Checklist]]。
 
 ## 核心原则
 
@@ -95,7 +87,7 @@ String _formatValue(dynamic value) {
 
 ## StorageManager 集中面板（BoxDescriptor 注册制）
 
-Lab → 存储分析 中统一观察所有 Hive Box（像 Redis 面板）。**当前架构：** `StorageManager` 不再有 if-else 分支；每个 feature 自己注册 `BoxDescriptor`，面板自动接管展示、格式化、删除、清空。完整原理见 `[[hive-storage-panel]]`。
+Lab → 存储分析 中统一观察所有 Hive Box（像 Redis 面板）。**当前架构：** `StorageManager` 不再有 if-else 分支；每个 feature 自己注册 `BoxDescriptor`，面板自动接管展示、格式化、删除、清空。完整原理见 [[A09-Flutter-Hive-存储面板BoxDescriptor注册制]]。
 
 - **核心组件**：`lib/core/storage/box_descriptor.dart`（自描述结构）+ `lib/core/storage/storage_registry.dart`（全局注册表）+ `lib/core/storage/storage_manager.dart`（纯查询代理）
 - **feature 只做一件事**：在自己的 `FeatureHive.init()` 或 `Repo.init()` 里调 `StorageRegistry.register(BoxDescriptor<T>(...))`
@@ -104,8 +96,8 @@ Lab → 存储分析 中统一观察所有 Hive Box（像 Redis 面板）。**�
 
 ## 添加一个自定义 Type 的 Hive 存储
 
-→ 完整 6 步流程 + 范本代码已迁移到 ref：[[hive-feature-creation-checklist]]（Step 1–6）。
-SKILL 主文档只保留"为什么要走这套约定"的原则说明，避免与 ref 内容重复。
+→ 完整 6 步流程 + 范本代码已迁移到 ref：[[A10-Flutter-Hive-新模块存储Checklist]]（Step 1–6）。
+主 ref 只保留"为什么要走这套约定"的原则说明，避免与子 ref 内容重复。
 
 ### 一句话原则（不展开）
 
@@ -116,7 +108,7 @@ SKILL 主文档只保留"为什么要走这套约定"的原则说明，避免与
 
 ## 仓库层统一（≥ 2 个 Hive 域推荐）
 
-→ 详见 [[hive-feature-creation-checklist]] Step 7。
+→ 详见 [[A10-Flutter-Hive-新模块存储Checklist]] Step 7。
 - 所有 Hive 仓库实现搬进 `lib/core/storage/hive/`
 - 加 `HiveRepository` 标记接口（`abstract class`，只声明 `boxName`）
 - 加 `HiveStore` 单例统一 `initFlutter + box 句柄缓存`
@@ -142,5 +134,6 @@ if (Hive.isBoxOpen(name)) {
 
 | ref | 何时读取 | 路径 |
 |-----|---------|------|
-| [[hive-storage-panel]] | 需要设计新 feature 的 Hive 存储结构、手写 TypeAdapter、或新增 box 到 StorageManager 面板时 | references/hive-storage-panel.md |
-| [[hive-feature-creation-checklist]] | **新建**带 Hive 存储的模块时：要避免主题/颜色/标签在多个文件散落、要保证 `Lab → 存储分析` 自动显示并可管理；≥ 2 个 Hive 域时也应统一搬到 `core/storage/hive/` 走 `HiveRepository` 标记接口 + `HiveStore` 共享初始化（详见该 ref Step 7） | references/hive-feature-creation-checklist.md |
+| [[A09-Flutter-Hive-存储面板BoxDescriptor注册制]] | 需要设计新 feature 的 Hive 存储结构、手写 TypeAdapter、或理解 StorageManager 面板注册制原理时 | references/A09-Flutter-Hive-存储面板BoxDescriptor注册制.md |
+| [[A10-Flutter-Hive-新模块存储Checklist]] | **新建**带 Hive 存储的模块时：要避免主题/颜色/标签在多个文件散落、要保证 `Lab → 存储分析` 自动显示并可管理；≥ 2 个 Hive 域时也应统一搬到 `core/storage/hive/` 走 `HiveRepository` 标记接口 + `HiveStore` 共享初始化（详见该 ref Step 7） | references/A10-Flutter-Hive-新模块存储Checklist.md |
+| [[B02-Flutter-Hive-TypeAdapter-part文件CI构建失败问题]] | Hive part 文件 / `.g.dart` CI 构建失败排障时（含"本地过 ≠ CI 过"根因分析法） | references/B02-Flutter-Hive-TypeAdapter-part文件CI构建失败问题.md |
