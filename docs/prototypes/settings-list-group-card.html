@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="zen" data-mode="group">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小豆子 · 设置列表：散卡 vs 大组卡（六主题）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  /*
+   * 色值对齐 lib/core/theme/tokens/color/theme/{zen,purple,ink,rose,lemon,cobalt}.dart
+   * 页底 = surfaceContainerHighest；卡面 = surface；无投影。
+   *
+   * 结构假设：
+   *   · 钉选 tab  → 散卡（可拖拽排序，每项独立）
+   *   · 核心/AI/实验/游戏 → 一张大组卡（iOS Settings inset group，行间 hairline）
+   */
+
+  :root, [data-theme="zen"] {
+    --primary: #7A9A7E;
+    --on-primary: #FFFFFF;
+    --primary-container: #E8F0E5;
+    --on-primary-container: #2D4A2A;
+    --surface: #FBF8F1;
+    --on-surface: #2C2C2C;
+    --muted: #8A8475;
+    --page: #F4F1EA;
+    --outline: #D9D5C8;
+    --outline-soft: rgba(44, 44, 44, 0.08);
+    --press: rgba(44, 44, 44, 0.04);
+    --label: "茶禅 Zen";
+    --pitch: "暖米页底 + 近白奶油卡。大组卡靠明度抬升，不靠阴影。";
+  }
+  [data-theme="purple"] {
+    --primary: #B9A6D6;
+    --on-primary: #1A1524;
+    --primary-container: #3A2F54;
+    --on-primary-container: #EAE3F7;
+    --surface: #1A1822;
+    --on-surface: #E8E6F0;
+    --muted: #9B97AB;
+    --page: #13111A;
+    --outline: #3A3648;
+    --outline-soft: rgba(232, 230, 240, 0.08);
+    --press: rgba(232, 230, 240, 0.06);
+    --label: "暮紫 Purple";
+    --pitch: "深底上略抬的 surface 卡。暗色同样用「组卡」，不要每行再抬一层。";
+  }
+  [data-theme="ink"] {
+    --primary: #1A1A1A;
+    --on-primary: #FFFFFF;
+    --primary-container: #E8E4DE;
+    --on-primary-container: #141210;
+    --surface: #F7F5F2;
+    --on-surface: #1A1A1A;
+    --muted: #6B6560;
+    --page: #EEEBE6;
+    --outline: #DDD8D0;
+    --outline-soft: rgba(26, 26, 26, 0.08);
+    --press: rgba(26, 26, 26, 0.04);
+    --label: "墨白 Ink";
+    --pitch: "宣纸灰底 + 生宣卡。hairline 用淡墨，开关用墨黑。";
+  }
+  [data-theme="rose"] {
+    --primary: #C8828E;
+    --on-primary: #FFFFFF;
+    --primary-container: #F5E4E8;
+    --on-primary-container: #5A3038;
+    --surface: #FFFCFA;
+    --on-surface: #2A2426;
+    --muted: #8A7A7E;
+    --page: #F5F0F1;
+    --outline: #E8DCE0;
+    --outline-soft: rgba(42, 36, 38, 0.07);
+    --press: rgba(42, 36, 38, 0.04);
+    --label: "粉雾 Rose";
+    --pitch: "近白卡浮在浅粉灰底。粉只留给开关/选中，不铺满行。";
+  }
+  [data-theme="lemon"] {
+    --primary: #E4C44A;
+    --on-primary: #2C2A22;
+    --primary-container: #F3EBC8;
+    --on-primary-container: #3A3520;
+    --surface: #FFFEFA;
+    --on-surface: #2C2A24;
+    --muted: #7A7568;
+    --page: #F3F0E6;
+    --outline: #E5E0D4;
+    --outline-soft: rgba(44, 42, 36, 0.08);
+    --press: rgba(44, 42, 36, 0.04);
+    --label: "柠檬 Lemon";
+    --pitch: "黄油主色偏浅：开关 on 态用 primary，onPrimary 用深字保证可读。";
+  }
+  [data-theme="cobalt"] {
+    --primary: #163A94;
+    --on-primary: #FFFFFF;
+    --primary-container: #D9E3F7;
+    --on-primary-container: #0C2048;
+    --surface: #FFFFFF;
+    --on-surface: #1A1A1A;
+    --muted: #5A6578;
+    --page: #EEF1F7;
+    --outline: #C8D0E0;
+    --outline-soft: rgba(26, 26, 26, 0.08);
+    --press: rgba(26, 26, 26, 0.04);
+    --label: "宝蓝 Cobalt";
+    --pitch: "纯白大组卡 + 冷灰蓝页底。对比最强，最接近系统 Settings。";
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Figtree", system-ui, sans-serif;
+    color: var(--on-surface);
+    min-height: 100vh;
+    background:
+      radial-gradient(700px 380px at 10% 0%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 55%),
+      linear-gradient(165deg, #e6e8e4, #f4f1ec 50%, #e5eaea);
+    padding: 28px 16px 56px;
+  }
+
+  .stage {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+  }
+
+  .brief h1 {
+    font-family: "Syne", sans-serif;
+    font-size: 26px;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .brief p {
+    font-size: 14px;
+    line-height: 1.55;
+    color: #5a6574;
+    margin-bottom: 12px;
+  }
+  .brief .rules {
+    list-style: none;
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .brief .rules li {
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.6);
+    border: 1px solid rgba(28,36,48,0.08);
+  }
+  .brief .rules strong { color: #2f6f6a; }
+
+  .ctrl {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ctrl label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #5a6574;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chips button {
+    border: 1px solid rgba(28,36,48,0.12);
+    background: rgba(255,255,255,0.7);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #1c2430;
+  }
+  .chips button.on {
+    background: #1c2430;
+    color: #fff;
+    border-color: #1c2430;
+  }
+
+  .pitch {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(28,36,48,0.08);
+    font-size: 12px;
+    line-height: 1.5;
+    color: #5a6574;
+  }
+  .pitch b { color: #1c2430; display: block; margin-bottom: 4px; }
+
+  .phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .mode-tag {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #5a6574;
+  }
+  .mode-tag em { font-style: normal; color: #2f6f6a; }
+
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 44px;
+    background: #0c1014;
+    padding: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+  }
+  .inner {
+    height: 100%;
+    border-radius: 34px;
+    overflow: hidden;
+    background: var(--page);
+    display: flex;
+    flex-direction: column;
+    color: var(--on-surface);
+  }
+
+  .status {
+    height: 48px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 22px 8px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .tabs {
+    margin: 4px 12px 10px;
+    height: 36px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    padding: 2px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--on-surface) 8%, transparent);
+    position: relative;
+  }
+  .tabs .pill {
+    position: absolute;
+    top: 2px; bottom: 2px;
+    width: calc((100% - 4px) / 6);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    transition: left .25s cubic-bezier(.22,1,.36,1);
+  }
+  [data-mode="pins"] .tabs .pill { left: calc(2px + 16.666%); }
+  [data-mode="group"] .tabs .pill { left: calc(2px + 16.666% * 2); }
+  .tabs span {
+    position: relative; z-index: 1;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+  }
+  [data-mode="pins"] .tabs span:nth-child(3),
+  [data-mode="group"] .tabs span:nth-child(4) {
+    font-weight: 700; color: var(--on-surface);
+  }
+
+  .search {
+    margin: 0 16px 10px;
+    height: 42px;
+    border-radius: 980px;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .hint {
+    margin: 0 20px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .scroll {
+    flex: 1;
+    overflow: auto;
+    padding: 0 16px 110px;
+  }
+
+  /* ── 钉选：散卡 ── */
+  .loose { display: none; flex-direction: column; gap: 10px; }
+  [data-mode="pins"] .loose { display: flex; }
+  [data-mode="pins"] .group { display: none; }
+
+  .loose .card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border-radius: 16px;
+    /* 无阴影 */
+  }
+  .loose .card:active { background: color-mix(in srgb, var(--surface) 88%, var(--on-surface)); }
+
+  /* ── 其它：大组卡（行与行零间距、无分隔线，连成一整块） ── */
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--surface);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .group .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 12px 14px;
+    min-height: 56px;
+    border: 0;
+  }
+  .group .row:active { background: var(--press); }
+
+  .ico {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+    display: grid; place-items: center;
+    font-size: 16px; font-weight: 700;
+    flex: 0 0 auto;
+  }
+  .txt { flex: 1; min-width: 0; }
+  .txt b {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 2px;
+  }
+  .txt span { font-size: 12px; color: var(--muted); }
+  .grip { color: var(--muted); opacity: 0.55; font-size: 16px; }
+
+  .sw {
+    width: 51px; height: 31px; border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 38%, transparent);
+    position: relative; border: 0; flex: 0 0 auto;
+  }
+  .sw.on { background: var(--primary); }
+  .sw::after {
+    content: "";
+    position: absolute; top: 2px; left: 2px;
+    width: 27px; height: 27px; border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    transition: transform .28s cubic-bezier(.34,1.3,.64,1);
+  }
+  .sw.on::after { transform: translateX(20px); }
+  [data-theme="lemon"] .sw.on::after {
+    /* lemon onPrimary 深，旋钮仍白以免脏 */
+  }
+
+  .dock {
+    position: absolute;
+    /* phone-inner relative needed */
+  }
+  .inner { position: relative; }
+  .dock {
+    left: 28px; right: 28px; bottom: 24px;
+    height: 64px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--surface) 65%, transparent);
+    backdrop-filter: blur(16px);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    align-items: center;
+    box-shadow: 0 10px 32px rgba(0,0,0,0.12);
+  }
+  .dock i {
+    font-style: normal;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  .dock i.on { color: var(--primary); }
+
+  .matrix {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .matrix .cell {
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(28,36,48,0.08);
+    font-size: 11px;
+    line-height: 1.4;
+    color: #5a6574;
+  }
+  .matrix .cell b { display: block; color: #1c2430; margin-bottom: 2px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <aside class="brief">
+      <h1>设置列表<br/>散卡 / 大组卡</h1>
+      <p>
+        钉选需要拖拽，适合<strong>独立散卡</strong>。
+        核心 / AI / 实验 / 游戏是开关清单，更适合一张
+        <strong>iOS inset 大组卡</strong>（行间 hairline，无阴影）。
+      </p>
+      <ul class="rules">
+        <li><strong>钉选</strong>：白/surface 散卡 · 间距 10 · 右握把 · 无阴影</li>
+        <li><strong>其它分组</strong>：单张大组卡 · 行与行零间距紧贴 · 右开关</li>
+        <li><strong>分层</strong>：page = surfaceContainerHighest · card = surface</li>
+        <li><strong>六主题</strong>同结构，只换 scheme（可点下方切换）</li>
+      </ul>
+
+      <div class="ctrl">
+        <label>主题</label>
+        <div class="chips" id="themeChips">
+          <button type="button" data-theme="zen" class="on">Zen</button>
+          <button type="button" data-theme="purple">Purple</button>
+          <button type="button" data-theme="ink">Ink</button>
+          <button type="button" data-theme="rose">Rose</button>
+          <button type="button" data-theme="lemon">Lemon</button>
+          <button type="button" data-theme="cobalt">Cobalt</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>列表形态</label>
+        <div class="chips" id="modeChips">
+          <button type="button" data-mode="pins">钉选 · 散卡</button>
+          <button type="button" data-mode="group" class="on">核心 · 大组卡</button>
+        </div>
+      </div>
+
+      <div class="pitch">
+        <b id="themeLabel">茶禅 Zen</b>
+        <span id="themePitch">暖米页底 + 近白奶油卡。大组卡靠明度抬升，不靠阴影。</span>
+      </div>
+
+      <div class="matrix">
+        <div class="cell"><b>为何散卡只给钉选</b>拖拽抬起需要独立命中区；组卡内拖拽易和翻页手势打架。</div>
+        <div class="cell"><b>为何其它用大组卡</b>开关清单密度高；系统 Settings 就是「一页多组、组内多行」。</div>
+        <div class="cell"><b>暗色 Purple</b>页底更深、卡面略抬一层；勿再给每行 elevation。</div>
+        <div class="cell"><b>落地映射</b>Flutter：页底 highest · 卡 surface · 组内行无 margin/分隔线 · 禁 BoxShadow。</div>
+      </div>
+    </aside>
+
+    <div class="phone-wrap">
+      <div class="mode-tag">预览 · <em id="modeTag">核心 · 大组卡</em></div>
+      <div class="phone" aria-label="设置列表预览">
+        <div class="inner">
+          <div class="status"><span>9:41</span><span>■■□</span></div>
+          <div class="tabs">
+            <div class="pill" aria-hidden="true"></div>
+            <span>通用</span><span>钉选</span><span>核心</span>
+            <span>AI</span><span>实验</span><span>游戏</span>
+          </div>
+          <div class="search" id="searchHint">⌕ 搜索核心入口</div>
+          <p class="hint" id="listHint">开关在这里改钉选；排序请去「钉选」。</p>
+
+          <div class="scroll">
+            <!-- 钉选散卡 -->
+            <div class="loose">
+              <div class="card">
+                <div class="ico">π</div>
+                <div class="txt"><b>pi</b><span>AI · 底栏 · 首页</span></div>
+                <div class="grip">☰</div>
+              </div>
+              <div class="card">
+                <div class="ico">⏱</div>
+                <div class="txt"><b>Time</b><span>核心 · 底栏 2</span></div>
+                <div class="grip">☰</div>
+              </div>
+              <div class="card">
+                <div class="ico">⚗</div>
+                <div class="txt"><b>实验室</b><span>核心 · 底栏 3</span></div>
+                <div class="grip">☰</div>
+              </div>
+              <div class="card">
+                <div class="ico">♟</div>
+                <div class="txt"><b>象棋</b><span>游戏 · ⋯</span></div>
+                <div class="grip">☰</div>
+              </div>
+            </div>
+
+            <!-- 大组卡 -->
+            <div class="group">
+              <div class="row">
+                <div class="ico">⏱</div>
+                <div class="txt"><b>Time</b><span>核心 · 底栏 2</span></div>
+                <button class="sw on" type="button" aria-label="钉选"></button>
+              </div>
+              <div class="row">
+                <div class="ico">⚗</div>
+                <div class="txt"><b>实验室</b><span>核心 · 底栏 3</span></div>
+                <button class="sw on" type="button" aria-label="钉选"></button>
+              </div>
+              <div class="row">
+                <div class="ico">◎</div>
+                <div class="txt"><b>专注</b><span>核心 · 未钉选</span></div>
+                <button class="sw" type="button" aria-label="钉选"></button>
+              </div>
+              <div class="row">
+                <div class="ico">👤</div>
+                <div class="txt"><b>我的</b><span>核心 · 未钉选</span></div>
+                <button class="sw" type="button" aria-label="钉选"></button>
+              </div>
+              <div class="row">
+                <div class="ico">⚙</div>
+                <div class="txt"><b>设置</b><span>核心 · ⋯</span></div>
+                <button class="sw" type="button" aria-label="钉选"></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dock">
+            <i class="on">pi</i><i>Time</i><i>实验室</i><i>⋯</i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const root = document.documentElement;
+  const pitches = {
+    zen: ["茶禅 Zen", getComputedStyle(document.documentElement).getPropertyValue("--pitch")],
+  };
+
+  function applyTheme(name) {
+    root.dataset.theme = name;
+    // read after apply
+    requestAnimationFrame(() => {
+      const cs = getComputedStyle(root);
+      document.getElementById("themeLabel").textContent = cs.getPropertyValue("--label").replace(/"/g, "").trim();
+      document.getElementById("themePitch").textContent = cs.getPropertyValue("--pitch").replace(/"/g, "").trim();
+    });
+    document.querySelectorAll("#themeChips button").forEach((b) => {
+      b.classList.toggle("on", b.dataset.theme === name);
+    });
+  }
+
+  function applyMode(mode) {
+    root.dataset.mode = mode;
+    document.querySelectorAll("#modeChips button").forEach((b) => {
+      b.classList.toggle("on", b.dataset.mode === mode);
+    });
+    const tag = document.getElementById("modeTag");
+    const search = document.getElementById("searchHint");
+    const hint = document.getElementById("listHint");
+    if (mode === "pins") {
+      tag.textContent = "钉选 · 散卡";
+      search.textContent = "⌕ 搜索已钉选";
+      hint.textContent = "长按拖动排序。顺序 = 底栏 → ⋯";
+    } else {
+      tag.textContent = "核心 · 大组卡";
+      search.textContent = "⌕ 搜索核心入口";
+      hint.textContent = "开关在这里改钉选；排序请去「钉选」。";
+    }
+  }
+
+  document.getElementById("themeChips").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-theme]");
+    if (btn) applyTheme(btn.dataset.theme);
+  });
+  document.getElementById("modeChips").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-mode]");
+    if (btn) applyMode(btn.dataset.mode);
+  });
+  document.querySelectorAll(".sw").forEach((el) => {
+    el.addEventListener("click", () => el.classList.toggle("on"));
+  });
+
+  applyTheme("zen");
+  applyMode("group");
+</script>
+</body>
+</html>

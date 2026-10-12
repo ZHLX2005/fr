@@ -1,5 +1,6 @@
 // 应用设置：主题入口 + 底栏容量 + 分 Tab 钉选（搜索 / 拖拽排序）。
-// Tab：分段点击 + 左右滑动；钉选 Tab 只排序，开关在各分组 Tab。
+// Tab：分段点击 + 左右滑动；钉选散卡排序，其它分组一张大组卡（无阴影）。
+// 原型：docs/prototypes/settings-list-group-card.html
 
 import 'dart:ui' show lerpDouble;
 
@@ -93,7 +94,8 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
     final themeMode = ref.watch(themeNotifierProvider);
 
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
+      // 页底 highest，卡面 surface —— 靠明度分层，不用投影。
+      backgroundColor: cs.surfaceContainerHighest,
       body: SafeArea(
         child: Column(
           children: [
@@ -359,52 +361,35 @@ class _PinPoolState extends ConsumerState<_PinPool> {
           child: Material(
             color: cs.surface,
             elevation: 0,
-            shadowColor: cs.onSurface.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(980),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(980),
-                boxShadow: [
-                  BoxShadow(
-                    color: cs.onSurface.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                  BoxShadow(
-                    color: cs.onSurface.withValues(alpha: 0.06),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: TextField(
-                key: ValueKey(widget.searchHint),
-                onChanged: widget.onSearch,
-                decoration: InputDecoration(
-                  hintText: widget.searchHint,
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  filled: true,
-                  fillColor: cs.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(980),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            child: TextField(
+              key: ValueKey(widget.searchHint),
+              onChanged: widget.onSearch,
+              decoration: InputDecoration(
+                hintText: widget.searchHint,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                filled: true,
+                fillColor: cs.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(980),
+                  borderSide: BorderSide.none,
                 ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
         ),
-        if (widget.reorderable)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(
-              '长按拖动排序。顺序 = 底栏 → ⋯',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Text(
+            widget.reorderable
+                ? '长按拖动排序。顺序 = 底栏 → ⋯'
+                : '开关在这里改钉选；排序请去「钉选」。',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
           ),
+        ),
         Expanded(
           child: entries.isEmpty
               ? Center(
@@ -418,7 +403,6 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                       itemCount: entries.length,
                       buildDefaultDragHandles: false,
-                      // 提高跟手滚动速度
                       autoScrollerVelocityScalar: 40,
                       proxyDecorator: (child, index, animation) {
                         final curved = CurvedAnimation(
@@ -431,13 +415,11 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                           builder: (context, child) {
                             final t = curved.value;
                             return Transform.scale(
-                              scale: lerpDouble(1.0, 1.03, t)!,
+                              scale: lerpDouble(1.0, 1.02, t)!,
                               child: Material(
-                                elevation: lerpDouble(0, 10, t)!,
-                                shadowColor:
-                                    Colors.black.withValues(alpha: 0.18),
+                                elevation: 0,
                                 color: cs.surface,
-                                borderRadius: BorderRadius.circular(24),
+                                borderRadius: BorderRadius.circular(16),
                                 child: child,
                               ),
                             );
@@ -462,13 +444,11 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                         setState(() => _dragOrder = local);
 
                         final full = local.map((e) => e.id).toList();
-                        // 若当前是过滤视图，把未显示的 pin 接在后面
                         final shown = full.toSet();
                         for (final id in widget.pinnedIds) {
                           if (!shown.contains(id)) full.add(id);
                         }
                         ref.read(navPinsProvider.notifier).setPins(full);
-                        // 下一帧清本地，避免与 provider 打架
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) setState(() => _dragOrder = null);
                         });
@@ -482,28 +462,42 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                           slotLabel: _slotFor(e.id),
                           showThumb: widget.showThumb,
                           dragIndex: index,
+                          loose: true,
                         );
                       },
                     )
-                  : ListView.builder(
+                  : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                      itemCount: entries.length,
-                      itemBuilder: (context, index) {
-                        final e = entries[index];
-                        final pinned = pins.pinIds.contains(e.id);
-                        return _PinTile(
-                          key: ValueKey('${e.id}-${widget.coverEpoch}'),
-                          entry: e,
-                          pinned: pinned,
-                          slotLabel: _slotLabel(pins, e.id),
-                          showThumb: widget.showThumb,
-                          onToggle: () {
-                            ref
-                                .read(navPinsProvider.notifier)
-                                .togglePin(e.id);
-                          },
-                        );
-                      },
+                      children: [
+                        // 一张大组卡：行与行零间距、无分隔线。
+                        Material(
+                          color: cs.surface,
+                          elevation: 0,
+                          borderRadius: BorderRadius.circular(16),
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final e in entries)
+                                _PinTile(
+                                  key: ValueKey(
+                                    '${e.id}-${widget.coverEpoch}',
+                                  ),
+                                  entry: e,
+                                  pinned: pins.pinIds.contains(e.id),
+                                  slotLabel: _slotLabel(pins, e.id),
+                                  showThumb: widget.showThumb,
+                                  loose: false,
+                                  onToggle: () {
+                                    ref
+                                        .read(navPinsProvider.notifier)
+                                        .togglePin(e.id);
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
         ),
       ],
@@ -517,6 +511,7 @@ class _PinTile extends StatelessWidget {
     required this.entry,
     required this.pinned,
     required this.slotLabel,
+    required this.loose,
     this.onToggle,
     this.showThumb = false,
     this.dragIndex,
@@ -525,6 +520,8 @@ class _PinTile extends StatelessWidget {
   final NavEntry entry;
   final bool pinned;
   final String slotLabel;
+  /// true = 钉选散卡（独立圆角卡）；false = 大组卡内一行。
+  final bool loose;
   final VoidCallback? onToggle;
   final bool showThumb;
   final int? dragIndex;
@@ -533,72 +530,61 @@ class _PinTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // 浮卡列表（原型 feature-list：大圆角 + 软阴影，不融进底）
-    final tile = Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: cs.onSurface.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-            BoxShadow(
-              color: cs.onSurface.withValues(alpha: 0.07),
-              blurRadius: 28,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-          clipBehavior: Clip.antiAlias,
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.fromLTRB(14, 10, 12, 10),
-            leading: _LeadingIcon(
-              entry: entry,
-              showThumb: showThumb,
-              pinned: pinned,
-            ),
-            title: Text(
-              entry.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.2,
-              ),
-            ),
-            subtitle: Text(
-              '${entry.groupLabel} · $slotLabel',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            trailing: onToggle != null
-                ? Switch.adaptive(
-                    value: pinned,
-                    onChanged: (_) => onToggle!(),
-                  )
-                : dragIndex != null
-                    ? Icon(
-                        Icons.drag_handle_rounded,
-                        color: cs.onSurfaceVariant,
-                      )
-                    : null,
-          ),
+    final row = ListTile(
+      contentPadding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+      minVerticalPadding: 0,
+      leading: _LeadingIcon(
+        entry: entry,
+        showThumb: showThumb,
+      ),
+      title: Text(
+        entry.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
         ),
       ),
+      subtitle: Text(
+        '${entry.groupLabel} · $slotLabel',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          color: cs.onSurfaceVariant,
+        ),
+      ),
+      trailing: onToggle != null
+          ? Switch.adaptive(
+              value: pinned,
+              onChanged: (_) => onToggle!(),
+            )
+          : dragIndex != null
+              ? Icon(
+                  Icons.drag_handle_rounded,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                )
+              : null,
     );
+
+    final Widget tile;
+    if (loose) {
+      // 散卡：surface · r16 · 间距 10 · 无阴影
+      tile = Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: cs.surface,
+          elevation: 0,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: row,
+        ),
+      );
+    } else {
+      tile = row;
+    }
 
     if (dragIndex != null) {
       return ReorderableDelayedDragStartListener(
@@ -614,12 +600,10 @@ class _LeadingIcon extends StatelessWidget {
   const _LeadingIcon({
     required this.entry,
     required this.showThumb,
-    required this.pinned,
   });
 
   final NavEntry entry;
   final bool showThumb;
-  final bool pinned;
 
   @override
   Widget build(BuildContext context) {
@@ -631,10 +615,10 @@ class _LeadingIcon extends StatelessWidget {
       final cover = gameCenterCoverOf(slug, kGameCenterSkinSmall);
       if (cover != null) {
         return ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: SizedBox(
-            width: 46,
-            height: 46,
+            width: 40,
+            height: 40,
             child: Image(
               image: cover,
               fit: BoxFit.cover,
@@ -646,19 +630,18 @@ class _LeadingIcon extends StatelessWidget {
       }
       if (meta != null) return _gameFallback(meta, entry.icon);
     }
+    // 原型 .ico：40 方圆角瓦，不用圆形。
     return Container(
-      width: 46,
-      height: 46,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        color: pinned
-            ? cs.primaryContainer.withValues(alpha: 0.85)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.9),
-        shape: BoxShape.circle,
+        color: cs.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(
         entry.icon,
-        color: pinned ? cs.onPrimaryContainer : cs.primary,
-        size: 20,
+        color: cs.onPrimaryContainer,
+        size: 18,
       ),
     );
   }
@@ -666,20 +649,20 @@ class _LeadingIcon extends StatelessWidget {
   Widget _gameFallback(GameMeta? meta, IconData icon) {
     if (meta == null) {
       return Container(
-        width: 46,
-        height: 46,
-        decoration: const BoxDecoration(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
           color: Colors.black12,
-          shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, size: 20),
+        child: Icon(icon, size: 18),
       );
     }
     return Container(
-      width: 46,
-      height: 46,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -834,7 +817,8 @@ class _Grouped extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(14),
+      elevation: 0,
+      borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
     );
