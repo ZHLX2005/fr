@@ -74,10 +74,15 @@ class RtSessionException implements Exception {
 enum RtEventKind { connected, e2eConfirmed, disconnected, deliveryFailed, error }
 
 class RtEvent {
-  RtEvent(this.kind, [this.detail]);
+  RtEvent(this.kind, [this.detail, this.willRetry = false]);
 
   final RtEventKind kind;
   final String? detail;
+
+  /// disconnected 专用：true = socket 死了但会话正在自动重连，UI 只应把
+  /// 连接态置灰、**不要**弹「连接断开」；重连那一次失败后会再发一条
+  /// willRetry=false 的事件，那时才是最终断开。
+  final bool willRetry;
 }
 
 class RtSession {
@@ -117,6 +122,10 @@ class RtSession {
   WebSocketChannel? _ws;
   StreamSubscription<dynamic>? _wsSub;
   Timer? _registerTimeout;
+  // 断线自动重连：socket 死亡后延迟重试**一次**；成功静默恢复（发 connected），
+  // 失败才发最终 disconnected。不做无限退避——服务器真挂了就该让人看见。
+  Timer? _autoReconnectTimer;
+  static const Duration _kAutoReconnectDelay = Duration(milliseconds: 1500);
   // 非 final：reconnect 复用同一实例重建注册握手，每次尝试换新 Completer
   Completer<void> _registered = Completer<void>();
   bool _reconnecting = false;
@@ -202,8 +211,8 @@ class RtSession {
   /// 安全性质：
   ///   - 已连接时 no-op（短暂后台回来 socket 还活着，不打断）
   ///   - 并发调用合并（[_reconnecting] 闸）
-  ///   - 失败不上抛，只发 error 事件——自动路径没有可恢复动作，
-  ///     下一个前台信号会再试；UI 从 events 流自行呈现
+  ///   - 失败不上抛，只发**最终** disconnected 事件（willRetry=false）——
+  ///     自动路径没有可恢复动作，下一个前台信号会再试
   Future<void> reconnect() async {
     if (_reconnecting || isConnected || _events.isClosed) return;
     _reconnecting = true;
@@ -213,17 +222,33 @@ class RtSession {
       if (!_events.isClosed) _events.add(RtEvent(RtEventKind.connected));
     } catch (_) {
       if (!_events.isClosed) {
-        _events.add(RtEvent(RtEventKind.error, '自动重连失败，回到前台会再试'));
+        _events.add(
+          RtEvent(RtEventKind.disconnected, '自动重连失败，回到前台会再试'),
+        );
       }
     } finally {
       _reconnecting = false;
     }
   }
 
+  /// socket 死亡后的自动重连调度：先发一条 willRetry=true 的 disconnected
+  /// （UI 置灰连接态但不弹提示），短暂延迟后静默重试一轮。
+  /// 「重连一次失败，然后才失败」——重试经 [reconnect]，其失败事件就是
+  /// 最终断开；此处不做循环退避。
+  void _scheduleAutoReconnect(String reason) {
+    _autoReconnectTimer?.cancel();
+    if (_events.isClosed) return;
+    _events.add(RtEvent(RtEventKind.disconnected, reason, true));
+    _autoReconnectTimer = Timer(_kAutoReconnectDelay, () {
+      unawaited(reconnect());
+    });
+  }
+
   /// 打开 WS 并完成注册握手——connect / reconnect 共用的传输层重建段。
   /// 幂等：先拆掉旧 socket（半死连接也要拆干净）再开新的。
   Future<void> _openSocketAndRegister() async {
     _registerTimeout?.cancel();
+    _autoReconnectTimer?.cancel(); // 新 socket 打开：待发的自动重连作废
     await _wsSub?.cancel();
     _wsSub = null;
     try {
@@ -238,12 +263,16 @@ class RtSession {
     final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
     _ws = channel;
     _wsSub = channel.stream.listen(_onFrame, onDone: () {
-      // 死亡即置空：isConnected 的真相来源，重进/回前台的补连判断靠它
+      // 死亡即置空：isConnected 的真相来源，重进/回前台的补连判断靠它。
+      // 不直接发 disconnected——先走自动重连，重试失败才报最终断开。
       _ws = null;
       _wsSub = null;
-      if (!_events.isClosed) _events.add(RtEvent(RtEventKind.disconnected, '连接关闭'));
+      _scheduleAutoReconnect('连接关闭');
     }, onError: (Object e) {
-      if (!_events.isClosed) _events.add(RtEvent(RtEventKind.error, '连接错误：$e'));
+      // 错误通常紧随 onDone；同样只调度重连，不直接弹错误。
+      _ws = null;
+      _wsSub = null;
+      _scheduleAutoReconnect('连接错误：$e');
     });
 
     _sendJson({
@@ -403,6 +432,7 @@ class RtSession {
 
   Future<void> dispose() async {
     _registerTimeout?.cancel();
+    _autoReconnectTimer?.cancel();
     await _wsSub?.cancel();
     await _ws?.sink.close();
     _ws = null;

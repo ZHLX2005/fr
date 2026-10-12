@@ -402,9 +402,14 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       case RtEventKind.connected:
         setState(() => _connected = true);
       case RtEventKind.disconnected:
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('连接断开（${e.detail ?? ''}）')));
+        // willRetry：socket 死了但会话在自动重连——只把 chips 灰掉，不弹提示；
+        // 重试那一次也失败（willRetry=false）才是最终断开，那时才打扰用户。
+        setState(() => _connected = false);
+        if (!e.willRetry) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('连接断开（${e.detail ?? ''}）')),
+          );
+        }
       case RtEventKind.deliveryFailed:
         ScaffoldMessenger.of(
           context,

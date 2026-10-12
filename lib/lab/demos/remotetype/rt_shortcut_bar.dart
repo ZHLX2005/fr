@@ -637,7 +637,12 @@ class _ChordCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(8, 10, 14, 10),
         child: Row(
           children: [
-            Icon(Icons.drag_handle, size: 18, color: cs.outline),
+            // buildDefaultDragHandles:false 时拖拽手势必须自己绑在手柄上，
+            // 否则列表看起来有手柄却拖不动。
+            ReorderableDragStartListener(
+              index: index,
+              child: Icon(Icons.drag_handle, size: 18, color: cs.outline),
+            ),
             const SizedBox(width: 6),
             Text(
               '${index + 1}.',
@@ -1142,10 +1147,14 @@ class _ShortcutListEditorSheetState extends State<_ShortcutListEditorSheet> {
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(
-                                          Icons.drag_handle,
-                                          color: cs.outline,
-                                          size: 18,
+                                        // 同 chord 卡片：手柄自带拖拽手势。
+                                        ReorderableDragStartListener(
+                                          index: index,
+                                          child: Icon(
+                                            Icons.drag_handle,
+                                            color: cs.outline,
+                                            size: 18,
+                                          ),
                                         ),
                                         const SizedBox(width: 6),
                                         Expanded(
