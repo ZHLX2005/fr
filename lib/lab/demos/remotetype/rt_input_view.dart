@@ -23,14 +23,17 @@ class RtInputView extends StatelessWidget {
     required this.onEnterModeChanged,
     required this.syncFlash,
     required this.onClear,
+    required this.onReplay,
     required this.onComposerTapOutside,
     required this.onTextChanged,
     required this.shortcuts,
+    required this.barDisplay,
     required this.connected,
     required this.firingId,
     required this.onFire,
     required this.onEdit,
     required this.onHistory,
+    required this.onBarDisplay,
   });
 
   final TextEditingController controller;
@@ -44,6 +47,9 @@ class RtInputView extends StatelessWidget {
 
   final VoidCallback onClear;
 
+  /// 重放当前输入框全文：PC 端焦点丢失时注入没落进目标框，用这个原样重打。
+  final VoidCallback onReplay;
+
   /// 点到输入框外：composing 还挂着时补发一笔（收尾兜底）。
   final VoidCallback onComposerTapOutside;
 
@@ -52,11 +58,13 @@ class RtInputView extends StatelessWidget {
 
   // 快捷键托盘直通参数
   final List<RtShortcutItem> shortcuts;
+  final RtBarDisplay barDisplay;
   final bool connected;
   final String? firingId;
   final Future<void> Function(RtShortcutItem item) onFire;
   final VoidCallback onEdit;
   final VoidCallback onHistory;
+  final VoidCallback onBarDisplay;
 
   @override
   Widget build(BuildContext context) {
@@ -88,11 +96,13 @@ class RtInputView extends StatelessWidget {
             const SizedBox(height: 10),
             RtShortcutBar(
               shortcuts: shortcuts,
+              display: barDisplay,
               connected: connected,
               firingId: firingId,
               onFire: onFire,
               onEdit: onEdit,
               onHistory: onHistory,
+              onDisplay: onBarDisplay,
             ),
             const SizedBox(height: 12),
             // 语音按钮移除后，纵向空间让给输入区：composer 占满剩余高度。
@@ -200,35 +210,50 @@ class RtInputView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Material(
-                color: c.surface,
-                elevation: 1,
-                shadowColor: cs.shadow.withValues(alpha: 0.06),
-                surfaceTintColor: Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: onClear,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 9,
-                    ),
-                    child: Text(
-                      '清空',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: c.textMuted,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            Row(
+              children: [
+                _FlatMiniBtn(label: '清空', onTap: onClear),
+                const SizedBox(width: 8),
+                _FlatMiniBtn(label: '重放', onTap: onReplay),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 清空 / 重放这类行内小动作按钮：浮卡样式，与原型 .btn 一致。
+class _FlatMiniBtn extends StatelessWidget {
+  const _FlatMiniBtn({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final cs = c.scheme;
+    return Material(
+      color: c.surface,
+      elevation: 1,
+      shadowColor: cs.shadow.withValues(alpha: 0.06),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: c.textMuted,
+            ),
+          ),
         ),
       ),
     );

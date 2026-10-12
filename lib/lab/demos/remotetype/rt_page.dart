@@ -81,10 +81,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   // 随每条快照下发，可即时切换；页面级内存态（本页其他配置同样不持久化）
   String _enterMode = 'enter';
 
-  // 快捷键条（可编排）+ 历史输入
+  // 快捷键条（可编排）+ 历史输入 + 托盘显示配置
   List<RtShortcutItem> _shortcuts = kDefaultRtShortcuts();
   List<String> _history = const [];
   String? _firingShortcutId;
+  RtBarDisplay _barDisplay = RtBarDisplay.defaults;
+  // 重放进行中（连点保护）
+  bool _replaying = false;
 
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
@@ -146,10 +149,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   Future<void> _loadPrefs() async {
     final shortcuts = await RtPrefs.loadShortcuts();
     final history = await RtPrefs.loadHistory();
+    final barDisplay = await RtPrefs.loadBarDisplay();
     if (!mounted) return;
     setState(() {
       _shortcuts = shortcuts;
       _history = history;
+      _barDisplay = barDisplay;
     });
   }
 
@@ -488,6 +493,58 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     setState(() => _shortcuts = next);
   }
 
+  Future<void> _openBarDisplay() async {
+    final next = await showRtBarDisplaySheet(
+      context: context,
+      current: _barDisplay,
+    );
+    if (next == null || !mounted) return;
+    await RtPrefs.saveBarDisplay(next);
+    if (!mounted) return;
+    setState(() => _barDisplay = next);
+  }
+
+  /// 重放当前输入框全文。
+  ///
+  /// 场景：PC 端焦点丢了，之前的注入没落进目标框；用户把焦点点回去后用这个
+  /// 原样重打。协议是全文快照 + mirror diff（mn-rt rt-align.js：mirror 相同
+  /// 则 planTransition 为空 → no-op），**原样重发会被判成无变化**，所以先发
+  /// 空快照把 mirror 清零，再重发全文——两步直发 session（不过 _sync 管线，
+  /// 避免它成功后清空输入框 / 触发历史入库）。
+  Future<void> _replayText() async {
+    if (_replaying) return;
+    final session = _session;
+    if (session == null || !_connected) {
+      _showSnack('未连接电脑');
+      return;
+    }
+    final text = _textController.text;
+    if (text.trim().isEmpty) {
+      _showSnack('输入框为空，没有可重放的内容');
+      return;
+    }
+    setState(() => _replaying = true);
+    String? error;
+    try {
+      // ① 空快照：PC 端 diff 出 backspace 计划，把 mirror（上次注入内容）
+      //    清零。焦点此刻在目标框时正好清掉残留；不在时与协议的固有前提
+      //    一致（注入永远落在当前焦点框）。
+      final cleared = await session.syncText('');
+      final resent = cleared ? await session.syncText(text) : false;
+      if (!resent) {
+        error = '发送失败（连接已断开？）';
+      } else {
+        setState(() => _syncSent += 2);
+        _flashSynced();
+      }
+    } catch (e) {
+      error = '重放异常：$e';
+    }
+    if (!mounted) return;
+    setState(() => _replaying = false);
+    if (error != null) _showSnack(error);
+  }
+
   Future<void> _openHistory() async {
     final picked = await showRtHistorySheet(
       context: context,
@@ -569,14 +626,17 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                     _textController.clear();
                     setState(() {});
                   },
+                  onReplay: _replayText,
                   onComposerTapOutside: _sync.scheduleSync,
                   onTextChanged: () => setState(() {}),
                   shortcuts: _shortcuts,
+                  barDisplay: _barDisplay,
                   connected: _connected,
                   firingId: _firingShortcutId,
                   onFire: _fireShortcut,
                   onEdit: _editShortcuts,
                   onHistory: _openHistory,
+                  onBarDisplay: _openBarDisplay,
                 ),
           if (_connecting) RtConnectingOverlay(label: _connectingLabel()),
         ],

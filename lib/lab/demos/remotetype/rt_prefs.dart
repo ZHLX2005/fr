@@ -9,7 +9,34 @@ import 'rt_constants.dart';
 const _kShortcutsKeyV1 = 'rt_shortcuts_v1';
 const _kShortcutsKeyV2 = 'rt_shortcuts_v2';
 const _kHistoryKey = 'rt_input_history_v1';
+const _kBarDisplayKey = 'rt_bar_display_v1';
 const _kMaxHistory = 40;
+
+/// 快捷键托盘的显示配置（与快捷键数据分离——只是外观，不影响发送内容）。
+class RtBarDisplay {
+  const RtBarDisplay({required this.showDetail, required this.rows});
+
+  /// true：序列 chip 显示 ×N·ms 与逐条 chord 预览；false：只显示名字。
+  final bool showDetail;
+
+  /// 托盘行数：1 = 单行横向滑动；2 = 双行（各占一半，仍横向滑动）。
+  /// 更多行会让托盘吃掉半个输入页——不做。
+  final int rows;
+
+  static const RtBarDisplay defaults = RtBarDisplay(showDetail: false, rows: 1);
+
+  RtBarDisplay copyWith({bool? showDetail, int? rows}) => RtBarDisplay(
+        showDetail: showDetail ?? this.showDetail,
+        rows: rows ?? this.rows,
+      );
+
+  Map<String, dynamic> toJson() => {'showDetail': showDetail, 'rows': rows};
+
+  factory RtBarDisplay.fromJson(Map<String, dynamic> j) => RtBarDisplay(
+        showDetail: j['showDetail'] == true,
+        rows: j['rows'] == 2 ? 2 : 1,
+      );
+}
 
 /// 一组按键（末位主键、其余修饰键）。与原协议层 `hotkey` 字段形状一一对应。
 class RtChord {
@@ -152,6 +179,24 @@ class RtPrefs {
       _kShortcutsKeyV2,
       jsonEncode(items.map((e) => e.toJson()).toList()),
     );
+  }
+
+  static Future<RtBarDisplay> loadBarDisplay() async {
+    final p = await SharedPreferences.getInstance();
+    final raw = p.getString(_kBarDisplayKey);
+    if (raw == null || raw.isEmpty) return RtBarDisplay.defaults;
+    try {
+      return RtBarDisplay.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return RtBarDisplay.defaults;
+    }
+  }
+
+  static Future<void> saveBarDisplay(RtBarDisplay d) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kBarDisplayKey, jsonEncode(d.toJson()));
   }
 
   static Future<List<String>> loadHistory() async {

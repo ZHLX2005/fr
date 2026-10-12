@@ -24,19 +24,25 @@ class RtShortcutBar extends StatelessWidget {
   const RtShortcutBar({
     super.key,
     required this.shortcuts,
+    required this.display,
     required this.connected,
     required this.firingId,
     required this.onFire,
     required this.onEdit,
     required this.onHistory,
+    required this.onDisplay,
   });
 
   final List<RtShortcutItem> shortcuts;
+
+  /// 托盘显示配置（只显名字 / 明细；1 行 / 2 行）。
+  final RtBarDisplay display;
   final bool connected;
   final String? firingId;
   final Future<void> Function(RtShortcutItem item) onFire;
   final VoidCallback onEdit;
   final VoidCallback onHistory;
+  final VoidCallback onDisplay;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +68,8 @@ class RtShortcutBar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              _GhostBtn(label: '显示', onTap: onDisplay),
+              const SizedBox(width: 6),
               _GhostBtn(label: '历史', onTap: onHistory),
               const SizedBox(width: 6),
               _GhostBtn(label: '编排', onTap: onEdit),
@@ -73,19 +81,41 @@ class RtShortcutBar extends StatelessWidget {
               '暂无快捷键，点「编排」添加',
               style: TextStyle(fontSize: 12, color: c.textMuted),
             )
-          else
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
+          else if (display.rows == 2)
+            // 双行：各放一半，仍横向滑动——顺序保持先上后下。
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final item in shortcuts)
-                  _ShortcutChip(
-                    item: item,
-                    busy: firingId == item.id,
-                    enabled: connected && firingId == null,
-                    onTap: () => onFire(item),
-                  ),
+                _chipRow(context, shortcuts.sublist(0, (shortcuts.length / 2).ceil())),
+                const SizedBox(height: 6),
+                if (shortcuts.length > 1)
+                  _chipRow(context, shortcuts.sublist((shortcuts.length / 2).ceil())),
               ],
+            )
+          else
+            // 单行横向滑动：条数多时不再折行堆叠占满整页，左右滑即可。
+            _chipRow(context, shortcuts),
+        ],
+      ),
+    );
+  }
+
+  Widget _chipRow(BuildContext context, List<RtShortcutItem> items) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: [
+          for (final item in items)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _ShortcutChip(
+                item: item,
+                showDetail: display.showDetail,
+                busy: firingId == item.id,
+                enabled: connected && firingId == null,
+                onTap: () => onFire(item),
+              ),
             ),
         ],
       ),
@@ -125,6 +155,7 @@ class _GhostBtn extends StatelessWidget {
 }
 
 /// 单条快捷键 chip：
+///   - showDetail=false → 只显示名字（配置「只显名字」时）
 ///   - 单 chord + 无间隔 → 紧凑形态（只显示 label）
 ///   - 多 chord 或 非零间隔 → 序列形态（在 label 下显示 "× N · YYYms"）
 ///  chip 内部能容下 1..3 个小 chord 预览（modifier+main 的字符串形式）；超过
@@ -132,12 +163,16 @@ class _GhostBtn extends StatelessWidget {
 class _ShortcutChip extends StatelessWidget {
   const _ShortcutChip({
     required this.item,
+    required this.showDetail,
     required this.busy,
     required this.enabled,
     required this.onTap,
   });
 
   final RtShortcutItem item;
+
+  /// 托盘配置：是否显示按键明细（false 时无论什么形态都只显示名字）。
+  final bool showDetail;
   final bool busy;
   final bool enabled;
   final VoidCallback onTap;
@@ -146,6 +181,8 @@ class _ShortcutChip extends StatelessWidget {
 
   bool get _isCompact =>
       item.chords.length <= kRtShortcutCompactChordCap && item.intervalMs == 0;
+
+  bool get _showMeta => showDetail && !_isCompact;
 
   String _chordPreviewText(RtChord chord) {
     if (chord.keys.length <= 1) {
@@ -173,7 +210,7 @@ class _ShortcutChip extends StatelessWidget {
         ? cs.onPrimary.withValues(alpha: 0.8)
         : c.textMuted;
 
-    final showMeta = !_isCompact;
+    final showMeta = _showMeta;
     final previewCount = item.chords.length.clamp(0, _previewMax);
     return Material(
       color: bg,
@@ -237,6 +274,85 @@ class _ShortcutChip extends StatelessWidget {
                   ],
                 ),
         ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// 托盘显示配置 sheet
+// ============================================================
+
+/// 托盘外观配置：只显名字 / 显示按键明细；单行 / 双行。
+Future<RtBarDisplay?> showRtBarDisplaySheet({
+  required BuildContext context,
+  required RtBarDisplay current,
+}) {
+  return showModalBottomSheet<RtBarDisplay>(
+    context: context,
+    showDragHandle: true,
+    builder: (_) => _BarDisplaySheet(current: current),
+  );
+}
+
+class _BarDisplaySheet extends StatefulWidget {
+  const _BarDisplaySheet({required this.current});
+  final RtBarDisplay current;
+
+  @override
+  State<_BarDisplaySheet> createState() => _BarDisplaySheetState();
+}
+
+class _BarDisplaySheetState extends State<_BarDisplaySheet> {
+  late bool _showDetail = widget.current.showDetail;
+  late int _rows = widget.current.rows;
+
+  void _pop() => Navigator.pop(
+        context,
+        RtBarDisplay(showDetail: _showDetail, rows: _rows),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Text(
+              '快捷键显示',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('只显示名字'),
+            subtitle: Text(
+              _showDetail ? '关闭后 chip 会带上按键明细' : 'chip 只显示名字，不显示按键明细',
+              style: TextStyle(fontSize: 12, color: c.textMuted),
+            ),
+            value: !_showDetail,
+            onChanged: (v) => setState(() => _showDetail = !v),
+          ),
+          SwitchListTile(
+            title: const Text('双行排列'),
+            subtitle: Text(
+              _rows == 2 ? 'chip 分两行排，仍可左右滑' : '单行排列，条多时左右滑',
+              style: TextStyle(fontSize: 12, color: c.textMuted),
+            ),
+            value: _rows == 2,
+            onChanged: (v) => setState(() => _rows = v ? 2 : 1),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: FilledButton(
+              onPressed: _pop,
+              child: const Text('完成'),
+            ),
+          ),
+        ],
       ),
     );
   }
