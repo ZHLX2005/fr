@@ -198,26 +198,38 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             children: stackKids,
           );
 
+    // 底栏 Stack 浮层：保留胶囊外壳，同时避开 Scaffold.bottomNavigationBar
+    // 槽位那层矩形铺色（真凶）。勿再伪造 MediaQuery.padding，以免键盘避让失效。
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final navReserve = keyboard > 0
+        ? 0.0
+        : QuickNavBottomBar.bodyBottomReserve(context);
+
     return Stack(
       children: [
         Scaffold(
-          // 底栏无通栏底色；body 延伸到底，避免 Scaffold 槽位露出矩形条带。
-          extendBody: true,
-          backgroundColor: Colors.transparent,
-          body: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              padding: MediaQuery.paddingOf(context).copyWith(
-                bottom: QuickNavBottomBar.bodyBottomReserve(context),
-              ),
-            ),
+          body: Padding(
+            padding: EdgeInsets.only(bottom: navReserve),
             child: body,
           ),
-          bottomNavigationBar: QuickNavBottomBar(
-            visibleEntries: visibleEntries,
-            selectedId: selected,
-            moreSelected: moreSelected,
-            onSelect: _select,
-            onMore: () => _openMore(pins),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: IgnorePointer(
+            ignoring: keyboard > 0,
+            child: AnimatedOpacity(
+              opacity: keyboard > 0 ? 0 : 1,
+              duration: const Duration(milliseconds: 120),
+              child: QuickNavBottomBar(
+                visibleEntries: visibleEntries,
+                selectedId: selected,
+                moreSelected: moreSelected,
+                onSelect: _select,
+                onMore: () => _openMore(pins),
+              ),
+            ),
           ),
         ),
         const ApkAutoUpdateMount(),

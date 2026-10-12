@@ -1,7 +1,9 @@
 // 可配置快捷底栏：前 N−1 为钉选入口，末位固定 ⋯。
-// iOS 手感：弹簧胶囊指示器 + 按压缩放（无通栏底轨）。
+// iOS 手感：毛玻璃胶囊外壳 + 弹簧指示器 + 按压缩放。
+// 主壳用 Stack 浮层挂载（勿用 Scaffold.bottomNavigationBar，避免矩形槽位铺底色）。
 
 import 'dart:math' show exp, cos;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,7 +42,7 @@ class QuickNavBottomBar extends StatefulWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onMore;
 
-  /// Scaffold `extendBody` 时 body 应保留的底部避让高度。
+  /// 主壳 body 底部避让高度（浮层底栏占位，不含键盘）。
   static double bodyBottomReserve(BuildContext context) =>
       barHeight + barBottomGap + MediaQuery.paddingOf(context).bottom;
 
@@ -108,74 +110,97 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
         alignment: Alignment.topCenter,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: SizedBox(
-            height: _barH,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final itemW = constraints.maxWidth / n;
-                final capsuleW = (itemW - 8).clamp(56.0, 88.0);
-
-                double leftOf(int idx) =>
-                    idx * itemW + (itemW - capsuleW) / 2;
-
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    AnimatedBuilder(
-                      animation: _curve,
-                      builder: (context, _) {
-                        final t = _curve.isDismissed ? 1.0 : _curve.value;
-                        final left = leftOf(_prev) +
-                            (leftOf(_current) - leftOf(_prev)) * t;
-                        return Positioned(
-                          left: left,
-                          top: (_barH - _capsuleH) / 2,
-                          child: Container(
-                            width: capsuleW,
-                            height: _capsuleH,
-                            decoration: BoxDecoration(
-                              color: cs.primary.withValues(alpha: 0.14),
-                              borderRadius:
-                                  BorderRadius.circular(_capsuleH / 2),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    Row(
-                      children: [
-                        for (var i = 0; i < widget.visibleEntries.length; i++)
-                          Expanded(
-                            child: _NavTab(
-                              icon: widget.visibleEntries[i].icon,
-                              label: widget.visibleEntries[i].title,
-                              selected: !widget.moreSelected &&
-                                  widget.selectedId ==
-                                      widget.visibleEntries[i].id,
-                              color: cs.primary,
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                widget.onSelect(widget.visibleEntries[i].id);
-                              },
-                            ),
-                          ),
-                        Expanded(
-                          child: _NavTab(
-                            icon: Icons.more_horiz_rounded,
-                            label: '更多',
-                            selected: widget.moreSelected,
-                            color: cs.primary,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              widget.onMore();
-                            },
-                          ),
-                        ),
-                      ],
+          // 胶囊外壳本身；外层 SizedBox 无背景，避免矩形父容器铺色。
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(_barH / 2),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                height: _barH,
+                decoration: BoxDecoration(
+                  color: cs.surface.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(_barH / 2),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.35),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 28,
+                      offset: const Offset(0, 10),
                     ),
                   ],
-                );
-              },
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemW = constraints.maxWidth / n;
+                    final capsuleW = (itemW - 8).clamp(56.0, 88.0);
+
+                    double leftOf(int idx) =>
+                        idx * itemW + (itemW - capsuleW) / 2;
+
+                    return Stack(
+                      children: [
+                        AnimatedBuilder(
+                          animation: _curve,
+                          builder: (context, _) {
+                            final t = _curve.isDismissed ? 1.0 : _curve.value;
+                            final left = leftOf(_prev) +
+                                (leftOf(_current) - leftOf(_prev)) * t;
+                            return Positioned(
+                              left: left,
+                              top: (_barH - _capsuleH) / 2,
+                              child: Container(
+                                width: capsuleW,
+                                height: _capsuleH,
+                                decoration: BoxDecoration(
+                                  color: cs.primary.withValues(alpha: 0.14),
+                                  borderRadius:
+                                      BorderRadius.circular(_capsuleH / 2),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        Row(
+                          children: [
+                            for (var i = 0;
+                                i < widget.visibleEntries.length;
+                                i++)
+                              Expanded(
+                                child: _NavTab(
+                                  icon: widget.visibleEntries[i].icon,
+                                  label: widget.visibleEntries[i].title,
+                                  selected: !widget.moreSelected &&
+                                      widget.selectedId ==
+                                          widget.visibleEntries[i].id,
+                                  color: cs.primary,
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    widget
+                                        .onSelect(widget.visibleEntries[i].id);
+                                  },
+                                ),
+                              ),
+                            Expanded(
+                              child: _NavTab(
+                                icon: Icons.more_horiz_rounded,
+                                label: '更多',
+                                selected: widget.moreSelected,
+                                color: cs.primary,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  widget.onMore();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
