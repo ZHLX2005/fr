@@ -42,7 +42,8 @@ class QuickNavBottomBar extends StatefulWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onMore;
 
-  /// 主壳 body 底部避让高度（浮层底栏占位，不含键盘）。
+  /// 浮层底栏占位（含系统底 inset）。给滚动区 padding.bottom 用；
+  /// 勿写入 MediaQuery.padding（SafeArea 会吃掉并露出 Scaffold 色条）。
   static double bodyBottomReserve(BuildContext context) =>
       barHeight + barBottomGap + MediaQuery.paddingOf(context).bottom;
 

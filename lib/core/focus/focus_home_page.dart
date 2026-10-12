@@ -7,6 +7,7 @@ import 'time_tools/const_time_pages.dart';
 import '../../lab/lab_container.dart';
 import '../../screens/profile/lab/demo_detail_page.dart';
 import '../../core/theme/component/zen/zen_theme.dart';
+import '../../widgets/quick_nav_bottom_bar.dart';
 
 /// 工具列表项：registry demo（按 slug 走 DemoDetailPage）；内部页（带 onTap）。
 /// onTap 只在内部页使用；registry 项 onTap 由父级 build 中按 slug 派生。
@@ -50,7 +51,9 @@ class FocusHomePage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: colorScheme.surface,
+      // 主壳浮层底栏：勿 SafeArea(bottom)，避免底部 Scaffold 色条。
       body: SafeArea(
+        bottom: false,
         child: Consumer<FocusProvider>(
           builder: (context, fp, _) {
             if (fp.isLoading) {
@@ -85,8 +88,10 @@ class FocusHomePage extends StatelessWidget {
               ),
             ];
 
+            final bottomPad =
+                QuickNavBottomBar.bodyBottomReserve(context);
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomPad),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

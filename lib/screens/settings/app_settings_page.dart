@@ -14,6 +14,7 @@ import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
 import '../../lab/lab_container.dart';
+import '../../widgets/quick_nav_bottom_bar.dart';
 import '../profile/lab/demo_detail_page.dart';
 import '../profile/lab/game_center/const_game_center.dart';
 import '../profile/theme/theme_page.dart';
@@ -96,7 +97,9 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
     return Scaffold(
       // 页底 highest，卡面 surface —— 靠明度分层，不用投影。
       backgroundColor: cs.surfaceContainerHighest,
+      // 底栏浮层：勿 SafeArea(bottom)，否则留白露出 Scaffold 色条。
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             Padding(
@@ -213,8 +216,9 @@ class _GeneralPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bottomPad = QuickNavBottomBar.bodyBottomReserve(context);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+      padding: EdgeInsets.fromLTRB(16, 4, 16, 16 + bottomPad),
       children: [
         _SectionLabel('账号'),
         _Grouped(
@@ -400,7 +404,12 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                 )
               : widget.reorderable
                   ? ReorderableListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        16 + QuickNavBottomBar.bodyBottomReserve(context),
+                      ),
                       itemCount: entries.length,
                       buildDefaultDragHandles: false,
                       autoScrollerVelocityScalar: 40,
@@ -467,7 +476,12 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                       },
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        16 + QuickNavBottomBar.bodyBottomReserve(context),
+                      ),
                       children: [
                         // 一张大组卡：行与行零间距、无分隔线。
                         Material(

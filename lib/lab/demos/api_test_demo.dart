@@ -4,6 +4,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/design/emphasis_button.dart';
+import '../../widgets/quick_nav_bottom_bar.dart';
 import '../lab_container.dart';
 import 'api_test/api_download_manager.dart';
 import 'api_test/api_speech_tab.dart';
@@ -265,8 +266,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     return ValueListenableBuilder<ApkDownloadState>(
       valueListenable: _apkManager.state,
       builder: (context, apkState, child) {
-        // 主壳已把底栏高度注入 MediaQuery.padding.bottom。
-        final bottomPad = MediaQuery.paddingOf(context).bottom;
+        final bottomPad = QuickNavBottomBar.bodyBottomReserve(context);
         return SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
           child: Column(

@@ -9,6 +9,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../widgets/quick_nav_bottom_bar.dart';
+
 /// 由 WebSocket 音频数据驱动的流式 AudioSource
 class _WebSocketAudioSource extends StreamAudioSource {
   final StreamController<List<int>> _broadcast =
@@ -717,7 +719,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    final bottomPad = QuickNavBottomBar.bodyBottomReserve(context);
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
       child: Column(

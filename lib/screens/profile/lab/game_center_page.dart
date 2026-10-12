@@ -32,6 +32,7 @@ import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
+import '../../../widgets/quick_nav_bottom_bar.dart';
 import 'demo_detail_page.dart';
 import 'game_center/const_game_center.dart';
 import 'game_center/game_center_cards.dart';
@@ -355,11 +356,11 @@ class _GameCenterPageState extends State<GameCenterPage>
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
+                      padding: EdgeInsets.fromLTRB(
                         kGcPagePadding,
                         4,
                         kGcPagePadding,
-                        28,
+                        28 + QuickNavBottomBar.bodyBottomReserve(context),
                       ),
                       sliver: SliverGrid.builder(
                         gridDelegate:

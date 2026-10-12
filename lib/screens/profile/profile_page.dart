@@ -8,6 +8,7 @@ import 'banner_crop_page.dart';
 import 'theme/theme_page.dart';
 import '../../widgets/springy_banner.dart';
 import '../../widgets/bounded_bouncing_scroll_physics.dart';
+import '../../widgets/quick_nav_bottom_bar.dart';
 import 'character_profile_page.dart';
 
 /// App 级 banner 路径缓存。
@@ -205,6 +206,7 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         top: false, // 让 SliverAppBar 处理顶部安全区域
+        bottom: false, // 主壳浮层底栏：避免底部 Scaffold 色条
         // iOS 风格下拉橡皮筋：
         //   - BouncingScrollPhysics 让 position.pixels 允许短暂为负（overscroll）
         //   - SliverAppBar(stretch: true) 自身消化顶部 overscroll，把 background
@@ -350,7 +352,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             );
                           },
                         ),
-                        const SizedBox(height: 48),
+                        SizedBox(
+                          height: 48 +
+                              QuickNavBottomBar.bodyBottomReserve(context),
+                        ),
                         // 底部说明（连点 5 次彩蛋）
                         InkWell(
                           onTap: _onBottomTextTap,

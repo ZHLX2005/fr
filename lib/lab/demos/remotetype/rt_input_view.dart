@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../widgets/context_colors.dart';
+import '../../../widgets/quick_nav_bottom_bar.dart';
 import 'rt_constants.dart';
 import 'rt_prefs.dart';
 import 'rt_shortcut_bar.dart';
@@ -69,9 +70,16 @@ class RtInputView extends StatelessWidget {
     // 对齐原型：composer 固定矮卡，键盘直接盖住底部。
     const double fieldHeight = 148;
 
+    // 主壳浮层底栏：勿 SafeArea(bottom)，避免底部 Scaffold 色条。
     return SafeArea(
+      bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          12 + QuickNavBottomBar.bodyBottomReserve(context),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

@@ -13,6 +13,7 @@ import 'pi_chat_message.dart';
 import 'pi_chat_settings.dart';
 import 'pi_chat_settings_page.dart';
 import 'pi_chat_ui.dart';
+import '../../../widgets/quick_nav_bottom_bar.dart';
 
 /// pi 聊天页 —— 建会话 / 发消息 / SSE 流式渲染 / 历史回读。
 ///
@@ -673,10 +674,14 @@ class _PiChatPageState extends State<PiChatPage> {
                         ),
                 ),
                 SafeArea(
+                  // 主壳浮层底栏：系统 inset + 底栏高度都放进 padding，
+                  // 避免 SafeArea(bottom) 单独吃掉后露出色条。
+                  bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB(
                         PiChatTokens.s3, PiChatTokens.s2, PiChatTokens.s3,
-                        PiChatTokens.s3),
+                        PiChatTokens.s3 +
+                            QuickNavBottomBar.bodyBottomReserve(context)),
                     // 与消息列同宽（第 14 次复评：气泡居中 760、输入条铺满
                     // 全宽 = 视觉断裂）
                     child: ConstrainedBox(
