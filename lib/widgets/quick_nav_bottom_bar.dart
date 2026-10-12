@@ -139,7 +139,8 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
                     double leftOf(int idx) =>
                         idx * itemW + (itemW - capsuleW) / 2;
 
-                    return Stack(
+                    return ClipRect(
+                      child: Stack(
                       children: [
                         AnimatedBuilder(
                           animation: _curve,
@@ -197,6 +198,7 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
                           ],
                         ),
                       ],
+                    ),
                     );
                   },
                 ),
@@ -229,30 +231,43 @@ class _NavTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = selected ? color : color.withValues(alpha: 0.42);
-    // 真机中文字体度量 > 理论高度，易撑破 64 → 黄黑 overflow 条。
+    // 真机中文 ascent/descent 易撑破固定高 → 黄黑 overflow。
+    // 用固定文字槽 + ClipRect，禁止任何溢出绘制。
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(
         height: _barH,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 20, color: c),
-            const SizedBox(height: 1),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 9,
-                height: 1.0,
-                leadingDistribution: TextLeadingDistribution.even,
-                fontWeight: FontWeight.w700,
-                color: c,
-              ),
+        width: double.infinity,
+        child: ClipRect(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: c),
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: 12,
+                  child: Center(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 9,
+                        height: 1.0,
+                        leadingDistribution: TextLeadingDistribution.even,
+                        fontWeight: FontWeight.w700,
+                        color: c,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

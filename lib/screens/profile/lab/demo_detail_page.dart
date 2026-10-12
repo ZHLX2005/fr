@@ -20,7 +20,10 @@ class DemoDetailPage extends StatelessWidget {
     final theme = Theme.of(context);
     // 钉在快捷底栏时是壳根页，不能 pop → 隐藏返回。
     final canPop = context.navCanPop;
+    final cs = theme.colorScheme;
     return Scaffold(
+      // 壳根页透出下层页底色，避免 SafeArea 底部留白露出白矩形。
+      backgroundColor: canPop ? null : Colors.transparent,
       // 全屏 demo（如远程输入）自管键盘；外层再 resize 会二次压缩导致空白。
       resizeToAvoidBottomInset: !demo.preferFullScreen,
       appBar: demo.preferFullScreen
@@ -28,6 +31,8 @@ class DemoDetailPage extends StatelessWidget {
           : AppBar(
               toolbarHeight: 48,
               automaticallyImplyLeading: canPop,
+              backgroundColor: cs.surface,
+              surfaceTintColor: Colors.transparent,
               titleTextStyle: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
