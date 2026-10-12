@@ -1,5 +1,5 @@
 // 应用设置：主题入口 + 底栏容量 + 分 Tab 钉选（搜索 / 拖拽排序）。
-// Tab：Cupertino 原生滑动分段 + 轻淡入；拖拽：本地排序 + 轻量抬起态。
+// Tab：分段点击 + 左右滑动；钉选 Tab 只排序，开关在各分组 Tab。
 
 import 'dart:ui' show lerpDouble;
 
@@ -34,18 +34,42 @@ class AppSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
+  static const _tabs = _SettingsTab.values;
+
   _SettingsTab _tab = _SettingsTab.general;
+  late final PageController _pageController;
   final _queries = <_SettingsTab, String>{};
   /// 封面预热完成后刷新游戏缩略图。
   var _coversReady = false;
+  /// 钉选拖拽中禁止横向翻页。
+  var _pagingLocked = false;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _tab.index);
     // 进设置时再确保拉一次（启动预热可能尚未完成）
     warmUpGameCenterCovers().then((_) {
       if (mounted) setState(() => _coversReady = true);
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _selectTab(_SettingsTab tab, {required bool animate}) {
+    _tab = tab;
+    if (!animate || !_pageController.hasClients) return;
+    final current = _pageController.page ?? tab.index.toDouble();
+    if ((current - tab.index).abs() < 0.001) return;
+    _pageController.animateToPage(
+      tab.index,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _onSearch(_SettingsTab tab, String value) {
@@ -73,78 +97,95 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: _CupertinoSettingsTabs(
-                value: _tab,
-                onChanged: (t) => setState(() => _tab = t),
+              child: AnimatedBuilder(
+                animation: _pageController,
+                builder: (context, _) {
+                  final page = _pageController.hasClients
+                      ? (_pageController.page ?? _tab.index.toDouble())
+                      : _tab.index.toDouble();
+                  return _CupertinoSettingsTabs(
+                    page: page,
+                    onChanged: (t) => _selectTab(t, animate: true),
+                  );
+                },
               ),
             ),
             Expanded(
-              // 仅淡入淡出：无缩放/滑移叠层，避免「难看」的弹簧感
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, anim) =>
-                    FadeTransition(opacity: anim, child: child),
-                child: KeyedSubtree(
-                  key: ValueKey(_tab),
-                  child: switch (_tab) {
-                    _SettingsTab.general => _GeneralPanel(
-                        themeLabel: AppTheme.getThemeDisplayName(themeMode),
-                        capacity: pins.capacity,
-                        onCapacity: (c) => ref
-                            .read(navPinsProvider.notifier)
-                            .setCapacity(c),
-                      ),
-                    _SettingsTab.pinned => _PinPool(
-                        searchHint: '搜索已钉选',
-                        onSearch: (v) => _onSearch(_tab, v),
-                        entries: pins.pinIds
-                            .map(navEntryById)
-                            .whereType<NavEntry>()
-                            .where((e) => _match(e, _queries[_tab]))
-                            .toList(),
-                        pinnedIds: pins.pinIds,
-                        reorderable: true,
-                        showThumb: true,
-                      ),
-                    _SettingsTab.core => _PinPool(
-                        searchHint: '搜索核心入口',
-                        onSearch: (v) => _onSearch(_tab, v),
-                        entries: navEntriesInGroup(NavGroup.core)
-                            .where((e) => _match(e, _queries[_tab]))
-                            .toList(),
-                        pinnedIds: pins.pinIds,
-                      ),
-                    _SettingsTab.ai => _PinPool(
-                        searchHint: '搜索 AI 入口',
-                        onSearch: (v) => _onSearch(_tab, v),
-                        entries: navEntriesInGroup(NavGroup.ai)
-                            .where((e) => _match(e, _queries[_tab]))
-                            .toList(),
-                        pinnedIds: pins.pinIds,
-                      ),
-                    _SettingsTab.lab => _PinPool(
-                        searchHint: '搜索实验室 demo',
-                        onSearch: (v) => _onSearch(_tab, v),
-                        entries: navEntriesInGroup(NavGroup.lab)
-                            .where((e) => _match(e, _queries[_tab]))
-                            .toList(),
-                        pinnedIds: pins.pinIds,
-                      ),
-                    _SettingsTab.games => _PinPool(
-                        searchHint: '搜索游戏 demo',
-                        onSearch: (v) => _onSearch(_tab, v),
-                        entries: navEntriesInGroup(NavGroup.game)
-                            .where((e) => _match(e, _queries[_tab]))
-                            .toList(),
-                        pinnedIds: pins.pinIds,
-                        showThumb: true,
-                        // 触发封面到位后的缩略刷新
-                        coverEpoch: _coversReady ? 1 : 0,
-                      ),
-                  },
-                ),
+              child: PageView(
+                controller: _pageController,
+                physics: _pagingLocked
+                    ? const NeverScrollableScrollPhysics()
+                    : null,
+                onPageChanged: (i) =>
+                    _selectTab(_tabs[i.clamp(0, _tabs.length - 1)], animate: false),
+                children: [
+                  _KeepAlivePage(
+                    child: _GeneralPanel(
+                      themeLabel: AppTheme.getThemeDisplayName(themeMode),
+                      capacity: pins.capacity,
+                      onCapacity: (c) =>
+                          ref.read(navPinsProvider.notifier).setCapacity(c),
+                    ),
+                  ),
+                  _KeepAlivePage(
+                    child: _PinPool(
+                      searchHint: '搜索已钉选',
+                      onSearch: (v) => _onSearch(_SettingsTab.pinned, v),
+                      entries: pins.pinIds
+                          .map(navEntryById)
+                          .whereType<NavEntry>()
+                          .where((e) => _match(e, _queries[_SettingsTab.pinned]))
+                          .toList(),
+                      pinnedIds: pins.pinIds,
+                      reorderable: true,
+                      showThumb: true,
+                      onReorderActive: (active) =>
+                          setState(() => _pagingLocked = active),
+                    ),
+                  ),
+                  _KeepAlivePage(
+                    child: _PinPool(
+                      searchHint: '搜索核心入口',
+                      onSearch: (v) => _onSearch(_SettingsTab.core, v),
+                      entries: navEntriesInGroup(NavGroup.core)
+                          .where((e) => _match(e, _queries[_SettingsTab.core]))
+                          .toList(),
+                      pinnedIds: pins.pinIds,
+                    ),
+                  ),
+                  _KeepAlivePage(
+                    child: _PinPool(
+                      searchHint: '搜索 AI 入口',
+                      onSearch: (v) => _onSearch(_SettingsTab.ai, v),
+                      entries: navEntriesInGroup(NavGroup.ai)
+                          .where((e) => _match(e, _queries[_SettingsTab.ai]))
+                          .toList(),
+                      pinnedIds: pins.pinIds,
+                    ),
+                  ),
+                  _KeepAlivePage(
+                    child: _PinPool(
+                      searchHint: '搜索实验室 demo',
+                      onSearch: (v) => _onSearch(_SettingsTab.lab, v),
+                      entries: navEntriesInGroup(NavGroup.lab)
+                          .where((e) => _match(e, _queries[_SettingsTab.lab]))
+                          .toList(),
+                      pinnedIds: pins.pinIds,
+                    ),
+                  ),
+                  _KeepAlivePage(
+                    child: _PinPool(
+                      searchHint: '搜索游戏 demo',
+                      onSearch: (v) => _onSearch(_SettingsTab.games, v),
+                      entries: navEntriesInGroup(NavGroup.game)
+                          .where((e) => _match(e, _queries[_SettingsTab.games]))
+                          .toList(),
+                      pinnedIds: pins.pinIds,
+                      showThumb: true,
+                      coverEpoch: _coversReady ? 1 : 0,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -235,6 +276,7 @@ class _PinPool extends ConsumerStatefulWidget {
     this.reorderable = false,
     this.showThumb = false,
     this.coverEpoch = 0,
+    this.onReorderActive,
   });
 
   final String searchHint;
@@ -244,6 +286,7 @@ class _PinPool extends ConsumerStatefulWidget {
   final bool reorderable;
   final bool showThumb;
   final int coverEpoch;
+  final ValueChanged<bool>? onReorderActive;
 
   @override
   ConsumerState<_PinPool> createState() => _PinPoolState();
@@ -386,10 +429,12 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                       },
                       onReorderStart: (_) {
                         HapticFeedback.mediumImpact();
+                        widget.onReorderActive?.call(true);
                         setState(() => _dragOrder = [...widget.entries]);
                       },
                       onReorderEnd: (_) {
                         HapticFeedback.selectionClick();
+                        widget.onReorderActive?.call(false);
                       },
                       onReorder: (oldIndex, newIndex) {
                         final local = [...(_dragOrder ?? widget.entries)];
@@ -419,11 +464,6 @@ class _PinPoolState extends ConsumerState<_PinPool> {
                           slotLabel: _slotFor(e.id),
                           showThumb: widget.showThumb,
                           dragIndex: index,
-                          onToggle: () {
-                            ref
-                                .read(navPinsProvider.notifier)
-                                .togglePin(e.id);
-                          },
                         );
                       },
                     )
@@ -459,7 +499,7 @@ class _PinTile extends StatelessWidget {
     required this.entry,
     required this.pinned,
     required this.slotLabel,
-    required this.onToggle,
+    this.onToggle,
     this.showThumb = false,
     this.dragIndex,
   });
@@ -467,7 +507,7 @@ class _PinTile extends StatelessWidget {
   final NavEntry entry;
   final bool pinned;
   final String slotLabel;
-  final VoidCallback onToggle;
+  final VoidCallback? onToggle;
   final bool showThumb;
   final int? dragIndex;
 
@@ -536,10 +576,12 @@ class _PinTile extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
-            trailing: Switch.adaptive(
-              value: pinned,
-              onChanged: (_) => onToggle(),
-            ),
+            trailing: onToggle == null
+                ? null
+                : Switch.adaptive(
+                    value: pinned,
+                    onChanged: (_) => onToggle!(),
+                  ),
           ),
         ),
       ),
@@ -636,14 +678,34 @@ class _LeadingIcon extends StatelessWidget {
   }
 }
 
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
 /// 等宽收进一屏的分段控件（不横向滚动）。
 class _CupertinoSettingsTabs extends StatelessWidget {
   const _CupertinoSettingsTabs({
-    required this.value,
+    required this.page,
     required this.onChanged,
   });
 
-  final _SettingsTab value;
+  final double page;
   final ValueChanged<_SettingsTab> onChanged;
 
   /// 短标签，保证 6 格塞进手机宽度。
@@ -659,7 +721,7 @@ class _CupertinoSettingsTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final selected = _tabs.indexWhere((e) => e.$2 == value).clamp(0, 5);
+    final selected = page.round().clamp(0, _tabs.length - 1);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -674,10 +736,8 @@ class _CupertinoSettingsTabs extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           child: Stack(
             children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                left: selected * cellW,
+              Positioned(
+                left: page.clamp(0, _tabs.length - 1) * cellW,
                 top: 0,
                 bottom: 0,
                 width: cellW,
@@ -697,25 +757,25 @@ class _CupertinoSettingsTabs extends StatelessWidget {
               ),
               Row(
                 children: [
-                  for (final (label, tab) in _tabs)
+                  for (var i = 0; i < _tabs.length; i++)
                     Expanded(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
                           HapticFeedback.selectionClick();
-                          onChanged(tab);
+                          onChanged(_tabs[i].$2);
                         },
                         child: Center(
                           child: Text(
-                            label,
+                            _tabs[i].$1,
                             maxLines: 1,
                             overflow: TextOverflow.clip,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: value == tab
+                              fontWeight: selected == i
                                   ? FontWeight.w700
                                   : FontWeight.w600,
-                              color: value == tab
+                              color: selected == i
                                   ? cs.onSurface
                                   : cs.onSurfaceVariant,
                             ),

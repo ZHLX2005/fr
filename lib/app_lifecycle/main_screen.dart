@@ -201,7 +201,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return Stack(
       children: [
         Scaffold(
-          body: body,
+          // 底栏无通栏底色；body 延伸到底，避免 Scaffold 槽位露出矩形条带。
+          extendBody: true,
+          backgroundColor: Colors.transparent,
+          body: MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: MediaQuery.paddingOf(context).copyWith(
+                bottom: QuickNavBottomBar.bodyBottomReserve(context),
+              ),
+            ),
+            child: body,
+          ),
           bottomNavigationBar: QuickNavBottomBar(
             visibleEntries: visibleEntries,
             selectedId: selected,
