@@ -1,4 +1,4 @@
-// 可配置快捷底栏：前 N−1 为钉选入口，末位固定 ⋯。
+// 可配置快捷底栏：前 N−1 为钉选入口，末位为 ⋯ 或设置直连入口。
 // iOS 手感：毛玻璃胶囊外壳 + 弹簧指示器 + 按压缩放。
 // 主壳用 Stack 浮层挂载（勿用 Scaffold.bottomNavigationBar，避免矩形槽位铺底色）。
 
@@ -24,6 +24,7 @@ class QuickNavBottomBar extends StatefulWidget {
   const QuickNavBottomBar({
     super.key,
     required this.visibleEntries,
+    this.lastSlotEntry,
     required this.selectedId,
     required this.moreSelected,
     required this.onSelect,
@@ -37,6 +38,10 @@ class QuickNavBottomBar extends StatefulWidget {
   static const double barBottomGap = 16;
 
   final List<NavEntry> visibleEntries;
+
+  /// 末位槽直连入口（设置）。非 null 时末位槽渲染它并走 [onSelect]，
+  /// 为 null 时末位槽保持 ⋯ 并走 [onMore]。
+  final NavEntry? lastSlotEntry;
   final String? selectedId;
   final bool moreSelected;
   final ValueChanged<String> onSelect;
@@ -64,6 +69,10 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
   int get _slotCount => widget.visibleEntries.length + 1; // + ⋯
 
   int _indexOfSelection() {
+    final last = widget.lastSlotEntry;
+    if (last != null && widget.selectedId == last.id) {
+      return widget.visibleEntries.length;
+    }
     if (widget.moreSelected) return widget.visibleEntries.length;
     final i = widget.visibleEntries.indexWhere((e) => e.id == widget.selectedId);
     return i < 0 ? 0 : i;
@@ -97,6 +106,33 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
     _curve.dispose();
     _ctrl.dispose();
     super.dispose();
+  }
+
+  /// 末位槽：设置直连入口（lastSlotEntry 非 null）或 ⋯ 溢出。
+  Widget _buildLastSlot(ColorScheme cs) {
+    final last = widget.lastSlotEntry;
+    if (last != null) {
+      return _NavTab(
+        icon: last.icon,
+        label: last.title,
+        selected: widget.selectedId == last.id,
+        color: cs.primary,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onSelect(last.id);
+        },
+      );
+    }
+    return _NavTab(
+      icon: Icons.more_horiz_rounded,
+      label: '更多',
+      selected: widget.moreSelected,
+      color: cs.primary,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onMore();
+      },
+    );
   }
 
   @override
@@ -184,18 +220,7 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
                                   },
                                 ),
                               ),
-                            Expanded(
-                              child: _NavTab(
-                                icon: Icons.more_horiz_rounded,
-                                label: '更多',
-                                selected: widget.moreSelected,
-                                color: cs.primary,
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  widget.onMore();
-                                },
-                              ),
-                            ),
+                            Expanded(child: _buildLastSlot(cs)),
                           ],
                         ),
                       ],

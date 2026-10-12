@@ -2,7 +2,7 @@
 //
 // - 首页 = 钉选列表第 1 项
 // - 可见槽 IndexedStack + RepaintBoundary（性能）
-// - ⋯ 溢出：Modal sheet，按需 push / 切换
+// - 无溢出时末位槽直连「设置」；有溢出时末位为 ⋯：Modal sheet，按需 push / 切换
 // - iOS 手感：弹簧胶囊 + 轻量页切换
 
 import 'package:flutter/material.dart';
@@ -110,7 +110,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                             Navigator.pop(ctx);
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!mounted) return;
-                              _select('core-settings');
+                              _select(kSettingsNavId);
                             });
                           },
                           child: const Text('设置'),
@@ -174,6 +174,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         .whereType<NavEntry>()
         .toList();
 
+    // 无溢出（pin 数 ≤ 可见槽）且设置未被钉选 → 末位槽直连设置，免 ⋯ 二跳。
+    final lastSlotEntry =
+        pins.lastSlotIsSettings ? navEntryById(kSettingsNavId) : null;
+
     final visibleIndex = visibleEntries.indexWhere((e) => e.id == selected);
     final moreSelected = visibleIndex < 0;
 
@@ -220,6 +224,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               duration: const Duration(milliseconds: 120),
               child: QuickNavBottomBar(
                 visibleEntries: visibleEntries,
+                lastSlotEntry: lastSlotEntry,
                 selectedId: selected,
                 moreSelected: moreSelected,
                 onSelect: _select,

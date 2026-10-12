@@ -24,6 +24,9 @@ import 'nav_entry.dart';
 
 export 'nav_entry.dart';
 
+/// 设置入口 id：底栏末槽直连与 ⋯ sheet「设置」按钮共用。
+const kSettingsNavId = 'core-settings';
+
 /// Demo 未声明 [DemoPage.navIcon] 时的类型默认图标。
 IconData defaultIconForDemoType(DemoType type) => switch (type) {
       DemoType.game => Icons.sports_esports_outlined,
@@ -79,7 +82,7 @@ List<NavEntry> buildNavCatalog() {
       builder: (_) => const ProfilePage(),
     ),
     NavEntry(
-      id: 'core-settings',
+      id: kSettingsNavId,
       title: '设置',
       icon: Icons.settings_outlined,
       group: NavGroup.core,

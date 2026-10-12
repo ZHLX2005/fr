@@ -1,6 +1,7 @@
-// 快捷导航钉选状态：容量（含 ⋯）+ 有序 pin id 列表。
+// 快捷导航钉选状态：容量（含末位槽）+ 有序 pin id 列表。
 //
-// 首页 = pins[0]。可见底栏 = pins.take(capacity - 1)，其余进 ⋯。
+// 首页 = pins[0]。可见底栏 = pins.take(capacity - 1)，其余进 ⋯；
+// 无溢出且设置未被钉选时，末位槽直接显示设置入口（免 ⋯ 二跳）。
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +49,12 @@ class NavPinsState {
 
   List<String> get overflowIds =>
       pinIds.skip(visibleSlotCount).toList(growable: false);
+
+  /// 无溢出且设置未占用可见槽 → 末位槽直接显示设置入口。
+  /// 设置已被钉在可见槽时保持 ⋯，避免同一入口出现两次。
+  bool get lastSlotIsSettings =>
+      pinIds.length <= visibleSlotCount &&
+      !visibleIds.contains(kSettingsNavId);
 
   String get homeId => pinIds.isEmpty ? kDefaultNavPins.first : pinIds.first;
 
