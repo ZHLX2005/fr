@@ -202,9 +202,9 @@ class _ShortcutEditorSheetState extends State<_ShortcutEditorSheet> {
         .toList();
     if (pickable.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('默认库里的快捷键都已添加')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('默认库里的快捷键都已添加')));
       return;
     }
     final picked = await showModalBottomSheet<RtShortcutItem>(
@@ -218,8 +218,10 @@ class _ShortcutEditorSheetState extends State<_ShortcutEditorSheet> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Text('从默认库添加',
-                    style: Theme.of(ctx).textTheme.titleMedium),
+                child: Text(
+                  '从默认库添加',
+                  style: Theme.of(ctx).textTheme.titleMedium,
+                ),
               ),
               for (final d in pickable)
                 ListTile(
@@ -235,11 +237,13 @@ class _ShortcutEditorSheetState extends State<_ShortcutEditorSheet> {
     );
     if (picked == null || !mounted) return;
     setState(() {
-      _items.add(RtShortcutItem(
-        id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-        label: picked.label,
-        keys: List.of(picked.keys),
-      ));
+      _items.add(
+        RtShortcutItem(
+          id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+          label: picked.label,
+          keys: List.of(picked.keys),
+        ),
+      );
     });
   }
 
@@ -301,17 +305,19 @@ class _ShortcutEditorSheetState extends State<_ShortcutEditorSheet> {
     keysCtrl.dispose();
     if (ok != true || !mounted) return;
     if (label.isEmpty || keys.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('显示名与按键不能为空')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('显示名与按键不能为空')));
       return;
     }
     setState(() {
-      _items.add(RtShortcutItem(
-        id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-        label: label,
-        keys: keys,
-      ));
+      _items.add(
+        RtShortcutItem(
+          id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+          label: label,
+          keys: keys,
+        ),
+      );
     });
   }
 
@@ -331,8 +337,10 @@ class _ShortcutEditorSheetState extends State<_ShortcutEditorSheet> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Row(
                   children: [
-                    Text('编排快捷键',
-                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      '编排快捷键',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
@@ -422,6 +430,31 @@ class _ShortcutEditorSheetState extends State<_ShortcutEditorSheet> {
   }
 }
 
+/// 锁屏类快捷键（Win+L 等）的确认弹窗：条上一点即发、误触代价高，先确认。
+Future<bool> showRtLockConfirm({
+  required BuildContext context,
+  required RtShortcutItem item,
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('锁屏？'),
+      content: Text('将向电脑发送 ${item.label}'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('锁屏'),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
 /// 历史输入记录 sheet。
 Future<String?> showRtHistorySheet({
   required BuildContext context,
@@ -456,8 +489,7 @@ class _HistorySheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
               child: Row(
                 children: [
-                  Text('历史输入',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text('历史输入', style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
                   if (history.isNotEmpty)
                     TextButton(
