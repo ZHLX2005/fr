@@ -418,11 +418,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   // ================= 快捷键 / 历史 =================
 
-  /// 发送快捷键。
+  /// 发送快捷键（v2：序列宏）。
   ///
-  /// **根因修复**：旧 UI 在 `!_e2eOk` 时整表禁用——端到端只靠文字同步 ACK
+  /// 每条 RtShortcutItem 是 `chords + intervalMs`；按序列遍历、各 chord 之间
+  /// 睡 `intervalMs`，0 表示立即接龙。后端协议仍是单 hotkey 信封，循环发
+  /// 即可，不改 mn-rt。
+  ///
+  /// **根因修复注**：旧 UI 在 `!_e2eOk` 时整表禁用——端到端只靠文字同步 ACK
   /// 解锁，用户连上后直接点快捷键会一直灰掉，表现为「快捷键不生效」。
-  /// 快捷键与全文共用加密路径，WS 已连接即可发；ACK 同样可确认 e2e。
+  /// 快捷键与全文共用加密路径，WS 已连接即可发。
   Future<void> _fireShortcut(RtShortcutItem item) async {
     if (_firingShortcutId != null) return;
     final session = _session;
@@ -433,22 +437,33 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       return;
     }
     // Win+L 等锁屏类：条上一点即发，误触代价高，先确认。
-    final isLock =
-        item.keys.length == 2 &&
-        item.keys.first == 'win' &&
-        item.keys.last == 'l';
-    if (isLock) {
+    // 锁屏判定：序列里有任何 chord 是 ['win','l'] 都拦截。
+    final hasLockChord = item.chords.any(
+      (c) =>
+          c.keys.length == 2 && c.keys.first == 'win' && c.keys.last == 'l',
+    );
+    if (hasLockChord) {
       final ok = await showRtLockConfirm(context: context, item: item);
       if (!ok || !mounted) return;
     }
     setState(() => _firingShortcutId = item.id);
     String? error;
     try {
-      final sent = await session.syncHotkey(item.keys);
-      if (sent) {
-        if (mounted) setState(() => _syncSent += 1);
-      } else {
-        error = '发送失败（连接已断开？）';
+      for (var i = 0; i < item.chords.length; i++) {
+        if (i > 0 && item.intervalMs > 0) {
+          await Future<void>.delayed(
+            Duration(milliseconds: item.intervalMs),
+          );
+          if (!mounted) return; // 异步期间页面退出
+        }
+        final chordKeys = item.chords[i].keys;
+        final sent = await session.syncHotkey(chordKeys);
+        if (sent) {
+          if (mounted) setState(() => _syncSent += 1);
+        } else {
+          error = '发送失败（连接已断开？）';
+          break;
+        }
       }
     } catch (e) {
       error = '发送异常：$e';
@@ -468,7 +483,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   }
 
   Future<void> _editShortcuts() async {
-    final next = await showRtShortcutEditor(
+    // 列表编排：删 / 加 / 排序均直接作用在 `_shortcuts` 上；保存走
+    // RtPrefs.saveShortcuts。
+    final next = await showRtShortcutListEditor(
       context: context,
       current: _shortcuts,
     );
