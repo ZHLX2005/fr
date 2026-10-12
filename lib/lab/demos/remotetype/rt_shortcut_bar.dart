@@ -1,18 +1,10 @@
-// 输入框上方的快捷键小卡片条 + 编排 / 历史 sheet。
+// 输入框上方的快捷键托盘 + 编排 / 历史 sheet。
+// 视觉对齐 docs/prototypes/remotetype-input.html：嵌套托盘、小 chip、无 emoji。
 
 import 'package:flutter/material.dart';
 
+import '../../../widgets/context_colors.dart';
 import 'rt_prefs.dart';
-
-/// iOS 圆角小卡片 · 边框强调（浅 tint + 描边）。
-BoxDecoration rtChipDecoration(ColorScheme cs, {Color? accent, bool dense = false}) {
-  final c = accent ?? cs.primary;
-  return BoxDecoration(
-    color: c.withValues(alpha: 0.08),
-    borderRadius: BorderRadius.circular(dense ? 10 : 12),
-    border: Border.all(color: c.withValues(alpha: 0.35), width: 1.2),
-  );
-}
 
 /// 输入框上方：快捷键 chips + 历史 / 编排入口。
 class RtShortcutBar extends StatelessWidget {
@@ -35,9 +27,14 @@ class RtShortcutBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    final c = context.colors;
+    final cs = c.scheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -47,31 +44,21 @@ class RtShortcutBar extends StatelessWidget {
                 '快捷键',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  color: c.textMuted,
                 ),
               ),
               const Spacer(),
-              _MiniActionChip(
-                icon: Icons.history,
-                label: '历史',
-                color: cs.tertiary,
-                onTap: onHistory,
-              ),
+              _GhostBtn(label: '历史', onTap: onHistory),
               const SizedBox(width: 6),
-              _MiniActionChip(
-                icon: Icons.tune,
-                label: '编排',
-                color: cs.primary,
-                onTap: onEdit,
-              ),
+              _GhostBtn(label: '编排', onTap: onEdit),
             ],
           ),
           const SizedBox(height: 8),
           if (shortcuts.isEmpty)
             Text(
               '暂无快捷键，点「编排」添加',
-              style: TextStyle(fontSize: 12, color: cs.outline),
+              style: TextStyle(fontSize: 12, color: c.textMuted),
             )
           else
             Wrap(
@@ -93,47 +80,30 @@ class RtShortcutBar extends StatelessWidget {
   }
 }
 
-class _MiniActionChip extends StatelessWidget {
-  const _MiniActionChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
+class _GhostBtn extends StatelessWidget {
+  const _GhostBtn({required this.label, required this.onTap});
 
-  final IconData icon;
   final String label;
-  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final cs = context.colors.scheme;
     return Material(
-      color: Colors.transparent,
+      color: cs.primaryContainer,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        child: Container(
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: rtChipDecoration(
-            Theme.of(context).colorScheme,
-            accent: color,
-            dense: true,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: cs.onPrimaryContainer,
+            ),
           ),
         ),
       ),
@@ -156,23 +126,27 @@ class _ShortcutChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final accent = enabled ? cs.primary : cs.outline;
+    final c = context.colors;
+    final cs = c.scheme;
+    final bg = busy ? cs.primary : c.surface;
+    final fg = busy ? cs.onPrimary : (enabled ? c.text : c.textMuted);
     return Material(
-      color: Colors.transparent,
+      color: bg,
+      elevation: busy ? 0 : 0.5,
+      shadowColor: cs.shadow.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled && !busy ? onTap : null,
         borderRadius: BorderRadius.circular(10),
-        child: Container(
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: rtChipDecoration(cs, accent: accent, dense: true),
           child: busy
               ? SizedBox(
                   width: 14,
                   height: 14,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: accent,
+                    color: cs.onPrimary,
                   ),
                 )
               : Text(
@@ -180,7 +154,7 @@ class _ShortcutChip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: accent,
+                    color: fg,
                   ),
                 ),
         ),
@@ -469,7 +443,8 @@ class _HistorySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.colors;
+    final cs = c.scheme;
     return SafeArea(
       child: SizedBox(
         height: MediaQuery.sizeOf(context).height * 0.55,
@@ -500,7 +475,7 @@ class _HistorySheet extends StatelessWidget {
                       child: Text(
                         '暂无记录\n发送（回车注入=发送）后会自动保存',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: cs.outline, fontSize: 13),
+                        style: TextStyle(color: c.textMuted, fontSize: 13),
                       ),
                     )
                   : ListView.separated(
@@ -510,17 +485,18 @@ class _HistorySheet extends StatelessWidget {
                       itemBuilder: (context, i) {
                         final text = history[i];
                         return Material(
-                          color: Colors.transparent,
+                          color: c.surface,
+                          elevation: 0.5,
+                          shadowColor: cs.shadow.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
                           child: InkWell(
                             onTap: () => Navigator.pop(context, text),
                             borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width: double.infinity,
+                            child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 12,
                               ),
-                              decoration: rtChipDecoration(cs),
                               child: Text(
                                 text,
                                 maxLines: 4,

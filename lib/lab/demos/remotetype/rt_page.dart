@@ -19,6 +19,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../../api/remotetype/remotetype.dart';
 import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
+import '../../../widgets/context_colors.dart';
 import 'rt_constants.dart';
 import 'rt_prefs.dart';
 import 'rt_session.dart';
@@ -70,6 +71,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   // 联调可观测性：本次会话已发出的同步包数（对照 PC 端 envelopesOk，
   // 立刻区分「手机没发」还是「电脑没收」）
   int _syncSent = 0;
+  // 输入框内「已同步」轻闪（对齐原型 composer sync flash）
+  bool _syncFlash = false;
+  Timer? _syncFlashTimer;
   // 回车注入方式：'enter'=发送（电脑端敲普通 Enter）/ 'shift_enter'=换行
   // （电脑端敲 Shift+Enter，微信等「Enter=发送」的框里只换行不发送）。
   // 随每条快照下发，可即时切换；页面级内存态（本页其他配置同样不持久化）
@@ -185,6 +189,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _debounce?.cancel();
     _composingTimer?.cancel();
     _e2eHintTimer?.cancel();
+    _syncFlashTimer?.cancel();
     _eventSub?.cancel();
     _textController.removeListener(_onControllerChanged);
     _textController.dispose();
@@ -196,7 +201,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   // ================= 连接 =================
 
-  Future<void> _connect() async {
+  /// [keepTypingUi]：重连时保留输入页（不把 `_session` 置空），失败再回配对。
+  Future<void> _connect({bool keepTypingUi = false}) async {
+    if (_connecting) return;
     final unified = _unified == true;
     // 不是 final：统一登录路径下密钥由服务端下发，要在这里覆盖掉输入框的内容
     var key = _keyController.text.trim();
@@ -227,6 +234,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       if (matched.isEmpty || matched.first.sessionKey.isEmpty) {
         setState(() {
           _connecting = false;
+          if (keepTypingUi) _session = null;
           _error = '设备列表已过期，请下拉刷新后重试';
         });
         return;
@@ -249,6 +257,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       await session.dispose();
       setState(() {
         _connecting = false;
+        if (keepTypingUi) _session = null;
         _error = e.message;
       });
       return;
@@ -256,6 +265,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       await session.dispose();
       setState(() {
         _connecting = false;
+        if (keepTypingUi) _session = null;
         _error = '连接失败：$e';
       });
       return;
@@ -268,6 +278,64 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _connected = true;
       _e2eOk = false;
       _e2eHintShown = false;
+    });
+  }
+
+  /// 断开并回到配对页（对齐原型 nav「断开」）。
+  void _disconnect() {
+    _eventSub?.cancel();
+    _eventSub = null;
+    _session?.dispose();
+    _session = null;
+    _debounce?.cancel();
+    _composingTimer?.cancel();
+    _e2eHintTimer?.cancel();
+    _syncFlashTimer?.cancel();
+    if (_listening) _stt.stop();
+    setState(() {
+      _connected = false;
+      _e2eOk = false;
+      _listening = false;
+      _e2eHintShown = false;
+      _syncFlash = false;
+      _syncSent = 0;
+    });
+  }
+
+  /// 保持输入页，拆旧会话后重连（对齐原型：overlay 盖在输入页上，不闪回配对）。
+  Future<void> _reconnect() async {
+    if (_selectedClient == null || _connecting) return;
+    _debounce?.cancel();
+    _composingTimer?.cancel();
+    _e2eHintTimer?.cancel();
+    if (_listening) _stt.stop();
+
+    final oldSub = _eventSub;
+    final oldSession = _session;
+    _eventSub = null;
+    setState(() {
+      _connected = false;
+      _e2eOk = false;
+      _listening = false;
+      _e2eHintShown = false;
+      _syncFlash = false;
+    });
+    // 先 dispose 旧会话，但暂不把 `_session` 置空，避免 body 切回配对页。
+    try {
+      await oldSub?.cancel();
+    } catch (_) {}
+    try {
+      await oldSession?.dispose();
+    } catch (_) {}
+
+    await _connect(keepTypingUi: true);
+  }
+
+  void _flashSynced() {
+    _syncFlashTimer?.cancel();
+    setState(() => _syncFlash = true);
+    _syncFlashTimer = Timer(const Duration(milliseconds: 850), () {
+      if (mounted) setState(() => _syncFlash = false);
     });
   }
 
@@ -375,6 +443,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         if (!mounted) return;
         if (sent) {
           setState(() => _syncSent += 1);
+          _flashSynced();
           if (flushAfterSend) {
             final body = text.replaceFirst(RegExp(r'\n+$'), '').trim();
             if (body.isNotEmpty) {
@@ -609,252 +678,384 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       // 配对页自行用 viewInsets 兜底（见 _buildPairing）。
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: const Text('远程输入（联机）'),
+        title: const Text('远程输入'),
         actions: [
-          if (_session != null)
+          if (_session != null) ...[
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: '重连',
+              onPressed: _connecting ? null : _reconnect,
+            ),
             IconButton(
               icon: const Icon(Icons.link_off),
-              tooltip: '断开并返回配对',
-              onPressed: () {
-                _eventSub?.cancel();
-                _session?.dispose();
-                _session = null;
-                _debounce?.cancel();
-                _composingTimer?.cancel();
-                _e2eHintTimer?.cancel();
-                if (_listening) _stt.stop();
-                setState(() {
-                  _connected = false;
-                  _e2eOk = false;
-                  _listening = false;
-                  _e2eHintShown = false;
-                });
-              },
+              tooltip: '断开',
+              onPressed: _disconnect,
             ),
+          ],
         ],
       ),
-      body: _session == null ? _buildPairing() : _buildInput(context),
+      body: Stack(
+        children: [
+          _session == null ? _buildPairing() : _buildInput(context),
+          if (_connecting) _buildConnectingOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConnectingOverlay() {
+    final c = context.colors;
+    final cs = c.scheme;
+    String label = '电脑';
+    if (_selectedClient != null) {
+      final matched = _computers.where((x) => x.clientId == _selectedClient);
+      if (matched.isNotEmpty) {
+        label = matched.first.label;
+      } else {
+        label = _selectedClient!;
+      }
+    }
+    return AbsorbPointer(
+      child: ColoredBox(
+        color: c.text.withValues(alpha: 0.28),
+        child: Center(
+          child: Material(
+            color: c.surface,
+            elevation: 8,
+            shadowColor: cs.shadow.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    '正在连接',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: c.text,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(label, style: TextStyle(fontSize: 13, color: c.textMuted)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildPairing() {
-    final cs = Theme.of(context).colorScheme;
+    final c = context.colors;
+    final cs = c.scheme;
     // Scaffold 已关 resizeToAvoidBottomInset：这里用 viewInsets 把整块内容
     // 抬到键盘上方，SingleChildScrollView 保证极小屏仍可滚动
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(Icons.keyboard_alt_outlined, size: 56),
-            const SizedBox(height: 12),
-            Text(
-              '把手机变成电脑的输入设备',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 24),
-            if (_unified == null)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_unified!)
-              // ── 统一登录：我名下的电脑，点一下即连 ──────────────────────
-              // 没有 key 输入框，也没有 token 输入框。密钥由服务端按属主下发，
-              // 用户不需要知道它的存在，也就没有"复制错一台"这种事。
-              ...[
-                Row(
-                  children: [
-                    Text('我的电脑', style: Theme.of(context).textTheme.titleSmall),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: _clientsLoading ? null : _refreshClients,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('刷新'),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Icon(Icons.keyboard_alt_outlined, size: 56, color: c.text),
+              const SizedBox(height: 12),
+              Text(
+                '把手机变成电脑的输入设备',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: c.text,
                     ),
-                  ],
-                ),
-                if (_computers.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      _clientsLoading
-                          ? '正在获取你的电脑…'
-                          : '还没有登记在你名下的电脑。\n'
-                              '在电脑上执行：npx nx-rt auth login --url ${kRemoteTypeServerUrl.replaceFirst('http', 'ws')}/ws\n'
-                              '然后再执行 npx nx-rt 即可。',
-                      style: TextStyle(color: cs.outline),
-                    ),
-                  )
-                else
-                  ..._computers.map(_buildComputerTile),
-              ]
-            else
-              // ── 兜底：服务端没开统一登录，回到手工配对 key ───────────────
-              ...[
-                if (_readiness != null && _readiness!.reason.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      _readiness!.reason,
-                      style: TextStyle(fontSize: 12, color: cs.outline),
-                    ),
+              ),
+              const SizedBox(height: 24),
+              if (_unified == null)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_unified!)
+                // ── 统一登录：我名下的电脑，点一下即连（无显式连接按钮）──
+                ...[
+                  _sectionHead(
+                    title: '我的电脑',
+                    onRefresh: _clientsLoading ? null : _refreshClients,
                   ),
-                Row(
-                  children: [
-                    Text('① 选择电脑',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: _refreshClients,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('刷新'),
+                  if (_computers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        _clientsLoading
+                            ? '正在获取你的电脑…'
+                            : '还没有登记在你名下的电脑。\n'
+                                '在电脑上执行：npx nx-rt auth login --url ${kRemoteTypeServerUrl.replaceFirst('http', 'ws')}/ws\n'
+                                '然后再执行 npx nx-rt 即可。',
+                        style: TextStyle(color: c.textMuted),
+                      ),
+                    )
+                  else
+                    ..._computers.map(_buildComputerTile),
+                ]
+              else
+                // ── 兜底：服务端没开统一登录，回到手工配对 key ───────────────
+                ...[
+                  if (_readiness != null && _readiness!.reason.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        _readiness!.reason,
+                        style: TextStyle(fontSize: 12, color: c.textMuted),
+                      ),
                     ),
-                  ],
-                ),
-                if (_clients.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      _clientsLoading
-                          ? '正在获取在线 PC…'
-                          : '暂无 PC 上线——请先在电脑上运行 remotetype serve --align',
-                      style: TextStyle(color: cs.outline),
-                    ),
-                  )
-                else
-                  ..._clients.map((cid) {
-                    final selected = cid == _selectedClient;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => setState(() => _selectedClient = cid),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color:
-                                    selected ? cs.primary : cs.outlineVariant),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                selected
-                                    ? Icons.radio_button_checked
-                                    : Icons.radio_button_off,
-                                size: 18,
-                                color: selected ? cs.primary : cs.outline,
+                  _sectionHead(title: '① 选择电脑', onRefresh: _refreshClients),
+                  if (_clients.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        _clientsLoading
+                            ? '正在获取在线 PC…'
+                            : '暂无 PC 上线——请先在电脑上运行 remotetype serve --align',
+                        style: TextStyle(color: c.textMuted),
+                      ),
+                    )
+                  else
+                    ..._clients.map((cid) {
+                      final selected = cid == _selectedClient;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Material(
+                          color: c.surface,
+                          elevation: 0.5,
+                          shadowColor: cs.shadow.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () =>
+                                setState(() => _selectedClient = cid),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    selected
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                    size: 18,
+                                    color:
+                                        selected ? cs.primary : c.textMuted,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      cid,
+                                      style: const TextStyle(
+                                          fontFamily: 'monospace'),
+                                    ),
+                                  ),
+                                  Text(
+                                    selected ? '已选' : '在线',
+                                    style: TextStyle(
+                                        fontSize: 11, color: c.textMuted),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(cid,
-                                    style:
-                                        const TextStyle(fontFamily: 'monospace')),
-                              ),
-                              Text('在线',
-                                  style: TextStyle(
-                                      fontSize: 11, color: cs.outline)),
-                            ],
+                            ),
                           ),
                         ),
+                      );
+                    }),
+                  const SizedBox(height: 8),
+                  Text('② 配对 key',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _keyController,
+                    decoration: InputDecoration(
+                      hintText: '电脑端 remotetype serve --align 打印的 key',
+                      filled: true,
+                      fillColor: c.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
                       ),
-                    );
-                  }),
-                const SizedBox(height: 8),
-                Text('② 配对 key',
-                    style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _keyController,
-                  decoration: const InputDecoration(
-                    hintText: '电脑端 remotetype serve --align 打印的 key',
-                    border: OutlineInputBorder(),
+                    ),
+                    textCapitalization: TextCapitalization.characters,
                   ),
-                  textCapitalization: TextCapitalization.characters,
-                ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _connecting ? null : _connect,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(_connecting ? '连接中…' : '实时同步连接'),
+                  ),
+                ],
+              if (_error != null) ...[
                 const SizedBox(height: 12),
+                Text(_error!, style: TextStyle(color: cs.error)),
               ],
-            FilledButton(
-              onPressed: _connecting ? null : _connect,
-              child: Text(_connecting
-                  ? '连接中…'
-                  : (_unified == true ? '连接选中的电脑' : '实时同步连接')),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              const SizedBox(height: 28),
+              Text(
+                _unified == true
+                    ? '同一账号自动配对 · 端到端加密\n无需复制 key'
+                    : '端到端加密：文本在手机加密、电脑解密，中转服务器只经手密文。\n'
+                        'key 即凭据，请勿外传。',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 12, color: c.textMuted, height: 1.55),
+              ),
             ],
-            const SizedBox(height: 24),
-            Text(
-              _unified == true
-                  ? '文本在手机加密、电脑解密；会话密钥由统一登录按账号下发，\n'
-                      '同一账号下的手机与电脑自动配对，无需复制任何 key。\n'
-                      '注意：密钥经服务端分发，服务方可读明文（详见 mn-rt README）。'
-                  : '端到端加密：文本在手机加密、电脑解密，中转服务器只经手密文。\n'
-                      'key 即凭据，请勿外传。',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
 
-  /// 一台我名下的电脑。在线才可点，且**点一下就直接连**——不再分"选中"和"连接"两步。
-  Widget _buildComputerTile(RtComputer c) {
-    final cs = Theme.of(context).colorScheme;
+  Widget _sectionHead({required String title, VoidCallback? onRefresh}) {
+    final c = context.colors;
+    final cs = c.scheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        // 离线也可选中（连着不存在的电脑没意义，但报错信息比按钮灰掉更有用）
-        onTap: () {
-          setState(() => _selectedClient = c.clientId);
-          if (c.online) _connect();
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: c.clientId == _selectedClient ? cs.primary : cs.outlineVariant),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: c.textMuted,
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                c.online ? Icons.desktop_windows : Icons.desktop_access_disabled,
-                size: 18,
-                color: c.online ? cs.primary : cs.outline,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(c.label),
-                    Text(
-                      c.clientId,
-                      style: TextStyle(fontSize: 11, color: cs.outline),
-                    ),
-                  ],
+          const Spacer(),
+          Material(
+            color: cs.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: onRefresh,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Text(
+                  '刷新',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onPrimaryContainer,
+                  ),
                 ),
               ),
-              Text(
-                c.online ? '在线 · 点击连接' : '不在线',
-                style: TextStyle(fontSize: 11, color: cs.outline),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 一台我名下的电脑。整行可点即连——无显式「连接」按钮（对齐原型）。
+  Widget _buildComputerTile(RtComputer c) {
+    final colors = context.colors;
+    final cs = colors.scheme;
+    final online = c.online;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Opacity(
+        opacity: online ? 1 : 0.5,
+        child: Material(
+          color: colors.surface,
+          elevation: 0.5,
+          shadowColor: cs.shadow.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: online && !_connecting
+                ? () {
+                    setState(() => _selectedClient = c.clientId);
+                    _connect();
+                  }
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          online
+                              ? Icons.desktop_windows
+                              : Icons.desktop_access_disabled,
+                          size: 22,
+                          color: cs.onPrimaryContainer,
+                        ),
+                      ),
+                      if (online)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: cs.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: colors.surface, width: 2),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          c.label,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: colors.text,
+                          ),
+                        ),
+                        Text(
+                          c.clientId,
+                          style: TextStyle(fontSize: 12, color: colors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    online ? '在线 · 点击连接' : '不在线',
+                    style: TextStyle(fontSize: 11, color: colors.textMuted),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -862,143 +1063,268 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   }
 
   Widget _buildInput(BuildContext context) {
-    // 输入框固定高度（屏高的 40%，夹在 180-340 之间）：Scaffold 已关
-    // resizeToAvoidBottomInset，键盘弹起时布局纹丝不动，键盘直接盖住底部。
-    final double fieldHeight =
-        (MediaQuery.sizeOf(context).height * 0.4).clamp(180.0, 340.0);
+    final c = context.colors;
+    final cs = c.scheme;
+    final charCount = _textController.text.characters.length;
+    // 对齐原型：composer 固定矮卡，键盘直接盖住底部。
+    const double fieldHeight = 148;
+
     return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(
-              children: [
-                Icon(
-                  _e2eOk ? Icons.lock : Icons.lock_open,
-                  size: 16,
-                  color: _e2eOk ? Colors.green : Colors.orange,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '${_e2eOk
-                        ? '端到端已建立'
-                        : (_connected ? '已连接，等待电脑确认（发一条消息即确认）' : '连接中…')}'
-                    '　已发 $_syncSent 包 · $kRtBuildTag',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildEnterSeg(cs),
+            const SizedBox(height: 16),
+            RtShortcutBar(
+              shortcuts: _shortcuts,
+              connected: _connected,
+              firingId: _firingShortcutId,
+              onFire: _fireShortcut,
+              onEdit: _editShortcuts,
+              onHistory: _openHistory,
             ),
-          ),
-          // 回车注入开关独占一行：此前挤在语音/清空按钮行里，大字体或手势条
-          // 遮挡时 Row 溢出裁剪，最右侧「换行」段点不到（切换失灵的根因）
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: Row(
-              children: [
-                Text('回车注入', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                const SizedBox(width: 8),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'enter',
-                      label: Text('发送', style: TextStyle(fontSize: 13)),
-                      tooltip: '电脑端敲普通 Enter——多数输入框即「发送」',
-                    ),
-                    ButtonSegment(
-                      value: 'shift_enter',
-                      label: Text('换行', style: TextStyle(fontSize: 13)),
-                      tooltip: '电脑端敲 Shift+Enter——微信等框里只换行不发送',
-                    ),
-                  ],
-                  selected: {_enterMode},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (selection) {
-                    setState(() => _enterMode = selection.first);
-                    // 模式随快照传输：立即补发一条，切换即刻生效
-                    //（否则要等下一次文本变化才带上新模式）
-                    _scheduleSync();
-                  },
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _enterMode == 'enter' ? '电脑端敲 Enter（= 发送）' : '电脑端敲 Shift+Enter（换行不发送）',
-                    textAlign: TextAlign.right,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
+            const SizedBox(height: 16),
+            AnimatedScale(
+              scale: _syncFlash ? 1.01 : 1.0,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              child: Material(
+                color: c.surface,
+                elevation: _syncFlash ? 3 : 1,
+                shadowColor: cs.shadow.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(18),
+                child: SizedBox(
+                  height: fieldHeight,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _textController,
+                          onChanged: (_) => setState(() {}),
+                          onTapOutside: (_) {
+                            if (_textController.value.composing !=
+                                TextRange.empty) {
+                              _scheduleSync();
+                            }
+                          },
+                          maxLines: null,
+                          expands: true,
+                          maxLength: kRtMaxTextLength,
+                          textAlignVertical: TextAlignVertical.top,
+                          style: TextStyle(
+                            fontSize: 17,
+                            height: 1.45,
+                            color: c.text,
+                          ),
+                          cursorColor: cs.primary,
+                          decoration: InputDecoration(
+                            hintText: '打字或说话，内容会同步到电脑…',
+                            hintStyle: TextStyle(
+                              color: c.textMuted.withValues(alpha: 0.7),
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.fromLTRB(
+                                16, 16, 16, 6),
+                            counterText: '',
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                        child: Row(
+                          children: [
+                            AnimatedOpacity(
+                              opacity: _syncFlash ? 1 : 0,
+                              duration: const Duration(milliseconds: 220),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 9, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: cs.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '已同步',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: cs.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '$charCount/$kRtMaxTextLength',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: c.textMuted,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          // 快捷键在输入框上方（边框强调小卡片）；历史 / 编排入口同排。
-          RtShortcutBar(
-            shortcuts: _shortcuts,
-            connected: _connected,
-            firingId: _firingShortcutId,
-            onFire: _fireShortcut,
-            onEdit: _editShortcuts,
-            onHistory: _openHistory,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: SizedBox(
-              height: fieldHeight,
-              child: TextField(
-                controller: _textController,
-                onTapOutside: (_) {
-                  // 点输入框外通常触发 IME 收起/合成结束；合成区仍挂着时兜底强制同步，
-                  // 覆盖「合成永不结束也不再有文本变更」的输入法
-                  if (_textController.value.composing != TextRange.empty) {
-                    _scheduleSync();
-                  }
-                },
-                maxLines: null,
-                maxLength: kRtMaxTextLength,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: const InputDecoration(
-                  hintText: '在这里打字或说话，内容（含删除）实时对齐到电脑焦点输入框…',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
                 ),
               ),
             ),
-          ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Row(
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: _toggleListening,
-                  icon: Icon(_listening ? Icons.stop : Icons.mic),
-                  label: Text(_listening ? '停止' : '语音'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _listening ? Colors.red.shade100 : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () {
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Material(
+                color: c.surface,
+                elevation: 0.5,
+                shadowColor: cs.shadow.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () {
                     _asrBase = '';
                     _textController.clear();
+                    setState(() {});
                   },
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('清空'),
-                ),
-                const Spacer(),
-                if (_listening)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: Icon(Icons.graphic_eq, color: Colors.red),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 9),
+                    child: Text(
+                      '清空',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: c.textMuted,
+                      ),
+                    ),
                   ),
-              ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            Center(
+              child: Material(
+                color: _listening ? cs.tertiary : cs.primary,
+                elevation: 4,
+                shadowColor: (_listening ? cs.tertiary : cs.primary)
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  onTap: _toggleListening,
+                  borderRadius: BorderRadius.circular(20),
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: Icon(
+                      Icons.mic,
+                      size: 26,
+                      color: _listening ? cs.onTertiary : cs.onPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 全宽滑动分段：发送 / 换行（对齐原型 .seg）。
+  Widget _buildEnterSeg(ColorScheme cs) {
+    final isEnter = _enterMode == 'enter';
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final half = constraints.maxWidth / 2;
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 340),
+                curve: Curves.easeOutBack,
+                left: isEnter ? 0 : half,
+                top: 0,
+                bottom: 0,
+                width: half,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(11),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cs.primary.withValues(alpha: 0.22),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _segBtn(
+                      label: '发送',
+                      selected: isEnter,
+                      onTap: () {
+                        if (_enterMode == 'enter') return;
+                        setState(() => _enterMode = 'enter');
+                        _scheduleSync();
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: _segBtn(
+                      label: '换行',
+                      selected: !isEnter,
+                      onTap: () {
+                        if (_enterMode == 'shift_enter') return;
+                        setState(() => _enterMode = 'shift_enter');
+                        _scheduleSync();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _segBtn({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final c = context.colors;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: selected ? c.scheme.onPrimary : c.textMuted,
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -42,7 +42,7 @@ const Duration kRtSyncDebounce = Duration(milliseconds: 250);
 const int kRtMaxTextLength = 5000;
 
 /// 构建标识：联调时核对手机上跑的是不是最新修复（每次改动 demo 逻辑时递增）
-const String kRtBuildTag = 'b9-hotkey-bar';
+const String kRtBuildTag = 'b10-proto-align';
 
 /// 快捷键预设（v0.5.4+ 两端协议）：数组末位是主键、其余是修饰键，
 /// 与 mn-rt rt-align.js 的 hotkey 分支约定一致（['win','r'] = Win+R）。
