@@ -42,7 +42,25 @@ abstract class DemoPage {
   /// 游戏 → GameMeta.icon；其它 → DemoType 默认 icon。
   /// 与 [slug] 一样 co-located：需要独特图标时在本 demo 文件 override。
   IconData? get navIcon => null;
+
+  /// 运行时归属（默认 page）。决定核心运行态（连接 / 房间 / 长计时）随谁生灭：
+  ///
+  /// - `page`（默认）：随页面 State 生灭——pop 即终止。单机 demo 无需 override。
+  /// - `session`：由 [demoSessionHost] 托管，离开页面不销毁，重进 reattach，
+  ///   切 APP 回前台由 host 转发钩子做自动恢复。
+  /// - `global`：进程级常驻。逃生舱不是目标——想升 global 先问该不该毕业出 lab
+  ///   （搬进 lib/services 或 core 模块），真正够格的早已住在那里。
+  ///
+  /// 判据是「用户离开页面那一刻的预期」：它应该还在 → session；我用完了 → page。
+  /// 设计全文见 docs/superpowers/specs/2026-10-12-demo-scope-design.md。
+  DemoScope get scope => DemoScope.page;
 }
+
+/// Demo 运行时归属分组。
+///
+/// 与 [DemoType]（展示分类：游戏中心过滤）正交：type 决定「显示在哪」，
+/// scope 决定「状态活多久」。
+enum DemoScope { page, session, global }
 
 /// Demo 分类 - 用于按类型过滤（如游戏中心）
 enum DemoType { util, tool, game }
