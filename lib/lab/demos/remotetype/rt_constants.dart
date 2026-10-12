@@ -38,6 +38,10 @@ const String kRtDirPcToPhone = 'c2p';
 /// 输入同步防抖（ASR partial 高频变更）
 const Duration kRtSyncDebounce = Duration(milliseconds: 250);
 
+/// demo slug（fr://lab/demo/remotetype）。demo 注册与 DemoSessionHost 托管
+/// 共用一份——两处各写字面量会出现「托管挂在 slug A、注册是 slug B」的静默失联。
+const String kRemoteTypeDemoSlug = 'remotetype';
+
 /// 全文上限（与 mn-rt sanitize 截断上限一致）
 const int kRtMaxTextLength = 5000;
 

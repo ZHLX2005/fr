@@ -2,6 +2,7 @@
 // 设计全文：docs/superpowers/specs/2026-10-12-demo-scope-design.md
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaodouzi_fr/app_lifecycle/app_foreground.dart';
 import 'package:xiaodouzi_fr/lab/demo_session_host.dart';
 import 'package:xiaodouzi_fr/lab/lab_container.dart';
 
@@ -194,8 +195,44 @@ void main() {
     });
   });
 
-  group('get<T> / active', () {
-    test('未知 slug 返回 null', () {
+  group('AppForeground 联动', () {
+    tearDown(AppForeground.resetForTest);
+
+    Future<void> drain() async {
+      // 翻转处理器里 unawaited 的广播是异步派发，让 microtask 跑完
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('attach 后前台翻转自动广播给会话（无需手动 notify）', () async {
+      AppForeground.resetForTest();
+      final host = DemoSessionHost();
+      var fg = 0, bg = 0;
+      host.attach(
+        'rt',
+        Object.new,
+        onDispose: () async {},
+        onAppBackground: () async => bg += 1,
+        onAppForeground: () async => fg += 1,
+      );
+      AppForeground.setForTest(false);
+      await drain();
+      AppForeground.setForTest(true);
+      await drain();
+      expect(bg, 1);
+      expect(fg, 1);
+    });
+
+    test('没 attach 过就不挂监听（AppForeground 翻转不炸）', () async {
+      AppForeground.resetForTest();
+      final host = DemoSessionHost(); // 从未 attach
+      AppForeground.setForTest(false);
+      await drain();
+      expect(host.count, 0);
+    });
+  });
+
+  group('get<T> / active', () {    test('未知 slug 返回 null', () {
       expect(DemoSessionHost().get<Object>('nope'), isNull);
     });
 

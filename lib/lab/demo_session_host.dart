@@ -14,6 +14,8 @@
 
 import 'dart:async';
 
+import '../app_lifecycle/app_foreground.dart';
+
 /// 一个被托管的 demo 会话条目。[state] 对 host 完全不透明。
 class HostedSession {
   HostedSession({
@@ -70,6 +72,29 @@ class HostedSession {
 class DemoSessionHost {
   final Map<String, HostedSession> _sessions = {};
 
+  // AppForeground → 前后台广播的联动。懒挂：首次 attach 时装上，幂等——
+  // 不占 bootstrap 名额，没人托管会话时 host 完全静默。
+  bool _foregroundLinked = false;
+
+  /// 广播派发中标记：前台钩子里若再触发 attach（罕见）不会重入死循环，
+  /// 主要防测试里同步翻转造成的重入。
+  bool _dispatching = false;
+
+  void _ensureForegroundLink() {
+    if (_foregroundLinked) return;
+    _foregroundLinked = true;
+    AppForeground.isForeground.addListener(_onAppForegroundFlip);
+  }
+
+  void _onAppForegroundFlip() {
+    if (_dispatching) return;
+    _dispatching = true;
+    final notify = AppForeground.value
+        ? notifyAppForeground()
+        : notifyAppBackground();
+    notify.whenComplete(() => _dispatching = false);
+  }
+
   /// 全部活动会话（含 detached）。只读视图，调试 / 审计用。
   Map<String, HostedSession> get active => Map.unmodifiable(_sessions);
 
@@ -98,6 +123,7 @@ class DemoSessionHost {
     Future<void> Function()? onAppBackground,
     Future<void> Function()? onAppForeground,
   }) {
+    _ensureForegroundLink();
     final existing = _sessions[slug];
     if (existing != null) {
       assert(

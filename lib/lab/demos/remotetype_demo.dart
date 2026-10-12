@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 
 import '../lab_container.dart';
+import 'remotetype/rt_constants.dart' show kRemoteTypeDemoSlug;
 import 'remotetype/rt_page.dart';
 
 /// Lab demo 注册项
@@ -14,7 +15,7 @@ class RemoteTypeDemo extends DemoPage {
   String get title => '远程输入（联机）';
 
   @override
-  String get slug => 'remotetype';
+  String get slug => kRemoteTypeDemoSlug;
 
   @override
   String get description => '手机语音/打字 → 电脑焦点输入框实时对齐（含删除）· 端到端加密';

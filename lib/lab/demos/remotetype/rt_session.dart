@@ -117,12 +117,22 @@ class RtSession {
   WebSocketChannel? _ws;
   StreamSubscription<dynamic>? _wsSub;
   Timer? _registerTimeout;
+  // 非 final：reconnect 复用同一实例重建注册握手，每次尝试换新 Completer
+  Completer<void> _registered = Completer<void>();
+  bool _reconnecting = false;
 
   final _events = StreamController<RtEvent>.broadcast();
   Stream<RtEvent> get events => _events.stream;
 
   String get phoneId => _phoneId;
   bool get e2eConfirmed => _e2eConfirmed;
+
+  /// WS 是否仍连着。socket 死亡时由 onDone 置空——页面重进 / 回前台
+  /// 判断「要不要补重连」用，别拿它当强一致信号（半死 socket 要等帧才知）。
+  bool get isConnected => _ws != null;
+
+  /// 连接的目标 PC（页面重进时恢复 `_selectedClient` 用）
+  String get targetClientId => _target;
 
   /// 拉取在线 PC 列表（GET /clients），供连接前选择目标
   static Future<List<String>> listClients(String serverUrl) async {
@@ -181,10 +191,56 @@ class RtSession {
       // /clients 探测失败不阻断——有的部署可能关掉该接口，让 WS 自己说
     }
 
+    await _openSocketAndRegister();
+    _events.add(RtEvent(RtEventKind.connected));
+  }
+
+  /// 断线原地重连：保持 phoneId / seq / key 派生不变，PC 端按 clientId 路由
+  /// 完全无感（全文快照语义 + seq 单调，PC 端 diff 自愈）。
+  ///
+  /// DemoSessionHost 的前台钩子自动调它（切 APP 回来自动重连），也可手动调。
+  /// 安全性质：
+  ///   - 已连接时 no-op（短暂后台回来 socket 还活着，不打断）
+  ///   - 并发调用合并（[_reconnecting] 闸）
+  ///   - 失败不上抛，只发 error 事件——自动路径没有可恢复动作，
+  ///     下一个前台信号会再试；UI 从 events 流自行呈现
+  Future<void> reconnect() async {
+    if (_reconnecting || isConnected || _events.isClosed) return;
+    _reconnecting = true;
+    try {
+      await _derivedFuture;
+      await _openSocketAndRegister();
+      if (!_events.isClosed) _events.add(RtEvent(RtEventKind.connected));
+    } catch (_) {
+      if (!_events.isClosed) {
+        _events.add(RtEvent(RtEventKind.error, '自动重连失败，回到前台会再试'));
+      }
+    } finally {
+      _reconnecting = false;
+    }
+  }
+
+  /// 打开 WS 并完成注册握手——connect / reconnect 共用的传输层重建段。
+  /// 幂等：先拆掉旧 socket（半死连接也要拆干净）再开新的。
+  Future<void> _openSocketAndRegister() async {
+    _registerTimeout?.cancel();
+    await _wsSub?.cancel();
+    _wsSub = null;
+    try {
+      await _ws?.sink.close();
+    } catch (_) {}
+    _ws = null;
+
+    final registered = Completer<void>();
+    _registered = registered;
+
     final wsUrl = '${_serverBase.replaceFirst(RegExp(r'^http'), 'ws')}/ws';
     final channel = WebSocketChannel.connect(Uri.parse(wsUrl));
     _ws = channel;
     _wsSub = channel.stream.listen(_onFrame, onDone: () {
+      // 死亡即置空：isConnected 的真相来源，重进/回前台的补连判断靠它
+      _ws = null;
+      _wsSub = null;
       if (!_events.isClosed) _events.add(RtEvent(RtEventKind.disconnected, '连接关闭'));
     }, onError: (Object e) {
       if (!_events.isClosed) _events.add(RtEvent(RtEventKind.error, '连接错误：$e'));
@@ -199,16 +255,13 @@ class RtSession {
         'deviceToken': _deviceToken,
     });
     _registerTimeout = Timer(const Duration(seconds: 8), () {
-      if (_registered.isCompleted) return;
-      _registered.completeError(
+      if (registered.isCompleted) return;
+      registered.completeError(
         RtSessionException(RtJoinErrorKind.serverUnreachable, '服务器无响应（注册超时）'),
       );
     });
-    await _registered.future;
-    _events.add(RtEvent(RtEventKind.connected));
+    await registered.future;
   }
-
-  final Completer<void> _registered = Completer<void>();
 
   void _onFrame(dynamic raw) {
     Map<String, dynamic> msg;

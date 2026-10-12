@@ -20,6 +20,7 @@ import '../../../api/remotetype/remotetype.dart';
 import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
 import '../../../widgets/context_colors.dart';
+import '../../demo_session_host.dart';
 import 'rt_constants.dart';
 import 'rt_prefs.dart';
 import 'rt_session.dart';
@@ -102,10 +103,28 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _textController.addListener(_onControllerChanged);
     _bootstrap();
     unawaited(_loadPrefs());
+    // 托管重进：host 里有活会话就原地接管（pop 重进不断连）
+    _reattachHostedSession();
     // 配对页可见期间轮询在线列表（连上后页面切换，轮询空转开销可忽略）
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_session == null) _refreshClients();
     });
+  }
+
+  /// 页面重进：接管 host 上的活会话（不重建连接）。
+  ///
+  /// 输入框内容是页面态、不随会话走（spec §4 归属切割），重进后为空是预期，
+  /// 下一笔输入按全文快照语义自愈。接管到死会话时顺手触发自动重连。
+  /// 直接字段赋值不走 setState——此时首帧还没 build。
+  void _reattachHostedSession() {
+    final hosted = demoSessionHost.get<RtSession>(kRemoteTypeDemoSlug);
+    if (hosted == null) return;
+    _session = hosted;
+    _selectedClient = hosted.targetClientId;
+    _eventSub = hosted.events.listen(_onEvent);
+    _connected = hosted.isConnected;
+    _e2eOk = hosted.e2eConfirmed;
+    if (!hosted.isConnected) unawaited(hosted.reconnect());
   }
 
   Future<void> _loadPrefs() async {
@@ -195,7 +214,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _textController.dispose();
     _keyController.dispose();
     if (_listening) _stt.stop();
-    _session?.dispose();
+    // 托管契约：页面退出只 detach，不销毁——会话留给 host，重进原地接管
+    // （pop 重进不断连）。显式断开才真正销毁（见 _disconnect 的 host.drop）。
+    demoSessionHost.detach(kRemoteTypeDemoSlug);
     super.dispose();
   }
 
@@ -242,6 +263,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       key = matched.first.sessionKey;
       final grant =
           await ref.read(remoteTypeServiceProvider).ensureGrant();
+      if (!mounted) return;
       deviceToken = grant?.token;
     }
 
@@ -255,6 +277,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       await session.connect();
     } on RtSessionException catch (e) {
       await session.dispose();
+      if (!mounted) return;
       setState(() {
         _connecting = false;
         if (keepTypingUi) _session = null;
@@ -263,6 +286,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       return;
     } catch (e) {
       await session.dispose();
+      if (!mounted) return;
       setState(() {
         _connecting = false;
         if (keepTypingUi) _session = null;
@@ -271,6 +295,17 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       return;
     }
 
+    // 挂到 host 托管：页面退出（detach）后会话继续存活，重进原地接管；
+    // 回前台由 host 广播 → session.reconnect() 自动重连。钩子闭包只碰
+    // session，页面不在场（detached）也能安全触发。
+    demoSessionHost.attach(
+      kRemoteTypeDemoSlug,
+      () => session,
+      onDispose: () => session.dispose(),
+      onAppForeground: () => session.reconnect(),
+    );
+    // 连接期间页面已退出：会话已托管不算孤儿，UI 下次进页接管
+    if (!mounted) return;
     _eventSub = session.events.listen(_onEvent);
     setState(() {
       _session = session;
@@ -282,10 +317,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   }
 
   /// 断开并回到配对页（对齐原型 nav「断开」）。
+  ///
+  /// 与页面退出（dispose→detach，会话存活）不同：这是**显式销毁**，
+  /// 唯一入口是 host.drop。
   void _disconnect() {
     _eventSub?.cancel();
     _eventSub = null;
-    _session?.dispose();
+    unawaited(demoSessionHost.drop(kRemoteTypeDemoSlug));
     _session = null;
     _debounce?.cancel();
     _composingTimer?.cancel();
@@ -311,7 +349,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     if (_listening) _stt.stop();
 
     final oldSub = _eventSub;
-    final oldSession = _session;
     _eventSub = null;
     setState(() {
       _connected = false;
@@ -320,12 +357,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _e2eHintShown = false;
       _syncFlash = false;
     });
-    // 先 dispose 旧会话，但暂不把 `_session` 置空，避免 body 切回配对页。
+    // 旧会话的销毁归 host.drop（托管契约：销毁只有这一个入口）；
+    // `_session` 暂不置空，避免 body 闪回配对页。
     try {
       await oldSub?.cancel();
     } catch (_) {}
     try {
-      await oldSession?.dispose();
+      await demoSessionHost.drop(kRemoteTypeDemoSlug);
     } catch (_) {}
 
     await _connect(keepTypingUi: true);
