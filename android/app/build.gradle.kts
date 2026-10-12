@@ -37,6 +37,12 @@ android {
         // 多dex支持
         multiDexEnabled = true
 
+        // 只打 arm64：--target-platform 过滤不了插件 AAR 里的 native 库，
+        // 没有这行 x86_64/armeabi-v7a 的 rive_native、MLKit 等会多带 ~25MB 死重
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+
         // NDK: 节拍器用 Oboe C++ 实时合成音频
         externalNativeBuild {
             cmake {
