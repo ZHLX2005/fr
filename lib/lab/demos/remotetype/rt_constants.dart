@@ -54,6 +54,9 @@ const String kRtBuildTag = 'b10-proto-align';
 /// 修饰键合法值见 mn-rt parse_modifier_name：shift / ctrl / alt / meta
 /// （别名 win / cmd / super）；主键见 parse_key_name（return / tab / f1-f12 /
 /// 单个 ASCII 字符等）。这里只列两端都认识的名字，新增预设先查 PC 端白名单。
+///
+/// 每条快捷键仍是一条单 chord 预设；序列宏（多条 chord + 毫秒间隔）在
+/// 运行时由前端循环 `syncHotkey` + sleep 实现，协议层不动。
 const List<List<String>> kShortcutPresets = [
   ['win', 'r'],
   ['win', 'v'],
@@ -80,3 +83,16 @@ const List<String> kShortcutLabels = [
   'F5 刷新',
   'Ctrl+Shift+Esc 任务管理器',
 ];
+
+/// 序列宏相邻 chord 之间的间隔（毫秒）。用户自调，0 = 立即接龙。
+///
+/// 范围刻意卡在 0..1000：超过 1s 的"等待"已经偏向手动操作而不是宏，继续往大
+/// 走会把 slider 调成时间机器；25ms 一档做心率。
+const int kRtShortcutIntervalDefaultMs = 80;
+const int kRtShortcutIntervalMinMs = 0;
+const int kRtShortcutIntervalMaxMs = 1000;
+const int kRtShortcutIntervalDivisions = 40; // 25ms/档
+
+/// 是否被 UI 当作「单组紧凑外观」（隐藏计数与间隔 badge）。
+/// chords.length==1 且 intervalMs==0 → 走旧 chip 形态。
+const int kRtShortcutCompactChordCap = 1;
