@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/design/emphasis_button.dart';
 import '../../native/overlay/pigment_overlay_service.dart';
 import '../lab_container.dart';
 
@@ -26,9 +27,10 @@ void registerPigmentPaletteDemo() {
   demoRegistry.register(PigmentPaletteDemo());
 }
 
-// 主题豁免：本 demo 的内容就是展示这套"纯白 iOS 风调色板"（F7F7F4 底 /
-// 111111 主字 / 6B6B6B 次字 / 1F7AFF 强调），demo 的设计身份即这些 hex，
-// 不随主题切换。
+// 视觉基调：跟随全局主题（surface 底 / hairline outlineVariant 边 / 圆角卡片
+// 无阴影），取色全部走 colorScheme，7 套主题 + 暗黑下自动成立。
+// 动效：入场 scale+fade 与按压回弹都用 Curves.easeOutBack（过冲 ~10%），
+// 与 main_screen 的「iOS q 弹感」同源；滚动沿用 BouncingScrollPhysics。
 
 class PigmentPaletteDemoPage extends StatefulWidget {
   const PigmentPaletteDemoPage({super.key});
@@ -39,11 +41,6 @@ class PigmentPaletteDemoPage extends StatefulWidget {
 
 class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
     with WidgetsBindingObserver {
-  static const _pageBackground = Color(0xFFF7F7F4);
-  static const _softTextColor = Color(0xFF6B6B6B);
-  static const _primaryTextColor = Color(0xFF111111);
-  static const _accentColor = Color(0xFF1F7AFF);
-
   final PigmentOverlayService _service = PigmentOverlayService();
 
   bool _hasPermission = false;
@@ -112,30 +109,15 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      backgroundColor: _pageBackground,
-      appBar: AppBar(
-        backgroundColor: _pageBackground,
-        surfaceTintColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Pigment 画板',
-          style: TextStyle(
-            color: _primaryTextColor,
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.2,
-          ),
-        ),
-      ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(title: const Text('调色板')),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(
-          color: _accentColor,
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          color: Theme.of(context).colorScheme.primary,
+          backgroundColor:
+              Theme.of(context).colorScheme.surfaceContainerHighest,
           onRefresh: _refreshStatus,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(
@@ -143,123 +125,144 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
             ),
             slivers: [
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 28),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    _HeroPanel(
-                      hasPermission: _hasPermission,
-                      isActive: _isActive,
-                      isRefreshing: _isRefreshing,
+                    _SpringyEntrance(
+                      delay: Duration.zero,
+                      child: _HeroPanel(
+                        hasPermission: _hasPermission,
+                        isActive: _isActive,
+                        isRefreshing: _isRefreshing,
+                      ),
                     ),
-                    SizedBox(height: 18),
-                    _SectionCard(
-                      title: '权限状态',
-                      subtitle: '启动前只需要确认悬浮窗授权，页面返回前会自动刷新状态。',
-                      child: Column(
-                        children: [
-                          _StatusRow(
-                            icon: _hasPermission
-                                ? Icons.verified_rounded
-                                : Icons.shield_outlined,
-                            title: '悬浮窗权限',
-                            detail: _hasPermission ? '已授权' : '未授权',
-                            tone: _hasPermission
-                                ? _StatusTone.success
-                                : _StatusTone.danger,
-                          ),
-                          SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _ActionButton(
-                                  label: '前往授权',
-                                  icon: Icons.arrow_outward_rounded,
-                                  onPressed: _requestPermission,
-                                  prominence: _ButtonProminence.primary,
+                    const SizedBox(height: 14),
+                    _SpringyEntrance(
+                      delay: const Duration(milliseconds: 70),
+                      child: _SectionCard(
+                        title: '权限状态',
+                        subtitle: '启动前只需要确认悬浮窗授权，页面返回前会自动刷新状态。',
+                        child: Column(
+                          children: [
+                            _StatusRow(
+                              icon: _hasPermission
+                                  ? Icons.verified_rounded
+                                  : Icons.shield_outlined,
+                              title: '悬浮窗权限',
+                              detail: _hasPermission ? '已授权' : '未授权',
+                              tone: _hasPermission
+                                  ? _StatusTone.success
+                                  : _StatusTone.danger,
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _ActionButton(
+                                    label: '前往授权',
+                                    icon: Icons.arrow_outward_rounded,
+                                    onPressed: _requestPermission,
+                                    prominence: _ButtonProminence.primary,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: _ActionButton(
-                                  label: '刷新状态',
-                                  icon: Icons.refresh_rounded,
-                                  onPressed: _refreshStatus,
-                                  prominence: _ButtonProminence.secondary,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _ActionButton(
+                                    label: '刷新状态',
+                                    icon: Icons.refresh_rounded,
+                                    onPressed: _refreshStatus,
+                                    prominence: _ButtonProminence.secondary,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SpringyEntrance(
+                      delay: const Duration(milliseconds: 140),
+                      child: _SectionCard(
+                        title: '画板控制',
+                        subtitle: '悬浮层运行状态与启停入口都集中在这里。',
+                        child: Column(
+                          children: [
+                            _StatusRow(
+                              icon: _isActive
+                                  ? Icons.water_drop_rounded
+                                  : Icons.water_drop_outlined,
+                              title: 'Pigment 悬浮层',
+                              detail: _isActive ? '运行中' : '未启动',
+                              tone: _isActive
+                                  ? _StatusTone.accent
+                                  : _StatusTone.neutral,
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _ActionButton(
+                                    label: '启动画板',
+                                    icon: Icons.play_arrow_rounded,
+                                    onPressed: _hasPermission ? _start : null,
+                                    prominence: _ButtonProminence.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _ActionButton(
+                                    label: '停止服务',
+                                    icon: Icons.stop_rounded,
+                                    onPressed: _isActive ? _stop : null,
+                                    prominence: _ButtonProminence.secondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SpringyEntrance(
+                      delay: const Duration(milliseconds: 210),
+                      child: const _GroupedListCard(
+                        title: '原生能力',
+                        items: [
+                          '56dp 悬浮气泡，支持拖拽和边缘吸附。',
+                          '点击气泡后展开原生控制面板。',
+                          '调色画板支持绘制、撤销、重做和清空。',
+                          '取色模式可进入全屏采样覆盖层。',
+                          '取色完成后会同步当前颜色和色板状态。',
                         ],
                       ),
                     ),
-                    SizedBox(height: 14),
-                    _SectionCard(
-                      title: '画板控制',
-                      subtitle: '保留纯白控制面板，只在当前页面承载入口和运行反馈。',
-                      child: Column(
-                        children: [
-                          _StatusRow(
-                            icon: _isActive
-                                ? Icons.water_drop_rounded
-                                : Icons.water_drop_outlined,
-                            title: 'Pigment 悬浮层',
-                            detail: _isActive ? '运行中' : '未启动',
-                            tone: _isActive
-                                ? _StatusTone.accent
-                                : _StatusTone.neutral,
-                          ),
-                          SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _ActionButton(
-                                  label: '启动画板',
-                                  icon: Icons.play_arrow_rounded,
-                                  onPressed: _hasPermission ? _start : null,
-                                  prominence: _ButtonProminence.primary,
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Expanded(
-                                child: _ActionButton(
-                                  label: '停止服务',
-                                  icon: Icons.stop_rounded,
-                                  onPressed: _isActive ? _stop : null,
-                                  prominence: _ButtonProminence.secondary,
-                                ),
-                              ),
-                            ],
-                          ),
+                    const SizedBox(height: 14),
+                    _SpringyEntrance(
+                      delay: const Duration(milliseconds: 280),
+                      child: const _GroupedListCard(
+                        title: '实现说明',
+                        items: [
+                          'Flutter 页面只负责状态展示、权限入口和启动控制。',
+                          '悬浮窗、WindowManager overlay 和 MediaProjection 逻辑都在 Kotlin 原生服务层。',
+                          '后续如果继续增强画板能力，建议仍沿用当前原生链路扩展。',
                         ],
                       ),
                     ),
-                    SizedBox(height: 14),
-                    const _GroupedListCard(
-                      title: '原生能力',
-                      items: [
-                        '56dp 悬浮气泡，支持拖拽和边缘吸附。',
-                        '点击气泡后展开原生控制面板。',
-                        '调色画板支持绘制、撤销、重做和清空。',
-                        '取色模式可进入全屏采样覆盖层。',
-                        '取色完成后会同步当前颜色和色板状态。',
-                      ],
-                    ),
-                    SizedBox(height: 14),
-                    const _GroupedListCard(
-                      title: '实现说明',
-                      items: [
-                        'Flutter 页面只负责状态展示、权限入口和启动控制。',
-                        '悬浮窗、WindowManager overlay 和 MediaProjection 逻辑都在 Kotlin 原生服务层。',
-                        '后续如果继续增强画板能力，建议仍沿用当前原生链路扩展。',
-                      ],
-                    ),
-                    SizedBox(height: 20),
-                    Center(
-                      child: Text(
-                        '下拉可刷新状态',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: _softTextColor,
-                          letterSpacing: 0.2,
+                    const SizedBox(height: 20),
+                    _SpringyEntrance(
+                      delay: const Duration(milliseconds: 330),
+                      child: Center(
+                        child: Text(
+                          '下拉可刷新状态',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color:
+                                    Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ),
                     ),
@@ -274,6 +277,109 @@ class _PigmentPaletteDemoPageState extends State<PigmentPaletteDemoPage>
   }
 }
 
+// ════════════════════════════════ 动效 ════════════════════════════════
+
+/// 入场 q 弹：延迟后 scale(0.94→1) + fade，easeOutBack 过冲回弹。
+/// scale 吃原始曲线值（保留过冲），opacity 单独 clamp。
+class _SpringyEntrance extends StatefulWidget {
+  const _SpringyEntrance({required this.delay, required this.child});
+
+  final Duration delay;
+  final Widget child;
+
+  @override
+  State<_SpringyEntrance> createState() => _SpringyEntranceState();
+}
+
+class _SpringyEntranceState extends State<_SpringyEntrance>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  );
+
+  late final Animation<double> _anim = CurvedAnimation(
+    parent: _ctrl,
+    curve: Curves.easeOutBack,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(widget.delay, () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, child) {
+        final v = _anim.value;
+        return Opacity(
+          opacity: v.clamp(0.0, 1.0),
+          child: Transform.scale(scale: 0.94 + 0.06 * v, child: child),
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
+/// 按压 q 弹：按下缩到 0.97，松手 easeOutBack 回弹。
+/// 用 Listener 而不是 GestureDetector，不抢子级按钮的手势。
+class _SpringyPress extends StatefulWidget {
+  const _SpringyPress({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_SpringyPress> createState() => _SpringyPressState();
+}
+
+class _SpringyPressState extends State<_SpringyPress> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1.0,
+        duration: Duration(milliseconds: _pressed ? 110 : 320),
+        curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════ 卡片 ════════════════════════════════
+
+/// 无阴影圆角卡片：surfaceContainerHighest 底 + hairline outlineVariant 边。
+/// 与 AppCardDecorations.flat 同配方，[radius] 由调用方定（hero 24 / 区块 16）。
+Container _flatCard(BuildContext context, double radius, Widget child,
+    {EdgeInsets padding = const EdgeInsets.all(16)}) {
+  return Container(
+    padding: padding,
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    ),
+    child: child,
+  );
+}
+
 class _HeroPanel extends StatelessWidget {
   const _HeroPanel({
     required this.hasPermission,
@@ -285,45 +391,31 @@ class _HeroPanel extends StatelessWidget {
   final bool isActive;
   final bool isRefreshing;
 
-  static const _lineColor = Color(0xFFE7E7E3);
-  static const _softTextColor = Color(0xFF6B6B6B);
-  static const _primaryTextColor = Color(0xFF111111);
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 22, 20, 18),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _lineColor),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 24,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
+    return _flatCard(
+      context,
+      24,
+      Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '纯白控制区',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: _primaryTextColor,
-              letterSpacing: -0.8,
-              height: 1.1,
-            ),
+          Text(
+            '调色板控制台',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
           ),
-          SizedBox(height: 10),
-          const Text(
-            '保留现在的白色基调，用更轻的边界、清晰的分组和更克制的操作层级来贴近 iOS 风格。',
-            style: TextStyle(fontSize: 14, height: 1.55, color: _softTextColor),
+          const SizedBox(height: 10),
+          Text(
+            '悬浮气泡、取色与画板都跑在原生层，这里集中管理权限与启停。',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  height: 1.55,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
-          SizedBox(height: 18),
+          const SizedBox(height: 18),
           Wrap(
             spacing: 10,
             runSpacing: 10,
@@ -333,23 +425,33 @@ class _HeroPanel extends StatelessWidget {
                     ? Icons.verified_rounded
                     : Icons.shield_outlined,
                 label: hasPermission ? '权限已开启' : '等待授权',
+                tint: hasPermission
+                    ? Theme.of(context).colorScheme.tertiary
+                    : Theme.of(context).colorScheme.error,
               ),
               _MetricChip(
                 icon: isActive
                     ? Icons.water_drop_rounded
                     : Icons.water_drop_outlined,
                 label: isActive ? '画板运行中' : '画板未启动',
+                tint: isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               _MetricChip(
                 icon: isRefreshing
                     ? Icons.sync_rounded
                     : Icons.check_circle_outline_rounded,
                 label: isRefreshing ? '状态同步中' : '状态已同步',
+                tint: isRefreshing
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.tertiary,
               ),
             ],
           ),
         ],
       ),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
     );
   }
 }
@@ -367,42 +469,29 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).colorScheme.surface),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x05000000),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
+    return _flatCard(
+      context,
+      16,
+      Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF111111),
-              letterSpacing: -0.3,
-            ),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
             subtitle,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.5,
-              color: Color(0xFF6B6B6B),
-            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  height: 1.5,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           child,
         ],
       ),
@@ -418,59 +507,55 @@ class _GroupedListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Theme.of(context).colorScheme.surface),
-      ),
-      child: Column(
+    return _flatCard(
+      context,
+      16,
+      Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(18, 18, 18, 10),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111111),
-                letterSpacing: -0.3,
-              ),
-            ),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
           ),
+          const SizedBox(height: 8),
           for (var index = 0; index < items.length; index++) ...[
             if (index > 0)
               Divider(
                 height: 1,
                 thickness: 1,
-                color: Color(0xFFF0F0ED),
-                indent: 18,
-                endIndent: 18,
+                color: Theme.of(context).colorScheme.outlineVariant,
+                indent: 16,
+                endIndent: 16,
               ),
             Padding(
-              padding: EdgeInsets.fromLTRB(18, 14, 18, 14),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    margin: EdgeInsets.only(top: 3),
-                    width: 7,
-                    height: 7,
+                    margin: const EdgeInsets.only(top: 7),
+                    width: 6,
+                    height: 6,
                     decoration: BoxDecoration(
-                      color: Color(0xFFCACAC5),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.55),
                       shape: BoxShape.circle,
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       items[index],
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.55,
-                        color: Color(0xFF303030),
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            height: 1.55,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                     ),
                   ),
                 ],
@@ -483,33 +568,39 @@ class _GroupedListCard extends StatelessWidget {
   }
 }
 
+// ═══════════════════════════ 状态行 / 徽章 ═══════════════════════════
+
 class _MetricChip extends StatelessWidget {
-  const _MetricChip({required this.icon, required this.label});
+  const _MetricChip({
+    required this.icon,
+    required this.label,
+    required this.tint,
+  });
 
   final IconData icon;
   final String label;
+  final Color tint;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Theme.of(context).colorScheme.surface),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurface),
-          SizedBox(width: 8),
+          Icon(icon, size: 16, color: tint),
+          const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF303030),
-            ),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
           ),
         ],
       ),
@@ -541,64 +632,43 @@ class _StatusRow extends StatelessWidget {
       case _StatusTone.accent:
         return Theme.of(context).colorScheme.primary;
       case _StatusTone.neutral:
-        return Theme.of(context).colorScheme.outlineVariant;
-    }
-  }
-
-  Color _softBackground(BuildContext context) {
-    switch (tone) {
-      case _StatusTone.success:
-        return Theme.of(context).colorScheme.surface;
-      case _StatusTone.danger:
-        return Theme.of(context).colorScheme.surface;
-      case _StatusTone.accent:
-        return Theme.of(context).colorScheme.surface;
-      case _StatusTone.neutral:
-        return Theme.of(context).colorScheme.surface;
+        return Theme.of(context).colorScheme.onSurfaceVariant;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final tint = _tint(context);
+    final isDark = Theme.of(context).colorScheme.brightness == Brightness.dark;
     return Container(
-      padding: EdgeInsets.all(14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.surface),
+        // 图标底 = tint 低饱和；暗色提 alpha 保可见（与 EmphasisButton 同款分档）
+        color: tint.withValues(alpha: isDark ? 0.18 : 0.10),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: _softBackground(context),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: _tint(context), size: 22),
-          ),
-          SizedBox(width: 12),
+          Icon(icon, color: tint, size: 24),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF111111),
-                  ),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
                   detail,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _tint(context),
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: tint,
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ],
             ),
@@ -608,6 +678,8 @@ class _StatusRow extends StatelessWidget {
     );
   }
 }
+
+// ═══════════════════════════════ 按钮 ═══════════════════════════════
 
 enum _ButtonProminence { primary, secondary }
 
@@ -628,36 +700,20 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPrimary = prominence == _ButtonProminence.primary;
 
-    return SizedBox(
-      height: 52,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 20),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          // primary = 暗底白字（主操作）；secondary = 描边透明底。
-          // 若 primary 只给白字不给暗底，落在白色面板上整块「全白」。
-          backgroundColor:
-              isPrimary ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-          foregroundColor:
-              isPrimary ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.onSurface,
-          disabledBackgroundColor:
-              isPrimary ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-          disabledForegroundColor: Theme.of(context).colorScheme.outlineVariant,
-          side: BorderSide(
-            color: (isPrimary
-                    ? Theme.of(context).colorScheme.onSurface
-                    : Theme.of(context).colorScheme.onSurface)
-                .withValues(alpha: 0.5),
-          ),
-          elevation: 0,
-          textStyle: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.1,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+    return _SpringyPress(
+      child: SizedBox(
+        height: 48,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18),
+          label: Text(label),
+          // 应用统一「边框强调」风格：主操作 primary 色、次操作中性色，
+          // 浅色调底 + 彩色描边 + 彩色文字（暗色自动提 alpha）。
+          style: EmphasisButton.borderEmphasis(
+            context,
+            color: isPrimary
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),
