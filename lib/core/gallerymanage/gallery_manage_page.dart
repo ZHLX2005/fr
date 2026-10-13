@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../services/gallery_service.dart';
 import '../design/emphasis_button.dart';
+import 'ios_dialog.dart';
 
 /// 图库管理页面
 /// 展示所有图片和相册分组，支持图片移动
@@ -139,25 +140,24 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   }
 
   void _showPermissionDialog() {
-    showDialog(
+    showIosDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('需要图库权限'),
-        content: const Text(
-          '请授予图库访问权限以查看和管理您的图片。\n\n'
-          '您可以在设置中手动开启权限后重试。',
-        ),
+      builder: (context) => IosDialogShell(
+        title: '需要图库权限',
+        message: '请授予图库访问权限以查看和管理您的图片。\n\n'
+            '您可以在设置中手动开启权限后重试。',
         actions: [
-          TextButton(
+          IosDialogAction(
+            label: '取消',
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
           ),
-          TextButton(
+          IosDialogAction(
+            label: '重试',
+            isDefault: true,
             onPressed: () {
               Navigator.pop(context);
               _initGallery();
             },
-            child: const Text('重试'),
           ),
         ],
       ),
@@ -437,25 +437,24 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   }
 
   void _showDeleteConfirm() {
-    showDialog(
+    showIosDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text(
-          '确定要删除选中的 ${_selectedImages.length} 张图片吗？\n\n此操作不可恢复。',
-        ),
+      builder: (context) => IosDialogShell(
+        title: '确认删除',
+        message: '确定要删除选中的 ${_selectedImages.length} 张图片吗？\n\n此操作不可恢复。',
         actions: [
-          TextButton(
+          IosDialogAction(
+            label: '取消',
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
           ),
-          OutlinedButton(
+          IosDialogAction(
+            label: '删除',
+            isDestructive: true,
+            isDefault: true,
             onPressed: () {
               Navigator.pop(context);
               _deleteImages();
             },
-            style: EmphasisButton.dangerEmphasis(context),
-            child: const Text('删除'),
           ),
         ],
       ),
@@ -467,20 +466,7 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
 
     // 显示加载对话框
     if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text('正在删除 ${_selectedImages.length} 张图片...'),
-          ],
-        ),
-      ),
-    );
+    showIosLoadingDialog(context, '正在删除 ${_selectedImages.length} 张图片...');
 
     int successCount = 0;
     int failCount = 0;
@@ -537,29 +523,40 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   }
 
   void _showDeleteErrors(BuildContext context, List<String> errors) {
-    showDialog(
+    showIosDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除错误详情'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: errors.length,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text('• ${errors[index]}'),
-              );
-            },
-          ),
-        ),
+      builder: (context) => IosDialogShell(
+        title: '删除错误详情',
+        content: _buildErrorListContent(context, errors),
         actions: [
-          TextButton(
+          IosDialogAction(
+            label: '关闭',
+            isDefault: true,
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 错误详情列表的通用内容区（删除/移动共用）。
+  Widget _buildErrorListContent(BuildContext context, List<String> errors) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 320),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+        itemCount: errors.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              '• ${errors[index]}',
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.35),
+            ),
+          );
+        },
       ),
     );
   }
@@ -580,24 +577,9 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
 
     // 显示加载对话框
     if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text('正在移动 ${_selectedImages.length} 张图片...'),
-            const SizedBox(height: 8),
-            Text(
-              '目标: ${targetAlbum.name}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
+    showIosLoadingDialog(
+      context,
+      '正在移动 ${_selectedImages.length} 张图片...\n目标：${targetAlbum.name}',
     );
 
     int successCount = 0;
@@ -700,27 +682,16 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   }
 
   void _showMoveErrors(BuildContext context, List<String> errors) {
-    showDialog(
+    showIosDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('移动错误详情'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: errors.length,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text('• ${errors[index]}'),
-              );
-            },
-          ),
-        ),
+      builder: (context) => IosDialogShell(
+        title: '移动错误详情',
+        content: _buildErrorListContent(context, errors),
         actions: [
-          TextButton(
+          IosDialogAction(
+            label: '关闭',
+            isDefault: true,
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
           ),
         ],
       ),
@@ -758,51 +729,84 @@ class _MoveImageDialogState extends State<_MoveImageDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return AlertDialog(
-      title: Text('移动到...'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView.builder(
+    return IosDialogShell(
+      title: '移动到...',
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 320),
+        child: ListView.separated(
           shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 4),
           itemCount: widget.albums.length,
+          separatorBuilder: (context, index) => Container(
+            height: 0.6,
+            margin: const EdgeInsets.only(left: 52),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
           itemBuilder: (context, index) {
             final album = widget.albums[index];
             final isCurrent = widget.currentAlbum?.id == album.id;
             final isSelected = _selectedAlbum?.id == album.id;
 
-            return ListTile(
-              leading: Icon(Icons.folder),
-              title: Text(album.name),
-              trailing: Text(
-                isCurrent ? '当前' : '',
-                style: TextStyle(
-                  color: theme.colorScheme.primary,
-                  fontSize: 12,
+            return InkWell(
+              onTap: () => setState(() => _selectedAlbum = album),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.folder_outlined,
+                      size: 20,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        album.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 15,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    if (isCurrent)
+                      Text(
+                        '当前',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    else if (isSelected)
+                      Icon(
+                        Icons.check,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
+                  ],
                 ),
               ),
-              selected: isSelected,
-              onTap: () {
-                setState(() => _selectedAlbum = album);
-              },
             );
           },
         ),
       ),
       actions: [
-        TextButton(
+        IosDialogAction(
+          label: '取消',
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
         ),
-        OutlinedButton(
+        IosDialogAction(
+          label: '移动',
+          isDefault: true,
           onPressed:
               _selectedAlbum != null && _selectedAlbum != widget.currentAlbum
               ? () => widget.onMove(_selectedAlbum!)
               : null,
-          style: EmphasisButton.borderEmphasis(
-            context,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          child: const Text('移动'),
         ),
       ],
     );
@@ -935,7 +939,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
         builder: (context, scrollController) => Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
