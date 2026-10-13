@@ -269,9 +269,15 @@ class _MoreCell extends StatelessWidget {
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              // demo 专属 SVG 单色 primary；核心入口兜底 Material icon
+              // 双色 mini app-icon：body 取 onSurface（深色），强调点走
+              // LabDemoIcon 自适应——zen/cobalt 这些 mid-单色 primary 不再
+              // 让 body 与 accent 同色，深色主题下 body 自动压暗出对比
               child: Center(
-                child: NavEntryIcon(entry: entry, size: 18, tint: cs.primary),
+                child: NavEntryIcon(
+                  entry: entry,
+                  size: 18,
+                  tint: cs.onSurface,
+                ),
               ),
             ),
             const SizedBox(height: 6),

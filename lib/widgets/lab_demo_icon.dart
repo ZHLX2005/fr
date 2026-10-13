@@ -83,9 +83,10 @@ class _LabDemoIconState extends State<LabDemoIcon> {
   Widget build(BuildContext context) {
     final strategy = _resolve(context);
     final brightness = Theme.of(context).colorScheme.brightness;
-    final adaptive = adaptiveLabIconColors(strategy, brightness);
-    final fg = widget.inkColor ?? adaptive.$1;
-    final accent = widget.accentColor ?? adaptive.$2;
+    final baseInk = widget.inkColor ?? strategy.text;
+    final baseAccent = widget.accentColor ?? strategy.accent;
+    final (fg, accent) =
+        adaptiveLabIconColors(baseInk, baseAccent, brightness);
     final fgHex = _toHex(fg);
     final accentHex = _toHex(accent);
 
@@ -154,28 +155,30 @@ String colorizeLabSvg(
   );
 }
 
-/// 双色图标自适应着色：保证强调点相对轮廓有足够明度差。
+/// 双色图标自适应着色：在传入的 ink/accent 基础上保证与强调点的明度差，
+/// 让设计稿「深轮廓 + 中高亮强调」对比关系不随主题偏色而失效。
 ///
-/// 设计稿的对比关系是「深轮廓 L0.04 + 中高亮强调 L0.55」；主题色直接映射后：
-/// - 深色主题（暮紫/暗黑）：primary 与 onSurface 都是浅色，轮廓压暗 35%
-///   让 accent（primary）成为最亮元素；
-/// - 亮色主题：primary 过暗时（cobalt 深宝蓝 L0.33 / zen 深鼠尾草）向亮端
-///   提到 L0.62，恢复强调点醒目度；明度差已够（≥0.28）的原样返回。
-/// 调用方显式传 inkColor/accentColor 时不走此逻辑。
+/// 规则：
+///  - 深色主题（暮紫/暗黑）：轮廓向黑 lerp 35%，accent 维持——让 accent
+///    成为图标最亮元素（暗黑 primary 必为最亮）；策略选「暗底亮 icon」
+///  - 亮色主题：明度差 ≥ 0.28 时原样；不足时把 accent 提到 L 0.62（cobalt
+///    深宝蓝 / zen 深鼠尾草等暗 primary 在浅背景上提亮）
+///
+/// 调用方显式传 inkColor/accentColor 时同样适用——adaptive 跑在传入色对
+/// 上，让 dim/lift 与底栏 / 设置 / 收藏等场景统一表现。
 @visibleForTesting
 (Color ink, Color accent) adaptiveLabIconColors(
-  ColorStrategy strategy,
+  Color baseInk,
+  Color baseAccent,
   Brightness brightness,
 ) {
-  final ink = strategy.text;
-  final accent = strategy.accent;
   if (brightness == Brightness.dark) {
-    return (Color.lerp(ink, Colors.black, 0.35)!, accent);
+    return (Color.lerp(baseInk, Colors.black, 0.35)!, baseAccent);
   }
-  final inkL = HSLColor.fromColor(ink).lightness;
-  final accentL = HSLColor.fromColor(accent).lightness;
-  if ((inkL - accentL).abs() >= 0.28) return (ink, accent);
-  return (ink, HSLColor.fromColor(accent).withLightness(0.62).toColor());
+  final inkL = HSLColor.fromColor(baseInk).lightness;
+  final accentL = HSLColor.fromColor(baseAccent).lightness;
+  if ((inkL - accentL).abs() >= 0.28) return (baseInk, baseAccent);
+  return (baseInk, HSLColor.fromColor(baseAccent).withLightness(0.62).toColor());
 }
 
 /// Flutter [Color] 转 `#RRGGBB` hex（半透明时 `#RRGGBBAA`，flutter_svg 支持
