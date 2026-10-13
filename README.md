@@ -1,256 +1,201 @@
 # fr (小豆子)
 
-Flutter 多功能应用，专注时间管理、AI 对话、数据追踪与实验性功能探索。
+Flutter 多功能个人应用：时间管理、AI 对话、块编辑笔记、多人游戏（局域网 / 互联网房间）、远程输入与实验性功能实验室。
 
 ## 功能特性
 
-### 核心功能
+### 日常核心
 
-- **番茄钟** - 专注计时器，支持统计记录与科目管理
-- **AI 聊天** - AI 助手与智能体对话（Supabase 后端）
-- **课程表** - 课程时间表管理（Hive 本地存储，支持循环周）
-- **局域网发现** - LocalNet 设备发现与通信（开发中占位）
-- **相册管理** - 媒体资源管理与浏览（开发中占位）
+- **番茄钟** — 专注计时器，支持统计记录与科目管理
+- **课程表** — 课程时间表管理（Hive 本地存储，支持循环周），通过 home_widget 与 Android 桌面小组件实时同步
+- **AI 聊天** — AI 助手与智能体对话（Supabase / pi 后端），含消息策略系统与票据 OCR
+- **块编辑笔记** — Block 模型 + RichText 内联格式的块编辑器
+- **日历** — 支持农历（Lunar）转换
 
-### 实验性 Demo (Lab)
+### 多人游戏中心
 
-通过 IoC 容器注册管理，包含 35 个实验性页面：
+游戏中心收录 16 款游戏，双通道联机：
 
-| Demo              | 说明                  |
-| ----------------- | --------------------- |
-| Grid Dashboard    | 仪表盘布局            |
-| Notebook AI Proto | AI 笔记本原型         |
-| Clock Demo        | 时钟/计时器 UI        |
-| Network Demo      | 网络功能演示          |
-| Network Env Demo  | 网络环境检测          |
-| Game 2048         | 2048 游戏             |
-| Free Canvas       | 自由画布              |
-| Drag Reorder      | 拖拽排序网格          |
-| Web Bookmark      | 书签管理器            |
-| Storage Analyze   | 存储分析              |
-| Hexagon Panel     | 六边形面板            |
-| Snake Game        | 贪吃蛇游戏            |
-| API Test          | API 测试工具          |
-| Calendar          | 日历组件              |
-| My Diary Header   | 日记头部              |
-| Water Capsule     | 水胶囊 UI             |
-| Speech Synthesis  | 语音合成              |
-| Line Demo         | 音游（节奏线）        |
-| Torch Demo        | 手电筒控制            |
-| Sensor Demo       | 传感器数据            |
-| Word Drag         | 单词拖拽分类          |
-| Overlay Demo      | 悬浮窗（Android）     |
-| Body Map          | 人体部位地图          |
-| Localnet Demo     | 局域网功能演示        |
-| Gallery Demo      | 相册功能演示          |
-| Schema Demo       | Schema 导航演示       |
-| Color Palette     | 调色板工具            |
-| GitHub Demo       | GitHub Actions/Issues |
-| QR Demo           | 二维码扫描与生成      |
-| DoubleTime        | 双时间轴可视化        |
-| Notification Demo | 本地通知演示          |
-| Novel Reader      | 小说阅读器原型        |
-| Arc Selector      | 圆弧选择器            |
-| Demo Laboratory   | Rive 动画实验室       |
-| Volume Decay      | 音量衰减曲线          |
-| Rive Pendulum     | Rive 钟摆动画         |
+- **Lua 房间游戏（Relay v3 · 互联网）** — 围合大作战、五子棋、围棋、团队卡、俄罗斯方块、Coup、黑白棋、国际象棋、斗兽棋、数独。WebSocket 快照驱动 + 服务端 Lua 状态机，新增房间业务只需写一个 Lua 脚本
+- **局域网游戏（LAN）** — 围合、黑白棋、斗兽棋：UDP 多播发现 → HTTP 邀请握手 → 直连对战
+- **单机游戏** — 贪吃蛇、2048、音游（节奏线）
+
+### 远程输入（RemoteType）
+
+手机作为 PC 的输入端，端到端加密（RT1 协议，两侧向量测试对齐）：
+
+- 统一登录后列出「我名下的电脑」，点一下即连
+- 自绘虚拟键盘 + 快捷键序列宏（多 chord + 毫秒间隔可调）
+- 全文同步管线：断线静默重连、焦点丢失一键重放
+
+### 统一登录（authhub）
+
+- 原生登录表单 + PKCE，支持扫码批准（手机扫 PC 上的码）
+- token 层双签发方（登录态与业务 token 各归其位）
+- e2ekv 客户端加密（PBKDF2 / AES-GCM），服务端只见密文
+
+### Lab 实验室
+
+- **49 个实验性 Demo**，经 IoC 容器（`lab_container`）统一注册，覆盖工具、游戏、UI 原型、网络、AI 等类别
+- **可钉选 / 可重排 / 可搜索的快捷底栏**：钉选 demo 直达，钉选未溢出时末位槽直连设置
+- **DemoSessionHost 会话托管**：退出页面不断连、回前台自动重连、空闲回收协程
+- 48 张主题化 SVG demo 图标（主色 / 强调色随主题重染，启动期预热）
+
+### 主题系统
+
+六套主题：**暮紫 · 茶禅 · 墨白 · 粉雾 · 柠檬鼠尾草 · 宝蓝**
+
+三层架构：`tokens/`（每主题一份 ColorScheme 数据）→ `strategy/`（从 scheme 派生 UI 角色的规则层：全局 6 角色、对弈棋盘 11 角色、国象棋盘 13 角色、俄罗斯方块 / 团队头像 / 灯具护眼）→ `extensions/`（ThemeExtension 注入）。切主题即换 scheme，全角色自动重派生。
+
+### fr:// 路由
+
+全局深链协议，原生与 Flutter 双向可达：
+
+```
+fr://lab                  # Lab 页
+fr://lab/demo/clock       # 直达指定 demo
+fr://timetable            # 课程表
+fr://share/receive        # 系统分享接收
+```
+
+原生 MethodChannel 调用经 `FrMethodChannelTranslator` 统一翻译为 fr:// URL 后分发。
 
 ## 技术栈
 
-- **框架**: Flutter (Dart SDK ^3.11.1)
-- **状态管理**: Provider + Riverpod
+- **框架**: Flutter 3.41.4 stable（CI 构建版本）/ Dart SDK ^3.11.1
+- **状态管理**: Riverpod 2（Notifier）+ Provider
+- **依赖注入**: get_it（Lab IoC 容器）
 - **本地存储**: Hive + SharedPreferences
-- **后端服务**: Supabase
-- **HTTP**: http + web_socket_channel
-- **原生桥接**: MethodChannel + Overlay Window
-- **游戏引擎**: Flame
-- **动画**: Rive
-
-## 依赖项
-
-| 分类     | 依赖                                                                                                                                            |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 状态管理 | provider, flutter_riverpod                                                                                                                      |
-| 存储     | hive, hive_flutter, shared_preferences, path_provider                                                                                           |
-| 数据模型 | json_annotation, json_serializable, build_runner, uuid                                                                                          |
-| 网络     | http, web_socket_channel, network_info_plus, supabase_flutter                                                                                   |
-| 媒体     | just_audio, audioplayers, video_player, chewie, record, image_picker, image_cropper, photo_manager, file_picker, cached_network_image           |
-| UI组件   | cupertino_icons, flutter_markdown, markdown, flutter_widget_from_html, emoji_picker_flutter, flutter_reorderable_grid_view, flutter_card_swiper |
-| 设备     | flutter_blue_plus, sensors_plus, permission_handler, app_settings, torch_light, screen_brightness, wakelock_plus, flutter_overlay_window        |
-| 功能     | url_launcher, webview_flutter, intl, home_widget, flutter_local_notifications, mobile_scanner, qr_flutter, open_filex, share_plus, flame        |
-| 构建     | flutter_lints, flutter_launcher_icons                                                                                                           |
+- **网络**: http + web_socket_channel（Relay v3）、UDP 多播（LAN 发现）
+- **加密**: crypto + cryptography（e2ekv 客户端加密、RT1 端到端协议）
+- **后端**: Supabase（AI 聊天）+ 自建 goframe API（KV / 房间 / 文件 / 下载 / OIDC）+ authhub（统一登录）+ mn-rt（远程输入）
+- **游戏 / 动画**: Flame、Rive
+- **原生桥接**: MethodChannel、Overlay Window、home_widget、FFI（Oboe 节拍器）
+- **图标**: flutter_svg（demo 图标集主题化重染）
 
 ## 项目结构
 
 ```
 lib/
-├── main.dart                    # 应用入口（Supabase + Hive 初始化）
+├── main.dart                    # 应用入口（初始化 / 全局错误兜底 / fr:// 分发）
+├── app_lifecycle/               # 前后台信号、crash log、APK 启动钩子、MethodChannel 翻译、MainScreen 壳
+├── api/                         # API 模块（目录即后端）
+│   ├── authhub/                 #   统一登录（PKCE / 扫码批准 / 会话托管）
+│   ├── goframe/                 #   自建后端（KV / 房间 / 文件 / 下载 / OIDC / AI / 群组）
+│   ├── remotetype/              #   远程输入凭据
+│   ├── token/ interceptors/     #   token 双签发方 + 拦截器链
+│   └── minimax/ notion/ pi/ github/ user/   # 第三方服务
 ├── core/                        # 核心功能模块
-│   ├── body/                    # 人体部位地图（记录/可视化）
-│   │   ├── models/              # 数据模型
-│   │   ├── pages/               # 页面
-│   │   ├── painters/            # 自定义绘制
-│   │   └── widgets/             # 组件
-│   ├── color/                   # 调色板工具
-│   │   └── theme/               # 应用主题配置
-│   ├── doubletime/              # 双时间轴可视化
-│   ├── focus/                   # 番茄钟（计时/统计/科目）
-│   │   ├── models/
-│   │   └── providers/
-│   ├── github/                  # GitHub Actions & Issues 集成
-│   ├── line/                    # 音游（节奏线游戏）
-│   │   ├── models/
-│   │   ├── pages/
-│   │   ├── repository/
-│   │   ├── settings/
-│   │   └── widgets/
-│   ├── localnet/                # 局域网发现与通信
-│   │   ├── models/
-│   │   ├── pages/
-│   │   └── services/
-│   ├── schema/                  # Schema 导航与解析
-│   ├── storage/                 # 存储管理
-│   ├── timetable/               # 课程表（DDD 架构）
-│   │   ├── data/                # 数据层（Hive 仓库）
-│   │   ├── domain/              # 领域模型
-│   │   └── presentation/        # 展示层
-│   └── word_drag/               # 单词拖拽分类
-│       ├── models/
-│       ├── providers/
-│       └── widgets/
-├── lab/                         # 实验性 Demo
-│   ├── demos/                   # 31 个 Demo 页面
-│   ├── models/                  # 数据模型
-│   ├── providers/               # 状态管理
-│   ├── utils/                   # 工具函数
-│   ├── widgets/                 # 通用组件
-│   ├── lab_container.dart       # IoC 容器
-│   └── lab_bootstrap.dart       # Demo 注册引导
-├── models/                      # 共享数据模型
-├── native/                      # 原生桥接
-│   ├── home_widget/             # 桌面小组件
-│   └── overlay/                 # 悬浮窗服务
-├── providers/                   # 全局状态管理
-├── screens/                     # 页面
-│   ├── chat/                    # AI 聊天 & Agent 聊天
-│   ├── gallery/                 # 相册管理
-│   ├── home/                    # 首页
-│   ├── lab/                     # Lab 入口页
-│   ├── native_controller/       # 原生控制器（媒体/通知/系统）
-│   ├── profile/                 # 个人中心
-│   └── theme/                   # 主题设置
-├── services/                    # 业务服务（API/音频/图库/消息等）
-├── utils/                       # 工具函数
-├── widgets/                     # 通用组件（聊天气泡/Markdown/表情等）
-└── generated/                   # OpenAPI 自动生成代码
-    ├── api/                     # API 客户端
-    ├── auth/                    # 认证模块
-    └── model/                   # 数据模型
+│   ├── ai_chat/                 # AI 聊天（pi 后端 / 格式化 / OCR / 系统消息）
+│   ├── theme/                   # 六主题三层架构（tokens → strategy → extension）
+│   ├── nav/                     # 可钉选快捷导航（目录 / 钉选状态 / 图标解析）
+│   ├── schema/                  # fr:// 深链导航（FrNavigator）
+│   ├── focus/                   # 番茄钟
+│   ├── timetable/               # 课程表（DDD 架构：data / domain / presentation）
+│   ├── note/                    # 块编辑器笔记
+│   ├── game_kit/                # 游戏公共设施（皮肤 / 对局壳）
+│   ├── game_audio/              # 游戏音频
+│   ├── net_engine/              # 传输引擎（lan / relay_v3 / services）
+│   ├── net_p2p/                 # P2P 业务层（LAN 走 pub/sub，Relay 走 v3 快照）
+│   ├── message_net/             # 消息网络
+│   ├── chess/ go/ gomoku/ jungle_chess/ reversi/ sudoku/    # 棋类业务
+│   ├── surround_game/ tetris/ coup/ team_card/ cowrite/     # 房间游戏业务
+│   ├── line/                    # 音游（节奏线）
+│   ├── body/ doubletime/ gallerymanage/ github/ novel_reader/
+│   └── share_receive/ storage/ word_drag/ design/ color/
+├── lab/                         # 实验室框架
+│   ├── lab_container.dart       # IoC 容器 + DemoPage 注册契约
+│   ├── lab_bootstrap.dart       # 49 个 demo 集中注册
+│   ├── demo_session_host.dart   # demo 会话托管（不断连 / 空闲回收）
+│   └── demos/                   # 49 个 demo 页面
+├── native/                      # 原生桥接（home_widget 桌面小组件 / overlay 悬浮窗）
+├── screens/                     # 壳层页面（chat / profile / settings，游戏中心与 Lab 入口在此）
+├── services/                    # 业务服务（AI 聊天 provider / 远程输入 / 消息策略 / 节拍器 / APK 下载）
+└── widgets/                     # 通用组件（lab_demo_icon 主题化 SVG / global_ring / 聊天组件）
 ```
-
-## 项目 Skill 体系（`.claude/skills/`）
-
-Claude 与项目协作时使用的领域知识索引。按主题采用"主 SKILL.md + references/"渐进式结构：
-
-### 工程流 / 工作流
-
-| Skill | 用途 |
-|---|---|
-| `flutter-work-flow` | Flutter 总入口，所有 dart-flutter 问题优先加载 |
-| `flutter-add-page-workflow` | 添加新页面的工作流 |
-| `flutter-debug-logging` | 错误/异常行为排查（战略性日志） |
-| `flutter-hive-workflow` | Hive 存储管理调试与最佳实践 |
-| `flutter-message-workflow` | message_strategy 系统添加新消息类型 |
-| `flutter-home-widget-realtime-sync` | home_widget 把实时值推到 Android 桌面小组件 |
-| `lan-local-playbook` | 局域网多人模式开发（LanFramework + surround_game） |
-| `pr-workflow` | PR 管理工作流 |
-| `git-worktree-sync` | 同步所有 git worktree |
-| `gh-upstream-release` | Fork 模式下 squash + push + PR 发版 |
-
-### 样式 / UI
-
-| Skill | 用途 |
-|---|---|
-| `styles-skill` | Flutter 样式工程总入口；含 banner-stretch、floating-pill-bottom-nav、border-emphasis-style、async-load-flag-pattern、lottery-workflow 等方案 ref |
-| `rive-skills` | Rive 动画平台大全（Luau/React/状态机）+ 本项目 `rive ^0.14.5` Flutter DataBind 特化 |
-
-### 平台 / 原生
-
-| Skill | 用途 |
-|---|---|
-| `android-media-projection-fix` | Android 14+ MediaProjection 悬浮窗截屏；按异常类型排查 SOP 见 `references/fgs-debug-cases.md` |
-| `android-icon-processing` | Android 自适应图标前景图处理（边缘分析/洪泛法/岛屿算法） |
-| `webrtc-infrastructure` | WebRTC 视频通话 + P2P 实时通信架构 |
-
-### 架构 / 规范
-
-| Skill | 用途 |
-|---|---|
-| `api-module-auth` | `lib/api/` 模块规范（目录即后端、深目录轻文件、拦截器链） |
-| `block-note-core` | 块编辑器核心架构（Block 模型、RichText、编辑器策略） |
-| `knowledge-qa` | 用 mmx 深度搜索 + 编写知识问答文档 |
-
-### 元工具
-
-| Skill | 用途 |
-|---|---|
-| `key_board_loop` | loop 反思机制（用户特权级） |
-| `merge-skill` | 合并多个 skill 到统一文档 |
-
-> 新增 skill 见 `key_board_2`；优化已有 skill 结构见 `key_board_3`。
 
 ## 应用导航
 
-底部导航栏（XiaoDouZiBottomBar，5 个位置 + 中央 "+" 按钮）：
-
-| 索引 | 页面                    | 说明                        |
-| ---- | ----------------------- | --------------------------- |
-| 0    | **ProfilePage**   | 个人中心（默认页）          |
-| 1    | **HomePage**      | 聊天首页                    |
-| 2    | **FocusHomePage** | 番茄钟（中央 "+" 按钮直达） |
-| 3    | **Placeholder**   | 局域网发现（开发中）        |
-| 4    | **Placeholder**   | 相册管理（开发中）          |
-
-- 支持深层链接 `fr://lab` 直接打开 Lab 页面
-- 通过 MethodChannel 与 Android 原生通信
+主壳为**可钉选快捷底栏**：所有 demo 与系统入口可钉选 / 重排 / 搜索，IndexedStack 保活钉选页；钉选数不超容量且设置未被钉选时，末位槽直连「设置」。桌面小组件与系统分享经 MethodChannel → fr:// URL → `FrNavigator.handle` 分发（CLEAR_TOP 防栈累加）。
 
 ## 开发指南
 
 ### 环境要求
 
-- Dart SDK ^3.11.1
-- 无需本地 Java/Android 环境
-- 所有调试通过 Web 构建完成
+- Flutter stable（CI 锁定 3.41.4），Dart SDK ^3.11.1
+- Android 构建仅保留 arm64-v8a（`abiFilters` 已限定，剔除插件多余 ABI）
+- 日常调试以 Web 构建为主验证方式
 
-### 构建命令
+### 常用命令
 
 ```bash
 # 获取依赖
 flutter pub get
 
+# 代码分析
+flutter analyze
+
 # Web release 构建（主要验证方式）
 flutter build web --release
 
-# 代码分析（检查错误和孤儿文件）
-flutter analyze
-
-# JSON 序列化代码生成
+# JSON / Hive 序列化代码生成
 dart run build_runner build
+
+# 测试（含 RT1 协议两侧向量测试）
+flutter test
 ```
 
-### 工作流程
+### CI/CD
 
-1. 完成代码修改后，执行 `flutter analyze | grep error` 验证无编译错误
-2. 编译通过后，单独 `add` 和 `commit` 变更的文件（禁止 `add .`）
-3. 推送到 GitHub，触发 CI/CD 流水线构建 APK
+| Workflow | 触发 | 说明 |
+| -------- | ---- | ---- |
+| `build-apk.yml` | push / PR 到 master | Flutter 3.41.4 + Java 17，release 签名（keystore 走 secrets），产物上传 artifact |
+| `build-apk-v2.yml` | 手动 | 可调试变体，支持 `--split-per-abi` arm64 单架构瘦身构建 |
+| `deploy-web.yml` | 提交信息含 `web` 或手动 | Web 构建部署到生产环境 |
+
+### 工作流程约定
+
+1. 代码修改后先 `flutter analyze` 确认无编译错误（本地 analyze 通过 ≠ 远程可编译，注意提交工作区所有关联修复）
+2. 变更文件单独 `add` / `commit`（禁止 `git add .`）
+3. Conventional Commits 规范，模块前缀与 CHANGELOG scope 一致（`remotetype` / `ui` / `lab` / `auth` / `theme` …）
+4. 用户可感知变更同步记录到 `CHANGELOG.md`（feat / fix / refactor，docs / chore 不记）
+
+## 项目 Skill 体系（`.claude/skills/`）
+
+Claude 与项目协作时使用的领域知识索引，按主题采用「主 SKILL.md + references/」渐进式结构：
+
+### 工作流总入口
+
+| Skill | 用途 |
+| --- | --- |
+| `flutter-work-flow` | Flutter 开发总入口，所有 dart-flutter 问题优先加载（fr:// 路由 / Lab 容器 / 游戏中心 / API 模块等扩展 SOP） |
+| `flutter-debug-logging` | 错误 / 异常行为排查（战略性日志） |
+| `pr-workflow` | PR 管理工作流 |
+| `gh-upstream-release` | Fork 模式下 squash + push + PR 发版 |
+| `codebase-module-generator` | 分析模块结构生成防腐蚀规范 skill |
+
+### 功能域
+
+| Skill | 用途 |
+| --- | --- |
+| `net-p2p-protocol-playbook` | Relay / LAN / 快照 / action 流协议；v1 事件驱动与 v2/v3 快照驱动 |
+| `relay-lua-state-machine` | Relay-v3 Lua 状态机接入（新增互联网房间业务） |
+| `block-note-core` | 块编辑器核心架构（Block 模型 / RichText / 编辑器策略） |
+| `flutter-home-widget-realtime-sync` | home_widget 实时值推送到 Android 桌面小组件 |
+| `flutter-message-workflow` | message_strategy 系统添加新消息类型 |
+| `flutter-ui-theme-architecture` | 主题三层架构 |
+| `flutter-ui-game-skin-pipeline` | 游戏皮肤管线 |
+| `flutter-ui-styles` | 样式工程方案 |
+| `flutter-android-cpp-audio-bridge` | Android C++ 音频桥接（FFI / Oboe 节拍器） |
+| `rive-skills` | Rive 动画（含本项目 Flutter DataBind 特化） |
+
+### 平台 / 原生
+
+| Skill | 用途 |
+| --- | --- |
+| `android-media-projection-fix` | Android 14+ MediaProjection 悬浮窗截屏排查 SOP |
+| `android-icon-processing` | 自适应图标前景图处理（洪泛法 / 岛屿算法） |
 
 ## 许可
 
 MIT
-
-
-todo
-
-* [ ] webrtc-demo
-* [ ] udp opti
-* [ ] flutter的包分离
