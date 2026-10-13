@@ -14,6 +14,8 @@
 - **fix!** SVG 图标换色失效根因修复：色值替换缺 `#` 前缀（`fill="7A9A7E"` 非法色，flutter_svg 回退默认色）——此前 Lab 卡片 / 详情弹窗 / 收藏格子的图标颜色实际未生效。补 `#` 后轮廓随 `colors.text`、强调点随 `colors.accent` 真正生效；`colorizeLabSvg` 测试出口锁死
 - **fix** 底栏选中 / 未选中无区别：`_toHex` 丢弃 alpha，未选中态 `primary@42%` 被渲染成全亮度。半透明色改输出 8 位 `#RRGGBBAA`（flutter_svg 支持），选中态明暗差恢复
 - **feat** 强调点明度差自适应：主题 primary 与轮廓明度差 < 0.28 时自动调整——亮色主题（cobalt 深宝蓝 / zen 深鼠尾草）强调点提亮到 L0.62，深色主题（暮紫 / 暗黑）轮廓压暗 35% 让 primary 成为最亮元素；恢复设计稿「深轮廓 + 中高亮强调」的对比关系，全部站点（卡片 / 导航 / 设置 / 收藏）一处生效
+- **feat** 「更多」弹窗格子支持拖拽排序（复用 lab 收藏同款 ReorderableBuilder）：longPressDelay 缩短到 200ms、feedback 放大 1.06（iOS 触弹）、拖动项带 18px 阴影在 sheet 明底上浮起、起拖/收拖轻触震动反馈；sheet 包 Consumer 让 setPins 后立即重建列表（不用关弹窗再开）。`_MoreCell` 转 StatefulWidget，叠加 `_PressCurve`（8% 过冲弹簧曲线，1.0→1.08→1.0）实现按下微弹放大 + 松手弹回原大小，配合 `HapticFeedback.selectionClick()` 给 iOS 触控节奏
+- **test** `test/app_lifecycle/more_sheet_drag_test.dart`：NavPinsNotifier.setPins 重组（visible 段保留 / overflow 段重排）+ sanitize 兜底 + `PressBounceCurve` 4 个关键节点（t=0/0.35/0.7/1）
 - **feat** 底栏钉选条 SVG 图标改双色：轮廓随选中态着色，强调点恒走主题自适应强调色——cobalt / zen 这类深 primary 主题在底栏也能看到醒目强调点
 - **fix** 「更多」弹窗格子应用图标改双色：`NavEntryIcon(tint: cs.primary)` 让 body 与自适应 accent 都落回主色（zen/cobalt 等 mid-单色主题看起来是单色）——改用 `tint: cs.onSurface`（深轮廓）+ 自适应强调点，恢复深浅对比 mini-app-icon 观感
 - **feat** SVG 图标铺进导航三处：底栏钉选条（`_NavTab` 轮廓随选中态着色）、设置页钉选 / 组件启用行首图标（`_LeadingIcon` onPrimaryContainer 轮廓 + 自适应强调点）、⋯ 溢出面板（`_MoreCell` onSurface 轮廓 + 自适应强调点）。新增 `NavEntry.labIconAsset` 字段 + `NavEntryIcon` 统一渲染器（SVG 优先 / Material icon 兜底），核心入口与未登记 demo 自动走兜底

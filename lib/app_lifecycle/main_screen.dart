@@ -6,6 +6,9 @@
 // - iOS 手感：弹簧胶囊 + 轻量页切换
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_config.dart';
+import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/nav/nav_catalog.dart';
@@ -13,6 +16,7 @@ import '../core/nav/nav_pins_notifier.dart';
 import '../widgets/nav_entry_icon.dart';
 import '../widgets/quick_nav_bottom_bar.dart';
 import 'apk_auto_update_host.dart';
+import 'press_bounce_curve.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -54,110 +58,160 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     setState(() => _selectedId = id);
   }
 
-  Future<void> _openMore(NavPinsState pins) async {
-    final overflow = pins.overflowIds
-        .map(navEntryById)
-        .whereType<NavEntry>()
-        .toList();
-
+  Future<void> _openMore(NavPinsState initialPins) async {
+    // Consumer 包 sheet 让 grid 在 setPins 后实时重建——用户拖完一项
+    // 列表立刻反映新顺序，不必先关弹窗再开。
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.28),
-      builder: (ctx) {
-        final cs = Theme.of(ctx).colorScheme;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 40,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.outlineVariant,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
+      builder: (ctx) => Consumer(
+        builder: (ctx, ref, _) {
+          final cs = Theme.of(ctx).colorScheme;
+          final pins = ref.watch(navPinsProvider);
+          final overflow = pins.overflowIds
+              .map(navEntryById)
+              .whereType<NavEntry>()
+              .toList();
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 40,
+                    offset: const Offset(0, 12),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 12, 8, 8),
-                    child: Row(
-                      children: [
-                        Text(
-                          '更多',
-                          style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted) return;
-                              _select(kSettingsNavId);
-                            });
-                          },
-                          child: const Text('设置'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (overflow.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
-                      child: Text(
-                        '没有溢出快捷。在设置里打开更多入口，或把容量调成 3。',
-                        style: TextStyle(color: cs.onSurfaceVariant),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 10),
+                    Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: cs.outlineVariant,
+                        borderRadius: BorderRadius.circular(99),
                       ),
-                    )
-                  else
+                    ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
-                      child: GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 4,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
+                      padding: const EdgeInsets.fromLTRB(18, 12, 8, 8),
+                      child: Row(
                         children: [
-                          for (final e in overflow)
-                            _MoreCell(
-                              entry: e,
-                              onTap: () {
-                                final id = e.id;
-                                Navigator.pop(ctx);
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (!mounted) return;
-                                  _select(id);
-                                });
-                              },
-                            ),
+                          Text(
+                            '更多',
+                            style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) return;
+                                _select(kSettingsNavId);
+                              });
+                            },
+                            child: const Text('设置'),
+                          ),
                         ],
                       ),
                     ),
-                ],
+                    if (overflow.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                        child: Text(
+                          '没有溢出快捷。在设置里打开更多入口，或把容量调成 3。',
+                          style: TextStyle(color: cs.onSurfaceVariant),
+                        ),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
+                        // 拖拽排序：复用 lab 收藏同款 ReorderableBuilder，但
+                        // longPressDelay 缩短到 200ms 提速、feedback 放 1.06
+                        // 微弹（iOS 触控反馈），拖动项带阴影（lab 收藏关闭
+                        // 阴影是为适应面板暗底，这里 sheet 明底需要浮起）。
+                        child: ReorderableBuilder<String>.builder(
+                          longPressDelay: const Duration(milliseconds: 200),
+                          feedbackScaleFactor: 1.06,
+                          animationConfig: const ReorderableAnimationConfig(
+                            dragFeedbackDuration: Duration.zero,
+                          ),
+                          dragChildBoxDecoration: BoxDecoration(
+                            color: cs.onSurface.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 18,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          onDragStarted: (_) => HapticFeedback.lightImpact(),
+                          onDragEnd: (_) => HapticFeedback.mediumImpact(),
+                          onReorder: (reorderFn) {
+                            // 重组 overflow id 列表后回写 navPins
+                            // （保留可见槽顺序不动）
+                            final overflowIds =
+                                pins.overflowIds.toList(growable: false);
+                            final reordered = reorderFn(overflowIds);
+                            ref
+                                .read(navPinsProvider.notifier)
+                                .setPins([...pins.visibleIds, ...reordered]);
+                            HapticFeedback.mediumImpact();
+                          },
+                          itemCount: overflow.length,
+                          childBuilder: (itemBuilder) {
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 4,
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                    childAspectRatio: 1.0,
+                                  ),
+                              itemCount: overflow.length,
+                              itemBuilder: (gridCtx, i) {
+                                return itemBuilder(
+                                  _MoreCell(
+                                    entry: overflow[i],
+                                    onTap: () {
+                                      final id = overflow[i].id;
+                                      Navigator.pop(ctx);
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                        if (!mounted) return;
+                                        _select(id);
+                                      });
+                                    },
+                                  ),
+                                  i,
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -244,11 +298,46 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 }
 
-class _MoreCell extends StatelessWidget {
+class _MoreCell extends StatefulWidget {
   const _MoreCell({required this.entry, required this.onTap});
 
   final NavEntry entry;
   final VoidCallback onTap;
+
+  @override
+  State<_MoreCell> createState() => _MoreCellState();
+}
+
+class _MoreCellState extends State<_MoreCell>
+    with SingleTickerProviderStateMixin {
+  /// 弹性曲线：iOS 按压回弹——快进快出，过冲 8% 营造 q 弹感。
+  static final Curve _pressCurve = const PressBounceCurve();
+
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    lowerBound: 0,
+    upperBound: 1,
+  );
+
+  bool _pressed = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _handleHighlightChanged(bool down) {
+    if (_pressed == down) return;
+    setState(() => _pressed = down);
+    if (down) {
+      _ctrl.forward(from: 0);
+      HapticFeedback.selectionClick();
+    } else {
+      _ctrl.reverse();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -256,44 +345,60 @@ class _MoreCell extends StatelessWidget {
     return Material(
       color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
       borderRadius: BorderRadius.circular(16),
+      // Material 自带 InkWell splash 之外，再叠 iOS 风格缩放：
+      // 按下放大 1.06，松手弹回原大小（曲线先过冲再收敛）
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              // 双色 mini app-icon：body 取 onSurface（深色），强调点走
-              // LabDemoIcon 自适应——zen/cobalt 这些 mid-单色 primary 不再
-              // 让 body 与 accent 同色，深色主题下 body 自动压暗出对比
-              child: Center(
-                child: NavEntryIcon(
-                  entry: entry,
-                  size: 18,
-                  tint: cs.onSurface,
+        onTap: widget.onTap,
+        onHighlightChanged: _handleHighlightChanged,
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, child) {
+            final t = _pressed ? _ctrl.value : 1 - _ctrl.value;
+            final scale = 1 + (1.06 - 1) * _pressCurve.transform(t);
+            return Transform.scale(
+              scale: scale,
+              alignment: Alignment.center,
+              child: child,
+            );
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                // 双色 mini app-icon：body 取 onSurface（深色），强调点走
+                // LabDemoIcon 自适应——zen/cobalt 这些 mid-单色 primary 不再
+                // 让 body 与 accent 同色，深色主题下 body 自动压暗出对比
+                child: Center(
+                  child: NavEntryIcon(
+                    entry: widget.entry,
+                    size: 18,
+                    tint: cs.onSurface,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                entry.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  widget.entry.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
