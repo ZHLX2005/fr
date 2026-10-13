@@ -19,6 +19,7 @@ class NavEntry {
     required this.group,
     required this.builder,
     this.subtitle,
+    this.labIconAsset,
   });
 
   final String id;
@@ -30,6 +31,11 @@ class NavEntry {
   final WidgetBuilder builder;
 
   final String? subtitle;
+
+  /// demo 专属 SVG 图标（Lab 图标集 basename，不含 .svg）。
+  /// 非 null 时渲染处（底栏 / 设置钉选 / ⋯ 面板）优先用它替代 [icon]；
+  /// null（核心入口 / 未登记 demo）走 [icon]。
+  final String? labIconAsset;
 
   String get groupLabel => switch (group) {
         NavGroup.core => '核心',

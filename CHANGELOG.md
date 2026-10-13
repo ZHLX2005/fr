@@ -9,6 +9,11 @@
 
 ## 2026-10-13
 
+### 界面 / 导航（ui / nav）
+
+- **fix!** SVG 图标换色失效根因修复：色值替换缺 `#` 前缀（`fill="7A9A7E"` 非法色，flutter_svg 回退默认色）——此前 Lab 卡片 / 详情弹窗 / 收藏格子的图标颜色实际未生效。补 `#` 后轮廓随 `colors.text`、强调点随 `colors.accent` 真正生效；`colorizeLabSvg` 测试出口锁死
+- **feat** SVG 图标铺进导航三处：底栏钉选条（`_NavTab` 单色随选中态着色）、设置页钉选 / 组件启用行首图标（`_LeadingIcon` 双色：onPrimaryContainer 轮廓 + 主题色强调点）、⋯ 溢出面板（`_MoreCell` 单色 primary）。新增 `NavEntry.labIconAsset` 字段 + `NavEntryIcon` 统一渲染器（SVG 优先 / Material icon 兜底），核心入口与未登记 demo 自动走兜底
+
 ### 主题（theme）
 
 - **feat** 深色主题按钮规则落地：暮紫 / 暗黑下 FilledButton / ElevatedButton / FAB / SnackBar 从「primary 亮色实心块」改为「暗底 surfaceContainerHighest + 白字 + 1px outline 细边 + 主题色强调」，SnackBar 不再是 inverseSurface 亮块（334 处调用一处不改全量生效）；专注首页「今日专注」大卡同步分支为暗底细边卡 + 纯白数字 + 主题色引导语，去掉 primary 辉光；亮色四套主题保持 primary 实色不变。`dark_theme_test` 新增按钮规则组锁死 7 套主题的底 / 前 / 边断言

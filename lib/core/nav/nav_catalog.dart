@@ -17,6 +17,7 @@ import '../../screens/profile/lab/game_center_page.dart';
 import '../../screens/profile/lab/lab_page.dart';
 import '../../screens/profile/profile_page.dart';
 import '../../screens/profile/theme/theme_page.dart';
+import '../../widgets/lab_demo_icon_lookup.dart';
 import '../ai_chat/ai_chat_settings_page.dart';
 import '../focus/focus_home_page.dart';
 import 'nav_builder_registry.dart';
@@ -127,6 +128,8 @@ List<NavEntry> buildNavCatalog() {
     final demo = e.value;
     // timePage 已并入 Focus，仍可作为独立钉选（需要时可开）
     final group = demo.type == DemoType.game ? NavGroup.game : NavGroup.lab;
+    // demo 专属 SVG（Lab 图标集）；未登记的保持 null 走 Material icon
+    final kind = labIconForDemoSlug(demo.slug);
     entries.add(
       NavEntry(
         id: 'demo:${demo.slug}',
@@ -134,6 +137,7 @@ List<NavEntry> buildNavCatalog() {
         icon: resolveDemoNavIcon(demo),
         group: group,
         subtitle: demo.description,
+        labIconAsset: kind.isFallback ? null : kind.assetBaseName,
         builder: (_) => DemoDetailPage(demo: demo),
       ),
     );

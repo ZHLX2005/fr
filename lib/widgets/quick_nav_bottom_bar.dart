@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/nav/nav_entry.dart';
+import 'nav_entry_icon.dart';
 
 class _IosSpringCurve extends Curve {
   const _IosSpringCurve();
@@ -113,6 +114,7 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
     final last = widget.lastSlotEntry;
     if (last != null) {
       return _NavTab(
+        entry: last,
         icon: last.icon,
         label: last.title,
         selected: widget.selectedId == last.id,
@@ -207,6 +209,7 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
                                 i++)
                               Expanded(
                                 child: _NavTab(
+                                  entry: widget.visibleEntries[i],
                                   icon: widget.visibleEntries[i].icon,
                                   label: widget.visibleEntries[i].title,
                                   selected: !widget.moreSelected &&
@@ -244,15 +247,27 @@ class _NavTab extends StatelessWidget {
     required this.selected,
     required this.color,
     required this.onTap,
+    this.entry,
   });
 
   static const double _barH = QuickNavBottomBar.barHeight;
 
+  /// 非 null 时优先渲染 demo 专属 SVG（单色随 [color] 选中态着色）；
+  /// [icon] 作为无 SVG 时的兜底（核心入口 / ⋯）。
+  final NavEntry? entry;
   final IconData icon;
   final String label;
   final bool selected;
   final Color color;
   final VoidCallback onTap;
+
+  Widget _icon(Color c) {
+    final e = entry;
+    if (e != null) {
+      return NavEntryIcon(entry: e, size: 18, tint: c);
+    }
+    return Icon(icon, size: 18, color: c);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +285,10 @@ class _NavTab extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 18, color: c),
+                SizedBox(
+                  height: 18,
+                  child: Center(child: _icon(c)),
+                ),
                 const SizedBox(height: 2),
                 SizedBox(
                   height: 12,

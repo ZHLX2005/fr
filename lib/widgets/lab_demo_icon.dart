@@ -34,6 +34,8 @@ class LabDemoIcon extends StatefulWidget {
     super.key,
     required this.assetBaseName,
     this.size,
+    this.inkColor,
+    this.accentColor,
     this.semanticsLabel,
   });
 
@@ -43,6 +45,13 @@ class LabDemoIcon extends StatefulWidget {
 
   /// 渲染尺寸。null = 让父 LayoutBuilder 决定。SVG viewBox 32×32 时直接用 width/height。
   final double? size;
+
+  /// 覆盖主轮廓色。null = `context.colors.text`（随主题明暗自适应）。
+  final Color? inkColor;
+
+  /// 覆盖强调点色。null = `context.colors.accent`（随主题强调色切换）。
+  /// 传与 [inkColor] 相同的色 = 双色 SVG 压成单色（底栏选中态着色等场景）。
+  final Color? accentColor;
 
   /// 屏幕阅读器朗读的文字。SVG 文件不携带 `<title>`，所以需要外部传入。
   final String? semanticsLabel;
@@ -73,8 +82,8 @@ class _LabDemoIconState extends State<LabDemoIcon> {
   @override
   Widget build(BuildContext context) {
     final strategy = _resolve(context);
-    final fg = strategy.text;
-    final accent = strategy.accent;
+    final fg = widget.inkColor ?? strategy.text;
+    final accent = widget.accentColor ?? strategy.accent;
     final fgHex = _toHex(fg);
     final accentHex = _toHex(accent);
 
@@ -128,13 +137,28 @@ String _colorize(String svg, {required String inkHex, required String accentHex}
       .replaceAll(_kSvgAccentAltLower, accentHex);
 }
 
-/// Flutter [Color] 转 6 位大写 hex（不带 #），用于字符串替换。
+/// 色值替换的可测出口：输入原始 SVG 文本，输出替换后的文本。
+/// `flutter test` 里断言换色正确性用它，不走渲染管线。
+@visibleForTesting
+String colorizeLabSvg(
+  String svg, {
+  required Color ink,
+  required Color accent,
+}) {
+  return _colorize(
+    svg,
+    inkHex: _toHex(ink),
+    accentHex: _toHex(accent),
+  );
+}
+
+/// Flutter [Color] 转 `#RRGGBB` 大写 hex（带 #，可直接替换 SVG fill/stroke 值）。
 String _toHex(Color c) {
   final r = (c.r * 255.0).round() & 0xff;
   final g = (c.g * 255.0).round() & 0xff;
   final b = (c.b * 255.0).round() & 0xff;
   final v = (r << 16) | (g << 8) | b;
-  return v.toRadixString(16).padLeft(6, '0').toUpperCase();
+  return '#${v.toRadixString(16).padLeft(6, '0').toUpperCase()}';
 }
 
 ColorStrategy _resolve(BuildContext context) {
