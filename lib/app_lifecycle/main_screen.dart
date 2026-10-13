@@ -138,38 +138,56 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
                         // 拖拽排序：复用 lab 收藏同款 ReorderableBuilder，但
-                        // longPressDelay 缩短到 200ms 提速、feedback 放 1.06
-                        // 微弹（iOS 触控反馈），拖动项带阴影（lab 收藏关闭
+                        // longPressDelay 缩短到 200ms 提速、feedback 放 1.10
+                        // 弹起（iOS 触控反馈），拖动项带阴影（lab 收藏关闭
                         // 阴影是为适应面板暗底，这里 sheet 明底需要浮起）。
+                        //
+                        // iOS q 弹感四件套（曲线全部 easeOutBack，过冲 ~10%
+                        // 再收敛）：拾起 200ms 弹到 1.10（包默认 0ms 生切）；
+                        // 邻居让位 280ms 过冲（不设 curve 时包内部裸
+                        // controller 是线性，机械感的根源）；落位 360ms 快速
+                        // 飞回槽位并过冲 settle；提交重排 260ms 同曲线兜底。
                         child: ReorderableBuilder<String>.builder(
                           longPressDelay: const Duration(milliseconds: 200),
-                          feedbackScaleFactor: 1.06,
+                          feedbackScaleFactor: 1.10,
                           animationConfig: const ReorderableAnimationConfig(
-                            dragFeedbackDuration: Duration.zero,
+                            dragFeedbackDuration: Duration(milliseconds: 200),
+                            dragFeedbackCurve: Curves.easeOutBack,
+                            draggingPositionChangeDuration:
+                                Duration(milliseconds: 280),
+                            draggingPositionChangeCurve: Curves.easeOutBack,
+                            releasedItemDuration: Duration(milliseconds: 360),
+                            releasedItemCurve: Curves.easeOutBack,
+                            positionChangeDuration: Duration(milliseconds: 260),
+                            positionChangeCurve: Curves.easeOutBack,
                           ),
                           dragChildBoxDecoration: BoxDecoration(
                             color: cs.onSurface.withValues(alpha: 0.06),
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.18),
-                                blurRadius: 18,
-                                offset: const Offset(0, 8),
+                                color: Colors.black.withValues(alpha: 0.22),
+                                blurRadius: 24,
+                                offset: const Offset(0, 10),
                               ),
                             ],
                           ),
                           onDragStarted: (_) => HapticFeedback.lightImpact(),
+                          // 跨格换位 tick（包契约：仅真正换位时回调，非逐帧）
+                          onUpdatedDraggedChild: (_) =>
+                              HapticFeedback.selectionClick(),
                           onDragEnd: (_) => HapticFeedback.mediumImpact(),
                           onReorder: (reorderFn) {
                             // 重组 overflow id 列表后回写 navPins
-                            // （保留可见槽顺序不动）
+                            // （保留可见槽顺序不动）。不在此处再打触感——
+                            // onDragEnd 先于 onReorder 触发，双 medium
+                            // 会糊成一声闷响，落位单响才清脆。
                             final overflowIds =
                                 pins.overflowIds.toList(growable: false);
                             final reordered = reorderFn(overflowIds);
                             ref
                                 .read(navPinsProvider.notifier)
                                 .setPins([...pins.visibleIds, ...reordered]);
-                            HapticFeedback.mediumImpact();
                           },
                           itemCount: overflow.length,
                           childBuilder: (itemBuilder) {
