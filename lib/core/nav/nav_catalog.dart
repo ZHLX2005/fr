@@ -1,4 +1,4 @@
-// 快捷导航目录：系统壳 + 每个 Demo 单元。
+// 快捷导航目录：系统壳（含 AI 中心）+ 每个 Demo 单元。
 //
 // Icon 解析优先级（游戏 / lab demo）：
 //   1. DemoPage.navIcon（可选 override）
@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 
 import '../../lab/lab_container.dart';
+import '../../screens/chat/home_page.dart';
 import '../../screens/profile/lab/demo_detail_page.dart';
 import '../../screens/profile/lab/game_center/const_game_center.dart';
 import '../../screens/profile/lab/game_center_page.dart';
@@ -96,6 +97,18 @@ List<NavEntry> buildNavCatalog() {
       group: NavGroup.core,
       subtitle: '外观',
       builder: (_) => const ThemePage(),
+    ),
+
+    // AI 中心：整个 AI 板块作为核心组的「一个模块」入口。
+    // 子功能（Agent / Format / 小票 / 小助手 / pi）由 HomePage 页内列表承载，
+    // 目录不再把子元素拆成独立钉选单元。
+    NavEntry(
+      id: 'core-ai',
+      title: 'AI 中心',
+      icon: Icons.assistant,
+      group: NavGroup.core,
+      subtitle: '助手 / Agent / 小票 / pi',
+      builder: (_) => const HomePage(),
     ),
   ];
 

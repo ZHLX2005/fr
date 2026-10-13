@@ -11,6 +11,7 @@
 
 ### 界面 / 导航（ui / nav）
 
+- **fix** AI 板块回归「一个模块」：`3544137a` 移除 AI 导航组时把 AI 助手页一并带出目录（设置页 AI Tab、`NavGroup.ai`、6 条 `ai-*` 拆分条目全删），AI 在底栏 / 设置页彻底不可达，只剩 `fr://lab/core/home` 深链。本次在核心组补回 **1 条** `core-ai`「AI 中心」→ `HomePage`：AI 不再拆成多个钉选单元，也不再缺席；Agent / Format / 小票 / 小助手 / pi 仍由页内 `kAssistantEntries` 列表承载
 - **fix!** SVG 图标换色失效根因修复：色值替换缺 `#` 前缀（`fill="7A9A7E"` 非法色，flutter_svg 回退默认色）——此前 Lab 卡片 / 详情弹窗 / 收藏格子的图标颜色实际未生效。补 `#` 后轮廓随 `colors.text`、强调点随 `colors.accent` 真正生效；`colorizeLabSvg` 测试出口锁死
 - **fix** 底栏选中 / 未选中无区别：`_toHex` 丢弃 alpha，未选中态 `primary@42%` 被渲染成全亮度。半透明色改输出 8 位 `#RRGGBBAA`（flutter_svg 支持），选中态明暗差恢复
 - **feat** 强调点明度差自适应：主题 primary 与轮廓明度差 < 0.28 时自动调整——亮色主题（cobalt 深宝蓝 / zen 深鼠尾草）强调点提亮到 L0.62，深色主题（暮紫 / 暗黑）轮廓压暗 35% 让 primary 成为最亮元素；恢复设计稿「深轮廓 + 中高亮强调」的对比关系，全部站点（卡片 / 导航 / 设置 / 收藏）一处生效
