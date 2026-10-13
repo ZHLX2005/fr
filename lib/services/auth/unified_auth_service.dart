@@ -98,19 +98,24 @@ class UnifiedAuthService {
   }
 
   /// 恢复当前状态（App 启动时判断"我是谁"）。
+  ///
+  /// 登录态是「换业务 token」与「401 重铸」的唯一燃料，但**不等于**业务 token 本身。
+  /// 登录态死了不该连坐业务 token：业务 JWT 还在自己的 TTL（30 天）里，能服务就让它服务；
+  /// 真到 401 时 TokenManager 会走 reauth 路径自愈，自愈失败才让用户感知。
+  ///
+  /// 旧版这里 `_tokens.clear()` 在 8h 时代把还没死的业务 token 一起扔掉，
+  /// 把 kv 清单从「还能用 30 天」打成「立刻失效」，与「静默换 token」的设计目标相反。
   Future<AppAuthState> restore() async {
     final idp = await _idp.me();
-    if (idp == null) {
-      // 没有登录态就没有一切：业务 token 即便还在磁盘上，
-      // 也无法在失效后自愈，留着只会造成"看着已登录、一操作就 401"。
-      await _tokens.clear();
-      return const AppAuthState();
-    }
     var token = await _tokens.accessToken;
-    if (token == null || token.isEmpty) {
+    if (idp != null && (token == null || token.isEmpty)) {
+      // 有登录态、没业务 token：换一枚。
       token = (await _mintBackendToken())?.token;
     }
-    return AppAuthState(idp: idp, hasBackendToken: (token ?? '').isNotEmpty);
+    return AppAuthState(
+      idp: idp,
+      hasBackendToken: (token ?? '').isNotEmpty,
+    );
   }
 
   /// 用登录态换一枚业务后端 token 并落盘。
