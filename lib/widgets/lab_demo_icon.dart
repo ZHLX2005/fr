@@ -82,8 +82,10 @@ class _LabDemoIconState extends State<LabDemoIcon> {
   @override
   Widget build(BuildContext context) {
     final strategy = _resolve(context);
-    final fg = widget.inkColor ?? strategy.text;
-    final accent = widget.accentColor ?? strategy.accent;
+    final brightness = Theme.of(context).colorScheme.brightness;
+    final adaptive = adaptiveLabIconColors(strategy, brightness);
+    final fg = widget.inkColor ?? adaptive.$1;
+    final accent = widget.accentColor ?? adaptive.$2;
     final fgHex = _toHex(fg);
     final accentHex = _toHex(accent);
 
@@ -152,13 +154,42 @@ String colorizeLabSvg(
   );
 }
 
-/// Flutter [Color] 转 `#RRGGBB` 大写 hex（带 #，可直接替换 SVG fill/stroke 值）。
+/// 双色图标自适应着色：保证强调点相对轮廓有足够明度差。
+///
+/// 设计稿的对比关系是「深轮廓 L0.04 + 中高亮强调 L0.55」；主题色直接映射后：
+/// - 深色主题（暮紫/暗黑）：primary 与 onSurface 都是浅色，轮廓压暗 35%
+///   让 accent（primary）成为最亮元素；
+/// - 亮色主题：primary 过暗时（cobalt 深宝蓝 L0.33 / zen 深鼠尾草）向亮端
+///   提到 L0.62，恢复强调点醒目度；明度差已够（≥0.28）的原样返回。
+/// 调用方显式传 inkColor/accentColor 时不走此逻辑。
+@visibleForTesting
+(Color ink, Color accent) adaptiveLabIconColors(
+  ColorStrategy strategy,
+  Brightness brightness,
+) {
+  final ink = strategy.text;
+  final accent = strategy.accent;
+  if (brightness == Brightness.dark) {
+    return (Color.lerp(ink, Colors.black, 0.35)!, accent);
+  }
+  final inkL = HSLColor.fromColor(ink).lightness;
+  final accentL = HSLColor.fromColor(accent).lightness;
+  if ((inkL - accentL).abs() >= 0.28) return (ink, accent);
+  return (ink, HSLColor.fromColor(accent).withLightness(0.62).toColor());
+}
+
+/// Flutter [Color] 转 `#RRGGBB` hex（半透明时 `#RRGGBBAA`，flutter_svg 支持
+/// 8 位写法）。此前丢弃 alpha 导致底栏未选中态（primary@42%）渲染成全亮度
+/// ——选中/未选中无区别的根因。
 String _toHex(Color c) {
   final r = (c.r * 255.0).round() & 0xff;
   final g = (c.g * 255.0).round() & 0xff;
   final b = (c.b * 255.0).round() & 0xff;
-  final v = (r << 16) | (g << 8) | b;
-  return '#${v.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  final a = (c.a * 255.0).round() & 0xff;
+  final rgb = ((r << 16) | (g << 8) | b).toRadixString(16).padLeft(6, '0');
+  return a == 0xff
+      ? '#${rgb.toUpperCase()}'
+      : '#${rgb.toUpperCase()}${a.toRadixString(16).padLeft(2, '0').toUpperCase()}';
 }
 
 ColorStrategy _resolve(BuildContext context) {

@@ -12,7 +12,10 @@
 ### 界面 / 导航（ui / nav）
 
 - **fix!** SVG 图标换色失效根因修复：色值替换缺 `#` 前缀（`fill="7A9A7E"` 非法色，flutter_svg 回退默认色）——此前 Lab 卡片 / 详情弹窗 / 收藏格子的图标颜色实际未生效。补 `#` 后轮廓随 `colors.text`、强调点随 `colors.accent` 真正生效；`colorizeLabSvg` 测试出口锁死
-- **feat** SVG 图标铺进导航三处：底栏钉选条（`_NavTab` 单色随选中态着色）、设置页钉选 / 组件启用行首图标（`_LeadingIcon` 双色：onPrimaryContainer 轮廓 + 主题色强调点）、⋯ 溢出面板（`_MoreCell` 单色 primary）。新增 `NavEntry.labIconAsset` 字段 + `NavEntryIcon` 统一渲染器（SVG 优先 / Material icon 兜底），核心入口与未登记 demo 自动走兜底
+- **fix** 底栏选中 / 未选中无区别：`_toHex` 丢弃 alpha，未选中态 `primary@42%` 被渲染成全亮度。半透明色改输出 8 位 `#RRGGBBAA`（flutter_svg 支持），选中态明暗差恢复
+- **feat** 强调点明度差自适应：主题 primary 与轮廓明度差 < 0.28 时自动调整——亮色主题（cobalt 深宝蓝 / zen 深鼠尾草）强调点提亮到 L0.62，深色主题（暮紫 / 暗黑）轮廓压暗 35% 让 primary 成为最亮元素；恢复设计稿「深轮廓 + 中高亮强调」的对比关系，全部站点（卡片 / 导航 / 设置 / 收藏）一处生效
+- **feat** 底栏钉选条 SVG 图标改双色：轮廓随选中态着色，强调点恒走主题自适应强调色——cobalt / zen 这类深 primary 主题在底栏也能看到醒目强调点
+- **feat** SVG 图标铺进导航三处：底栏钉选条（`_NavTab` 轮廓随选中态着色）、设置页钉选 / 组件启用行首图标（`_LeadingIcon` onPrimaryContainer 轮廓 + 自适应强调点）、⋯ 溢出面板（`_MoreCell` primary 轮廓 + 自适应强调点）。新增 `NavEntry.labIconAsset` 字段 + `NavEntryIcon` 统一渲染器（SVG 优先 / Material icon 兜底），核心入口与未登记 demo 自动走兜底
 
 ### 主题（theme）
 

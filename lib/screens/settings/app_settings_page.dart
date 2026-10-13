@@ -646,7 +646,8 @@ class _LeadingIcon extends StatelessWidget {
       if (meta != null) return _gameFallback(meta, entry.icon);
     }
     // 原型 .ico：40 方圆角瓦，不用圆形。
-    // demo 专属 SVG：双色（onPrimaryContainer 轮廓 + 主题色强调点），
+    // demo 专属 SVG：onPrimaryContainer 轮廓 + 主题自适应强调点
+    // （cobalt/zen 深 primary 会自动提亮，见 LabDemoIcon 自适应规则）；
     // 未登记的核心入口 / demo 走 Material icon。
     return Container(
       width: 40,
@@ -660,7 +661,6 @@ class _LeadingIcon extends StatelessWidget {
           entry: entry,
           size: 18,
           tint: cs.onPrimaryContainer,
-          accent: cs.primary,
         ),
       ),
     );
