@@ -207,6 +207,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // 吃掉后露出各页 Scaffold 白条。系统 safe inset 照常；底栏避让由页面
     // 滚动区用 QuickNavBottomBar.bodyBottomReserve 自行加。
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    // 子页面（如 Lab 上滑面板铺满）主动要隐藏底栏时合并隐藏条件。
+    final hiddenByPage = ref.watch(bottomBarVisibilityProvider);
+    final shouldHide = hiddenByPage || keyboard > 0;
 
     return Stack(
       children: [
@@ -220,9 +223,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           right: 0,
           bottom: 0,
           child: IgnorePointer(
-            ignoring: keyboard > 0,
+            ignoring: shouldHide,
             child: AnimatedOpacity(
-              opacity: keyboard > 0 ? 0 : 1,
+              opacity: shouldHide ? 0 : 1,
               duration: const Duration(milliseconds: 120),
               child: QuickNavBottomBar(
                 visibleEntries: visibleEntries,

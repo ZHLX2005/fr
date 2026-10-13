@@ -8,10 +8,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
 import '../../../services/lab_image_cache_service.dart';
+import '../../../widgets/quick_nav_bottom_bar.dart';
 import 'demo_detail_page.dart';
 import 'demo_grid/demo_reveal_grid.dart';
 import 'lab_panel/lab_panel_colors.dart';
@@ -20,17 +22,18 @@ import 'lab_panel/lab_panel_gesture.dart';
 import 'lab_panel/lab_panel_state_machine.dart';
 import 'lab_perf_log.dart';
 
-class LabPage extends StatefulWidget {
+class LabPage extends ConsumerStatefulWidget {
   /// 是否排除游戏类 demo。默认 true：实验室语义下游戏统一由游戏中心承载。
   final bool excludeGames;
 
   const LabPage({super.key, this.excludeGames = true});
 
   @override
-  State<LabPage> createState() => _LabPageState();
+  ConsumerState<LabPage> createState() => _LabPageState();
 }
 
-class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
+class _LabPageState extends ConsumerState<LabPage>
+    with TickerProviderStateMixin {
   final LabPullPanelStateMachine _sm = LabPullPanelStateMachine();
   final ScrollController _gridScrollController = ScrollController();
   final ScrollController _panelScrollController = ScrollController();
@@ -94,6 +97,15 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     if (kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.addTimingsCallback(_timingsCallback);
     }
+    // 订阅面板进度：进度 > 0 即通知主壳把浮层快捷底栏隐去，
+    // 避免 Lab 面板铺满 IndexedStack 区域后被底栏遮挡。
+    _progressNotifier.addListener(_syncBottomBarVisibility);
+    _syncBottomBarVisibility();
+  }
+
+  void _syncBottomBarVisibility() {
+    final hide = _progress > LabPullPanelMetrics.collapsedEpsilon;
+    ref.read(bottomBarVisibilityProvider.notifier).setHidden(hide);
   }
 
   double get _progress => _sm.progress;
@@ -117,6 +129,9 @@ class _LabPageState extends State<LabPage> with TickerProviderStateMixin {
     if (kLabPanelPerfDebug && kDebugMode) {
       SchedulerBinding.instance.removeTimingsCallback(_timingsCallback);
     }
+    _progressNotifier.removeListener(_syncBottomBarVisibility);
+    // 退出页面后恢复底栏默认显示，避免切到其它页时残留隐藏状态。
+    ref.read(bottomBarVisibilityProvider.notifier).setHidden(false);
     _progressAnim?.removeListener(_onAnimTick);
     _anim.dispose();
     _gridScrollController.dispose();
