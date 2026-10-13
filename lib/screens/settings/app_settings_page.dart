@@ -20,7 +20,7 @@ import '../profile/lab/demo_detail_page.dart';
 import '../profile/lab/game_center/const_game_center.dart';
 import '../profile/theme/theme_page.dart';
 
-enum _SettingsTab { general, pinned, core, ai, lab, games }
+enum _SettingsTab { general, pinned, core, lab, games }
 
 String _slotLabel(NavPinsState pins, String id) {
   final vis = pins.visibleIds;
@@ -157,16 +157,6 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
                       onSearch: (v) => _onSearch(_SettingsTab.core, v),
                       entries: navEntriesInGroup(NavGroup.core)
                           .where((e) => _match(e, _queries[_SettingsTab.core]))
-                          .toList(),
-                      pinnedIds: pins.pinIds,
-                    ),
-                  ),
-                  _KeepAlivePage(
-                    child: _PinPool(
-                      searchHint: '搜索 AI 入口',
-                      onSearch: (v) => _onSearch(_SettingsTab.ai, v),
-                      entries: navEntriesInGroup(NavGroup.ai)
-                          .where((e) => _match(e, _queries[_SettingsTab.ai]))
                           .toList(),
                       pinnedIds: pins.pinIds,
                     ),
@@ -729,7 +719,6 @@ class _CupertinoSettingsTabs extends StatelessWidget {
     ('通用', _SettingsTab.general),
     ('钉选', _SettingsTab.pinned),
     ('核心', _SettingsTab.core),
-    ('AI', _SettingsTab.ai),
     ('实验', _SettingsTab.lab),
     ('游戏', _SettingsTab.games),
   ];

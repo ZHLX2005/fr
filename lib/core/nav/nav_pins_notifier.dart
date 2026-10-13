@@ -11,9 +11,9 @@ import 'nav_catalog.dart';
 const _kCapacityKey = 'nav_bar_capacity';
 const _kPinsKey = 'nav_pin_ids';
 
-/// 出厂默认：AI pi · Time · 实验室浏览壳（若无游戏则仍可用）。
+/// 出厂默认：个人 · Time · 实验室浏览壳（对齐旧三 Tab 主页/Time/AI 去掉 AI）。
 const kDefaultNavPins = <String>[
-  'ai-pi',
+  'core-profile',
   'core-time',
   'core-lab',
 ];

@@ -1,16 +1,15 @@
-// 快捷导航目录：系统壳 + AI 拆分 + 每个 Demo 单元。
+// 快捷导航目录：系统壳 + 每个 Demo 单元。
 //
 // Icon 解析优先级（游戏 / lab demo）：
 //   1. DemoPage.navIcon（可选 override）
 //   2. kGameMeta[slug].icon（游戏）
 //   3. 按 DemoType 的默认 Material icon
 //
-// 系统 / AI 入口的 icon 在本文件静态登记，与 demo 解耦。
+// 系统入口的 icon 在本文件静态登记，与 demo 解耦。
 
 import 'package:flutter/material.dart';
 
 import '../../lab/lab_container.dart';
-import '../../screens/chat/home_page.dart' show kAssistantEntries;
 import '../../screens/profile/lab/demo_detail_page.dart';
 import '../../screens/profile/lab/game_center/const_game_center.dart';
 import '../../screens/profile/lab/game_center_page.dart';
@@ -18,7 +17,6 @@ import '../../screens/profile/lab/lab_page.dart';
 import '../../screens/profile/profile_page.dart';
 import '../../screens/profile/theme/theme_page.dart';
 import '../../widgets/lab_demo_icon_lookup.dart';
-import '../ai_chat/ai_chat_settings_page.dart';
 import '../focus/focus_home_page.dart';
 import 'nav_builder_registry.dart';
 import 'nav_entry.dart';
@@ -99,29 +97,7 @@ List<NavEntry> buildNavCatalog() {
       subtitle: '外观',
       builder: (_) => const ThemePage(),
     ),
-    NavEntry(
-      id: 'ai-settings',
-      title: 'AI 设置',
-      icon: Icons.tune_outlined,
-      group: NavGroup.ai,
-      subtitle: '模型与密钥',
-      builder: (_) => const AIChatSettingsPage(),
-    ),
   ];
-
-  // ── AI 拆分：复用 AssistantEntry 列表 ───────────────────────
-  for (final a in kAssistantEntries) {
-    entries.add(
-      NavEntry(
-        id: 'ai-${_slugify(a.title)}',
-        title: a.title,
-        icon: a.icon,
-        group: NavGroup.ai,
-        subtitle: a.subtitle,
-        builder: a.builder,
-      ),
-    );
-  }
 
   // ── 每个 demo = 一个钉选单元 ────────────────────────────────
   for (final e in demoRegistry.getAll()) {
@@ -162,19 +138,3 @@ void invalidateNavCatalogCache() => _cacheById.clear();
 
 List<NavEntry> navEntriesInGroup(NavGroup group) =>
     buildNavCatalog().where((e) => e.group == group).toList();
-
-String _slugify(String title) {
-  // 已知中文/展示名 → 稳定 ASCII id
-  const map = {
-    'Agent': 'agent',
-    'Format': 'format',
-    '小票': 'receipt',
-    '小助手': 'sys-msg',
-    'pi': 'pi',
-  };
-  return map[title] ??
-      title
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-          .replaceAll(RegExp(r'^-|-$'), '');
-}

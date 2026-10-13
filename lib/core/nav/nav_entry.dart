@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 /// 快捷导航分组（设置 Tab / 搜索过滤用）。
 enum NavGroup {
   core,
-  ai,
   lab,
   game,
 }
@@ -39,7 +38,6 @@ class NavEntry {
 
   String get groupLabel => switch (group) {
         NavGroup.core => '核心',
-        NavGroup.ai => 'AI',
         NavGroup.lab => '实验室',
         NavGroup.game => '游戏',
       };
