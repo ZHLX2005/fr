@@ -185,29 +185,45 @@ class FocusHomePage extends StatelessWidget {
     final todayMinutes = focusProvider.getTodayMinutes();
     final hours = todayMinutes ~/ 60;
     final minutes = todayMinutes % 60;
+    // 深色主题按钮规则：主操作不用 primary 实色/渐变亮块——
+    // 改「暗底 + 白字 + 细边 + 主题色强调」，保 OLED 沉浸感；亮色保持渐变卡。
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final decoration = isDark
+        ? BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colorScheme.outline),
+          )
+        : BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colorScheme.primary,
+                colorScheme.primary.withValues(alpha: 0.72),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.primary.withValues(alpha: 0.25),
+                offset: const Offset(0, 8),
+                blurRadius: 24,
+              ),
+            ],
+          );
+    // 主数字纯白（规则要求不用 onSurface 偏灰）；「开始」引导语走主题色强调。
+    final numberColor = isDark ? Colors.white : colorScheme.onPrimary;
+    final labelColor = isDark
+        ? Colors.white.withValues(alpha: 0.72)
+        : colorScheme.onPrimary.withValues(alpha: 0.9);
+    final hintColor = isDark ? colorScheme.primary : colorScheme.onPrimary.withValues(alpha: 0.85);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.primary,
-              colorScheme.primary.withValues(alpha: 0.72),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.25),
-              offset: const Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
-        ),
+        decoration: decoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -215,7 +231,7 @@ class FocusHomePage extends StatelessWidget {
               '今日专注',
               style: TextStyle(
                 fontSize: 14,
-                color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                color: labelColor,
               ),
             ),
             const SizedBox(height: 12),
@@ -229,7 +245,7 @@ class FocusHomePage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 48,
                     fontWeight: FontWeight.w200,
-                    color: colorScheme.onPrimary,
+                    color: numberColor,
                     height: 1,
                   ),
                 ),
@@ -242,7 +258,7 @@ class FocusHomePage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w300,
-                      color: colorScheme.onPrimary.withValues(alpha: 0.9),
+                      color: labelColor,
                     ),
                   ),
                 ),
@@ -253,7 +269,7 @@ class FocusHomePage extends StatelessWidget {
                     '点击开始专注 →',
                     style: TextStyle(
                       fontSize: 12,
-                      color: colorScheme.onPrimary.withValues(alpha: 0.85),
+                      color: hintColor,
                     ),
                   ),
                 ),

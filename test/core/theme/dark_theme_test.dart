@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xiaodouzi_fr/core/theme/app_theme.dart';
 import 'package:xiaodouzi_fr/core/theme/state/theme_provider.dart';
 import 'package:xiaodouzi_fr/core/theme/tokens/color/theme/dark.dart';
 
@@ -59,6 +58,54 @@ void main() {
       // 文案定位：暗黑显示名与图标固定
       expect(AppTheme.getThemeDisplayName(AppThemeMode.dark), '暗黑主题');
       expect(AppTheme.getThemeIcon(AppThemeMode.dark), Icons.contrast);
+    });
+  });
+
+  group('深色按钮规则（颜色 svg + 白字 + 细边，禁 onPrimary 亮块）', () {
+    test('深色主题 FilledButton/FAB 走暗底 + 白字/主题色，亮色保持 primary 实色',
+        () {
+      for (final mode in AppThemeMode.values) {
+        final theme = AppTheme.getThemeData(mode);
+        final scheme = theme.colorScheme;
+        final isDark = scheme.brightness == Brightness.dark;
+
+        final filled = theme.filledButtonTheme.style!;
+        final filledBg = filled.backgroundColor!.resolve({});
+        final filledFg = filled.foregroundColor!.resolve({});
+        expect(
+          filledBg,
+          isDark ? scheme.surfaceContainerHighest : scheme.primary,
+          reason: '${mode.name} FilledButton 底色违反按钮规则',
+        );
+        expect(
+          filledFg,
+          isDark ? Colors.white : scheme.onPrimary,
+          reason: '${mode.name} FilledButton 前景违反按钮规则',
+        );
+        // 深色必须有细边描出轮廓；亮色不设边
+        final filledSide = filled.side?.resolve({});
+        if (isDark) {
+          expect(filledSide?.color, scheme.outline,
+              reason: '${mode.name} 深色 FilledButton 缺细边');
+        } else {
+          expect(filledSide, isNull,
+              reason: '${mode.name} 亮色 FilledButton 不应有边');
+        }
+
+        final fab = theme.floatingActionButtonTheme;
+        expect(fab.backgroundColor,
+            isDark ? scheme.surfaceContainerHighest : scheme.primary,
+            reason: '${mode.name} FAB 底色违反按钮规则');
+        expect(fab.foregroundColor, isDark ? scheme.primary : scheme.onPrimary,
+            reason: '${mode.name} FAB 前景违反按钮规则');
+
+        // 深色 SnackBar 不能是 inverseSurface 亮块
+        if (isDark) {
+          expect(theme.snackBarTheme.backgroundColor,
+              scheme.surfaceContainerHighest,
+              reason: '${mode.name} 深色 SnackBar 仍是亮块');
+        }
+      }
     });
   });
 }

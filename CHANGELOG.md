@@ -11,6 +11,7 @@
 
 ### 主题（theme）
 
+- **feat** 深色主题按钮规则落地：暮紫 / 暗黑下 FilledButton / ElevatedButton / FAB / SnackBar 从「primary 亮色实心块」改为「暗底 surfaceContainerHighest + 白字 + 1px outline 细边 + 主题色强调」，SnackBar 不再是 inverseSurface 亮块（334 处调用一处不改全量生效）；专注首页「今日专注」大卡同步分支为暗底细边卡 + 纯白数字 + 主题色引导语，去掉 primary 辉光；亮色四套主题保持 primary 实色不变。`dark_theme_test` 新增按钮规则组锁死 7 套主题的底 / 前 / 边断言
 - **feat** 第 7 套独立主题「暗黑」：中性石墨无彩系（primary `#C9C5BD` 暖中性浅石墨、surface `#131311`、surfaceContainerHighest `#0C0C0A` 贴近 OLED 纯黑），与暮紫（冷紫 + 鎏金）明确区隔；AppColorsExtension 按 graphite 无彩规则衍生（灰绿 success / 灰琥珀 warning / 灰蓝 info + 8 位石墨 category）；`materialThemeModeProvider` 深色映射补 dark 分支（原 switch 只列 purple，dark 会错落到 light）；主题页按 `AppThemeMode.values` 自动出现第 7 张卡，状态层 / 持久化零改动
 
 ### 实验室框架（lab）

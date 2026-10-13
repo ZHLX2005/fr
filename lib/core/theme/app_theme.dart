@@ -126,6 +126,10 @@ class AppTheme {
     final tetrisColorsStrategy = ThemeStrategyFactory.createTetrisColorsStrategy(scheme);
     final teamAvatarStrategy = ThemeStrategyFactory.createTeamAvatarStrategy();
     final torchProtectStrategy = ThemeStrategyFactory.createTorchProtectStrategy(scheme);
+    // 深色主题（暮紫/暗黑）按钮规则：禁 onPrimary 实色亮块，走
+    // 「暗底 + 白字 + 细边 + 主题色强调」——保 OLED 沉浸感。
+    // 亮色主题保持 primary 实色填充不变。
+    final isDark = scheme.brightness == Brightness.dark;
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
@@ -154,17 +158,32 @@ class AppTheme {
         foregroundColor: scheme.onSurface,
         surfaceTintColor: scheme.surfaceTint,
       ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
+      floatingActionButtonTheme: isDark
+          ? FloatingActionButtonThemeData(
+              backgroundColor: scheme.surfaceContainerHighest,
+              foregroundColor: scheme.primary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: scheme.outline),
+              ),
+            )
+          : FloatingActionButtonThemeData(
+              backgroundColor: scheme.primary,
+              foregroundColor: scheme.onPrimary,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: scheme.primary,
-          foregroundColor: scheme.onPrimary,
-          elevation: 2,
+          backgroundColor: isDark
+              ? scheme.surfaceContainerHighest
+              : scheme.primary,
+          foregroundColor: isDark ? Colors.white : scheme.onPrimary,
+          side: isDark ? BorderSide(color: scheme.outline) : null,
+          elevation: isDark ? 0 : 2,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -173,14 +192,26 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: scheme.primary,
-          foregroundColor: scheme.onPrimary,
+          backgroundColor: isDark
+              ? scheme.surfaceContainerHighest
+              : scheme.primary,
+          foregroundColor: isDark ? Colors.white : scheme.onPrimary,
+          side: isDark ? BorderSide(color: scheme.outline) : null,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
+      // 深色下 SnackBar 默认 inverseSurface 是亮块，同样按 OLED 规则压暗。
+      snackBarTheme: isDark
+          ? SnackBarThemeData(
+              backgroundColor: scheme.surfaceContainerHighest,
+              contentTextStyle: const TextStyle(color: Colors.white),
+              actionTextColor: scheme.primary,
+              closeIconColor: scheme.primary,
+            )
+          : null,
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: scheme.surface,
         selectedItemColor: scheme.primary,
