@@ -9,6 +9,10 @@
 
 ## 2026-10-13
 
+### 主题（theme）
+
+- **feat** 第 7 套独立主题「暗黑」：中性石墨无彩系（primary `#C9C5BD` 暖中性浅石墨、surface `#131311`、surfaceContainerHighest `#0C0C0A` 贴近 OLED 纯黑），与暮紫（冷紫 + 鎏金）明确区隔；AppColorsExtension 按 graphite 无彩规则衍生（灰绿 success / 灰琥珀 warning / 灰蓝 info + 8 位石墨 category）；`materialThemeModeProvider` 深色映射补 dark 分支（原 switch 只列 purple，dark 会错落到 light）；主题页按 `AppThemeMode.values` 自动出现第 7 张卡，状态层 / 持久化零改动
+
 ### 实验室框架（lab）
 
 - **feat** 接入 `assets/lab-demo-icons/` 的 48 张 SVG 图标作为 demo 标准图标集，覆盖三处：Lab 卡片网格左上角、demo 详情弹窗标题、下拉面板收藏格子（原来一律星星占位）。每个 SVG 渲染时把设计稿硬编码的 `#2B3445`（主轮廓）替换为当前主题 `colors.text`、`#5B7CFA`（强调点）替换为 `colors.accent`——切换主题卡片图标随之变色。SVG 字符串按 asset 缓存（去重 + 单次 loadString），启动期预热 48 张避免首次打开 Lab 闪烁；未登记图标的后增 demo（session-host）回退原通用图标

@@ -72,7 +72,7 @@ final themeDataProvider = Provider<ThemeData>((ref) {
 final materialThemeModeProvider = Provider<ThemeMode>((ref) {
   final mode = ref.watch(themeNotifierProvider);
   return switch (mode) {
-    AppThemeMode.purple => ThemeMode.dark,
+    AppThemeMode.purple || AppThemeMode.dark => ThemeMode.dark,
     _ => ThemeMode.light,
   };
 });

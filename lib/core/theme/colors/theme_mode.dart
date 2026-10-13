@@ -3,7 +3,7 @@
 // app_theme.dart 通过 `export 'colors/theme_mode.dart' show AppThemeMode;`
 // 重新导出，外部消费者无感。
 
-/// 应用主题模式（6 套 zen / purple / ink / rose / lemon / cobalt）。
+/// 应用主题模式（7 套 zen / purple / ink / rose / lemon / cobalt / dark）。
 enum AppThemeMode {
   /// 暮紫主题（深色）— 暮紫主色 ↔ 冷炭紫环境 + 稀用鎏金。
   purple,
@@ -22,4 +22,7 @@ enum AppThemeMode {
 
   /// 宝蓝主题（cobalt）—— 宝蓝 + 纯白高对比（ID'CAKE 式）。
   cobalt,
+
+  /// 暗黑主题（深色）—— 中性石墨无彩系，OLED 友好，内容优先。
+  dark,
 }

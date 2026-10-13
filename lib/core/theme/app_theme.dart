@@ -1,4 +1,4 @@
-// 应用主题工厂（zen / purple / ink / rose / lemon / cobalt 主题入口）。
+// 应用主题工厂（zen / purple / ink / rose / lemon / cobalt / dark 主题入口）。
 //
 // 设计：v6.1「主色不动 · 环境染互补色温」——
 //   所有颜色统一从 ColorScheme 派生（theme.component/ 单数据源）。
@@ -6,7 +6,7 @@
 //   · 切主题 = 换 scheme 实例；strategy 层零主题感知（strategy 实现单一 default）
 //
 // 依赖层级：
-//   tokens/         raw 原子色 + 6 套主题调色板 + 各用途色板
+//   tokens/         raw 原子色 + 7 套主题调色板 + 各用途色板
 //   colors/strategy/  strategy 默认派生规则
 //   extensions/     ThemeExtension 注入器
 //   component/      全局组件主题 + 家族/域专属子目录
@@ -30,6 +30,7 @@ import 'tokens/color/theme/ink.dart' as ink_t;
 import 'tokens/color/theme/rose.dart' as rose_t;
 import 'tokens/color/theme/lemon.dart' as lemon_t;
 import 'tokens/color/theme/cobalt.dart' as cobalt_t;
+import 'tokens/color/theme/dark.dart' as dark_t;
 
 export 'colors/theme_mode.dart' show AppThemeMode;
 export 'tokens/colors.dart' show AppColorsExtension;
@@ -49,6 +50,7 @@ class AppTheme {
       AppThemeMode.rose => '粉雾主题',
       AppThemeMode.lemon => '柠檬鼠尾草主题',
       AppThemeMode.cobalt => '宝蓝主题',
+      AppThemeMode.dark => '暗黑主题',
     };
   }
 
@@ -61,6 +63,7 @@ class AppTheme {
       AppThemeMode.rose => Icons.favorite,
       AppThemeMode.lemon => Icons.eco,
       AppThemeMode.cobalt => Icons.water_drop_outlined,
+      AppThemeMode.dark => Icons.contrast,
     };
   }
 
@@ -97,6 +100,11 @@ class AppTheme {
           scheme: cobalt_t.CobaltColors.scheme,
           ext: cobalt_t.CobaltColors.appColors,
           cardShadow: Color(0x14000000),
+        ),
+      AppThemeMode.dark => _buildTheme(
+          scheme: dark_t.DarkColors.scheme,
+          ext: dark_t.DarkColors.appColors,
+          cardShadow: Color(0x66000000),
         ),
     };
   }
