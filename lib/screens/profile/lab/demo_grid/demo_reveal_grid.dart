@@ -68,6 +68,7 @@ class _DemoScrollRevealGridState extends State<DemoScrollRevealGrid>
           child: DemoCard(
             title: demo.title,
             description: demo.description,
+            demoSlug: widget.demos[index].key,
             onTap: () => widget.onDemoTap(demo),
           ),
         );

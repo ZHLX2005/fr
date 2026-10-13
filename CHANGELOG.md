@@ -9,6 +9,11 @@
 
 ## 2026-10-13
 
+### 实验室框架（lab）
+
+- **feat** 接入 `assets/lab-demo-icons/` 的 48 张 SVG 图标作为 demo 标准图标集，覆盖三处：Lab 卡片网格左上角、demo 详情弹窗标题、下拉面板收藏格子（原来一律星星占位）。每个 SVG 渲染时把设计稿硬编码的 `#2B3445`（主轮廓）替换为当前主题 `colors.text`、`#5B7CFA`（强调点）替换为 `colors.accent`——切换主题卡片图标随之变色。SVG 字符串按 asset 缓存（去重 + 单次 loadString），启动期预热 48 张避免首次打开 Lab 闪烁；未登记图标的后增 demo（session-host）回退原通用图标
+- **test** 新增 `test/lab/lab_icon_test.dart`：主 slug 全部有专属 SVG 映射（白名单例外）、48 张全部登记、全部可从 bundle 加载且含主题色替换锚点（单色图标如时钟不强求强调色锚点，集合级断言覆盖度）
+
 ### 界面 / 导航（ui / nav）
 
 - **fix** 钉选「统一登录 / 会话托管」等自身不铺背景的 demo 底栏根页露黑窗：主壳 Scaffold 恢复主题底色兜底（此前主壳与 DemoDetailPage 壳根页双层透明，一路透到 Flutter 黑窗）

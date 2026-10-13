@@ -16,6 +16,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../widgets/lab_demo_icon_lookup.dart';
+
 // ══════════════════════════════════════════════════════════════
 // 分类
 // ══════════════════════════════════════════════════════════════
@@ -113,13 +115,18 @@ class GameMeta {
     required this.gradient,
     required this.mode,
     this.pattern = GameArtPattern.blob,
+    this.labIconKind,
   });
 
   /// 所属分类（可多归属：联机五子棋同时进「联机」与「棋游」）
   final Set<String> categories;
 
-  /// 封面主图标
+  /// 兜底封面图标（无 Lab SVG 时回退到此）。
   final IconData icon;
+
+  /// Lab 演示 SVG icon。有值时 [GameArtwork] 优先渲染此图标（跟随主题色）；
+  /// null 时仍用 [icon] 渲染（无主题色适配）。
+  final LabIconKind? labIconKind;
 
   /// 封面渐变（起止两色，左上 → 右下）
   final List<Color> gradient;

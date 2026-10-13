@@ -14,6 +14,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../widgets/lab_demo_icon.dart';
 import '../demo_cover_image.dart';
 import 'const_game_center.dart';
 
@@ -105,10 +106,10 @@ class GameArtwork extends StatelessWidget {
           ),
         if (showIcon && !_usePhoto)
           Center(
-            child: Icon(
-              meta.icon,
+            child: _CenterIcon(
+              meta: meta,
               size: iconSize,
-              color: scheme.surface.withValues(alpha: 0.92),
+              scheme: scheme,
             ),
           ),
       ],
@@ -225,4 +226,31 @@ class _ArtPatternPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ArtPatternPainter oldDelegate) =>
       oldDelegate.pattern != pattern;
+}
+
+/// 封面中心图标：有 LabDemoIcon（SVG，跟随主题色）时优先；否则走 fallback 的 Material icon。
+/// Game center 封面默认走旧 `meta.icon`；用户可以在 [kGameMeta] 里给具体 slug 加
+/// `labIconKind: LabIconKind.asset('...')` 启用 SVG。
+class _CenterIcon extends StatelessWidget {
+  const _CenterIcon({
+    required this.meta,
+    required this.size,
+    required this.scheme,
+  });
+  final GameMeta meta;
+  final double size;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final labKind = meta.labIconKind;
+    if (labKind == null || labKind.isFallback) {
+      return Icon(
+        meta.icon,
+        size: size,
+        color: scheme.surface.withValues(alpha: 0.92),
+      );
+    }
+    return LabDemoIcon(assetBaseName: labKind.assetBaseName, size: size);
+  }
 }

@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
+import '../../../widgets/lab_demo_icon.dart';
+import '../../../widgets/lab_demo_icon_lookup.dart';
 
 class DemoDetailPage extends StatelessWidget {
   const DemoDetailPage({super.key, required this.demo});
@@ -54,12 +56,16 @@ class DemoDetailPage extends StatelessWidget {
   }
 
   void _showDemoDesc(BuildContext context) {
+    final kind = labIconForDemoSlug(demo.slug);
+    final Widget leading = kind.isFallback
+        ? const Icon(Icons.widgets)
+        : LabDemoIcon(assetBaseName: kind.assetBaseName, size: 24);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.widgets),
+            leading,
             const SizedBox(width: 8),
             Flexible(child: Text(demo.title)),
           ],

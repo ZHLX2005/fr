@@ -33,6 +33,8 @@ import 'app_lifecycle/main_screen.dart';
 import 'screens/profile/lab/game_center_page.dart';
 import 'widgets/global_ring/global_ring_host.dart';
 import 'widgets/global_ring/ring_enabled_provider.dart';
+import 'widgets/lab_demo_icon.dart';
+import 'widgets/lab_demo_icon_lookup.dart';
 
 /// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -98,6 +100,9 @@ void main() async {
   // 游戏封面 KV 预热（设置缩略 / 导航可立刻读到，不依赖先进游戏中心）
   scheduleGameCenterCoverWarmUp();
   registerAllFrRoutes();
+  // 预热 Lab SVG 图标：48 个 svg 一次性 rootBundle.loadString，
+  // 让用户首次打开 Lab / Demo 详情时不卡在 IO 上。看板图标闪烁问题。
+  unawaited(LabDemoIcon.prewarm(allLabIconAssetBaseNames));
   // ★ 注册桌面 widget MethodChannel（必须在 runApp 之前,handler 在 widget 树之外也可调用）
   const channel = MethodChannel(_kWidgetChannel);
   channel.setMethodCallHandler(_handleRootMethodCall);

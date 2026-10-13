@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../widgets/image_picker_widget.dart';
+import '../../../../widgets/lab_demo_icon.dart';
+import '../../../../widgets/lab_demo_icon_lookup.dart';
 import '../demo_cover_image.dart';
 import '../lab_panel/const_lab_panel.dart';
 import '../providers/lab_card_provider.dart';
@@ -12,11 +14,16 @@ class DemoCard extends StatefulWidget {
   final String description;
   final VoidCallback onTap;
 
+  /// Lab demo 的 slug，由调用方传给 [LabDemoIcon] 查表换 SVG；
+  /// 为空时用通用备选（LabIconKind.fallback）。
+  final String demoSlug;
+
   const DemoCard({
     super.key,
     required this.title,
     required this.description,
     required this.onTap,
+    required this.demoSlug,
   });
 
   @override
@@ -99,12 +106,9 @@ class _DemoCardState extends State<DemoCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.widgets,
-                      color: backgroundUrl != null
-                          ? Theme.of(context).colorScheme.surface
-                          : theme.colorScheme.primary,
-                      size: 32,
+                    _buildLeadingIcon(
+                      hasBackground: backgroundUrl != null && backgroundUrl.isNotEmpty,
+                      theme: theme,
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -138,6 +142,35 @@ class _DemoCardState extends State<DemoCard> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 卡片左上角的图标：背景图存在时显示白底（盖在压暗蒙版上），
+  /// 无背景时显示 LabDemoIcon（SVG 自身按主题着色）。
+  Widget _buildLeadingIcon({
+    required bool hasBackground,
+    required ThemeData theme,
+  }) {
+    if (hasBackground) {
+      return Icon(
+        Icons.widgets,
+        color: theme.colorScheme.surface,
+        size: 32,
+      );
+    }
+    final kind = labIconForDemoSlug(widget.demoSlug);
+    if (kind.isFallback) {
+      // 暂无专属 SVG 时保留原通用占位 icon（便于发现遗漏）
+      return Icon(
+        Icons.widgets,
+        color: theme.colorScheme.primary,
+        size: 32,
+      );
+    }
+    return LabDemoIcon(
+      assetBaseName: kind.assetBaseName,
+      semanticsLabel: widget.title,
+      size: 32,
     );
   }
 

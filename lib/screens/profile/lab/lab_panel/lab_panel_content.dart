@@ -7,6 +7,8 @@ import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_con
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 
 import '../../../../lab/lab_container.dart';
+import '../../../../widgets/lab_demo_icon.dart';
+import '../../../../widgets/lab_demo_icon_lookup.dart';
 import '../providers/lab_card_provider.dart';
 import 'const_lab_panel.dart';
 import 'lab_panel_colors.dart';
@@ -482,10 +484,8 @@ class _FavoriteDemoShortcutState extends State<_FavoriteDemoShortcut> {
                             kLabFavoriteIconBoxRadius,
                           ),
                         ),
-                        child: Icon(
-                          Icons.star_rounded,
-                          color: pc.accentDeep,
-                          size: kLabFavoriteIconSize,
+                        child: Center(
+                          child: _FavoriteIcon(demo: widget.demo),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -564,6 +564,31 @@ class _PanelEmptyFavorites extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 收藏格子的图标：优先 demo 专属 SVG（随主题着色），
+/// 未登记的走通用星标（与空态视觉语言一致）。
+class _FavoriteIcon extends StatelessWidget {
+  const _FavoriteIcon({required this.demo});
+
+  final DemoPage demo;
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = labIconForDemoSlug(demo.slug);
+    if (kind.isFallback) {
+      return Icon(
+        Icons.star_rounded,
+        color: Theme.of(context).colorScheme.primary,
+        size: kLabFavoriteIconSize,
+      );
+    }
+    return LabDemoIcon(
+      assetBaseName: kind.assetBaseName,
+      size: kLabFavoriteIconSize,
+      semanticsLabel: demo.title,
     );
   }
 }

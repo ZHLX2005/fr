@@ -215,6 +215,7 @@ flutter:
     - assets/audio/
     - assets/line/sfx/
     - assets/lobby/brush-stroke.png
+    - assets/lab-demo-icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
