@@ -14,6 +14,7 @@ import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
 import '../../lab/lab_container.dart';
+import '../../widgets/nav_entry_icon.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';
 import '../profile/lab/demo_detail_page.dart';
 import '../profile/lab/game_center/const_game_center.dart';
@@ -645,6 +646,9 @@ class _LeadingIcon extends StatelessWidget {
       if (meta != null) return _gameFallback(meta, entry.icon);
     }
     // 原型 .ico：40 方圆角瓦，不用圆形。
+    // demo 专属 SVG：onPrimaryContainer 轮廓 + 主题自适应强调点
+    // （cobalt/zen 深 primary 会自动提亮，见 LabDemoIcon 自适应规则）；
+    // 未登记的核心入口 / demo 走 Material icon。
     return Container(
       width: 40,
       height: 40,
@@ -652,10 +656,12 @@ class _LeadingIcon extends StatelessWidget {
         color: cs.primaryContainer,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(
-        entry.icon,
-        color: cs.onPrimaryContainer,
-        size: 18,
+      child: Center(
+        child: NavEntryIcon(
+          entry: entry,
+          size: 18,
+          tint: cs.onPrimaryContainer,
+        ),
       ),
     );
   }

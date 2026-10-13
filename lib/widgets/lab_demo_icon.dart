@@ -34,6 +34,8 @@ class LabDemoIcon extends StatefulWidget {
     super.key,
     required this.assetBaseName,
     this.size,
+    this.inkColor,
+    this.accentColor,
     this.semanticsLabel,
   });
 
@@ -43,6 +45,13 @@ class LabDemoIcon extends StatefulWidget {
 
   /// 渲染尺寸。null = 让父 LayoutBuilder 决定。SVG viewBox 32×32 时直接用 width/height。
   final double? size;
+
+  /// 覆盖主轮廓色。null = `context.colors.text`（随主题明暗自适应）。
+  final Color? inkColor;
+
+  /// 覆盖强调点色。null = `context.colors.accent`（随主题强调色切换）。
+  /// 传与 [inkColor] 相同的色 = 双色 SVG 压成单色（底栏选中态着色等场景）。
+  final Color? accentColor;
 
   /// 屏幕阅读器朗读的文字。SVG 文件不携带 `<title>`，所以需要外部传入。
   final String? semanticsLabel;
@@ -73,8 +82,10 @@ class _LabDemoIconState extends State<LabDemoIcon> {
   @override
   Widget build(BuildContext context) {
     final strategy = _resolve(context);
-    final fg = strategy.text;
-    final accent = strategy.accent;
+    final brightness = Theme.of(context).colorScheme.brightness;
+    final adaptive = adaptiveLabIconColors(strategy, brightness);
+    final fg = widget.inkColor ?? adaptive.$1;
+    final accent = widget.accentColor ?? adaptive.$2;
     final fgHex = _toHex(fg);
     final accentHex = _toHex(accent);
 
@@ -128,13 +139,57 @@ String _colorize(String svg, {required String inkHex, required String accentHex}
       .replaceAll(_kSvgAccentAltLower, accentHex);
 }
 
-/// Flutter [Color] 转 6 位大写 hex（不带 #），用于字符串替换。
+/// 色值替换的可测出口：输入原始 SVG 文本，输出替换后的文本。
+/// `flutter test` 里断言换色正确性用它，不走渲染管线。
+@visibleForTesting
+String colorizeLabSvg(
+  String svg, {
+  required Color ink,
+  required Color accent,
+}) {
+  return _colorize(
+    svg,
+    inkHex: _toHex(ink),
+    accentHex: _toHex(accent),
+  );
+}
+
+/// 双色图标自适应着色：保证强调点相对轮廓有足够明度差。
+///
+/// 设计稿的对比关系是「深轮廓 L0.04 + 中高亮强调 L0.55」；主题色直接映射后：
+/// - 深色主题（暮紫/暗黑）：primary 与 onSurface 都是浅色，轮廓压暗 35%
+///   让 accent（primary）成为最亮元素；
+/// - 亮色主题：primary 过暗时（cobalt 深宝蓝 L0.33 / zen 深鼠尾草）向亮端
+///   提到 L0.62，恢复强调点醒目度；明度差已够（≥0.28）的原样返回。
+/// 调用方显式传 inkColor/accentColor 时不走此逻辑。
+@visibleForTesting
+(Color ink, Color accent) adaptiveLabIconColors(
+  ColorStrategy strategy,
+  Brightness brightness,
+) {
+  final ink = strategy.text;
+  final accent = strategy.accent;
+  if (brightness == Brightness.dark) {
+    return (Color.lerp(ink, Colors.black, 0.35)!, accent);
+  }
+  final inkL = HSLColor.fromColor(ink).lightness;
+  final accentL = HSLColor.fromColor(accent).lightness;
+  if ((inkL - accentL).abs() >= 0.28) return (ink, accent);
+  return (ink, HSLColor.fromColor(accent).withLightness(0.62).toColor());
+}
+
+/// Flutter [Color] 转 `#RRGGBB` hex（半透明时 `#RRGGBBAA`，flutter_svg 支持
+/// 8 位写法）。此前丢弃 alpha 导致底栏未选中态（primary@42%）渲染成全亮度
+/// ——选中/未选中无区别的根因。
 String _toHex(Color c) {
   final r = (c.r * 255.0).round() & 0xff;
   final g = (c.g * 255.0).round() & 0xff;
   final b = (c.b * 255.0).round() & 0xff;
-  final v = (r << 16) | (g << 8) | b;
-  return v.toRadixString(16).padLeft(6, '0').toUpperCase();
+  final a = (c.a * 255.0).round() & 0xff;
+  final rgb = ((r << 16) | (g << 8) | b).toRadixString(16).padLeft(6, '0');
+  return a == 0xff
+      ? '#${rgb.toUpperCase()}'
+      : '#${rgb.toUpperCase()}${a.toRadixString(16).padLeft(2, '0').toUpperCase()}';
 }
 
 ColorStrategy _resolve(BuildContext context) {

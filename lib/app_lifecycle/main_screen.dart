@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/nav/nav_catalog.dart';
 import '../core/nav/nav_pins_notifier.dart';
+import '../widgets/nav_entry_icon.dart';
 import '../widgets/quick_nav_bottom_bar.dart';
 import 'apk_auto_update_host.dart';
 
@@ -265,7 +266,10 @@ class _MoreCell extends StatelessWidget {
                 color: cs.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(entry.icon, color: cs.primary, size: 18),
+              // demo 专属 SVG 单色 primary；核心入口兜底 Material icon
+              child: Center(
+                child: NavEntryIcon(entry: entry, size: 18, tint: cs.primary),
+              ),
             ),
             const SizedBox(height: 6),
             Padding(
