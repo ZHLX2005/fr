@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/nav/nav_route.dart';
 import '../../../core/theme/state/theme_provider.dart';
+import '../../../widgets/app_notification.dart';
 
 /// 主题设置页面
 ///
-/// 展示当前所有主题的预览卡片，点选切换 + SnackBar 反馈。
+/// 展示当前所有主题的预览卡片，点选切换 + 顶部通知栏反馈。
 /// 当前 6 套：zen（茶禅）· purple（暮紫）· ink（墨白）· rose（粉雾）· lemon（柠檬）· cobalt（宝蓝）。
 /// 保留 Scaffold + AppBar 骨架，新增主题时按 AppThemeMode.values 顺序自动出现。
 class ThemePage extends ConsumerWidget {
@@ -64,12 +65,10 @@ class _ThemeList extends StatelessWidget {
     onSelect(mode);
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已切换到${AppTheme.getThemeDisplayName(mode)}'),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
+      AppNotification.show(
+        context,
+        '已切换到${AppTheme.getThemeDisplayName(mode)}',
+        type: AppNotificationType.success,
       );
     }
   }

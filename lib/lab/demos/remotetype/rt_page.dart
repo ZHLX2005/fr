@@ -27,6 +27,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../api/remotetype/remotetype.dart';
 import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
+import '../../../widgets/app_notification.dart';
 import '../../../widgets/context_colors.dart';
 import '../../demo_session_host.dart';
 import 'rt_constants.dart';
@@ -399,18 +400,24 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         // 重试那一次也失败（willRetry=false）才是最终断开，那时才打扰用户。
         setState(() => _connected = false);
         if (!e.willRetry) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('连接断开（${e.detail ?? ''}）')),
+          AppNotification.show(
+            context,
+            '连接断开（${e.detail ?? ''}）',
+            type: AppNotificationType.error,
           );
         }
       case RtEventKind.deliveryFailed:
-        ScaffoldMessenger.of(
+        AppNotification.show(
           context,
-        ).showSnackBar(SnackBar(content: Text(e.detail ?? '投递失败')));
+          e.detail ?? '投递失败',
+          type: AppNotificationType.error,
+        );
       case RtEventKind.error:
-        ScaffoldMessenger.of(
+        AppNotification.show(
           context,
-        ).showSnackBar(SnackBar(content: Text(e.detail ?? '未知错误')));
+          e.detail ?? '未知错误',
+          type: AppNotificationType.error,
+        );
     }
   }
 
