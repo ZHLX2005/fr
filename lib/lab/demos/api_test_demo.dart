@@ -210,36 +210,6 @@ class _ApiTestPageState extends State<_ApiTestPage> {
           length: 2,
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                      'API 测试',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    ValueListenableBuilder<ApkDownloadState>(
-                      valueListenable: _apkManager.state,
-                      builder: (context, apkState, child) {
-                        final isBusy = apkState.isCheckingUpdate;
-                        if (!isBusy) return const SizedBox.shrink();
-                        return const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
               const TabBar(
                 tabs: [
                   Tab(text: 'APK 更新'),
