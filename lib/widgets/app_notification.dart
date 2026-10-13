@@ -149,22 +149,31 @@ class _NotificationCardState extends State<_NotificationCard>
       top: 0,
       left: 0,
       right: 0,
-      child: SlideTransition(
-        position: _slide,
-        child: FadeTransition(
-          opacity: _fade,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              // 状态栏下方再留 12px 呼吸；横屏 / 宽屏时居中限宽
-              padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: GestureDetector(
-                    onTap: _dismiss,
-                    child: _buildCard(style),
+      // Positioned(top+left+right，无 bottom) 在 Stack 里会被收紧到
+      // Stack.maxHeight = 屏幕高度；中间任意一行文本自然高度超过这条上限，
+      // 就会在底部爆出 RenderFlex overflowed 的黄黑条。OverflowBox 顶开
+      // tight height 约束，从根本上消除这条溢出指示。
+      child: OverflowBox(
+        minHeight: 0,
+        maxHeight: double.infinity,
+        alignment: Alignment.topCenter,
+        child: SlideTransition(
+          position: _slide,
+          child: FadeTransition(
+            opacity: _fade,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                // 状态栏下方再留 12px 呼吸；横屏 / 宽屏时居中限宽
+                padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: GestureDetector(
+                      onTap: _dismiss,
+                      child: _buildCard(style),
+                    ),
                   ),
                 ),
               ),
@@ -198,6 +207,10 @@ class _NotificationCardState extends State<_NotificationCard>
           Flexible(
             child: Text(
               widget.message,
+              // 通知是状态条，不是日志；4 行足够表达，再长用省略号收住，
+              // 避免换行高度撞穿 Row 父约束再次触发底部溢出黄线。
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: style.foreground,
                 fontSize: 14,
