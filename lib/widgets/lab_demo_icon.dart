@@ -93,6 +93,24 @@ class _LabDemoIconState extends State<LabDemoIcon> {
     return FutureBuilder<String>(
       future: _source,
       builder: (context, snap) {
+        // 加载失败：Material 兜底图标 + 控制台报错，绝不静默空白。
+        // 最常见根因：pubspec 新增资产后只做了热重载/热重启——资产不重新
+        // 打包，rootBundle.loadString 全量 404。完整停止 + flutter run 即恢复。
+        if (snap.hasError) {
+          assert(() {
+            debugPrint(
+              'LabDemoIcon[${widget.assetBaseName}] 加载失败: ${snap.error}\n'
+              '若为 Unable to load asset：pubspec 新增资产需完整停止 app 后 '
+              '重新 flutter run（热重载/热重启不注册新资产）。',
+            );
+            return true;
+          }());
+          return Icon(
+            Icons.widgets_outlined,
+            size: widget.size,
+            color: accent,
+          );
+        }
         if (snap.connectionState != ConnectionState.done || !snap.hasData) {
           // 加载中：占一个同等尺寸的盒子，避免布局抖动
           return SizedBox(
@@ -120,13 +138,20 @@ class _LabDemoIconState extends State<LabDemoIcon> {
 }
 
 /// 单例缓存：asset basename → Future[String] 形式的字典，去重 → 一次性 loadString。
+///
+/// 失败的 future 不留缓存：热重载期资产未注册等瞬态 404 不应钉死整个
+/// session——移除后下次构建重新 loadString，完整重启后自然恢复。
 final Map<String, Future<String>> _svgCache = {};
 
 Future<String> _loadSvg(String assetBaseName) {
   final cached = _svgCache[assetBaseName];
   if (cached != null) return cached;
   final path = 'assets/lab-demo-icons/$assetBaseName.svg';
-  final future = rootBundle.loadString(path);
+  final future = rootBundle.loadString(path).catchError((Object e) {
+    // 失败即出缓存，允许重试（未来 AssetsManifest 更新 / 重启后生效）
+    _svgCache.remove(assetBaseName);
+    throw e;
+  });
   _svgCache[assetBaseName] = future;
   return future;
 }

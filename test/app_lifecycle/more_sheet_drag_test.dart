@@ -20,16 +20,17 @@ void main() {
     });
 
     test('visible 段保留 / overflow 段重排', () async {
-      // 用两个已知的核心入口 overflow 出可见槽 → 拖动 swap
+      // 纯核心入口 fixture（AI 拆分组已从 catalog 移除，ai-* id 会被
+      // sanitize 丢弃）：5 元素条 → visible 前 3 / overflow 后 2
       await container.read(navPinsProvider.notifier).setPins([
-        'ai-pi',
         'core-time',
         'core-lab',
+        'core-games',
         'core-profile',
         'core-theme',
       ]);
       final pins0 = container.read(navPinsProvider);
-      expect(pins0.visibleIds.take(3), ['ai-pi', 'core-time', 'core-lab']);
+      expect(pins0.visibleIds, ['core-time', 'core-lab', 'core-games']);
       expect(pins0.overflowIds, ['core-profile', 'core-theme']);
 
       // 模拟更多弹窗 onReorder：保留 visible、重排 overflow
@@ -40,6 +41,8 @@ void main() {
       ]);
 
       final pins1 = container.read(navPinsProvider);
+      expect(pins1.visibleIds, ['core-time', 'core-lab', 'core-games'],
+          reason: 'visible 段顺序保留不被乱动');
       expect(pins1.overflowIds, ['core-theme', 'core-profile'],
           reason: 'overflow 段新顺序生效');
     });

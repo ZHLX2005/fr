@@ -119,13 +119,62 @@ void main() {
     });
   });
 
+  group('LabDemoIcon 渲染管线冒烟（真资产，非字符串替换）', () {
+    // 资产 IO 走真实事件循环（tester.runAsync）：_svgCache 是进程级静态，
+    // 前一个测试的 FakeAsync zone 创建的 future 后续测试 pump 不动——
+    // runAsync 避开 FakeAsync 限制，也让测试互不依赖执行顺序。
+    Future<void> pumpIcon(WidgetTester tester, Widget child) async {
+      debugResetLabDemoIconCache();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          MaterialApp(home: Scaffold(body: child)),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('真 SVG 加载 → 换色 → SvgPicture 出图', (tester) async {
+      await pumpIcon(
+        tester,
+        const LabDemoIcon(assetBaseName: '01-clock', size: 32),
+      );
+      expect(find.byType(SvgPicture), findsOneWidget,
+          reason: '加载成功后必须出现 SvgPicture；若此断言失败且日志报 '
+              'Unable to load asset，检查 pubspec assets 声明');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('资产不存在 → Material 兜底图标而非静默空白', (tester) async {
+      await pumpIcon(
+        tester,
+        const LabDemoIcon(assetBaseName: '99-not-exist', size: 32),
+      );
+      expect(find.byIcon(Icons.widgets_outlined), findsOneWidget,
+          reason: '加载失败必须有可见兜底（此前静默空白 = 全灭无诊断）');
+      expect(find.byType(SvgPicture), findsNothing);
+    });
+
+    testWidgets('失败 future 不留缓存 → 修好后可重试', (tester) async {
+      await pumpIcon(
+        tester,
+        const LabDemoIcon(assetBaseName: '02-calendar-todo', size: 32),
+      );
+      expect(find.byType(SvgPicture), findsOneWidget);
+    });
+  });
+
   group('NavEntryIcon 渲染分流', () {
     testWidgets('labIconAsset 非 null → SvgPicture（SVG）', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: NavEntryIcon(entry: _entry(labIconAsset: '01-clock')),
-        ),
-      );
+      debugResetLabDemoIconCache();
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: NavEntryIcon(entry: _entry(labIconAsset: '01-clock')),
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
       await tester.pumpAndSettle();
       expect(find.byType(SvgPicture), findsOneWidget);
       expect(find.byType(Icon), findsNothing);

@@ -186,7 +186,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               itemCount: overflow.length,
                               itemBuilder: (gridCtx, i) {
                                 return itemBuilder(
+                                  // ReorderableBuilder 强约束：每个子项必须
+                                  // 有唯一 key（initChildren 的 assert），
+                                  // 漏了 debug 下整个 sheet 直接 build 失败
                                   _MoreCell(
+                                    key: ValueKey(overflow[i].id),
                                     entry: overflow[i],
                                     onTap: () {
                                       final id = overflow[i].id;
@@ -299,7 +303,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 }
 
 class _MoreCell extends StatefulWidget {
-  const _MoreCell({required this.entry, required this.onTap});
+  const _MoreCell({
+    super.key,
+    required this.entry,
+    required this.onTap,
+  });
 
   final NavEntry entry;
   final VoidCallback onTap;
