@@ -122,10 +122,23 @@ class RtSession {
   WebSocketChannel? _ws;
   StreamSubscription<dynamic>? _wsSub;
   Timer? _registerTimeout;
-  // 断线自动重连：socket 死亡后延迟重试**一次**；成功静默恢复（发 connected），
-  // 失败才发最终 disconnected。不做无限退避——服务器真挂了就该让人看见。
+  // 应用层心跳：周期发 {type:'ping'}，服务端回 {type:'pong'}（server.js 路由）。
+  // 没有它，半开连接（切网/NAT 超时，对端 FIN 到不了）会永远 isConnected==true，
+  // 自动重连永远不触发而发送静默进黑洞——「自动重连不稳定、手动重连一点就好」
+  // 的根因。任何入站帧都算活着（pong / ack / welcome 同等有效）。
+  Timer? _pingTimer;
+  DateTime _lastPongAt = DateTime.now();
+  static const Duration _kPingInterval = Duration(seconds: 15);
+  static const Duration _kPingDeadLine = Duration(seconds: 45);
+  // 断线自动重连梯：延迟递进重试有限轮；期间发 willRetry=true 的 disconnected
+  // （UI 置灰不弹提示），全部失败才发最终 disconnected。
   Timer? _autoReconnectTimer;
-  static const Duration _kAutoReconnectDelay = Duration(milliseconds: 1500);
+  static const List<Duration> _kRetryDelays = [
+    Duration(milliseconds: 1500),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+  ];
+  int _retryRound = 0; // 已消耗的重试轮次；成功归零
   // 非 final：reconnect 复用同一实例重建注册握手，每次尝试换新 Completer
   Completer<void> _registered = Completer<void>();
   bool _reconnecting = false;
@@ -208,39 +221,83 @@ class RtSession {
   /// 完全无感（全文快照语义 + seq 单调，PC 端 diff 自愈）。
   ///
   /// DemoSessionHost 的前台钩子自动调它（切 APP 回来自动重连），也可手动调。
-  /// 安全性质：
+  /// 立即试一轮；失败会沿 [_kRetryDelays] 的重试梯继续（见 [_attemptReconnect]），
+  /// 全部轮次耗尽才发最终 disconnected。安全性质：
   ///   - 已连接时 no-op（短暂后台回来 socket 还活着，不打断）
   ///   - 并发调用合并（[_reconnecting] 闸）
-  ///   - 失败不上抛，只发**最终** disconnected 事件（willRetry=false）——
-  ///     自动路径没有可恢复动作，下一个前台信号会再试
-  Future<void> reconnect() async {
+  Future<void> reconnect() => _attemptReconnect();
+
+  /// 重试梯的一轮：失败排下一轮（延迟递进），耗尽才报最终断开。
+  Future<void> _attemptReconnect() async {
     if (_reconnecting || isConnected || _events.isClosed) return;
     _reconnecting = true;
     try {
       await _derivedFuture;
       await _openSocketAndRegister();
+      _retryRound = 0;
       if (!_events.isClosed) _events.add(RtEvent(RtEventKind.connected));
     } catch (_) {
-      if (!_events.isClosed) {
-        _events.add(
-          RtEvent(RtEventKind.disconnected, '自动重连失败，回到前台会再试'),
-        );
-      }
+      if (!_events.isClosed) _scheduleNextRetry();
     } finally {
       _reconnecting = false;
     }
   }
 
-  /// socket 死亡后的自动重连调度：先发一条 willRetry=true 的 disconnected
-  /// （UI 置灰连接态但不弹提示），短暂延迟后静默重试一轮。
-  /// 「重连一次失败，然后才失败」——重试经 [reconnect]，其失败事件就是
-  /// 最终断开；此处不做循环退避。
+  /// 排下一轮重试；轮次耗尽则发**最终** disconnected（willRetry=false）。
+  void _scheduleNextRetry() {
+    _autoReconnectTimer?.cancel();
+    if (_retryRound >= _kRetryDelays.length) {
+      _events.add(
+        RtEvent(
+          RtEventKind.disconnected,
+          '自动重连 ${_kRetryDelays.length} 次均失败；点「重连」或回到前台会再试',
+        ),
+      );
+      return;
+    }
+    final delay = _kRetryDelays[_retryRound++];
+    _autoReconnectTimer = Timer(delay, () {
+      unawaited(_attemptReconnect());
+    });
+  }
+
+  /// socket 死亡 / 心跳超时后的自动重连调度：先发一条 willRetry=true 的
+  /// disconnected（UI 置灰连接态但不弹提示），然后沿重试梯静默重试。
   void _scheduleAutoReconnect(String reason) {
     _autoReconnectTimer?.cancel();
     if (_events.isClosed) return;
     _events.add(RtEvent(RtEventKind.disconnected, reason, true));
-    _autoReconnectTimer = Timer(_kAutoReconnectDelay, () {
-      unawaited(reconnect());
+    _retryRound = 0;
+    _scheduleNextRetry();
+  }
+
+  /// 心跳判死 / 远端关闭的统一善后：停心跳、拆干净 socket、进重试梯。
+  void _handleDeadSocket(String reason) {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    unawaited(_wsSub?.cancel());
+    _wsSub = null;
+    _ws = null;
+    _scheduleAutoReconnect(reason);
+  }
+
+  /// 启动应用层心跳：注册完成后调用。每 [_kPingInterval] 发一笔 ping，
+  /// 超过 [_kPingDeadLine] 没收到任何入站帧即判死（半开连接的唯一可靠探针）。
+  void _startHeartbeat() {
+    _pingTimer?.cancel();
+    _lastPongAt = DateTime.now();
+    _pingTimer = Timer.periodic(_kPingInterval, (_) {
+      if (_ws == null) {
+        _pingTimer?.cancel();
+        return;
+      }
+      final silent = DateTime.now().difference(_lastPongAt);
+      if (silent >= _kPingDeadLine) {
+        // 半开：本地以为活着、对端早已不在。主动拆掉触发重连梯。
+        _handleDeadSocket('心跳超时（${silent.inSeconds}s 无响应）');
+        return;
+      }
+      _sendJson({'type': 'ping', 'ts': DateTime.now().millisecondsSinceEpoch});
     });
   }
 
@@ -249,6 +306,8 @@ class RtSession {
   Future<void> _openSocketAndRegister() async {
     _registerTimeout?.cancel();
     _autoReconnectTimer?.cancel(); // 新 socket 打开：待发的自动重连作废
+    _pingTimer?.cancel();
+    _pingTimer = null;
     await _wsSub?.cancel();
     _wsSub = null;
     try {
@@ -264,15 +323,11 @@ class RtSession {
     _ws = channel;
     _wsSub = channel.stream.listen(_onFrame, onDone: () {
       // 死亡即置空：isConnected 的真相来源，重进/回前台的补连判断靠它。
-      // 不直接发 disconnected——先走自动重连，重试失败才报最终断开。
-      _ws = null;
-      _wsSub = null;
-      _scheduleAutoReconnect('连接关闭');
+      // 不直接发 disconnected——先进重试梯，全部失败才报最终断开。
+      _handleDeadSocket('连接关闭');
     }, onError: (Object e) {
       // 错误通常紧随 onDone；同样只调度重连，不直接弹错误。
-      _ws = null;
-      _wsSub = null;
-      _scheduleAutoReconnect('连接错误：$e');
+      _handleDeadSocket('连接错误：$e');
     });
 
     _sendJson({
@@ -290,9 +345,12 @@ class RtSession {
       );
     });
     await registered.future;
+    _startHeartbeat();
   }
 
   void _onFrame(dynamic raw) {
+    // 任何入站帧都证明管道活着（pong / ack / welcome / registered 同等有效）
+    _lastPongAt = DateTime.now();
     Map<String, dynamic> msg;
     try {
       msg = jsonDecode(raw as String) as Map<String, dynamic>;
@@ -433,6 +491,7 @@ class RtSession {
   Future<void> dispose() async {
     _registerTimeout?.cancel();
     _autoReconnectTimer?.cancel();
+    _pingTimer?.cancel();
     await _wsSub?.cancel();
     await _ws?.sink.close();
     _ws = null;
