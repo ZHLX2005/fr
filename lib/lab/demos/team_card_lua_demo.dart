@@ -19,6 +19,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/game_kit/lobby/game_enter_transition.dart';
 import '../../core/game_kit/lobby/game_lobby_page.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart';
@@ -60,6 +61,16 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
   String _phase = 'entry';
   RoomHandle? _handle;
 
+  /// 进入房间视图过渡：匹配完成（guest / 免配置）或房主配置完成 → 刷子盖屏。
+  final GameEnterTransition _enterFx = GameEnterTransition();
+
+  @override
+  void initState() {
+    super.initState();
+    // 页面从入口表单（准备态）开始：声明后首次切换才会触发盖屏。
+    _enterFx.markPrep();
+  }
+
   @override
   void dispose() {
     _handle?.dispose();
@@ -73,6 +84,8 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
   ///   · 否则 → false                    → 直接进 PlayingView（lobby 等待房）
   void _onStarted(RoomHandle handle, LobbyStartedCtx ctx) {
     final needsConfig = ctx.extras['needsConfig'] == true;
+    // host 还有配置页 → 不算进游戏，配置完成时再盖屏；其余匹配完成即进入。
+    if (!needsConfig) _enterFx.update(context, true);
     setState(() {
       _handle = handle;
       _phase = needsConfig ? 'host_setup' : 'playing';
@@ -81,10 +94,14 @@ class _TeamCardLuaDemoPageState extends State<_TeamCardLuaDemoPage> {
 
   /// 配置完成（或跳过）：同一房间，直接切到房间视图。
   /// 房间只创建一次（GameLobbyPage），这里不换 handle。
-  void _onHostConfigDone() => setState(() => _phase = 'playing');
+  void _onHostConfigDone() {
+    _enterFx.update(context, true);
+    setState(() => _phase = 'playing');
+  }
 
   Future<void> _disconnect() async {
     final h = _handle;
+    _enterFx.update(context, false); // 回到入口表单 → 下次进入重新盖屏
     setState(() {
       _handle = null;
       _phase = 'entry';

@@ -24,6 +24,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../../core/game_kit/lobby/game_enter_transition.dart';
 import '../../../core/game_kit/lobby/game_ready_style.dart';
 
 import 'package:xiaodouzi_fr/core/jungle_chess/constants/jungle_constants.dart';
@@ -60,6 +61,9 @@ class OnlineGamePage extends StatefulWidget {
 
 class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
+
+  // 进入对局过渡：准备态 → playing 首次切入 → 刷子过渡盖屏；waiting=对局中等待重连，不重播。
+  final GameEnterTransition _enterFx = GameEnterTransition();
   Snapshot? _snap;
   List<JungleMoveRecord> _history = const [];
   GameState _gameState = JungleEngine.createInitialStateFor(firstTurn: PlayerColor.red);
@@ -109,6 +113,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       );
       return;
     }
+    // 准备态 → playing 首次切入 → 刷子过渡盖屏。
+    // waiting = 对局中等待重连：离开 playing 但不重新武装，重连回 playing 不重播；
+    // 若 ready 阶段就掉线进 waiting，武装保留，真正 playing 时仍会播。
+    _enterFx.update(
+      context,
+      s.state == 'playing',
+      keepArmed: s.state == 'waiting',
+    );
     final prevHistoryLen = _history.length;
     setState(() {
       _snap = s;

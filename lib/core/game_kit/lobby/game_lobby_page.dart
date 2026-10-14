@@ -25,7 +25,6 @@ import '../../../services/lua/lua_game_alias.dart';
 import '../../nav/nav_route.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '_lobby_form.dart';
-import 'brush_wipe_overlay.dart';
 import 'game_lobby_slots.dart';
 import 'game_lobby_spec.dart';
 
@@ -141,19 +140,12 @@ class GameLobbyPageState extends State<GameLobbyPage> {
       _started = true;
       setState(() => _busy = false);
       // smartMatch：handler 在 onStarted 前向 ctx 注入附加字段
-      // （team_card: needsConfig 等基于 snapshot 的判断）
+      // （team_card: needsConfig 等基于 snapshot 的判断）。
+      // 刷子过渡不在进房时播 —— 各游戏页在准备态 → 对局界面首次切换时
+      // 自行播放（GameEnterTransition）。
       final ctx = LobbyStartedCtx();
       widget.slots.onStartedExtras?.call(ctx, h);
-      if (widget.spec.copy.enterBrushWipe) {
-        // Overlay 级遮罩：push 后仍盖在新 route 上，再淡出揭开准备页。
-        unawaited(runBrushWipeTransition(
-          context: context,
-          underCover: () => widget.onStarted(h, ctx),
-        ));
-      } else {
-        // 无刷子：仍可能是 async onStarted，不阻塞按钮态恢复
-        unawaited(Future.sync(() => widget.onStarted(h, ctx)));
-      }
+      unawaited(Future.sync(() => widget.onStarted(h, ctx)));
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
       setState(() {

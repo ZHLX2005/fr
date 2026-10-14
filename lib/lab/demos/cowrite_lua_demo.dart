@@ -20,6 +20,7 @@ import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'cowrite_lua/cowrite_engine.dart' show RoomHandle;
 import 'cowrite_lua/cowrite_widgets.dart' show OnlineCoWritePage;
 import 'cowrite_lua/cowrite_save_reference.dart';
+import '../../core/game_kit/lobby/game_enter_transition.dart';
 import '../../core/game_kit/lobby/game_lobby_page.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
@@ -67,17 +68,30 @@ class _CoWriteLuaPageState extends State<CoWriteLuaPage> {
   RoomHandle? _handle;
   bool _showReferences = false;
 
+  /// 进入协作房间过渡：匹配完成 → 刷子盖屏揭开（无准备链，进入即盖）。
+  final GameEnterTransition _enterFx = GameEnterTransition();
+
+  @override
+  void initState() {
+    super.initState();
+    // 页面从入口表单（准备态）开始：声明后首次切换才会触发盖屏。
+    _enterFx.markPrep();
+  }
+
   @override
   void dispose() {
     _handle?.dispose();
     super.dispose();
   }
 
-  void _onStarted(RoomHandle h, LobbyStartedCtx ctx) =>
-      setState(() => _handle = h);
+  void _onStarted(RoomHandle h, LobbyStartedCtx ctx) {
+    _enterFx.update(context, true);
+    setState(() => _handle = h);
+  }
 
   Future<void> _disconnect() async {
     final h = _handle;
+    _enterFx.update(context, false); // 回到入口表单 → 下次进入重新盖屏
     setState(() => _handle = null);
     if (h != null) await h.leave();
   }
