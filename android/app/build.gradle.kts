@@ -47,17 +47,12 @@ android {
         // 多dex支持
         multiDexEnabled = true
 
-        // 只打 arm64：--target-platform 过滤不了插件 AAR 里的 native 库，
-        // 没有这行 x86_64/armeabi-v7a 的 rive_native、MLKit 等会多带 ~25MB 死重
+        // 只打 arm64：ndk.abiFilters 是 dev.flutter.flutter-gradle-plugin 在
+        // project-level 注入的 val（[armeabi-v7a, arm64-v8a, x86_64]），这里 += 实际
+        // 是 no-op（arm64-v8a 已在 FGP 列表里）。要真正 arm64-only 需 fork FGP 或换
+        // plugin 集；当前 APK 仍含 3 个 ABI 的 native 库（Oboe/MLKit/Rive），约 73MB。
         ndk {
             abiFilters += listOf("arm64-v8a")
-        }
-
-        // NDK: 节拍器用 Oboe C++ 实时合成音频
-        externalNativeBuild {
-            cmake {
-                arguments("-DANDROID_STL=c++_shared")
-            }
         }
 
         // 应用名 / 桌面小组件 label —— AndroidManifest.xml 用 ${appLabel} 等占位符引用。

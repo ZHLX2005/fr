@@ -7,9 +7,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../api/api_config.dart';
 import '../../api/goframe/download/apk_endpoint.dart';
 import '../../api/goframe/download/download_controller.dart';
+import '../../core/const_app_variant.dart';
 import '../../core/design/emphasis_button.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';
 import '../lab_container.dart';
+import 'api_test/api_download_manager.dart';
 
 /// APK 下载管理 —— 同一页面支持下载/安装小豆子（FR）和微豆子（兄弟 app）两个 APK。
 ///
@@ -51,6 +53,10 @@ class _ApiTestPage extends StatelessWidget {
               fileKey: 'fr_latest_apk',
               iconData: Icons.android,
               tint: Colors.blue,
+              // 自动下载功能仅「本 app 的自更新」有意义：
+              //   - 在小豆子 app 内，FR 卡就是本 app 自更新 → 显示开关
+              //   - 在微豆子 app 内，FR 卡是兄弟 app → 不显示（且微豆子本身不支持自动下载）
+              showAutoDownload: !kIsWeidouzi,
             ),
             SizedBox(height: 16),
             _ApkDownloadCard(
@@ -76,12 +82,16 @@ class _ApkDownloadCard extends StatefulWidget {
   final IconData iconData;
   final Color tint;
 
+  /// 是否显示「自动下载设置」开关（仅 self-update 卡打开；微豆子卡与兄弟 app 卡不开）
+  final bool showAutoDownload;
+
   const _ApkDownloadCard({
     required this.title,
     required this.subtitle,
     required this.fileKey,
     required this.iconData,
     required this.tint,
+    this.showAutoDownload = false,
   });
 
   @override
@@ -273,6 +283,21 @@ class _ApkDownloadCardState extends State<_ApkDownloadCard> {
     }
   }
 
+  /// 自动下载开关（仅 self-update 卡启用）
+  Future<void> _toggleAutoDownload(bool enabled) async {
+    await ApkDownloadManager().setAutoDownloadEnabled(enabled);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          enabled
+              ? '已开启自动下载：启动 App 时自动检查新版本'
+              : '已关闭自动下载',
+        ),
+      ),
+    );
+  }
+
   // ===== UI helpers =====
   String _fmtTime(String? s) => (s == null || s.isEmpty) ? '—' : (s.length >= 16 ? s.substring(0, 16) : s);
 
@@ -355,6 +380,11 @@ class _ApkDownloadCardState extends State<_ApkDownloadCard> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
+            ],
+            // 自动下载设置卡（仅 self-update 卡；微豆子与兄弟 app 卡不显示）
+            if (widget.showAutoDownload) ...[
+              _buildAutoDownloadCard(),
+              const SizedBox(height: 16),
             ],
             // 操作按钮
             Wrap(
@@ -444,6 +474,103 @@ class _ApkDownloadCardState extends State<_ApkDownloadCard> {
           ],
         ),
       ),
+    );
+  }
+
+  /// 自动下载设置卡：Switch 切换 + 服务器最新版本 / 本地已处理版本两个槽位。
+  Widget _buildAutoDownloadCard() {
+    return ValueListenableBuilder<ApkDownloadState>(
+      valueListenable: ApkDownloadManager().state,
+      builder: (context, s, _) {
+        final isOn = s.autoDownloadOnUpdate;
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isOn
+                ? Colors.teal.withValues(alpha: 0.08)
+                : Colors.grey.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isOn
+                  ? Colors.teal.withValues(alpha: 0.45)
+                  : Colors.grey.withValues(alpha: 0.30),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isOn ? Icons.bolt : Icons.power_settings_new,
+                    size: 20,
+                    color: isOn ? Colors.teal : Colors.grey[600],
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '自动下载新版本',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  Switch(
+                    value: isOn,
+                    onChanged: _isDownloading || _isPaused ? null : _toggleAutoDownload,
+                    activeThumbColor: Colors.teal,
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 28),
+                child: Text(
+                  isOn
+                      ? '下次启动 App 时自动检查，发现新版本立即下载'
+                      : '关闭后只在手动点击"检查更新"时触发',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _autoSlot(
+                icon: Icons.schedule,
+                label: '服务器最新版本',
+                value: _fmtTime(s.apkUpdateTime),
+                color: Colors.blue,
+              ),
+              const SizedBox(height: 6),
+              _autoSlot(
+                icon: Icons.history,
+                label: '本地已处理版本',
+                value: s.lastSeenUploadTime != null ? _fmtTime(s.lastSeenUploadTime) : '尚未下载',
+                color: s.lastSeenUploadTime != null ? Colors.green : Colors.grey,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _autoSlot({required IconData icon, required String label, required String value, required Color color}) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: Colors.grey),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(fontSize: 12, color: color, fontFamily: 'monospace'),
+          ),
+        ),
+      ],
     );
   }
 
