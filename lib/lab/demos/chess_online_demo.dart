@@ -38,6 +38,7 @@ import '../../core/chess/skins/file_resolver.dart';
 import '../../core/chess/skins/local_chess_skin.dart';
 import '../../core/chess/widgets/board_color_prefs.dart';
 import '../../core/chess/widgets/board_palette.dart';
+import '../../core/game_kit/lobby/brush_wipe_overlay.dart';
 import '../../core/game_kit/lobby/game_lobby_page.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 
@@ -288,22 +289,32 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
       }
     }
     if (!mounted) return;
-    // 刷子过渡已移到 ChessRoomPage 内部（准备态 → playing 首次切入时播，
-    // 见 GameEnterTransition）：进房先到准备页做房主配置 / 双方准备，
-    // 匹配完成的此刻不再盖屏。
-    unawaited(Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => ChessRoomPage(
-          handle: handle,
-          skinId: _skinId,
-          localSkin: _localSkins[_skinId],
-          boardPalette: _boardPalette,
-        ),
-      ),
-    ).then((_) {
-      if (!mounted) return;
-      _lobbyKey.currentState?.exposed.resetToEntry();
-    }));
+    // Overlay 刷子：铺满 → 零时长 push 准备页 → 淡出揭开。
+    await runBrushWipeTransition(
+      context: context,
+      underCover: () {
+        final nav = Navigator.of(context).push<void>(
+          PageRouteBuilder<void>(
+            opaque: true,
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: const Duration(milliseconds: 280),
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                ChessRoomPage(
+              handle: handle,
+              skinId: _skinId,
+              localSkin: _localSkins[_skinId],
+              boardPalette: _boardPalette,
+            ),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) => child,
+          ),
+        );
+        unawaited(nav.then((_) {
+          if (!mounted) return;
+          _lobbyKey.currentState?.exposed.resetToEntry();
+        }));
+      },
+    );
   }
 
   void _applyBoardPalette(BoardPalette? palette) {

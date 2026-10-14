@@ -12,7 +12,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/game_kit/lobby/game_enter_transition.dart';
 import '../../../core/game_kit/lobby/game_ready_style.dart';
 import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 
@@ -55,9 +54,6 @@ class OnlineGamePage extends StatefulWidget {
 
 class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
-
-  // 进入对局过渡：准备态 → playing 首次切入 → 刷子过渡盖屏（匹配/配置/准备全就绪后）。
-  final GameEnterTransition _enterFx = GameEnterTransition();
   Snapshot? _snap;
   GameState _gs = QuoridorEngine.initialize();
   late final SgRoom _room;
@@ -95,8 +91,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       );
       return;
     }
-    // 准备态 → playing 首次切入 → 刷子过渡盖屏（匹配/配置/准备全就绪后）
-    _enterFx.update(context, s.state == 'playing');
     final prevMyTurn = _isMyTurn;
     final prevHistoryLen = _gs.history.length;
     setState(() {

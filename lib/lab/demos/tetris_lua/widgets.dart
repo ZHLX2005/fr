@@ -15,7 +15,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/game_kit/lobby/game_enter_transition.dart';
 import '../../../core/game_kit/lobby/game_ready_style.dart';
 import 'engine.dart';
 import 'board.dart';
@@ -127,12 +126,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Timer? _gravityTimer;
   Timer? _repeatTimer; // 长按左/右/软降的重复触发
 
-  // 进入对局过渡：准备态 → playing 首次切入时盖屏；重力等揭开后再走表。
-  final GameEnterTransition _enterFx = GameEnterTransition();
-
-  /// 未消费的进入过渡门控（引擎因共享序列未到位而延迟创建时仍需兑现）。
-  Future<void>? _enterGate;
-
   bool _ackedLocally = false; // lobby 乐观
   bool _bustDeclared = false; // 防止 LOSE 重发
   DateTime? _lastSyncAt; // SYNC 节流
@@ -171,11 +164,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _trackOppDelta(s);
     setState(() => _snap = s);
 
-    // 先行结算「进入对局」过渡：准备态 → playing 首次切入时盖屏，
-    // 返回的门控由重力启动统一消费 —— 完成 transition 再开始。
-    final enterGate = _enterFx.update(context, s.state == 'playing');
-    if (enterGate != null) _enterGate = enterGate;
-
     // 断线恢复：自己重新出现在 players（rejoin 成功 / WS 重连拿到新鲜快照）
     // → 结束断开态，恢复本地游戏并重报 state（断连期间 states 可能被清）。
     if (_disconnected) {
@@ -190,15 +178,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         _recoverFailed = false;
       });
       if (s.state == 'playing') {
-        // 先取走门控再建引擎：_ensureEngine 创建时会消费 _enterGate 并按它
-        // 持有重力；此处再用同一 Future 兜底（引擎已存在时它才是唯一持有人）。
-        // _scheduleGravity 先 cancel 后重挂，重复消费幂等。
-        final gate = _enterGate;
         _ensureEngine();
         _lastSyncAt = null; // 强制重报，把当前棋盘重新填回 states
         _syncNow();
-        _startGravityAfter(gate);
-        _enterGate = null;
+        _scheduleGravity();
       }
     }
 
@@ -206,7 +189,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     if (phase == 'playing') {
       _ensureEngine();
     } else {
-      _enterGate = null;
       // 离开 playing（RESET 回 lobby / 终局 ended）→ 回收本地游戏态
       if (_engine != null) _teardownEngine();
     }
@@ -283,21 +265,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _engine = TetrisEngine(seq);
     _bustDeclared = false;
     _lastSyncAt = null;
-    _startGravityAfter(_enterGate);
-    _enterGate = null;
+    _scheduleGravity();
     _syncNow(); // 进场先报一次空板
-  }
-
-  /// 重力启动统一入口：gate == null → 立即；否则等进入过渡揭开后再走表
-  /// （「完成 transition 再开始」—— 双端都等同一过渡，起跑线一致）。
-  void _startGravityAfter(Future<void>? gate) {
-    if (gate == null) {
-      _scheduleGravity();
-      return;
-    }
-    gate.whenComplete(() {
-      if (mounted && _engine != null && _engine!.alive) _scheduleGravity();
-    });
   }
 
   void _teardownEngine() {

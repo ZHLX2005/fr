@@ -472,13 +472,6 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    // 新局进入刷子过渡（GameEnterTransition：ended → playing 重新武装盖屏）
-    // → 等过渡播完揭开、遮罩移除后再交互。揭开链有微任务/定时器步进，
-    // pumpAndSettle 在无帧调度时会提前停 → 追加泵帧直到遮罩消失。
-    await tester.pumpAndSettle();
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
 
     // 第 2 局：2 手（d2d4 d7d5）终局 → 再复盘：步数 / 局面都是新局的。
     pushEndedGame(handle, const ['d2d4', 'd7d5']);

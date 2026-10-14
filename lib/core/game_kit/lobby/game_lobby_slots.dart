@@ -106,8 +106,9 @@ class GameLobbyHandle {
 
 /// onStarted 回调签名（两种 flow 共用）。
 ///
-/// 回调应在「目标页已可见」后返回，**不要** await 到用户 pop 回大厅
-/// （否则会阻塞按钮态恢复）。pop 后的 reset 请用 `.then` / 独立 Future。
+/// 若 [LobbyCopy.enterBrushWipe] 开启：根 Overlay 刷子会 **await** 本回调结束后才淡出揭开。
+/// 因此回调应在「目标页已 push」后返回，**不要** await 到用户 pop 回大厅
+/// （否则刷子会盖住整局）。pop 后的 reset 请用 `.then` / 独立 Future。
 typedef LobbyOnStarted = FutureOr<void> Function(
   RoomHandle handle,
   LobbyStartedCtx ctx,

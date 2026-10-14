@@ -159,11 +159,9 @@ class _BrushWipeOverlayState extends State<BrushWipeOverlay>
       ..addStatusListener((s) {
         if (s == AnimationStatus.completed) unawaited(_finish());
       });
-    // 立即起动画：贴图未到位时画色块笔刷兜底，加载完成后无缝替换。
-    // 原实现等贴图到位才 forward —— 贴图加载慢/挂起（如测试 FakeAsync 下
-    // 的 codec 解码）时遮罩一直透明却吞输入，揭开永不发生。
-    _ctrl.forward();
-    _loadBrush();
+    _loadBrush().then((_) {
+      if (mounted) _ctrl.forward();
+    });
   }
 
   Future<void> _finish() async {
@@ -180,7 +178,8 @@ class _BrushWipeOverlayState extends State<BrushWipeOverlay>
       final frame = await codec.getNextFrame();
       if (mounted) setState(() => _brush = frame.image);
     } catch (_) {
-      // 无贴图时继续用色块笔刷（动画已在跑，无需补 forward）。
+      // 无贴图时仍播色块扫过
+      if (mounted) _ctrl.forward();
     }
   }
 

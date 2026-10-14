@@ -60,6 +60,9 @@ class LobbyCopy {
   /// 随机房间号按钮 tooltip
   final String? randomCodeHint;
 
+  /// smartMatch 进房成功后播放油漆刷过渡（chess 原型落盘；默认关）
+  final bool enterBrushWipe;
+
   const LobbyCopy({
     required this.primaryBtnText,
     required this.secondaryBtnText,
@@ -71,6 +74,7 @@ class LobbyCopy {
     this.defaultAlias,
     this.randomCodeEnabled = false,
     this.randomCodeHint,
+    this.enterBrushWipe = false,
   });
 }
 
