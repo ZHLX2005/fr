@@ -7,12 +7,18 @@ import 'download_controller.dart';
 
 /// APK 流式下载 — 边收边写、断点续传。
 /// 走 http.Client 直连（需 stream 控制），不走拦截器链。
+///
+/// fileKey 默认 = `kApkFileKey`：
+///   - 小豆子变体（kIsWeidouzi=false）→ 'fr_latest_apk'，用于应用内自更新
+///   - 微豆子变体（kIsWeidouzi=true） → 'wdz_latest_apk'，用于应用内自更新
+/// 也可显式传 [fileKey] 跨变体取别的 key：
+///   例：在小豆子 app 里要查/下微豆子最新 APK，传 `fileKey: 'wdz_latest_apk'`
 class ApkDownloadEndpoint {
   final ApiConfig _config;
+  final String _fileKey;
 
-  ApkDownloadEndpoint(this._config);
-
-  static const _fileKey = kApkFileKey;
+  ApkDownloadEndpoint(this._config, {String? fileKey})
+      : _fileKey = fileKey ?? kApkFileKey;
 
   String get _base => _config.baseUrl;
 
