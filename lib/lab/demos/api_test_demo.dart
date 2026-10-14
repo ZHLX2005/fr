@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/const_app_variant.dart';
 import '../../core/design/emphasis_button.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';
 import '../lab_container.dart';
@@ -73,8 +74,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   }
 
   Future<void> _downloadApkWithBrowser() async {
-    const url = 'http://47.110.80.47:8988/files/by-key/fr_latest_apk';
-    final uri = Uri.parse(url);
+    final uri = Uri.parse(kApkByNameUrl);
     try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
@@ -200,6 +200,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    // Tab 结构：小豆子双 Tab 不变；微豆子变体不含语音合成模块（kIsWeidouzi）。
+    final tabs = <Tab>[
+      const Tab(text: 'APK 更新'),
+      if (!kIsWeidouzi) const Tab(text: '语音合成'),
+    ];
     // 主壳浮层底栏：勿用 SafeArea(bottom)——会吃掉 MediaQuery.padding 后
     // 露出外层 Scaffold 白条。页底色铺满，滚动区自行留白。
     return ColoredBox(
@@ -207,20 +212,15 @@ class _ApiTestPageState extends State<_ApiTestPage> {
       child: SafeArea(
         bottom: false,
         child: DefaultTabController(
-          length: 2,
+          length: tabs.length,
           child: Column(
             children: [
-              const TabBar(
-                tabs: [
-                  Tab(text: 'APK 更新'),
-                  Tab(text: '语音合成'),
-                ],
-              ),
+              TabBar(tabs: tabs),
               Expanded(
                 child: TabBarView(
                   children: [
                     _buildApkTab(),
-                    const ApiSpeechTabPage(),
+                    if (!kIsWeidouzi) const ApiSpeechTabPage(),
                   ],
                 ),
               ),
@@ -284,9 +284,11 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      // 自动下载设置 + 版本槽位
-                      _buildAutoDownloadCard(apkState),
-                      const SizedBox(height: 16),
+                      // 自动下载设置 + 版本槽位（微豆子不支持自动下载，整卡不渲染）
+                      if (!kIsWeidouzi) ...[
+                        _buildAutoDownloadCard(apkState),
+                        const SizedBox(height: 16),
+                      ],
                       // 状态信息
                       if (apkState.statusMessage != null) ...[
                         Container(
@@ -407,7 +409,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             ),
                             SizedBox(height: 4),
                             SelectableText(
-                              'http://47.110.80.47:8988/files/by-key/fr_latest_apk',
+                              'http://47.110.80.47:8988/files/by-key/$kApkFileKey',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.blue,
@@ -416,7 +418,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'Key: fr_latest_apk (覆盖更新) | 永不过期',
+                              'Key: $kApkFileKey (覆盖更新) | 永不过期',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/focus_provider.dart';
 import 'focus_timer_page.dart';
 import '../timetable/timetable.dart';
+import '../const_app_variant.dart';
 import 'time_tools/const_time_pages.dart';
 import '../../lab/lab_container.dart';
 import '../../screens/profile/lab/demo_detail_page.dart';
@@ -165,7 +166,7 @@ class FocusHomePage extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '欢迎使用小豆子 ^.^ ？',
+          '欢迎使用$kAppDisplayName ^.^ ？',
           style: ZenText.body.copyWith(
             fontSize: 20,
             fontWeight: FontWeight.w400,

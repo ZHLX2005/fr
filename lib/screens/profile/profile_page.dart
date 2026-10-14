@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'native_controller/native_controller_page.dart';
 import 'lab/lab_page.dart';
+import '../../core/const_app_variant.dart';
 import 'lab/game_center_page.dart';
 import '../../lab/lab_container.dart';
 import 'banner_crop_page.dart';
@@ -240,7 +241,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [
                   // 只把 banner 进 FlexibleSpaceBar.background —— 保留 iOS 放大手感
                   FlexibleSpaceBar(
-                    title: _bannerPath == null ? const Text('小豆子') : null,
+                    title: _bannerPath == null ? const Text(kAppDisplayName) : null,
                     titlePadding: const EdgeInsets.only(left: 16, bottom: 40),
                     background: SpringyBanner(
                       imagePath: _bannerPath,
@@ -365,7 +366,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             child: Text(
-                              '小豆子 - 为了满足好奇心而生',
+                              '$kAppDisplayName - 为了满足好奇心而生',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(
                                   context,

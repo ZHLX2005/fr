@@ -28,6 +28,8 @@ import 'package:flutter_background_service_android/flutter_background_service_an
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/const_app_variant.dart';
+
 // ═══════════════════════════════════════════════════════
 // 主 isolate 端 — 后台服务控制器
 // ═══════════════════════════════════════════════════════
@@ -241,7 +243,7 @@ Future<void> _runDownload(
   AndroidServiceInstance service,
   _BgController ctrl,
 ) async {
-  const fileKey = 'fr_latest_apk';
+  const fileKey = kApkFileKey;
   const url = 'http://47.110.80.47:8988/files/by-key/$fileKey';
 
   try {

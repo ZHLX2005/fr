@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import '../../../core/const_app_variant.dart';
 import '../../api_config.dart';
 import 'download_controller.dart';
 
@@ -11,7 +12,7 @@ class ApkDownloadEndpoint {
 
   ApkDownloadEndpoint(this._config);
 
-  static const _fileKey = 'fr_latest_apk';
+  static const _fileKey = kApkFileKey;
 
   String get _base => _config.baseUrl;
 

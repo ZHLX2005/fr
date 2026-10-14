@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../api/api_config.dart';
 import '../api/goframe/download/apk_endpoint.dart';
+import '../core/const_app_variant.dart';
 
 // API 响应包装类
 class ApiResponse<T> {
@@ -70,7 +71,7 @@ class ApiService {
   // 下载APK（通过key）
   static Future<http.Response?> downloadApk() async {
     try {
-      final uri = Uri.parse('$baseUrl/files/by-key/fr_latest_apk');
+      final uri = Uri.parse('$baseUrl/files/by-key/$kApkFileKey');
       return await http.get(uri);
     } catch (e) {
       return null;
@@ -89,7 +90,7 @@ class ApiService {
       return null;
     }
 
-    const fileKey = 'fr_latest_apk';
+    const fileKey = kApkFileKey;
     final url = '$baseUrl/files/by-key/$fileKey';
 
     try {
@@ -205,7 +206,7 @@ class ApiService {
     }
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/fr_latest_apk.apk');
+      final file = File('${dir.path}/$kApkFileKey.apk');
       if (await file.exists()) {
         return file.path;
       }
@@ -221,7 +222,7 @@ class ApiService {
     if (!Platform.isAndroid && !Platform.isIOS) return null;
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final tempFile = File('${dir.path}/download_fr_latest_apk.tmp');
+      final tempFile = File('${dir.path}/download_$kApkFileKey.tmp');
       if (await tempFile.exists()) {
         return (path: tempFile.path, size: await tempFile.length());
       }
@@ -236,7 +237,7 @@ class ApiService {
     if (!Platform.isAndroid && !Platform.isIOS) return;
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final tempFile = File('${dir.path}/download_fr_latest_apk.tmp');
+      final tempFile = File('${dir.path}/download_$kApkFileKey.tmp');
       if (await tempFile.exists()) {
         await tempFile.delete();
       }

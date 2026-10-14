@@ -7,6 +7,13 @@
 
 ---
 
+## 2026-10-14
+
+### 构建（build）
+
+- **feat** 微豆子（weidouzi）双 app 构建链条：`build-apk-v2.yml` 新增 `app` 维度（`weidouzi` 选项），同一份代码产出可与小豆子并存安装的第二 app——独立签名（新 secret `WEIDOUZI_KEYSTORE_BASE64`，openssl 生成 PKCS12，alias `weidouzi`，与小豆子 `KEYSTORE_BASE64` 互不影响）、独立包名 `io.github.xiaodouzi.fr.wdz`、桌面名与小组件 label 切「微豆子」、应用内文案（profile 页 / 专注首页欢迎语 / 分享提示 / 录音权限指引 / 任务切换器标题）全部跟随变体。微豆子裁剪：无「语音合成」Tab、不支持自动下载（启动钩子 + 隐藏宿主 + 设置卡三处关闭）；检查更新 / 浏览器下载 / 内部下载保留，更新源指向独立 key `wdz_latest_apk`（避免下到小豆子包无法覆盖安装）。实现 = 构建期注入（gradle 属性 `appVariant` + `--dart-define=APP_VARIANT`），源码默认行为零改动；小豆子链路（v1/v2 workflow、上传 key、artifact 名）原样。新增 `lib/core/const_app_variant.dart` 统一变体常量、`scripts/build_weidouzi.sh` 本地一键构建、KEYSTORE_SETUP.md 微豆子章节
+- **fix** v2 split-per-abi 模式潜在编译冲突：`--split-per-abi` 触发的 `splits.abi` 与 defaultConfig 既有的 `ndk.abiFilters` 在 AGP 中互斥（`Conflicting configuration : 'arm64-v8a' in ndk abiFilters cannot be present when splits abi filters are set`），v2 一直没人跑过所以隐藏至今。改为只保留 `--target-platform android-arm64`（与 ndk.abiFilters 兼容），由 ndk.abiFilters=arm64-v8a 负责 AAR 过滤、--target-platform 负责 Flutter 引擎与 native 库限制 → 产物 ~36MB 单 arm64 APK，与原计划的"主动瘦身"效果一致，不走 splits.abi 这条冲突分支
+
 ## 2026-10-13
 
 ### 界面 / 导航（ui / nav）

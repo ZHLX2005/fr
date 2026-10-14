@@ -7,10 +7,28 @@ name: Build Android APK (v2 - manual)
 #   - 同套 Flutter 3.41.4 / Java 17 / build_runner / keystore
 #   - 同套产物上传（artifact + 调试符号 + 文件服务器）
 # 仅多一个 workflow_dispatch input 让操作者选 mode。
+#
+# ★ 新增 app 维度（纯增量，xiaodouzi 默认路径行为不变）：
+#   - xiaodouzi：小豆子，逻辑与上述完全一致（KEYSTORE_BASE64 → fr_v2_* key）
+#   - weidouzi：微豆子 —— 同一份代码的第二 app，可与小豆子并存安装：
+#       独立签名（secrets.WEIDOUZI_KEYSTORE_BASE64 → weidouzi.keystore）
+#       独立包名 io.github.xiaodouzi.fr.wdz
+#       应用名/桌面小组件 label 切「微豆子」；无语音合成 Tab；不支持自动下载
+#       更新源 file key = wdz_latest_apk（应用内 检查更新/浏览器下载/内部下载 消费）
+#   实现方式 = 构建期注入（gradle 属性 appVariant + --dart-define=APP_VARIANT），
+#   不改动任何提交的源文件；映射见 android/app/build.gradle.kts 与 lib/core/const_app_variant.dart。
 
 on:
   workflow_dispatch:
     inputs:
+      app:
+        description: '目标应用（xiaodouzi=小豆子原链路；weidouzi=微豆子独立签名/包名/更新源）'
+        type: choice
+        required: true
+        default: 'xiaodouzi'
+        options:
+          - xiaodouzi
+          - weidouzi
       mode:
         description: 'APK 模式（v2 提供 split-per-abi arm64 单架构；fat 用于对照验证）'
         type: choice
@@ -54,28 +72,47 @@ jobs:
       - name: Setup release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          WEIDOUZI_KEYSTORE_BASE64: ${{ secrets.WEIDOUZI_KEYSTORE_BASE64 }}
         run: |
           mkdir -p android/app
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-            # 验证 keystore
-            keytool -list -keystore android/app/release.keystore -storepass android
+          # 小豆子走原 KEYSTORE_BASE64 → release.keystore（原逻辑不变）；
+          # 微豆子走新 secret WEIDOUZI_KEYSTORE_BASE64 → weidouzi.keystore（PKCS12，alias weidouzi）
+          if [ "${{ inputs.app }}" = "weidouzi" ]; then
+            if [ -z "$WEIDOUZI_KEYSTORE_BASE64" ]; then
+              echo "请在GitHub Secrets中添加WEIDOUZI_KEYSTORE_BASE64"
+              exit 1
+            fi
+            KEYSTORE_FILE=android/app/weidouzi.keystore
+            echo "$WEIDOUZI_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
           else
-            echo "请在GitHub Secrets中添加KEYSTORE_BASE64"
-            exit 1
+            if [ -z "$KEYSTORE_BASE64" ]; then
+              echo "请在GitHub Secrets中添加KEYSTORE_BASE64"
+              exit 1
+            fi
+            KEYSTORE_FILE=android/app/release.keystore
+            echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
           fi
+          # 验证 keystore（PKCS12 / JKS 通用）
+          keytool -list -keystore "$KEYSTORE_FILE" -storepass android
+
+      # 微豆子变体：构建期注入身份 —— gradle.properties 追加只存在于本次 CI 工作区，
+      # 不会进 git；dart-define 通过 GITHUB_ENV 传给构建步骤（小豆子链该变量为空，命令不变）。
+      - name: Configure app variant (weidouzi)
+        if: inputs.app == 'weidouzi'
+        run: |
+          printf '\n# 微豆子变体（CI 注入，不提交）：.wdz 包名后缀 + weidouzi 签名 + 微豆子命名\nappVariant=weidouzi\n' >> android/gradle.properties
+          echo "APP_VARIANT_FLAG=--dart-define=APP_VARIANT=weidouzi" >> "$GITHUB_ENV"
 
       # ↓ 这里是与 v1 的唯一差异：按 inputs 选择构建命令
-      - name: Build Android APK (v2 - ${{ inputs.mode }})
+      - name: Build Android APK (v2 - ${{ inputs.app }} / ${{ inputs.mode }})
         run: |
           if [ "${{ inputs.mode }}" = "split-arm64" ]; then
-            # 单架构 arm64 + 拆 abi 拆分：现代手机用户实际下载约 36 MB
-            # （master fat APK 在 105 MB 左右）
-            SPLIT_FLAG="--split-per-abi"
+            # 主动瘦身 arm64 单架构：--target-platform 限制 Flutter 引擎与 native 库只构 arm64，
+            # defaultConfig 的 ndk.abiFilters=arm64-v8a 配合过滤插件 AAR 里的
+            # x86_64/armeabi-v7a native 库（多带 ~25MB 死重）→ 产物 ~36MB 单 APK
             TARGET="--target-platform android-arm64"
           else
             # fat-all-abis：与 v1 默认构建对齐，用于对比
-            SPLIT_FLAG=""
             TARGET=""
           fi
 
@@ -84,10 +121,11 @@ jobs:
             OBFUSCATE_FLAG="--obfuscate --split-debug-info=./debug_symbols"
           fi
 
+          # APP_VARIANT_FLAG 仅有微豆子链非空（Configure 步骤注入）
           flutter build apk --release \
             $TARGET \
-            $SPLIT_FLAG \
-            $OBFUSCATE_FLAG
+            $OBFUSCATE_FLAG \
+            $APP_VARIANT_FLAG
 
       - name: List output files
         run: find build/app/outputs/flutter-apk -name "*.apk"
@@ -95,7 +133,8 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: flutter-app-v2-${{ inputs.mode }}-${{ github.sha }}
+          # 小豆子保持原名不动；微豆子独立命名便于区分
+          name: ${{ inputs.app == 'weidouzi' && format('weidouzi-apk-{0}-{1}', inputs.mode, github.sha) || format('flutter-app-v2-{0}-{1}', inputs.mode, github.sha) }}
           path: build/app/outputs/flutter-apk/app-*.apk
           retention-days: 30
 
@@ -115,8 +154,14 @@ jobs:
             echo "Uploading $APK_FILE to file server..."
             # v2 上传用独立 key，避免覆盖 v1 的 fr_latest_apk（新 file 接口 by-key 覆盖更新，
             # 服务端软删旧行，/files/by-key/{key} 永远指向最新）
-            UPLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
-            DOWNLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
+            # ★ 微豆子链上传 wdz_latest_apk：与 lib/core/const_app_variant.dart 的 kApkFileKey
+            #   对齐，微豆子应用内 检查更新/浏览器下载/内部下载 直接消费这个 key
+            if [ "${{ inputs.app }}" = "weidouzi" ]; then
+              UPLOAD_KEY="wdz_latest_apk"
+            else
+              UPLOAD_KEY="fr_v2_${mode//-/_}_latest_apk"
+            fi
+            DOWNLOAD_KEY="$UPLOAD_KEY"
             # curl 网络失败不得拖垮整 job（|| true + continue-on-error）
             RESPONSE=$(curl -sS --connect-timeout 15 --max-time 120 \
               -X POST "http://47.110.80.47:8988/api/v1/files" \

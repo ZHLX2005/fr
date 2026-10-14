@@ -17,6 +17,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../core/const_app_variant.dart';
 import '../lab/demos/api_test/api_download_manager.dart';
 
 /// 条件挂载点：开关开启 → 挂载隐藏宿主；关闭 → 0x0 占位。
@@ -26,6 +27,8 @@ class ApkAutoUpdateMount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 微豆子变体不支持自动下载：无论开关状态一律不挂载宿主
+    if (kIsWeidouzi) return const SizedBox.shrink();
     return ValueListenableBuilder<ApkDownloadState>(
       valueListenable: ApkDownloadManager().state,
       builder: (context, s, _) {

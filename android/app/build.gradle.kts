@@ -5,6 +5,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// ===== 构建变体开关（默认小豆子；CI 微豆子链向 android/gradle.properties 追加 appVariant=weidouzi）=====
+// 微豆子：独立签名（android/app/weidouzi.keystore ← secrets.WEIDOUZI_KEYSTORE_BASE64）、
+// 包名 io.github.xiaodouzi.fr.wdz、应用名/小组件 label 切「微豆子」。
+// 两套配置纯新增互不覆盖：不带该属性时下列分支全部取默认值，与历史构建一致。
+// Dart 侧对应 --dart-define=APP_VARIANT=weidouzi（见 lib/core/const_app_variant.dart）。
+val appVariant = (project.findProperty("appVariant") as String?) ?: "xiaodouzi"
+val isWeidouzi = appVariant == "weidouzi"
+
 android {
     namespace = "io.github.xiaodouzi.fr"
     compileSdk = flutter.compileSdkVersion
@@ -24,6 +32,8 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "io.github.xiaodouzi.fr"
+        // 微豆子变体：包名加 .wdz 后缀与 小豆子 并存（默认不加，原包名不变）
+        if (isWeidouzi) applicationIdSuffix = ".wdz"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion  // 设置最低SDK版本为21以支持更多功能
@@ -49,6 +59,14 @@ android {
                 arguments("-DANDROID_STL=c++_shared")
             }
         }
+
+        // 应用名 / 桌面小组件 label —— AndroidManifest.xml 用 ${appLabel} 等占位符引用。
+        // 默认值与原硬编码一致；微豆子变体整体切「微豆子」。
+        manifestPlaceholders["appLabel"] = if (isWeidouzi) "微豆子" else "小豆子"
+        manifestPlaceholders["widgetLabelClock"] = if (isWeidouzi) "微豆子 · 时钟" else "小豆子 · 时钟"
+        manifestPlaceholders["widgetLabelTimetable"] = if (isWeidouzi) "微豆子 · 课表" else "小豆子 · 课表"
+        manifestPlaceholders["widgetLabelNotion"] = if (isWeidouzi) "微豆子 · 拍照" else "小豆子 · 拍照"
+        manifestPlaceholders["widgetLabelRecorder"] = if (isWeidouzi) "微豆子 · 录音" else "小豆子 · 录音"
     }
 
     externalNativeBuild {
@@ -70,12 +88,22 @@ android {
             keyAlias = "release"
             keyPassword = "android"
         }
+
+        // 微豆子独立签名（新增，不覆盖 release）：keystore 由 CI 从
+        // secrets.WEIDOUZI_KEYSTORE_BASE64 落地到 android/app/weidouzi.keystore。
+        // PKCS12 格式要求 store/key 同口令。
+        create("weidouzi") {
+            storeFile = file("weidouzi.keystore")
+            storePassword = "android"
+            keyAlias = "weidouzi"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
         release {
-            // 使用固定签名密钥
-            signingConfig = signingConfigs.getByName("release")
+            // 小豆子默认走 release 签名（原行为）；appVariant=weidouzi 时切微豆子独立签名
+            signingConfig = signingConfigs.getByName(if (isWeidouzi) "weidouzi" else "release")
 
             // 启用代码压缩和混淆
             isMinifyEnabled = true

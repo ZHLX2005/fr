@@ -4,6 +4,8 @@
 /// `const_xxxx.dart` 统一管理一个模块的常量,减少跨文件维护成本。
 library;
 
+import '../../../core/const_app_variant.dart';
+
 /// 文件名前缀 / 目录命名约定(用于显示 / 排序 / 防止中文文件名乱码)。
 class RecorderConsts {
   RecorderConsts._();
@@ -57,7 +59,7 @@ class RecorderUiText {
   static const String savedPrefix = '已保存: ';
   static const String requestPermission = '请授予麦克风权限';
   static const String permissionDeniedHint =
-      '录音权限被拒绝,可在系统设置 → 应用 → 小豆子 中开启';
+      '录音权限被拒绝,可在系统设置 → 应用 → $kAppDisplayName 中开启';
   static const String noRecordingHint = '轻点下方按钮开始录音';
 
   // ── 录音列表(CRUD) ──

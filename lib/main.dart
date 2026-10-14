@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
+import 'core/const_app_variant.dart';
 import 'core/theme/state/theme_provider.dart';
 import 'core/nav/game_cover_warmup.dart';
 import 'core/nav/nav_bootstrap.dart';
@@ -117,7 +118,8 @@ void main() async {
   // APK 自动下载生命周期：先 hydrate 状态（lastSeenUploadTime / autoDownloadEnabled）
   // 再触发启动期检查；开关关闭时静默返回，不影响冷启动。
   // ★ web 端不跑：APK 分发是 Android 专属能力，web 构建里纯属噪音。
-  if (!kIsWeb) {
+  // ★ 微豆子变体不跑：微豆子不支持自动下载（kIsWeidouzi），见 const_app_variant.dart。
+  if (!kIsWeb && !kIsWeidouzi) {
     unawaited(runApkAutoDownloadOnStartup());
   }
 
@@ -223,7 +225,7 @@ class MyApp extends ConsumerWidget {
         ),
         // fr:// CLEAR_TOP 防栈累加依赖的路由栈跟踪器
         navigatorObservers: [frRouteStack],
-        title: '小豆子',
+        title: kAppDisplayName,
         debugShowCheckedModeBanner: false,
         theme: themeData,
         themeMode: themeMode,

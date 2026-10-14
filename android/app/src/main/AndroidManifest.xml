@@ -72,7 +72,7 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
     <application
-        android:label="小豆子"
+        android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
@@ -179,7 +179,7 @@
         <!-- 时钟桌面小组件 -->
         <receiver
             android:name=".native.widget.ClockWidgetProvider"
-            android:label="@string/widget_label_clock"
+            android:label="${widgetLabelClock}"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -192,7 +192,7 @@
         <!-- 课表桌面小组件 -->
         <receiver
             android:name=".native.widget.TimetableWidgetProvider"
-            android:label="@string/widget_label_timetable"
+            android:label="${widgetLabelTimetable}"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -206,7 +206,7 @@
         <!-- Notion 图床桌面小组件 — 点击直接打开图床页 + 自动触发拍照 -->
         <receiver
             android:name=".native.widget.NotionWidgetProvider"
-            android:label="@string/widget_label_notion"
+            android:label="${widgetLabelNotion}"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -219,7 +219,7 @@
         <!-- 录音机桌面小组件 — 点击直接进入录音页 + 自动开始录音 -->
         <receiver
             android:name=".native.widget.RecorderWidgetProvider"
-            android:label="@string/widget_label_recorder"
+            android:label="${widgetLabelRecorder}"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

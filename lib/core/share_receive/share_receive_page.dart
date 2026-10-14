@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'share_receive_store.dart';
+import '../const_app_variant.dart';
 
 /// 外部分享接收页 —— 展示其他 app 分享给 FR 的文本/文件。
 ///
@@ -141,7 +142,7 @@ class _EmptyView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '暂无分享内容\n在其他应用里选择「分享」并挑选「小豆子」即可收到内容',
+            '暂无分享内容\n在其他应用里选择「分享」并挑选「$kAppDisplayName」即可收到内容',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(
