@@ -199,6 +199,13 @@ const Map<String, GameMeta> kGameMeta = {
     mode: '联机双人',
     pattern: GameArtPattern.grid,
   ),
+  'draughts-lua': GameMeta(
+    categories: {GameCategory.multiplayer, GameCategory.board},
+    icon: Icons.circle_outlined,
+    gradient: [Color(0xFF5D4037), Color(0xFFA1887F)],
+    mode: '联机双人',
+    pattern: GameArtPattern.grid,
+  ),
   'jungle-chess-lua': GameMeta(
     categories: {GameCategory.multiplayer, GameCategory.board},
     icon: Icons.pets_rounded,

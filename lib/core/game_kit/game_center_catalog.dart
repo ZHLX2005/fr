@@ -118,6 +118,14 @@ const List<GameCenterCatalogEntry> kGameCenterCatalog = [
     mode: '联机双人',
   ),
   GameCenterCatalogEntry(
+    slug: 'draughts-lua',
+    title: '国际跳棋（联机）',
+    description:
+        'International Draughts 10×10 · Lua 服务端权威棋谱 · 强制吃子 + flying king',
+    categories: ['multiplayer', 'board'],
+    mode: '联机双人',
+  ),
+  GameCenterCatalogEntry(
     slug: 'jungle-chess-lua',
     title: '斗兽棋（联机）',
     description: '斗兽棋互联网双人对战 · Lua 服务端权威棋谱 · 棋盘对称翻转',
