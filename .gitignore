@@ -41,9 +41,15 @@ api_spec.json
 
 # Test files (local API testing - never commit)
 test/*
-# Exception: localnet framework test infrastructure is version-controlled
+# Exception: 已纳入版本控制的测试树（目录否定后必须再否定 **，否则子文件仍被忽略）
 !test/core/
-!test/core/localnet/
+!test/core/**
+!test/lab/
+!test/lab/**
+!test/api/
+!test/api/**
+!test/app_lifecycle/
+!test/app_lifecycle/**
 
 # Symbolication related
 app.*.symbols
@@ -71,8 +77,6 @@ PROJECT_INDEX.md
 .omc/
 .claude/logs/
 
-
-test
 .tool
 
 # 本地临时目录（截图 / MCP 调试产物 / null 输出等）

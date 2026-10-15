@@ -59,7 +59,7 @@
 | `lib/lab/lab_bootstrap.dart` | `registerDraughtsLuaDemo()` |
 | `lib/screens/profile/lab/game_center/const_game_center.dart` | `kGameMeta` 加一条 |
 | `lib/core/game_kit/game_center_catalog.dart` | `kGameCenterCatalog` 加一条 |
-| 待办 | `dart run tool/publish_game_center_index.dart`（ve 管理端封面） |
+| 待办 | `kvcli auth login` 后跑 `dart run tool/publish_game_center_index.dart`（token 已过期，ve 管理端封面） |
 
 ### 阶段 4 — 测试 `test/core/draughts/`
 - 走法生成：兵单步 / 王 flying 滑动

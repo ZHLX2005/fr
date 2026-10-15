@@ -1,0 +1,187 @@
+// test/core/draughts/p2p/draughts_script_guard_test.dart
+//
+// kDraughtsScript 静态守卫测试 —— 客户端无法嵌 Lua VM，对脚本源码做防回归断言。
+//
+// 守卫对象（对齐 chess_script_guard_test 的方法，断言换成本游戏的不变量）：
+//   · 装配正确性：handlers 必须是**顶层全局**，导出表由 assembler 统一生成
+//     （写在 return 表里会触发 CreateRoom 400）。
+//   · action_permissions 声明齐全（服务端按表派发 + 把守角色）。
+//   · MOVE 存 fen（PDN 走子后局面的唯一权威快照）。
+//   · CLAIM_END 只认 5 个 reason，且只由刚走完的一方发起。
+//   · on_leave 的 playing/ready 分支只标 disconnected、不销毁房间（id47 语义）。
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaodouzi_fr/core/draughts/p2p/script/draughts_script.dart';
+
+void main() {
+  group('kDraughtsScript 装配正确性', () {
+    test('三个生命周期 handler 存在且被导出表引用', () {
+      for (final name in const ['on_init', 'on_join', 'on_leave']) {
+        expect(kDraughtsScript, contains('$name = function'),
+            reason: '$name 必须是顶层全局函数');
+        expect(kDraughtsScript, contains('$name = $name,'),
+            reason: '$name 必须被导出表按名引用（服务端按表派发）');
+      }
+    });
+
+    test('所有动作 handler 存在且被导出表引用', () {
+      const actions = [
+        'ACK', 'DEAL', 'START', 'SET_RULES', 'MOVE', 'CLAIM_END',
+        'RESIGN', 'DRAW_OFFER', 'DRAW_ACCEPT', 'DRAW_DECLINE', 'RESET',
+      ];
+      for (final a in actions) {
+        expect(kDraughtsScript, contains('on_action_$a = function'),
+            reason: 'on_action_$a 必须是顶层全局');
+        expect(kDraughtsScript, contains('"on_action_$a"'),
+            reason: 'on_action_$a 必须登记进 definition.functions');
+      }
+    });
+
+    test('共享段 emoji / chat 已并入', () {
+      expect(kDraughtsScript, contains('"on_action_EMOJI"'));
+      expect(kDraughtsScript, contains('"on_action_CHAT"'));
+    });
+
+    test('导出表由 assembler 生成在脚本最末（return 出现在 handler 之后）', () {
+      final returnIdx = kDraughtsScript.lastIndexOf('return {');
+      expect(returnIdx, isNot(-1));
+      final moveIdx = kDraughtsScript.indexOf('on_action_MOVE = function');
+      expect(returnIdx, greaterThan(moveIdx),
+          reason: '导出表必须在全部 handler 定义之后');
+    });
+
+    test('definition.functions 声明了全部 handler', () {
+      expect(kDraughtsScript, contains('functions = {'));
+      for (final a in const ['MOVE', 'CLAIM_END', 'RESIGN', 'RESET']) {
+        expect(kDraughtsScript, contains('"on_action_$a"'));
+      }
+    });
+  });
+
+  group('kDraughtsScript 角色权限', () {
+    test('action_permissions 声明齐全', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(onInit, contains('ACK          = "any"'));
+      expect(onInit, contains('DEAL         = "host"'));
+      expect(onInit, contains('SET_RULES    = "host"'));
+      expect(onInit, contains('MOVE         = "current_player"'));
+      expect(onInit, contains('RESIGN       = "any"'));
+      expect(onInit, contains('CLAIM_END    = "non_current_player"'));
+      expect(onInit, contains('RESET        = "host"'));
+    });
+
+    test('role_check 按 host_color 判"走子方是不是 host"', () {
+      final roleCheck = _functionBlock('function role_check(c, p, action)');
+      expect(roleCheck, contains('local host_side = c.host_color or "w"'));
+      expect(
+        RegExp('c\\.host_color or "w"').allMatches(roleCheck).length,
+        greaterThanOrEqualTo(2),
+        reason: 'current_player 与 non_current_player 都须用 c.host_color',
+      );
+    });
+
+    test('side_to_move 由 initial_side + 手数奇偶推', () {
+      final fn = _functionBlock('function side_to_move(c, n)');
+      expect(fn, contains('local first = c.initial_side or "w"'));
+      expect(fn, contains('n % 2 == 0'));
+    });
+  });
+
+  group('kDraughtsScript 走子与终局', () {
+    test('MOVE 存 fen 并做轮次反证', () {
+      final block = _functionBlock('on_action_MOVE = function');
+      expect(block, contains('fen = p.fen'),
+          reason: 'moves entry 必须存走后 fen（重连/重放恢复局面）');
+      expect(block, contains('side_to_move(c, #c.moves + 1)'),
+          reason: '必须用 side_to_move 推期望轮次做反证');
+      expect(block, contains('if fen_turn ~= expect_side then'),
+          reason: 'FEN 首字符轮次不符必须拒绝该手');
+      expect(block, contains('is_valid_pdn_move(p.pdn)'));
+      expect(block, contains('is_valid_draughts_fen(p.fen)'));
+    });
+
+    test('CLAIM_END 只认 5 个 reason，胜/和分流且由刚落子方发起', () {
+      final block = _functionBlock('on_action_CLAIM_END = function');
+      expect(block, contains('reason == "noPieces"'));
+      expect(block, contains('reason == "noMoves"'));
+      expect(block, contains('reason == "threefold"'));
+      expect(block, contains('reason == "kingVsKing"'));
+      expect(block, contains('reason == "kingMoveLimit"'));
+      expect(block, contains('c.winner = p.device_id'),
+          reason: '胜局 winner = 声明方（刚走完的一方）');
+      expect(block, contains('c.status = "draw"'));
+      expect(block, contains('role_check(c, p, "CLAIM_END")'));
+    });
+
+    test('RESIGN 分派 winner 给对手', () {
+      final block = _functionBlock('on_action_RESIGN = function');
+      expect(block, contains('c.winner = c.guest_id'));
+      expect(block, contains('c.winner = c.host_id'));
+      expect(block, contains('c.status = "resigned"'));
+    });
+
+    test('RESET 仅 host、仅终局后，清 history 回 lobby', () {
+      final block = _functionBlock('on_action_RESET = function');
+      expect(block, contains('role_check(c, p, "RESET")'));
+      expect(block, contains('if state ~= "ended" then'));
+      expect(block, contains('c.moves = {}'));
+      expect(block, contains('c.status = "playing"'));
+      expect(block, contains('state = "lobby"'));
+    });
+  });
+
+  group('kDraughtsScript on_leave：对局中离开不销毁房间', () {
+    test('playing/ready 只标 disconnected、不置 ended', () {
+      final onLeave = _functionBlock('on_leave = function');
+      final lobbyIdx = onLeave.indexOf('elseif state == "lobby"');
+      expect(lobbyIdx, isNot(-1));
+      final playingBody = onLeave.substring(0, lobbyIdx);
+      expect(playingBody, contains('c.disconnected[p.device_id] = true'));
+      expect(playingBody, isNot(contains('state = "ended"')),
+          reason: '对局中离开不得结束房间（同 device_id 重连恢复）');
+      expect(onLeave, isNot(contains('c.force_leave')));
+      expect(onLeave, isNot(contains('c.moves = {}')),
+          reason: '离开不清权威棋谱');
+    });
+
+    test('lobby 分支保留空房语义', () {
+      final onLeave = _functionBlock('on_leave = function');
+      final lobbyIdx = onLeave.indexOf('elseif state == "lobby"');
+      final lobbyBody = onLeave.substring(lobbyIdx);
+      expect(lobbyBody, contains('c.guest_id = nil'));
+      expect(lobbyBody, contains('end_reason = "host_left_lobby"'));
+    });
+  });
+
+  group('kDraughtsScript PDN / FEN 校验 helper', () {
+    test('is_valid_pdn_move 存在且限 1..50', () {
+      final fn = _functionBlock('function is_valid_pdn_move(pdn)');
+      expect(fn, contains('n < 1 or n > 50'));
+      expect(fn, contains('[x%-]'));
+    });
+
+    test('is_valid_draughts_fen 存在且匹配 X:W…:B… 结构', () {
+      final fn = _functionBlock('function is_valid_draughts_fen(fen)');
+      expect(fn, contains('^[WB]:[WB]'));
+    });
+
+    test('默认开局 FEN 是跳棋起点', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(onInit, contains('"W:W31-50:B1-20"'));
+    });
+  });
+}
+
+/// 截取指定函数块（从定义起，到下一个顶层 `on_` 定义为止）。
+/// 守卫测试用：限定断言不跨函数误伤。
+String _functionBlock(String marker) {
+  final start = kDraughtsScript.indexOf(marker);
+  expect(start, isNot(-1), reason: '脚本体必须含 $marker');
+  final next = RegExp(
+    r'\non_(?:action|join|leave|init)_\w+ = function',
+  ).allMatches(kDraughtsScript.substring(start + 1));
+  if (next.isEmpty) {
+    return kDraughtsScript.substring(start);
+  }
+  return kDraughtsScript.substring(start, start + 1 + next.first.start);
+}
