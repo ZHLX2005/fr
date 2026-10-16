@@ -66,6 +66,14 @@ class DraughtsRoom {
 
   Future<void> reset() => handle.applyAction(type: 'RESET', params: const {});
 
+  /// 准备阶段改规则（SET_RULES）—— 仅 host、仅 lobby/ready；
+  /// 服务端改完清 ready、回 lobby。[hostColor] ∈ 'w' / 'b' / 'random'。
+  Future<void> setRules({String? hostColor}) {
+    final params = <String, dynamic>{};
+    if (hostColor != null) params['host_color'] = hostColor;
+    return handle.applyAction(type: 'SET_RULES', params: params);
+  }
+
   Future<void> resign() => handle.applyAction(type: 'RESIGN', params: const {});
 
   Future<void> offerDraw() =>

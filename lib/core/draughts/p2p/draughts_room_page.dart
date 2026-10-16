@@ -7,11 +7,28 @@
 //   lobby（双方 ACK）→ ready（host DEAL）→ playing → ended（CLAIM_END / RESIGN / DRAW）
 //   终局后 host 可 RESET 回 lobby 再来一局。
 //
-// ## 交互
+// ## 准备卡（lobby / ready）
+//
+//   对齐 chess / sudoku 的 game_ready_style 模板：标题 + 房间号胶囊 +
+//   房间规则面板（执子色，host SET_RULES，改完清 ready 回 lobby）+
+//   玩家行（头像 / 就绪徽章 / 执子标签）+ CTA 三态。
+//   准备态不显示棋盘（同 chess）。
+//
+// ## 进入对局过渡
+//
+//   GameEnterTransition v2 时机规范：准备态首次切 playing 时刷子盖屏
+//   （每份快照后 update；RESET 回 lobby 后重新武装，再开一局再播）。
+//
+// ## 交互（playing）
 //
 //   点选中己方子 → 高亮该子全部合法落点 → 点落点执行该手。
 //   吃子时引擎已做最长吃子裁决，落点即"最终落点"；同落点多条链时取第一条
 //   （确定性，且实战中同起终点异路径极少）。
+//
+// ## 终局
+//
+//   棋盘保留 + 居中浮卡（结果 + 房主「再来一局」RESET + 返回），
+//   组合方式对齐 chess 的终局覆盖层。
 //
 // ## 权威归属
 //
@@ -22,6 +39,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../game_kit/lobby/game_enter_transition.dart';
+import '../../game_kit/lobby/game_ready_style.dart';
 import '../engine/draughts_engine.dart';
 import '../engine/make_move.dart';
 import '../engine/pdn_codec.dart';
@@ -31,6 +50,7 @@ import '../models/move.dart';
 import '../models/piece.dart';
 import '../widgets/draughts_board.dart';
 import 'draughts_room.dart';
+import 'widgets/draughts_room_rules_panel.dart';
 
 class DraughtsRoomPage extends StatefulWidget {
   const DraughtsRoomPage({
@@ -50,6 +70,9 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   StreamSubscription<Snapshot>? _sub;
   late final DraughtsRoom _room;
 
+  /// 进入对局过渡：准备态（lobby/ready）→ playing 首次切入 → 刷子盖屏。
+  final GameEnterTransition _enterFx = GameEnterTransition();
+
   Snapshot? _snap;
   List<DraughtsMoveRecord> _history = const [];
   DraughtsBoardState _board = DraughtsBoardState.initial();
@@ -60,6 +83,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   bool _ackedLocally = false;
   bool _endDeclared = false;
+  bool _setRulesLock = false;
+  bool _dealLock = false;
 
   @override
   void initState() {
@@ -89,8 +114,12 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         RoomHandle.isStateRegression(prev, s.state)) {
       return; // 服务端快照端点回退 → 忽略
     }
+    // 准备态 → playing 首次切入 → 刷子过渡盖屏（GameEnterTransition v2）。
+    _enterFx.update(context, s.state == 'playing');
     setState(() => _applySnapshot(s));
-    if (_ackedLocally && s.state != 'lobby' && s.state != 'ready') {
+    // 快照仍处于 lobby/ready：本地乐观 ACK 已无意义（服务端 ready 表是权威，
+    // SET_RULES / RESET 会清空 ready），清掉本地标记 —— 对齐 chess / sudoku。
+    if ((s.state == 'lobby' || s.state == 'ready') && _ackedLocally) {
       setState(() => _ackedLocally = false);
     }
     if (s.state == 'lobby') _endDeclared = false;
@@ -210,12 +239,65 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   // ── 动作 ──
 
+  /// 准备 ACK：立即本地置 _ackedLocally（按钮变"已准备 ✓"）再发；
+  /// 快照回写后由 lobby/ready 分支清标记。幂等（已点再点忽略）。
   Future<void> _ack() async {
+    if (_ackedLocally) return;
     setState(() => _ackedLocally = true);
-    await _room.ack();
+    try {
+      await _room.ack();
+    } catch (_) {
+      if (mounted) setState(() => _ackedLocally = false);
+    }
   }
 
-  Future<void> _deal() => _room.deal();
+  /// host 点「开始对局」（DEAL）—— 把 ready 推 playing。
+  Future<void> _deal() async {
+    if (_dealLock || !_isHost) return;
+    setState(() => _dealLock = true);
+    try {
+      await _room.deal();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('开局失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _dealLock = false);
+    }
+  }
+
+  /// 房主改执子色（SET_RULES）—— 服务端清 ready、回 lobby。
+  Future<void> _applyColorRules(DraughtsColorChoice choice) async {
+    if (_setRulesLock || !_isHost) return;
+    final raw = switch (choice) {
+      DraughtsColorChoice.hostWhite => 'w',
+      DraughtsColorChoice.hostBlack => 'b',
+      DraughtsColorChoice.random => 'random',
+    };
+    // random 在服务端即时解析，无法本地比对，总是发送。
+    final current = DraughtsRoom.hostColor(_snap);
+    final currentRaw = current == DraughtsColor.black ? 'b' : 'w';
+    if (choice != DraughtsColorChoice.random && raw == currentRaw) return;
+
+    setState(() {
+      _setRulesLock = true;
+      _ackedLocally = false;
+    });
+    try {
+      await _room.setRules(hostColor: raw);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('改规则失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _setRulesLock = false);
+    }
+  }
+
   Future<void> _reset() => _room.reset();
 
   Future<void> _confirmResign() async {
@@ -251,6 +333,18 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   @override
   Widget build(BuildContext context) {
+    final snap = _snap;
+    if (snap == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('国际跳棋（联机）')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final state = snap.state;
+    final isLobbyReady = state == 'lobby' || state == 'ready';
+    final scheme = Theme.of(context).colorScheme;
+
     // 拦截 AppBar 返回 / 系统返回：必须先 leave 再 pop，避免幽灵座位。
     return PopScope(
       canPop: false,
@@ -259,8 +353,12 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         await _leaveAndPop();
       },
       child: Scaffold(
+        // 准备态跟壳层浅底（同 chess / sudoku）；对局中保持默认（棋盘主导）。
+        backgroundColor: isLobbyReady ? scheme.surfaceContainerLowest : null,
         appBar: AppBar(
-          title: const Text('国际跳棋（联机）'),
+          backgroundColor: isLobbyReady ? scheme.surfaceContainerLowest : null,
+          elevation: 0,
+          title: Text('房间 ${snap.roomCode}'),
           actions: [
             if (_isPlaying)
               IconButton(
@@ -276,11 +374,163 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
           ],
         ),
         body: SafeArea(
+          // 阶段派发：lobby/ready → 准备卡；playing → 棋盘；ended → 棋盘 + 浮卡。
+          child: isLobbyReady
+              ? _buildLobbyReady()
+              : Stack(
+                  children: [
+                    Column(
+                      children: [
+                        _statusBar(context),
+                        Expanded(child: _boardArea()),
+                        if (state == 'playing') _playingBar(context),
+                      ],
+                    ),
+                    if (state == 'ended') _endedOverlay(context),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  // ── lobby / ready 准备卡（对齐 game_ready_style 模板，同 chess / sudoku）──
+
+  Widget _buildLobbyReady() {
+    final snap = _snap!;
+    final scheme = Theme.of(context).colorScheme;
+    final code = snap.roomCode;
+    final hostId = DraughtsRoom.hostId(snap);
+    final players = DraughtsRoom.players(snap);
+    final readyMap = DraughtsRoom.readyMap(snap);
+    final myId = widget.handle.transport.deviceId;
+    final phase = snap.state;
+    final bothReady = phase == 'ready';
+    final hostIsWhite = DraughtsRoom.hostColor(snap) == DraughtsColor.white;
+    final iAmReady = bothReady || _ackedLocally || readyMap[myId] == true;
+    final canAck = !bothReady && players.length >= 2;
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: GameReadyFloatCard(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _statusBar(context),
-              Expanded(child: _boardArea()),
-              _actionBar(context),
+              Text(
+                bothReady ? '双方已就绪' : '等待对手',
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const GameReadyTitleRule(),
+              const SizedBox(height: 16),
+              GameReadyRoomCodeChip(code: code),
+              const SizedBox(height: 20),
+
+              // 房间规则：host 可改执子色；guest 只读。改规则会清 ready。
+              DraughtsRoomRulesPanel(
+                editable: _isHost && !_setRulesLock,
+                hostColor: hostIsWhite ? 'w' : 'b',
+                onChanged: _isHost ? _applyColorRules : null,
+              ),
+              const SizedBox(height: 12),
+
+              ...players.entries.map((e) {
+                final isMe = e.key == myId;
+                final isReady = bothReady || readyMap[e.key] == true;
+                final isHostSide = e.key == hostId;
+                final sideIsWhite = isHostSide ? hostIsWhite : !hostIsWhite;
+                final label =
+                    '${e.value}${isMe ? "  (我)" : ""} · ${isHostSide ? "房主" : "对手"} · ${sideIsWhite ? "执白" : "执黑"}';
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(children: [
+                    GameReadyAvatar(label: e.value, isReady: isReady),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: 15,
+                          fontWeight:
+                              isMe ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    GameReadyStatusBadge(isReady: isReady),
+                  ]),
+                );
+              }),
+
+              if (players.length < 2) ...[
+                const SizedBox(height: 16),
+                Text(
+                  '把房间号发给朋友',
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+
+              if (players.length >= 2) ...[
+                const SizedBox(height: 22),
+                if (bothReady)
+                  _isHost
+                      ? FilledButton(
+                          onPressed: _dealLock ? null : _deal,
+                          style: GameReadyCtaStyle.filled(scheme),
+                          child: const Text(
+                            '开始游戏 ▸',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          '等待房主开始…',
+                          style: TextStyle(
+                            color: scheme.onSurfaceVariant,
+                            fontSize: 13,
+                            letterSpacing: 1,
+                          ),
+                        )
+                else if (iAmReady)
+                  FilledButton(
+                    onPressed: null,
+                    style: GameReadyCtaStyle.filled(scheme),
+                    child: const Text(
+                      '已准备 ✓',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  )
+                else
+                  OutlinedButton(
+                    onPressed: canAck ? _ack : null,
+                    style: GameReadyCtaStyle.outlined(scheme),
+                    child: const Text(
+                      '准备好了',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+              ],
             ],
           ),
         ),
@@ -351,105 +601,118 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     );
   }
 
-  Widget _actionBar(BuildContext context) {
-    final state = _snap?.state;
+  // ── playing 操作条（轮次 / 强制吃子提示）──
+
+  Widget _playingBar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final dt = Theme.of(context).textTheme;
-
-    Widget wrap(Widget child) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: child,
-        );
-
-    switch (state) {
-      case 'lobby':
-      case 'ready':
-        final ready = DraughtsRoom.readyMap(_snap);
-        final iAmReady = ready[_me] == true || _ackedLocally;
-        final allReady = _snap?.state == 'ready';
-        return wrap(Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              allReady
-                  ? (_isHost ? '双方已准备，开始对局' : '等待房主开始…')
-                  : '等待双方准备',
-              style: dt.bodyMedium,
+    final turnText = _isMyTurn ? '轮到你走' : '等待对手…';
+    final mustCapture = _isMyTurn &&
+        kDefaultDraughtsEngine.legalMoves(_board).any((m) => m.isCapture);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(turnText, style: dt.titleMedium),
+          if (mustCapture)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('有吃子，必须吃（最长吃子）',
+                  style: dt.bodySmall?.copyWith(color: scheme.error)),
             ),
-            const SizedBox(height: 12),
-            if (!iAmReady)
-              FilledButton(
-                onPressed: _ack,
-                child: const Text('准备好了'),
-              )
-            else if (_isHost && allReady)
-              FilledButton(
-                onPressed: _deal,
-                child: const Text('开始对局'),
-              )
-            else
-              OutlinedButton(onPressed: null, child: const Text('等待对手…')),
-          ],
-        ));
-
-      case 'playing':
-        final turnText = _isMyTurn ? '轮到你走' : '等待对手…';
-        final mustCapture = _isMyTurn &&
-            kDefaultDraughtsEngine
-                .legalMoves(_board)
-                .any((m) => m.isCapture);
-        return wrap(Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(turnText, style: dt.titleMedium),
-            if (mustCapture)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('有吃子，必须吃（最长吃子）',
-                    style: dt.bodySmall?.copyWith(color: scheme.error)),
-              ),
-          ],
-        ));
-
-      case 'ended':
-        return wrap(Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_resultText(), style: dt.titleLarge),
-            const SizedBox(height: 12),
-            if (_isHost)
-              FilledButton(onPressed: _reset, child: const Text('再来一局'))
-            else
-              const Text('等待房主重开…'),
-          ],
-        ));
-
-      default:
-        return wrap(Text('房间状态：$state', style: dt.bodyMedium));
-    }
+        ],
+      ),
+    );
   }
 
-  String _resultText() {
+  // ── ended 覆盖层：棋盘保留 + 居中浮卡（对齐 chess 终局组合方式）──
+
+  Widget _endedOverlay(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (title, subtitle) = _resultTexts();
+    return Positioned.fill(
+      child: Container(
+        color: scheme.surface.withValues(alpha: 0.75),
+        alignment: Alignment.center,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: GameReadyFloatCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: scheme.onSurface,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 22),
+                if (_isHost)
+                  FilledButton.icon(
+                    onPressed: _reset,
+                    icon: const Icon(Icons.replay, size: 18),
+                    label: const Text('再来一局'),
+                    style: GameReadyCtaStyle.filled(scheme),
+                  )
+                else
+                  Text(
+                    '等待房主重开…',
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 13,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: _leaveAndPop,
+                  style: GameReadyCtaStyle.outlined(scheme),
+                  child: const Text('返回'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 终局（标题，副标题）：副标题为终局原因的视角中立描述。
+  (String, String) _resultTexts() {
     final status = DraughtsRoom.status(_snap);
     final winner = DraughtsRoom.winner(_snap);
     final reason = DraughtsRoom.endReason(_snap);
-    if (status == 'draw') {
-      return switch (reason) {
-        'kingVsKing' => '和棋（王对王）',
-        'threefold' => '和棋（三次重复）',
-        'agreement' => '和棋（双方同意）',
-        _ => '和棋',
-      };
-    }
+    final reasonText = switch (reason) {
+      'kingVsKing' => '王对王',
+      'threefold' => '三次重复局面',
+      'agreement' => '双方同意',
+      'noPieces' => '无子可动',
+      'noMoves' => '无棋可走',
+      'kingMoveLimit' => '王步数超限',
+      _ => '',
+    };
+    if (status == 'draw') return ('和棋', reasonText);
     if (status == 'resigned') {
-      return winner == _me ? '对方认输，你赢了' : '你认输了';
+      return winner == _me ? ('你赢了', '对手认输') : ('你认输了', '对手获胜');
     }
     if (status == 'win') {
-      if (winner == _me) return '你赢了！';
-      if (winner == null) return '对局结束';
-      return '对手获胜';
+      if (winner == _me) return ('你赢了！', reasonText);
+      if (winner == null) return ('对局结束', '');
+      return ('对手获胜', reasonText);
     }
-    if (status == 'ended') return '对局结束';
-    return '对局结束';
+    return ('对局结束', '');
   }
 }
