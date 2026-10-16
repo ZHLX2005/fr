@@ -40,11 +40,19 @@ function is_valid_draughts_fen(fen)
 end
 
 -- 判断 PDN 着法是否结构合法：`32-28` 或 `32x23x14`（方格号 1..50）
+-- ⚠ 服务端 Lua VM（5.1）不支持「捕获组后接量词」——`(...)*` 形式的
+--   pattern 会让 match 恒返回 nil（全拒）。禁用该写法，改分段校验
+--   （同 chess is_valid_uci 的逐段思路，2026-10-17 e2e 实测定案）。
 function is_valid_pdn_move(pdn)
   if type(pdn) ~= "string" then return false end
-  if pdn:match("^%d+[x%-]%d+([x%-]%d+)*$") == nil then return false end
-  -- 每段数字必须落在 1..50
-  for num in pdn:gmatch("%d+") do
+  if pdn == "" then return false end
+  -- 分隔符归一后分段检查：只允许 数字;x-;数字[;数字]...
+  local cleaned = pdn:gsub("[x%-]", ";")
+  if cleaned:match("[^%d;]") ~= nil then return false end
+  if cleaned:match("^;") ~= nil or cleaned:match(";$") ~= nil then return false end
+  if cleaned:match(";") == nil then return false end
+  if cleaned:match(";;") ~= nil then return false end
+  for num in cleaned:gmatch("%d+") do
     local n = tonumber(num)
     if n == nil or n < 1 or n > 50 then return false end
   end

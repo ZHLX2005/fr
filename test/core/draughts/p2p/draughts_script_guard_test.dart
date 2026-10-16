@@ -160,6 +160,24 @@ void main() {
       expect(fn, contains('[x%-]'));
     });
 
+    test('全部 Lua pattern 禁用捕获组后接量词（VM 恒返回 nil → 全拒）', () {
+      // 2026-10-17 e2e 实锤：服务端 Lua 5.1 VM 上 `(...)*` 形式的 pattern
+      // 会让 match 返回零值，`match(...) == nil` 恒真 → 所有 PDN 被拒
+      // （「无法落子」根因）。回归守卫：任何 handler / helper 不得再引入。
+      final groupPattern = RegExp(r'\)[+*-?]');
+      for (final match in groupPattern.allMatches(kDraughtsScript)) {
+        final lineStart = kDraughtsScript.lastIndexOf('\n', match.start) + 1;
+        final lineEnd = kDraughtsScript.indexOf('\n', match.start);
+        final line = kDraughtsScript.substring(
+            lineStart, lineEnd == -1 ? kDraughtsScript.length : lineEnd);
+        final isLuaMatchCall = line.contains(':match(') ||
+            line.contains(':gmatch(') ||
+            line.contains(':gsub(');
+        expect(isLuaMatchCall, isFalse,
+            reason: 'Lua pattern 疑似捕获组量词（VM 不支持）→ $line');
+      }
+    });
+
     test('is_valid_draughts_fen 存在且匹配 X:W…:B… 结构', () {
       final fn = _functionBlock('function is_valid_draughts_fen(fen)');
       expect(fn, contains('^[WB]:[WB]'));
