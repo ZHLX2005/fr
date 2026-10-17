@@ -34,8 +34,8 @@ class DefaultTorchProtectColorStrategy extends TorchProtectColorStrategy {
   Color get protectCoolWhite => TorchColors.protectCoolWhite(scheme);
 
   @override
-  List<Color> get protectPresets => TorchColors.protectPresets(scheme);
+  List<Color> get protectPresets => TorchColors.presets;
 
   @override
-  List<String> get protectPresetNames => TorchColors.protectPresetNames;
+  List<String> get protectPresetNames => TorchColors.presetNames;
 }

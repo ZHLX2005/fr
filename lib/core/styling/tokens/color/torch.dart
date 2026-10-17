@@ -23,24 +23,58 @@ class TorchColors {
   static Color protectCoolWhite(ColorScheme scheme) =>
       scheme.surfaceContainerHighest;
 
-  /// 10 种护眼色预设（主题豁免：屏幕补光实际输出色）
-  ///
-  /// 与 lab `EyeProtectionColors.presets` 保持一致。
-  static List<Color> protectPresets(ColorScheme scheme) => const [
-        Color(0xFFFFE066), // 护眼黄
-        Color(0xFFFFBF00), // 琥珀
-        Color(0xFFFFF8E7), // 暖白
-        Color(0xFFF5DEB3), // 羊皮纸
-        Color(0xFFCC9900), // 暗琥珀
-        Color(0xFF2E8B57), // 墨绿
-        Color(0xFF008B8B), // 暗青
-        Color(0xFFFF7F50), // 珊瑚
-        Color(0xFFBC8F8F), // 玫瑰棕
-        Color(0xFF191970), // 午夜蓝
-      ];
+  // ─── 10 种护眼色预设（主题豁免：屏幕补光实际输出色，const 单一来源）───
+  //
+  // lab torch_demo 直接消费本表（2026-10 起单一来源，不再手工同步 lab 副本）。
+  // 注意区分：下面的 const 预设（warmYellow 等）是补光输出色；
+  // 上面的 protectWarmYellow(scheme) 等派生方法是 UI 环境角色，两套互不相干。
 
-  /// 10 种护眼色名称
-  static const List<String> protectPresetNames = [
+  /// 经典护眼黄
+  static const Color warmYellow = Color(0xFFFFE066);
+
+  /// 琥珀色
+  static const Color amber = Color(0xFFFFBF00);
+
+  /// 暖白色
+  static const Color warmWhite = Color(0xFFFFF8E7);
+
+  /// 羊皮纸
+  static const Color sepia = Color(0xFFF5DEB3);
+
+  /// 暗琥珀
+  static const Color darkAmber = Color(0xFFCC9900);
+
+  /// 墨绿色
+  static const Color darkGreen = Color(0xFF2E8B57);
+
+  /// 暗青色
+  static const Color darkCyan = Color(0xFF008B8B);
+
+  /// 珊瑚橙
+  static const Color coral = Color(0xFFFF7F50);
+
+  /// 玫瑰棕
+  static const Color rosyBrown = Color(0xFFBC8F8F);
+
+  /// 午夜蓝
+  static const Color midnightBlue = Color(0xFF191970);
+
+  /// 所有预设颜色列表
+  static const List<Color> presets = [
+    warmYellow,
+    amber,
+    warmWhite,
+    sepia,
+    darkAmber,
+    darkGreen,
+    darkCyan,
+    coral,
+    rosyBrown,
+    midnightBlue,
+  ];
+
+  /// 10 种护眼色名称（与 [presets] 一一对应）
+  static const List<String> presetNames = [
     '护眼黄',
     '琥珀',
     '暖白',

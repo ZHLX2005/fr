@@ -7,6 +7,7 @@ import 'package:torch_light/torch_light.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../core/styling/tokens/color/torch.dart';
 import '../../widgets/context_colors.dart';
 import '../lab_container.dart';
 import 'torch/const_torch.dart';
@@ -51,7 +52,7 @@ class _TorchPageState extends State<_TorchPage>
   bool _keepScreenOn = false;
 
   // 颜色状态 - 默认护眼黄（补光实际输出色，主题豁免）
-  Color _selectedColor = EyeProtectionColors.warmYellow;
+  Color _selectedColor = TorchColors.warmYellow;
 
   // 模式: 0=手电筒, 1=屏幕光
   int _currentMode = 0;
@@ -678,8 +679,8 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColors(ColorScheme theme) {
-    final presets = EyeProtectionColors.presets;
-    final names = EyeProtectionColors.presetNames;
+    final presets = TorchColors.presets;
+    final names = TorchColors.presetNames;
 
     // 分两行，平衡数量
     final half = (presets.length / 2).ceil();
@@ -1109,7 +1110,7 @@ class _TorchPageState extends State<_TorchPage>
   }
 
   Widget _buildPresetColorsCompact(ColorScheme theme) {
-    final presets = EyeProtectionColors.presets;
+    final presets = TorchColors.presets;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
