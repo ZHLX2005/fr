@@ -31,7 +31,9 @@ class PieceSound {
   /// 顶掉 piece.mp3，且再也切不回来）。
   String? _loadedAsset;
 
-  /// 进行中的加载（并发调用共享同一过程，避免重复 setAsset）。
+  /// 进行中的加载及其目标音源（并发调用共享同一过程，避免重复 setAsset；
+  /// 快路径须确认 in-flight 加载的就是自己要的源，否则等它完成再换）。
+  String? _loadingPath;
   Future<void>? _loading;
 
   /// 预加载落子音。可在进入棋盘页 initState / ViewModel 构造时调用以消除
@@ -41,7 +43,10 @@ class PieceSound {
   Future<void> _ensureAsset(String path) async {
     // 自旋等待：并发请求不同音源时，后到者等 in-flight 完成后重查，
     // 必要时自己再加载 —— 返回时播放器音源就是 [path]（加载失败除外）。
-    while (_loadedAsset != path) {
+    // 快路径条件含「in-flight 不是别的源」：否则换源窗口内 seek+play
+    // 会放错音色（自愈但可感，2026-10-17 质检发现）。
+    while (_loadedAsset != path ||
+        (_loading != null && _loadingPath != path)) {
       final inFlight = _loading;
       if (inFlight != null) {
         await inFlight;
@@ -56,10 +61,12 @@ class PieceSound {
         }
       }();
       _loading = op;
+      _loadingPath = path;
       try {
         await op;
       } finally {
         _loading = null;
+        _loadingPath = null;
       }
       return; // 只尝试一次；失败留给下次调用重试。
     }

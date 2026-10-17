@@ -11,6 +11,10 @@
 
 ### 游戏（draughts / game_audio）
 
+- **feat** 国际跳棋终局复盘：终局卡新增「复盘」入口（有棋谱才显示）——进入后一次性预计算全部局面子序列（步进 O(1)），回放条（|< < ▶/⏸ > >| + 步数 + 离散进度条 + 退出，新建 `DraughtsReplayBar` 对齐 chess 的 ChessReplayBar 精简版）接管底部、终局卡隐藏、棋盘只读；支持自动播放（800ms/手，播到终局自动停）、终局按 ▶ 从头重放、非 ended 快照自动退回放、返回键一次退回放二次退房
+- **fix** PieceSound 换源竞态补漏：快路径在「另一音源加载中」窗口内直通会放错一次音色（自愈但可感）——加 `_loadingPath` 判定，快路径仅在无异源 in-flight 时直通；断线终端关闭分支显式清重连 overlay（防 scrim 压住 snackbar 永远转）；重连 overlay 文字深色主题对比度修复（onPrimary 暗字叠近黑 scrim → 固定白字，chess 同步修）
+- **chore** 清理孤儿测试：metronome 动态 WAV 生成器已在 `8ab39268` 删除但其测试文件遗留（引用不存在的 lib 文件致 flutter analyze 全仓报错）——删除；顺带移除 draughts 死代码 `DraughtsRoom.canPerform` 恒真 stub
+
 - **feat** 国际跳棋断线可见性三件套（对齐 chess）：WS 瞬断全屏「连接断开，正在重连…」overlay、自己掉线顶部红 banner（服务端 disconnected 表驱动 + 棋盘输入冻结）、终端关闭（被踢/房间过期/慢消费）snackbar 提示；AppBar 前置连接状态徽标——原 `ChessConnectionStatusBadge` 下沉为共享组件 `RelayConnectionStatusBadge`（`net_engine/relay_v3/`，实现本就零棋种依赖），chess 同步换引用
 - **feat** 国际跳棋强制吃子可视化（激活棋盘闲置的 `captureHint` 红色通道）：有吃子义务的己方子红描边环、选中吃子子的落点红点（与安静落点蓝点区分）、吃子链将被吃掉的对方子红描边环——「必须吃」从一行小字变成棋盘上的直接视觉
 - **fix** PieceSound 双音源串音 bug：落子/吃子共用单 AudioPlayer，原「每种音效各缓存一个加载 Future」在第一次吃子音后音源被 capture.wav 永久顶掉（且波及所有棋类的落子音）——改为按当前音源判定，换源时重新加载，同源保持零延迟直响；国际跳棋音效差分补对局态门（RESET 回准备态不再凭空响一声落子音）

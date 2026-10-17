@@ -36,6 +36,12 @@
 //
 //   initState 预加载；自己走子即时响（吃子手换 capture.wav）；
 //   对手走子按快照 fen diff 响，_pendingLocalFen 标记吃掉自己的 echo 防重响。
+//
+// ## 终局复盘（ended，对齐 chess 回放模式）
+//
+//   终局卡「复盘」进入（棋谱非空才显示）：一次性预计算 states[0..n] +
+//   每步路径，步进 O(1)；回放条（DraughtsReplayBar）接管底部、终局卡隐藏、
+//   棋盘只读；非 ended 快照（RESET 重开）自动退出回放；返回键一次退回放。
 
 import 'dart:async';
 
@@ -45,6 +51,7 @@ import '../../game_audio/piece_sound.dart';
 import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
 import '../../net_engine/relay_v3/relay_connection_status_badge.dart';
+import '../constants/draughts_constants.dart';
 import '../engine/draughts_engine.dart';
 import '../engine/make_move.dart';
 import '../engine/pdn_codec.dart';
@@ -53,6 +60,7 @@ import '../models/game_status.dart';
 import '../models/move.dart';
 import '../models/piece.dart';
 import '../widgets/draughts_board.dart';
+import '../widgets/draughts_replay_bar.dart';
 import 'draughts_room.dart';
 import 'widgets/draughts_room_rules_panel.dart';
 
@@ -109,6 +117,21 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   /// true = 服务端 disconnected 表含自己 → 顶部红 banner + 冻结棋盘输入。
   bool _isMeDisconnected = false;
 
+  // ── 终局复盘（对齐 chess 回放模式：父层持状态，条只渲染）──
+
+  /// 自动播放步进间隔（chess 同款 800ms）。
+  static const Duration _kReplayTickInterval = Duration(milliseconds: 800);
+
+  bool _replayMode = false;
+  int _replayIndex = 0;
+  bool _replayPlaying = false;
+  Timer? _replayTimer;
+
+  /// 预计算的局面子序列（states[0] = 初始局面，states[n] = 终局）与
+  /// 每步的路径高亮（paths[i] = 通向 states[i] 那一手的 path）。
+  List<DraughtsBoardState> _replayStates = const [];
+  List<Set<int>> _replayPaths = const [];
+
   @override
   void initState() {
     super.initState();
@@ -126,6 +149,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   void dispose() {
     _sub?.cancel();
     _closeSub?.cancel();
+    _replayTimer?.cancel();
     super.dispose();
   }
 
@@ -156,12 +180,15 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   /// WS 关闭事件（对齐 chess）：瞬断（code 0）→ 全屏重连 overlay，
   /// 下一份快照清除；终端关闭（被踢 / 房间过期 / 慢消费）→ 提示 + 退出入口。
+  /// 终端关闭不会再有快照到达 → overlay 必须在这里显式清掉，否则 scrim
+  /// 会压在 snackbar 上永远转。
   void _onCloseEvent(WSCloseEvent event) {
     if (!mounted) return;
     if (event.code == 0) {
       setState(() => _wsOffline = true);
       return;
     }
+    setState(() => _wsOffline = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(WSCloseCode.describe(event.code)),
       action: SnackBarAction(label: '退出', onPressed: _leaveAndPop),
@@ -170,6 +197,9 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   void _applySnapshot(Snapshot? s) {
     _snap = s;
+    // 回放中收到非 ended 快照（host RESET 重开 / 状态回退）→ 自动退出回放
+    // 回实况：复盘针对已结束的那一局，新对局优先（对齐 chess）。
+    if (_replayMode && s?.state != 'ended') _clearReplay();
     _history = DraughtsRoom.rebuildHistory(s);
     // 断线状态同步（对齐 chess）：服务端 disconnected 表是权威；
     // 收到任意快照 = WS 已恢复 → 清瞬断 overlay。
@@ -626,10 +656,15 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     final scheme = Theme.of(context).colorScheme;
 
     // 拦截 AppBar 返回 / 系统返回：必须先 leave 再 pop，避免幽灵座位。
+    // 回放中按返回：一次返回退回放、二次返回退房（对齐 chess 回放优先级）。
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_replayMode) {
+          _exitReplay();
+          return;
+        }
         await _leaveAndPop();
       },
       child: Scaffold(
@@ -678,9 +713,29 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
                               _statusBar(context),
                               Expanded(child: _boardArea()),
                               if (state == 'playing') _playingBar(context),
+                              // 回放条接管底部（对局条在 ended 态本就不渲染）
+                              if (state == 'ended' && _replayMode)
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                                  child: DraughtsReplayBar(
+                                    index: _replayIndex,
+                                    total: _history.length,
+                                    playing: _replayPlaying,
+                                    onToStart: () => _seekReplay(0),
+                                    onStepBack: () => _stepReplay(-1),
+                                    onTogglePlay: _toggleReplayPlay,
+                                    onStepForward: () => _stepReplay(1),
+                                    onToEnd: () => _seekReplay(_history.length),
+                                    onSeek: _seekReplay,
+                                    onExit: _exitReplay,
+                                  ),
+                                ),
                             ],
                           ),
-                          if (state == 'ended') _endedOverlay(context),
+                          // 回放中隐藏终局卡（对齐 chess：回放条接管交互）
+                          if (state == 'ended' && !_replayMode)
+                            _endedOverlay(context),
                         ],
                       ),
               ),
@@ -896,7 +951,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
               const SizedBox(height: 12),
               Text(
                 '连接断开，正在重连…',
-                style: TextStyle(color: scheme.onPrimary, fontSize: 14),
+                // scrim 近黑，onPrimary 深色主题下是暗色调 → 固定白字保对比
+                style: TextStyle(color: Colors.white, fontSize: 14),
               ),
             ],
           ),
@@ -942,6 +998,89 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     );
   }
 
+  // ── 终局复盘（ended；对齐 chess 回放模式）──
+
+  /// 进入复盘：一次性构建局面子序列（states[0..n]）+ 每步路径，步进 O(1)
+  /// （chess _parseServerGameLine 同形态）。畸形 initial_fen 回退标准开局。
+  void _enterReplay() {
+    if (_history.isEmpty || _snap == null) return;
+    DraughtsBoardState state;
+    try {
+      state = boardStateFromFen(DraughtsRoom.initialFen(_snap));
+    } on FormatException {
+      state = boardStateFromFen(kDraughtsStartingFen);
+    }
+    final states = <DraughtsBoardState>[state];
+    final paths = <Set<int>>[const {}];
+    for (final rec in _history) {
+      final m = pdnMoveToMove(state, rec.pdn);
+      final path = m?.path.toSet() ?? const <int>{};
+      if (m != null) state = applyMoveSimple(state, m);
+      states.add(state);
+      paths.add(path);
+    }
+    setState(() {
+      _replayStates = states;
+      _replayPaths = paths;
+      _replayIndex = _history.length; // 从终局开始往回看
+      _replayMode = true;
+      _selected = null;
+      _targets = const {};
+    });
+  }
+
+  /// 退出复盘（纯字段重置不 setState —— 供 [_applySnapshot] 的快照路径复用，
+  /// 对齐 chess _clearReplay）。
+  void _clearReplay() {
+    _replayTimer?.cancel();
+    _replayTimer = null;
+    _replayMode = false;
+    _replayPlaying = false;
+    _replayIndex = 0;
+    _replayStates = const [];
+    _replayPaths = const [];
+  }
+
+  /// 手动退出复盘（UI 入口：回放条退出键 / 返回键）。
+  void _exitReplay() {
+    _clearReplay();
+    setState(() {});
+  }
+
+  void _seekReplay(int i) =>
+      setState(() => _replayIndex = i.clamp(0, _replayStates.length - 1));
+
+  void _stepReplay(int delta) => _seekReplay(_replayIndex + delta);
+
+  /// ▶/⏸ 自动播放：终局按 ▶ 从头重放（标准复盘 UX，chess 同款）。
+  void _toggleReplayPlay() {
+    if (_replayPlaying) {
+      _replayTimer?.cancel();
+      _replayTimer = null;
+      setState(() => _replayPlaying = false);
+      return;
+    }
+    if (_replayIndex >= _history.length) _seekReplay(0);
+    setState(() => _replayPlaying = true);
+    _replayTimer = Timer.periodic(_kReplayTickInterval, (_) => _replayTick());
+  }
+
+  void _replayTick() {
+    if (!mounted) {
+      _replayTimer?.cancel();
+      _replayTimer = null;
+      return;
+    }
+    if (_replayIndex >= _history.length) {
+      // 播到终局：停播、播放键复位 ▶（对齐 chess）。
+      _replayTimer?.cancel();
+      _replayTimer = null;
+      setState(() => _replayPlaying = false);
+      return;
+    }
+    _stepReplay(1);
+  }
+
   Widget _boardArea() {
     // 吃子视觉派生（激活 palette.captureHint）：必动子红环 / 选中子的
     // 吃子落点红点 / 将被吃掉的对方子红环。_myLegalMoves 仅轮到我方时非空，
@@ -964,11 +1103,17 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: DraughtsBoard(
-            state: _board,
+            // 回放中显示层整体切换到预计算局面；实况字段（_board/_history/
+            // _lastPath）不动 —— 退出回放即回实况（chess 同模式）。
+            state: _replayMode
+                ? _replayStates[_replayIndex.clamp(0, _replayStates.length - 1)]
+                : _board,
             flipped: _myColor == DraughtsColor.black,
             selectedSquare: _selected,
             legalTargets: _targets,
-            lastMovePath: _lastPath,
+            lastMovePath: _replayMode
+                ? _replayPaths[_replayIndex.clamp(0, _replayPaths.length - 1)]
+                : _lastPath,
             captureTargets: captureTo,
             mustCapturePieces: mustFrom,
             threatenedSquares: threatened,
@@ -1150,6 +1295,16 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
                     ),
                   ),
                 const SizedBox(height: 12),
+                // 复盘入口：棋谱非空才显示（零走法对局无回放内容，同 chess）
+                if (_history.isNotEmpty) ...[
+                  OutlinedButton.icon(
+                    onPressed: _enterReplay,
+                    icon: const Icon(Icons.movie_outlined, size: 18),
+                    label: const Text('复盘'),
+                    style: GameReadyCtaStyle.outlined(scheme),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 OutlinedButton(
                   onPressed: _leaveAndPop,
                   style: GameReadyCtaStyle.outlined(scheme),

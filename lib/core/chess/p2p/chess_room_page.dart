@@ -1803,8 +1803,9 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
               const SizedBox(height: 12),
               Text(
                 '连接断开，正在重连…',
+                // scrim 近黑，onPrimary 深色主题下是暗色调 → 固定白字保对比
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  color: Colors.white,
                   fontSize: 14,
                 ),
               ),

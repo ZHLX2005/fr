@@ -242,16 +242,6 @@ class DraughtsRoom {
   static DraughtsColor currentSide(DraughtsBoardState state) =>
       state.sideToMove;
 
-  /// 服务端是否允许某动作（action_permissions 镜像）
-  static bool canPerform(Snapshot? s, String action) {
-    final raw = s?.context['action_permissions'];
-    if (raw is! Map) return true;
-    final rule = raw[action]?.toString();
-    if (rule == null || rule == 'any') return true;
-    // 细粒度角色判定在 UI 层用 host/current 身份补；此处只做"是否声明"。
-    return true;
-  }
-
   /// 本地引擎判定当前终局（供 CLAIM_END 上报）
   static DraughtsStatus checkStatus(DraughtsBoardState state, List<String> history) =>
       kDefaultDraughtsEngine.status(state, positionHistory: history);
