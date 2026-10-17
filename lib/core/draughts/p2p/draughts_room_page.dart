@@ -44,6 +44,7 @@ import 'package:flutter/material.dart';
 import '../../game_audio/piece_sound.dart';
 import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
+import '../../net_engine/relay_v3/relay_connection_status_badge.dart';
 import '../engine/draughts_engine.dart';
 import '../engine/make_move.dart';
 import '../engine/pdn_codec.dart';
@@ -71,6 +72,7 @@ class DraughtsRoomPage extends StatefulWidget {
 
 class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   StreamSubscription<Snapshot>? _sub;
+  StreamSubscription<WSCloseEvent>? _closeSub;
   late final DraughtsRoom _room;
 
   /// 进入对局过渡：准备态（lobby/ready）→ playing 首次切入 → 刷子盖屏。
@@ -101,6 +103,12 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   /// 自己刚走的走后 fen —— 快照 echo 识别（已在本地响过，防重响）。
   String? _pendingLocalFen;
 
+  /// true = 收到 WS 瞬断事件（code 0）→ 全屏重连 overlay；下一份快照清除。
+  bool _wsOffline = false;
+
+  /// true = 服务端 disconnected 表含自己 → 顶部红 banner + 冻结棋盘输入。
+  bool _isMeDisconnected = false;
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +116,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     _snap = widget.handle.latest;
     _applySnapshot(_snap);
     _sub = widget.handle.snapshots.listen(_onSnapshot);
+    // WS 瞬断 / 终端关闭事件（对齐 chess 断线三件套）。
+    _closeSub = widget.handle.closeEvents.listen(_onCloseEvent);
     // 预加载落子音，消除首次落子的加载延迟（PieceSound 单例跨页复用）。
     PieceSound.instance.preload();
   }
@@ -115,6 +125,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   @override
   void dispose() {
     _sub?.cancel();
+    _closeSub?.cancel();
     super.dispose();
   }
 
@@ -143,16 +154,43 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     _maybeDeclareEnd();
   }
 
+  /// WS 关闭事件（对齐 chess）：瞬断（code 0）→ 全屏重连 overlay，
+  /// 下一份快照清除；终端关闭（被踢 / 房间过期 / 慢消费）→ 提示 + 退出入口。
+  void _onCloseEvent(WSCloseEvent event) {
+    if (!mounted) return;
+    if (event.code == 0) {
+      setState(() => _wsOffline = true);
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(WSCloseCode.describe(event.code)),
+      action: SnackBarAction(label: '退出', onPressed: _leaveAndPop),
+    ));
+  }
+
   void _applySnapshot(Snapshot? s) {
     _snap = s;
     _history = DraughtsRoom.rebuildHistory(s);
-    // 落子音（对齐 chess 的差分模板）：
+    // 断线状态同步（对齐 chess）：服务端 disconnected 表是权威；
+    // 收到任意快照 = WS 已恢复 → 清瞬断 overlay。
+    _isMeDisconnected =
+        DraughtsRoom.disconnectedPlayers(s)[widget.handle.transport.deviceId] ==
+            true;
+    if (_wsOffline) _wsOffline = false;
+    // 落子音（对齐 chess 的差分模板，多一道对局态门）：
     //   · 首份快照（_prevFen == null）→ 页面刚进，不响。
     //   · fen 未变（同状态重推）→ 不响。
     //   · fen == _pendingLocalFen → 自己走子的服务端 echo（本地已响）→ 不响。
+    //   · 非对局态（RESET 回 lobby / 终局快照）→ 不响（防准备态凭空响一声；
+    //     悔棋回退 state 仍 playing，不受影响）。
     //   · 其余 = 对手走子 / 悔棋回退 → 响；吃子手换 capture.wav。
     final fen = DraughtsRoom.fen(s);
-    if (fen != null && fen.isNotEmpty && _prevFen != null && fen != _prevFen) {
+    if (s != null &&
+        s.state == 'playing' &&
+        fen != null &&
+        fen.isNotEmpty &&
+        _prevFen != null &&
+        fen != _prevFen) {
       if (fen != _pendingLocalFen) {
         final lastIsCapture =
             _history.isNotEmpty && _history.last.pdn.contains('x');
@@ -244,7 +282,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   // ── 交互 ──
 
   void _onTapSquare(int index) {
-    if (!_isMyTurn) return;
+    if (!_isMyTurn || _isMeDisconnected || _sendLock) return;
     final piece = _board.pieceAt(index);
 
     // 点自己的子 → 选中并显示落点
@@ -600,6 +638,9 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         appBar: AppBar(
           backgroundColor: isLobbyReady ? scheme.surfaceContainerLowest : null,
           elevation: 0,
+          // 连接徽标（圆点 + 文字 + 重连 spinner）需要比默认 48 宽的 leading 槽。
+          leadingWidth: 86,
+          leading: RelayConnectionStatusBadge(handle: widget.handle),
           title: Text('房间 ${snap.roomCode}'),
           actions: [
             // 手动刷新按钮：强制拉一次最新快照（带 UI 反馈）。心跳已经在跑，
@@ -624,20 +665,30 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         ),
         body: SafeArea(
           // 阶段派发：lobby/ready → 准备卡；playing → 棋盘；ended → 棋盘 + 浮卡。
-          child: isLobbyReady
-              ? _buildLobbyReady()
-              : Stack(
-                  children: [
-                    Column(
-                      children: [
-                        _statusBar(context),
-                        Expanded(child: _boardArea()),
-                        if (state == 'playing') _playingBar(context),
-                      ],
-                    ),
-                    if (state == 'ended') _endedOverlay(context),
-                  ],
-                ),
+          // 最外层 Stack 挂断线可见层（重连 overlay / 掉线 banner，对齐 chess）。
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: isLobbyReady
+                    ? _buildLobbyReady()
+                    : Stack(
+                        children: [
+                          Column(
+                            children: [
+                              _statusBar(context),
+                              Expanded(child: _boardArea()),
+                              if (state == 'playing') _playingBar(context),
+                            ],
+                          ),
+                          if (state == 'ended') _endedOverlay(context),
+                        ],
+                      ),
+              ),
+              if (_wsOffline) _buildWsOfflineOverlay(context),
+              if (_isMeDisconnected && state == 'playing')
+                _buildMeOfflineBanner(context),
+            ],
+          ),
         ),
       ),
     );
@@ -830,7 +881,83 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         ),
       );
 
+  /// 全屏「连接断开，正在重连…」overlay —— WS 瞬断期间盖住内容，
+  /// 任一快照到达即清（对齐 chess）。
+  Widget _buildWsOfflineOverlay(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Positioned.fill(
+      child: ColoredBox(
+        color: scheme.scrim.withValues(alpha: 0.55),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(
+                '连接断开，正在重连…',
+                style: TextStyle(color: scheme.onPrimary, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 「你已掉线」顶部 banner —— 数据源 = 服务端 disconnected 表（权威），
+  /// 棋盘输入冻结由 interactive / _onTapSquare 的门承担。
+  Widget _buildMeOfflineBanner(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        color: scheme.error.withValues(alpha: 0.85),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '你已掉线 · 正在重连（棋盘已冻结）',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _boardArea() {
+    // 吃子视觉派生（激活 palette.captureHint）：必动子红环 / 选中子的
+    // 吃子落点红点 / 将被吃掉的对方子红环。_myLegalMoves 仅轮到我方时非空，
+    // 非我方回合天然全空（棋盘只读）。
+    final moves = _myLegalMoves;
+    final mustFrom = <int>{};
+    final captureTo = <int>{};
+    final threatened = <int>{};
+    for (final m in moves) {
+      if (!m.isCapture) continue;
+      mustFrom.add(m.from);
+      if (m.from == _selected) {
+        captureTo.add(m.to);
+        threatened.addAll(m.capturedSquares);
+      }
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -842,7 +969,10 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
             selectedSquare: _selected,
             legalTargets: _targets,
             lastMovePath: _lastPath,
-            interactive: _isMyTurn && !_sendLock,
+            captureTargets: captureTo,
+            mustCapturePieces: mustFrom,
+            threatenedSquares: threatened,
+            interactive: _isMyTurn && !_sendLock && !_isMeDisconnected,
             onTapSquare: _onTapSquare,
           ),
         ),

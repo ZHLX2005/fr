@@ -11,6 +11,10 @@
 
 ### 游戏（draughts / game_audio）
 
+- **feat** 国际跳棋断线可见性三件套（对齐 chess）：WS 瞬断全屏「连接断开，正在重连…」overlay、自己掉线顶部红 banner（服务端 disconnected 表驱动 + 棋盘输入冻结）、终端关闭（被踢/房间过期/慢消费）snackbar 提示；AppBar 前置连接状态徽标——原 `ChessConnectionStatusBadge` 下沉为共享组件 `RelayConnectionStatusBadge`（`net_engine/relay_v3/`，实现本就零棋种依赖），chess 同步换引用
+- **feat** 国际跳棋强制吃子可视化（激活棋盘闲置的 `captureHint` 红色通道）：有吃子义务的己方子红描边环、选中吃子子的落点红点（与安静落点蓝点区分）、吃子链将被吃掉的对方子红描边环——「必须吃」从一行小字变成棋盘上的直接视觉
+- **fix** PieceSound 双音源串音 bug：落子/吃子共用单 AudioPlayer，原「每种音效各缓存一个加载 Future」在第一次吃子音后音源被 capture.wav 永久顶掉（且波及所有棋类的落子音）——改为按当前音源判定，换源时重新加载，同源保持零延迟直响；国际跳棋音效差分补对局态门（RESET 回准备态不再凭空响一声落子音）
+
 - **feat** 国际跳棋对局页补齐 chess 同款操作基础设施：底部操作条（投降 / 悔棋 / 议和三按钮，对方挂起悔棋 / 议和申请时切换为「接受 + 拒绝」双按钮行，含等待回应禁用态与手数门槛）；AppBar 手动刷新按钮（fetchSnapshot + spinner 反馈，"怀疑卡了"应急入口）；认输确认对话框保留并迁到底部操作条。Lua 服务端新增 UNDO_OFFER / UNDO_ACCEPT / UNDO_DECLINE 三动作（与 chess 同构：先手方按 `host_color == initial_side` 推 pop 数、回滚 fen、重算吃子空着数），MOVE 后清残留 offer、RESET / on_leave 清 undo/emoji/chat 跨局状态
 - **feat** 国际跳棋接入音效：吃子手播新资产 `capture.wav`（合成音色）、普通落子走 `PieceSound` 单例；自己走子即时响、对手走子按快照 fen 差分响（echo 去重防重响）
 - **fix** 国际跳棋走子 / 认输 / 再来一局的发送失败静默问题：补 sendLock 防双击 + 失败 snackbar；走子与悔棋 409 时自动拉快照调和（"状态已过期，同步中…"），CLAIM_END 双端竞态改为 409 静默；MOVE 上报补 `ts` 字段（此前服务端棋谱时间恒为 0）

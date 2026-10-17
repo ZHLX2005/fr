@@ -24,7 +24,7 @@ import 'package:xiaodouzi_fr/core/chess/chess.dart';
 import 'package:xiaodouzi_fr/core/chess/p2p/chess_room_page.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
-import 'package:xiaodouzi_fr/core/chess/widgets/chess_connection_status.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_status_badge.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
 /// 真实 RelayV3Transport + MockClient（不联网）。
@@ -228,7 +228,7 @@ void main() {
       await tester.pumpWidget(hostWidget(handle));
       await tester.pump();
 
-      expect(find.byType(ChessConnectionStatusBadge), findsOneWidget);
+      expect(find.byType(RelayConnectionStatusBadge), findsOneWidget);
       expect(find.text('已连接'), findsOneWidget);
       expect(find.text('重连中…'), findsNothing);
     });

@@ -28,7 +28,7 @@ import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record_store.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
-import 'package:xiaodouzi_fr/core/chess/widgets/chess_connection_status.dart';
+import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_status_badge.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
@@ -1060,10 +1060,10 @@ void main() {
     await tester.pumpWidget(host(handle));
     await tester.pump();
 
-    // v7 去重：底部 RelayConnectionBar 移除 —— AppBar 的 ChessConnectionStatusBadge
+    // v7 去重：底部 RelayConnectionBar 移除 —— AppBar 的 RelayConnectionStatusBadge
     // 是唯一连接状态（旧版两处同时显示"已连接"造成冗余）。
     expect(find.byType(RelayConnectionBar), findsNothing);
-    expect(find.byType(ChessConnectionStatusBadge), findsOneWidget);
+    expect(find.byType(RelayConnectionStatusBadge), findsOneWidget);
     // 手动刷新按钮仍在 AppBar（原底部条的"拉取最新快照"功能由它承担）。
     expect(find.byTooltip('刷新快照'), findsOneWidget);
   });

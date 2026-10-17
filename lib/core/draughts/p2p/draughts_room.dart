@@ -21,7 +21,7 @@ import '../models/piece.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 
 export '../../net_engine/relay_v3/relay_v3_transport.dart'
-    show RoomHandle, Snapshot, RelayV3Exception;
+    show RoomHandle, Snapshot, RelayV3Exception, WSCloseEvent, WSCloseCode;
 
 /// 一条服务端棋谱记录
 class DraughtsMoveRecord {

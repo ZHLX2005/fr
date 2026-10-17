@@ -1,6 +1,8 @@
-// lib/core/chess/widgets/chess_connection_status.dart
+// lib/core/net_engine/relay_v3/relay_connection_status_badge.dart
 //
-// 国际象棋对弈页的"WS 连接状态徽标"（AppBar leading 用）。
+// WS 连接状态徽标（AppBar leading 用）— 所有 relay v3 房间游戏通用。
+// 自 chess/widgets/chess_connection_status.dart 下沉（该实现本就零棋种依赖，
+// 颜色全走 Theme.colorScheme）。
 //
 // 职责：
 //   · 订阅 handle.closeEvents（瞬断 → 橙） + handle.snapshots（恢复 → 绿）
@@ -12,11 +14,12 @@
 // 与 [RelayConnectionBar]（底部 28px 长条）的差异：
 //   - 极简：单色点 + 短文字，紧凑放在 AppBar 里不挤走 room code
 //   - 主动：橙态带 spinner，提示"正在尝试重新连接"
-//   - 颜色走 context.chessColors（v6.2 第 6 strategy 通道），不写死 Color(0xFF...)
+//   - 颜色全走 Theme.colorScheme，跨主题自适应，不写死色值
 //
 // 用法：
 //   appBar: AppBar(
-//     leading: ChessConnectionStatusBadge(handle: widget.handle),
+//     leadingWidth: 86,
+//     leading: RelayConnectionStatusBadge(handle: widget.handle),
 //     title: Text('房间 ${snap.roomCode}'),
 //     actions: [ ... ],
 //   )
@@ -25,22 +28,23 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../net_engine/relay_v3/relay_v3_transport.dart';
+import 'relay_v3_transport.dart';
 
 /// WS 连接状态徽标（圆点 + 文字 + 可选 spinner）。
 ///
 /// 小巧：≤ 80 LOC，含自有订阅 + 三态切换。专为对弈页 AppBar 设计。
-class ChessConnectionStatusBadge extends StatefulWidget {
-  const ChessConnectionStatusBadge({super.key, required this.handle});
+class RelayConnectionStatusBadge extends StatefulWidget {
+  const RelayConnectionStatusBadge({super.key, required this.handle});
 
   final RoomHandle handle;
 
   @override
-  State<ChessConnectionStatusBadge> createState() =>
-      _ChessConnectionStatusBadgeState();
+  State<RelayConnectionStatusBadge> createState() =>
+      _RelayConnectionStatusBadgeState();
 }
 
-class _ChessConnectionStatusBadgeState extends State<ChessConnectionStatusBadge> {
+class _RelayConnectionStatusBadgeState
+    extends State<RelayConnectionStatusBadge> {
   StreamSubscription<WSCloseEvent>? _closeSub;
   StreamSubscription<Snapshot>? _snapSub;
 

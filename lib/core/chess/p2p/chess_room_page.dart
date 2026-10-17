@@ -55,7 +55,7 @@ import '../skins/chess_skin.dart';
 import '../skins/local_chess_skin.dart';
 import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
-import '../widgets/chess_connection_status.dart';
+import '../../net_engine/relay_v3/relay_connection_status_badge.dart';
 import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 import 'chess_net.dart';
@@ -1598,7 +1598,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
         elevation: 0,
         // 徽标（圆点 + 文字 + 重连 spinner）需要比默认 48 宽的 leading 槽。
         leadingWidth: 86,
-        leading: ChessConnectionStatusBadge(handle: widget.handle),
+        leading: RelayConnectionStatusBadge(handle: widget.handle),
         title: Text('房间 ${snap.roomCode}'),
         actions: [
           // 手动刷新按钮：强制拉一次最新快照（带 UI 反馈）。心跳已经在跑，

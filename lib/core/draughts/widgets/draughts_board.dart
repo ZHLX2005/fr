@@ -7,6 +7,11 @@
 //   · [selectedSquare] 高亮选中子；[legalTargets] 高亮可落点；
 //     [lastMovePath] 高亮对手/自己上一手路径。
 //
+// 吃子视觉（激活 palette.captureHint 红色通道）：
+//   · [captureTargets] 选中的吃子子落点 → 红点（与安静落点的蓝点区分）。
+//   · [mustCapturePieces] 有吃子义务的己方子 → 红描边环（必动提示）。
+//   · [threatenedSquares] 选中子的吃子链将被吃掉的对方子 → 红描边环。
+//
 // 视角（flipped）：
 //   · false（白方视角 / 默认）—— 白子在下（row 9），与 FEN 视角一致。
 //   · true（黑方视角）—— 整盘 180° 翻转，让黑子在下。
@@ -64,6 +69,9 @@ class DraughtsBoard extends StatelessWidget {
     this.selectedSquare,
     this.legalTargets = const {},
     this.lastMovePath = const {},
+    this.captureTargets = const {},
+    this.mustCapturePieces = const {},
+    this.threatenedSquares = const {},
     this.palette,
     this.interactive = true,
   });
@@ -79,6 +87,16 @@ class DraughtsBoard extends StatelessWidget {
   final int? selectedSquare;
   final Set<int> legalTargets;
   final Set<int> lastMovePath;
+
+  /// 选中吃子子的落点（legalTargets 的子集）→ 红点。
+  final Set<int> captureTargets;
+
+  /// 有吃子义务的己方子 → 红描边环。
+  final Set<int> mustCapturePieces;
+
+  /// 选中子的吃子链将被吃掉的对方子 → 红描边环。
+  final Set<int> threatenedSquares;
+
   final DraughtsBoardPalette? palette;
 
   /// false = 只读（终局回顾 / 观战）
@@ -122,6 +140,9 @@ class DraughtsBoard extends StatelessWidget {
                 selectedSquare: selectedSquare,
                 legalTargets: legalTargets,
                 lastMovePath: lastMovePath,
+                captureTargets: captureTargets,
+                mustCapturePieces: mustCapturePieces,
+                threatenedSquares: threatenedSquares,
               ),
             ),
           );
@@ -139,6 +160,9 @@ class _DraughtsBoardPainter extends CustomPainter {
     required this.selectedSquare,
     required this.legalTargets,
     required this.lastMovePath,
+    required this.captureTargets,
+    required this.mustCapturePieces,
+    required this.threatenedSquares,
   });
 
   final DraughtsBoardState state;
@@ -147,6 +171,9 @@ class _DraughtsBoardPainter extends CustomPainter {
   final int? selectedSquare;
   final Set<int> legalTargets;
   final Set<int> lastMovePath;
+  final Set<int> captureTargets;
+  final Set<int> mustCapturePieces;
+  final Set<int> threatenedSquares;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -194,14 +221,16 @@ class _DraughtsBoardPainter extends CustomPainter {
       );
     }
 
-    // 4) 可落点提示
+    // 4) 可落点提示：安静落点蓝点；吃子落点红点（captureHint，醒目区分）。
     final hint = Paint()..color = palette.highlight.withValues(alpha: 0.75);
+    final captureDot = Paint()
+      ..color = palette.captureHint.withValues(alpha: 0.85);
     for (final idx in legalTargets) {
       final v = _viewOf(idx);
       canvas.drawCircle(
         Offset(v.$2 * cell + cell / 2, v.$1 * cell + cell / 2),
-        cell * 0.16,
-        hint,
+        captureTargets.contains(idx) ? cell * 0.17 : cell * 0.16,
+        captureTargets.contains(idx) ? captureDot : hint,
       );
     }
 
@@ -215,6 +244,40 @@ class _DraughtsBoardPainter extends CustomPainter {
         cell * 0.36,
         piece,
       );
+    }
+
+    // 6) 必动子描边环（有吃子义务的己方子，套在子外）
+    if (mustCapturePieces.isNotEmpty) {
+      final mustRing = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cell * 0.05
+        ..color = palette.captureHint
+        ..isAntiAlias = true;
+      for (final idx in mustCapturePieces) {
+        final v = _viewOf(idx);
+        canvas.drawCircle(
+          Offset(v.$2 * cell + cell / 2, v.$1 * cell + cell / 2),
+          cell * 0.42,
+          mustRing,
+        );
+      }
+    }
+
+    // 7) 被威胁子描边环（选中子的吃子链将吃掉的对方子，贴子边缘）
+    if (threatenedSquares.isNotEmpty) {
+      final threatRing = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cell * 0.045
+        ..color = palette.captureHint.withValues(alpha: 0.9)
+        ..isAntiAlias = true;
+      for (final idx in threatenedSquares) {
+        final v = _viewOf(idx);
+        canvas.drawCircle(
+          Offset(v.$2 * cell + cell / 2, v.$1 * cell + cell / 2),
+          cell * 0.37,
+          threatRing,
+        );
+      }
     }
   }
 
@@ -263,6 +326,9 @@ class _DraughtsBoardPainter extends CustomPainter {
       old.selectedSquare != selectedSquare ||
       !_setEquals(old.legalTargets, legalTargets) ||
       !_setEquals(old.lastMovePath, lastMovePath) ||
+      !_setEquals(old.captureTargets, captureTargets) ||
+      !_setEquals(old.mustCapturePieces, mustCapturePieces) ||
+      !_setEquals(old.threatenedSquares, threatenedSquares) ||
       old.palette != palette;
 
   static bool _setEquals(Set<int> a, Set<int> b) =>
