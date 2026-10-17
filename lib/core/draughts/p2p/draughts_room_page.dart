@@ -42,14 +42,26 @@
 //   终局卡「复盘」进入（棋谱非空才显示）：一次性预计算 states[0..n] +
 //   每步路径，步进 O(1)；回放条（DraughtsReplayBar）接管底部、终局卡隐藏、
 //   棋盘只读；非 ended 快照（RESET 重开）自动退出回放；返回键一次退回放。
+//
+// ## 对话（BoardChatOverlay：chatRing + emojiRing，对齐 chess）
+//
+//   Lua 脚本已拼入共享 chat / emoji 段（RESET 时一并清理）；页面在棋盘区
+//   挂 BoardChatOverlay 左上角浮层（💬 入口 + 最新消息预览 + composer 双 tab）。
+//   表情包走 EmojiBundle.forGame('draughts')（common 作用域兜底）；
+//   回放中隐藏，掉线 / 终局禁发。
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../api/goframe/goframe_config.dart';
 import '../../game_audio/piece_sound.dart';
+import '../../game_kit/chat/board_chat_overlay.dart';
+import '../../game_kit/chat/chat_event.dart';
+import '../../game_kit/emoji/emoji_bundle.dart';
 import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
+import '../../game_kit/skin/file_resolver.dart';
 import '../../net_engine/relay_v3/relay_connection_status_badge.dart';
 import '../constants/draughts_constants.dart';
 import '../engine/draughts_engine.dart';
@@ -132,6 +144,44 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   List<DraughtsBoardState> _replayStates = const [];
   List<Set<int>> _replayPaths = const [];
 
+  // ── 对话（BoardChatOverlay：chatRing + emojiRing，对齐 chess）──
+  EmojiBundle _emojiBundle = EmojiBundle.empty();
+  final FileResolver _emojiFileResolver =
+      const PublicFileResolver(baseUrl: GoframeConfig.baseUrl);
+  bool _emojiBundleLoading = false;
+  bool _emojiBundleLoaded = false;
+
+  List<ChatEvent> get _chatEvents {
+    final snap = _snap;
+    if (snap == null) return const [];
+    return mergedChatEventsFromSnapshot(snap.context);
+  }
+
+  /// 懒加载表情包：common + draughts 两作用域合并（无专属包时 common 兜底）。
+  Future<void> _ensureEmojiBundle() async {
+    if (_emojiBundleLoading || _emojiBundleLoaded) return;
+    _emojiBundleLoading = true;
+    try {
+      final b = await EmojiBundle.forGame(
+        'draughts',
+        defaultBaseUrl: GoframeConfig.baseUrl,
+        fileResolver: _emojiFileResolver,
+      );
+      if (!mounted) return;
+      setState(() {
+        _emojiBundle = b;
+        _emojiBundleLoaded = true;
+      });
+      // 后台预取图片，面板/预览优先走本地缓存。
+      unawaited(b.prefetchToCache(
+        resolver: _emojiFileResolver,
+        baseUrl: GoframeConfig.baseUrl,
+      ));
+    } finally {
+      _emojiBundleLoading = false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -141,6 +191,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     _sub = widget.handle.snapshots.listen(_onSnapshot);
     // WS 瞬断 / 终端关闭事件（对齐 chess 断线三件套）。
     _closeSub = widget.handle.closeEvents.listen(_onCloseEvent);
+    // 懒加载表情包（对话浮层用）。
+    _ensureEmojiBundle();
     // 预加载落子音，消除首次落子的加载延迟（PieceSound 单例跨页复用）。
     PieceSound.instance.preload();
   }
@@ -612,6 +664,39 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     }
   }
 
+  // ── 对话动作（BoardChatOverlay；仅网络层，toast 由浮层处理，对齐 chess）──
+
+  /// 发送文字（CHAT action）。
+  Future<void> _handleSendText(String text) async {
+    try {
+      await widget.handle.applyAction(
+        type: 'CHAT',
+        params: {
+          'text': text,
+          'alias': widget.handle.transport.alias,
+        },
+      );
+    } on RelayV3Exception catch (e) {
+      debugPrint('draughts_room_page: CHAT send failed: ${e.statusCode} ${e.body}');
+      rethrow;
+    }
+  }
+
+  /// 发送 emoji（EMOJI action）。
+  Future<void> _handleSendEmoji(String emojiId) async {
+    if (_emojiBundle.byId[emojiId] == null) return;
+    try {
+      await widget.handle.applyAction(
+        type: 'EMOJI',
+        params: {'emoji_id': emojiId},
+      );
+    } on RelayV3Exception catch (e) {
+      debugPrint(
+          'draughts_room_page: EMOJI send failed: ${e.statusCode} ${e.body}');
+      rethrow;
+    }
+  }
+
   // ── 手动刷新（fetchSnapshot UI 反馈，对齐 chess）──
 
   /// 带 UI 反馈的 fetchSnapshot —— AppBar 按钮 spinner 化。
@@ -668,6 +753,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         await _leaveAndPop();
       },
       child: Scaffold(
+        // 键盘不得挤 body：对话 composer 是棋盘区 absolute 浮层（对齐 chess）。
+        resizeToAvoidBottomInset: false,
         // 准备态跟壳层浅底（同 chess / sudoku）；对局中保持默认（棋盘主导）。
         backgroundColor: isLobbyReady ? scheme.surfaceContainerLowest : null,
         appBar: AppBar(
@@ -711,7 +798,29 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
                           Column(
                             children: [
                               _statusBar(context),
-                              Expanded(child: _boardArea()),
+                              Expanded(
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(child: _boardArea()),
+                                    // 棋盘对话浮层（左上角 pill + composer；
+                                    // 回放中隐藏，对齐 chess `if (!replayOn)`）
+                                    if (!_replayMode)
+                                      Positioned.fill(
+                                        child: BoardChatOverlay(
+                                          events: _chatEvents,
+                                          myDeviceId:
+                                              widget.handle.transport.deviceId,
+                                          emojiBundle: _emojiBundle,
+                                          fileResolver: _emojiFileResolver,
+                                          enabled: _snap?.state == 'playing' &&
+                                              !_isMeDisconnected,
+                                          onSendEmoji: _handleSendEmoji,
+                                          onSendText: _handleSendText,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                               if (state == 'playing') _playingBar(context),
                               // 回放条接管底部（对局条在 ended 态本就不渲染）
                               if (state == 'ended' && _replayMode)

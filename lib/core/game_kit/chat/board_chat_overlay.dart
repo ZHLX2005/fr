@@ -1,4 +1,7 @@
-// lib/core/chess/p2p/widgets/board_chat_overlay.dart
+// lib/core/game_kit/chat/board_chat_overlay.dart
+//
+// 棋盘对话浮层 —— 所有 relay v3 对弈房通用（自 chess/p2p/widgets 下沉：
+// 本组件只依赖 game_kit 的 chat_event / emoji_bundle / file_resolver，零棋种依赖）。
 //
 // F3 落地版：棋盘 absolute 浮层（聊天区统一在左上角）
 //   · 左上角：💬 入口 + 最新一条消息预览（纯静态，无渐入/缩放/位移动画）
@@ -12,15 +15,25 @@
 //
 // 设计依据：plan/chess-chat-redesign-2026-09-07/F-card-stack.html（卡片堆已废弃）
 // 替换关系：EmojiOverlay + ChatSpeechBubbles（emoji/对话悬浮）→ BoardChatOverlay
-// 保留关系：ChatSheet 走"详细历史"路径（PlayerStrip trailing 上的 _ChatFab 触发）
+//
+// 用法（宿主 = 对弈房页）：
+//   Positioned.fill(
+//     child: BoardChatOverlay(
+//       events: chatEvents,                    // mergedChatEventsFromSnapshot(snap.context)
+//       myDeviceId: handle.transport.deviceId,
+//       emojiBundle: _emojiBundle,             // EmojiBundle.forGame(<game>) 懒加载
+//       onSendEmoji: ..., onSendText: ...,     // 宿主实现 EMOJI / CHAT action
+//       enabled: ...,
+//     ),
+//   )
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../game_kit/chat/chat_event.dart';
-import '../../../game_kit/emoji/emoji_bundle.dart';
-import '../../../game_kit/skin/file_resolver.dart';
+import 'chat_event.dart';
+import '../emoji/emoji_bundle.dart';
+import '../skin/file_resolver.dart';
 
 /// 卡片内可用的快速表情（与 composer emoji 行一致）
 const List<String> kBoardChatQuickEmojis = [

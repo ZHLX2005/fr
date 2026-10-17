@@ -60,7 +60,7 @@ import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 import 'chess_net.dart';
 import 'chess_room_config_page.dart';
-import 'widgets/board_chat_overlay.dart';
+import '../../game_kit/chat/board_chat_overlay.dart';
 import 'widgets/player_strip.dart';
 
 /// 快照驱动的在线对弈房间页（v3 Relay + kChessScript）。

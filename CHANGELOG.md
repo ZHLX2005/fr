@@ -11,6 +11,8 @@
 
 ### 游戏（draughts / game_audio）
 
+- **feat** 国际跳棋棋盘对话：接入 `BoardChatOverlay` 左上角浮层（💬 入口 + 最新消息预览 + composer 双 tab 表情/记录 + 文字输入，节流防连发、终局/掉线禁发、回放中隐藏）——Lua 脚本此前已拼入共享 chat/emoji 段，本次补齐 UI 闭环；表情包走 `EmojiBundle.forGame('draughts')`（common 作用域兜底）。`BoardChatOverlay` 自 chess 下沉为 game_kit 共享组件（本就零棋种依赖，与上轮 `RelayConnectionStatusBadge` 同一防腐逻辑），chess 同步换引用
+
 - **feat** 国际跳棋终局复盘：终局卡新增「复盘」入口（有棋谱才显示）——进入后一次性预计算全部局面子序列（步进 O(1)），回放条（|< < ▶/⏸ > >| + 步数 + 离散进度条 + 退出，新建 `DraughtsReplayBar` 对齐 chess 的 ChessReplayBar 精简版）接管底部、终局卡隐藏、棋盘只读；支持自动播放（800ms/手，播到终局自动停）、终局按 ▶ 从头重放、非 ended 快照自动退回放、返回键一次退回放二次退房
 - **fix** PieceSound 换源竞态补漏：快路径在「另一音源加载中」窗口内直通会放错一次音色（自愈但可感）——加 `_loadingPath` 判定，快路径仅在无异源 in-flight 时直通；断线终端关闭分支显式清重连 overlay（防 scrim 压住 snackbar 永远转）；重连 overlay 文字深色主题对比度修复（onPrimary 暗字叠近黑 scrim → 固定白字，chess 同步修）
 - **chore** 清理孤儿测试：metronome 动态 WAV 生成器已在 `8ab39268` 删除但其测试文件遗留（引用不存在的 lib 文件致 flutter analyze 全仓报错）——删除；顺带移除 draughts 死代码 `DraughtsRoom.canPerform` 恒真 stub
