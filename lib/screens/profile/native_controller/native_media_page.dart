@@ -434,7 +434,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     SizedBox(height: 12),
                     Row(
                       children: [
-                        ZenIconButton(
+                        BaseIconButton(
                           icon: Icons.mic,
                           color: context.colors.danger,
                           variant: _isAudioRecording
@@ -443,7 +443,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                           onTap: _isAudioRecording ? null : _startRecording,
                         ),
                         SizedBox(width: 12),
-                        ZenIconButton(
+                        BaseIconButton(
                           icon: Icons.stop,
                           color: context.colors.textMuted,
                           variant: BaseIconButtonVariant.outline,
@@ -500,7 +500,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     SizedBox(height: 8),
                     Row(
                       children: [
-                        ZenIconButton(
+                        BaseIconButton(
                           icon: _isPlaying ? Icons.pause_circle : Icons.play_circle,
                           color: context.colors.accent,
                           variant: BaseIconButtonVariant.tint,

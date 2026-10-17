@@ -11,6 +11,7 @@ import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
 import '../../../../widgets/zen/zen_theme.dart';
 import '../../../../widgets/zen/zen_date_picker.dart';
+import '../../../../widgets/base/base_section.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 起始日期 UX + 数据来源预设。
 ///
@@ -147,7 +148,7 @@ class _TimetableSettingsPageState
         padding: const EdgeInsets.all(16),
         children: [
           // ── 模式选择（第一层）──
-          ZenSection(
+          BaseSection(
             title: '课表模式',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,7 +169,7 @@ class _TimetableSettingsPageState
           const SizedBox(height: 12),
           // ── 起始日期（课表模式 UX 自动化，不在高级设置内）──
           if (!_isAnimeMode) ...[
-            ZenSection(
+            BaseSection(
               title: '起始日期',
               child: _buildDateField(),
             ),
@@ -178,7 +179,7 @@ class _TimetableSettingsPageState
           _buildDataSourceSection(),
           const SizedBox(height: 12),
           // ── 高级设置入口（独立页面承载非常用配置）──
-          ZenSection(
+          BaseSection(
             title: '高级设置',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,7 +200,7 @@ class _TimetableSettingsPageState
   Widget _buildDataSourceSection() {
     if (_isAnimeMode) {
       // 追剧模式：排期编辑（主）+ API 导入（辅助）
-      return ZenSection(
+      return BaseSection(
         title: '数据来源',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -227,7 +228,7 @@ class _TimetableSettingsPageState
     }
     if (_isSchoolMode) {
       // 学校模式：只保留 SICAU 导入
-      return ZenSection(
+      return BaseSection(
         title: '数据来源',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -247,7 +248,7 @@ class _TimetableSettingsPageState
       );
     }
     // 通用模式：无预设，提示走高级设置 DSL 导入
-    return ZenSection(
+    return BaseSection(
       title: '数据来源',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

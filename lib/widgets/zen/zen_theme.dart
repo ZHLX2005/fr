@@ -1,23 +1,17 @@
 // Zen 家族主题（v6 Heritage 架构）。
 //
-// 角色：
-//   - ZenText / zenCardTheme / zenButtonTheme 三个纯样式 helper
-//   - 5 个 Zen* widget 委托 Base*（详细见 widget 注释）
+// 仅保留纯样式 helper 与一个 Scaffold 便利函数；所有 widget class 已折叠
+// 到 lib/widgets/base/*（见 commit 5），调用方改用 BaseSection/BaseIconButton/
+// BaseDot/BaseEmptyState/BaseSwipeAction/BaseConfirmDialog。
 //
-// 设计：
-//   - ZenText 保持 const（兼容 const widget）
-//   - 样式颜色从 ColorScheme 派生（不再有"永远固定 3 色"硬编码）
-//   - widget 层委托 Base*（详见 commit 4 重构）
+// 保留：
+//   - ZenText / zenCardTheme / zenButtonTheme：纯样式 helper（无 Widget 返回）
+//   - zenPageScaffold：Scaffold 包装函数，无对应 Base*，作为唯一 Zen 域便利函数
 
 import 'package:flutter/material.dart';
-import '../../../core/styling/context/colors.dart';
 
-import '../base/base_dialog.dart';
-import '../base/base_dot.dart';
-import '../base/base_empty_state.dart';
-import '../base/base_icon_button.dart';
-import '../base/base_swipe_action.dart';
-import '../../core/styling/colors/strategy/color_strategy/themes/default.dart';
+import '../../../core/styling/colors/strategy/color_strategy/themes/default.dart';
+import '../../../core/styling/context/colors.dart';
 
 // =====================================================================
 // Zen 排版（保持 const 以兼容 const widget）
@@ -105,226 +99,10 @@ ButtonStyle zenButtonTheme(
 }
 
 // =====================================================================
-// Zen 家族 widget class（委托 Base* + 锁定 DefaultColorStrategy）
+// Scaffold 便利函数（唯一保留的非纯样式 helper）
 // =====================================================================
 
-/// Section card with a small label header.
-///
-/// 委托 BaseSection，注入 DefaultColorStrategy.of(scheme)。
-class ZenSection extends StatelessWidget {
-  const ZenSection({
-    super.key,
-    required this.title,
-    required this.child,
-    this.padding = const EdgeInsets.all(12),
-    this.gap = 8,
-  });
-
-  final String title;
-  final Widget child;
-  final EdgeInsets padding;
-  final double gap;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: s.surface,
-        border: Border.all(color: s.outline, width: 1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: ZenText.label),
-          SizedBox(height: gap),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-/// Zen 圆形 IconButton（3 variant），委托 BaseIconButton + 锁定 DefaultColorStrategy。
-class ZenIconButton extends StatelessWidget {
-  const ZenIconButton({
-    super.key,
-    required this.icon,
-    required this.onTap,
-    this.color,
-    this.background,
-    this.size = 44,
-    this.iconSize = 24,
-    this.variant = BaseIconButtonVariant.tint,
-  });
-
-  final IconData icon;
-  final VoidCallback? onTap;
-  final Color? color;
-  final Color? background;
-  final double size;
-  final double iconSize;
-  final BaseIconButtonVariant variant;
-
-  @override
-  Widget build(BuildContext context) {
-    return BaseIconButton(
-      icon: icon,
-      onTap: onTap,
-      color: color,
-      background: background,
-      size: size,
-      iconSize: iconSize,
-      variant: variant,
-    );
-  }
-}
-
-/// Zen 状态点（委托 BaseDot + 锁定 DefaultColorStrategy）。
-class ZenDot extends StatelessWidget {
-  const ZenDot({
-    super.key,
-    this.active = false,
-    this.color,
-    this.inactiveBorder,
-    this.size = 12,
-  });
-
-  final bool active;
-  final Color? color;
-  final Color? inactiveBorder;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return BaseDot(active: active, size: size);
-  }
-}
-
-/// Zen 空状态（委托 BaseEmptyState + 锁定 DefaultColorStrategy）。
-class ZenEmptyState extends StatelessWidget {
-  const ZenEmptyState({
-    super.key,
-    required this.icon,
-    required this.message,
-    this.actionLabel,
-    this.onAction,
-    this.actionColor,
-  });
-
-  final IconData icon;
-  final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-  final Color? actionColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return BaseEmptyState(
-      icon: icon,
-      message: message,
-      actionLabel: actionLabel,
-      onAction: onAction,
-      actionColor: actionColor,
-    );
-  }
-}
-
-/// Zen 滑动操作按钮（委托 BaseSwipeAction，color 由调用方提供）。
-class ZenSwipeAction extends StatelessWidget {
-  const ZenSwipeAction({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    this.leftRounded = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final bool leftRounded;
-
-  @override
-  Widget build(BuildContext context) {
-    return BaseSwipeAction(
-      label: label,
-      icon: icon,
-      color: color,
-      onTap: onTap,
-      leftRounded: leftRounded,
-    );
-  }
-}
-
-/// Zen 确认弹窗（委托 BaseConfirmDialog，但传入 DefaultColorStrategy 锁 danger 色）。
-class ZenConfirmDialog {
-  const ZenConfirmDialog._();
-
-  static Future<bool> show({
-    required BuildContext context,
-    required String title,
-    required String message,
-    required VoidCallback onConfirm,
-    String confirmLabel = 'Delete',
-    String cancelLabel = 'Cancel',
-    Color? confirmColor,
-  }) async {
-    return BaseConfirmDialog.show(
-      context: context,
-      title: title,
-      message: message,
-      onConfirm: onConfirm,
-      confirmLabel: confirmLabel,
-      cancelLabel: cancelLabel,
-      confirmColor: confirmColor,
-    );
-  }
-}
-
-// =====================================================================
-// Formatters
-// =====================================================================
-
-String formatDuration(int seconds) {
-  if (seconds <= 0) return '0s';
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = seconds % 60;
-  if (h > 0) return '${h}h ${m}m ${s}s';
-  if (m > 0) return '${m}m ${s}s';
-  return '${s}s';
-}
-
-String formatTime(int seconds) {
-  final isNegative = seconds < 0;
-  final absSeconds = seconds.abs();
-  final h = absSeconds ~/ 3600;
-  final m = (absSeconds % 3600) ~/ 60;
-  final s = absSeconds % 60;
-  final sign = isNegative ? '-' : '';
-  if (h > 0) {
-    return '$sign${h.toString().padLeft(2, '0')}:'
-        '${m.toString().padLeft(2, '0')}:'
-        '${s.toString().padLeft(2, '0')}';
-  }
-  return '$sign${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-}
-
-String formatRecordDate(DateTime d) {
-  String two(int v) => v.toString().padLeft(2, '0');
-  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-}
-
-// =====================================================================
-// Backward compat: zenPageScaffold（保留，因为有 23 个 consumer 调用）
-// =====================================================================
-
-/// Zen 标准页面外壳（保留旧 API 兼容 consumer）。
+/// Zen 标准页面外壳。
 Scaffold zenPageScaffold({
   required BuildContext context,
   required String title,

@@ -11,6 +11,8 @@ import '../../../../widgets/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
 import 'relation_calc_models.dart';
 import 'relation_calc_store.dart';
+import '../../../widgets/base/base_empty_state.dart';
+import '../../../widgets/base/base_dialog.dart';
 
 class ManageView extends StatefulWidget {
   const ManageView({
@@ -98,7 +100,7 @@ class _ManageViewState extends State<ManageView> {
   }
 
   Future<void> _deleteEntity(RelationEntity e) async {
-    final ok = await ZenConfirmDialog.show(
+    final ok = await BaseConfirmDialog.show(
       context: context,
       title: RelationCalcUiText.delete,
       message: '删除「${e.name}」？引用它的规则也会一并删除。',
@@ -158,7 +160,7 @@ class _ManageViewState extends State<ManageView> {
   }
 
   Future<void> _deleteTerm(RelationTerm t) async {
-    final ok = await ZenConfirmDialog.show(
+    final ok = await BaseConfirmDialog.show(
       context: context,
       title: RelationCalcUiText.delete,
       message: '删除关系词「${t.name}」？引用它的规则也会一并删除。',
@@ -272,7 +274,7 @@ class _ManageViewState extends State<ManageView> {
   }
 
   Future<void> _deleteRule(RelationRule r) async {
-    final ok = await ZenConfirmDialog.show(
+    final ok = await BaseConfirmDialog.show(
       context: context,
       title: RelationCalcUiText.delete,
       message: '删除这条规则？',
@@ -383,7 +385,7 @@ class _ManageViewState extends State<ManageView> {
   Widget _buildEntitiesTab() {
     final entities = widget.data.entities;
     if (entities.isEmpty) {
-      return ZenEmptyState(icon: Icons.person_outline, message: '还没有实体');
+      return BaseEmptyState(icon: Icons.person_outline, message: '还没有实体');
     }
     return ListView(
       padding: EdgeInsets.all(12),
@@ -415,7 +417,7 @@ class _ManageViewState extends State<ManageView> {
   Widget _buildTermsTab() {
     final terms = widget.data.terms;
     if (terms.isEmpty) {
-      return ZenEmptyState(icon: Icons.merge_type, message: '还没有关系词');
+      return BaseEmptyState(icon: Icons.merge_type, message: '还没有关系词');
     }
     return ListView(
       padding: EdgeInsets.all(12),
@@ -450,7 +452,7 @@ class _ManageViewState extends State<ManageView> {
   Widget _buildRulesTab() {
     final rules = widget.data.rules;
     if (rules.isEmpty) {
-      return ZenEmptyState(icon: Icons.account_tree_outlined, message: '还没有规则');
+      return BaseEmptyState(icon: Icons.account_tree_outlined, message: '还没有规则');
     }
     return ListView(
       padding: EdgeInsets.all(12),

@@ -16,6 +16,7 @@ class BaseSection extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(12),
     this.gap = 8,
+    this.titleStyle,
     this.strategy,
   });
 
@@ -23,6 +24,7 @@ class BaseSection extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double gap;
+  final TextStyle? titleStyle;
   final ColorStrategy? strategy;
 
   @override
@@ -38,7 +40,10 @@ class BaseSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: s.textMuted, fontSize: 13)),
+          Text(
+            title,
+            style: titleStyle ?? TextStyle(color: s.textMuted, fontSize: 13),
+          ),
           SizedBox(height: gap),
           child,
         ],

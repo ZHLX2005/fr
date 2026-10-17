@@ -9,6 +9,7 @@ import '../../core/styling/extensions/color_strategy_extension.dart';
 import '../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
 import '../../core/styling/colors/strategy/color_strategy/themes/default.dart';
 import 'base_button.dart';
+import 'base_empty_state.dart';
 
 class BaseEmptyState extends StatelessWidget {
   const BaseEmptyState({

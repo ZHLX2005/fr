@@ -10,6 +10,7 @@ import 'clock/widgets/tracks_tab.dart';
 import 'clock/widgets/dashboard_tab.dart';
 import 'clock/widgets/track_records_page.dart';
 import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
+import '../../widgets/base/base_dialog.dart';
 
 /// 桌面 widget toggle 入口 — 若当前页不是 ClockDemoPage(冷启动/正在别的页),
 /// 则标记一次 pending toggle,等 ClockDemoPage mount 时再触发。
@@ -172,7 +173,7 @@ class _ClockShellState extends State<_ClockShell> {
   Future<void> _confirmWipeAll() async {
     final clockP = context.read<LabClockProvider>();
     final trackP = context.read<LabTrackProvider>();
-    final ok = await ZenConfirmDialog.show(
+    final ok = await BaseConfirmDialog.show(
       context: context,
       title: '清空所有时钟数据？',
       message:

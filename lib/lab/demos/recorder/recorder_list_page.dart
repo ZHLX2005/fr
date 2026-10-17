@@ -7,6 +7,8 @@ import 'recorder_list_utils.dart';
 import 'recording_file.dart';
 import '../../../widgets/base/base_icon_button.dart';
 import '../../../widgets/zen/zen_theme.dart';
+import '../../utils/time_format.dart';
+import '../../../widgets/base/base_empty_state.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
 ///
@@ -267,7 +269,7 @@ class _RecorderListPageState extends State<RecorderListPage> {
       ],
       body: switch (files) {
         null => Center(child: CircularProgressIndicator(color: context.colors.accent)),
-        _ when files.isEmpty => ZenEmptyState(
+        _ when files.isEmpty => BaseEmptyState(
             icon: Icons.mic_none,
             message: RecorderUiText.emptyList,
             actionLabel: '刷新',
@@ -400,7 +402,7 @@ class _RecordingTileState extends State<_RecordingTile> {
               ],
             ),
           ),
-          ZenIconButton(
+          BaseIconButton(
             icon: playing ? Icons.stop_circle : Icons.play_circle,
             color: playing ? context.colors.danger : context.colors.accent,
             variant: BaseIconButtonVariant.tint,
@@ -409,7 +411,7 @@ class _RecordingTileState extends State<_RecordingTile> {
             onTap: widget.onPlay,
           ),
           SizedBox(width: 4),
-          ZenIconButton(
+          BaseIconButton(
             icon: Icons.edit_outlined,
             color: context.colors.textMuted,
             variant: BaseIconButtonVariant.tint,
@@ -418,7 +420,7 @@ class _RecordingTileState extends State<_RecordingTile> {
             onTap: widget.onRename,
           ),
           SizedBox(width: 4),
-          ZenIconButton(
+          BaseIconButton(
             icon: Icons.delete_outline,
             color: context.colors.danger,
             variant: BaseIconButtonVariant.tint,

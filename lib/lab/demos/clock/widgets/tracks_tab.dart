@@ -7,6 +7,9 @@ import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_editor_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_runner_page.dart';
 import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
+import '../../../utils/time_format.dart';
+import '../../../../widgets/base/base_empty_state.dart';
+import '../../../../widgets/base/base_dialog.dart';
 
 /// Tracks tab content. Plain widgets — the shell owns the Scaffold/FAB.
 class TracksTab extends StatefulWidget {
@@ -42,7 +45,7 @@ class _TracksTabState extends State<TracksTab> {
     return Consumer2<LabTrackProvider, LabClockProvider>(
       builder: (context, tp, cp, _) {
         if (tp.tracks.isEmpty) {
-          return const ZenEmptyState(
+          return const BaseEmptyState(
             icon: Icons.queue_music_outlined,
             message: '暂无编排',
           );
@@ -156,7 +159,7 @@ class _TrackCard extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, LabTrackProvider tp) {
-    ZenConfirmDialog.show(
+    BaseConfirmDialog.show(
       context: context,
       title: '删除编排',
       message: '删除"${track.title}"？',

@@ -8,6 +8,7 @@ import 'timetable_import_dialog.dart';
 import 'advanced/cycle_config_strategy.dart';
 import 'advanced/shared/zen_controls.dart';
 import '../../../../../widgets/zen/zen_theme.dart';
+import '../../../../widgets/base/base_section.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
 ///
@@ -188,7 +189,7 @@ class _TimetableAdvancedSettingsPageState
         padding: const EdgeInsets.all(16),
         children: [
           // ── 周期配置（3 模式策略驱动：课表固定7天/通用全可调/番剧自动派生）──
-          ZenSection(
+          BaseSection(
             title: '周期配置',
             child: cycleStrategy.buildCycleSection(
               cycleCount: _cycleCount,
@@ -204,7 +205,7 @@ class _TimetableAdvancedSettingsPageState
           ),
           const SizedBox(height: 12),
           // ── 每页显示行数（全模式通用：行数超出则纵向滚动）──
-          ZenSection(
+          BaseSection(
             title: '显示视口',
             child: ZenConfigSlider(
               label: '每页显示行数 '
@@ -221,7 +222,7 @@ class _TimetableAdvancedSettingsPageState
           ),
           const SizedBox(height: 12),
           // ── 左侧指示显示控制 ──
-          ZenSection(
+          BaseSection(
             title: '左侧指示',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +291,7 @@ class _TimetableAdvancedSettingsPageState
           ),
           const SizedBox(height: 12),
           // ── DSL 管理 ──
-          ZenSection(
+          BaseSection(
             title: 'DSL 管理',
             child: Column(
               children: [
