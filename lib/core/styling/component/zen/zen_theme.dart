@@ -1,13 +1,13 @@
 // Zen 家族主题（v6 Heritage 架构）。
 //
 // 角色：
-//   - Zen 家族组件的"zen 风格"色：永远固定的 3 色（sage/hair/mutedRed）
-//   - 通过 DefaultColorStrategy 注入，全 app 切 zen 主题时全树统一
-//   - 切到其他主题时，zen 组件仍保留家族识别（不像 7 主题那样跟主题切）
+//   - ZenText / zenCardTheme / zenButtonTheme 三个纯样式 helper
+//   - 5 个 Zen* widget 委托 Base*（详细见 widget 注释）
 //
 // 设计：
 //   - ZenText 保持 const（兼容 const widget）
-//   - 其他 widget class 委托 Base* + DefaultColorStrategy.of(scheme)
+//   - 样式颜色从 ColorScheme 派生（不再有"永远固定 3 色"硬编码）
+//   - widget 层委托 Base*（详见 commit 4 重构）
 
 import 'package:flutter/material.dart';
 import '../../../../widgets/context_colors.dart';
@@ -78,30 +78,12 @@ class ZenText {
   );
 }
 
-/// ⚠️ DEPRECATED：迁移期保留。改用 `BaseIconButtonVariant`。
-@Deprecated('Use BaseIconButtonVariant from widgets/base/')
-enum ZenIconButtonVariant { tint, outline, hero }
-
-// =====================================================================
-// Zen 风格 helper
-// =====================================================================
-
 /// Zen 卡片装饰（v6 Heritage：读 ColorStrategy）。
 BoxDecoration zenCardTheme(BuildContext context) {
   final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
   return BoxDecoration(
     color: s.surface,
     border: Border.all(color: s.outline, width: 2),
-    borderRadius: BorderRadius.circular(6),
-  );
-}
-
-/// Zen 点状区域（v6 Heritage）。
-BoxDecoration zenDottedZoneTheme(BuildContext context) {
-  final s = DefaultColorStrategy.of(Theme.of(context).colorScheme);
-  return BoxDecoration(
-    color: s.surface,
-    border: Border.all(color: s.outline, width: 1, style: BorderStyle.solid),
     borderRadius: BorderRadius.circular(6),
   );
 }
