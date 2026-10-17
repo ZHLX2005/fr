@@ -33,7 +33,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate code
-        run: flutter pub run build_runner build --delete-conflicting-outputs || true
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Setup release keystore
         env:
@@ -49,15 +49,34 @@ jobs:
             exit 1
           fi
 
+      # --split-per-abi 是 arm64 收敛的唯一可靠路径：fat 构建下 Flutter 插件会
+      # 无视 defaultConfig 的 ndk.abiFilters（FlutterPlugin.kt 会 clear 各 buildType
+      # 的 abiFilters 再写回 arm32/arm64/x64 三个默认 ABI），2026-10 的所有发布包
+      # 就这样静默多背了 ~25MB 的 x86_64/armeabi-v7a 死重（rive_native/MLKit 等）。
       - name: Build Android APK (arm64 only)
         run: |
           flutter build apk --release \
             --target-platform android-arm64 \
+            --split-per-abi \
             --obfuscate \
             --split-debug-info=./debug_symbols
 
       - name: List output files
         run: find build/app/outputs/flutter-apk -name "*.apk"
+
+      # 守门：硬校验产物里不得有非 arm64 的 native 库。插件行为若再变（或有人
+      # 悄悄去掉 --split-per-abi），这里红而不是静默把死重发给所有用户。
+      - name: Guard APK is arm64-only
+        run: |
+          APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
+          echo "APK: $APK_FILE ($(du -h "$APK_FILE" | cut -f1))"
+          BAD=$(unzip -l "$APK_FILE" | grep -E "lib/(x86_64|armeabi-v7a)/" || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::APK 含非 arm64 native 库（ABI 过滤失效），禁止分发："
+            echo "$BAD"
+            exit 1
+          fi
+          echo "arm64-only 校验通过"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

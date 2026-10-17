@@ -34,11 +34,11 @@ android {
         // 支持向量图
         vectorDrawables.useSupportLibrary = true
 
-        // 多dex支持
-        multiDexEnabled = true
-
         // 只打 arm64：--target-platform 过滤不了插件 AAR 里的 native 库，
-        // 没有这行 x86_64/armeabi-v7a 的 rive_native、MLKit 等会多带 ~25MB 死重
+        // 没有这行 x86_64/armeabi-v7a 的 rive_native、MLKit 等会多带 ~25MB 死重。
+        // 注意：fat 构建下这行会被 Flutter 插件无视（FlutterPlugin.kt 会 clear 各
+        // buildType 的 abiFilters 再写入 arm32/arm64/x64 三 ABI 默认值），真正生效
+        // 要靠 CI 的 --split-per-abi；workflow 里有 arm64-only 守门步骤兜底。
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
@@ -123,15 +123,6 @@ allprojects {
 dependencies {
     // 核心库脱糖
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-
-    // Multidex支持
-    implementation("androidx.multidex:multidex:2.0.1")
-
-    // CameraX核心库（如果需要高级相机功能）
-    implementation("androidx.camera:camera-core:1.3.0")
-    implementation("androidx.camera:camera-camera2:1.3.0")
-    implementation("androidx.camera:camera-lifecycle:1.3.0")
-    implementation("androidx.camera:camera-view:1.3.0")
 
     // 其他必要的AndroidX库
     implementation("androidx.core:core-ktx:1.12.0")

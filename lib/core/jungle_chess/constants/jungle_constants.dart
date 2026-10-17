@@ -102,15 +102,16 @@ bool isRedDen(int index) => index == kRedDen;
 bool isBlueTrap(int index) => kBlueTraps.contains(index);
 bool isRedTrap(int index) => kRedTraps.contains(index);
 
-// 动物代码 → assets/animals/ 下的 PNG 文件名
-// 注意：鼠对应 mouse.png（命名沿用旧版习惯，没改成 rat.png）
+// 动物代码 → assets/animals/ 下的 WebP 文件名（2026-10 由 PNG 转 q92 有损 WebP，
+// 1.5MB → 0.26MB；alpha 走 yuva420p 保留）
+// 注意：鼠对应 mouse.webp（命名沿用旧版习惯，没改成 rat.webp）
 const Map<Animal, String> kAnimalFile = {
-  Animal.rat: 'mouse.png',
-  Animal.cat: 'cat.png',
-  Animal.dog: 'dog.png',
-  Animal.wolf: 'wolf.png',
-  Animal.leopard: 'leopard.png',
-  Animal.tiger: 'tiger.png',
-  Animal.lion: 'lion.png',
-  Animal.elephant: 'elephant.png',
+  Animal.rat: 'mouse.webp',
+  Animal.cat: 'cat.webp',
+  Animal.dog: 'dog.webp',
+  Animal.wolf: 'wolf.webp',
+  Animal.leopard: 'leopard.webp',
+  Animal.tiger: 'tiger.webp',
+  Animal.lion: 'lion.webp',
+  Animal.elephant: 'elephant.webp',
 };
