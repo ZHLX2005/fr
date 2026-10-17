@@ -216,7 +216,7 @@ const Map<String, GameMeta> kGameMeta = {
   'sudoku-lua': GameMeta(
     categories: {GameCategory.multiplayer, GameCategory.puzzle},
     icon: Icons.grid_on_rounded,
-    gradient: [Color(0xFF3D3127), Color(0xFFA07E5A)], // 主题豁免：数独纸墨（sudoku_colors.dart）
+    gradient: [Color(0xFF3D3127), Color(0xFFA07E5A)], // 主题豁免：数独纸墨（tokens/color/sudoku.dart）
     mode: '联机双人',
     pattern: GameArtPattern.grid,
   ),

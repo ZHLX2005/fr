@@ -1,15 +1,15 @@
-// Layer 3 — DefaultSudokuColorStrategy：从 sudoku_colors 派生 8 角色。
+// Layer 2 — DefaultSudokuColorStrategy：从 tokens/color/sudoku.dart 派生 8 角色。
 //
 // 8 角色全部用 scheme 派生方法（SudokuColors.*From(scheme)），跟主题走。
 // 同一 scheme 调用 .of() 多次返回同一实例（scheme 相等缓存去重）。
 //
-// 6 主题（zen/purple/ink/rose/lemon/cobalt）切换时，scheme 变了会重新派生，
+// 主题切换时，scheme 变了会重新派生，
 // 因此本类天然支持"全主题覆盖"而无需 per-theme 文件 —— 与 chess 行为一致。
 
 import 'package:flutter/material.dart';
 
+import '../../../../tokens/color/sudoku.dart';
 import '../sudoku_color_strategy.dart';
-import 'sudoku_colors.dart';
 
 class DefaultSudokuColorStrategy extends SudokuColorStrategy {
   @override

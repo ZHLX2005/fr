@@ -1,10 +1,13 @@
-// Layer 1 — 数独棋盘色板常量（8 角色 + cellBg/cellText 子结构）。
+// Layer 1 — 数独棋盘色板（8 角色 + cellBg/cellText 子结构 DTO）。
 //
 // 双层结构：
 //   · const Color 基础色（无主题时使用，hex 兜底）
 //   · scheme 派生方法（有主题时 strategy 默认调用，跟主题走）
 //
-// 基础色参考 zen 主题米色系（zen 是范本 light 主题），无主题 fallback。
+// 2026-10 自 colors/strategy/sudoku_color_strategy/themes/ 迁入 tokens 层，
+// 与 board/chess 分层对齐（strategy → token 单向依赖）。
+// SudokuCellBg / SudokuCellText DTO 随迁（SudokuColors.*From 的返回类型，
+// 定义在这里避免 token 反向 import strategy）。
 //
 // 配色设计要点：
 //   · cellBg.filled / empty / initial —— 三态格语义，
@@ -15,7 +18,47 @@
 
 import 'package:flutter/material.dart';
 
-import '../sudoku_color_strategy.dart';
+/// 数独格子背景三态。
+@immutable
+class SudokuCellBg {
+  final Color filled;
+  final Color empty;
+  final Color initial;
+
+  const SudokuCellBg({
+    required this.filled,
+    required this.empty,
+    required this.initial,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SudokuCellBg &&
+          filled == other.filled &&
+          empty == other.empty &&
+          initial == other.initial;
+
+  @override
+  int get hashCode => Object.hash(filled, empty, initial);
+}
+
+/// 数独格子文字色（含错误态）。
+@immutable
+class SudokuCellText {
+  final Color regular;
+  final Color error;
+
+  const SudokuCellText({required this.regular, required this.error});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SudokuCellText && regular == other.regular && error == other.error;
+
+  @override
+  int get hashCode => Object.hash(regular, error);
+}
 
 class SudokuColors {
   SudokuColors._();
@@ -61,9 +104,8 @@ class SudokuColors {
 
   // ─── scheme 派生（跟主题）───────────────────────────────
   //
-  // 设计目标：6 主题（zen/purple/ink/rose/lemon/cobalt）切换时，
-  // 数独棋盘三态格语义、错误警示、选中高亮始终保持，
-  // 具体颜色暖度跟随环境色温。
+  // 设计目标：主题切换时，数独棋盘三态格语义、错误警示、
+  // 选中高亮始终保持，具体颜色暖度跟随环境色温。
 
   /// cellBg —— 三态格派生
   static SudokuCellBg cellBgFrom(ColorScheme scheme) => SudokuCellBg(

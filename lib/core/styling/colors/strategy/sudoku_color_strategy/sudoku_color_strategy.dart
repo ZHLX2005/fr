@@ -18,47 +18,10 @@
 
 import 'package:flutter/material.dart';
 
-/// 数独格子背景三态。
-@immutable
-class SudokuCellBg {
-  final Color filled;
-  final Color empty;
-  final Color initial;
+import '../../../tokens/color/sudoku.dart';
 
-  const SudokuCellBg({
-    required this.filled,
-    required this.empty,
-    required this.initial,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SudokuCellBg &&
-          filled == other.filled &&
-          empty == other.empty &&
-          initial == other.initial;
-
-  @override
-  int get hashCode => Object.hash(filled, empty, initial);
-}
-
-/// 数独格子文字色（含错误态）。
-@immutable
-class SudokuCellText {
-  final Color regular;
-  final Color error;
-
-  const SudokuCellText({required this.regular, required this.error});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SudokuCellText && regular == other.regular && error == other.error;
-
-  @override
-  int get hashCode => Object.hash(regular, error);
-}
+export '../../../tokens/color/sudoku.dart'
+    show SudokuCellBg, SudokuCellText;
 
 @immutable
 abstract class SudokuColorStrategy {
