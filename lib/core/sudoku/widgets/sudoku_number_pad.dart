@@ -17,7 +17,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 class SudokuNumberPad extends StatelessWidget {
   final void Function(int n) onNumber;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 import 'const_recorder.dart';
 import 'recorder_controller.dart';

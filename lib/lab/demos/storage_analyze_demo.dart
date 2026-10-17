@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../../widgets/context_colors.dart';
+import '../../core/styling/context/colors.dart';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

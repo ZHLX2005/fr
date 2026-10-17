@@ -1,4 +1,4 @@
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'const_metronome.dart';

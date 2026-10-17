@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../../widgets/context_colors.dart';
+import '../../core/styling/context/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../lab_container.dart';

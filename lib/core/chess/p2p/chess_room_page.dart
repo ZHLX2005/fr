@@ -28,7 +28,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_chess_colors.dart';
+import '../../../core/styling/context/chess_colors.dart';
 import '../../game_audio/piece_sound.dart';
 import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';

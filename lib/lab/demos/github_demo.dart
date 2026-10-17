@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../widgets/context_colors.dart';
+import '../../core/styling/context/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/design/emphasis_button.dart';

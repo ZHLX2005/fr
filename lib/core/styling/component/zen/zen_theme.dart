@@ -10,7 +10,7 @@
 //   - widget 层委托 Base*（详见 commit 4 重构）
 
 import 'package:flutter/material.dart';
-import '../../../../widgets/context_colors.dart';
+import '../../../../core/styling/context/colors.dart';
 
 import '../../../../widgets/base/base_dialog.dart';
 import '../../../../widgets/base/base_dot.dart';

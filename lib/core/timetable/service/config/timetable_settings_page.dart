@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../widgets/context_colors.dart';
+import '../../../../../core/styling/context/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';

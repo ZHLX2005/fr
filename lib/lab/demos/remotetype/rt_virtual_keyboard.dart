@@ -14,7 +14,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 /// 单个虚拟按键按下时的回调。
 ///   - [keyId] = `RtChord.keys` 入参形态（'win' / 'r' / 'f5' / 'enter' …）

@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../../../../widgets/context_colors.dart';
+import '../../../../core/styling/context/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';

@@ -8,7 +8,7 @@ import 'package:xiaodouzi_fr/core/game_audio/dealing_cards_sound.dart';
 
 import 'constants.dart';
 import 'engine.dart';
-import '../../../widgets/context_team_avatar_colors.dart';
+import '../../../core/styling/context/team_avatar_colors.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Setup Page（房主建房前）

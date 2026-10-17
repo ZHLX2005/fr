@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'const_network.dart';

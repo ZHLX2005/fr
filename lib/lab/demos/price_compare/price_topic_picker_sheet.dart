@@ -2,7 +2,7 @@
 // 入参改为 PriceTopicSummary 列表，使 sheet 不依赖 Hive / PriceTopic。
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 import 'price_compare_models.dart';
 

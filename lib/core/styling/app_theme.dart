@@ -35,6 +35,15 @@ import 'tokens/color/theme/dark.dart' as dark_t;
 export 'colors/theme_mode.dart' show AppThemeMode;
 export 'tokens/color/app_colors_extension.dart' show AppColorsExtension;
 
+// 公共读取 API：context_*/colors 桥（BuildContext extensions）。
+// 见 lib/core/styling/context/ 目录下各 <domain>_colors.dart。
+export 'context/colors.dart';
+export 'context/board_colors.dart';
+export 'context/chess_colors.dart';
+export 'context/sudoku_colors.dart';
+export 'context/tetris_colors.dart';
+export 'context/team_avatar_colors.dart';
+
 /// 应用主题配置类
 class AppTheme {
   // ============================================================

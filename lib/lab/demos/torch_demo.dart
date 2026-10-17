@@ -8,7 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../core/styling/tokens/color/torch.dart';
-import '../../widgets/context_colors.dart';
+import '../../core/styling/context/colors.dart';
 import '../lab_container.dart';
 import 'torch/const_torch.dart';
 

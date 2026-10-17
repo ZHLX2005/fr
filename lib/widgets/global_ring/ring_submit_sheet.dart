@@ -15,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
 import '../../lab/demos/kvcli_todo/active_group_provider.dart';
 import '../../lab/demos/kvcli_todo/todo_submit_service.dart';
-import '../context_colors.dart';
+import '../../core/styling/context/colors.dart';
 import 'const_global_ring.dart';
 
 /// 弹出提交面板。成功提交返回 true。

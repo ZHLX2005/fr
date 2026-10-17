@@ -28,7 +28,7 @@ import '../../../api/remotetype/remotetype.dart';
 import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
 import '../../../widgets/app_notification.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 import '../../demo_session_host.dart';
 import 'rt_constants.dart';
 import 'rt_connecting_overlay.dart';

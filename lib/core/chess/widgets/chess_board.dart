@@ -45,7 +45,7 @@
 
 import 'package:flutter/widgets.dart';
 
-import '../../../widgets/context_chess_colors.dart';
+import '../../../core/styling/context/chess_colors.dart';
 import '../constants/chess_constants.dart';
 import '../models/board_state.dart';
 import '../models/move.dart';

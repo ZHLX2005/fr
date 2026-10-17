@@ -6,9 +6,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/styling/extensions/tetris_color_strategy_extension.dart';
-import '../core/styling/colors/strategy/tetris_color_strategy/tetris_color_strategy.dart';
-import '../core/styling/colors/strategy/tetris_color_strategy/themes/default.dart';
+import '../extensions/tetris_color_strategy_extension.dart';
+import '../colors/strategy/tetris_color_strategy/tetris_color_strategy.dart';
+import '../colors/strategy/tetris_color_strategy/themes/default.dart';
 
 extension TetrisColorsContext on BuildContext {
   /// 当前生效的 TetrisColorStrategy（双层兜底，绝不返回 null）。

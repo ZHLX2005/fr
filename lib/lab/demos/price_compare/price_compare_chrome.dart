@@ -2,7 +2,7 @@
 // 从 price_compare_demo.dart 抽出，让主文件保持在 400 行以下
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 import 'price_compare_models.dart';
 

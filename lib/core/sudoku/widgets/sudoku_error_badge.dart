@@ -10,7 +10,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 class SudokuErrorBadge extends StatelessWidget {
   final int errorCount;

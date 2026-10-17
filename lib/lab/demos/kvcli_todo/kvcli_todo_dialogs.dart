@@ -1,7 +1,7 @@
 // KV 清单 —— 弹窗（编辑 / 删除确认 / 完成结果 / 添加快捷 topic）。
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 import '../../../core/design/emphasis_button.dart';
 import 'kvcli_todo_models.dart';

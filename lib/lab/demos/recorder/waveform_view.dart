@@ -1,5 +1,5 @@
 import 'dart:collection';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'const_network.dart';

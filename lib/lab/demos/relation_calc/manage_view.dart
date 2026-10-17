@@ -5,7 +5,7 @@
 // 删除实体/关系词时 store 会联动清理引用它的规则，避免悬空边。
 
 import 'package:flutter/material.dart';
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 
 import '../../../../core/styling/component/zen/zen_theme.dart';
 import 'const_relation_calc.dart';

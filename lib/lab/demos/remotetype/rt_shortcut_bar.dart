@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../widgets/context_colors.dart';
+import '../../../core/styling/context/colors.dart';
 import 'rt_constants.dart';
 import 'rt_prefs.dart';
 import 'rt_virtual_keyboard.dart';
