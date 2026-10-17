@@ -12,7 +12,7 @@ import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import '../lab_container.dart';
 import 'web_bookmark/models/bookmark_item.dart';
 import 'web_bookmark/providers/bookmark_provider.dart';
-import '../../core/design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {

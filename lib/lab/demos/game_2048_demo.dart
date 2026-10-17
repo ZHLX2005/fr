@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:xiaodouzi_fr/core/design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import '../lab_container.dart';
 
 // 主题豁免：2048 数字色阶（776E65 字 / EEE4DA 格底）是原版国际识别色。

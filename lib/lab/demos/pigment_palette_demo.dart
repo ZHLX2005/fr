@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import '../../native/overlay/pigment_overlay_service.dart';
 import '../lab_container.dart';
 

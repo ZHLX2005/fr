@@ -3,7 +3,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../core/design/emphasis_button.dart';
+import '../../../widgets/emphasis_button.dart';
 
 /// 原生通知功能测试页面
 class NativeNotificationsPage extends StatefulWidget {

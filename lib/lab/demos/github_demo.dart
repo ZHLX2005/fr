@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/styling/context/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import '../../core/github/github.dart';
 import '../lab_container.dart';
 

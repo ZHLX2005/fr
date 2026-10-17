@@ -4,7 +4,7 @@ import '../../core/styling/context/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/styling/component/zen/zen_theme.dart'
     show ZenText, ZenSection, zenPageScaffold;

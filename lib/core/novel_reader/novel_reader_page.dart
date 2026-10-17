@@ -8,7 +8,7 @@ import 'package:flutter/physics.dart';
 
 import '../nav/nav_route.dart';
 import 'canvas_reader_engine.dart';
-import '../design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
 import 'novel_reader_sync.dart';

@@ -23,7 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/goframe/kv/kv_endpoint.dart';
 import '../../api/goframe/group/group_endpoint.dart';
 import '../../api/providers/api_providers.dart';
-import '../../core/design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import '../../widgets/global_ring/ring_enabled_provider.dart';
 import '../lab_container.dart';
 import 'kvcli_todo/active_group_provider.dart';

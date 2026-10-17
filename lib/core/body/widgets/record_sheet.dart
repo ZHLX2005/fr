@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/body_region.dart';
 import '../models/body_record.dart';
 import '../../storage/hive/body_record_repository.dart';
-import '../../design/emphasis_button.dart';
+import '../../../widgets/emphasis_button.dart';
 
 class RecordSheet extends StatefulWidget {
   final BlockRegion bodyPart;

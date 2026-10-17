@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import 'github_actions_models.dart';
 import 'github_actions_service.dart';
 import 'github_api_exception.dart';
