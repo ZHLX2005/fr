@@ -6,7 +6,7 @@
 //   [TetrisPiecePreview] 单方块预览：Hold / Next 槽用
 //
 // 颜色：
-//   - 棋盘井纯色 / 网格 / 方块识别色 → TetrisColorsStrategy
+//   - 棋盘井纯色 / 网格 / 方块识别色 → TetrisColorStrategy
 //   - 主棋盘格：圆角 + 斜向柔渐变 + 顶部高光（光滑糖果质感）
 //   - HOLD/NEXT mini：同系缩小版
 //   - ghost 落点 → 固定投影紫（与下落块颜色无关）
@@ -17,7 +17,7 @@ import 'dart:ui' as ui show Gradient;
 import 'package:flutter/material.dart';
 
 import '../../../widgets/context_tetris_colors.dart';
-import '../../../core/styling/colors/strategy/tetris_colors_strategy/tetris_colors_strategy.dart';
+import '../../../core/styling/colors/strategy/tetris_color_strategy/tetris_color_strategy.dart';
 import 'constants.dart';
 import 'engine.dart' show TetrisPiece;
 
@@ -96,7 +96,7 @@ class _BoardPainter extends CustomPainter {
     this.current,
     this.ghost = 0,
   });
-  final TetrisColorsStrategy tc;
+  final TetrisColorStrategy tc;
   final Map<int, Color> pieceColors;
   final List<List<int>> grid;
   final TetrisPiece? current;
@@ -309,7 +309,7 @@ class _PiecePreviewPainter extends CustomPainter {
     required this.pieceColors,
     required this.type,
   });
-  final TetrisColorsStrategy tc;
+  final TetrisColorStrategy tc;
   final Map<int, Color> pieceColors;
   final int? type;
 

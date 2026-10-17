@@ -6,8 +6,8 @@
 import 'package:flutter/material.dart';
 
 @immutable
-abstract class TorchProtectStrategy {
-  const TorchProtectStrategy();
+abstract class TorchProtectColorStrategy {
+  const TorchProtectColorStrategy();
 
   ColorScheme get scheme;
 
@@ -25,7 +25,7 @@ abstract class TorchProtectStrategy {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TorchProtectStrategy &&
+      other is TorchProtectColorStrategy &&
           runtimeType == other.runtimeType &&
           scheme == other.scheme &&
           protectWarmYellow == other.protectWarmYellow &&

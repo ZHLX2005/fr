@@ -46,7 +46,7 @@
 
 校验：切到新主题整页审一遍（重点：卡片/对话框 surface 对比、正文 onSurface、边框 outline、危险 error）。
 
-> **特例策略不受影响**：`TetrisColorsStrategy` / `TeamAvatarStrategy` 走 native const，新主题下不变。`DefaultTorchProtectStrategy` 切主题会重新派生。
+> **特例策略不受影响**：`TetrisColorStrategy` / `TeamAvatarColorStrategy` 走 native const，新主题下不变。`DefaultTorchProtectColorStrategy` 切主题会重新派生。
 
 ## 2. 扩展语义角色（ColorStrategy）
 
@@ -56,11 +56,11 @@
 
 1. `colors/strategy/color_strategy/color_strategy.dart`：抽象加 `Color get info;`，并在 `==`/`hashCode` 中并入 `info`。
 2. `colors/strategy/color_strategy/themes/default.dart`：实现 `info => scheme.tertiary`（或选合适 scheme 角色映射）。
-3. 如还有 board / torchProtect 策略需要相同角色，照 `default_board_color_strategy.dart` / `default_torch_protect_strategy.dart` 同法扩，并同步它们的 `==`/`hashCode`。
+3. 如还有 board / torchProtect 策略需要相同角色，照 `default_board_color_strategy.dart` / `default_torch_protect_color_strategy.dart` 同法扩，并同步它们的 `==`/`hashCode`。
 4. 消费端已有 `context.colors` 快捷入口，扩接口后自动可用，无需改 `context_colors.dart`。
 
 > ⚠️ 任何实现 `ColorStrategy` 的类都要满足 `@immutable` + 角色全覆盖 + `==`/`hashCode` 一致性，否则策略去重与 rebuild 失效。
-> ⚠️ **特例策略不要扩**：`TetrisColorsStrategy` 4 角色锁定，扩它 = 改 const 引用面 = 高风险。要加识别色业务开新 strategy（见 [[B02-特例策略]] §2）。
+> ⚠️ **特例策略不要扩**：`TetrisColorStrategy` 4 角色锁定，扩它 = 改 const 引用面 = 高风险。要加识别色业务开新 strategy（见 [[B02-特例策略]] §2）。
 
 ## 3. 新增 / 修改组件样式
 

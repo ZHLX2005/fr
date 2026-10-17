@@ -6,8 +6,8 @@
 import 'package:flutter/material.dart';
 
 @immutable
-abstract class TeamAvatarStrategy {
-  const TeamAvatarStrategy();
+abstract class TeamAvatarColorStrategy {
+  const TeamAvatarColorStrategy();
 
   /// 6 头像色（按角色索引 mod 6 取色）。
   List<Color> get avatarColors;
@@ -15,7 +15,7 @@ abstract class TeamAvatarStrategy {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TeamAvatarStrategy &&
+      other is TeamAvatarColorStrategy &&
           runtimeType == other.runtimeType &&
           _listEq(avatarColors, other.avatarColors);
 

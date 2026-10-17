@@ -19,9 +19,9 @@ import 'colors/theme_mode.dart' show AppThemeMode;
 import 'extensions/board_color_strategy_extension.dart';
 import 'extensions/chess_color_strategy_extension.dart';
 import 'extensions/color_strategy_extension.dart';
-import 'extensions/team_avatar_strategy_extension.dart';
-import 'extensions/tetris_colors_strategy_extension.dart';
-import 'extensions/torch_protect_strategy_extension.dart';
+import 'extensions/team_avatar_color_strategy_extension.dart';
+import 'extensions/tetris_color_strategy_extension.dart';
+import 'extensions/torch_protect_color_strategy_extension.dart';
 import 'text_theme.dart';
 import 'tokens/color/app_colors_extension.dart';
 import 'tokens/color/theme/zen.dart' as zen_t;
@@ -123,9 +123,9 @@ class AppTheme {
     final colorStrategy = ThemeStrategyFactory.create(scheme);
     final boardStrategy = ThemeStrategyFactory.createBoardColorStrategy(scheme);
     final chessStrategy = ThemeStrategyFactory.createChessColorStrategy(scheme);
-    final tetrisColorsStrategy = ThemeStrategyFactory.createTetrisColorsStrategy(scheme);
-    final teamAvatarStrategy = ThemeStrategyFactory.createTeamAvatarStrategy();
-    final torchProtectStrategy = ThemeStrategyFactory.createTorchProtectStrategy(scheme);
+    final tetrisColorsStrategy = ThemeStrategyFactory.createTetrisColorStrategy(scheme);
+    final teamAvatarStrategy = ThemeStrategyFactory.createTeamAvatarColorStrategy();
+    final torchProtectStrategy = ThemeStrategyFactory.createTorchProtectColorStrategy(scheme);
     // 深色主题（暮紫/暗黑）按钮规则：禁 onPrimary 实色亮块，走
     // 「暗底 + 白字 + 细边 + 主题色强调」——保 OLED 沉浸感。
     // 亮色主题保持 primary 实色填充不变。
@@ -140,9 +140,9 @@ class AppTheme {
         ColorStrategyExtension(colorStrategy),
         BoardColorStrategyExtension(boardStrategy),
         ChessColorStrategyExtension(chessStrategy),
-        TetrisColorsStrategyExtension(tetrisColorsStrategy),
-        TeamAvatarStrategyExtension(teamAvatarStrategy),
-        TorchProtectStrategyExtension(torchProtectStrategy),
+        TetrisColorStrategyExtension(tetrisColorsStrategy),
+        TeamAvatarColorStrategyExtension(teamAvatarStrategy),
+        TorchProtectColorStrategyExtension(torchProtectStrategy),
       ],
       cardTheme: CardThemeData(
         elevation: 2,

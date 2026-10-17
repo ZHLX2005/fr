@@ -37,9 +37,9 @@ tokens(原料) → theme(色板) → strategy(策略) → component(组件)
 | `ColorStrategy` | `context.colors` | 6 核心 + scheme 兜底 | **从 scheme 派生** | 普通组件、页面、卡片 |
 | `BoardColorStrategy` | `context.boardColors` | 11 棋盘专属 | **从 scheme 派生** | 棋牌棋盘 UI（gomoku/reversi/jungle） |
 | `ChessColorStrategy` | `context.chessColors` | 13 国际象棋专属 | **从 scheme 派生** | 国际象棋（v6.2+ 新增第 6 通道） |
-| `TetrisColorsStrategy` | `context.tetrisColors` | 4 角色（棋盘环境 + 方块色） | **native const（特例）** | 俄罗斯方块 |
-| `TeamAvatarStrategy` | `context.teamAvatar` | 6 头像色 | **native const（识别色锁定）** | 团队卡 |
-| `TorchProtectStrategy` | `context.torchProtect` | 10 护眼色预设 | **从 scheme 派生** | 灯具护眼 |
+| `TetrisColorStrategy` | `context.tetrisColors` | 4 角色（棋盘环境 + 方块色） | **native const（特例）** | 俄罗斯方块 |
+| `TeamAvatarColorStrategy` | `context.teamAvatar` | 6 头像色 | **native const（识别色锁定）** | 团队卡 |
+| `TorchProtectColorStrategy` | `context.torchProtect` | 10 护眼色预设 | **从 scheme 派生** | 灯具护眼 |
 
 > **核心约定**：4 个 strategy 走"scheme 派生"（切主题 = 换 scheme = 自动重新派生）；2 个 strategy（tetris / teamAvatar）走"native const"（玩家靠颜色识别，跨主题锁定）。特例细节见 [[B02-特例策略]]。
 

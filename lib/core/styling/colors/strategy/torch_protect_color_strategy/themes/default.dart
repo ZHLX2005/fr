@@ -1,25 +1,25 @@
-// Layer 2 — DefaultTorchProtectStrategy：从 tokens/color/torch 派生护眼色。
+// Layer 2 — DefaultTorchProtectColorStrategy：从 tokens/color/torch 派生护眼色。
 
 import 'package:flutter/material.dart';
 
 import '../../../../tokens/color/torch.dart';
-import '../torch_protect_strategy.dart';
+import '../torch_protect_color_strategy.dart';
 
-class DefaultTorchProtectStrategy extends TorchProtectStrategy {
+class DefaultTorchProtectColorStrategy extends TorchProtectColorStrategy {
   @override
   final ColorScheme scheme;
 
-  static DefaultTorchProtectStrategy? _cached;
+  static DefaultTorchProtectColorStrategy? _cached;
 
-  factory DefaultTorchProtectStrategy.of(ColorScheme scheme) {
+  factory DefaultTorchProtectColorStrategy.of(ColorScheme scheme) {
     final cached = _cached;
     if (cached != null && cached.scheme == scheme) return cached;
-    final instance = DefaultTorchProtectStrategy._(scheme);
+    final instance = DefaultTorchProtectColorStrategy._(scheme);
     _cached = instance;
     return instance;
   }
 
-  const DefaultTorchProtectStrategy._(this.scheme);
+  const DefaultTorchProtectColorStrategy._(this.scheme);
 
   @override
   Color get protectWarmYellow => TorchColors.protectWarmYellow(scheme);
