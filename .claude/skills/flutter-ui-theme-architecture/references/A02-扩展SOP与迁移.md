@@ -9,10 +9,10 @@
 | --- | --- | --- |
 | 新增一套主题配色 | `tokens/color/theme/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
 | 新增强调色 / 语义角色（如在 `ColorStrategy` 加 `info`） | `colors/strategy/color_strategy/color_strategy.dart` + `colors/strategy/color_strategy/themes/default.dart`（+ 其他 strategy 如有同类需求） | §2 |
-| 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `widgets/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
+| 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `widgets/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
 | 新增 / 改一个复用的组件样式 | `component/` 或 `widgets/theme/zen_theme.dart` helper | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
-| 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[B02-特例策略]] |
+| 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[B02-特例策略]] |
 | 看历史踩过的反模式 / 找正确做法 | 踩坑经验库 | §4.5 |
 | 判断某处能不能写裸 hex | 豁免规则 | §5 |
 
@@ -200,8 +200,8 @@
 1. **国际 / 品牌识别色**：斗兽棋暖米盘、Othello 绿盘黑白子、2048 原版识别色、小说书封面品牌渐变…
 2. **数据持久化 / 业务必显色**：医学解剖标准色（骨蓝/肌红/关黄/器绿）、莫兰迪课程色（light 专属）、pigment 调色板本体、web_bookmark 站点色…
 3. **特例 strategy（无需豁免注释，架构决策保留）**：
-   - `tokens/color/tetris/tetris.dart` 4 角色 + 7 方块色（识别色锁定，玩家靠颜色识别方块）
-   - `tokens/color/team/team.dart` 6 头像色（识别色锁定）
+   - `tokens/color/tetris.dart` 4 角色 + 7 方块色（识别色锁定，玩家靠颜色识别方块）
+   - `tokens/color/team.dart` 6 头像色（识别色锁定）
    - `lib/core/surround_game` 与 `lib/core/reversi` 的 `BoardThemeData`（86 处，见 [[A01-系统架构与数据流]] §5.8）
 
 **红线**：`lib/` 新增代码不默认这些豁免——只有上面场景适用，任何其它裸 hex 都要先想通道。

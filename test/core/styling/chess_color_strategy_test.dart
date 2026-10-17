@@ -5,13 +5,13 @@
 // 对照断言：
 //   1. 同 scheme 多次调用返回同一实例（factory 单例缓存）
 //   2. 切 scheme 后 13 角色全部重新派生（颜色随主题变化）
-//   3. 与 tokens/color/chess/chess.dart 的 *From() 方法产出一致
+//   3. 与 tokens/color/chess.dart 的 *From() 方法产出一致
 //   4. ==/hashCode 按角色正确实现
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/styling/colors/strategy/chess_color_strategy/themes/default.dart';
-import 'package:xiaodouzi_fr/core/styling/tokens/color/chess/chess.dart';
+import 'package:xiaodouzi_fr/core/styling/tokens/color/chess.dart';
 
 void main() {
   group('DefaultChessColorStrategy 派生正确性', () {
@@ -77,7 +77,7 @@ void main() {
       expect(s.checkmateOverlay, scheme.scrim.withValues(alpha: 0.78));
     });
 
-    test('13 角色与 tokens/color/chess/chess.dart 的 *From() 产出一致', () {
+    test('13 角色与 tokens/color/chess.dart 的 *From() 产出一致', () {
       const scheme = ColorScheme.light();
       final s = DefaultChessColorStrategy.of(scheme);
       expect(s.lightSquare, ChessColors.lightSquareFrom(scheme));

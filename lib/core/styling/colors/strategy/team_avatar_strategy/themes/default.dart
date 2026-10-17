@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../tokens/color/team/team.dart';
+import '../../../../tokens/color/team.dart';
 import '../team_avatar_strategy.dart';
 
 class DefaultTeamAvatarStrategy extends TeamAvatarStrategy {
