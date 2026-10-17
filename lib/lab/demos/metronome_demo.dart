@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/emphasis_button.dart';
 import '../lab_container.dart';
-import 'package:xiaodouzi_fr/core/styling/component/zen/zen_theme.dart'
+import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart'
     show ZenText, ZenSection, zenPageScaffold;
 import 'metronome/const_metronome.dart';
 import 'metronome/metronome_controller.dart';

@@ -35,6 +35,7 @@ import 'demos/surround_game_demo.dart';
 import 'demos/surround_game_lua_demo.dart';
 import 'demos/reversi_demo.dart' show registerReversiLuaDemo;
 import 'demos/jungle_chess_demo.dart';
+<<<<<<< Updated upstream
 import 'demos/kvcli_todo_demo.dart' show registerKvcliTodoDemo;
 import 'demos/reaction_test_demo.dart';
 import 'demos/metronome_demo.dart';
@@ -53,6 +54,9 @@ import 'demos/draughts_lua_demo.dart' show registerDraughtsLuaDemo;
 import 'demos/sudoku_lua/sudoku_demo.dart' show registerSudokuLuaDemo;
 import 'demos/remotetype_demo.dart' show registerRemoteTypeDemo;
 import 'demos/auth_login_demo.dart' show registerAuthLoginDemo;
+=======
+import 'demos/a2ui_demo.dart';
+>>>>>>> Stashed changes
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -87,6 +91,7 @@ void registerAllDemos() {
   registerSurroundGameDemo();
   registerReversiLuaDemo();
   registerJungleChessDemo();
+<<<<<<< Updated upstream
   registerKvcliTodoDemo();
   registerAuthLoginDemo();
   registerNotionImageHostDemo();
@@ -106,6 +111,9 @@ void registerAllDemos() {
   registerDraughtsLuaDemo();
   registerSudokuLuaDemo();
   registerRemoteTypeDemo();
+=======
+  registerA2uiDemo();
+>>>>>>> Stashed changes
 }
 
 // 初始化 Lab 模块

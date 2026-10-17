@@ -10,14 +10,14 @@
 //   - widget 层委托 Base*（详见 commit 4 重构）
 
 import 'package:flutter/material.dart';
-import '../../../../core/styling/context/colors.dart';
+import '../../../core/styling/context/colors.dart';
 
-import '../../../../widgets/base/base_dialog.dart';
-import '../../../../widgets/base/base_dot.dart';
-import '../../../../widgets/base/base_empty_state.dart';
-import '../../../../widgets/base/base_icon_button.dart';
-import '../../../../widgets/base/base_swipe_action.dart';
-import '../../colors/strategy/color_strategy/themes/default.dart';
+import '../base/base_dialog.dart';
+import '../base/base_dot.dart';
+import '../base/base_empty_state.dart';
+import '../base/base_icon_button.dart';
+import '../base/base_swipe_action.dart';
+import '../../core/styling/colors/strategy/color_strategy/themes/default.dart';
 
 // =====================================================================
 // Zen 排版（保持 const 以兼容 const widget）

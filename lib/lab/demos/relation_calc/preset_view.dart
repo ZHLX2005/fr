@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/styling/context/colors.dart';
 
-import '../../../../core/styling/component/zen/zen_theme.dart';
+import '../../../../widgets/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
 
 class PresetView extends StatelessWidget {
