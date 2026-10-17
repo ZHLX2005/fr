@@ -34,14 +34,11 @@ android {
         // 支持向量图
         vectorDrawables.useSupportLibrary = true
 
-        // 只打 arm64：--target-platform 过滤不了插件 AAR 里的 native 库，
-        // 没有这行 x86_64/armeabi-v7a 的 rive_native、MLKit 等会多带 ~25MB 死重。
-        // 注意：fat 构建下这行会被 Flutter 插件无视（FlutterPlugin.kt 会 clear 各
-        // buildType 的 abiFilters 再写入 arm32/arm64/x64 三 ABI 默认值），真正生效
-        // 要靠 CI 的 --split-per-abi；workflow 里有 arm64-only 守门步骤兜底。
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-        }
+        // 刻意不配 ndk.abiFilters：fat 构建下它会被 Flutter 插件无视
+        // （FlutterPlugin.kt clear 各 buildType 的 abiFilters 再写回三 ABI 默认值），
+        // split-per-abi 下 AGP 又报 Conflicting configuration（abiFilters 与
+        // splits.abi 互斥）。arm64 收敛完全由 CI 的 --split-per-abi 承担，
+        // workflow 里有 arm64-only 守门步骤兜底。别把 abiFilters 加回来。
 
         // NDK: 节拍器用 Oboe C++ 实时合成音频
         externalNativeBuild {
