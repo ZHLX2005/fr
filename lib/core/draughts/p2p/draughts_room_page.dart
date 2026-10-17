@@ -25,20 +25,23 @@
 //   吃子时引擎已做最长吃子裁决，落点即"最终落点"；同落点多条链时取第一条
 //   （确定性，且实战中同起终点异路径极少）。
 //
-// ## 终局
+// ## 操作条（playing，对齐 chess 模式）
 //
-//   棋盘保留 + 居中浮卡（结果 + 房主「再来一局」RESET + 返回），
-//   组合方式对齐 chess 的终局覆盖层。
+//   AppBar：手动刷新（fetchSnapshot + spinner 反馈）/ 退出。
+//   底部操作条：投降 / 悔棋 / 议和三按钮；对方挂起悔棋（议和）offer 时
+//   切换为「接受 + 拒绝」双按钮行。悔棋 offer 流 UNDO_OFFER → 对方
+//   UNDO_ACCEPT（服务端 pop 1~2 手）/ UNDO_DECLINE。
 //
-// ## 权威归属
+// ## 音效（PieceSound 单例）
 //
-//   棋谱（c.moves）由服务端权威维护；本页用引擎重放渲染（rebuildBoard）。
-//   终局由本页引擎判定后 CLAIM_END 上报（relay 不做跳棋规则推理）。
+//   initState 预加载；自己走子即时响（吃子手换 capture.wav）；
+//   对手走子按快照 fen diff 响，_pendingLocalFen 标记吃掉自己的 echo 防重响。
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../game_audio/piece_sound.dart';
 import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
 import '../engine/draughts_engine.dart';
@@ -86,6 +89,18 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   bool _setRulesLock = false;
   bool _dealLock = false;
 
+  /// 动作发送锁（走子 / 投降 / 悔棋 / 议和 / 重开 / 刷新共用，防双击）。
+  bool _sendLock = false;
+
+  /// 手动拉取快照进行中（AppBar 刷新按钮 spinner）。
+  bool _fetching = false;
+
+  /// 上一份快照的 fen —— 对手走子音的差分基准（首份快照 null 不响）。
+  String? _prevFen;
+
+  /// 自己刚走的走后 fen —— 快照 echo 识别（已在本地响过，防重响）。
+  String? _pendingLocalFen;
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +108,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     _snap = widget.handle.latest;
     _applySnapshot(_snap);
     _sub = widget.handle.snapshots.listen(_onSnapshot);
+    // 预加载落子音，消除首次落子的加载延迟（PieceSound 单例跨页复用）。
+    PieceSound.instance.preload();
   }
 
   @override
@@ -129,6 +146,25 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   void _applySnapshot(Snapshot? s) {
     _snap = s;
     _history = DraughtsRoom.rebuildHistory(s);
+    // 落子音（对齐 chess 的差分模板）：
+    //   · 首份快照（_prevFen == null）→ 页面刚进，不响。
+    //   · fen 未变（同状态重推）→ 不响。
+    //   · fen == _pendingLocalFen → 自己走子的服务端 echo（本地已响）→ 不响。
+    //   · 其余 = 对手走子 / 悔棋回退 → 响；吃子手换 capture.wav。
+    final fen = DraughtsRoom.fen(s);
+    if (fen != null && fen.isNotEmpty && _prevFen != null && fen != _prevFen) {
+      if (fen != _pendingLocalFen) {
+        final lastIsCapture =
+            _history.isNotEmpty && _history.last.pdn.contains('x');
+        if (lastIsCapture) {
+          PieceSound.instance.playCapture();
+        } else {
+          PieceSound.instance.play();
+        }
+      }
+    }
+    if (fen != null && fen.isNotEmpty) _prevFen = fen;
+    _pendingLocalFen = null; // 每次快照清一次（echo 已消费 / 其它情况丢弃）。
     _board = DraughtsRoom.rebuildBoard(_history, initialFen: DraughtsRoom.initialFen(s));
     _selected = null;
     _targets = const {};
@@ -175,7 +211,17 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     // 只有"刚走完的一方"能声明（= 非当前走子方）
     final claimerIsMe = _board.sideToMove != _myColor;
     if (!claimerIsMe) return;
-    _room.declareEnd(_reasonName(st.reason));
+    // 双方同时判定终局时后发方会被服务端拒（state 已 ended）→ 409 静默
+    // （幂等语义，对齐 chess _claimEnd）；其余错误提示但不回滚判定。
+    _room.declareEnd(_reasonName(st.reason)).catchError((Object e) {
+      if (e is RelayV3Exception && e.statusCode == 409) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('终局上报失败: $e')),
+        );
+      }
+      return;
+    });
   }
 
   String _reasonName(DraughtsEndReason r) {
@@ -229,12 +275,44 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   Future<void> _playMove(DraughtsMove move) async {
     final next = applyMoveSimple(_board, move);
+    // 预计算走后 FEN，给 [_applySnapshot] 做 echo 识别（避免重复响）。
+    final nextFen = fenFromBoardState(next);
     setState(() {
       _selected = null;
       _targets = const {};
       _lastPath = move.path.toSet();
+      _sendLock = true; // 发送期间不响应本地输入
+      _pendingLocalFen = nextFen;
     });
-    await _room.move(move, next);
+    // 自己的走子立刻响（不等服务端调和，零延迟反馈）；吃子手换吃子音。
+    if (move.isCapture) {
+      PieceSound.instance.playCapture();
+    } else {
+      PieceSound.instance.play();
+    }
+    try {
+      await _room.move(move, next);
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 409) {
+        // CAS 版本不匹配 → 拉最新快照（服务端状态优先，本地乐观局面被覆盖）。
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('状态已过期，同步中…')),
+        );
+        await _fetchSnapshotWithFeedback();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _sendLock = false);
+    }
   }
 
   // ── 动作 ──
@@ -298,8 +376,29 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     }
   }
 
-  Future<void> _reset() => _room.reset();
+  /// 房主「再来一局」（RESET）—— sendLock + 失败 snackbar（对齐 chess _reset）。
+  Future<void> _reset() async {
+    if (_sendLock || !_isHost) return;
+    setState(() => _sendLock = true);
+    try {
+      await _room.reset();
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _sendLock = false);
+    }
+  }
 
+  /// 认输：AlertDialog 二次确认（draughts 比 chess 多一层保护，保留），
+  /// 确认后 sendLock + 失败 snackbar（对齐 chess _resign）。
   Future<void> _confirmResign() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -318,7 +417,150 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         ],
       ),
     );
-    if (ok == true) await _room.resign();
+    if (ok != true || !mounted) return;
+    if (_sendLock) return;
+    setState(() => _sendLock = true);
+    try {
+      await _room.resign();
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _sendLock = false);
+    }
+  }
+
+  // ── 议和（DRAW offer → accept/decline，对齐 chess）──
+
+  /// 对方是否已挂起议和 offer（对手 id 按角色 host↔guest 推，不按颜色推）。
+  bool get _opponentOffered {
+    final snap = _snap;
+    if (snap == null) return false;
+    final oppId = _isHost ? DraughtsRoom.guestId(snap) : DraughtsRoom.hostId(snap);
+    if (oppId == null) return false;
+    return DraughtsRoom.drawOffers(snap)[oppId] == true;
+  }
+
+  /// 我方是否已挂起议和 offer（等待对方回应）。
+  bool get _iOffered =>
+      DraughtsRoom.drawOffers(_snap)[widget.handle.transport.deviceId] == true;
+
+  /// 点「议和」：无对方 offer → 发 DRAW_OFFER；对方已 offer → 直接接受。
+  Future<void> _drawOffer() => _sendGuardedAction(
+        type: _opponentOffered ? 'DRAW_ACCEPT' : 'DRAW_OFFER',
+        waitingHint: _opponentOffered
+            ? null
+            : const SnackBar(content: Text('已发送议和请求，等待对方回应')),
+      );
+
+  /// 对方议和 offer 时点「拒绝」→ DRAW_DECLINE。
+  Future<void> _drawDecline() =>
+      _sendGuardedAction(type: 'DRAW_DECLINE');
+
+  // ── 悔棋（UNDO offer → accept/decline，对齐 chess）──
+
+  /// 对方是否已挂起悔棋 offer（对手 id 按角色 host↔guest 推）。
+  bool get _opponentUndoOffered {
+    final snap = _snap;
+    if (snap == null) return false;
+    final oppId = _isHost ? DraughtsRoom.guestId(snap) : DraughtsRoom.hostId(snap);
+    if (oppId == null) return false;
+    return DraughtsRoom.undoOffers(snap)[oppId] == true;
+  }
+
+  /// 我方是否已挂起悔棋 offer（等待对方回应）。
+  bool get _iUndoOffered =>
+      DraughtsRoom.undoOffers(_snap)[widget.handle.transport.deviceId] == true;
+
+  /// 我能否请求悔棋：对局中 + 自己至少走过一手
+  /// （先手方 moves ≥ 1；后手方 moves ≥ 2。与服务端 UNDO_OFFER 门一致。
+  /// 先手方 = host_color == initial_side 的一方 —— host 未必先手）。
+  bool get _canRequestUndo {
+    final snap = _snap;
+    if (snap == null || snap.state != 'playing' || _endDeclared) return false;
+    final n = _history.length;
+    final iAmFirst = _isHost ==
+        (DraughtsRoom.hostColor(snap) == DraughtsRoom.initialSide(snap));
+    return iAmFirst ? n >= 1 : n >= 2;
+  }
+
+  /// 点「悔棋」：无对方 offer → 发 UNDO_OFFER；对方已 offer → 接受
+  /// （服务端 pop 1~2 手，快照回来自动重放回退棋盘）。409 → 调和。
+  Future<void> _undoRequest() => _sendGuardedAction(
+        type: _opponentUndoOffered ? 'UNDO_ACCEPT' : 'UNDO_OFFER',
+        waitingHint: _opponentUndoOffered
+            ? null
+            : const SnackBar(content: Text('已发送悔棋请求，等待对方回应')),
+        reconcileOn409: true,
+      );
+
+  /// 对方悔棋 offer 时点「拒绝」→ UNDO_DECLINE。
+  Future<void> _undoDecline() => _sendGuardedAction(type: 'UNDO_DECLINE');
+
+  // ── 动作发送模板（chess 同款）：sendLock + 双 catch + snackbar ──
+
+  /// [waitingHint] 非 null 且发送的不是"接受对方 offer"时提示等待；
+  /// [reconcileOn409] 时 409 → 拉最新快照调和（悔棋/走子这类期望回退的场景）。
+  Future<void> _sendGuardedAction({
+    required String type,
+    SnackBar? waitingHint,
+    bool reconcileOn409 = false,
+  }) async {
+    if (_sendLock) return;
+    // 发送前存决策值（await 后读 getter 可能已被新快照翻转）。
+    final isAccept = type.endsWith('_ACCEPT');
+    setState(() => _sendLock = true);
+    try {
+      await _room.handle.applyAction(type: type, params: const {});
+      if (!isAccept && waitingHint != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(waitingHint);
+      }
+    } on RelayV3Exception catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 409 && reconcileOn409) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('状态已过期，同步中…')),
+        );
+        await _fetchSnapshotWithFeedback();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _sendLock = false);
+    }
+  }
+
+  // ── 手动刷新（fetchSnapshot UI 反馈，对齐 chess）──
+
+  /// 带 UI 反馈的 fetchSnapshot —— AppBar 按钮 spinner 化。
+  /// 心跳（RoomHandle 内部 20s 周期）已在跑；这里暴露给"怀疑卡了"的应急场景。
+  Future<void> _fetchSnapshotWithFeedback() async {
+    if (_fetching) return; // 防双击
+    setState(() => _fetching = true);
+    try {
+      await widget.handle.fetchSnapshot();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('刷新失败: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _fetching = false);
+    }
   }
 
   /// 离开房间并 pop 回大厅（对齐 ChessRoomPage._leaveAndPop）。
@@ -360,12 +602,19 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
           elevation: 0,
           title: Text('房间 ${snap.roomCode}'),
           actions: [
-            if (_isPlaying)
-              IconButton(
-                tooltip: '认输',
-                icon: const Icon(Icons.flag_outlined),
-                onPressed: _confirmResign,
-              ),
+            // 手动刷新按钮：强制拉一次最新快照（带 UI 反馈）。心跳已经在跑，
+            // 这里只暴露给"我怀疑卡了"的应急场景（对齐 chess）。
+            IconButton(
+              icon: _fetching
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              onPressed: _fetching ? null : _fetchSnapshotWithFeedback,
+              tooltip: '刷新快照',
+            ),
             IconButton(
               tooltip: '退出',
               icon: const Icon(Icons.logout),
@@ -593,7 +842,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
             selectedSquare: _selected,
             legalTargets: _targets,
             lastMovePath: _lastPath,
-            interactive: _isMyTurn,
+            interactive: _isMyTurn && !_sendLock,
             onTapSquare: _onTapSquare,
           ),
         ),
@@ -601,7 +850,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     );
   }
 
-  // ── playing 操作条（轮次 / 强制吃子提示）──
+  // ── playing 操作条（轮次 / 强制吃子提示 / 投降·悔棋·议和三按钮）──
 
   Widget _playingBar(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -609,6 +858,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
     final turnText = _isMyTurn ? '轮到你走' : '等待对手…';
     final mustCapture = _isMyTurn &&
         kDefaultDraughtsEngine.legalMoves(_board).any((m) => m.isCapture);
+    // 本地引擎已判终局但服务端快照未切 ended 的窗口期 → 按钮全禁用。
+    final gameOver = _endDeclared;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
@@ -621,8 +872,100 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
               child: Text('有吃子，必须吃（最长吃子）',
                   style: dt.bodySmall?.copyWith(color: scheme.error)),
             ),
+          const SizedBox(height: 10),
+          _actionButtons(context, gameOver: gameOver),
         ],
       ),
+    );
+  }
+
+  /// 操作条三分支（对齐 chess）：对方悔棋 offer → 接受/拒绝行 + 投降；
+  /// 对方议和 offer → 接受/拒绝行 + 悔棋入口；平时 → 投降/悔棋/议和 Wrap。
+  Widget _actionButtons(BuildContext context, {required bool gameOver}) {
+    if (_opponentUndoOffered) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _sendLock ? null : _undoRequest,
+                icon: const Icon(Icons.undo, size: 18),
+                label: const Text('接受悔棋'),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _sendLock ? null : _undoDecline,
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('拒绝'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: gameOver ? null : _confirmResign,
+            icon: const Icon(Icons.flag, size: 18),
+            label: const Text('投降'),
+          ),
+        ],
+      );
+    }
+    if (_opponentOffered) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _sendLock ? null : _drawOffer,
+                icon: const Icon(Icons.handshake, size: 18),
+                label: const Text('接受议和'),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _sendLock ? null : _drawDecline,
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('拒绝'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _undoEntryButton(gameOver: gameOver),
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        OutlinedButton.icon(
+          onPressed: gameOver ? null : _confirmResign,
+          icon: const Icon(Icons.flag, size: 18),
+          label: const Text('投降'),
+        ),
+        _undoEntryButton(gameOver: gameOver),
+        OutlinedButton.icon(
+          onPressed: gameOver ? null : _drawOffer,
+          icon: const Icon(Icons.handshake, size: 18),
+          label: Text(_iOffered ? '等待对方回应' : '议和'),
+        ),
+      ],
+    );
+  }
+
+  /// 悔棋入口按钮（平时操作条 / 对方议和 offer 时第二行共用）。
+  ///
+  /// 禁用条件：本地已判终局 / 自己一手未走（[_canRequestUndo]，与服务端
+  /// UNDO_OFFER 门一致）/ 已挂起自己的悔棋 offer（防重复发）。
+  Widget _undoEntryButton({required bool gameOver}) {
+    final waiting = _iUndoOffered;
+    return OutlinedButton.icon(
+      onPressed: (gameOver || waiting || !_canRequestUndo) ? null : _undoRequest,
+      icon: const Icon(Icons.undo, size: 18),
+      label: Text(waiting ? '等待对方回应' : '悔棋'),
     );
   }
 

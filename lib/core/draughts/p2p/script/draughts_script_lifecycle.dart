@@ -135,6 +135,7 @@ on_init = function(c, p)
   c.fen = c.initial_fen
   c.moves = {}
   c.draw_offers = {}
+  c.undo_offers = {}
   c.status = "playing"
   c.winner = nil
   c.ply_since_capture = 0
@@ -149,6 +150,9 @@ on_init = function(c, p)
     DRAW_OFFER   = "any",
     DRAW_ACCEPT  = "any",
     DRAW_DECLINE = "any",
+    UNDO_OFFER   = "any",
+    UNDO_ACCEPT  = "any",
+    UNDO_DECLINE = "any",
     CLAIM_END    = "non_current_player",
     RESET        = "host",
   }
@@ -179,6 +183,7 @@ end
 on_leave = function(c, p)
   c.ready[p.device_id] = nil
   c.draw_offers[p.device_id] = nil
+  c.undo_offers[p.device_id] = nil
 
   if state == "playing" or state == "ready" then
     c.disconnected[p.device_id] = true

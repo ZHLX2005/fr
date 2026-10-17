@@ -1,10 +1,11 @@
 // lib/core/game_audio/piece_sound.dart
 //
-// 落子音效 — 棋游共用单例。
-// 五子棋 / 黑白翻转棋 / 围追堵截（本地+联机）/ 斗兽棋 在落子时调用 [PieceSound.instance.play]。
+// 落子/吃子音效 — 棋游共用单例。
+// 五子棋 / 黑白翻转棋 / 围追堵截（本地+联机）/ 斗兽棋 在落子时调用 [PieceSound.instance.play]；
+// 国际跳棋吃子链走子时调用 [PieceSound.instance.playCapture]（capture.wav）。
 //
 // 单例 + 预加载：AudioPlayer 全局复用，落子密集时零加载延迟、可快速重播。
-// 依赖 just_audio（已在 pubspec），asset = assets/audio/piece.mp3。
+// 依赖 just_audio（已在 pubspec），asset = assets/audio/piece.mp3 / capture.wav。
 //
 // 设计要点：
 //   - 懒加载 + 缓存 Future：首次 play 前加载，并发调用共享同一加载过程，不重复 setAsset。
@@ -18,10 +19,12 @@ class PieceSound {
   static final PieceSound instance = PieceSound._();
 
   static const String _assetPath = 'assets/audio/piece.mp3';
+  static const String _captureAssetPath = 'assets/audio/capture.wav';
 
   final AudioPlayer _player = AudioPlayer();
   // 缓存的「就绪 Future」。null 表示尚未加载或上次加载失败（下次重试）。
   Future<void>? _ready;
+  Future<void>? _captureReady;
 
   /// 预加载 piece.mp3。
   /// 可在进入棋盘页 initState / ViewModel 构造时调用以消除首次落子的加载延迟；
@@ -39,9 +42,30 @@ class PieceSound {
     }();
   }
 
+  Future<void> _ensureCaptureReady() {
+    return _captureReady ??= () async {
+      try {
+        await _player.setAsset(_captureAssetPath);
+      } catch (_) {
+        _captureReady = null;
+      }
+    }();
+  }
+
   /// 播放一次落子音。fire-and-forget，调用方无需 await。
   Future<void> play() async {
     await _ensureReady();
+    try {
+      await _player.seek(Duration.zero);
+      await _player.play();
+    } catch (_) {
+      // 播放失败不影响对局。
+    }
+  }
+
+  /// 播放一次吃子音。fire-and-forget，调用方无需 await。
+  Future<void> playCapture() async {
+    await _ensureCaptureReady();
     try {
       await _player.seek(Duration.zero);
       await _player.play();

@@ -6,7 +6,8 @@
 //
 // · 所有 on_action_* handler：
 //   ACK / DEAL / SET_RULES / MOVE / CLAIM_END / RESIGN /
-//   DRAW_OFFER / DRAW_ACCEPT / DRAW_DECLINE / RESET
+//   DRAW_OFFER / DRAW_ACCEPT / DRAW_DECLINE /
+//   UNDO_OFFER / UNDO_ACCEPT / UNDO_DECLINE / RESET
 // · 导出表 `return { definition = {...}, on_init = on_init, … }`
 //   **由 assembler 统一生成放最后**（本段不写 return，见 lua_script_assembler）。
 //
@@ -16,7 +17,9 @@
 // · 无 check / checkmate / stalemate 三态：跳棋是"无子 / 无着法"直接判负。
 // · CLAIM_END 的 reason 取值：noPieces / noMoves（胜）与
 //   threefold / kingVsKing（和）。
-// · 无 UNDO（跳棋吃子链撤销语义复杂，本期不做）。
+// · UNDO 与 chess 同构（offer → accept/decline）：申请方悔「自己的最后一手」，
+//   pop 数量按先手方奇偶推；额外重算 ply_since_capture（跳棋特有的
+//   吃子链计数，和棋判据的输入）。
 //
 // ## 段末尾必须以 `\n` 结尾（保持 assembler 的 `_functionBlock` regex 块边界）。
 
@@ -137,6 +140,7 @@ on_action_MOVE = function(c, p)
     c.ply_since_capture = (c.ply_since_capture or 0) + 1
   end
   c.draw_offers = {}
+  c.undo_offers = {}
   return c
 end
 
@@ -243,6 +247,104 @@ on_action_DRAW_DECLINE = function(c, p)
   return c
 end
 
+-- 悔棋（UNDO）：申请 → 对方接受/拒绝（与 chess 同构）。
+--   · 申请方悔「自己的最后一手」：先手方奇数手 pop 1 / 偶数手 pop 2；
+--     后手方奇数手 pop 2 / 偶数手 pop 1 —— 悔完后轮次必须回到申请方。
+--   · 先手方 = host_color == initial_side 的一方（host 执黑 / 黑先残局时
+--     host 未必先手，与 chess v8 修复同一坑）。
+on_action_UNDO_OFFER = function(c, p)
+  if state ~= "playing" then
+    return c
+  end
+  if c.status ~= "playing" then
+    return c
+  end
+  local n = #c.moves
+  if n == 0 then
+    return c
+  end
+  local is_host = (p.device_id == c.host_id)
+  local is_guest = (p.device_id == c.guest_id)
+  if not is_host and not is_guest then
+    return c
+  end
+  local host_is_first = ((c.host_color or "w") == (c.initial_side or "w"))
+  local requester_is_first = (is_host == host_is_first)
+  if (not requester_is_first) and n < 2 then
+    return c
+  end
+  c.undo_offers[p.device_id] = true
+  return c
+end
+
+on_action_UNDO_ACCEPT = function(c, p)
+  if state ~= "playing" then
+    return c
+  end
+  local requester = nil
+  if p.device_id == c.host_id then
+    if c.undo_offers[c.guest_id] == true then requester = c.guest_id end
+  elseif p.device_id == c.guest_id then
+    if c.undo_offers[c.host_id] == true then requester = c.host_id end
+  end
+  if requester == nil then
+    return c
+  end
+  if c.undo_offers[p.device_id] == true then
+    c.undo_offers = {}
+    return c
+  end
+  local n = #c.moves
+  -- 先手方判定与 UNDO_OFFER 同源：host_color == initial_side 的一方是先手。
+  local host_is_first = ((c.host_color or "w") == (c.initial_side or "w"))
+  local requester_is_first = ((requester == c.host_id) == host_is_first)
+  local pops
+  if requester_is_first then
+    pops = (n % 2 == 1) and 1 or 2
+  else
+    pops = (n % 2 == 1) and 2 or 1
+  end
+  for i = 1, pops do
+    if #c.moves > 0 then
+      table.remove(c.moves)
+    end
+  end
+  if #c.moves > 0 and c.moves[#c.moves].fen ~= nil then
+    c.fen = c.moves[#c.moves].fen
+  else
+    c.fen = c.initial_fen or "W:W31-50:B1-20"
+  end
+  -- 跳棋特有：重算「距上次吃子的空着数」（kingMoveLimit / 和棋判据的输入）。
+  local ply = 0
+  for i = #c.moves, 1, -1 do
+    local m = c.moves[i]
+    local cap = false
+    if type(m.pdn) == "string" then
+      for _ in m.pdn:gmatch("x") do cap = true end
+    end
+    if cap then break end
+    ply = ply + 1
+  end
+  c.ply_since_capture = ply
+  c.undo_offers = {}
+  c.draw_offers = {}
+  c.status = "playing"
+  c.winner = nil
+  return c
+end
+
+on_action_UNDO_DECLINE = function(c, p)
+  if state ~= "playing" then
+    return c
+  end
+  if p.device_id == c.host_id then
+    c.undo_offers[c.guest_id] = nil
+  elseif p.device_id == c.guest_id then
+    c.undo_offers[c.host_id] = nil
+  end
+  return c
+end
+
 -- 重开（RESET）—— 仅 host，仅终局后。清 history 回 lobby，双方重新准备。
 on_action_RESET = function(c, p)
   if not role_check(c, p, "RESET") then
@@ -255,10 +357,19 @@ on_action_RESET = function(c, p)
   c.moves = {}
   c.ready = {}
   c.draw_offers = {}
+  c.undo_offers = {}
   c.status = "playing"
   c.winner = nil
   c.end_reason = nil
   c.ply_since_capture = 0
+  -- 清断线标记与 emoji / chat 历史（跨局不泄漏，同 chess RESET）。
+  c.disconnected = {}
+  c.emojiRing = {}
+  c.emojiSeq = 0
+  c.lastEmojiAt = {}
+  c.chatRing = {}
+  c.chatSeq = 0
+  c.lastChatAt = {}
   state = "lobby"
   return c
 end

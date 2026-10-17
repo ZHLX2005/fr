@@ -7,6 +7,14 @@
 
 ---
 
+## 2026-10-17
+
+### 游戏（draughts / game_audio）
+
+- **feat** 国际跳棋对局页补齐 chess 同款操作基础设施：底部操作条（投降 / 悔棋 / 议和三按钮，对方挂起悔棋 / 议和申请时切换为「接受 + 拒绝」双按钮行，含等待回应禁用态与手数门槛）；AppBar 手动刷新按钮（fetchSnapshot + spinner 反馈，"怀疑卡了"应急入口）；认输确认对话框保留并迁到底部操作条。Lua 服务端新增 UNDO_OFFER / UNDO_ACCEPT / UNDO_DECLINE 三动作（与 chess 同构：先手方按 `host_color == initial_side` 推 pop 数、回滚 fen、重算吃子空着数），MOVE 后清残留 offer、RESET / on_leave 清 undo/emoji/chat 跨局状态
+- **feat** 国际跳棋接入音效：吃子手播新资产 `capture.wav`（合成音色）、普通落子走 `PieceSound` 单例；自己走子即时响、对手走子按快照 fen 差分响（echo 去重防重响）
+- **fix** 国际跳棋走子 / 认输 / 再来一局的发送失败静默问题：补 sendLock 防双击 + 失败 snackbar；走子与悔棋 409 时自动拉快照调和（"状态已过期，同步中…"），CLAIM_END 双端竞态改为 409 静默；MOVE 上报补 `ts` 字段（此前服务端棋谱时间恒为 0）
+
 ## 2026-10-13
 
 ### 界面 / 导航（ui / nav）

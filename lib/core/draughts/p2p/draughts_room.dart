@@ -21,7 +21,7 @@ import '../models/piece.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 
 export '../../net_engine/relay_v3/relay_v3_transport.dart'
-    show RoomHandle, Snapshot;
+    show RoomHandle, Snapshot, RelayV3Exception;
 
 /// 一条服务端棋谱记录
 class DraughtsMoveRecord {
@@ -85,11 +85,24 @@ class DraughtsRoom {
   Future<void> declineDraw() =>
       handle.applyAction(type: 'DRAW_DECLINE', params: const {});
 
+  /// 悔棋：申请（只挂 offer，等对方接受）。
+  Future<void> undoOffer() =>
+      handle.applyAction(type: 'UNDO_OFFER', params: const {});
+
+  /// 接受对方的悔棋申请 → 服务端 pop 1~2 手回退棋谱。
+  Future<void> undoAccept() =>
+      handle.applyAction(type: 'UNDO_ACCEPT', params: const {});
+
+  /// 拒绝对方的悔棋申请。
+  Future<void> undoDecline() =>
+      handle.applyAction(type: 'UNDO_DECLINE', params: const {});
+
   /// 走子：只上报 PDN + 走后 FEN（服务端做结构校验与轮次反证）
   Future<void> move(DraughtsMove m, DraughtsBoardState nextState) =>
       handle.applyAction(type: 'MOVE', params: {
         'pdn': m.toPdn(),
         'fen': fenFromBoardState(nextState),
+        'ts': DateTime.now().millisecondsSinceEpoch,
       });
 
   /// 声明终局（reason 取 DraughtsEndReason 的 name：noPieces / noMoves /
@@ -127,6 +140,24 @@ class DraughtsRoom {
 
   static Map<String, bool> readyMap(Snapshot? s) {
     final raw = s?.context['ready'];
+    if (raw is! Map) return const {};
+    return {
+      for (final e in raw.entries) e.key.toString(): e.value == true,
+    };
+  }
+
+  /// 挂起的悔棋申请（device_id → true）。
+  static Map<String, bool> undoOffers(Snapshot? s) {
+    final raw = s?.context['undo_offers'];
+    if (raw is! Map) return const {};
+    return {
+      for (final e in raw.entries) e.key.toString(): e.value == true,
+    };
+  }
+
+  /// 挂起的议和申请（device_id → true）。
+  static Map<String, bool> drawOffers(Snapshot? s) {
+    final raw = s?.context['draw_offers'];
     if (raw is! Map) return const {};
     return {
       for (final e in raw.entries) e.key.toString(): e.value == true,

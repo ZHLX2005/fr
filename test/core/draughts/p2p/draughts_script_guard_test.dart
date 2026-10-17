@@ -27,7 +27,8 @@ void main() {
     test('所有动作 handler 存在且被导出表引用', () {
       const actions = [
         'ACK', 'DEAL', 'START', 'SET_RULES', 'MOVE', 'CLAIM_END',
-        'RESIGN', 'DRAW_OFFER', 'DRAW_ACCEPT', 'DRAW_DECLINE', 'RESET',
+        'RESIGN', 'DRAW_OFFER', 'DRAW_ACCEPT', 'DRAW_DECLINE',
+        'UNDO_OFFER', 'UNDO_ACCEPT', 'UNDO_DECLINE', 'RESET',
       ];
       for (final a in actions) {
         expect(kDraughtsScript, contains('on_action_$a = function'),
@@ -66,6 +67,9 @@ void main() {
       expect(onInit, contains('SET_RULES    = "host"'));
       expect(onInit, contains('MOVE         = "current_player"'));
       expect(onInit, contains('RESIGN       = "any"'));
+      expect(onInit, contains('UNDO_OFFER   = "any"'));
+      expect(onInit, contains('UNDO_ACCEPT  = "any"'));
+      expect(onInit, contains('UNDO_DECLINE = "any"'));
       expect(onInit, contains('CLAIM_END    = "non_current_player"'));
       expect(onInit, contains('RESET        = "host"'));
     });
@@ -127,6 +131,65 @@ void main() {
       expect(block, contains('c.moves = {}'));
       expect(block, contains('c.status = "playing"'));
       expect(block, contains('state = "lobby"'));
+    });
+  });
+
+  group('kDraughtsScript 悔棋（UNDO，对齐 chess）', () {
+    test('UNDO_OFFER：零手拒绝 + 后手方不足两手拒绝 + 先手方按 host_color 推', () {
+      final block = _functionBlock('on_action_UNDO_OFFER = function');
+      expect(block, contains('if state ~= "playing" then'));
+      expect(block, contains('local n = #c.moves'));
+      expect(block, contains('if n == 0 then'),
+          reason: '零手棋没有可悔的一手');
+      expect(block, contains('(c.host_color or "w") == (c.initial_side or "w")'),
+          reason: '先手方判定必须用 host_color == initial_side'
+              '（host 执黑 / 黑先残局时 host 未必先手，chess v8 同坑）');
+      expect(block, contains('(not requester_is_first) and n < 2'),
+          reason: '后手方需 ≥2 手才够 pop 2');
+      expect(block, contains('c.undo_offers[p.device_id] = true'));
+    });
+
+    test('UNDO_ACCEPT：pop 数按先手方奇偶推，回滚 fen，重算吃子空着数', () {
+      final block = _functionBlock('on_action_UNDO_ACCEPT = function');
+      expect(block, contains('if c.undo_offers[p.device_id] == true then'),
+          reason: '双方都挂 offer → 只清 offer（互相取消）');
+      expect(block, contains('pops = (n % 2 == 1) and 1 or 2'));
+      expect(block, contains('pops = (n % 2 == 1) and 2 or 1'));
+      expect(block, contains('table.remove(c.moves)'));
+      expect(block, contains('c.fen = c.moves[#c.moves].fen'),
+          reason: '回滚到末手记录的走后 fen（跳棋每手都存 fen）');
+      expect(block, contains('c.ply_since_capture = ply'),
+          reason: '跳棋特有：悔棋后必须重算距上次吃子的空着数');
+      expect(block, contains('c.undo_offers = {}'));
+      expect(block, contains('c.draw_offers = {}'));
+      expect(block, contains('c.status = "playing"'));
+    });
+
+    test('UNDO_DECLINE：清对方的 offer', () {
+      final block = _functionBlock('on_action_UNDO_DECLINE = function');
+      expect(block, contains('c.undo_offers[c.guest_id] = nil'));
+      expect(block, contains('c.undo_offers[c.host_id] = nil'));
+    });
+
+    test('MOVE 后清残留 offer（防带 offer 走子），RESET / on_leave 同清', () {
+      final moveBlock = _functionBlock('on_action_MOVE = function');
+      expect(moveBlock, contains('c.undo_offers = {}'),
+          reason: '新的一手让挂起的悔棋 offer 过期');
+      final resetBlock = _functionBlock('on_action_RESET = function');
+      expect(resetBlock, contains('c.undo_offers = {}'));
+      expect(resetBlock, contains('c.disconnected = {}'),
+          reason: 'RESET 清断线标记（chess RESET 同款卫生）');
+      expect(resetBlock, contains('c.emojiRing = {}'),
+          reason: 'RESET 清 emoji 历史（跨局不泄漏）');
+      expect(resetBlock, contains('c.chatRing = {}'),
+          reason: 'RESET 清 chat 历史（跨局不泄漏）');
+      final onLeave = _functionBlock('on_leave = function');
+      expect(onLeave, contains('c.undo_offers[p.device_id] = nil'));
+    });
+
+    test('on_init 初始化 undo_offers 并登记权限', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(onInit, contains('c.undo_offers = {}'));
     });
   });
 
