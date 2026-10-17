@@ -163,14 +163,15 @@ Snapshot makeSnapshot({
       'host_id': hostId,
       'guest_id': guestId,
       'players': <String, dynamic>{
-        ?hostId: 'host',
-        ?guestId: 'guest',
+        if (hostId != null) hostId: 'host',
+        if (guestId != null) guestId: 'guest',
       },
       'fen': fen,
       'moves': moves,
       'draw_offers': <String, dynamic>{},
       'status': status,
-      'winner': ?winner,
+      // 空感知值条目 analyzer 6.x 解析不了，改等价写法
+      if (winner != null) 'winner': winner,
     },
     state: state,
     version: 1,

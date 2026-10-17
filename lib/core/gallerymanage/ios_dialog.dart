@@ -67,6 +67,9 @@ class IosDialogShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // content 是实例字段不可类型提升，先落 local（原 ?content 空感知元素语法
+    // analyzer 6.x 解析不了，见 pubspec hive_generator 注释）
+    final contentWidget = content;
     return Container(
       constraints: BoxConstraints(maxWidth: maxWidth),
       clipBehavior: Clip.antiAlias,
@@ -89,7 +92,7 @@ class IosDialogShell extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (title != null || message != null) _buildHeaderText(theme),
-            ?content,
+            if (contentWidget != null) contentWidget,
             if (actions.isNotEmpty) ..._buildActionArea(theme),
           ],
         ),

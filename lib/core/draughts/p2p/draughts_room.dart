@@ -198,9 +198,13 @@ class DraughtsRoom {
   static List<DraughtsMoveRecord> rebuildHistory(Snapshot? s) {
     final raw = s?.context['moves'];
     if (raw is! List) return const [];
-    return [
-      for (final e in raw) ?DraughtsMoveRecord.fromJson(e),
-    ];
+    // 空感知元素(?expr)语法 analyzer 6.x 解析不了（hive_generator 锁死），改等价写法
+    final records = <DraughtsMoveRecord>[];
+    for (final e in raw) {
+      final rec = DraughtsMoveRecord.fromJson(e);
+      if (rec != null) records.add(rec);
+    }
+    return records;
   }
 
   /// 用引擎把棋谱重放成棋盘状态（服务端只存 PDN，不存局面）。

@@ -7,22 +7,22 @@ part of 'lab_track.dart';
 // **************************************************************************
 
 LabTrack _$LabTrackFromJson(Map<String, dynamic> json) => LabTrack(
-  id: json['id'] as String,
-  title: json['title'] as String,
-  description: json['description'] as String? ?? '',
-  createdAt: DateTime.parse(json['createdAt'] as String),
-  segments: (json['segments'] as List<dynamic>)
-      .map((e) => LabTrackSegment.fromJson(e as Map<String, dynamic>))
-      .toList(),
-);
+      id: json['id'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String? ?? '',
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      segments: (json['segments'] as List<dynamic>)
+          .map((e) => LabTrackSegment.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
 
 Map<String, dynamic> _$LabTrackToJson(LabTrack instance) => <String, dynamic>{
-  'id': instance.id,
-  'title': instance.title,
-  'description': instance.description,
-  'createdAt': instance.createdAt.toIso8601String(),
-  'segments': instance.segments,
-};
+      'id': instance.id,
+      'title': instance.title,
+      'description': instance.description,
+      'createdAt': instance.createdAt.toIso8601String(),
+      'segments': instance.segments,
+    };
 
 LabTrackSegment _$LabTrackSegmentFromJson(Map<String, dynamic> json) =>
     LabTrackSegment(
