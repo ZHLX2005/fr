@@ -103,10 +103,6 @@ dependencies:
   # WebSocket (Relay 模式传输层)
   web_socket_channel: ^2.4.0
 
-  # Video Player
-  video_player: ^2.8.7
-  chewie: ^1.8.1
-
   # Audio Recording
   record: ^6.0.0
   path_provider: ^2.1.0
@@ -115,9 +111,6 @@ dependencies:
   open_filex: ^4.5.0
   # Share / Open with other apps
   share_plus: ^10.1.4
-
-  # Emoji Picker
-  emoji_picker_flutter: ^3.1.0
 
   # Sensors (加速度传感器，用于摇一摇检测)
   sensors_plus: ^6.1.1
@@ -135,9 +128,6 @@ dependencies:
 
   # HTML Renderer
   flutter_widget_from_html: ^0.15.2
-
-  # Game Engine
-  flame: ^1.21.0
 
   # Home Widget (桌面小组件)
   home_widget: ^0.7.0
@@ -158,9 +148,6 @@ dependencies:
   rive: ^0.14.5
   toml: ^0.18.0
   flutter_svg: ^2.0.10+1
-
-  # 农历（Lunar）—— 日历/待办功能需要农历转换
-  lunar: ^1.7.8
 
   # FFI helper (calloc / malloc for passing strings to native code — used by
   # the metronome Oboe bridge in lib/lab/demos/metronome/ffi_bindings.dart).
