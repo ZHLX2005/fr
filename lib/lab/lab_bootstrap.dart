@@ -32,31 +32,26 @@ import 'demos/word_drag_demo.dart';
 import 'demos/block_editor_demo.dart';
 import 'demos/bottom_bar_demo.dart';
 import 'demos/surround_game_demo.dart';
-import 'demos/surround_game_lua_demo.dart';
 import 'demos/reversi_demo.dart' show registerReversiLuaDemo;
 import 'demos/jungle_chess_demo.dart';
-<<<<<<< Updated upstream
 import 'demos/kvcli_todo_demo.dart' show registerKvcliTodoDemo;
 import 'demos/reaction_test_demo.dart';
 import 'demos/metronome_demo.dart';
 import 'demos/team_card_lua_demo.dart' show registerTeamCardLuaDemo;
 import 'demos/surround_game_lua_demo.dart' show registerSurroundGameLuaDemo;
-import 'demos/gomoku_lua_demo.dart' show registerGomokuLuaDemo;
-import 'demos/jungle_chess_lua_demo.dart' show registerJungleChessLuaDemo;
-import 'demos/cowrite_lua_demo.dart' show registerCoWriteLuaDemo;
-import 'demos/go_lua_demo.dart' show registerGoLuaDemo;
-import 'demos/tetris_lua_demo.dart' show registerTetrisLuaDemo;
-import 'demos/coup_lua_demo.dart' show registerCoupLuaDemo;
+import 'demos/gomoku_lua_demo.dart';
+import 'demos/jungle_chess_lua_demo.dart';
+import 'demos/cowrite_lua_demo.dart';
+import 'demos/go_lua_demo.dart';
+import 'demos/tetris_lua_demo.dart';
+import 'demos/coup_lua_demo.dart';
 import 'demos/recorder_demo.dart' show registerRecorderDemo;
-import 'demos/relation_calc_demo.dart' show registerRelationCalcDemo;
-import 'demos/chess_online_demo.dart' show registerChessOnlineDemo;
-import 'demos/draughts_lua_demo.dart' show registerDraughtsLuaDemo;
+import 'demos/relation_calc_demo.dart';
+import 'demos/chess_online_demo.dart';
+import 'demos/draughts_lua_demo.dart';
 import 'demos/sudoku_lua/sudoku_demo.dart' show registerSudokuLuaDemo;
 import 'demos/remotetype_demo.dart' show registerRemoteTypeDemo;
-import 'demos/auth_login_demo.dart' show registerAuthLoginDemo;
-=======
-import 'demos/a2ui_demo.dart';
->>>>>>> Stashed changes
+import 'demos/auth_login_demo.dart';
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -91,7 +86,6 @@ void registerAllDemos() {
   registerSurroundGameDemo();
   registerReversiLuaDemo();
   registerJungleChessDemo();
-<<<<<<< Updated upstream
   registerKvcliTodoDemo();
   registerAuthLoginDemo();
   registerNotionImageHostDemo();
@@ -111,9 +105,6 @@ void registerAllDemos() {
   registerDraughtsLuaDemo();
   registerSudokuLuaDemo();
   registerRemoteTypeDemo();
-=======
-  registerA2uiDemo();
->>>>>>> Stashed changes
 }
 
 // 初始化 Lab 模块
