@@ -33,7 +33,7 @@ import '../../game_audio/piece_sound.dart';
 import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
-import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
+import '../../styling/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
 import '../engine/chess_engine.dart';
 import '../engine/fen_codec.dart';

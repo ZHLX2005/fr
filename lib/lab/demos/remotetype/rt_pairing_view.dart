@@ -7,7 +7,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../api/remotetype/remotetype.dart';
-import '../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
 import '../../../services/remotetype/remotetype_service.dart';
 import '../../../widgets/context_colors.dart';
 import 'rt_constants.dart';

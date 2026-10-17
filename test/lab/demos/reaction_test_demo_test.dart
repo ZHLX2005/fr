@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/theme/app_theme.dart';
+import 'package:xiaodouzi_fr/core/styling/app_theme.dart';
 import 'package:xiaodouzi_fr/lab/demos/reaction_test_demo.dart';
 
 /// WCAG 相对对比度。

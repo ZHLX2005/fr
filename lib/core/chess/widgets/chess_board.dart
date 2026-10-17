@@ -54,7 +54,7 @@ import '../skins/chess_skin.dart';
 import 'board_palette.dart';
 import 'chess_piece.dart';
 
-import '../../../core/theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
+import '../../../core/styling/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
 import 'package:flutter/material.dart' show ColorScheme;
 

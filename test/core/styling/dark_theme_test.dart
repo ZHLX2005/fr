@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xiaodouzi_fr/core/theme/state/theme_provider.dart';
-import 'package:xiaodouzi_fr/core/theme/tokens/color/theme/dark.dart';
+import 'package:xiaodouzi_fr/core/styling/state/theme_provider.dart';
+import 'package:xiaodouzi_fr/core/styling/tokens/color/theme/dark.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

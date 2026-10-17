@@ -9,9 +9,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/extensions/board_color_strategy_extension.dart';
-import '../core/theme/colors/strategy/board_color_strategy/board_color_strategy.dart';
-import '../core/theme/colors/strategy/board_color_strategy/themes/default.dart';
+import '../core/styling/extensions/board_color_strategy_extension.dart';
+import '../core/styling/colors/strategy/board_color_strategy/board_color_strategy.dart';
+import '../core/styling/colors/strategy/board_color_strategy/themes/default.dart';
 
 extension BoardColorContext on BuildContext {
   /// 当前生效的 BoardColorStrategy（双层兜底，绝不返回 null）。

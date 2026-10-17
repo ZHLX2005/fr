@@ -12,7 +12,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
 import '../../lab/demos/kvcli_todo/active_group_provider.dart';
 import '../../lab/demos/kvcli_todo/todo_submit_service.dart';
 import '../context_colors.dart';

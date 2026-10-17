@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
-import 'core/theme/state/theme_provider.dart';
+import 'core/styling/state/theme_provider.dart';
 import 'core/nav/game_cover_warmup.dart';
 import 'core/nav/nav_bootstrap.dart';
 import 'core/nav/nav_pins_notifier.dart';

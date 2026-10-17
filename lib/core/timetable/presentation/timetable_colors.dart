@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_theme.dart' show AppColorsExtension;
+import '../../../../core/styling/app_theme.dart' show AppColorsExtension;
 
 /// 课表配色通道。
 ///

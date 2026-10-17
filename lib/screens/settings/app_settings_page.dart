@@ -12,7 +12,7 @@ import '../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../core/nav/game_cover_warmup.dart';
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
-import '../../core/theme/state/theme_provider.dart';
+import '../../core/styling/state/theme_provider.dart';
 import '../../lab/lab_container.dart';
 import '../../widgets/nav_entry_icon.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';

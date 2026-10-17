@@ -4,9 +4,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/extensions/torch_protect_strategy_extension.dart';
-import '../core/theme/colors/strategy/torch_protect_strategy/torch_protect_strategy.dart';
-import '../core/theme/colors/strategy/torch_protect_strategy/themes/default.dart';
+import '../core/styling/extensions/torch_protect_strategy_extension.dart';
+import '../core/styling/colors/strategy/torch_protect_strategy/torch_protect_strategy.dart';
+import '../core/styling/colors/strategy/torch_protect_strategy/themes/default.dart';
 
 extension TorchProtectColorContext on BuildContext {
   /// 当前生效的 TorchProtectStrategy（双层兜底，绝不返回 null）。

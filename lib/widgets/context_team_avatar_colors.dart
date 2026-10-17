@@ -4,9 +4,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../core/theme/extensions/team_avatar_strategy_extension.dart';
-import '../core/theme/colors/strategy/team_avatar_strategy/team_avatar_strategy.dart';
-import '../core/theme/colors/strategy/team_avatar_strategy/themes/default.dart';
+import '../core/styling/extensions/team_avatar_strategy_extension.dart';
+import '../core/styling/colors/strategy/team_avatar_strategy/team_avatar_strategy.dart';
+import '../core/styling/colors/strategy/team_avatar_strategy/themes/default.dart';
 
 extension TeamAvatarColorContext on BuildContext {
   /// 当前生效的 TeamAvatarStrategy（双层兜底，绝不返回 null）。

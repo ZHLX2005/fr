@@ -15,7 +15,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../widgets/context_sudoku_colors.dart';
-import '../../theme/colors/strategy/sudoku_color_strategy/sudoku_color_strategy.dart';
+import '../../styling/colors/strategy/sudoku_color_strategy/sudoku_color_strategy.dart';
 import '../models/sudoku_cell.dart';
 
 class SudokuCellWidget extends StatelessWidget {

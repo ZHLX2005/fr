@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """主题色彩比例审计脚本。
 
-解析 lib/core/theme/semantic/colors.dart 的 8 套 ColorScheme，
+解析 lib/core/styling/semantic/colors.dart 的 8 套 ColorScheme，
 按 60/30/10 配色法则 + 互补色搭配两个维度做客观评估：
 
   · 互补性：primary ↔ tertiary / error 的色相角差是否进入互补区间（150°~210°）
@@ -226,7 +226,7 @@ def main():
     except Exception:
         pass
 
-    default = Path(__file__).resolve().parents[1] / "lib/core/theme/semantic/colors.dart"
+    default = Path(__file__).resolve().parents[1] / "lib/core/styling/semantic/colors.dart"
     src_path = Path(sys.argv[1]) if len(sys.argv) > 1 else default
     src = src_path.read_text(encoding="utf-8")
     themes = parse_themes(src)
