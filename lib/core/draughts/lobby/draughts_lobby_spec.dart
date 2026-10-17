@@ -5,9 +5,10 @@
 // 与 chess 对齐：
 //   · 规则（执子色 / 残局）在准备阶段由房主 SET_RULES，不在进房前配
 //   · kDraughtsScript 经 assembleLuaScript 组装 → spec 为 final（非 const）
+//   · AccountIdentityResolver（登录 uid 优先，未登录回退设备 UUID）——
+//     换设备 / 重装 / 重登后重进同一房间号可恢复原座位，而非被误判「已满员」
 //
 // 与 gomoku/jungle 对齐：
-//   · RelayDeviceIdResolver（无独立登录身份通道）
 //   · hintPosition = bottom；主按钮「进入对局」
 
 import 'package:flutter/material.dart';
@@ -29,7 +30,7 @@ final GameLobbySpec kDraughtsLobbySpec = GameLobbySpec(
   script: kDraughtsScript,
   maxPlayers: 2,
   flow: LobbyFlowType.smartMatch,
-  identityResolver: const RelayDeviceIdResolver(),
+  identityResolver: const AccountIdentityResolver(),
   copy: const LobbyCopy(
     primaryBtnText: '进入对局',
     secondaryBtnText: null,

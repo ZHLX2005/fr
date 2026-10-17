@@ -5,7 +5,7 @@ import '../../api/authhub/idp_session_store.dart';
 import '../../api/goframe/oidc/oidc_models.dart';
 import '../../api/goframe/oidc/oidc_endpoint.dart';
 import '../../api/token/token_manager.dart';
-import '../../core/chess/p2p/chess_identity.dart';
+import '../../core/game_kit/lobby/game_identity.dart';
 
 /// App 当前持有的两份凭据的状态快照。
 class AppAuthState {
@@ -154,7 +154,7 @@ class UnifiedAuthService {
       await _tokens.setAccessToken(session.token);
       if (session.userId > 0) {
         // 象棋玩家身份是 uid-<userId>，稳定标识；token 会随重铸变化，不能当身份。
-        await ChessIdentity.persistUserId(session.userId);
+        await GameIdentity.persistUserId(session.userId);
       }
       return session;
     } on AuthHubException {

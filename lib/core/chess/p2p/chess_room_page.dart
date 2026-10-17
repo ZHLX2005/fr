@@ -188,7 +188,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   // 服务端 on_join 的"断线重连"分支会清掉 disconnected[id]，房间状态
   // （fen / moves / ready / disconnected）完全保留 —— 玩家视角是"画面
   // 冻结了一下然后继续"，不会丢任何进度。客户端依赖三条保证：
-  //   1. 稳定身份：transport.deviceId = ChessIdentity.resolve()（登录 uid
+  //   1. 稳定身份：transport.deviceId = GameIdentity.resolve()（登录 uid
   //      优先，设备 UUID 兜底），断线重连后被识别为同一玩家（不会占新坑）。
   //   2. 本页不退出：_wsOffline 只是 UI 态，棋盘数据不动；即便 on_leave
   //      被触发（>5s），重连快照 disconnected[me] 被清后 banner 也自动消失。

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import '../../../api/user/user_auth_service.dart';
-import '../../../core/chess/p2p/chess_identity.dart';
+import '../../../core/game_kit/lobby/game_identity.dart';
 import '../data/login_message_data.dart';
 import '../data/register_message_data.dart';
 import 'message_panel_controller.dart';
@@ -82,9 +82,9 @@ class RegisterFlowController extends ChangeNotifier {
       final userId = r.data?['userId'] as int?;
       this.userId = userId;
       if (userId != null) {
-        // 持久化真实登录 uid → ChessIdentity 用 uid-<userId> 做稳定身份
+        // 持久化真实登录 uid → GameIdentity 用 uid-<userId> 做稳定身份
         // （根因 1：token 字符串不是身份，换 token/重登录会变 → 被当新玩家）。
-        await ChessIdentity.persistUserId(userId);
+        await GameIdentity.persistUserId(userId);
       }
       _go(RegisterStep.success);
     }

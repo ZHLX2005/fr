@@ -193,6 +193,40 @@ void main() {
     });
   });
 
+  group('kDraughtsScript on_join：重连 / 空房回收 / 真满员', () {
+    test('① 同 device_id 重进走重连（清 disconnected，不占新坑）', () {
+      final block = _functionBlock('on_join = function');
+      expect(block, contains('if c.players[p.device_id] ~= nil then'));
+      expect(block, contains('c.disconnected[p.device_id] = nil'));
+    });
+
+    test('② 空房回收：非对局态 + 无在线玩家 → 新来者接管为新房主', () {
+      final block = _functionBlock('on_join = function');
+      expect(block, contains('local has_live = false'),
+          reason: '必须统计「房内是否还有在线玩家」');
+      expect(block, contains('state == "lobby" or state == "ended"'),
+          reason: '回收仅限非对局态；playing/ready 座位留给断线重连');
+      expect(block, contains('c.host_id = p.device_id'),
+          reason: '回收后新来者成为房主（否则房间无人可 RESET）');
+      expect(block, contains('c.guest_id = nil'),
+          reason: '幽灵 guest 座位必须释放，否则后续 join 仍被误拒满员');
+      expect(block, contains('c.moves = {}'));
+      expect(block, contains('c.status = "playing"'));
+      expect(block, contains('state = "lobby"'));
+    });
+
+    test('③ 真满员仍拒绝（有在线玩家占着 guest 座位）', () {
+      final block = _functionBlock('on_join = function');
+      expect(block, contains('c.rejected_join[p.device_id] = true'));
+      // 顺序：重连 → 回收 → 满员拒绝（回收必须先于拒绝判定）。
+      final reconnectIdx = block.indexOf('c.disconnected[p.device_id] = nil');
+      final reclaimIdx = block.indexOf('local has_live = false');
+      final rejectIdx = block.indexOf('c.rejected_join[p.device_id] = true');
+      expect(reconnectIdx, lessThan(reclaimIdx));
+      expect(reclaimIdx, lessThan(rejectIdx));
+    });
+  });
+
   group('kDraughtsScript on_leave：对局中离开不销毁房间', () {
     test('playing/ready 只标 disconnected、不置 ended', () {
       final onLeave = _functionBlock('on_leave = function');

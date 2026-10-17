@@ -160,13 +160,54 @@ on_init = function(c, p)
   return c
 end
 
--- 同 device_id 重连识别；guest 满员拒绝。
+-- 同 device_id 重连识别 → 空房回收 → guest 满员拒绝。
 on_join = function(c, p)
+  -- ① 同 device_id 重进 = 断线重连：清离线标记，原座位原样恢复。
   if c.players[p.device_id] ~= nil then
     c.disconnected[p.device_id] = nil
     return c
   end
 
+  -- ② 空房回收（防「幽灵满员」死锁）：房间处于非对局态（lobby / ended）且房内
+  --    已无在线玩家 → 新来者接管为新房主，重置成全新房间。
+  --    没有这条：房主在 lobby 离场（房间转 ended）+ 客人随后离场（ended 分支只
+  --    标 disconnected）会留下 host_id / guest_id 两个幽灵座位，之后任何人
+  --    （含房主本人换设备 / 重装）join 都命中 ③ 的满员拒绝 —— 房间死锁到 TTL。
+  --    playing / ready 态不回收：座位留给断线重连（id47 语义）。
+  local has_live = false
+  for id, _ in pairs(c.players) do
+    if c.disconnected[id] ~= true then has_live = true end
+  end
+  if not has_live and (state == "lobby" or state == "ended") then
+    c.host_id = p.device_id
+    c.players = {}
+    c.players[p.device_id] = p.alias
+    c.guest_id = nil
+    c.ready = {}
+    c.disconnected = {}
+    c.host_color = "w"
+    c.initial_fen = "W:W31-50:B1-20"
+    c.initial_side = "w"
+    c.fen = c.initial_fen
+    c.endgame_label = nil
+    c.moves = {}
+    c.draw_offers = {}
+    c.undo_offers = {}
+    c.status = "playing"
+    c.winner = nil
+    c.end_reason = nil
+    c.ply_since_capture = 0
+    c.emojiRing = {}
+    c.emojiSeq = 0
+    c.lastEmojiAt = {}
+    c.chatRing = {}
+    c.chatSeq = 0
+    c.lastChatAt = {}
+    state = "lobby"
+    return c
+  end
+
+  -- ③ 真满员（还有在线玩家占着 guest 座位）→ 拒绝该设备 join。
   if c.guest_id ~= nil then
     c.rejected_join = c.rejected_join or {}
     c.rejected_join[p.device_id] = true

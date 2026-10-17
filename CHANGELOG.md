@@ -9,6 +9,11 @@
 
 ## 2026-10-17
 
+### 游戏（draughts / chess）
+
+- **fix!** 房间「幽灵满员」死锁（国际跳棋 + 国际象棋同修）：房主在准备态离场（房间转 ended、host_id 残留）+ 客人随后离场（只标 disconnected）会留下两个「幽灵座位」，之后任何人再进同一房间号都被服务端判 `join rejected` → 前端显示「已满员」，房间死锁到 TTL——连房主自己换设备都进不去。Lua `on_join` 补「空房回收」：非对局态（lobby/ended）且房内已无在线玩家 → 新来者接管为新房主、重置为全新房间；对局中（playing/ready）座位仍保留给断线重连。线上 relay 实弹验证：回收 PASS / 正常进客 PASS / 真满员仍 409 PASS
+- **feat** 国际跳棋身份通道对齐国际象棋：`RelayDeviceIdResolver`（仅设备 UUID）→ `AccountIdentityResolver`（**登录 userId 优先**，未登录回退设备 UUID）——换手机 / 重装 / 重登后重进同一房间号识别为同一玩家，恢复原座位而非被误判新玩家。`ChessIdentity` 随之下沉为共享 `GameIdentity`（`game_kit/lobby/`，跨游戏统一新键 `login_user_id` + 只读兼容历史 `chess_user_id`），chess / 登录注册三处调用点同步迁移
+
 ### 游戏（draughts / game_audio）
 
 - **feat** 国际跳棋棋盘对话：接入 `BoardChatOverlay` 左上角浮层（💬 入口 + 最新消息预览 + composer 双 tab 表情/记录 + 文字输入，节流防连发、终局/掉线禁发、回放中隐藏）——Lua 脚本此前已拼入共享 chat/emoji 段，本次补齐 UI 闭环；表情包走 `EmojiBundle.forGame('draughts')`（common 作用域兜底）。`BoardChatOverlay` 自 chess 下沉为 game_kit 共享组件（本就零棋种依赖，与上轮 `RelayConnectionStatusBadge` 同一防腐逻辑），chess 同步换引用

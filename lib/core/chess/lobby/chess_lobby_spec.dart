@@ -9,6 +9,7 @@
 //   · 刷子过渡在 ChessRoomPage 内部播：准备态 → playing 首次切入时盖屏
 //     （GameEnterTransition；进房 push 本身不再盖屏）
 //   · ChessIdentity（登录 uid 优先）身份通道
+//     → 已下沉为共享 AccountIdentityResolver / GameIdentity（game_kit）
 //   · AppBar 换肤按钮（actionsBuilder 插槽）；残局库改到准备卡内
 //
 // chess 的脚本经 LuaScriptAssembler 组装（lifecycle + actions + emoji），
@@ -19,16 +20,7 @@ import 'package:flutter/material.dart';
 import '../../game_kit/lobby/game_lobby_identity.dart';
 import '../../game_kit/lobby/game_lobby_slots.dart';
 import '../../game_kit/lobby/game_lobby_spec.dart';
-import '../p2p/chess_identity.dart';
 import '../p2p/script/chess_script.dart';
-
-/// chess 专属 IdentityResolver —— 包装 ChessIdentity.resolve()（登录 uid 优先）。
-class _ChessIdentityResolver implements GameIdentityResolver {
-  const _ChessIdentityResolver();
-
-  @override
-  Future<String> resolve() => ChessIdentity.resolve();
-}
 
 /// chess 入口 spec（final，非 const — kChessScript 经 assembleLuaScript 组装为 final）。
 final GameLobbySpec kChessLobbySpec = GameLobbySpec(
@@ -40,7 +32,7 @@ final GameLobbySpec kChessLobbySpec = GameLobbySpec(
   script: kChessScript,
   maxPlayers: 2,
   flow: LobbyFlowType.smartMatch,
-  identityResolver: _ChessIdentityResolver(),
+  identityResolver: const AccountIdentityResolver(),
   copy: const LobbyCopy(
     primaryBtnText: '进入对局',
     secondaryBtnText: null,

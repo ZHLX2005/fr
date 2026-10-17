@@ -24,6 +24,7 @@ void main() {
   _v5HostColorGuards();
   _v6FirstMoverGuards();
   _v7SetRulesGuards();
+  _v8EmptyRoomReclaimGuards();
   group('kChessScript on_leave 静态守卫：playing/ready 退出不终止（v4, id47）', () {
     test('playing/ready 分支不再按 reason 分流，也无 host 销毁分支', () {
       final onLeave = _onLeaveBlock();
@@ -359,6 +360,43 @@ void _v7SetRulesGuards() {
     test('assembler 导出表含 on_action_SET_RULES', () {
       expect(kChessScript, contains('on_action_SET_RULES'));
       expect(kChessScript, contains('"on_action_SET_RULES"'));
+    });
+  });
+}
+
+/// v8 空房回收静态守卫（与 draughts 同规则）：
+/// 非对局态 + 无在线玩家 → 新来者接管为新房主，防「幽灵满员」死锁
+/// （房主 lobby 离场转 ended + 客人随后离场，两座位残留 → 之后任何人 join
+/// 都被误判满员，房间死锁到 TTL）。
+void _v8EmptyRoomReclaimGuards() {
+  group('kChessScript v8 on_join 空房回收 静态守卫', () {
+    test('三序：重连 → 空房回收 → 真满员拒绝', () {
+      final block = _functionBlock('on_join = function');
+      final reconnectIdx = block.indexOf('c.disconnected[p.device_id] = nil');
+      final reclaimIdx = block.indexOf('local has_live = false');
+      final rejectIdx = block.indexOf('c.rejected_join[p.device_id] = true');
+      expect(reconnectIdx, isNot(-1), reason: '同 device_id 重连分支保留');
+      expect(reclaimIdx, isNot(-1), reason: '空房回收分支必须在');
+      expect(rejectIdx, isNot(-1), reason: '真满员拒绝分支保留');
+      expect(reconnectIdx, lessThan(reclaimIdx));
+      expect(reclaimIdx, lessThan(rejectIdx),
+          reason: '回收必须先于满员判定，否则幽灵座位仍会误拒');
+    });
+
+    test('回收仅限非对局态，playing/ready 座位留给断线重连', () {
+      final block = _functionBlock('on_join = function');
+      expect(block,
+          contains('not has_live and (state == "lobby" or state == "ended")'));
+    });
+
+    test('回收后新房主接管且清空幽灵座位 / 棋谱 / 跨局状态', () {
+      final block = _functionBlock('on_join = function');
+      expect(block, contains('c.host_id = p.device_id'));
+      expect(block, contains('c.guest_id = nil'));
+      expect(block, contains('c.moves = {}'));
+      expect(block, contains('c.status = "playing"'));
+      expect(block, contains('c.chatRing = {}'));
+      expect(block, contains('state = "lobby"'));
     });
   });
 }

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../core/chess/p2p/chess_identity.dart';
+import '../../core/game_kit/lobby/game_identity.dart';
 import '../token/token_storage.dart';
 
 /// 认证接口调用结果。
@@ -126,7 +126,7 @@ class UserAuthService {
       final userId = (data['userId'] ?? (data['user'] as Map?)?['id']) as int?;
       if (userId != null) {
         // best-effort：持久化失败不影响登录本身（身份回退设备 UUID）。
-        await ChessIdentity.persistUserId(userId);
+        await GameIdentity.persistUserId(userId);
       }
     }
     return r;
