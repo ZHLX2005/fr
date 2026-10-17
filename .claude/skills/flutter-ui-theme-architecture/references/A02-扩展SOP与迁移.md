@@ -37,11 +37,11 @@
 
 1. **`tokens/color/theme/<mode>.dart` → `<Mode>Colors`**：新增 `class` 含 `static const ColorScheme scheme` + `static const AppColorsExtension appColors`。
    - 按「主色族不动 + 环境族染互补 hue（差 150°~170°）+ tertiary 互补强副 + error 保持」设计。
-   - onPrimary/onError 等纯黑纯白引用 `RawColors`；环境色注意与主色 hue 对比度。
+   - onPrimary/onError 等配套角色直接写在同文件的 ColorScheme 字面量里；环境色注意与主色 hue 对比度。
 2. **`app_theme.dart`**：
    - `enum AppThemeMode` 加一个枚举值。
    - `getThemeDisplayName` / `getThemeIcon` 的 switch 各补一支。
-   - `getThemeData` 的 switch 加 `_buildTheme(scheme:..., ext:..., cardShadow:...)`（cardShadow 深色主题用 `RawColors.shadowMedium/shadowHeavy`，浅色用 `shadowLight`）。
+   - `getThemeData` 的 switch 加 `_buildTheme(scheme:..., ext:..., cardShadow:...)`（cardShadow 深色主题用深 alpha 黑 `Color(0x66000000)`，浅色用 `Color(0x14000000)`，与现码一致）。
 3. **`state/theme_provider.dart`**：若新主题是深色（`Brightness.dark`），`materialThemeModeProvider` 的 switch 要补 `AppThemeMode.<new> => ThemeMode.dark`，否则浅色主题全落 `_ => light` 分支。
 
 校验：切到新主题整页审一遍（重点：卡片/对话框 surface 对比、正文 onSurface、边框 outline、危险 error）。
@@ -89,7 +89,7 @@
 2. 迁完跑 §6 校验。
 3. 若目录出现成片迁移，回到 `color-usage-audit.md` 迁移历史表登记新批次、更新残留计数。
 
-**命名不带裸 hex 的注意点**：`const` widget / `static const` 里原本用 `Color(0xFF...)` 又要求 const 的，先看能否改读 `ColorScheme` 实例值（const 就放弃，改非 const 或用 `RawColors` 常量）；`Color.lerp` 派生的色允许在策略类内（它们是计算产物不是硬编码）。
+**命名不带裸 hex 的注意点**：`const` widget / `static const` 里原本用 `Color(0xFF...)` 又要求 const 的，先看能否改读 `ColorScheme` 实例值（const 就放弃，改非 const；确需常量则在 token 文件内定义并注释豁免理由）；`Color.lerp` 派生的色允许在策略类内（它们是计算产物不是硬编码）。
 
 ## 4.5 踩坑经验库（迁移常见反模式 → 正确做法）
 

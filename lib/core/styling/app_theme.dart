@@ -2,11 +2,11 @@
 //
 // 设计：v6.1「主色不动 · 环境染互补色温」——
 //   所有颜色统一从 ColorScheme 派生（theme.component/ 单数据源）。
-//   · 6 套 ColorScheme 在 tokens/color/theme/<mode>.dart 集中维护
+//   · 7 套 ColorScheme 在 tokens/color/theme/<mode>.dart 集中维护
 //   · 切主题 = 换 scheme 实例；strategy 层零主题感知（strategy 实现单一 default）
 //
 // 依赖层级：
-//   tokens/         raw 原子色 + 7 套主题调色板 + 各用途色板
+//   tokens/         7 套主题调色板 + 各用途色板
 //   colors/strategy/  strategy 默认派生规则
 //   extensions/     ThemeExtension 注入器
 //   component/      全局组件主题 + 家族/域专属子目录
@@ -23,7 +23,7 @@ import 'extensions/team_avatar_strategy_extension.dart';
 import 'extensions/tetris_colors_strategy_extension.dart';
 import 'extensions/torch_protect_strategy_extension.dart';
 import 'text_theme.dart';
-import 'tokens/colors.dart';
+import 'tokens/color/app_colors_extension.dart';
 import 'tokens/color/theme/zen.dart' as zen_t;
 import 'tokens/color/theme/purple.dart' as purple_t;
 import 'tokens/color/theme/ink.dart' as ink_t;
@@ -33,7 +33,7 @@ import 'tokens/color/theme/cobalt.dart' as cobalt_t;
 import 'tokens/color/theme/dark.dart' as dark_t;
 
 export 'colors/theme_mode.dart' show AppThemeMode;
-export 'tokens/colors.dart' show AppColorsExtension;
+export 'tokens/color/app_colors_extension.dart' show AppColorsExtension;
 
 /// 应用主题配置类
 class AppTheme {
