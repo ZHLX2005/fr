@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../services/gallery_service.dart';
-import '../design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import 'ios_dialog.dart';
 
 /// 图库管理页面

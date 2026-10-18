@@ -5,8 +5,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/styling/context/colors.dart';
 
-import '../../../../core/styling/component/zen/zen_theme.dart';
+import '../../../../widgets/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
+import '../../../widgets/base/base_section.dart';
+import '../../../widgets/base/base_dialog.dart';
 
 class PresetView extends StatelessWidget {
   const PresetView({super.key, required this.onReset});
@@ -21,12 +23,12 @@ class PresetView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ZenSection(
+          BaseSection(
             title: RelationCalcUiText.presetInfoTitle,
             child: Text(RelationCalcUiText.presetInfoBody, style: ZenText.body),
           ),
           SizedBox(height: 12),
-          ZenSection(
+          BaseSection(
             title: '自定义领域',
             child: Text(
               '引擎不感知领域：除了亲戚称呼，你可以在「管理」页自定义任意关系'
@@ -39,7 +41,7 @@ class PresetView extends StatelessWidget {
           Center(
             child: OutlinedButton.icon(
               onPressed: () async {
-                final ok = await ZenConfirmDialog.show(
+                final ok = await BaseConfirmDialog.show(
                   context: context,
                   title: RelationCalcUiText.resetPreset,
                   message: RelationCalcUiText.resetPresetConfirm,

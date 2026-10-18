@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import 'doubletime_mapper.dart';
 import 'doubletime_models.dart';
 import 'doubletime_painter.dart';

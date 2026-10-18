@@ -3,8 +3,10 @@ import '../../../../core/styling/context/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
-import '../../../../../core/styling/component/zen/zen_theme.dart';
-import '../../../../../core/styling/component/zen/zen_date_picker.dart';
+import '../../../../../widgets/zen/zen_theme.dart';
+import '../../../../../widgets/zen/zen_date_picker.dart';
+import '../../../../widgets/base/base_empty_state.dart';
+import '../../../../widgets/base/base_dialog.dart';
 
 /// 供课表页复用（fr 28）：追剧模式 cell 点击 → 打开剧模型编辑对话框。
 /// 课程由剧模型自动派生，编辑课程本身会被覆盖，统一走剧编辑。
@@ -56,7 +58,7 @@ class _TimetableAnimeEditorPageState
   }
 
   Future<void> _deleteSeries(AnimeSeriesDraft target) async {
-    final ok = await ZenConfirmDialog.show(
+    final ok = await BaseConfirmDialog.show(
       context: context,
       title: '删除剧',
       message: '确定删除「${target.title}」吗？',
@@ -161,7 +163,7 @@ class _TimetableAnimeEditorPageState
           Divider(height: 1, color: context.colors.outline),
           Expanded(
             child: sorted.isEmpty
-                ? ZenEmptyState(
+                ? BaseEmptyState(
                     icon: Icons.movie_filter_outlined,
                     message: '还没有剧\n添加后自动计算并应用排期（起始日期/行数/周数）',
                     actionLabel: '添加第一部剧',

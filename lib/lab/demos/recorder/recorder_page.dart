@@ -9,7 +9,10 @@ import 'const_recorder.dart';
 import 'recorder_list_page.dart';
 import 'waveform_view.dart';
 import '../../../widgets/base/base_icon_button.dart';
-import '../../../core/styling/component/zen/zen_theme.dart';
+import '../../../widgets/zen/zen_theme.dart';
+import '../../utils/time_format.dart';
+import '../../../widgets/base/base_section.dart';
+import '../../../widgets/base/base_dot.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
 ///
@@ -150,7 +153,7 @@ class RecorderPageScaffold extends StatelessWidget {
       context: context,
       title: '录音机',
       actions: [
-        ZenIconButton(
+        BaseIconButton(
           icon: Icons.library_music_outlined,
           color: context.colors.text,
           variant: BaseIconButtonVariant.outline,
@@ -205,7 +208,7 @@ class RecorderPageScaffold extends StatelessWidget {
 class _FormatInfoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return ZenSection(
+    return BaseSection(
       title: '工程信息',
       child: Text(
         'AAC LC · ${RecorderDefaults.sampleRate ~/ 1000}.1 kHz · '
@@ -236,7 +239,7 @@ class _WaveformSection extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  ZenDot(),
+                  BaseDot(active: false),
                   SizedBox(width: 8),
                   Text(
                     isLive ? '正在录音' : _stateLabel(controller.state),
@@ -406,7 +409,7 @@ class _HeroRecord extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 本地自绘 hero 键 —— ZenIconButton.hero 硬编码 sage,忽略 color 参数
+    // 本地自绘 hero 键 —— BaseIconButton.hero 硬编码 sage,忽略 color 参数
     // (clocks/metronome/track 依赖该 sage 行为,不改 zen_theme)。
     // 这里直接复刻 hero 视觉规格(80×80 圆 + 0.4 alpha 阴影 + 48px 白图标),
     // 但把底色换成 context.colors.danger,使录音/停止键与状态指示器同色。

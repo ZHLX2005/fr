@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:app_settings/app_settings.dart';
-import '../../../core/design/emphasis_button.dart';
+import '../../../widgets/emphasis_button.dart';
 import 'native_notifications_page.dart';
 import 'native_media_page.dart';
 import 'native_system_page.dart';

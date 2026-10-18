@@ -10,10 +10,11 @@ import 'package:flutter/material.dart';
 import '../../../core/styling/context/colors.dart';
 
 import '../../../../widgets/base/base_icon_button.dart';
-import '../../../../core/styling/component/zen/zen_theme.dart';
+import '../../../../widgets/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
 import 'relation_calc_models.dart';
 import 'relation_engine.dart';
+import '../../../widgets/base/base_section.dart';
 
 class CalcView extends StatefulWidget {
   const CalcView({super.key, required this.data});
@@ -180,7 +181,7 @@ class _CalcViewState extends State<CalcView> {
 
   /// 关系链展示：我 → 爸爸 → 爸爸（含失败步高亮）。
   Widget _buildChainCard(RelationCalcResult result, RelationEntity? start) {
-    return ZenSection(
+    return BaseSection(
       title: RelationCalcUiText.chainLabel,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -242,7 +243,7 @@ class _CalcViewState extends State<CalcView> {
   Widget _buildResultCard(RelationCalcResult result) {
     final ok = result.success;
     final finalName = ok ? (result.finalEntity?.name ?? '—') : null;
-    return ZenSection(
+    return BaseSection(
       title: RelationCalcUiText.resultLabel,
       child: Container(
         width: double.infinity,
@@ -286,12 +287,12 @@ class _CalcViewState extends State<CalcView> {
   Widget _buildTermPad() {
     final terms = widget.data.terms;
     if (terms.isEmpty) {
-      return ZenSection(
+      return BaseSection(
         title: '关系词',
         child: Text('还没有关系词，去「管理」页添加', style: ZenText.label),
       );
     }
-    return ZenSection(
+    return BaseSection(
       title: '关系词',
       child: Wrap(
         spacing: 8,
@@ -319,7 +320,7 @@ class _CalcViewState extends State<CalcView> {
       children: [
         Tooltip(
           message: RelationCalcUiText.undo,
-          child: ZenIconButton(
+          child: BaseIconButton(
             icon: Icons.undo,
             onTap: _termIds.isEmpty ? null : _undo,
             color: context.colors.textMuted,
@@ -329,7 +330,7 @@ class _CalcViewState extends State<CalcView> {
         SizedBox(width: 16),
         Tooltip(
           message: RelationCalcUiText.clear,
-          child: ZenIconButton(
+          child: BaseIconButton(
             icon: Icons.restart_alt,
             onTap: _termIds.isEmpty ? null : _clear,
             color: context.colors.accent,

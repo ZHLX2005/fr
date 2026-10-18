@@ -6,7 +6,7 @@ import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'timetable_dsl_parser.dart';
 import '../../presentation/timetable_colors.dart';
-import '../../../design/emphasis_button.dart';
+import '../../../../widgets/emphasis_button.dart';
 import 'timetable_prefs.dart';
 
 /// SICAU 教务系统课表导入对话框

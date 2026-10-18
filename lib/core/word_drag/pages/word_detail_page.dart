@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../design/emphasis_button.dart';
+import '../../../widgets/emphasis_button.dart';
 import '../models/word.dart';
 
 /// 单词详情页 - 全屏展示单词详细信息

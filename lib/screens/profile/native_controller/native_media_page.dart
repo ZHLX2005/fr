@@ -6,7 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../../services/media_service.dart';
 import '../../../services/audio_recording_service.dart';
 import '../../../widgets/base/base_icon_button.dart';
-import '../../../core/styling/component/zen/zen_theme.dart';
+import '../../../widgets/zen/zen_theme.dart';
 
 /// 原生媒体功能测试页面
 /// 用于在Web和移动端验证摄像头、图库、麦克风等原生功能
@@ -434,7 +434,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     SizedBox(height: 12),
                     Row(
                       children: [
-                        ZenIconButton(
+                        BaseIconButton(
                           icon: Icons.mic,
                           color: context.colors.danger,
                           variant: _isAudioRecording
@@ -443,7 +443,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                           onTap: _isAudioRecording ? null : _startRecording,
                         ),
                         SizedBox(width: 12),
-                        ZenIconButton(
+                        BaseIconButton(
                           icon: Icons.stop,
                           color: context.colors.textMuted,
                           variant: BaseIconButtonVariant.outline,
@@ -500,7 +500,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     SizedBox(height: 8),
                     Row(
                       children: [
-                        ZenIconButton(
+                        BaseIconButton(
                           icon: _isPlaying ? Icons.pause_circle : Icons.play_circle,
                           color: context.colors.accent,
                           variant: BaseIconButtonVariant.tint,

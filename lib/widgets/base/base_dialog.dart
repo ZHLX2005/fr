@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../core/styling/extensions/color_strategy_extension.dart';
 import '../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
 import '../../core/styling/colors/strategy/color_strategy/themes/default.dart';
+import 'base_dialog.dart';
 
 class BaseConfirmDialog {
   const BaseConfirmDialog._();

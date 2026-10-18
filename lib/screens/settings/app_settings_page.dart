@@ -1,35 +1,24 @@
-// 应用设置：主题入口 + 底栏容量 + 分 Tab 钉选（搜索 / 拖拽排序）。
-// Tab：分段点击 + 左右滑动；钉选散卡排序，其它分组一张大组卡（无阴影）。
-// 原型：docs/prototypes/settings-list-group-card.html
-
-import 'dart:ui' show lerpDouble;
+// 应用设置：钉选快捷区（OS 通知栏快捷开关式编排）。
+//
+// 主页面只显示当前已钉的入口格子：点按打开、长按拖拽排序（lab 收藏面板
+// 拖拽手感，参数对齐 ⋯ 溢出面板的 q 弹配置，见 const_settings）。
+// 全量清单（tag 分组 + 搜索 + 点选钉/拔）收进右上「管理」拉起的圆角弹窗，
+// 见 pin_editor_sheet.dart。通用项（主题 / 底栏容量）保留为底部一组卡片。
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/game_kit/skin/game_center_skin_spec.dart';
-import '../../core/nav/game_cover_warmup.dart';
+import '../../app_lifecycle/press_bounce_curve.dart';
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/styling/state/theme_provider.dart';
-import '../../lab/lab_container.dart';
 import '../../widgets/nav_entry_icon.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';
-import '../profile/lab/demo_detail_page.dart';
-import '../profile/lab/game_center/const_game_center.dart';
 import '../profile/theme/theme_page.dart';
-
-enum _SettingsTab { general, pinned, core, lab, games }
-
-String _slotLabel(NavPinsState pins, String id) {
-  final vis = pins.visibleIds;
-  final i = vis.indexOf(id);
-  if (i == 0) return '底栏 · 首页';
-  if (i > 0) return '底栏 ${i + 1}';
-  if (pins.overflowIds.contains(id)) return '⋯';
-  return '未钉选';
-}
+import 'const_settings.dart';
+import 'pin_editor_sheet.dart';
 
 class AppSettingsPage extends ConsumerStatefulWidget {
   const AppSettingsPage({super.key});
@@ -39,61 +28,15 @@ class AppSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
-  static const _tabs = _SettingsTab.values;
-
-  _SettingsTab _tab = _SettingsTab.general;
-  late final PageController _pageController;
-  final _queries = <_SettingsTab, String>{};
-  /// 封面预热完成后刷新游戏缩略图。
-  var _coversReady = false;
-  /// 钉选拖拽中禁止横向翻页。
-  var _pagingLocked = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: _tab.index);
-    // 进设置时再确保拉一次（启动预热可能尚未完成）
-    warmUpGameCenterCovers().then((_) {
-      if (mounted) setState(() => _coversReady = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  void _selectTab(_SettingsTab tab, {required bool animate}) {
-    _tab = tab;
-    if (!animate || !_pageController.hasClients) return;
-    final current = _pageController.page ?? tab.index.toDouble();
-    if ((current - tab.index).abs() < 0.001) return;
-    _pageController.animateToPage(
-      tab.index,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  void _onSearch(_SettingsTab tab, String value) {
-    setState(() => _queries[tab] = value);
-  }
-
-  bool _match(NavEntry e, String? q) {
-    if (q == null || q.trim().isEmpty) return true;
-    final s = q.trim().toLowerCase();
-    return e.title.toLowerCase().contains(s) ||
-        e.id.toLowerCase().contains(s) ||
-        (e.subtitle?.toLowerCase().contains(s) ?? false);
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final pins = ref.watch(navPinsProvider);
     final themeMode = ref.watch(themeNotifierProvider);
+    final entries = pins.pinIds
+        .map(navEntryById)
+        .whereType<NavEntry>()
+        .toList();
 
     return Scaffold(
       // 页底 highest，卡面 surface —— 靠明度分层，不用投影。
@@ -101,90 +44,31 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
       // 底栏浮层：勿 SafeArea(bottom)，否则留白露出 Scaffold 色条。
       body: SafeArea(
         bottom: false,
-        child: Column(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            16 + QuickNavBottomBar.bodyBottomReserve(context),
+          ),
           children: [
+            _Header(onManage: () => showPinEditorSheet(context)),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: AnimatedBuilder(
-                animation: _pageController,
-                builder: (context, _) {
-                  final page = _pageController.hasClients
-                      ? (_pageController.page ?? _tab.index.toDouble())
-                      : _tab.index.toDouble();
-                  return _CupertinoSettingsTabs(
-                    page: page,
-                    onChanged: (t) => _selectTab(t, animate: true),
-                  );
-                },
+              padding: const EdgeInsets.fromLTRB(4, 6, 4, 12),
+              child: Text(
+                '点按打开 · 长按拖动排序',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
             ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: _pagingLocked
-                    ? const NeverScrollableScrollPhysics()
-                    : null,
-                onPageChanged: (i) =>
-                    _selectTab(_tabs[i.clamp(0, _tabs.length - 1)], animate: false),
-                children: [
-                  _KeepAlivePage(
-                    child: _GeneralPanel(
-                      themeLabel: AppTheme.getThemeDisplayName(themeMode),
-                      capacity: pins.capacity,
-                      onCapacity: (c) =>
-                          ref.read(navPinsProvider.notifier).setCapacity(c),
-                    ),
-                  ),
-                  _KeepAlivePage(
-                    child: _PinPool(
-                      searchHint: '搜索已钉选',
-                      onSearch: (v) => _onSearch(_SettingsTab.pinned, v),
-                      entries: pins.pinIds
-                          .map(navEntryById)
-                          .whereType<NavEntry>()
-                          .where((e) => _match(e, _queries[_SettingsTab.pinned]))
-                          .toList(),
-                      pinnedIds: pins.pinIds,
-                      reorderable: true,
-                      showThumb: true,
-                      onReorderActive: (active) =>
-                          setState(() => _pagingLocked = active),
-                    ),
-                  ),
-                  _KeepAlivePage(
-                    child: _PinPool(
-                      searchHint: '搜索核心入口',
-                      onSearch: (v) => _onSearch(_SettingsTab.core, v),
-                      entries: navEntriesInGroup(NavGroup.core)
-                          .where((e) => _match(e, _queries[_SettingsTab.core]))
-                          .toList(),
-                      pinnedIds: pins.pinIds,
-                    ),
-                  ),
-                  _KeepAlivePage(
-                    child: _PinPool(
-                      searchHint: '搜索实验室 demo',
-                      onSearch: (v) => _onSearch(_SettingsTab.lab, v),
-                      entries: navEntriesInGroup(NavGroup.lab)
-                          .where((e) => _match(e, _queries[_SettingsTab.lab]))
-                          .toList(),
-                      pinnedIds: pins.pinIds,
-                    ),
-                  ),
-                  _KeepAlivePage(
-                    child: _PinPool(
-                      searchHint: '搜索游戏 demo',
-                      onSearch: (v) => _onSearch(_SettingsTab.games, v),
-                      entries: navEntriesInGroup(NavGroup.game)
-                          .where((e) => _match(e, _queries[_SettingsTab.games]))
-                          .toList(),
-                      pinnedIds: pins.pinIds,
-                      showThumb: true,
-                      coverEpoch: _coversReady ? 1 : 0,
-                    ),
-                  ),
-                ],
-              ),
+            _PinnedGrid(
+              entries: entries,
+              visibleSlotCount: pins.visibleSlotCount,
+            ),
+            _GeneralCard(
+              themeLabel: AppTheme.getThemeDisplayName(themeMode),
+              capacity: pins.capacity,
+              onCapacity: (c) =>
+                  ref.read(navPinsProvider.notifier).setCapacity(c),
             ),
           ],
         ),
@@ -193,8 +77,295 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
   }
 }
 
-class _GeneralPanel extends StatelessWidget {
-  const _GeneralPanel({
+class _Header extends StatelessWidget {
+  const _Header({required this.onManage});
+
+  final VoidCallback onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Text(
+          '设置',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+          ),
+        ),
+        const Spacer(),
+        FilledButton.tonal(
+          style: FilledButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            backgroundColor: cs.surface,
+            foregroundColor: cs.onSurface,
+          ),
+          onPressed: onManage,
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.tune, size: 16),
+              SizedBox(width: 6),
+              Text('管理', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 已钉快捷格子网格：顺序 = 底栏 → ⋯，整表拖拽排序。
+class _PinnedGrid extends ConsumerWidget {
+  const _PinnedGrid({required this.entries, required this.visibleSlotCount});
+
+  final List<NavEntry> entries;
+  final int visibleSlotCount;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    if (entries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Text(
+            '还没有钉选任何入口',
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+
+    return RepaintBoundary(
+      child: ReorderableBuilder<String>.builder(
+        longPressDelay: kSettingsDragLongPressDelay,
+        feedbackScaleFactor: kSettingsDragFeedbackScale,
+        animationConfig: kSettingsDragConfig,
+        dragChildBoxDecoration: settingsDragChildDecoration(cs.onSurface),
+        onDragStarted: (_) => HapticFeedback.lightImpact(),
+        // 跨格换位 tick（包契约：仅真正换位时回调，非逐帧）
+        onUpdatedDraggedChild: (_) => HapticFeedback.selectionClick(),
+        onDragEnd: (_) => HapticFeedback.mediumImpact(),
+        onReorder: (reorderFn) {
+          ref
+              .read(navPinsProvider.notifier)
+              .setPins(
+                // 必须用网格 children 同源的 entries 派生列表，保证与
+                // reorderFn 的 index 逐位对齐（pinIds 里若有未解析 id，
+                // entries 会比 pinIds 短，直接喂 pinIds 会错位重排）。
+                reorderFn(entries.map((e) => e.id).toList()),
+              );
+        },
+        itemCount: entries.length,
+        childBuilder: (itemBuilder) {
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: kSettingsCellCrossAxisCount,
+              mainAxisSpacing: kSettingsCellSpacing,
+              crossAxisSpacing: kSettingsCellSpacing,
+              childAspectRatio: kSettingsCellAspectRatio,
+            ),
+            itemCount: entries.length,
+            itemBuilder: (context, i) {
+              return itemBuilder(
+                _PinnedCell(
+                  key: ValueKey(entries[i].id),
+                  entry: entries[i],
+                  isHome: i == 0,
+                  inOverflow: i >= visibleSlotCount,
+                  onTap: () {
+                    Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute(builder: entries[i].builder));
+                  },
+                ),
+                i,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 已钉格子：surface 卡面 + 角标（首页 / ⋯ 槽位）；按压 iOS 弹性缩放。
+class _PinnedCell extends StatefulWidget {
+  const _PinnedCell({
+    super.key,
+    required this.entry,
+    required this.isHome,
+    required this.inOverflow,
+    required this.onTap,
+  });
+
+  final NavEntry entry;
+  final bool isHome;
+  final bool inOverflow;
+  final VoidCallback onTap;
+
+  @override
+  State<_PinnedCell> createState() => _PinnedCellState();
+}
+
+class _PinnedCellState extends State<_PinnedCell>
+    with SingleTickerProviderStateMixin {
+  static final Curve _pressCurve = const PressBounceCurve();
+
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    lowerBound: 0,
+    upperBound: 1,
+  );
+
+  bool _pressed = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _handleHighlightChanged(bool down) {
+    if (_pressed == down) return;
+    setState(() => _pressed = down);
+    if (down) {
+      _ctrl.forward(from: 0);
+    } else {
+      _ctrl.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surface,
+      borderRadius: BorderRadius.circular(kSettingsCellRadius),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(kSettingsCellRadius),
+        onTap: widget.onTap,
+        onHighlightChanged: _handleHighlightChanged,
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, child) {
+            final t = _pressed ? _ctrl.value : 1 - _ctrl.value;
+            final scale = 1 + (1.06 - 1) * _pressCurve.transform(t);
+            return Transform.scale(
+              scale: scale,
+              alignment: Alignment.center,
+              child: child,
+            );
+          },
+          child: Stack(
+            children: [
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: kSettingsCellIconBoxSize,
+                        height: kSettingsCellIconBoxSize,
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(
+                            kSettingsCellIconBoxRadius,
+                          ),
+                        ),
+                        child: Center(
+                          // 设置页钉选约定：tint = onPrimaryContainer 主轮廓，
+                          // 强调点走 NavEntryIcon 主题自适应
+                          child: NavEntryIcon(
+                            entry: widget.entry,
+                            size: kSettingsCellIconSize,
+                            tint: cs.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.entry.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: kSettingsCellLabelSize,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (widget.isHome)
+                Positioned(
+                  left: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      '首页',
+                      style: TextStyle(
+                        fontSize: 9,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              if (widget.inOverflow)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.22),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '⋯',
+                        style: TextStyle(
+                          fontSize: 10,
+                          height: 1.0,
+                          fontWeight: FontWeight.w800,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 通用项（非钉选目录内的系统设置）。
+class _GeneralCard extends StatelessWidget {
+  const _GeneralCard({
     required this.themeLabel,
     required this.capacity,
     required this.onCapacity,
@@ -207,51 +378,36 @@ class _GeneralPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bottomPad = QuickNavBottomBar.bodyBottomReserve(context);
-    return ListView(
-      padding: EdgeInsets.fromLTRB(16, 4, 16, 16 + bottomPad),
-      children: [
-        _SectionLabel('账号'),
-        _Grouped(
-          children: [
-            ListTile(
-              title: const Text('统一登录扫码'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                final demo = demoRegistry.getBySlug('auth-login');
-                if (demo == null) return;
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => DemoDetailPage(demo: demo)),
-                );
-              },
-            ),
-          ],
-        ),
-        _SectionLabel('外观'),
-        _Grouped(
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Material(
+        color: cs.surface,
+        elevation: 0,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               title: const Text('主题'),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(themeLabel, style: TextStyle(color: cs.onSurfaceVariant)),
+                  Text(
+                    themeLabel,
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
                   const Icon(Icons.chevron_right),
                 ],
               ),
               onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ThemePage()),
-                );
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const ThemePage()));
               },
             ),
-          ],
-        ),
-        _SectionLabel('底栏'),
-        _Grouped(
-          children: [
             ListTile(
-              title: const Text('容量（含 ⋯）'),
+              title: const Text('底栏容量（含 ⋯）'),
               trailing: SegmentedButton<int>(
                 style: ButtonStyle(
                   foregroundColor: WidgetStateProperty.resolveWith((states) {
@@ -277,559 +433,7 @@ class _GeneralPanel extends StatelessWidget {
             ),
           ],
         ),
-      ],
-    );
-  }
-}
-
-class _PinPool extends ConsumerStatefulWidget {
-  const _PinPool({
-    required this.searchHint,
-    required this.onSearch,
-    required this.entries,
-    required this.pinnedIds,
-    this.reorderable = false,
-    this.showThumb = false,
-    this.coverEpoch = 0,
-    this.onReorderActive,
-  });
-
-  final String searchHint;
-  final ValueChanged<String> onSearch;
-  final List<NavEntry> entries;
-  final List<String> pinnedIds;
-  final bool reorderable;
-  final bool showThumb;
-  final int coverEpoch;
-  final ValueChanged<bool>? onReorderActive;
-
-  @override
-  ConsumerState<_PinPool> createState() => _PinPoolState();
-}
-
-class _PinPoolState extends ConsumerState<_PinPool> {
-  /// 拖拽中的本地顺序，避免 provider 回写打断 Reorderable 动画。
-  List<NavEntry>? _dragOrder;
-
-  @override
-  void didUpdateWidget(covariant _PinPool old) {
-    super.didUpdateWidget(old);
-    if (!widget.reorderable) {
-      _dragOrder = null;
-      return;
-    }
-    // 外部列表变化且不在拖拽时，丢弃本地缓存
-    if (_dragOrder == null) return;
-    final localIds = _dragOrder!.map((e) => e.id).join(',');
-    final nextIds = widget.entries.map((e) => e.id).join(',');
-    if (localIds == nextIds) _dragOrder = null;
-  }
-
-  List<NavEntry> get _entries => _dragOrder ?? widget.entries;
-
-  String _slotFor(String id) {
-    final pins = ref.read(navPinsProvider);
-    // 拖拽时用本地顺序估算槽位，避免整表 watch
-    if (_dragOrder != null) {
-      final ids = _dragOrder!.map((e) => e.id).toList();
-      final cap = pins.capacity;
-      final visCount = cap - 1;
-      final i = ids.indexOf(id);
-      if (i < 0) return '未钉选';
-      if (i == 0) return '底栏 · 首页';
-      if (i < visCount) return '底栏 ${i + 1}';
-      return '⋯';
-    }
-    return _slotLabel(pins, id);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final entries = _entries;
-    final pins = ref.watch(navPinsProvider);
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          child: Material(
-            color: cs.surface,
-            elevation: 0,
-            borderRadius: BorderRadius.circular(980),
-            child: TextField(
-              key: ValueKey(widget.searchHint),
-              onChanged: widget.onSearch,
-              decoration: InputDecoration(
-                hintText: widget.searchHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                filled: true,
-                fillColor: cs.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(980),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-          child: Text(
-            widget.reorderable
-                ? '长按拖动排序。顺序 = 底栏 → ⋯'
-                : '开关在这里改钉选；排序请去「钉选」。',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-          ),
-        ),
-        Expanded(
-          child: entries.isEmpty
-              ? Center(
-                  child: Text(
-                    '无匹配项',
-                    style: TextStyle(color: cs.onSurfaceVariant),
-                  ),
-                )
-              : widget.reorderable
-                  ? ReorderableListView.builder(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        16 + QuickNavBottomBar.bodyBottomReserve(context),
-                      ),
-                      itemCount: entries.length,
-                      buildDefaultDragHandles: false,
-                      autoScrollerVelocityScalar: 40,
-                      proxyDecorator: (child, index, animation) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                          reverseCurve: Curves.easeInCubic,
-                        );
-                        return AnimatedBuilder(
-                          animation: curved,
-                          builder: (context, child) {
-                            final t = curved.value;
-                            return Transform.scale(
-                              scale: lerpDouble(1.0, 1.02, t)!,
-                              child: Material(
-                                elevation: 0,
-                                color: cs.surface,
-                                borderRadius: BorderRadius.circular(16),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: child,
-                        );
-                      },
-                      onReorderStart: (_) {
-                        HapticFeedback.mediumImpact();
-                        widget.onReorderActive?.call(true);
-                        setState(() => _dragOrder = [...widget.entries]);
-                      },
-                      onReorderEnd: (_) {
-                        HapticFeedback.selectionClick();
-                        widget.onReorderActive?.call(false);
-                      },
-                      onReorder: (oldIndex, newIndex) {
-                        final local = [...(_dragOrder ?? widget.entries)];
-                        if (newIndex > oldIndex) newIndex -= 1;
-                        final item = local.removeAt(oldIndex);
-                        local.insert(newIndex, item);
-                        setState(() => _dragOrder = local);
-
-                        final full = local.map((e) => e.id).toList();
-                        final shown = full.toSet();
-                        for (final id in widget.pinnedIds) {
-                          if (!shown.contains(id)) full.add(id);
-                        }
-                        ref.read(navPinsProvider.notifier).setPins(full);
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) setState(() => _dragOrder = null);
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        final e = entries[index];
-                        return _PinTile(
-                          key: ValueKey(e.id),
-                          entry: e,
-                          pinned: true,
-                          slotLabel: _slotFor(e.id),
-                          showThumb: widget.showThumb,
-                          dragIndex: index,
-                          loose: true,
-                        );
-                      },
-                    )
-                  : ListView(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        16 + QuickNavBottomBar.bodyBottomReserve(context),
-                      ),
-                      children: [
-                        // 一张大组卡：行与行零间距、无分隔线。
-                        Material(
-                          color: cs.surface,
-                          elevation: 0,
-                          borderRadius: BorderRadius.circular(16),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (final e in entries)
-                                _PinTile(
-                                  key: ValueKey(
-                                    '${e.id}-${widget.coverEpoch}',
-                                  ),
-                                  entry: e,
-                                  pinned: pins.pinIds.contains(e.id),
-                                  slotLabel: _slotLabel(pins, e.id),
-                                  showThumb: widget.showThumb,
-                                  loose: false,
-                                  onToggle: () {
-                                    ref
-                                        .read(navPinsProvider.notifier)
-                                        .togglePin(e.id);
-                                  },
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PinTile extends StatelessWidget {
-  const _PinTile({
-    super.key,
-    required this.entry,
-    required this.pinned,
-    required this.slotLabel,
-    required this.loose,
-    this.onToggle,
-    this.showThumb = false,
-    this.dragIndex,
-  });
-
-  final NavEntry entry;
-  final bool pinned;
-  final String slotLabel;
-  /// true = 钉选散卡（独立圆角卡）；false = 大组卡内一行。
-  final bool loose;
-  final VoidCallback? onToggle;
-  final bool showThumb;
-  final int? dragIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    final row = ListTile(
-      contentPadding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
-      minVerticalPadding: 0,
-      leading: _LeadingIcon(
-        entry: entry,
-        showThumb: showThumb,
       ),
-      title: Text(
-        entry.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-        ),
-      ),
-      subtitle: Text(
-        '${entry.groupLabel} · $slotLabel',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          color: cs.onSurfaceVariant,
-        ),
-      ),
-      trailing: onToggle != null
-          ? Switch.adaptive(
-              value: pinned,
-              onChanged: (_) => onToggle!(),
-            )
-          : dragIndex != null
-              ? Icon(
-                  Icons.drag_handle_rounded,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                )
-              : null,
-    );
-
-    final Widget tile;
-    if (loose) {
-      // 散卡：surface · r16 · 间距 10 · 无阴影
-      tile = Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Material(
-          color: cs.surface,
-          elevation: 0,
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: row,
-        ),
-      );
-    } else {
-      tile = row;
-    }
-
-    if (dragIndex != null) {
-      return ReorderableDelayedDragStartListener(
-        index: dragIndex!,
-        child: tile,
-      );
-    }
-    return tile;
-  }
-}
-
-class _LeadingIcon extends StatelessWidget {
-  const _LeadingIcon({
-    required this.entry,
-    required this.showThumb,
-  });
-
-  final NavEntry entry;
-  final bool showThumb;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    if (showThumb && entry.id.startsWith('demo:')) {
-      final slug = entry.id.substring(5);
-      final meta = kGameMeta[slug];
-      // KV 远程封面（small）→ 程序化渐变兜底
-      final cover = gameCenterCoverOf(slug, kGameCenterSkinSmall);
-      if (cover != null) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: Image(
-              image: cover,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-              errorBuilder: (_, _, _) => _gameFallback(meta, entry.icon),
-            ),
-          ),
-        );
-      }
-      if (meta != null) return _gameFallback(meta, entry.icon);
-    }
-    // 原型 .ico：40 方圆角瓦，不用圆形。
-    // demo 专属 SVG：onPrimaryContainer 轮廓 + 主题自适应强调点
-    // （cobalt/zen 深 primary 会自动提亮，见 LabDemoIcon 自适应规则）；
-    // 未登记的核心入口 / demo 走 Material icon。
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: cs.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: NavEntryIcon(
-          entry: entry,
-          size: 18,
-          tint: cs.onPrimaryContainer,
-        ),
-      ),
-    );
-  }
-
-  Widget _gameFallback(GameMeta? meta, IconData icon) {
-    if (meta == null) {
-      return Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black12,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, size: 18),
-      );
-    }
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: meta.gradient,
-        ),
-      ),
-      child: Icon(meta.icon, color: Colors.white, size: 18),
-    );
-  }
-}
-
-class _KeepAlivePage extends StatefulWidget {
-  const _KeepAlivePage({required this.child});
-  final Widget child;
-
-  @override
-  State<_KeepAlivePage> createState() => _KeepAlivePageState();
-}
-
-class _KeepAlivePageState extends State<_KeepAlivePage>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
-  }
-}
-
-/// 等宽收进一屏的分段控件（不横向滚动）。
-class _CupertinoSettingsTabs extends StatelessWidget {
-  const _CupertinoSettingsTabs({
-    required this.page,
-    required this.onChanged,
-  });
-
-  final double page;
-  final ValueChanged<_SettingsTab> onChanged;
-
-  /// 短标签，保证 6 格塞进手机宽度。
-  static const _tabs = <(String, _SettingsTab)>[
-    ('通用', _SettingsTab.general),
-    ('钉选', _SettingsTab.pinned),
-    ('核心', _SettingsTab.core),
-    ('实验', _SettingsTab.lab),
-    ('游戏', _SettingsTab.games),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final selected = page.round().clamp(0, _tabs.length - 1);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final innerW = constraints.maxWidth - 4;
-        final cellW = innerW / _tabs.length;
-        return Container(
-          height: 36,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.all(2),
-          child: Stack(
-            children: [
-              Positioned(
-                left: page.clamp(0, _tabs.length - 1) * cellW,
-                top: 0,
-                bottom: 0,
-                width: cellW,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Row(
-                children: [
-                  for (var i = 0; i < _tabs.length; i++)
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          onChanged(_tabs[i].$2);
-                        },
-                        child: Center(
-                          child: Text(
-                            _tabs[i].$1,
-                            maxLines: 1,
-                            overflow: TextOverflow.clip,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: selected == i
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              color: selected == i
-                                  ? cs.onSurface
-                                  : cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-      child: Text(
-        text.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              letterSpacing: 0.6,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-    );
-  }
-}
-
-class _Grouped extends StatelessWidget {
-  const _Grouped({required this.children});
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      elevation: 0,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: Column(children: children),
     );
   }
 }

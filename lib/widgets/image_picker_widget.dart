@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:xiaodouzi_fr/core/design/emphasis_button.dart';
+import 'emphasis_button.dart';
 
 /// 图片选择器配置
 class ImagePickerConfig {

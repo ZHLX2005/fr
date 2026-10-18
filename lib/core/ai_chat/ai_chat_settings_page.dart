@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/ai_chat/ai_chat_provider.dart';
 import '../../services/ai_chat/agent_chat_provider.dart';
 import '../../services/ai_chat/ai_chat_models.dart';
-import '../design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import '../nav/nav_route.dart';
 
 /// AI 聊天设置页面

@@ -3,7 +3,9 @@ import '../../../../core/styling/context/colors.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/core/styling/component/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
+import '../../../utils/time_format.dart';
+import '../../../../widgets/base/base_dialog.dart';
 
 class TrackRecordsPage extends StatelessWidget {
   TrackRecordsPage({super.key});
@@ -43,7 +45,7 @@ class TrackRecordsPage extends StatelessWidget {
   }
 
   void _confirmClear(BuildContext context, LabTrackProvider p) {
-    ZenConfirmDialog.show(
+    BaseConfirmDialog.show(
       context: context,
       title: '清空编排记录',
       message: '清空所有编排记录？此操作不可撤销。',

@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/core/styling/component/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
+import '../../../utils/time_format.dart';
+import '../../../../widgets/base/base_icon_button.dart';
+import '../../../../widgets/base/base_dot.dart';
 
 class TrackRunnerPage extends StatefulWidget {
   final String trackId;
@@ -180,7 +183,7 @@ class _BeatDotRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(count, (i) => Padding(
         padding: EdgeInsets.symmetric(horizontal: 4),
-        child: ZenDot(),
+        child: BaseDot(active: false),
       )),
     );
   }
@@ -196,7 +199,7 @@ class _RunnerButton extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ZenIconButton(icon: icon, onTap: onTap),
+        BaseIconButton(icon: icon, onTap: onTap),
         SizedBox(height: 4),
         Text(label, style: ZenText.label),
       ],

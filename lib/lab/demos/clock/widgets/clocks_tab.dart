@@ -7,7 +7,13 @@ import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/utils/clock_chain_util.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/clock_editor_sheet.dart';
-import 'package:xiaodouzi_fr/core/styling/component/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
+import '../../../utils/time_format.dart';
+import '../../../../widgets/base/base_icon_button.dart';
+import '../../../../widgets/base/base_dot.dart';
+import '../../../../widgets/base/base_empty_state.dart';
+import '../../../../widgets/base/base_swipe_action.dart';
+import '../../../../widgets/base/base_dialog.dart';
 
 /// Clocks tab — grid of clock cards + records list.
 /// Preserves the core clock functionality (start/pause/reset, swipe-rename,
@@ -198,7 +204,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ZenEmptyState(
+    return BaseEmptyState(
       icon: Icons.timer_outlined,
       message: '暂无时钟',
       actionLabel: '添加时钟',
@@ -343,7 +349,7 @@ class _ClockCard extends StatelessWidget {
             if (hasBeat)
               Row(
                 children: [
-                  ZenDot(),
+                  BaseDot(active: false),
                   SizedBox(width: 6),
                   Text(
                     (() {
@@ -360,7 +366,7 @@ class _ClockCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ZenIconButton(
+                BaseIconButton(
                   icon: display.isRunning
                       ? Icons.pause_rounded
                       : Icons.play_arrow_rounded,
@@ -370,7 +376,7 @@ class _ClockCard extends StatelessWidget {
                       : p.startCountdown(display.id),
                 ),
                 SizedBox(width: 12),
-                ZenIconButton(
+                BaseIconButton(
                   icon: Icons.refresh_rounded,
                   color: context.colors.textMuted,
                   onTap: () => p.resetCountdown(display.id),
@@ -384,7 +390,7 @@ class _ClockCard extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, LabClockProvider p) {
-    ZenConfirmDialog.show(
+    BaseConfirmDialog.show(
       context: context,
       title: '删除时钟',
       message: '删除"${clock.title}"？',
@@ -522,7 +528,7 @@ class _RecordTileState extends State<_RecordTile> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    ZenSwipeAction(
+                    BaseSwipeAction(
                       label: '删除',
                       icon: Icons.delete_outline,
                       color: context.colors.danger,
@@ -547,7 +553,7 @@ class _RecordTileState extends State<_RecordTile> {
                         p.deleteRecord(record.id);
                       },
                     ),
-                    ZenSwipeAction(
+                    BaseSwipeAction(
                       label: '新建',
                       icon: Icons.add,
                       color: context.colors.accent,

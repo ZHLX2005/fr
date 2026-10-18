@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import 'models/focus_session.dart';
 import 'providers/focus_timer_provider.dart';
 import 'providers/focus_provider.dart';

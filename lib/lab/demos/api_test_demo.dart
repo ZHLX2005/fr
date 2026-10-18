@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../core/design/emphasis_button.dart';
+import '../../widgets/emphasis_button.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';
 import '../lab_container.dart';
 import 'api_test/api_download_manager.dart';
