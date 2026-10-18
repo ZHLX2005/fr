@@ -6,6 +6,8 @@ description: FR 项目业务层总入口，dart-flutter 任何问题都需要优
 # flutter-biz — 业务层总入口
 
 > **dart-flutter 任何问题优先加载本 skill**，再按子域路由。本页只做路由，规范与 SOP 在子域内。
+>
+> 🗺️ **项目业务板块地图**（A 序列基础：50 demo 按板块归类 + 共享层 + 落位规则）→ `.claude/repo/_self/fr-business-map/project/2026-10-18-v1.md`。找「某个业务属于哪个板块/模块在哪」先看地图；「怎么做」再看下面子域。
 
 ## 子域总览（先读这里）
 
