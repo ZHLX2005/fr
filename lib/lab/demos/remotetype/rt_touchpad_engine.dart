@@ -7,7 +7,7 @@
 //
 // 输出（三类回调，均已加工为「PC 侧语义」）：
 //   onMove(dx, dy)            单指滑动 → 指针位移（已乘加速度与灵敏度）
-//   onAction(action)          离散动作：左键 / 右键 / 拖拽按下抬起 / 三指 Alt+Tab
+//   onAction(action)          离散动作：左键 / 右键 / 拖拽按下抬起
 //   onScroll(dxTicks, dyTicks) 滚轮格数（整数，正 = 下/右，与 enigo 语义一致）
 //   onInertia(active)         惯性滚动开始 / 结束（页面层据此驱动 tick 时钟）
 //
@@ -18,7 +18,7 @@
 //   双指静置 ≤420ms 抬手          → 右键
 //   双指位移超 slop               → 滚轮（内容跟手：指头下滑 = 内容上推 = 滚轮向上）
 //   抬手速度超阈值                → 惯性滚动（衰减到停）
-//   第三指落下                    → Alt+Tab（立即触发，本回合全部吞掉）
+//   第三指落下                    → 忽略（手机系统多用手势占用三指，冲突）
 //
 // 刻意做成无定时器的被动状态机：所有判定只依赖事件自身携带的时间戳，
 // 单测不用 fakeAsync 也能精确复现每条时序路径。惯性是唯一例外——它没有
@@ -29,7 +29,7 @@ import 'dart:math' as math;
 import 'rt_constants.dart';
 
 /// 离散动作。左键拖拽用 press/release 显式成对，页面层保证异常路径补 release。
-enum RtPadAction { leftClick, rightClick, leftPress, leftRelease, altTab }
+enum RtPadAction { leftClick, rightClick, leftPress, leftRelease }
 
 typedef RtPadMoveCallback = void Function(double dx, double dy);
 typedef RtPadActionCallback = void Function(RtPadAction action);
@@ -76,9 +76,6 @@ enum _PadPhase {
 
   /// 双指滚轮中。
   scroll,
-
-  /// Alt+Tab 已触发，吞掉本回合剩余事件直到全部抬手。
-  altTab,
 
   /// 惯性滚动中（所有手指已离开）。
   inertia,
@@ -144,7 +141,9 @@ class RtTouchpadEngine {
     // 惯性中的新触摸：立刻接管（清零速度，剩余格数累积继续走完）
     if (_phase == _PadPhase.inertia) _stopInertia();
 
-    if (_points.length >= 3) return; // 三指以上不再登记
+    // 登记上限 2 指：第三指（及以上）直接忽略——手机系统手势（截屏、
+    // 应用切换）普遍占用三指，误触代价远大于收益。
+    if (_points.length >= 2) return;
     _points[id] = _PadPointer(x, y, tMs);
 
     switch (_points.length) {
@@ -172,10 +171,6 @@ class RtTouchpadEngine {
         _prevCy = _twoBaseCy;
         _lastDx = 0;
         _lastDy = 0;
-      case 3:
-        // 第三指落下 = Alt+Tab：立即触发一次，吞掉本回合
-        _phase = _PadPhase.altTab;
-        onAction(RtPadAction.altTab);
       default:
         break;
     }
@@ -212,7 +207,6 @@ class RtTouchpadEngine {
         p.x = x;
         p.y = y;
         _emitScroll(tMs);
-      case _PadPhase.altTab:
       case _PadPhase.inertia:
       case _PadPhase.swallow:
       case _PadPhase.scrollEnding:
@@ -257,7 +251,7 @@ class RtTouchpadEngine {
         _finishScrollWithInertia();
       case _PadPhase.scrollEnding:
         if (_points.isEmpty) _finishScrollWithInertia();
-      case _PadPhase.altTab || _PadPhase.swallow:
+      case _PadPhase.swallow:
         if (_points.isEmpty) _phase = _PadPhase.idle;
       case _PadPhase.inertia:
       case _PadPhase.idle:

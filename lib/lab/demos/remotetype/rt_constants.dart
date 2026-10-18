@@ -46,7 +46,7 @@ const String kRemoteTypeDemoSlug = 'remotetype';
 const int kRtMaxTextLength = 5000;
 
 /// 构建标识：联调时核对手机上跑的是不是最新修复（每次改动 demo 逻辑时递增）
-const String kRtBuildTag = 'b11-touchpad';
+const String kRtBuildTag = 'b12-no-3finger';
 
 // ── 触摸板（v0.6.0+ 两端协议）──────────────────────────────────────────
 // 手势 → PC 鼠标事件的全部调参常量。单位一律逻辑像素（logical px）与毫秒。
