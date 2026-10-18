@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../../../core/theme/context/colors.dart';
-import '../../../../../../widgets/zen/zen_theme.dart';
+import '../../../../../../core/theme/zen/zen_theme.dart';
 
 /// 高级设置共享 Zen 控件 —— 各模式高级设置页/策略共用。
 ///

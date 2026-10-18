@@ -9,8 +9,8 @@ import 'clock/widgets/clocks_tab.dart';
 import 'clock/widgets/tracks_tab.dart';
 import 'clock/widgets/dashboard_tab.dart';
 import 'clock/widgets/track_records_page.dart';
-import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
-import '../../widgets/base/base_dialog.dart';
+import 'package:xiaodouzi_fr/core/theme/zen/zen_theme.dart';
+import '../../core/ui/base_dialog.dart';
 
 /// 桌面 widget toggle 入口 — 若当前页不是 ClockDemoPage(冷启动/正在别的页),
 /// 则标记一次 pending toggle,等 ClockDemoPage mount 时再触发。

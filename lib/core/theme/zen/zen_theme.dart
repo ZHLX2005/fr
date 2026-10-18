@@ -1,7 +1,7 @@
 // Zen 家族主题（v6 Heritage 架构）。
 //
 // 仅保留纯样式 helper 与一个 Scaffold 便利函数；所有 widget class 已折叠
-// 到 lib/widgets/base/*（见 commit 5），调用方改用 BaseSection/BaseIconButton/
+// 到 lib/core/ui/*（见 commit 5），调用方改用 BaseSection/BaseIconButton/
 // BaseDot/BaseEmptyState/BaseSwipeAction/BaseConfirmDialog。
 //
 // 保留：

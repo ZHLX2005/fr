@@ -6,10 +6,10 @@ import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_editor_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_runner_page.dart';
-import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/zen/zen_theme.dart';
 import '../../../utils/time_format.dart';
-import '../../../../widgets/base/base_empty_state.dart';
-import '../../../../widgets/base/base_dialog.dart';
+import '../../../../core/ui/base_empty_state.dart';
+import '../../../../core/ui/base_dialog.dart';
 
 /// Tracks tab content. Plain widgets — the shell owns the Scaffold/FAB.
 class TracksTab extends StatefulWidget {

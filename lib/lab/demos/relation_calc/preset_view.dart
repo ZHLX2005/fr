@@ -5,10 +5,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/context/colors.dart';
 
-import '../../../../widgets/zen/zen_theme.dart';
+import '../../../../core/theme/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
-import '../../../widgets/base/base_section.dart';
-import '../../../widgets/base/base_dialog.dart';
+import '../../../core/ui/base_section.dart';
+import '../../../core/ui/base_dialog.dart';
 
 class PresetView extends StatelessWidget {
   const PresetView({super.key, required this.onReset});

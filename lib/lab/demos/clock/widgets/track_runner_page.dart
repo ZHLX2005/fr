@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/zen/zen_theme.dart';
 import '../../../utils/time_format.dart';
-import '../../../../widgets/base/base_icon_button.dart';
-import '../../../../widgets/base/base_dot.dart';
+import '../../../../core/ui/base_icon_button.dart';
+import '../../../../core/ui/base_dot.dart';
 
 class TrackRunnerPage extends StatefulWidget {
   final String trackId;

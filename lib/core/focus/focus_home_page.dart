@@ -6,7 +6,7 @@ import '../timetable/timetable.dart';
 import 'time_tools/const_time_pages.dart';
 import '../../lab/lab_container.dart';
 import '../../screens/profile/lab/demo_detail_page.dart';
-import '../../widgets/zen/zen_theme.dart';
+import '../../core/theme/zen/zen_theme.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';
 
 /// 工具列表项：registry demo（按 slug 走 DemoDetailPage）；内部页（带 onTap）。

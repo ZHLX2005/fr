@@ -3,10 +3,10 @@ import '../../../../../core/theme/context/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
-import '../../../../../widgets/zen/zen_theme.dart';
-import '../../../../../widgets/zen/zen_date_picker.dart';
-import '../../../../widgets/base/base_empty_state.dart';
-import '../../../../widgets/base/base_dialog.dart';
+import '../../../../../core/theme/zen/zen_theme.dart';
+import '../../../../../core/theme/zen/zen_date_picker.dart';
+import '../../../../core/ui/base_empty_state.dart';
+import '../../../../core/ui/base_dialog.dart';
 
 /// 供课表页复用（fr 28）：追剧模式 cell 点击 → 打开剧模型编辑对话框。
 /// 课程由剧模型自动派生，编辑课程本身会被覆盖，统一走剧编辑。

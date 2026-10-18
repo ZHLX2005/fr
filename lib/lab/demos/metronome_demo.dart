@@ -6,12 +6,12 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/emphasis_button.dart';
 import '../lab_container.dart';
-import 'package:xiaodouzi_fr/widgets/zen/zen_theme.dart'
+import 'package:xiaodouzi_fr/core/theme/zen/zen_theme.dart'
     show ZenText, zenPageScaffold;
 import 'metronome/const_metronome.dart';
 import 'metronome/metronome_controller.dart';
 import 'metronome/metronome_widgets.dart';
-import '../../widgets/base/base_section.dart';
+import '../../core/ui/base_section.dart';
 
 /// 节拍器 Demo
 class MetronomeDemo extends DemoPage {

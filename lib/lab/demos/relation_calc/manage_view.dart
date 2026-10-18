@@ -7,12 +7,12 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/context/colors.dart';
 
-import '../../../../widgets/zen/zen_theme.dart';
+import '../../../../core/theme/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
 import 'relation_calc_models.dart';
 import 'relation_calc_store.dart';
-import '../../../widgets/base/base_empty_state.dart';
-import '../../../widgets/base/base_dialog.dart';
+import '../../../core/ui/base_empty_state.dart';
+import '../../../core/ui/base_dialog.dart';
 
 class ManageView extends StatefulWidget {
   const ManageView({

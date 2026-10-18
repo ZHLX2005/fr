@@ -7,8 +7,8 @@ import '../../presentation/timetable_store.dart';
 import 'timetable_import_dialog.dart';
 import 'advanced/cycle_config_strategy.dart';
 import 'advanced/shared/zen_controls.dart';
-import '../../../../../widgets/zen/zen_theme.dart';
-import '../../../../widgets/base/base_section.dart';
+import '../../../../../core/theme/zen/zen_theme.dart';
+import '../../../../core/ui/base_section.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
 ///
