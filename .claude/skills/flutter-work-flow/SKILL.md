@@ -18,6 +18,7 @@ references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模�
 ├── B02-Flutter-Hive-TypeAdapter-part文件CI构建失败问题.md   # Hive part文件CI构建连续失败3次,通过合并Adapter到主文件解决
 ├── B03-Android-FloatingWindow-常驻截屏模式适配Android14+.md   # Android 14+ MediaProjection token 一次性问题，常驻 VirtualDisplay 方案
 ├── B04-Flutter-CollapsingHeader圆角渐变头部与白色内容区布局.md   # CustomScrollView + SliverPersistentHeader 实现圆角渐变头部，关键：pinned:false，只用gradient不用color
+├── B05-Flutter-Reorderable网格阴影容器拖拽掉帧-RepaintBoundary隔离.md   # 同款 ReorderableBuilder 页面流畅/弹窗掉帧：宿主 blur 阴影无 RepaintBoundary 隔离，每帧动画重绘大阴影；附 BottomSheet 下拉关闭手势竞争备忘
 ├── C01-Flutter-TimeTable课表模块-架构与扩展指南.md   # lib/core/timetable/ 模块地图 + E1-E4 扩展 SOP + 12 条关键机制勿破坏表（改课表任何文件时读）
 ├── C02-WebRTC-视频通话基础设施与结构设计.md   # 信令→媒体→DataChannel→移动端 7 步架构指南 + 错误案例（实现 WebRTC 视频通话/P2P 时读）
 ├── C03-Flutter-TimeTable-追剧模式专项.md   # 剧模型 SSOT / buildAnimeDsl / AnimeSourceAdapter 适配层 / 排期编辑页（扩展追剧模式时读）
@@ -29,7 +30,7 @@ references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模�
 | 代号 | 类别 | 何时读该序列 | 成员 |
 | --- | --- | --- | --- |
 | A | 扩展 SOP | 动手扩展一个模块前（成本 / 范围 / 流程） | A01 fr路由注册 / A02 fr路由机制 / A03 Lab容器 / A04 TimePage / A05 游戏中心 / A06 Demo-slug别名 / A07 API模块 / A08 Hive存储工作流 / A09 存储面板注册制 / A10 存储Checklist |
-| B | 问题与方案 | 遇到具体 bug / 做细节方案选择时单独读 | B01 Provider双实例 / B02 Hive CI坑 / B03 FloatingWindow适配 / B04 CollapsingHeader |
+| B | 问题与方案 | 遇到具体 bug / 做细节方案选择时单独读 | B01 Provider双实例 / B02 Hive CI坑 / B03 FloatingWindow适配 / B04 CollapsingHeader / B05 Reorderable阴影容器掉帧 |
 | C | 专项子系统 | 进入课表 / WebRTC 等独立子系统深水区时（子系统主干 + 特化子 ref） | C01 课表模块 / C02 WebRTC / C03 追剧专项 / C04 追剧API契约 |
 
 ## 何时读哪个 ref
@@ -50,6 +51,7 @@ references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模�
 | B02 | Flutter-Hive-TypeAdapter-part文件CI构建失败问题 | Hive TypeAdapter / part 文件 CI 编译失败时 |
 | B03 | Android-FloatingWindow-常驻截屏模式适配Android14+ | Android 14+ MediaProjection / 悬浮窗截屏 / token 失效时 |
 | B04 | Flutter-CollapsingHeader圆角渐变头部与白色内容区布局 | 做 collapsing header / 圆角渐变头部布局时 |
+| B05 | Flutter-Reorderable网格阴影容器拖拽掉帧-RepaintBoundary隔离 | **同款拖拽一处流畅一处掉帧 / ReorderableBuilder 放进带阴影 sheet 或卡片时**（含 BottomSheet 手势竞争备忘） |
 | C01 | Flutter-TimeTable课表模块-架构与扩展指南 | **改 lib/core/timetable/ 任何文件（新增模式/数据源适配器/DSL 语法/显示配置/多空间）/ 改 timetable_repository 时**（C03/C04 的入口 ref） |
 | C02 | WebRTC-视频通话基础设施与结构设计 | **实现 WebRTC 视频通话 / 设计 P2P 实时通信 / 搭建信令基础设施 / 音视频或 DataChannel 传输 / 移动端实时通信优化时** |
 | C03 | Flutter-TimeTable-追剧模式专项 | **扩展/修改追剧模式**（剧模型 / 适配层 / 排期编辑器 / 生成器 / 反推）时 |
