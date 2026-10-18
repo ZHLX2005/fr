@@ -63,7 +63,7 @@ class _ErrorCard extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Container(
-        color: const Color(0xFFB00020),
+        color: const Color(0xFFB00020), // 主题豁免：错误守护卡固定错误红（刻意不依赖 Theme——出错的可能就是 Theme）
         padding: const EdgeInsets.all(12),
         child: SingleChildScrollView(
           child: Column(

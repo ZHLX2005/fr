@@ -718,6 +718,8 @@ class NovelCanvasReaderController extends ChangeNotifier {
   }
 }
 
+// 主题豁免（逐项）：阅读器纸张主题 = 纸质书视觉语言（纸张底色/墨水色/
+// 强调色的持久化数据色），不随主题漂移：paper F9F1E4 系 · green F2F4EF 系 · dark 23211E 系
 enum NovelReaderTheme {
   paper(
     'Paper',

@@ -41,18 +41,18 @@ const Map<String, TimePageMeta> kTimePageMeta = {
   'clock': TimePageMeta(
     label: '时钟',
     icon: Icons.access_time_rounded,
-    color: Color(0xFFB5C9A3), // sage 家族豁免
+    color: Color(0xFFB5C9A3), // 主题豁免：sage 家族
     featured: true,
   ),
   'calendar': TimePageMeta(
     label: '日历',
     icon: Icons.calendar_month_outlined,
-    color: Color(0xFF7C9BB8), // 蓝调，与 orange 主题 tertiary 同步
+    color: Color(0xFF7C9BB8), // 主题豁免：workflow 识别蓝（与 orange tertiary 同步）
   ),
   'metronome': TimePageMeta(
     label: '节拍器',
     icon: Icons.music_note_outlined,
-    color: Color(0xFFA6847E), // 灰棕弱化
+    color: Color(0xFFA6847E), // 主题豁免：workflow 弱化灰棕识别色
   ),
 };
 
@@ -60,7 +60,7 @@ const Map<String, TimePageMeta> kTimePageMeta = {
 const TimePageMeta kFallbackTimePageMeta = TimePageMeta(
   label: '未命名',
   icon: Icons.access_time,
-  color: Color(0xFFB5C9A3), // sage 家族豁免
+  color: Color(0xFFB5C9A3), // 主题豁免：sage 家族
 );
 
 TimePageMeta timePageMetaOf(String slug) =>
@@ -77,6 +77,6 @@ Color colorFor(BuildContext context, String slug) {
     case 'metronome':
       return Theme.of(context).colorScheme.outline;
     default:
-      return const Color(0xFFB5C9A3); // sage，豁免
+      return const Color(0xFFB5C9A3); // 主题豁免：sage 家族
   }
 }

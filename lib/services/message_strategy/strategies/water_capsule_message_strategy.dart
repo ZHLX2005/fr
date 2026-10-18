@@ -57,7 +57,7 @@ class _WaveCapsuleState extends State<_WaveCapsule>
           width: 60,
           height: 160,
           decoration: BoxDecoration(
-            color: const Color(0xFFE8EDFE),
+            color: const Color(0xFFE8EDFE), // 主题豁免：胶囊水体淡蓝底
             borderRadius: BorderRadius.circular(80),
             boxShadow: [
               BoxShadow(
@@ -124,7 +124,7 @@ class _WaveCapsuleState extends State<_WaveCapsule>
   Widget _buildControlButton(IconData icon, VoidCallback onTap) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: const Color(0xFFFAFAFA), // 主题豁免：Dev 按钮固定浅底
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -150,6 +150,8 @@ class _WavePainter extends CustomPainter {
   final double waveValue;
   final int level;
 
+  // 主题豁免（逐项）：拟物水体配色 —— 水体蓝 2633C5 / 胶囊淡蓝底 E8EDFE /
+  // Dev 按钮浅底 FAFAFA，胶囊=水容器的固定视觉，跨主题锁定
   static const Color _nearlyDarkBlue = Color(0xFF2633C5);
 
   _WavePainter({required this.waveValue, required this.level});

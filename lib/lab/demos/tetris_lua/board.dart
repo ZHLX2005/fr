@@ -209,9 +209,9 @@ void _paintGlossCell(
   if (rect.width <= 0 || rect.height <= 0) return;
   final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
 
-  final hi = Color.lerp(color, const Color(0xFFFFFFFF), 0.22)!;
+  final hi = Color.lerp(color, const Color(0xFFFFFFFF), 0.22)!; // 主题豁免：方块高光 lerp 端点
   final mid = color;
-  final lo = Color.lerp(color, const Color(0xFF000000), 0.18)!;
+  final lo = Color.lerp(color, const Color(0xFF000000), 0.18)!; // 主题豁免：方块暗部 lerp 端点
 
   c.drawRRect(
     rrect,

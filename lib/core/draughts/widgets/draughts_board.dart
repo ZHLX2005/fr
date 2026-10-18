@@ -26,6 +26,12 @@ import '../models/board_state.dart';
 import '../models/piece.dart';
 
 /// 棋盘配色（由对局页按主题注入，默认走浅色棋具风）。
+///
+/// 主题豁免（S 级模块棋具令牌，逐项）：跳棋棋具识别色系统，
+/// 对齐 surround_game/reversi 的 BoardThemeData 先例，不随主题漂移 ——
+/// darkSquare/lightSquare 棋盘格木色 · whitePiece/blackPiece 棋子色 ·
+/// whitePieceBorder/blackPieceBorder 棋子描边 ·
+/// highlight/captureHint/lastMove 走子提示色。
 class DraughtsBoardPalette {
   final Color darkSquare;
   final Color lightSquare;
@@ -48,6 +54,9 @@ class DraughtsBoardPalette {
     this.captureHint = const Color(0xFFEF4444),
     this.lastMove = const Color(0x6684CC16),
   });
+
+  /// 浅色棋具预设（默认构造的具名引用，供房页色点等单源复用）
+  static const DraughtsBoardPalette light = DraughtsBoardPalette();
 
   /// 深色主题下的棋具配色
   static const DraughtsBoardPalette dark = DraughtsBoardPalette(

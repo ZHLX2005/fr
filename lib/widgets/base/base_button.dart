@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../core/styling/extensions/color_strategy_extension.dart';
 import '../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
 import '../../core/styling/colors/strategy/color_strategy/themes/default.dart';
+import '../../core/styling/tokens/radius.dart';
 
 class BaseButton extends StatelessWidget {
   const BaseButton({
@@ -42,7 +43,7 @@ class BaseButton extends StatelessWidget {
       backgroundColor: bg,
       minimumSize: const Size(88, 44),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xs)),
     );
 
     final button = icon != null

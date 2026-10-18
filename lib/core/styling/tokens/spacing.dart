@@ -1,10 +1,9 @@
 // Layer 1 — Raw spacing tokens.
 //
 // 应用全局间距节奏：4 / 8 / 12 / 16 / 24 / 32 / 48。
-// 所有 widget 的 padding / margin / SizedBox 间距优先从这里取，
-// 禁止 widget 内出现 `padding: EdgeInsets.all(13)` 这类"野值"。
-
-import 'package:flutter/material.dart';
+// 组件层（widgets/base、zen_theme、app_theme）的 padding / margin / SizedBox
+// 间距从这里取；业务页面的布局值不强制迁移（多为一次性排版值）。
+// 消费者：widgets/base/base_section.dart 等。
 
 /// 应用间距 token（4dp 节奏）。
 ///
@@ -26,18 +25,4 @@ class AppSpacing {
   static const double lg = 24;
   static const double xl = 32;
   static const double xxl = 48;
-}
-
-/// 常用 EdgeInsets（节省 widget 端重复构造）。
-class AppInsets {
-  AppInsets._();
-
-  static const EdgeInsets allMd = EdgeInsets.all(AppSpacing.md);
-  static const EdgeInsets allLg = EdgeInsets.all(AppSpacing.lg);
-  static const EdgeInsets pageHorizontal =
-      EdgeInsets.symmetric(horizontal: AppSpacing.lg);
-
-  /// 垂直 16（卡片内常用）。
-  static const EdgeInsets cardVertical =
-      EdgeInsets.symmetric(vertical: AppSpacing.md);
 }

@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/styling/colors/strategy/color_strategy/themes/default.dart';
 import '../../../core/styling/context/colors.dart';
+import '../../../core/styling/tokens/radius.dart';
 
 // =====================================================================
 // Zen 排版（保持 const 以兼容 const widget）
@@ -78,7 +79,7 @@ BoxDecoration zenCardTheme(BuildContext context) {
   return BoxDecoration(
     color: s.surface,
     border: Border.all(color: s.outline, width: 2),
-    borderRadius: BorderRadius.circular(6),
+    borderRadius: BorderRadius.circular(AppRadius.sm),
   );
 }
 
@@ -93,7 +94,7 @@ ButtonStyle zenButtonTheme(
     side: BorderSide(color: border ?? context.colors.outline),
     minimumSize: const Size(88, 44),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xs)),
     textStyle: ZenText.button,
   );
 }

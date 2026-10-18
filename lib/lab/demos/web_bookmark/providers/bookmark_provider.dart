@@ -151,14 +151,14 @@ class BookmarkProvider with ChangeNotifier {
         name: 'Google',
         url: 'https://www.google.com',
         iconName: 'search',
-        color: const Color(0xFF4285F4), // Google 蓝
+        color: const Color(0xFF4285F4), // 主题豁免：Google 品牌识别色
       ),
       SingleBookmark(
         id: '2',
         name: 'GitHub',
         url: 'https://github.com',
         iconName: 'code',
-        color: const Color(0xFF24292E), // GitHub 黑
+        color: const Color(0xFF24292E), // 主题豁免：GitHub 品牌识别色
       ),
       BookmarkFolder(
         id: 'folder_default',
@@ -169,14 +169,14 @@ class BookmarkProvider with ChangeNotifier {
             name: 'Bilibili',
             url: 'https://www.bilibili.com',
             iconName: 'play_circle_filled',
-            color: const Color(0xFF00A1D6), // Bilibili 蓝
+            color: const Color(0xFF00A1D6), // 主题豁免：Bilibili 品牌识别色
           ),
           SingleBookmark(
             id: '4',
             name: 'YouTube',
             url: 'https://www.youtube.com',
             iconName: 'video_library',
-            color: const Color(0xFFFF0000), // YouTube 红
+            color: const Color(0xFFFF0000), // 主题豁免：YouTube 品牌识别色
           ),
         ],
       ),
@@ -185,7 +185,7 @@ class BookmarkProvider with ChangeNotifier {
         name: 'Flutter',
         url: 'https://flutter.dev',
         iconName: 'flutter_dash',
-        color: const Color(0xFF02569B), // Flutter 蓝
+        color: const Color(0xFF02569B), // 主题豁免：Flutter 品牌识别色
       ),
     ];
   }

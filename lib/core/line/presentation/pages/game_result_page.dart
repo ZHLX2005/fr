@@ -259,6 +259,7 @@ class _GameResultPageState extends State<GameResultPage>
     if (grade == 'P') {
       return ShaderMask(
         shaderCallback: (bounds) => const LinearGradient(
+          // 主题豁免：P 评级奖励渐变（粉紫蓝，音游评级识别色）
           colors: [Color(0xFFff6b9d), Color(0xFFc44dff), Color(0xFF4dc9ff)],
         ).createShader(bounds),
         child: Text(

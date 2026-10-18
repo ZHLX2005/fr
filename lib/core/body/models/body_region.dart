@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 // ==================== 组织类型 → 颜色映射 ====================
 enum TissueType { bone, muscle, joint, organ }
 
+// 主题豁免（逐项）：医学解剖标准色（数据持久化业务必显色）——
+// 骨蓝 42A5F5/1565C0 · 肌红 EF5350/B71C1C · 关黄 FFC107/F57F17 · 器绿 66BB6A/2E7D32
 const tissueColors = {
   TissueType.bone: Color(0xFF42A5F5),
   TissueType.muscle: Color(0xFFEF5350),

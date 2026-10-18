@@ -167,7 +167,7 @@ class _RingBubbleState extends State<RingBubble>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF000000).withValues(alpha: 0.18),
+                    color: const Color(0xFF000000).withValues(alpha: 0.18), // 主题豁免：气泡投影黑（阴影，非语义色）
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

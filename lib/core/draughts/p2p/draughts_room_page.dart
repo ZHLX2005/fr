@@ -1039,9 +1039,10 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: c == DraughtsColor.white
-              ? const Color(0xFFF7F3E8)
-              : const Color(0xFF2A2A2E),
-          border: Border.all(color: const Color(0xFF8A7B5C)),
+              ? DraughtsBoardPalette.light.whitePiece
+              : DraughtsBoardPalette.light.blackPiece,
+          border:
+              Border.all(color: DraughtsBoardPalette.light.whitePieceBorder),
         ),
       );
 

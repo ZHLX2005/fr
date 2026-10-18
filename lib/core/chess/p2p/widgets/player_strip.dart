@@ -9,11 +9,15 @@
 import 'package:flutter/material.dart';
 
 import '../../models/piece.dart';
+import '../../../styling/context/colors.dart';
 
-/// F2 身份色：蓝=我 / 橙=对方（与 BoardChatOverlay 卡片 who 点一致）
+/// F2 身份色：蓝=我 / 橙=对方（与 BoardChatOverlay 卡片 who 点一致）。
+///
+/// 主题豁免（逐项）：蓝/橙身份色对 = 对局玩家身份识别色（色=身份，
+/// F2 设计规格），跨主题锁定，与 board_chat_overlay 的 who 色点共用同对值；
+/// build 内棋子色点白/黑 = 棋子识别色。meta 文字已迁 context.colors.textMuted。
 const Color _kStripMe = Color(0xFF2A6FDB);
 const Color _kStripOpp = Color(0xFFC2410C);
-const Color _kStripMeta = Color(0xFF6B6B6B); // F2 --text-2
 
 /// 棋盘上方（对手）/ 下方（自己）的玩家条。
 class PlayerStrip extends StatelessWidget {
@@ -85,9 +89,9 @@ class PlayerStrip extends StatelessWidget {
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: _kStripMeta,
+              color: context.colors.textMuted,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
@@ -285,8 +289,8 @@ class _Avatar extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: color == PieceColor.white
-                        ? const Color(0xFFF7F4EE)
-                        : const Color(0xFF2C261F),
+                        ? const Color(0xFFF7F4EE) // 主题豁免：白棋子识别色
+                        : const Color(0xFF2C261F), // 主题豁免：黑棋子识别色
                     border: Border.all(
                       color: scheme.surface,
                       width: 2,

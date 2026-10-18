@@ -718,7 +718,7 @@ class GameController {
       text: '$combo',
       x: cx,
       y: cy - radius * 2,
-      color: const Color(0xFFFFD54F),
+      color: const Color(0xFFFFD54F), // 主题豁免：perfect 评级金（音游评级识别色）
       baseAlpha: 0.95,
       fontScale: 1.5,
       controller: feedbackController,
@@ -776,13 +776,13 @@ class GameController {
   Color _colorFor(JudgeResultLabel label) {
     switch (label) {
       case JudgeResultLabel.perfect:
-        return const Color(0xFFFFD54F);
+        return const Color(0xFFFFD54F); // 主题豁免：perfect 评级金
       case JudgeResultLabel.great:
-        return const Color(0xFF81D4FA);
+        return const Color(0xFF81D4FA); // 主题豁免：great 评级蓝
       case JudgeResultLabel.good:
         return themeColor;
       case JudgeResultLabel.miss:
-        return const Color(0xFFEF9A9A);
+        return const Color(0xFFEF9A9A); // 主题豁免：miss 评级红
     }
   }
 

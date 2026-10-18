@@ -16,6 +16,12 @@
 // 设计依据：plan/chess-chat-redesign-2026-09-07/F-card-stack.html（卡片堆已废弃）
 // 替换关系：EmojiOverlay + ChatSpeechBubbles（emoji/对话悬浮）→ BoardChatOverlay
 //
+// 主题豁免（逐项，F2 设计规格移植保真，不随主题漂移）：
+//   · 1A1A1A 硬黑边框/发送按钮底 —— F2 --text-1 identity 硬黑
+//   · FAFAF7 tabs 容器底 —— F2 var(--bg)
+//   · 9B9B9B 关闭图标 —— F2 --text-2
+//   · 2A6FDB / C2410C 我方/对方身份色点 —— F2 身份色对（与 PlayerStrip 一致）
+//
 // 用法（宿主 = 对弈房页）：
 //   Positioned.fill(
 //     child: BoardChatOverlay(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../interfaces/interfaces.dart';
 import '../data/bill_overview_message_data.dart';
+import '../../../core/styling/app_theme.dart' show AppColorsExtension;
 
 /// Strategy for rendering Bill Overview messages (monthly summary with expandable details)
 class BillOverviewMessageWidgetStrategy
@@ -197,6 +198,7 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
                       child: CustomPaint(
                         painter: _PieChartPainter(
                           expenses: widget.data.categoryExpenses,
+                          colors: theme.extension<AppColorsExtension>()!.category,
                         ),
                         child: Center(
                           child: Column(
@@ -483,16 +485,11 @@ class _BillOverviewContentState extends State<_BillOverviewContent>
 class _PieChartPainter extends CustomPainter {
   final List<CategoryExpense> expenses;
 
-  _PieChartPainter({required this.expenses});
+  /// 环形图配色：主题 AppColorsExtension.category（随主题联动，
+  /// 与 doubletime PieChart 同通道，2026-10 迁移自裸 hex）。
+  final List<Color> colors;
 
-  static const List<Color> _colors = [
-    Color(0xFF6366F1), // 蓝
-    Color(0xFFF59E0B), // 黄
-    Color(0xFF10B981), // 绿
-    Color(0xFFEC4899), // 粉
-    Color(0xFF8B5CF6), // 紫
-    Color(0xFF6B7280), // 灰
-  ];
+  _PieChartPainter({required this.expenses, required this.colors});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -505,7 +502,7 @@ class _PieChartPainter extends CustomPainter {
     for (int i = 0; i < expenses.length; i++) {
       final sweepAngle = (expenses[i].percentage / 100) * 2 * 3.14159;
       final paint = Paint()
-        ..color = _colors[i % _colors.length]
+        ..color = colors[i % colors.length]
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.butt;

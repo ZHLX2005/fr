@@ -24,6 +24,7 @@ import 'extensions/tetris_color_strategy_extension.dart';
 import 'extensions/torch_protect_color_strategy_extension.dart';
 import 'text_theme.dart';
 import 'tokens/color/app_colors_extension.dart';
+import 'tokens/radius.dart';
 import 'tokens/color/theme/zen.dart' as zen_t;
 import 'tokens/color/theme/purple.dart' as purple_t;
 import 'tokens/color/theme/ink.dart' as ink_t;
@@ -158,7 +159,7 @@ class AppTheme {
         color: scheme.surface,
         shadowColor: cardShadow,
         surfaceTintColor: scheme.surfaceTint,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: AppBorderRadius.allXl),
       ),
       appBarTheme: AppBarTheme(
         centerTitle: true,
@@ -173,7 +174,7 @@ class AppTheme {
               foregroundColor: scheme.primary,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppBorderRadius.allXl,
                 side: BorderSide(color: scheme.outline),
               ),
             )
@@ -182,7 +183,7 @@ class AppTheme {
               foregroundColor: scheme.onPrimary,
               elevation: 4,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: AppBorderRadius.allXl,
               ),
             ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -195,7 +196,7 @@ class AppTheme {
           elevation: isDark ? 0 : 2,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppBorderRadius.allLg,
           ),
         ),
       ),
@@ -208,7 +209,7 @@ class AppTheme {
           side: isDark ? BorderSide(color: scheme.outline) : null,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppBorderRadius.allLg,
           ),
         ),
       ),

@@ -509,7 +509,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, color: Color(0xFFB5C9A3) /* 豁免：sage */, size: 64),
+            Icon(Icons.check_circle, color: Color(0xFFB5C9A3) /* 主题豁免：sage 家族 */, size: 64),
             const SizedBox(height: 16),
             const Text(
               '专注完成',
@@ -521,7 +521,7 @@ class _FocusTimerPageState extends State<FocusTimerPage>
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w200,
-                color: Color(0xFFB5C9A3),
+                color: Color(0xFFB5C9A3), // 主题豁免：sage 家族
               ),
             ),
           ],

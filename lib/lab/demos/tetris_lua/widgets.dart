@@ -37,6 +37,8 @@ const int kMaxRecoverAttempts = 5;
 // 假顶栏假时钟 / 假底栏 PAUSE·SVR / neon 辉光阴影），只保留承载信息的
 // 面板、徽章与按钮反馈。
 // ════════════════════════════════════════════════════════════════════
+// 主题豁免（逐项）：固定霓虹 HUD 皮肤 —— bg/panel 暗底、neon/neon2 霓虹强调、
+// ink 文字、deltaUp/deltaDown 涨跌色（跨主题锁定，与 tetris 方块识别色特例同一逻辑）
 const Color _cBg = Color(0xFF0B0D11);
 const Color _cPanel = Color(0xFF11141A);
 const Color _cLine = Color(0x3800E5FF); // neon cyan @ 22%
@@ -844,7 +846,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         height: h,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF3A414C),
+            color: const Color(0xFF3A414C), // 主题豁免：HUD 面板描边（霓虹皮肤）
             border: Border.all(color: _cLineStrong, width: 1),
           ),
           clipBehavior: Clip.hardEdge,
@@ -891,7 +893,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                   )
                 : Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3A414C),
+                      color: const Color(0xFF3A414C), // 主题豁免：HUD 面板描边（霓虹皮肤）
                       border: Border.all(color: _cLineStrong),
                       borderRadius: BorderRadius.circular(3),
                     ),

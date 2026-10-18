@@ -8,13 +8,15 @@ import 'package:flutter/material.dart';
 import '../../core/styling/extensions/color_strategy_extension.dart';
 import '../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
 import '../../core/styling/colors/strategy/color_strategy/themes/default.dart';
+import '../../core/styling/tokens/radius.dart';
+import '../../core/styling/tokens/spacing.dart';
 
 class BaseSection extends StatelessWidget {
   const BaseSection({
     super.key,
     required this.title,
     required this.child,
-    this.padding = const EdgeInsets.all(12),
+    this.padding = const EdgeInsets.all(AppSpacing.sm),
     this.gap = 8,
     this.titleStyle,
     this.strategy,
@@ -35,7 +37,7 @@ class BaseSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: s.surface,
         border: Border.all(color: s.outline, width: 1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

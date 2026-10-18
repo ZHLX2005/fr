@@ -218,6 +218,10 @@ class _NotificationCardState extends State<_NotificationCard>
 }
 
 /// 语义配色（边框主义的核心：边框/图标 = 高饱和语义色，底 = 低饱和染色）
+///
+/// 主题豁免（逐项）：success/warning/error/info 四语义 × 明/暗两套固定
+/// border/accent/background/foreground —— 通知浮层跨主题保持同一视觉语言
+/// （状态语义色系 + 固定底色），不走 scheme 派生。
 class _NotificationStyle {
   const _NotificationStyle({
     required this.border,

@@ -131,8 +131,8 @@ class BrushWipeOverlay extends StatefulWidget {
     super.key,
     required this.onDone,
     this.duration = const Duration(milliseconds: 2200),
-    this.tint = const Color(0xFF7A9A7E),
-    this.coverColor = const Color(0xFFE8F0E5),
+    this.tint = const Color(0xFF7A9A7E), // 主题豁免：sage 家族（zen 风识别色，与 focus 同源）
+    this.coverColor = const Color(0xFFE8F0E5), // 主题豁免：sage 淡底（同上）
   });
 
   final FutureOr<void> Function() onDone;

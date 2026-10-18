@@ -403,6 +403,8 @@ class _ColorSection extends StatelessWidget {
 
   /// 预设棋盘配色（名称, 浅色格, 深色格）。
   static const List<(String, Color, Color)> kPresets = [
+    // 主题豁免（逐项）：棋盘皮肤预设 = 用户可选棋具识别色（与皮肤持久化
+    // 绑定的数据色）—— 经典木 F0D9B5/B58863 · 绿 AAD751/5D9B44 · 灰蓝 8CA2AD/7B9467
     ('经典木色', Color(0xFFF0D9B5), Color(0xFFB58863)),
     ('绿色棋盘', Color(0xFFAAD751), Color(0xFF5D9B44)),
     ('灰蓝棋盘', Color(0xFF8CA2AD), Color(0xFF7B9467)),
@@ -645,6 +647,7 @@ class _CustomColorDialogState extends State<_CustomColorDialog> {
   /// 精选棋盘色板：前 12 浅色系 + 后 12 深色系（顺序配对可作默认组合）。
   static const List<Color> kSwatches = [
     // 浅色系（浅色格候选）
+    // 主题豁免（逐项）：皮肤底板色板 = 用户可选识别色数据（浅色组 + 深色组）
     Color(0xFFFFF8E7), Color(0xFFF0D9B5), Color(0xFFEBE5D6), Color(0xFFDEE3E6),
     Color(0xFFEEF2E2), Color(0xFFF5E0DF), Color(0xFFE8DEF8), Color(0xFFFFF3D6),
     Color(0xFFE7E7E7), Color(0xFFFAFAF8), Color(0xFFF2D8D8), Color(0xFFEFEADD),
