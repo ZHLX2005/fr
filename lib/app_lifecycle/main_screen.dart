@@ -47,8 +47,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _pageFor(String id) {
     return _pageCache.putIfAbsent(id, () {
       final entry = navEntryById(id);
-      final child = entry?.builder(context) ??
-          const Center(child: Text('入口不存在'));
+      final child =
+          entry?.builder(context) ?? const Center(child: Text('入口不存在'));
       return RepaintBoundary(child: child);
     });
   }
@@ -108,9 +108,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         children: [
                           Text(
                             '更多',
-                            style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: Theme.of(ctx).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const Spacer(),
                           TextButton(
@@ -135,96 +134,107 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         ),
                       )
                     else
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
-                        // 拖拽排序：复用 lab 收藏同款 ReorderableBuilder，但
-                        // longPressDelay 缩短到 200ms 提速、feedback 放 1.10
-                        // 弹起（iOS 触控反馈），拖动项带阴影（lab 收藏关闭
-                        // 阴影是为适应面板暗底，这里 sheet 明底需要浮起）。
-                        //
-                        // iOS q 弹感四件套（曲线全部 easeOutBack，过冲 ~10%
-                        // 再收敛）：拾起 200ms 弹到 1.10（包默认 0ms 生切）；
-                        // 邻居让位 280ms 过冲（不设 curve 时包内部裸
-                        // controller 是线性，机械感的根源）；落位 360ms 快速
-                        // 飞回槽位并过冲 settle；提交重排 260ms 同曲线兜底。
-                        child: ReorderableBuilder<String>.builder(
-                          longPressDelay: const Duration(milliseconds: 200),
-                          feedbackScaleFactor: 1.10,
-                          animationConfig: const ReorderableAnimationConfig(
-                            dragFeedbackDuration: Duration(milliseconds: 200),
-                            dragFeedbackCurve: Curves.easeOutBack,
-                            draggingPositionChangeDuration:
-                                Duration(milliseconds: 280),
-                            draggingPositionChangeCurve: Curves.easeOutBack,
-                            releasedItemDuration: Duration(milliseconds: 360),
-                            releasedItemCurve: Curves.easeOutBack,
-                            positionChangeDuration: Duration(milliseconds: 260),
-                            positionChangeCurve: Curves.easeOutBack,
-                          ),
-                          dragChildBoxDecoration: BoxDecoration(
-                            color: cs.onSurface.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.22),
-                                blurRadius: 24,
-                                offset: const Offset(0, 10),
+                      // 重绘隔离：拖拽拾起/邻居让位/落位飞回的动画帧只允许
+                      // 重绘网格自身图层。若不隔离，每帧动画都会把整张弹窗
+                      // 图层标脏，连带重绘卡片的 blur-40 大阴影 —— 拖拽掉帧
+                      // 的根源（设置页钉选网格已做同款隔离，见 app_settings_page）。
+                      RepaintBoundary(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
+                          // 拖拽排序：复用 lab 收藏同款 ReorderableBuilder，但
+                          // longPressDelay 缩短到 200ms 提速、feedback 放 1.10
+                          // 弹起（iOS 触控反馈），拖动项带阴影（lab 收藏关闭
+                          // 阴影是为适应面板暗底，这里 sheet 明底需要浮起）。
+                          //
+                          // iOS q 弹感四件套（曲线全部 easeOutBack，过冲 ~10%
+                          // 再收敛）：拾起 200ms 弹到 1.10（包默认 0ms 生切）；
+                          // 邻居让位 280ms 过冲（不设 curve 时包内部裸
+                          // controller 是线性，机械感的根源）；落位 360ms 快速
+                          // 飞回槽位并过冲 settle；提交重排 260ms 同曲线兜底。
+                          child: ReorderableBuilder<String>.builder(
+                            longPressDelay: const Duration(milliseconds: 200),
+                            feedbackScaleFactor: 1.10,
+                            animationConfig: const ReorderableAnimationConfig(
+                              dragFeedbackDuration: Duration(milliseconds: 200),
+                              dragFeedbackCurve: Curves.easeOutBack,
+                              draggingPositionChangeDuration: Duration(
+                                milliseconds: 280,
                               ),
-                            ],
+                              draggingPositionChangeCurve: Curves.easeOutBack,
+                              releasedItemDuration: Duration(milliseconds: 360),
+                              releasedItemCurve: Curves.easeOutBack,
+                              positionChangeDuration: Duration(
+                                milliseconds: 260,
+                              ),
+                              positionChangeCurve: Curves.easeOutBack,
+                            ),
+                            dragChildBoxDecoration: BoxDecoration(
+                              color: cs.onSurface.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.22),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            onDragStarted: (_) => HapticFeedback.lightImpact(),
+                            // 跨格换位 tick（包契约：仅真正换位时回调，非逐帧）
+                            onUpdatedDraggedChild: (_) =>
+                                HapticFeedback.selectionClick(),
+                            onDragEnd: (_) => HapticFeedback.mediumImpact(),
+                            onReorder: (reorderFn) {
+                              // 重组 overflow id 列表后回写 navPins
+                              // （保留可见槽顺序不动）。不在此处再打触感——
+                              // onDragEnd 先于 onReorder 触发，双 medium
+                              // 会糊成一声闷响，落位单响才清脆。
+                              final overflowIds = pins.overflowIds.toList(
+                                growable: false,
+                              );
+                              final reordered = reorderFn(overflowIds);
+                              ref.read(navPinsProvider.notifier).setPins([
+                                ...pins.visibleIds,
+                                ...reordered,
+                              ]);
+                            },
+                            itemCount: overflow.length,
+                            childBuilder: (itemBuilder) {
+                              return GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 4,
+                                      mainAxisSpacing: 10,
+                                      crossAxisSpacing: 10,
+                                      childAspectRatio: 1.0,
+                                    ),
+                                itemCount: overflow.length,
+                                itemBuilder: (gridCtx, i) {
+                                  return itemBuilder(
+                                    // ReorderableBuilder 强约束：每个子项必须
+                                    // 有唯一 key（initChildren 的 assert），
+                                    // 漏了 debug 下整个 sheet 直接 build 失败
+                                    _MoreCell(
+                                      key: ValueKey(overflow[i].id),
+                                      entry: overflow[i],
+                                      onTap: () {
+                                        final id = overflow[i].id;
+                                        Navigator.pop(ctx);
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              if (!mounted) return;
+                                              _select(id);
+                                            });
+                                      },
+                                    ),
+                                    i,
+                                  );
+                                },
+                              );
+                            },
                           ),
-                          onDragStarted: (_) => HapticFeedback.lightImpact(),
-                          // 跨格换位 tick（包契约：仅真正换位时回调，非逐帧）
-                          onUpdatedDraggedChild: (_) =>
-                              HapticFeedback.selectionClick(),
-                          onDragEnd: (_) => HapticFeedback.mediumImpact(),
-                          onReorder: (reorderFn) {
-                            // 重组 overflow id 列表后回写 navPins
-                            // （保留可见槽顺序不动）。不在此处再打触感——
-                            // onDragEnd 先于 onReorder 触发，双 medium
-                            // 会糊成一声闷响，落位单响才清脆。
-                            final overflowIds =
-                                pins.overflowIds.toList(growable: false);
-                            final reordered = reorderFn(overflowIds);
-                            ref
-                                .read(navPinsProvider.notifier)
-                                .setPins([...pins.visibleIds, ...reordered]);
-                          },
-                          itemCount: overflow.length,
-                          childBuilder: (itemBuilder) {
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 4,
-                                    mainAxisSpacing: 10,
-                                    crossAxisSpacing: 10,
-                                    childAspectRatio: 1.0,
-                                  ),
-                              itemCount: overflow.length,
-                              itemBuilder: (gridCtx, i) {
-                                return itemBuilder(
-                                  // ReorderableBuilder 强约束：每个子项必须
-                                  // 有唯一 key（initChildren 的 assert），
-                                  // 漏了 debug 下整个 sheet 直接 build 失败
-                                  _MoreCell(
-                                    key: ValueKey(overflow[i].id),
-                                    entry: overflow[i],
-                                    onTap: () {
-                                      final id = overflow[i].id;
-                                      Navigator.pop(ctx);
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                        if (!mounted) return;
-                                        _select(id);
-                                      });
-                                    },
-                                  ),
-                                  i,
-                                );
-                              },
-                            );
-                          },
                         ),
                       ),
                   ],
@@ -241,7 +251,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     final pins = ref.watch(navPinsProvider);
     // pin 变更时丢弃已移除页的缓存，避免泄漏
-    _pageCache.removeWhere((id, _) => !pins.pinIds.contains(id) && id != _selectedId);
+    _pageCache.removeWhere(
+      (id, _) => !pins.pinIds.contains(id) && id != _selectedId,
+    );
 
     final selected = _resolveSelected(pins);
     _selectedId = selected;
@@ -252,8 +264,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         .toList();
 
     // 无溢出（pin 数 ≤ 可见槽）且设置未被钉选 → 末位槽直连设置，免 ⋯ 二跳。
-    final lastSlotEntry =
-        pins.lastSlotIsSettings ? navEntryById(kSettingsNavId) : null;
+    final lastSlotEntry = pins.lastSlotIsSettings
+        ? navEntryById(kSettingsNavId)
+        : null;
 
     final visibleIndex = visibleEntries.indexWhere((e) => e.id == selected);
     final moreSelected = visibleIndex < 0;
@@ -321,11 +334,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 }
 
 class _MoreCell extends StatefulWidget {
-  const _MoreCell({
-    super.key,
-    required this.entry,
-    required this.onTap,
-  });
+  const _MoreCell({super.key, required this.entry, required this.onTap});
 
   final NavEntry entry;
   final VoidCallback onTap;
@@ -417,7 +426,10 @@ class _MoreCellState extends State<_MoreCell>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -427,4 +439,3 @@ class _MoreCellState extends State<_MoreCell>
     );
   }
 }
-
