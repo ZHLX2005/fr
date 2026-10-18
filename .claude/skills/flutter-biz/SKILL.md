@@ -7,7 +7,7 @@ description: FR 项目业务层总入口，dart-flutter 任何问题都需要优
 
 > **dart-flutter 任何问题优先加载本 skill**，再按子域路由。本页只做路由，规范与 SOP 在子域内。
 >
-> 🗺️ **项目业务板块地图**（A 序列基础：50 demo 按板块归类 + 共享层 + 落位规则）→ `.claude/repo/_self/fr-business-map/project/2026-10-18-v1.md`。找「某个业务属于哪个板块/模块在哪」先看地图；「怎么做」再看下面子域。
+> 🗺️ **项目业务板块地图**（A 序列基础：§一骨架树全景速查 + §二 50 demo 定位总表 grep 秒查 + §三板块共享层）→ `.claude/repo/_self/fr-business-map/project/2026-10-18-v2.md`。找「某个 demo 在哪/属于哪个板块」直接 grep 地图 §二；「怎么做」再看下面子域。
 
 ## 子域总览（先读这里）
 
