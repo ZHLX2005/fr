@@ -148,11 +148,6 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
         _queueFrame({'a': 'button', 'button': 'left', 'kind': 'press'});
       case RtPadAction.leftRelease:
         _queueFrame({'a': 'button', 'button': 'left', 'kind': 'release'});
-      case RtPadAction.altTab:
-        unawaited(HapticFeedback.mediumImpact());
-        _flashAction('Alt+Tab');
-        // Alt+Tab 是组合键不是鼠标事件：走既有 hotkey 通道（带 ACK）
-        _queueHotkey(['alt', 'tab']);
     }
   }
 
@@ -182,12 +177,6 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
   }
 
   final List<Map<String, dynamic>> _pendFrameCommands = [];
-  final List<List<String>> _pendHotkeys = [];
-
-  void _queueHotkey(List<String> keys) {
-    _pendHotkeys.add(keys);
-    _ensureSendTimer(flushOnly: true);
-  }
 
   void _ensureSendTimer({bool flushOnly = false}) {
     if (_sendTimer != null) return;
@@ -207,8 +196,7 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
           _pendDy != 0 ||
           _pendScrollX != 0 ||
           _pendScrollY != 0 ||
-          _pendFrameCommands.isNotEmpty ||
-          _pendHotkeys.isNotEmpty) {
+          _pendFrameCommands.isNotEmpty) {
         _ensureSendTimer();
       }
       return;
@@ -222,8 +210,7 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
         _pendDy != 0 ||
         _pendScrollX != 0 ||
         _pendScrollY != 0 ||
-        _pendFrameCommands.isNotEmpty ||
-        _pendHotkeys.isNotEmpty;
+        _pendFrameCommands.isNotEmpty;
     if (!hasPending) return;
     if (!widget.connected) {
       _resetPending();
@@ -253,11 +240,6 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
       for (final f in frames) {
         await session.syncMouse(f);
       }
-      final hotkeys = List.of(_pendHotkeys);
-      _pendHotkeys.clear();
-      for (final keys in hotkeys) {
-        await session.syncHotkey(keys);
-      }
     } catch (_) {
       // 发送异常（socket 半死）：增量丢弃不重试——移动下一帧自愈，
       // 点击重发有误触风险（宁少勿多）。RtSession 自会走重连梯。
@@ -273,7 +255,6 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
     _pendScrollX = 0;
     _pendScrollY = 0;
     _pendFrameCommands.clear();
-    _pendHotkeys.clear();
   }
 
   void _notifyOfflineThrottled() {
@@ -498,7 +479,6 @@ class _GestureLegend extends StatelessWidget {
               _LegendChip('双指 滚动'),
               _LegendChip('双指点 右键'),
               _LegendChip('长按拖 拖拽'),
-              _LegendChip('三指点 Alt+Tab'),
             ],
           ),
         ],

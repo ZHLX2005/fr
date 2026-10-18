@@ -3,7 +3,7 @@
 // RtTouchpadEngine 纯逻辑单测：手势状态机的全部时序路径都只依赖事件自带
 // 时间戳——不需要 fakeAsync，直接按毫秒喂事件即可精确复现。
 //
-// 覆盖：点按/移动/拖拽/右键/滚轮方向/惯性/三指 Alt+Tab/异常收尾（cancel、
+// 覆盖：点按/移动/拖拽/右键/滚轮方向/惯性/第三指忽略/异常收尾（cancel、
 // 拖拽中第二指落下）。
 
 import 'package:flutter_test/flutter_test.dart';
@@ -225,17 +225,42 @@ void main() {
   });
 
   group('三指', () {
-    test('第三指落下立即 Alt+Tab，本回合吞掉所有后续动作', () {
+    test('第三指落下直接忽略：不触发任何动作，双指手势照常', () {
+      // 手机系统手势（截屏/应用切换）普遍占用三指——误触代价高，整段砍掉
       engine.down(1, 100, 100, 0);
       engine.down(2, 140, 100, 10);
-      engine.down(3, 120, 140, 20);
-      expect(actions, [RtPadAction.altTab]);
-      engine.move(3, 200, 200, 60);
-      engine.up(3, 200, 200, 80);
-      engine.up(1, 100, 100, 90);
-      engine.up(2, 140, 100, 100);
-      expect(actions, [RtPadAction.altTab], reason: '不重复触发');
+      engine.down(3, 120, 140, 20); // 未登记
+      expect(actions, isEmpty);
+      // 已登记的两指继续滚轮
+      engine.move(1, 100, 124, 50);
+      engine.move(2, 140, 124, 50);
+      engine.move(1, 100, 148, 80);
+      engine.move(2, 140, 148, 80);
+      engine.move(1, 100, 172, 110);
+      engine.move(2, 140, 172, 110);
+      expect(scrolls, isNotEmpty, reason: '第三指落下不影响双指滚轮');
+      // 未登记指的 move/up 全部无效
+      engine.move(3, 200, 200, 130);
+      engine.up(3, 200, 200, 140);
+      expect(actions, isEmpty);
       expect(moves, isEmpty);
+      engine.up(1, 100, 172, 150);
+      engine.up(2, 140, 172, 160);
+      // 收尾滚动速度 > fling 阈值会进惯性（预期行为）：tick 到自然停止
+      for (var i = 0; i < 180 && engine.phaseName == 'inertia'; i++) {
+        engine.tick(16);
+      }
+      expect(engine.phaseName, 'idle');
+    });
+
+    test('三指同时落下（并发帧序）也只有两指登记', () {
+      engine.down(1, 100, 100, 0);
+      engine.down(2, 140, 100, 1);
+      engine.down(3, 120, 140, 2);
+      expect(actions, isEmpty);
+      engine.up(1, 100, 100, 50);
+      engine.up(2, 140, 100, 60);
+      engine.up(3, 120, 140, 70);
       expect(engine.phaseName, 'idle');
     });
   });
