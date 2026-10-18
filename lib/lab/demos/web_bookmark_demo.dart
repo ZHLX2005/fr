@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../../../core/theme/context/colors.dart';
+import '../../core/theme/context/colors.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +12,7 @@ import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 import '../lab_container.dart';
 import 'web_bookmark/models/bookmark_item.dart';
 import 'web_bookmark/providers/bookmark_provider.dart';
-import '../../widgets/emphasis_button.dart';
+import '../../core/ui/shell/emphasis_button.dart';
 
 /// Web Bookmark Demo
 class WebBookmarkDemo extends DemoPage {

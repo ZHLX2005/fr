@@ -13,7 +13,7 @@ import 'pi_chat_message.dart';
 import 'pi_chat_settings.dart';
 import 'pi_chat_settings_page.dart';
 import 'pi_chat_ui.dart';
-import '../../../widgets/quick_nav_bottom_bar.dart';
+import '../../ui/shell/quick_nav_bottom_bar.dart';
 
 /// pi 聊天页 —— 建会话 / 发消息 / SSE 流式渲染 / 历史回读。
 ///

@@ -1,4 +1,4 @@
-// lib/core/sudoku/widgets/sudoku_number_pad.dart
+// lib/core/sudoku/core/ui/sudoku_number_pad.dart
 //
 // 数独数字键盘：1-9 数字按钮 + 清空按钮 + 提交按钮。
 //
@@ -17,7 +17,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/colors.dart';
+import '../../theme/context/colors.dart';
 
 class SudokuNumberPad extends StatelessWidget {
   final void Function(int n) onNumber;

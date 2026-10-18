@@ -1,4 +1,4 @@
-// lib/core/net_engine/widgets/participants_grid.dart
+// lib/core/net_engine/core/ui/participants_grid.dart
 //
 // 通用参与者圆环卡片 — 显示房间中已就绪和等待中的玩家
 //
@@ -14,7 +14,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/team_avatar_colors.dart';
+import '../../theme/context/team_avatar_colors.dart';
 
 /// 参与者圆环卡片
 ///

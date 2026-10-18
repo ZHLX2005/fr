@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../core/theme/context/colors.dart';
+import '../../../../core/theme/context/colors.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/const_clock_max_mode.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';
@@ -7,13 +7,13 @@ import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/utils/clock_chain_util.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/clock_editor_sheet.dart';
-import 'package:xiaodouzi_fr/core/theme/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/ui/zen/zen_theme.dart';
 import '../../../utils/time_format.dart';
-import '../../../../core/ui/base_icon_button.dart';
-import '../../../../core/ui/base_dot.dart';
-import '../../../../core/ui/base_empty_state.dart';
-import '../../../../core/ui/base_swipe_action.dart';
-import '../../../../core/ui/base_dialog.dart';
+import '../../../../core/ui/atomic/base_icon_button.dart';
+import '../../../../core/ui/atomic/base_dot.dart';
+import '../../../../core/ui/atomic/base_empty_state.dart';
+import '../../../../core/ui/atomic/base_swipe_action.dart';
+import '../../../../core/ui/atomic/base_dialog.dart';
 
 /// Clocks tab — grid of clock cards + records list.
 /// Preserves the core clock functionality (start/pause/reset, swipe-rename,

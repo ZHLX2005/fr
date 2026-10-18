@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/lab/lab_bootstrap.dart';
 import 'package:xiaodouzi_fr/lab/lab_container.dart';
-import 'package:xiaodouzi_fr/widgets/lab_demo_icon_lookup.dart';
+import 'package:xiaodouzi_fr/core/ui/lab/lab_demo_icon_lookup.dart';
 
 void main() {
   setUpAll(() {

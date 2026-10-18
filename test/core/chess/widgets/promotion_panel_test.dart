@@ -1,4 +1,4 @@
-// test/core/chess/widgets/promotion_panel_test.dart
+// test/core/chess/core/ui/promotion_panel_test.dart
 //
 // PromotionPanel 升变面板 —— 兵到底线时暂停走法，弹面板让玩家选 Q/R/B/N：
 //   · 白兵 e7 → e8（升变）→ 面板出现，onMove 未触发

@@ -1,4 +1,4 @@
-// lib/core/surround_game/widgets/touch_controller.dart
+// lib/core/surround_game/core/ui/touch_controller.dart
 //
 // 纯触摸状态机 — 不依赖 GameUiState / GameController / GameState。
 //

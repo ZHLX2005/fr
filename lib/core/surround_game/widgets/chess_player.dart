@@ -1,4 +1,4 @@
-// lib/core/surround_game/widgets/chess_player.dart
+// lib/core/surround_game/core/ui/chess_player.dart
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 

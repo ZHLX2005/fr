@@ -1,4 +1,4 @@
-// test/core/chess/widgets/chess_board_drag_test.dart
+// test/core/chess/core/ui/chess_board_drag_test.dart
 //
 // ChessBoard 拖动手势层（board-gesture-patterns §2.3 长按拖动 + §3.1 单 GestureDetector）：
 //   · 无拖动回调 → 不挂手势层（只读棋盘 tap 行为不变）

@@ -7,9 +7,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../api/remotetype/remotetype.dart';
-import '../../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
 import '../../../services/remotetype/remotetype_service.dart';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 import 'rt_constants.dart';
 
 /// 配对页（两态）。

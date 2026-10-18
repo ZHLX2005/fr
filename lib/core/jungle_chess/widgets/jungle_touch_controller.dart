@@ -1,4 +1,4 @@
-// lib/core/jungle_chess/widgets/jungle_touch_controller.dart
+// lib/core/jungle_chess/core/ui/jungle_touch_controller.dart
 import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';

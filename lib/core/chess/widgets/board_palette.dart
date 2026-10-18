@@ -1,4 +1,4 @@
-// lib/core/chess/widgets/board_palette.dart
+// lib/core/chess/core/ui/board_palette.dart
 //
 // 自定义棋盘配色模型 —— 棋盘渲染层的可选覆盖色。
 //

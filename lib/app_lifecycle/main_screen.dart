@@ -13,8 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/nav/nav_catalog.dart';
 import '../core/nav/nav_pins_notifier.dart';
-import '../widgets/nav_entry_icon.dart';
-import '../widgets/quick_nav_bottom_bar.dart';
+import '../core/ui/shell/nav_entry_icon.dart';
+import '../core/ui/shell/quick_nav_bottom_bar.dart';
 import 'apk_auto_update_host.dart';
 import 'press_bounce_curve.dart';
 

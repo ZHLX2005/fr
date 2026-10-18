@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../widgets/emphasis_button.dart';
+import '../../ui/shell/emphasis_button.dart';
 import '../models/word.dart';
 import '../providers/word_drag_notifier.dart';
 import '../providers/word_drag_state.dart';

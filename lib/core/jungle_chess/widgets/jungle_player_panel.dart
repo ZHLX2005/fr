@@ -1,4 +1,4 @@
-// lib/core/jungle_chess/widgets/jungle_player_panel.dart
+// lib/core/jungle_chess/core/ui/jungle_player_panel.dart
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';

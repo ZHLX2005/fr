@@ -1,4 +1,4 @@
-// lib/core/jungle_chess/widgets/jungle_host_touch_controller.dart
+// lib/core/jungle_chess/core/ui/jungle_host_touch_controller.dart
 //
 // LAN 模式触摸控制器工厂 — Host 版产出带 y 镜像的 JungleTouchController；
 // Client 版用共享基类。

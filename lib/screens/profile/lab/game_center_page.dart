@@ -32,7 +32,7 @@ import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
-import '../../../widgets/quick_nav_bottom_bar.dart';
+import '../../../core/ui/shell/quick_nav_bottom_bar.dart';
 import 'demo_detail_page.dart';
 import 'game_center/const_game_center.dart';
 import 'game_center/game_center_cards.dart';

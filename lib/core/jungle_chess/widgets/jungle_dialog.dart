@@ -1,4 +1,4 @@
-// lib/core/jungle_chess/widgets/jungle_dialog.dart
+// lib/core/jungle_chess/core/ui/jungle_dialog.dart
 import 'package:flutter/material.dart';
 
 // 终局提示不再用单向弹窗：面对面热座时上方玩家读不了。改成页面内的双向覆盖层，

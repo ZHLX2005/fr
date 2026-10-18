@@ -15,7 +15,7 @@
 //   - 添加 = green / 主操作；完成 = blue / 读取+写入；删除/清空 = red / 危险
 
 import 'dart:convert';
-import '../../../core/theme/context/colors.dart';
+import '../../core/theme/context/colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,8 +23,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/goframe/kv/kv_endpoint.dart';
 import '../../api/goframe/group/group_endpoint.dart';
 import '../../api/providers/api_providers.dart';
-import '../../widgets/emphasis_button.dart';
-import '../../widgets/global_ring/ring_enabled_provider.dart';
+import '../../core/ui/shell/emphasis_button.dart';
+import '../../core/ui/global_ring/ring_enabled_provider.dart';
 import '../lab_container.dart';
 import 'kvcli_todo/active_group_provider.dart';
 import 'kvcli_todo/const_kvcli_todo.dart';

@@ -2,7 +2,7 @@
 // 两行布局：第一行「资源/金额 → 单价」，第二行「备注 · 创建时间 · 删除」
 
 import 'package:flutter/material.dart';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 import 'package:flutter/services.dart';
 
 import 'price_compare_models.dart';

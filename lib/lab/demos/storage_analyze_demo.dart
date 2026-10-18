@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../../../core/theme/context/colors.dart';
+import '../../core/theme/context/colors.dart';
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +13,7 @@ import '../../core/storage/sync/cloud_storage_sync.dart';
 import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
-import '../../widgets/emphasis_button.dart';
+import '../../core/ui/shell/emphasis_button.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {

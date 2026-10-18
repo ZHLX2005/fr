@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../interfaces/interfaces.dart';
 import '../data/bill_overview_message_data.dart';
-import '../../../../core/theme/app_theme.dart' show AppColorsExtension;
+import '../../../core/theme/app_theme.dart' show AppColorsExtension;
 
 /// Strategy for rendering Bill Overview messages (monthly summary with expandable details)
 class BillOverviewMessageWidgetStrategy

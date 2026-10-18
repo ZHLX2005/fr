@@ -1,4 +1,4 @@
-// test/core/draughts/widgets/draughts_replay_bar_test.dart
+// test/core/draughts/core/ui/draughts_replay_bar_test.dart
 //
 // DraughtsReplayBar 无状态回放条的交互契约（对齐 ChessReplayBar 的语义）：
 //   · 边界禁用：index == 0 禁 |< <；index == total 禁 > >|

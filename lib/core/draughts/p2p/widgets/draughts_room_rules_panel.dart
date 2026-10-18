@@ -1,4 +1,4 @@
-// lib/core/draughts/p2p/widgets/draughts_room_rules_panel.dart
+// lib/core/draughts/p2p/core/ui/draughts_room_rules_panel.dart
 //
 // 跳棋准备卡「房间规则」面板 —— 行样式对齐 ChessRoomRulesPanel。
 //

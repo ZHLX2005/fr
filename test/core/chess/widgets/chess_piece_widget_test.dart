@@ -1,4 +1,4 @@
-// test/core/chess/widgets/chess_piece_widget_test.dart
+// test/core/chess/core/ui/chess_piece_widget_test.dart
 //
 // ChessPiece 单图渲染 —— 用 MemoryImage 避免依赖具体资源（不需要任何网络 / 资产）。
 // 使用已知最小合法 1x1 透明 PNG。

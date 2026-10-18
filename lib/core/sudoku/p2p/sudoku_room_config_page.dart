@@ -12,7 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/sudoku_puzzle.dart';
-import '../../../../core/theme/context/colors.dart';
+import '../../theme/context/colors.dart';
 
 /// 房间规则结果 —— 映射到 SET_RULES / 历史 initialParams。
 @immutable

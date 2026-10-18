@@ -1,4 +1,4 @@
-// lib/core/sudoku/widgets/sudoku_opponent_strip.dart
+// lib/core/sudoku/core/ui/sudoku_opponent_strip.dart
 //
 // 双玩家信息条：双方昵称 + 计时 + 完成度（已填格数 / 总数）。
 //
@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/colors.dart';
+import '../../theme/context/colors.dart';
 import 'sudoku_error_badge.dart';
 
 /// 单方玩家信息：昵称 + 已填数 + 错误数 + 是否完成。

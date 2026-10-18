@@ -26,7 +26,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/chess_colors.dart';
+import '../../theme/context/chess_colors.dart';
 import '../models/board_state.dart';
 import '../models/piece.dart';
 import '../widgets/board_palette.dart';

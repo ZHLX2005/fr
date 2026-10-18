@@ -1,9 +1,9 @@
 // KV 清单 —— 弹窗（编辑 / 删除确认 / 完成结果 / 添加快捷 topic）。
 
 import 'package:flutter/material.dart';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
-import '../../../widgets/emphasis_button.dart';
+import '../../../core/ui/shell/emphasis_button.dart';
 import 'kvcli_todo_models.dart';
 
 /// 编辑结果：open 任务可改 topic+text；done 任务可改 text+note。

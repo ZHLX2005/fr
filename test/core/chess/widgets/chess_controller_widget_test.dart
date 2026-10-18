@@ -1,4 +1,4 @@
-// test/core/chess/widgets/chess_controller_widget_test.dart
+// test/core/chess/core/ui/chess_controller_widget_test.dart
 //
 // ChessController 状态机：
 //   · 初始 → tap e2 → 选中 e2，合法目标 = {e3, e4}

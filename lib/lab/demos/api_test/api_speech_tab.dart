@@ -9,7 +9,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../widgets/quick_nav_bottom_bar.dart';
+import '../../../core/ui/shell/quick_nav_bottom_bar.dart';
 
 /// 由 WebSocket 音频数据驱动的流式 AudioSource
 class _WebSocketAudioSource extends StreamAudioSource {

@@ -5,14 +5,14 @@
 // 删除实体/关系词时 store 会联动清理引用它的规则，避免悬空边。
 
 import 'package:flutter/material.dart';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
-import '../../../../core/theme/zen/zen_theme.dart';
+import '../../../core/ui/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
 import 'relation_calc_models.dart';
 import 'relation_calc_store.dart';
-import '../../../core/ui/base_empty_state.dart';
-import '../../../core/ui/base_dialog.dart';
+import '../../../core/ui/atomic/base_empty_state.dart';
+import '../../../core/ui/atomic/base_dialog.dart';
 
 class ManageView extends StatefulWidget {
   const ManageView({

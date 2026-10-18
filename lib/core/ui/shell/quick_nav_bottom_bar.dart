@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/nav/nav_entry.dart';
+import '../../nav/nav_entry.dart';
 import 'nav_entry_icon.dart';
 
 class _IosSpringCurve extends Curve {

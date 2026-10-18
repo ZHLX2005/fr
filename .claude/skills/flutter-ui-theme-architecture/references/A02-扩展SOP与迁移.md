@@ -9,8 +9,8 @@
 | --- | --- | --- |
 | 新增一套主题配色 | `tokens/color/theme/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
 | 新增强调色 / 语义角色（如在 `ColorStrategy` 加 `info`） | `colors/strategy/color_strategy/color_strategy.dart` + `colors/strategy/color_strategy/themes/default.dart`（+ 其他 strategy 如有同类需求） | §2 |
-| 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `widgets/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
-| 新增 / 改一个复用的组件样式 | `component/` 或 `widgets/theme/zen_theme.dart` helper | §3 |
+| 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `core/ui/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
+| 新增 / 改一个复用的组件样式 | `component/` 或 `core/ui/theme/zen_theme.dart` helper | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
 | 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[B02-特例策略]] |
 | 看历史踩过的反模式 / 找正确做法 | 踩坑经验库 | §4.5 |
@@ -67,7 +67,7 @@
 - **能用内置的，不建新的**：普通按钮/卡片用 `FilledButtonTheme`/`ElevatedButtonTheme`/`CardTheme`（已在 `app_theme.dart` 的 `_buildTheme` 注册，统一从 scheme 派生）。
 - **非内置复合样式**（如 hero 圆钮、状态点）：
   - 纯样式 → `lib/core/theme/component/` 下加静态方法（读 `Theme.of(context).colorScheme.X`，不写裸 hex）。
-  - 需要 widget 结构 + 样式 → `lib/widgets/theme/zen_theme.dart` 加 helper 或委托 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
+  - 需要 widget 结构 + 样式 → `lib/core/ui/theme/zen_theme.dart` 加 helper 或委托 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
 - 新增 helper 后，在 `color-usage-audit.md` 的相关目录行补一句使用点，保持审计表新鲜。
 
 ## 4. 把既有硬编码迁到主题通道（迁移 SOP）
@@ -103,7 +103,7 @@
 
 **正确做法**：用 `surface`（页面/卡片/AppBar/BottomNavBar 的背景标准值）。
 
-**踩坑案例**：`lib/widgets/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
+**踩坑案例**：`lib/core/ui/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
 
 ### 4.5.2 ❌ 用 `inversePrimary` 当 AppBar / Scaffold 背景
 

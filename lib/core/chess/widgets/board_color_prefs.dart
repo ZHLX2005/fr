@@ -1,4 +1,4 @@
-// lib/core/chess/widgets/board_color_prefs.dart
+// lib/core/chess/core/ui/board_color_prefs.dart
 //
 // 自定义棋盘配色偏好 —— SharedPreferences 持久化用户自定义的棋盘颜色。
 //

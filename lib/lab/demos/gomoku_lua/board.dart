@@ -15,7 +15,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/board_colors.dart';
+import '../../../core/theme/context/board_colors.dart';
 import 'constants.dart' show kGomokuSize;
 import 'engine.dart' show GomokuBoard;
 import '../../../core/gomoku/skins/gomoku_skin.dart' show GomokuSkin;

@@ -1,7 +1,7 @@
 // lib/core/net_engine/relay_v3/relay_connection_status_badge.dart
 //
 // WS 连接状态徽标（AppBar leading 用）— 所有 relay v3 房间游戏通用。
-// 自 chess/widgets/chess_connection_status.dart 下沉（该实现本就零棋种依赖，
+// 自 chess/core/ui/chess_connection_status.dart 下沉（该实现本就零棋种依赖，
 // 颜色全走 Theme.colorScheme）。
 //
 // 职责：

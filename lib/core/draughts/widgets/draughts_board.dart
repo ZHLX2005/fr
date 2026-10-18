@@ -1,4 +1,4 @@
-// lib/core/draughts/widgets/draughts_board.dart
+// lib/core/draughts/core/ui/draughts_board.dart
 //
 // 国际跳棋 10×10 棋盘 widget（无状态，纯渲染 + 点击回调）。
 //

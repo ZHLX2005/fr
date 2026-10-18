@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../core/theme/context/colors.dart';
+import '../../../theme/context/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import '../../domain/models.dart';
@@ -7,8 +7,8 @@ import '../../presentation/timetable_store.dart';
 import 'timetable_import_dialog.dart';
 import 'advanced/cycle_config_strategy.dart';
 import 'advanced/shared/zen_controls.dart';
-import '../../../../../core/theme/zen/zen_theme.dart';
-import '../../../../core/ui/base_section.dart';
+import '../../../ui/zen/zen_theme.dart';
+import '../../../../core/ui/atomic/base_section.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
 ///

@@ -1,4 +1,4 @@
-// test/core/chess/widgets/chess_board_widget_test.dart
+// test/core/chess/core/ui/chess_board_widget_test.dart
 //
 // ChessBoard 棋盘渲染：
 //   · 默认皮肤 (ChessDefaultSkin) → 起始局面 → 32 个 unicode 字符

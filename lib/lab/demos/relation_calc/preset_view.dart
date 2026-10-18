@@ -3,12 +3,12 @@
 // 重置：清空用户自定义数据，恢复内置预设（需确认）。
 
 import 'package:flutter/material.dart';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
-import '../../../../core/theme/zen/zen_theme.dart';
+import '../../../core/ui/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
-import '../../../core/ui/base_section.dart';
-import '../../../core/ui/base_dialog.dart';
+import '../../../core/ui/atomic/base_section.dart';
+import '../../../core/ui/atomic/base_dialog.dart';
 
 class PresetView extends StatelessWidget {
   const PresetView({super.key, required this.onReset});

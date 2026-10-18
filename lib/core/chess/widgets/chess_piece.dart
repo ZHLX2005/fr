@@ -1,4 +1,4 @@
-// lib/core/chess/widgets/chess_piece.dart
+// lib/core/chess/core/ui/chess_piece.dart
 //
 // 单个棋子的 Image 渲染 —— 走 [ChessSkin] 提供的 ImageProvider。
 //

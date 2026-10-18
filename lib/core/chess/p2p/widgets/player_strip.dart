@@ -1,4 +1,4 @@
-// lib/core/chess/p2p/widgets/player_strip.dart
+// lib/core/chess/p2p/core/ui/player_strip.dart
 //
 // 对局中玩家条：
 //   · showAvatar=false（F2 / chess）：色点 + 单行名 + 右侧 meta（计时/状态）+ trailing
@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/piece.dart';
-import '../../../../../core/theme/context/colors.dart';
+import '../../../theme/context/colors.dart';
 
 /// F2 身份色：蓝=我 / 橙=对方（与 BoardChatOverlay 卡片 who 点一致）。
 ///

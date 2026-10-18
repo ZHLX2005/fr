@@ -34,7 +34,7 @@ class SurroundGameConstants {
   /// 每行格子数（cellId = x + y * boardCols）
   static const int boardCols = 9;
 
-  // ─── 棋子移动动画（见 widgets/chess_player.dart）───
+  // ─── 棋子移动动画（见 core/ui/chess_player.dart）───
 
   /// 一次跳子的时长
   static const Duration pieceMoveDuration = Duration(milliseconds: 280);

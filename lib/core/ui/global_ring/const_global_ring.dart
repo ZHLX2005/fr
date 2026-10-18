@@ -23,7 +23,7 @@ class ConstGlobalRing {
   static const double margin = 12;
 
   /// 底部避让高度：MainScreen 的 XiaoDouZiBottomBar 高 64
-  /// （lib/widgets/xiaodouzi_bottom_bar.dart 的 _barHeight）。
+  /// （lib/core/ui/xiaodouzi_bottom_bar.dart 的 _barHeight）。
   /// 圆环常驻在 Navigator 之上，不止覆盖 tab 页也覆盖全屏路由，
   /// 所以这里恒留出这一段——宁可圆环少占一条底带，也不能压住 tab 按钮。
   static const double bottomBarHeight = 64;
@@ -48,7 +48,7 @@ class ConstGlobalRing {
 
 /// 吸附回弹曲线 —— 指数衰减余弦震荡。
 ///
-/// 与 `lib/widgets/xiaodouzi_bottom_bar.dart` 的 `_QQCurve` 同一公式；
+/// 与 `lib/core/ui/xiaodouzi_bottom_bar.dart` 的 `_QQCurve` 同一公式；
 /// 那个类是文件私有的，未提升为公共 curve，这里按同公式复刻以保持
 /// 圆环与底部栏的动效手感一致。
 class RingSnapCurve extends Curve {

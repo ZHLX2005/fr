@@ -1,4 +1,4 @@
-// lib/core/jungle_chess/widgets/jungle_board.dart
+// lib/core/jungle_chess/core/ui/jungle_board.dart
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';

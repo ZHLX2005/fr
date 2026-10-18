@@ -1,4 +1,4 @@
-// lib/core/chess/widgets/chess_replay_bar.dart
+// lib/core/chess/core/ui/chess_replay_bar.dart
 //
 // 对局回放控制条（复盘）—— 无状态控件，父层（ChessRoomPage）持有回放状态。
 //
@@ -20,7 +20,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/chess_colors.dart';
+import '../../theme/context/chess_colors.dart';
 
 /// 对局回放控制条（|< < ▶/⏸ > >| + 步数 + 进度条 + 退出）。
 class ChessReplayBar extends StatelessWidget {

@@ -22,7 +22,7 @@ import 'engine.dart' show
     Snapshot, RoomHandle, kGomokuSize;
 import 'constants.dart' show kGomokuTurnBarHeight, kGomokuConfirmBarHeight;
 import 'board.dart' show GomokuBoardWidget;
-import '../../../../core/theme/context/board_colors.dart';
+import '../../../core/theme/context/board_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import 'package:xiaodouzi_fr/core/gomoku/skins/gomoku_skin.dart' show GomokuSkin, GomokuSkinBundle;

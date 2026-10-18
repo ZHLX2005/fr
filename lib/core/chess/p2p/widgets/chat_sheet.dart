@@ -1,4 +1,4 @@
-// lib/core/chess/p2p/widgets/chat_sheet.dart
+// lib/core/chess/p2p/core/ui/chat_sheet.dart
 //
 // 对局对话 BottomSheet：本局历史 + 快捷语 + 文字输入 + 表情网格。
 

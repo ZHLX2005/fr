@@ -1,4 +1,4 @@
-// lib/core/sudoku/widgets/sudoku_cell_widget.dart
+// lib/core/sudoku/core/ui/sudoku_cell_widget.dart
 //
 // 单格渲染：值 / 笔记 / 选中 / 题目初始格 / 错误。
 //
@@ -14,8 +14,8 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/sudoku_colors.dart';
-import '../../../../core/theme/colors/strategy/sudoku_color_strategy/sudoku_color_strategy.dart';
+import '../../theme/context/sudoku_colors.dart';
+import '../../theme/colors/strategy/sudoku_color_strategy/sudoku_color_strategy.dart';
 import '../models/sudoku_cell.dart';
 
 class SudokuCellWidget extends StatelessWidget {

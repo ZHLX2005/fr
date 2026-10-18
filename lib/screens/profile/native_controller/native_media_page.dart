@@ -1,12 +1,12 @@
 import 'dart:io';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../services/media_service.dart';
 import '../../../services/audio_recording_service.dart';
-import '../../../core/ui/base_icon_button.dart';
-import '../../../core/theme/zen/zen_theme.dart';
+import '../../../core/ui/atomic/base_icon_button.dart';
+import '../../../core/ui/zen/zen_theme.dart';
 
 /// 原生媒体功能测试页面
 /// 用于在Web和移动端验证摄像头、图库、麦克风等原生功能

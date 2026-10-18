@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../widgets/image_picker_widget.dart';
-import '../../../../widgets/lab_demo_icon.dart';
-import '../../../../widgets/lab_demo_icon_lookup.dart';
+import '../../../../core/ui/renderers/image_picker_widget.dart';
+import '../../../../core/ui/lab/lab_demo_icon.dart';
+import '../../../../core/ui/lab/lab_demo_icon_lookup.dart';
 import '../demo_cover_image.dart';
 import '../lab_panel/const_lab_panel.dart';
 import '../providers/lab_card_provider.dart';

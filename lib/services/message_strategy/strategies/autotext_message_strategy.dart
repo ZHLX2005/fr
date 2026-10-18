@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/markdown_renderer_widget.dart';
+import '../../../core/ui/renderers/markdown_renderer_widget.dart';
 import '../interfaces/interfaces.dart';
 import '../data/autotext_message_data.dart';
 

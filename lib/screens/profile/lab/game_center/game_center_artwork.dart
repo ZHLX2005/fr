@@ -14,7 +14,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../widgets/lab_demo_icon.dart';
+import '../../../../core/ui/lab/lab_demo_icon.dart';
 import '../demo_cover_image.dart';
 import 'const_game_center.dart';
 

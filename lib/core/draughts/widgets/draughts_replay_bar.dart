@@ -1,8 +1,8 @@
-// lib/core/draughts/widgets/draughts_replay_bar.dart
+// lib/core/draughts/core/ui/draughts_replay_bar.dart
 //
 // 国际跳棋终局回放控制条 —— 无状态控件，父层（DraughtsRoomPage）持有回放状态。
 //
-// 结构对齐 chess 的 ChessReplayBar（core/chess/widgets/chess_replay_bar.dart），
+// 结构对齐 chess 的 ChessReplayBar（core/chess/core/ui/chess_replay_bar.dart），
 // 精简掉导出残局 / 整局入库槽位；配色走 Theme.colorScheme（draughts 没接
 // chess 的 colors 策略通道）。
 //

@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,11 +8,11 @@ import 'recorder_controller.dart';
 import 'const_recorder.dart';
 import 'recorder_list_page.dart';
 import 'waveform_view.dart';
-import '../../../core/ui/base_icon_button.dart';
-import '../../../core/theme/zen/zen_theme.dart';
+import '../../../core/ui/atomic/base_icon_button.dart';
+import '../../../core/ui/zen/zen_theme.dart';
 import '../../utils/time_format.dart';
-import '../../../core/ui/base_section.dart';
-import '../../../core/ui/base_dot.dart';
+import '../../../core/ui/atomic/base_section.dart';
+import '../../../core/ui/atomic/base_dot.dart';
 
 /// 录音机 widget 桥接 —— 给桌面 widget 点击后的 autostart 用。
 ///

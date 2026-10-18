@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../core/theme/context/colors.dart';
+import '../../../theme/context/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
@@ -9,9 +9,9 @@ import 'timetable_advanced_settings_page.dart';
 import 'timetable_anime_editor_page.dart';
 import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
-import '../../../../core/theme/zen/zen_theme.dart';
-import '../../../../core/theme/zen/zen_date_picker.dart';
-import '../../../../core/ui/base_section.dart';
+import '../../../../core/ui/zen/zen_theme.dart';
+import '../../../../core/ui/zen/zen_date_picker.dart';
+import '../../../../core/ui/atomic/base_section.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 起始日期 UX + 数据来源预设。
 ///

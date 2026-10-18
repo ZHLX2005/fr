@@ -1,10 +1,10 @@
-// lib/core/surround_game/widgets/player_panel.dart
+// lib/core/surround_game/core/ui/player_panel.dart
 //
 // 操作栏：仿首页底部导航条风格 — Card 药丸形圆角 + elevation
 //
 // 颜色全部从 [BoardThemeData] 语义令牌读取，主题切换只改令牌。
 import 'package:flutter/material.dart';
-import '../../../widgets/emphasis_button.dart';
+import '../../ui/shell/emphasis_button.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import 'touch_controller.dart';

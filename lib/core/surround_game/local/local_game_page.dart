@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import '../board_theme.dart';
 import '../game_ui_state.dart';
 import '../surround_game_constants.dart';
-import '../../../widgets/emphasis_button.dart';
+import '../../ui/shell/emphasis_button.dart';
 import '../widgets/chess_board.dart';
 import '../widgets/chess_player.dart';
 import '../widgets/chess_wall.dart';

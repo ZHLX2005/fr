@@ -1,11 +1,11 @@
 import 'dart:collection';
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/zen/zen_theme.dart';
+import '../../../core/ui/zen/zen_theme.dart';
 
 /// dBFS → [0,1] 显示比例。-60dB → 0,0dB → 1,线性,带 NaN/越界钳制。
 ///

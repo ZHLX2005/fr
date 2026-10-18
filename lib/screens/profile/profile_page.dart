@@ -6,9 +6,9 @@ import 'lab/game_center_page.dart';
 import '../../lab/lab_container.dart';
 import 'banner_crop_page.dart';
 import 'theme/theme_page.dart';
-import '../../widgets/springy_banner.dart';
-import '../../widgets/bounded_bouncing_scroll_physics.dart';
-import '../../widgets/quick_nav_bottom_bar.dart';
+import '../../core/ui/renderers/springy_banner.dart';
+import '../../core/ui/renderers/bounded_bouncing_scroll_physics.dart';
+import '../../core/ui/shell/quick_nav_bottom_bar.dart';
 import 'character_profile_page.dart';
 
 /// App 级 banner 路径缓存。

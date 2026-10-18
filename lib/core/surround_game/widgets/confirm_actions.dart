@@ -1,4 +1,4 @@
-// lib/core/surround_game/widgets/confirm_actions.dart
+// lib/core/surround_game/core/ui/confirm_actions.dart
 //
 // 确认操作按钮 — 直接显示在棋子/墙放下位置
 //

@@ -1,4 +1,4 @@
-// lib/core/sudoku/widgets/sudoku_error_badge.dart
+// lib/core/sudoku/core/ui/sudoku_error_badge.dart
 //
 // 错误数 badge：在玩家 / 对手信息条上挂的小红圈，显示当前错误填值数。
 //
@@ -10,7 +10,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/colors.dart';
+import '../../theme/context/colors.dart';
 
 class SudokuErrorBadge extends StatelessWidget {
   final int errorCount;

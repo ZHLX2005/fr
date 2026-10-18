@@ -1,4 +1,4 @@
-// lib/core/chess/widgets/chess_controller.dart
+// lib/core/chess/core/ui/chess_controller.dart
 //
 // 棋盘交互控制器 —— 拥有"选中 / 合法目标 / 完成走法"状态机。
 //

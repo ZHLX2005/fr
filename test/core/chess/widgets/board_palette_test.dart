@@ -1,4 +1,4 @@
-// test/core/chess/widgets/board_palette_test.dart
+// test/core/chess/core/ui/board_palette_test.dart
 //
 // BoardPalette（自定义棋盘配色）值类测试：
 //   · 默认构造 → 全字段 null + isEmpty（完整跟随主题）

@@ -16,7 +16,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../widgets/lab_demo_icon_lookup.dart';
+import '../../../../core/ui/lab/lab_demo_icon_lookup.dart';
 
 // ══════════════════════════════════════════════════════════════
 // 分类

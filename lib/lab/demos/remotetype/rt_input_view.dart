@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 import 'rt_constants.dart';
 import 'rt_prefs.dart';
 import 'rt_shortcut_bar.dart';

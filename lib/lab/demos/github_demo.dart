@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/context/colors.dart';
+import '../../core/theme/context/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../widgets/emphasis_button.dart';
+import '../../core/ui/shell/emphasis_button.dart';
 import '../../core/github/github.dart';
 import '../lab_container.dart';
 

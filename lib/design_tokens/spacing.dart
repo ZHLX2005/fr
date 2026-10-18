@@ -1,9 +1,9 @@
 // Layer 1 — Raw spacing tokens.
 //
 // 应用全局间距节奏：4 / 8 / 12 / 16 / 24 / 32 / 48。
-// 组件层（core/ui/、core/theme/zen/、app_theme）的 padding / margin / SizedBox
+// 组件层（core/ui/、core/ui/zen/、app_theme）的 padding / margin / SizedBox
 // 间距从这里取；业务页面的布局值不强制迁移（多为一次性排版值）。
-// 消费者：core/ui/base_section.dart 等。
+// 消费者：core/ui/atomic/base_section.dart 等。
 
 /// 应用间距 token（4dp 节奏）。
 ///

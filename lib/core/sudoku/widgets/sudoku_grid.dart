@@ -1,4 +1,4 @@
-// lib/core/sudoku/widgets/sudoku_grid.dart
+// lib/core/sudoku/core/ui/sudoku_grid.dart
 //
 // 9x9 数独棋盘（81 个 SudokuCellWidget）。
 //

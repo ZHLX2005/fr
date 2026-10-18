@@ -5,7 +5,7 @@ import '../interfaces/interfaces.dart';
 import '../data/register_message_data.dart';
 import '../panel/register_flow_controller.dart';
 import '../../../api/user/user_auth_service.dart';
-import '../../../widgets/emphasis_button.dart';
+import '../../../core/ui/shell/emphasis_button.dart';
 
 /// Strategy for rendering Register messages.
 ///

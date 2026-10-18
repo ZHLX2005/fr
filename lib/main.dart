@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rive/rive.dart' hide Animation;
-import '../core/theme/state/theme_provider.dart';
+import 'core/theme/state/theme_provider.dart';
 import 'core/nav/game_cover_warmup.dart';
 import 'core/nav/nav_bootstrap.dart';
 import 'core/nav/nav_pins_notifier.dart';
@@ -31,10 +31,10 @@ import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
 import 'screens/profile/lab/game_center_page.dart';
-import 'widgets/global_ring/global_ring_host.dart';
-import 'widgets/global_ring/ring_enabled_provider.dart';
-import 'widgets/lab_demo_icon.dart';
-import 'widgets/lab_demo_icon_lookup.dart';
+import 'core/ui/global_ring/global_ring_host.dart';
+import 'core/ui/global_ring/ring_enabled_provider.dart';
+import 'core/ui/lab/lab_demo_icon.dart';
+import 'core/ui/lab/lab_demo_icon_lookup.dart';
 
 /// 全局 Navigator Key（桌面 widget MethodChannel 跳转需要）
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();

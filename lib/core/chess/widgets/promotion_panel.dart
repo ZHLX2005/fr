@@ -1,4 +1,4 @@
-// lib/core/chess/widgets/promotion_panel.dart
+// lib/core/chess/core/ui/promotion_panel.dart
 //
 // 升变选择面板 —— 悬浮在棋盘上，让玩家从 后/车/象/马 中选一个升变棋子。
 //
@@ -17,7 +17,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/context/chess_colors.dart';
+import '../../theme/context/chess_colors.dart';
 import '../constants/chess_constants.dart';
 import '../models/piece.dart';
 import '../skins/chess_skin.dart';

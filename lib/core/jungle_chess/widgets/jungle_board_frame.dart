@@ -1,4 +1,4 @@
-// lib/core/jungle_chess/widgets/jungle_board_frame.dart
+// lib/core/jungle_chess/core/ui/jungle_board_frame.dart
 import 'package:flutter/material.dart';
 
 /// 棋盘装饰外框：白底卡片 + 柔和阴影 + 圆角

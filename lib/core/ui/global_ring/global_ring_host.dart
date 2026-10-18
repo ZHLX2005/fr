@@ -74,7 +74,7 @@ class _GlobalRingHostState extends ConsumerState<GlobalRingHost> {
       textDirection: TextDirection.ltr,
       // 用默认的 StackFit.loose 即可：Navigator 内部的 Overlay 在
       // constraints.biggest 有限时直接 size = constraints.biggest
-      // （见 flutter widgets/overlay.dart 的 _RenderTheatre.performLayout），
+      // （见 flutter core/ui/overlay.dart 的 _RenderTheatre.performLayout），
       // 所以非定位子节点照样撑满全屏，页面布局不受这层 Stack 影响。
       children: [
         widget.child,
