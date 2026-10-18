@@ -92,8 +92,7 @@ class RtPairingView extends StatelessWidget {
                       clientsLoading
                           ? '正在获取你的电脑…'
                           : '还没有登记在你名下的电脑。\n'
-                                '在电脑上执行：npx nx-rt auth login --url ${kRemoteTypeServerUrl.replaceFirst('http', 'ws')}/ws\n'
-                                '然后再执行 npx nx-rt 即可。',
+                                '电脑删执行执行 npx nx-rt 即可。',
                       style: TextStyle(color: c.textMuted),
                     ),
                   )
