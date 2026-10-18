@@ -318,24 +318,24 @@ class _NavTab extends StatelessWidget {
   }
 }
 
-/// 浮层快捷底栏显隐开关：子页面（典型：Lab 上滑面板铺满 IndexedStack 时）通过
-/// `setHidden(true)` 通知 MainScreen 把底栏临时撤掉，避免遮挡自身内容。
+/// 浮层快捷底栏显隐开关：子页面（Lab 上滑面板铺满、远程输入触摸板/全屏态）
+/// 通过登记**自己的 nav id** 请求隐藏，MainScreen 只在「请求方 == 当前选中页」
+/// 时才把底栏撤掉。
 ///
 /// 设计要点：
-/// - **不要在切换页面时手动 reset**：状态总是被「当前拥有屏的子页面」覆写；
-///   离开 Lab 进其它页时若有残留 true，下一个页面也应在自己的 init 覆写。
-/// - **多页面同时争抢**：先到先得；后到的页面 setHidden(false) 会立刻覆盖前面
-///   的 setHidden(true)。这一节场景不多（IndexedStack 同一时刻仅一个页面可见），
-///   当前仅 Lab 在用，先按单页面模型走。
-class _BottomBarVisibility extends Notifier<bool> {
+/// - **值必须是 nav id 而不是裸 bool**：IndexedStack 里所有钉选页同时存活
+///   （State 常驻），裸 bool 会让离场页面的请求泄漏到别的页——远程输入钉在
+///   首位后全局看不见底栏，就是这个坑。
+/// - 后写覆盖先写；页面离场（dispose）或退出请求态时清回 null。
+class _BottomBarVisibility extends Notifier<String?> {
   @override
-  bool build() => false;
+  String? build() => null;
 
-  void setHidden(bool hidden) {
-    if (state == hidden) return;
-    state = hidden;
+  void setHidden(String? navId) {
+    if (state == navId) return;
+    state = navId;
   }
 }
 
 final bottomBarVisibilityProvider =
-    NotifierProvider<_BottomBarVisibility, bool>(_BottomBarVisibility.new);
+    NotifierProvider<_BottomBarVisibility, String?>(_BottomBarVisibility.new);

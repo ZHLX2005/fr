@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/nav/nav_entry.dart';
 import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
 import '../../../services/lab_image_cache_service.dart';
@@ -105,7 +106,10 @@ class _LabPageState extends ConsumerState<LabPage>
 
   void _syncBottomBarVisibility() {
     final hide = _progress > LabPullPanelMetrics.collapsedEpsilon;
-    ref.read(bottomBarVisibilityProvider.notifier).setHidden(hide);
+    // 隐匿请求按 nav id 记名：只有本页是选中页时主壳才生效。
+    ref
+        .read(bottomBarVisibilityProvider.notifier)
+        .setHidden(hide ? kLabNavId : null);
   }
 
   double get _progress => _sm.progress;
@@ -130,8 +134,8 @@ class _LabPageState extends ConsumerState<LabPage>
       SchedulerBinding.instance.removeTimingsCallback(_timingsCallback);
     }
     _progressNotifier.removeListener(_syncBottomBarVisibility);
-    // 退出页面后恢复底栏默认显示，避免切到其它页时残留隐藏状态。
-    ref.read(bottomBarVisibilityProvider.notifier).setHidden(false);
+    // 退出页面后撤掉本页的底栏隐匿请求，避免残留到其它页。
+    ref.read(bottomBarVisibilityProvider.notifier).setHidden(null);
     _progressAnim?.removeListener(_onAnimTick);
     _anim.dispose();
     _gridScrollController.dispose();

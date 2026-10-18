@@ -58,7 +58,7 @@ List<NavEntry> buildNavCatalog() {
       builder: (_) => const FocusHomePage(),
     ),
     NavEntry(
-      id: 'core-lab',
+      id: kLabNavId,
       title: '实验室',
       icon: Icons.science_outlined,
       group: NavGroup.core,
@@ -121,7 +121,7 @@ List<NavEntry> buildNavCatalog() {
     final kind = labIconForDemoSlug(demo.slug);
     entries.add(
       NavEntry(
-        id: 'demo:${demo.slug}',
+        id: demoNavId(demo.slug),
         title: demo.title,
         icon: resolveDemoNavIcon(demo),
         group: group,

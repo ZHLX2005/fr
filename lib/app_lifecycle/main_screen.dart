@@ -296,9 +296,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // 吃掉后露出各页 Scaffold 白条。系统 safe inset 照常；底栏避让由页面
     // 滚动区用 QuickNavBottomBar.bodyBottomReserve 自行加。
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    // 子页面（如 Lab 上滑面板铺满）主动要隐藏底栏时合并隐藏条件。
-    final hiddenByPage = ref.watch(bottomBarVisibilityProvider);
-    final shouldHide = hiddenByPage || keyboard > 0;
+    // 子页面（如 Lab 上滑面板铺满、远程输入触摸板）主动要隐藏底栏时合并隐藏
+    // 条件。请求按 nav id 记名，只有请求方是当前选中页才生效——IndexedStack
+    // 里钉选页的 State 全部常驻，裸 bool 会把离场页面的请求泄漏到别的页。
+    final hideRequest = ref.watch(bottomBarVisibilityProvider);
+    final shouldHide =
+        (hideRequest != null && hideRequest == selected) || keyboard > 0;
 
     return Stack(
       children: [

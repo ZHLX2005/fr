@@ -2,8 +2,9 @@
 //
 // 输入页 UI（纯展示）：顶部工具行（回车开关 + 清空/重放）+ 快捷键托盘 +
 // 固定高度 composer 浮卡（同步轻闪 / 字数）。
-// 全页面布局：不做底栏避让（底栏是 main_screen 的 Stack 浮层，键盘弹出自动
-// 隐藏）；composer 固定高度、不随键盘响应式伸缩——expands 输入框高度抖动会
+// 全页面布局：本视图自身不做底栏避让——主壳底栏是 Stack 浮层，是否预留
+// 高度由 rt_page 按「底栏在场 && 键盘收起」包 Padding（全屏/触摸板不预留）；
+// composer 固定高度、不随键盘响应式伸缩——expands 输入框高度抖动会
 // 让 IME 重建合成区、把换行搅进正文（已踩坑：换行越打越多）。
 // 语音不再由 demo 内置（原 mic 大按钮 + speech_to_text 已移除）：用户用手机
 // 输入法自带的语音听写，识别文本直接落进输入框，走同一条全文同步管线。
@@ -77,8 +78,8 @@ class RtInputView extends StatelessWidget {
     // 合成区、往正文里搅换行（bug 根因），所以高度钉死、页面不做键盘避让。
     const double fieldHeight = 148;
 
-    // 全页面：底栏是 main_screen 的 Stack 浮层且键盘弹出自动隐藏，这里不做
-    // 避让预留；内容整体贴上排布。
+    // 全页面：底栏是 main_screen 的 Stack 浮层，避让预留由 rt_page 按底栏
+    // 是否在场包 Padding；内容整体贴上排布。
     return SafeArea(
       bottom: false,
       child: Padding(

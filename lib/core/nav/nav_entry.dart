@@ -7,6 +7,14 @@ enum NavGroup {
   game,
 }
 
+/// 核心入口 id：实验室浏览壳（底栏隐匿请求按 id 记名用，见
+/// bottomBarVisibilityProvider）。
+const kLabNavId = 'core-lab';
+
+/// demo 的钉选 nav id。目录注册与页面内引用（如底栏隐匿请求）共用这份推导，
+/// 两处各写字面量会出现「请求挂在 id A、目录注册 id B」的静默失联。
+String demoNavId(String slug) => 'demo:$slug';
+
 /// 可钉选单元：1 demo / 1 模块 = 1 [NavEntry]。
 ///
 /// [id] 稳定键（持久化用），禁止用展示文案。

@@ -1,13 +1,15 @@
 // lib/lab/demos/remotetype/rt_page.dart
 //
 // RemoteType demo 主页面：两态装配 + 连接编排 + 动作。
-//   配对页 —— 优先「统一登录 → 我名下的电脑 → 点一下即连」；
-//             服务端没开启统一登录时才退回「选 PC + 填配对 key」
-//   输入页 —— 全文同步输入框 + ASR 麦克风 + 端到端指示
+//   大厅（连接列表）—— 优先「统一登录 → 我名下的电脑 → 点一下即连」；
+//             服务端没开启统一登录时才退回「选 PC + 填配对 key」。
+//             常显主壳底栏（钉选后它是主页），AppBar 左侧无返回。
+//   详情（输入页）—— 全文同步输入框 + 端到端指示。AppBar 左侧簇 = 返回
+//             大厅 + 全屏开关（全屏只压底栏）；返回不断连，会话仍托管。
 //
 // 板块拆分（本文件只留装配/状态/连接，其余见各自文件头）：
-//   rt_pairing_view.dart   配对页 UI（两态）
-//   rt_input_view.dart     输入页 UI
+//   rt_pairing_view.dart   大厅 UI（两态）
+//   rt_input_view.dart     详情 UI
 //   rt_connecting_overlay.dart  连接中遮罩
 //   rt_text_sync.dart      文本同步管线（composing 挂起/补发 + 防抖）
 //
@@ -26,11 +28,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../api/remotetype/remotetype.dart';
 import '../../../core/line/io/line_orientation.dart';
+import '../../../core/nav/nav_entry.dart' show demoNavId;
 import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
 import '../../../core/ui/shell/app_notification.dart';
 import '../../../core/theme/context/colors.dart';
-import '../../../core/ui/shell/quick_nav_bottom_bar.dart' show bottomBarVisibilityProvider;
+import '../../../core/ui/shell/quick_nav_bottom_bar.dart'
+    show QuickNavBottomBar, bottomBarVisibilityProvider;
 import '../../demo_session_host.dart';
 import 'rt_constants.dart';
 import 'rt_connecting_overlay.dart';
@@ -99,6 +103,10 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   bool _touchpadMode = false;
   double _padSensitivity = kRtPadSensitivityDefault;
 
+  // 输入页全屏（AppBar 左侧按钮进出）：隐藏主壳底栏换取沉浸。页面级内存态
+  // 与触摸板同待遇不持久化；返回大厅即复位（大厅常显底栏，藏了没法导航）。
+  bool _fullscreen = false;
+
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
     controller: _textController,
@@ -132,23 +140,24 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _textController.addListener(_sync.onControllerChanged);
     _bootstrap();
     unawaited(_loadPrefs());
-    // 输入页要全屏手感：本页在场期间压掉主壳底栏（dispose 恢复）。
-    // 与 lab_page 的面板隐藏同一条 provider——IndexedStack 同时只可见一页，
-    // 单页面模型成立（见 _BottomBarVisibility 注释）。
-    ref.read(bottomBarVisibilityProvider.notifier).setHidden(true);
     // 托管重进：host 里有活会话就原地接管（pop 重进不断连）
     _reattachHostedSession();
+    // 底栏显隐随页面状态同步：大厅（连接列表）常显，触摸板 / 输入页全屏态
+    // 才隐藏。请求按本页 nav id 记名——IndexedStack 里钉选页 State 全部常驻，
+    // 裸 bool 会把本页的请求泄漏到其它钉选页（provider 注释）。
+    _syncBottomBar();
     // 配对页可见期间轮询在线列表（连上后页面切换，轮询空转开销可忽略）
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_session == null) _refreshClients();
     });
   }
 
-  /// 页面重进：接管 host 上的活会话（不重建连接）。
+  /// 接管 host 上的活会话（不重建连接）。两个入口：
+  /// initState 页面重进（直接字段赋值，首帧还没 build，不走 setState）；
+  /// _connect 的同目标托管分支（调用方随后 setState 刷 UI）。
   ///
   /// 输入框内容是页面态、不随会话走（spec §4 归属切割），重进后为空是预期，
   /// 下一笔输入按全文快照语义自愈。接管到死会话时顺手触发自动重连。
-  /// 直接字段赋值不走 setState——此时首帧还没 build。
   void _reattachHostedSession() {
     final hosted = demoSessionHost.get<RtSession>(kRemoteTypeDemoSlug);
     if (hosted == null) return;
@@ -249,7 +258,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _keyController.dispose();
     // 底栏与方向锁都归还默认态：本页不在场了，别把主壳锁在自己的偏好里。
     // portraitOnly 与 AndroidManifest 的全局锁一致，无条件恢复是安全的。
-    ref.read(bottomBarVisibilityProvider.notifier).setHidden(false);
+    ref.read(bottomBarVisibilityProvider.notifier).setHidden(null);
     unawaited(LineOrientation.portraitOnly());
     // 托管契约：页面退出只 detach，不销毁——会话留给 host，重进原地接管
     // （pop 重进不断连）。显式断开才真正销毁（见 _disconnect 的 host.drop）。
@@ -263,9 +272,46 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   void _setTouchpadMode(bool on) {
     if (_touchpadMode == on) return;
     setState(() => _touchpadMode = on);
+    _syncBottomBar();
     unawaited(
       on ? LineOrientation.enableAll() : LineOrientation.portraitOnly(),
     );
+  }
+
+  // ================= 底栏显隐 / 全屏 / 返回大厅 =================
+
+  /// 底栏隐匿请求同步：只压主壳底栏、不动系统状态栏。大厅（连接列表）常显
+  /// ——它是钉选后的主页，藏了就没法导航；触摸板手势面全出血、输入页全屏态
+  /// 才隐藏。请求按本页 nav id 记名，切到其它钉选页时主壳不生效。
+  void _syncBottomBar() {
+    final hide = _touchpadMode || (_session != null && _fullscreen);
+    ref.read(bottomBarVisibilityProvider.notifier).setHidden(
+          hide ? demoNavId(kRemoteTypeDemoSlug) : null,
+        );
+  }
+
+  /// 输入页全屏开关（AppBar 左侧按钮进出）：退出入口就是同一颗按钮，所以
+  /// 只压底栏不藏 AppBar——藏了就得靠手势唤出，得不偿失。
+  void _setFullscreen(bool on) {
+    if (_fullscreen == on) return;
+    setState(() => _fullscreen = on);
+    _syncBottomBar();
+  }
+
+  /// 返回连接大厅：会话不销毁——仍托管在 host（断开唯一入口是 host.drop），
+  /// 输入框内容也留在页面态。再点同一台电脑原地接管秒回输入页（见 _connect
+  /// 开头的托管分支）。
+  void _exitDetail() {
+    // 重连进行中不响应返回：_connect 完成回调会把会话写回 `_session`，
+    // 中途退出会被拽回输入页；等这波重连落地再返回。
+    if (_connecting) return;
+    _eventSub?.cancel();
+    _eventSub = null;
+    setState(() {
+      _session = null;
+      _fullscreen = false;
+    });
+    _syncBottomBar();
   }
 
   // ================= 连接 =================
@@ -290,6 +336,21 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         context,
       ).showSnackBar(const SnackBar(content: Text('请输入配对 key')));
       return;
+    }
+
+    // 返回大厅后同目标会话还在托管：原地接管直接回输入页，不重连（接管与
+    // 页面重进同一条路径，含死会话自动重连）。
+    final hosted = demoSessionHost.get<RtSession>(kRemoteTypeDemoSlug);
+    if (hosted != null && hosted.targetClientId == _selectedClient) {
+      _reattachHostedSession();
+      setState(() {});
+      return;
+    }
+    // 换了目标电脑：旧托管会话显式销毁——host.attach 契约是「有则复用绝不
+    // 重建」，不 drop 的话新会话挂不进托管，成了脱管孤儿连接。
+    if (hosted != null) {
+      await demoSessionHost.drop(kRemoteTypeDemoSlug);
+      if (!mounted) return;
     }
 
     setState(() {
@@ -608,79 +669,122 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // 对齐原型 --bg / --card：页底走 tray（surfaceContainerHighest），
     // 浮卡走 surface；禁止 M3 elevation surfaceTint 把奶油卡染成 sage。
     final pageBg = cs.surfaceContainerHighest;
+    // 底栏在场（大厅 / 输入页非全屏态）时给内容留出浮层高度，别被胶囊挡住
+    // composer 和兜底连接按钮；键盘弹出时主壳收起底栏，预留同步撤掉。
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final barShown = !_touchpadMode && !_fullscreen && keyboard == 0;
     // 触摸板模式不要 AppBar：手势面全出血，退出/灵敏度都在页内浮层。
+    Widget body = _session == null || !_touchpadMode
+        ? Stack(
+            children: [
+              _session == null
+                  ? RtPairingView(
+                      unified: _unified,
+                      readiness: _readiness,
+                      error: _error,
+                      connecting: _connecting,
+                      clientsLoading: _clientsLoading,
+                      clients: _clients,
+                      computers: _computers,
+                      selectedClient: _selectedClient,
+                      keyController: _keyController,
+                      onRefresh: _refreshClients,
+                      onSelectClient: (cid) =>
+                          setState(() => _selectedClient = cid),
+                      onConnect: _connect,
+                    )
+                  : RtInputView(
+                      controller: _textController,
+                      enterMode: _enterMode,
+                      onEnterModeChanged: (mode) {
+                        setState(() => _enterMode = mode);
+                        _sync.scheduleSync();
+                      },
+                      syncFlash: _syncFlash,
+                      onClear: () {
+                        _textController.clear();
+                        setState(() {});
+                      },
+                      onReplay: _replayText,
+                      onComposerTapOutside: _sync.scheduleSync,
+                      onTextChanged: () => setState(() {}),
+                      shortcuts: _shortcuts,
+                      barDisplay: _barDisplay,
+                      connected: _connected,
+                      firingId: _firingShortcutId,
+                      onFire: _fireShortcut,
+                      onEdit: _editShortcuts,
+                      onHistory: _openHistory,
+                      onBarDisplay: _openBarDisplay,
+                    ),
+              if (_connecting) RtConnectingOverlay(label: _connectingLabel()),
+            ],
+          )
+        : RtTouchpadView(
+            session: _session,
+            connected: _connected,
+            sensitivity: _padSensitivity,
+            onSensitivityChanged: (v) {
+              _padSensitivity = v;
+              unawaited(RtPrefs.saveTouchpadSensitivity(v));
+            },
+            onExit: () => _setTouchpadMode(false),
+            onNotify: _showSnack,
+          );
+    if (barShown) {
+      body = Padding(
+        padding: EdgeInsets.only(
+          bottom: QuickNavBottomBar.bodyBottomReserve(context),
+        ),
+        child: body,
+      );
+    }
     return Scaffold(
       // 键盘不压缩页面：输入框固定高度，键盘直接覆盖底部（与网页控制台一致）。
       // 配对页自行用 viewInsets 兜底（见 RtPairingView）。
       resizeToAvoidBottomInset: false,
       backgroundColor: pageBg,
       appBar: _touchpadMode ? null : _buildTypingAppBar(pageBg),
-      body: _session == null || !_touchpadMode
-          ? Stack(
-              children: [
-                _session == null
-                    ? RtPairingView(
-                        unified: _unified,
-                        readiness: _readiness,
-                        error: _error,
-                        connecting: _connecting,
-                        clientsLoading: _clientsLoading,
-                        clients: _clients,
-                        computers: _computers,
-                        selectedClient: _selectedClient,
-                        keyController: _keyController,
-                        onRefresh: _refreshClients,
-                        onSelectClient: (cid) =>
-                            setState(() => _selectedClient = cid),
-                        onConnect: _connect,
-                      )
-                    : RtInputView(
-                        controller: _textController,
-                        enterMode: _enterMode,
-                        onEnterModeChanged: (mode) {
-                          setState(() => _enterMode = mode);
-                          _sync.scheduleSync();
-                        },
-                        syncFlash: _syncFlash,
-                        onClear: () {
-                          _textController.clear();
-                          setState(() {});
-                        },
-                        onReplay: _replayText,
-                        onComposerTapOutside: _sync.scheduleSync,
-                        onTextChanged: () => setState(() {}),
-                        shortcuts: _shortcuts,
-                        barDisplay: _barDisplay,
-                        connected: _connected,
-                        firingId: _firingShortcutId,
-                        onFire: _fireShortcut,
-                        onEdit: _editShortcuts,
-                        onHistory: _openHistory,
-                        onBarDisplay: _openBarDisplay,
-                      ),
-                if (_connecting) RtConnectingOverlay(label: _connectingLabel()),
-              ],
-            )
-          : RtTouchpadView(
-              session: _session,
-              connected: _connected,
-              sensitivity: _padSensitivity,
-              onSensitivityChanged: (v) {
-                _padSensitivity = v;
-                unawaited(RtPrefs.saveTouchpadSensitivity(v));
-              },
-              onExit: () => _setTouchpadMode(false),
-              onNotify: _showSnack,
-            ),
+      body: body,
     );
   }
 
   PreferredSizeWidget _buildTypingAppBar(Color pageBg) {
+    final inDetail = _session != null;
     return AppBar(
-      title: const Text('远程输入'),
+      // 详情页标题 = 目标电脑名，把「列表 → 详情」的从属关系落到实处；
+      // 大厅保持「远程输入」。
+      title: inDetail
+          ? Text(
+              _connectingLabel(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : const Text('远程输入'),
       backgroundColor: pageBg,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,
+      // 详情页左侧簇：返回大厅 + 全屏开关（返回居最左对齐系统习惯）。
+      // 壳根页不能 pop，返回必须显式按钮。
+      leading: inDetail
+          ? Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: '返回连接列表',
+                  onPressed: _exitDetail,
+                ),
+                IconButton(
+                  icon: Icon(
+                    _fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                  ),
+                  tooltip: _fullscreen ? '退出全屏' : '全屏',
+                  onPressed: () => _setFullscreen(!_fullscreen),
+                ),
+              ],
+            )
+          : null,
+      leadingWidth: inDetail ? 96 : null,
       actions: [
         if (_session != null)
           IconButton(
