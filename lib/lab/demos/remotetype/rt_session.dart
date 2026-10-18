@@ -60,6 +60,27 @@ Map<String, dynamic> rtHotkeyPlaintext(
   };
 }
 
+/// RT1 P2C 鼠标事件明文（v0.6.0+ 触摸板协议）。
+///
+/// [mouse] 三种形状之一（合法性由 PC 端 rt-align normalizeMouseOp 白名单
+/// 把关，这里只做密封）：
+///   {'a':'move',   'dx':int, 'dy':int}                相对移动（像素）
+///   {'a':'button', 'button':str, 'kind':str}          left/right/middle × click/press/release
+///   {'a':'scroll', 'dx':int, 'dy':int}                滚轮格数（正 = 下/右）
+/// PC 端把它当「事件」处理且**不回 ACK**（高频通道，流量减半）。
+/// 独立成顶层纯函数以便单测，与 [rtSyncPlaintext] 同款理由。
+Map<String, dynamic> rtMousePlaintext(
+  Map<String, dynamic> mouse,
+  int ts,
+  String phoneId,
+) {
+  return {
+    'mouse': Map<String, dynamic>.of(mouse),
+    'ts': ts,
+    'phoneId': phoneId,
+  };
+}
+
 class RtSessionException implements Exception {
   RtSessionException(this.kind, this.message);
 
@@ -470,6 +491,33 @@ class RtSession {
       aad: rtBuildAad(derived.room, kRtDirPhoneToPc, _seq),
       plaintext: rtHotkeyPlaintext(
         keys,
+        DateTime.now().millisecondsSinceEpoch,
+        _phoneId,
+      ),
+      sid: _sid,
+      seq: _seq,
+    );
+    _sendJson({'clientId': _target, 'text': jsonEncode(envelope)});
+    return true;
+  }
+
+  /// 发送一条鼠标事件（v0.6.0+ 触摸板协议），形状见 [rtMousePlaintext]。
+  ///
+  /// 与 [syncHotkey] 同属事件语义、共用 seq 域与加密路径；差异：PC 端不回
+  /// ACK（高频通道），发送失败不重试——移动增量下一帧自愈，点击重发有
+  /// 误双击风险（宁少勿多）。调用方按 ~30Hz 合批后调用，勿逐帧发。
+  ///
+  /// 返回 true = 信封已实际发出（WS 未连接返回 false）。
+  Future<bool> syncMouse(Map<String, dynamic> mouse) async {
+    if (mouse.isEmpty) return false;
+    final derived = await _derivedFuture;
+    if (_ws == null) return false;
+    _seq += 1;
+    final envelope = await rtSeal(
+      key: derived.keyPhoneToPc,
+      aad: rtBuildAad(derived.room, kRtDirPhoneToPc, _seq),
+      plaintext: rtMousePlaintext(
+        mouse,
         DateTime.now().millisecondsSinceEpoch,
         _phoneId,
       ),

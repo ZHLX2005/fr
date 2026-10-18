@@ -10,6 +10,7 @@ const _kShortcutsKeyV1 = 'rt_shortcuts_v1';
 const _kShortcutsKeyV2 = 'rt_shortcuts_v2';
 const _kHistoryKey = 'rt_input_history_v1';
 const _kBarDisplayKey = 'rt_bar_display_v1';
+const _kTouchpadSensitivityKey = 'rt_touchpad_sensitivity_v1';
 const _kMaxHistory = 40;
 
 /// 快捷键托盘的显示配置（与快捷键数据分离——只是外观，不影响发送内容）。
@@ -222,5 +223,19 @@ class RtPrefs {
   static Future<void> clearHistory() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kHistoryKey);
+  }
+
+  /// 触摸板灵敏度（乘在加速度系数上）。落盘值异常一律回缺省，不抛错。
+  static Future<double> loadTouchpadSensitivity() async {
+    final p = await SharedPreferences.getInstance();
+    final v = p.getDouble(_kTouchpadSensitivityKey);
+    if (v == null) return kRtPadSensitivityDefault;
+    return v.clamp(kRtPadSensitivityMin, kRtPadSensitivityMax).toDouble();
+  }
+
+  static Future<void> saveTouchpadSensitivity(double value) async {
+    final p = await SharedPreferences.getInstance();
+    final v = value.clamp(kRtPadSensitivityMin, kRtPadSensitivityMax).toDouble();
+    await p.setDouble(_kTouchpadSensitivityKey, v);
   }
 }

@@ -46,7 +46,46 @@ const String kRemoteTypeDemoSlug = 'remotetype';
 const int kRtMaxTextLength = 5000;
 
 /// 构建标识：联调时核对手机上跑的是不是最新修复（每次改动 demo 逻辑时递增）
-const String kRtBuildTag = 'b10-proto-align';
+const String kRtBuildTag = 'b11-touchpad';
+
+// ── 触摸板（v0.6.0+ 两端协议）──────────────────────────────────────────
+// 手势 → PC 鼠标事件的全部调参常量。单位一律逻辑像素（logical px）与毫秒。
+
+/// 单指点按判定：位移超过即转为移动/滚轮，不算点按。
+const double kRtPadTapSlop = 22.0;
+
+/// 单指点按最长时长（毫秒）：超过按住拖拽阈值走拖拽分支。
+const int kRtPadTapMaxMs = 220;
+
+/// 按住该时长后才开始移动 → 左键拖拽（press 后跟随移动）。
+const int kRtPadDragLongPressMs = 320;
+
+/// 双指点按（右键）的最长时长：两指静置很久再抬手不算右键。
+const int kRtPadTwoFingerTapMaxMs = 420;
+
+/// 滚轮一格（notch）对应的指头位移。
+const double kRtPadScrollPxPerTick = 48.0;
+
+/// 抬手速度超过该值（px/ms）触发惯性滚动；衰减到该值以下停止。
+const double kRtPadFlingStartPxMs = 0.35;
+const double kRtPadFlingStopPxMs = 0.03;
+
+/// 惯性速度每 16ms 的衰减系数（0.94 ≈ 400ms 内从 0.35 衰到停止）。
+const double kRtPadFlingDecayPer16Ms = 0.94;
+
+/// 指针加速度：慢速精细（<1）、快速长距离（>1）。piecewise 二次缓入，
+/// 由 [rtPadAccelFactor] 实现，参数固定不设常量（调参改函数体）。
+
+/// 灵敏度用户偏好范围与缺省（乘在加速度系数上）。
+const double kRtPadSensitivityDefault = 1.0;
+const double kRtPadSensitivityMin = 0.4;
+const double kRtPadSensitivityMax = 2.5;
+
+/// 移动/滚动增量的发送合批间隔（毫秒）。≈33Hz：低于人手感知阈值，
+/// 高于互联网链路抖动下的包率红线；增量在两侧都可再生合并。
+const int kRtPadSendTickMs = 30;
+
+/// 快捷键预设（v0.5.4+ 两端协议）：数组末位是主键、其余是修饰键，
 
 /// 快捷键预设（v0.5.4+ 两端协议）：数组末位是主键、其余是修饰键，
 /// 与 mn-rt rt-align.js 的 hotkey 分支约定一致（['win','r'] = Win+R）。
