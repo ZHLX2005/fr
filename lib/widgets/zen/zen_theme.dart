@@ -10,9 +10,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/styling/colors/strategy/color_strategy/themes/default.dart';
-import '../../../core/styling/context/colors.dart';
-import '../../../core/styling/tokens/radius.dart';
+import '../../../core/theme/colors/strategy/color_strategy/themes/default.dart';
+import '../../../core/theme/context/colors.dart';
+import '../../../design_tokens/radius.dart';
 
 // =====================================================================
 // Zen 排版（保持 const 以兼容 const widget）

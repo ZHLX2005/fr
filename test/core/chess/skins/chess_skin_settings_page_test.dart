@@ -27,8 +27,8 @@ import 'package:xiaodouzi_fr/core/chess/skins/file_resolver.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/board_palette.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
-import 'package:xiaodouzi_fr/core/styling/colors/factory.dart';
-import 'package:xiaodouzi_fr/core/styling/extensions/chess_color_strategy_extension.dart';
+import 'package:xiaodouzi_fr/core/theme/colors/factory.dart';
+import 'package:xiaodouzi_fr/core/theme/extensions/chess_color_strategy_extension.dart';
 
 void main() {
   setUp(() {

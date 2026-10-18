@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/styling/context/colors.dart';
+import '../../../../core/theme/context/colors.dart';
 
 /// 连接中遮罩。
 class RtConnectingOverlay extends StatelessWidget {

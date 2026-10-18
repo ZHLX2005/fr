@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_kit/lobby/game_enter_transition.dart';
 import '../../../core/game_kit/lobby/game_ready_style.dart';
 import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
-import '../../../core/styling/context/board_colors.dart';
+import '../../../../core/theme/context/board_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 

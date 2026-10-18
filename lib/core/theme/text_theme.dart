@@ -7,7 +7,7 @@
 // semantic TextTheme 决定"什么场景用什么字 + 字号"。
 
 import 'package:flutter/material.dart';
-import 'tokens/typography.dart';
+import '../../design_tokens/typography.dart';
 
 /// 应用 TextTheme 构建器。
 ///

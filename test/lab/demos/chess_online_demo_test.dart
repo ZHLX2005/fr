@@ -25,8 +25,8 @@ import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_settings_page.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/file_resolver.dart';
 import 'package:xiaodouzi_fr/core/game_kit/skin/local_game_skin.dart';
-import 'package:xiaodouzi_fr/core/styling/colors/factory.dart';
-import 'package:xiaodouzi_fr/core/styling/extensions/chess_color_strategy_extension.dart';
+import 'package:xiaodouzi_fr/core/theme/colors/factory.dart';
+import 'package:xiaodouzi_fr/core/theme/extensions/chess_color_strategy_extension.dart';
 import 'package:xiaodouzi_fr/lab/demos/chess_online_demo.dart';
 
 /// 1x1 有效 PNG 字节（写入本地文件 / 模拟下载响应）。

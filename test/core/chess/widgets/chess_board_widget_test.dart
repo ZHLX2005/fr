@@ -18,7 +18,7 @@ import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/board_palette.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_piece.dart';
-import 'package:xiaodouzi_fr/core/styling/colors/strategy/chess_color_strategy/themes/default.dart';
+import 'package:xiaodouzi_fr/core/theme/colors/strategy/chess_color_strategy/themes/default.dart';
 
 void main() {
   setUp(() => ChessSkinBundle.resetForTest());

@@ -13,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_lifecycle/press_bounce_curve.dart';
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
-import '../../core/styling/state/theme_provider.dart';
+import '../../../core/theme/state/theme_provider.dart';
 import '../../widgets/nav_entry_icon.dart';
 import '../../widgets/quick_nav_bottom_bar.dart';
 import '../profile/theme/theme_page.dart';

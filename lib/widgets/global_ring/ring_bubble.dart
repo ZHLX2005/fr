@@ -17,7 +17,7 @@ import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
 
-import '../../core/styling/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 import 'const_global_ring.dart';
 import 'ring_position_store.dart';
 

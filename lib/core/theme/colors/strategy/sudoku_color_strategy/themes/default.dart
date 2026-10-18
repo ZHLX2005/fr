@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../tokens/color/sudoku.dart';
+import '../../../../../../design_tokens/color/sudoku.dart';
 import '../sudoku_color_strategy.dart';
 
 class DefaultSudokuColorStrategy extends SudokuColorStrategy {

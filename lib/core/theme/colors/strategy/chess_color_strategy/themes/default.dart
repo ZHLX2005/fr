@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../tokens/color/chess.dart';
+import '../../../../../../design_tokens/color/chess.dart';
 import '../chess_color_strategy.dart';
 
 class DefaultChessColorStrategy extends ChessColorStrategy {

@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../../core/styling/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

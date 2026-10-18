@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 ///
 /// UI 颜色（背景/边框/按钮/文本）走 `ColorScheme` / theme token。
 /// 护眼预设色是补光实际输出色（主题豁免），单一来源在
-/// `lib/core/styling/tokens/color/torch.dart` 的 `TorchColors.presets`。
+/// `lib/design_tokens/color/torch.dart` 的 `TorchColors.presets`。
 class TorchConst {
   TorchConst._();
 

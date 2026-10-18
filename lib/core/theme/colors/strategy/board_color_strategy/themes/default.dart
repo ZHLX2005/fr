@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../tokens/color/board.dart';
+import '../../../../../../design_tokens/color/board.dart';
 import '../board_color_strategy.dart';
 
 class DefaultBoardColorStrategy extends BoardColorStrategy {

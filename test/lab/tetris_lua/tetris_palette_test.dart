@@ -6,7 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/styling/tokens/color/tetris.dart';
+import 'package:xiaodouzi_fr/design_tokens/color/tetris.dart';
 import 'package:xiaodouzi_fr/lab/demos/tetris_lua/constants.dart';
 
 void main() {

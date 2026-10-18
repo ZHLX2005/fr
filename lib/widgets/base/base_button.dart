@@ -5,10 +5,10 @@
 
 import 'package:flutter/material.dart';
 
-import '../../core/styling/extensions/color_strategy_extension.dart';
-import '../../core/styling/colors/strategy/color_strategy/color_strategy.dart';
-import '../../core/styling/colors/strategy/color_strategy/themes/default.dart';
-import '../../core/styling/tokens/radius.dart';
+import '../../../core/theme/extensions/color_strategy_extension.dart';
+import '../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../../../core/theme/colors/strategy/color_strategy/themes/default.dart';
+import '../../../design_tokens/radius.dart';
 
 class BaseButton extends StatelessWidget {
   const BaseButton({

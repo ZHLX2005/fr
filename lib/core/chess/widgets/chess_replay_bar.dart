@@ -20,7 +20,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/styling/context/chess_colors.dart';
+import '../../../../core/theme/context/chess_colors.dart';
 
 /// 对局回放控制条（|< < ▶/⏸ > >| + 步数 + 进度条 + 退出）。
 class ChessReplayBar extends StatelessWidget {

@@ -16,8 +16,8 @@ import 'dart:ui' as ui show Gradient;
 
 import 'package:flutter/material.dart';
 
-import '../../../core/styling/context/tetris_colors.dart';
-import '../../../core/styling/colors/strategy/tetris_color_strategy/tetris_color_strategy.dart';
+import '../../../../core/theme/context/tetris_colors.dart';
+import '../../../../core/theme/colors/strategy/tetris_color_strategy/tetris_color_strategy.dart';
 import 'constants.dart';
 import 'engine.dart' show TetrisPiece;
 

@@ -14,7 +14,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/styling/context/team_avatar_colors.dart';
+import '../../../../core/theme/context/team_avatar_colors.dart';
 
 /// 参与者圆环卡片
 ///

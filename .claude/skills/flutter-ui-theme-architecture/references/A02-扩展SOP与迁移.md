@@ -66,7 +66,7 @@
 
 - **能用内置的，不建新的**：普通按钮/卡片用 `FilledButtonTheme`/`ElevatedButtonTheme`/`CardTheme`（已在 `app_theme.dart` 的 `_buildTheme` 注册，统一从 scheme 派生）。
 - **非内置复合样式**（如 hero 圆钮、状态点）：
-  - 纯样式 → `lib/core/styling/component/` 下加静态方法（读 `Theme.of(context).colorScheme.X`，不写裸 hex）。
+  - 纯样式 → `lib/core/theme/component/` 下加静态方法（读 `Theme.of(context).colorScheme.X`，不写裸 hex）。
   - 需要 widget 结构 + 样式 → `lib/widgets/theme/zen_theme.dart` 加 helper 或委托 `lib/widgets/base/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
 - 新增 helper 后，在 `color-usage-audit.md` 的相关目录行补一句使用点，保持审计表新鲜。
 
@@ -103,7 +103,7 @@
 
 **正确做法**：用 `surface`（页面/卡片/AppBar/BottomNavBar 的背景标准值）。
 
-**踩坑案例**：`lib/widgets/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/styling/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
+**踩坑案例**：`lib/widgets/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
 
 ### 4.5.2 ❌ 用 `inversePrimary` 当 AppBar / Scaffold 背景
 

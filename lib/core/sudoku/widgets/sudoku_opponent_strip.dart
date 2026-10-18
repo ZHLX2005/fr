@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/styling/context/colors.dart';
+import '../../../../core/theme/context/colors.dart';
 import 'sudoku_error_badge.dart';
 
 /// 单方玩家信息：昵称 + 已填数 + 错误数 + 是否完成。

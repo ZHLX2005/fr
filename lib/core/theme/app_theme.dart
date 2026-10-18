@@ -23,21 +23,21 @@ import 'extensions/team_avatar_color_strategy_extension.dart';
 import 'extensions/tetris_color_strategy_extension.dart';
 import 'extensions/torch_protect_color_strategy_extension.dart';
 import 'text_theme.dart';
-import 'tokens/color/app_colors_extension.dart';
-import 'tokens/radius.dart';
-import 'tokens/color/theme/zen.dart' as zen_t;
-import 'tokens/color/theme/purple.dart' as purple_t;
-import 'tokens/color/theme/ink.dart' as ink_t;
-import 'tokens/color/theme/rose.dart' as rose_t;
-import 'tokens/color/theme/lemon.dart' as lemon_t;
-import 'tokens/color/theme/cobalt.dart' as cobalt_t;
-import 'tokens/color/theme/dark.dart' as dark_t;
+import '../../design_tokens/color/app_colors_extension.dart';
+import '../../design_tokens/radius.dart';
+import '../../design_tokens/color/palettes/zen.dart' as zen_t;
+import '../../design_tokens/color/palettes/purple.dart' as purple_t;
+import '../../design_tokens/color/palettes/ink.dart' as ink_t;
+import '../../design_tokens/color/palettes/rose.dart' as rose_t;
+import '../../design_tokens/color/palettes/lemon.dart' as lemon_t;
+import '../../design_tokens/color/palettes/cobalt.dart' as cobalt_t;
+import '../../design_tokens/color/palettes/dark.dart' as dark_t;
 
 export 'colors/theme_mode.dart' show AppThemeMode;
-export 'tokens/color/app_colors_extension.dart' show AppColorsExtension;
+export '../../design_tokens/color/app_colors_extension.dart' show AppColorsExtension;
 
 // 公共读取 API：context_*/colors 桥（BuildContext extensions）。
-// 见 lib/core/styling/context/ 目录下各 <domain>_colors.dart。
+// 见 lib/core/theme/context/ 目录下各 <domain>_colors.dart。
 export 'context/colors.dart';
 export 'context/board_colors.dart';
 export 'context/chess_colors.dart';

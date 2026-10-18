@@ -1,4 +1,4 @@
-// test/core/styling/chess_color_strategy_test.dart
+// test/core/theme/chess_color_strategy_test.dart
 //
 // DefaultChessColorStrategy 派生正确性测试 ——
 // 与 tetris 不同，chess 走 scheme 派生（切主题 = 换 scheme = 13 角色全部跟随变化）。
@@ -10,8 +10,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/styling/colors/strategy/chess_color_strategy/themes/default.dart';
-import 'package:xiaodouzi_fr/core/styling/tokens/color/chess.dart';
+import 'package:xiaodouzi_fr/core/theme/colors/strategy/chess_color_strategy/themes/default.dart';
+import 'package:xiaodouzi_fr/design_tokens/color/chess.dart';
 
 void main() {
   group('DefaultChessColorStrategy 派生正确性', () {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/styling/context/colors.dart';
+import '../../../../../core/theme/context/colors.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_clock.dart';

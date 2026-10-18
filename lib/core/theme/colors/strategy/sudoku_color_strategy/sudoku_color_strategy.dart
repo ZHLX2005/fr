@@ -18,9 +18,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../tokens/color/sudoku.dart';
+import '../../../../../design_tokens/color/sudoku.dart';
 
-export '../../../tokens/color/sudoku.dart'
+export '../../../../../design_tokens/color/sudoku.dart'
     show SudokuCellBg, SudokuCellText;
 
 @immutable

@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../tokens/color/tetris.dart';
+import '../../../../../../design_tokens/color/tetris.dart';
 import '../tetris_color_strategy.dart';
 
 class DefaultTetrisColorStrategy extends TetrisColorStrategy {

@@ -3,7 +3,7 @@
 // 重置：清空用户自定义数据，恢复内置预设（需确认）。
 
 import 'package:flutter/material.dart';
-import '../../../core/styling/context/colors.dart';
+import '../../../../core/theme/context/colors.dart';
 
 import '../../../../widgets/zen/zen_theme.dart';
 import 'const_relation_calc.dart';

@@ -2,7 +2,7 @@
 
 > 何时读：改游戏中心 / 房间就绪 / 大厅入口，且要跟 `AppThemeMode`（zen/purple/ink/rose/lemon/cobalt）切换；或对照 `docs/prototypes/game-surfaces-palettes.html`。
 >
-> 色值真相：`lib/core/styling/tokens/color/theme/{zen,purple,ink,rose,lemon,cobalt}.dart`。主题机制见 `flutter-ui-theme-architecture`。
+> 色值真相：`lib/design_tokens/color/palettes/{zen,purple,ink,rose,lemon,cobalt}.dart`。主题机制见 `flutter-ui-theme-architecture`。
 
 ## 一、实现思路
 

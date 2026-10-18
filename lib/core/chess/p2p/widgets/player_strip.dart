@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/piece.dart';
-import '../../../styling/context/colors.dart';
+import '../../../../../core/theme/context/colors.dart';
 
 /// F2 身份色：蓝=我 / 橙=对方（与 BoardChatOverlay 卡片 who 点一致）。
 ///

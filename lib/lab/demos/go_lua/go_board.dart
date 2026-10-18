@@ -10,7 +10,7 @@
 // 纯展示组件：棋盘状态通过构造函数传入，触摸交互由外层 GestureDetector 处理。
 
 import 'package:flutter/material.dart';
-import '../../../core/styling/context/board_colors.dart';
+import '../../../../core/theme/context/board_colors.dart';
 import 'go_constants.dart' show kGoSize;
 import 'go_engine.dart' show GoBoard;
 

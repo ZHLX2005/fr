@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../tokens/color/torch.dart';
+import '../../../../../../design_tokens/color/torch.dart';
 import '../torch_protect_color_strategy.dart';
 
 class DefaultTorchProtectColorStrategy extends TorchProtectColorStrategy {

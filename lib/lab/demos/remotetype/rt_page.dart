@@ -29,7 +29,7 @@ import '../../../core/line/io/line_orientation.dart';
 import '../../../services/remotetype/remotetype_providers.dart';
 import '../../../services/remotetype/remotetype_service.dart';
 import '../../../widgets/app_notification.dart';
-import '../../../core/styling/context/colors.dart';
+import '../../../../core/theme/context/colors.dart';
 import '../../../widgets/quick_nav_bottom_bar.dart' show bottomBarVisibilityProvider;
 import '../../demo_session_host.dart';
 import 'rt_constants.dart';

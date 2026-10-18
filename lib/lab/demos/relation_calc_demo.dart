@@ -4,7 +4,7 @@
 // 引擎不感知领域（亲戚/公司团队等级/宠物…），内置亲戚称呼预设。
 
 import 'package:flutter/material.dart';
-import '../../core/styling/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
 import '../../widgets/zen/zen_theme.dart';
 import '../lab_container.dart';

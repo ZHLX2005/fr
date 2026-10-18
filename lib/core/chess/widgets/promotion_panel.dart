@@ -17,7 +17,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/styling/context/chess_colors.dart';
+import '../../../../core/theme/context/chess_colors.dart';
 import '../constants/chess_constants.dart';
 import '../models/piece.dart';
 import '../skins/chess_skin.dart';

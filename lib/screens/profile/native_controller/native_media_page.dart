@@ -1,5 +1,5 @@
 import 'dart:io';
-import '../../../../core/styling/context/colors.dart';
+import '../../../../core/theme/context/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
