@@ -342,7 +342,7 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
   }
 
   /// 边框强调式按钮样式 — color = 该操作的功能色。
-  /// 详见 .claude/skills/uiux/references/border-emphasis-style.md
+  /// 详见 .claude/skills/flutter-ui/references/styles/A01-边框强调式减负.md
   ButtonStyle _outlinedBtnStyle(Color color, {double borderWidth = 1}) {
     return OutlinedButton.styleFrom(
       foregroundColor: color,
