@@ -8,9 +8,10 @@
 // 两态（边界刻意做得明显）：
 //   use（使用态）—— 触摸板吃手势、输入框打字、按钮点按触发 + 长按拖动；
 //                   顶部浮层 = 连接点 · 灵敏度 · 进入编辑 · 退出。
-//   edit（编辑态）—— 画布主色描边框 + 顶部横幅 + 底部显隐面板，所有使用类
-//                   手势停用。拖动=移位、右下角拉手=缩放、点按按钮=显隐
-//                   （隐藏者以幽灵呈现可点回）。进出经「完成」或系统返回
+//   edit（编辑态）—— 画布主色描边框 + 底部显隐面板 + 右下角完成钮（刻意
+//                   不设顶部横幅：横屏每寸都是操作面，浮条压视野），所有
+//                   使用类手势停用。拖动=移位、拉手=缩放、点按按钮=显隐
+//                   （隐藏者以幽灵呈现可点回）。退出经完成钮或系统返回
 //                   （页面层 PopScope 先退编辑再退画布）。
 //
 // 职责切分：快捷键「有哪些」归打字页编辑器（rt_shortcut_bar 的列表编辑），
@@ -348,41 +349,18 @@ class _RtCanvasViewState extends State<RtCanvasView> {
           ),
         ),
       ),
-      // 顶部横幅：状态名 + 操作提示 + 完成
-      SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(99),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.edit, size: 16, color: cs.onPrimary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '编辑布局 · 拖动移位 · 拉角缩放 · 点按按钮显隐',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onPrimary,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => widget.onEditModeChanged(false),
-                  style: TextButton.styleFrom(
-                    foregroundColor: cs.onPrimary,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('完成'),
-                ),
-              ],
+      // 右下角完成钮：编辑态唯一常驻出口（不设顶部横幅，横屏视野优先；
+      // 拖动/缩放/显隐操作靠模块自身的编辑框与幽灵态自解释）。实心主色
+      // 与左侧半透明芯片拉开层级——它是这态里唯一的「离开」动作。
+      Align(
+        alignment: Alignment.bottomRight,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+            child: FilledButton.icon(
+              onPressed: () => widget.onEditModeChanged(false),
+              icon: const Icon(Icons.check, size: 18),
+              label: const Text('完成'),
             ),
           ),
         ),
