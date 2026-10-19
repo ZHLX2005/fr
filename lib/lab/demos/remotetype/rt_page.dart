@@ -43,6 +43,7 @@ import '../../../core/ui/shell/quick_nav_bottom_bar.dart'
 import '../../demo_session_host.dart';
 import 'rt_constants.dart';
 import 'rt_connecting_overlay.dart';
+import 'rt_canvas_presets.dart';
 import 'rt_canvas_view.dart';
 import 'rt_input_view.dart';
 import 'rt_pairing_view.dart';
@@ -110,7 +111,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   bool _canvasEdit = false;
   double _padSensitivity = kRtPadSensitivityDefault;
   // 画布布局（模块锚点 + 按钮位）：跨会话记住，持久化（RtPrefs）。
-  RtCanvasLayout _canvasLayout = const RtCanvasLayout();
+  // 画布布局集（内置 + 自定义 + 当前激活）：跨会话记住，持久化。
+  // 首跑空表：用代码内置 4 套铺一份；之后用户编辑/复制/删除/切换都落盘。
+  RtCanvasLayouts _layouts = const RtCanvasLayouts(
+    list: kRtCanvasBuiltinPresets,
+    activeId: kRtCanvasPresetDefault,
+  );
+
+  RtCanvasLayout get _activeLayout => _layouts.activeData;
+  String get _activeId => _layouts.activeId;
 
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
@@ -179,14 +188,22 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final history = await RtPrefs.loadHistory();
     final barDisplay = await RtPrefs.loadBarDisplay();
     final padSensitivity = await RtPrefs.loadTouchpadSensitivity();
-    final canvasLayout = await RtPrefs.loadCanvasLayout();
+    var layouts = await RtPrefs.loadCanvasLayouts();
+    // 持久化空（首跑或新装）：不写盘，只在内存里铺内置——首次编辑/切换
+    // / 复制再落盘，避免每启动都触发一次 SharedPreferences 写入。
+    if (layouts.list.isEmpty) {
+      layouts = const RtCanvasLayouts(
+        list: kRtCanvasBuiltinPresets,
+        activeId: kRtCanvasPresetDefault,
+      );
+    }
     if (!mounted) return;
     setState(() {
       _shortcuts = shortcuts;
       _history = history;
       _barDisplay = barDisplay;
       _padSensitivity = padSensitivity;
-      _canvasLayout = canvasLayout;
+      _layouts = layouts;
     });
   }
 
@@ -268,7 +285,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     ref.read(bottomBarVisibilityProvider.notifier).setHidden(null);
     unawaited(LineOrientation.portraitOnly());
     // 托管契约：页面退出只 detach，不销毁——会话留给 host，重进原地接管
-    // （pop 重进不断连）。显式断开才真正销毁（见 _disconnect 的 host.drop）。
+    // （pop 重进不断连）。host 主动销毁的入口是 _connect 切目标电脑分支。
     demoSessionHost.detach(kRemoteTypeDemoSlug);
     super.dispose();
   }
@@ -291,11 +308,69 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     setState(() => _canvasEdit = on);
   }
 
-  /// 画布布局回写（拖动落位 / 显隐切换）：先落 state 再异步落盘
-  /// （失败不回滚——下次进页读盘仍旧位，本次会话内所见即所得优先）。
-  void _updateCanvasLayout(RtCanvasLayout layout) {
-    setState(() => _canvasLayout = layout);
-    unawaited(RtPrefs.saveCanvasLayout(layout));
+  /// 激活布局的内容变更（拖动落位 / 缩放 / 显隐 / 模块开关）：先落 state
+  /// 再异步落盘（失败不回滚——下次进页读盘仍旧位）。
+  void _setActiveLayout(RtCanvasLayout layout) {
+    final next = _layouts.withUpdatedActive(layout);
+    setState(() => _layouts = next);
+    unawaited(RtPrefs.saveCanvasLayouts(next));
+  }
+
+  /// 切换激活布局。
+  void _switchLayout(String id) {
+    if (id == _layouts.activeId) return;
+    final next = _layouts.withActive(id);
+    setState(() => _layouts = next);
+    unawaited(RtPrefs.saveCanvasLayouts(next));
+  }
+
+  /// 把当前激活布局复制为一条新的自定义，并立即切到它（用户随后可在新
+  /// 副本上自由编辑；不影响任何现有内置或自定义条目）。
+  void _copyToCustom() {
+    final newId = _layouts.nextCustomId();
+    final displayIndex = newId.startsWith('custom-')
+        ? int.tryParse(newId.substring('custom-'.length)) ?? 1
+        : 1;
+    final entry = RtCanvasNamedLayout(
+      id: newId,
+      name: '自定义 $displayIndex',
+      builtIn: false,
+      data: _activeLayout,
+    );
+    final next = _layouts
+        .withList([..._layouts.list, entry])
+        .withActive(newId);
+    setState(() => _layouts = next);
+    unawaited(RtPrefs.saveCanvasLayouts(next));
+  }
+
+  /// 删除一条自定义布局（仅自定义——内置不允许删）。删的恰是当前激活则
+  /// 回退默认；空集合兜底回内置 4 套（极端：用户只有导入布局一条自定义
+  /// 并删之，列表不能空着，否则画布啥都不渲染）。
+  void _deleteCustom(String id) {
+    final target = _layouts.list.firstWhere(
+      (p) => p.id == id,
+      orElse: () => const RtCanvasNamedLayout(
+        id: '',
+        name: '',
+        builtIn: true,
+        data: RtCanvasLayout(),
+      ),
+    );
+    if (target.id.isEmpty || target.builtIn) return;
+    final filtered = _layouts.list.where((p) => p.id != id).toList();
+    final nextList = filtered.isEmpty
+        ? List<RtCanvasNamedLayout>.from(kRtCanvasBuiltinPresets)
+        : filtered;
+    final wasActive = _layouts.activeId == id;
+    final activeAfter = wasActive
+        ? kRtCanvasPresetDefault
+        : (nextList.any((p) => p.id == _layouts.activeId)
+            ? _layouts.activeId
+            : kRtCanvasPresetDefault);
+    final next = RtCanvasLayouts(list: nextList, activeId: activeAfter);
+    setState(() => _layouts = next);
+    unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
   // ================= 底栏显隐 / 横屏手柄 / 返回大厅 =================
@@ -310,7 +385,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         );
   }
 
-  /// 返回连接大厅：会话不销毁——仍托管在 host（断开唯一入口是 host.drop），
+  /// 返回连接大厅：会话不销毁——仍托管在 host（销毁入口是 host.drop），
   /// 输入框内容也留在页面态。再点同一台电脑原地接管秒回输入页（见 _connect
   /// 开头的托管分支）。
   void _exitDetail() {
@@ -444,27 +519,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _e2eOk = false;
     });
     _syncBottomBar(); // 大厅 → 详情，底栏隐匿随 `_session` 翻转
-  }
-
-  /// 断开并回到配对页（对齐原型 nav「断开」）。
-  ///
-  /// 与页面退出（dispose→detach，会话存活）不同：这是**显式销毁**，
-  /// 唯一入口是 host.drop。
-  void _disconnect() {
-    _eventSub?.cancel();
-    _eventSub = null;
-    unawaited(demoSessionHost.drop(kRemoteTypeDemoSlug));
-    _session = null;
-    _sync.cancelPending();
-    _sync.resetHint();
-    _syncFlashTimer?.cancel();
-    setState(() {
-      _connected = false;
-      _e2eOk = false;
-      _syncFlash = false;
-      _syncSent = 0;
-    });
-    _syncBottomBar(); // 详情 → 大厅（断开），底栏随 `_session` 翻转归还
   }
 
   /// 保持输入页，拆旧会话后重连（对齐原型：overlay 盖在输入页上，不闪回配对）。
@@ -710,10 +764,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         textController: _textController,
         shortcuts: _shortcuts,
         firingId: _firingShortcutId,
-        layout: _canvasLayout,
+        activeLayout: _activeLayout,
+        activeId: _activeId,
+        layouts: _layouts,
         editMode: _canvasEdit,
+        onLayoutChanged: _setActiveLayout,
+        onSwitchLayout: _switchLayout,
+        onCopyToCustom: _copyToCustom,
+        onDeleteCustom: _deleteCustom,
         onEditModeChanged: _setCanvasEdit,
-        onLayoutChanged: _updateCanvasLayout,
         onFire: (item) => unawaited(_fireShortcut(item)),
         onEditShortcuts: _editShortcuts,
         onExit: () => _setCanvasMode(false),
@@ -840,18 +899,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           : null,
       leadingWidth: inDetail ? 96 : null,
       actions: [
-        if (_session != null) ...[
+        if (_session != null)
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '重连',
             onPressed: _connecting ? null : _reconnect,
           ),
-          IconButton(
-            icon: const Icon(Icons.link_off),
-            tooltip: '断开',
-            onPressed: _disconnect,
-          ),
-        ],
       ],
     );
   }

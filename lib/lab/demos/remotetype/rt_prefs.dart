@@ -12,6 +12,13 @@ const _kHistoryKey = 'rt_input_history_v1';
 const _kBarDisplayKey = 'rt_bar_display_v1';
 const _kTouchpadSensitivityKey = 'rt_touchpad_sensitivity_v1';
 const _kCanvasLayoutKey = 'rt_canvas_layout_v1';
+const _kCanvasLayoutsKey = 'rt_canvas_layouts_v1';
+
+/// 内置预设 id（持久化键，禁止改动——改了等于丢用户当前布局）。
+const String kRtCanvasPresetDefault = 'default';
+const String kRtCanvasPresetGame = 'game';
+const String kRtCanvasPresetKeyboard = 'keyboard';
+const String kRtCanvasPresetTouchpad = 'touchpad';
 const _kMaxHistory = 40;
 
 /// 快捷键托盘的显示配置（与快捷键数据分离——只是外观，不影响发送内容）。
@@ -236,6 +243,106 @@ class RtCanvasButtonPos {
       );
 }
 
+/// 横屏画布命名布局。
+class RtCanvasNamedLayout {
+  const RtCanvasNamedLayout({
+    required this.id,
+    required this.name,
+    required this.builtIn,
+    required this.data,
+  });
+  final String id;
+  final String name;
+  final bool builtIn;
+  final RtCanvasLayout data;
+  RtCanvasNamedLayout copyWith({String? name, bool? builtIn, RtCanvasLayout? data}) =>
+      RtCanvasNamedLayout(
+        id: id,
+        name: name ?? this.name,
+        builtIn: builtIn ?? this.builtIn,
+        data: data ?? this.data,
+      );
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'builtIn': builtIn,
+        'data': data.toJson(),
+      };
+  factory RtCanvasNamedLayout.fromJson(Map<String, dynamic> j) => RtCanvasNamedLayout(
+    id: j['id']?.toString() ?? '',
+    name: j['name']?.toString() ?? '',
+    builtIn: j['builtIn'] == true,
+    data: RtCanvasLayout.fromJson(
+      j['data'] is Map
+          ? (j['data'] as Map).cast<String, dynamic>()
+          : const <String, dynamic>{},
+    ),
+  );
+}
+
+/// 画布布局集：列表 + 当前激活 id。空表 = 首跑由页面铺内置。
+class RtCanvasLayouts {
+  const RtCanvasLayouts({
+    this.list = const [],
+    this.activeId = kRtCanvasPresetDefault,
+  });
+  final List<RtCanvasNamedLayout> list;
+  final String activeId;
+  RtCanvasNamedLayout? get active {
+    for (final p in list) {
+      if (p.id == activeId) return p;
+    }
+    return list.isNotEmpty ? list.first : null;
+  }
+  RtCanvasLayout get activeData => active?.data ?? const RtCanvasLayout();
+  RtCanvasLayouts withActive(String id) =>
+      RtCanvasLayouts(list: list, activeId: id);
+  RtCanvasLayouts withList(List<RtCanvasNamedLayout> list) =>
+      RtCanvasLayouts(list: list, activeId: activeId);
+  RtCanvasLayouts withUpdatedActive(RtCanvasLayout data) {
+    final next = <RtCanvasNamedLayout>[];
+    var replaced = false;
+    for (final p in list) {
+      if (!replaced && p.id == activeId) {
+        next.add(p.copyWith(data: data));
+        replaced = true;
+      } else {
+        next.add(p);
+      }
+    }
+    return RtCanvasLayouts(list: next, activeId: activeId);
+  }
+  String nextCustomId() {
+    var n = 1;
+    final ids = list.map((p) => p.id).toSet();
+    while (ids.contains('custom-$n')) {
+      n += 1;
+    }
+    return 'custom-$n';
+  }
+  Map<String, dynamic> toJson() => {
+        'list': [for (final p in list) p.toJson()],
+        'activeId': activeId,
+      };
+  factory RtCanvasLayouts.fromJson(Map<String, dynamic> j) {
+    final rawList = j['list'];
+    final list = <RtCanvasNamedLayout>[];
+    if (rawList is List) {
+      for (final e in rawList.whereType<Map>()) {
+        final entry =
+            RtCanvasNamedLayout.fromJson(e.cast<String, dynamic>());
+        if (entry.id.isEmpty || entry.name.isEmpty) continue;
+        list.add(entry);
+      }
+    }
+    final rawActive = j['activeId']?.toString() ?? '';
+    final activeId = list.any((p) => p.id == rawActive)
+        ? rawActive
+        : kRtCanvasPresetDefault;
+    return RtCanvasLayouts(list: list, activeId: activeId);
+  }
+}
+
 /// 横屏画布布局：模块（触摸板 / 输入框）锚点 + 按钮位（含倍率/显隐）。
 /// 空表 = 首跑，画布用内置默认布局。删掉的按钮残位无害（同 id 回归原位）。
 class RtCanvasLayout {
@@ -383,21 +490,45 @@ class RtPrefs {
     await p.setDouble(_kTouchpadSensitivityKey, v);
   }
 
-  /// 横屏画布布局（模块锚点 + 按钮摆位）。JSON 坏形整表兜底为空（画布回
-  /// 内置默认），条目级坏形在 RtCanvasLayout.fromJson 内只丢自己。
-  static Future<RtCanvasLayout> loadCanvasLayout() async {
+  /// 横屏画布布局集（多套 + 当前激活）。坏 JSON 整表兜底为空；旧版
+  /// `rt_canvas_layout_v1` 数据自动迁为「导入布局」并激活（旧 key 保留
+  /// 只读，便于万一回退）。
+  static Future<RtCanvasLayouts> loadCanvasLayouts() async {
     final p = await SharedPreferences.getInstance();
-    final raw = p.getString(_kCanvasLayoutKey);
-    if (raw == null || raw.isEmpty) return const RtCanvasLayout();
-    try {
-      return RtCanvasLayout.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
-      return const RtCanvasLayout();
+    final raw = p.getString(_kCanvasLayoutsKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        return RtCanvasLayouts.fromJson(
+            jsonDecode(raw) as Map<String, dynamic>);
+      } catch (_) {
+        // 坏形落入迁移分支（旧 key 可能仍有效）。
+      }
     }
+    final oldRaw = p.getString(_kCanvasLayoutKey);
+    if (oldRaw != null && oldRaw.isNotEmpty) {
+      try {
+        final old = RtCanvasLayout.fromJson(
+            jsonDecode(oldRaw) as Map<String, dynamic>);
+        final migrated = RtCanvasLayouts(
+          list: [
+            RtCanvasNamedLayout(
+                id: 'imported',
+                name: '导入布局',
+                builtIn: false,
+                data: old),
+          ],
+          activeId: 'imported',
+        );
+        await p.setString(
+            _kCanvasLayoutsKey, jsonEncode(migrated.toJson()));
+        return migrated;
+      } catch (_) {}
+    }
+    return const RtCanvasLayouts();
   }
 
-  static Future<void> saveCanvasLayout(RtCanvasLayout layout) async {
+  static Future<void> saveCanvasLayouts(RtCanvasLayouts layouts) async {
     final p = await SharedPreferences.getInstance();
-    await p.setString(_kCanvasLayoutKey, jsonEncode(layout.toJson()));
+    await p.setString(_kCanvasLayoutsKey, jsonEncode(layouts.toJson()));
   }
 }

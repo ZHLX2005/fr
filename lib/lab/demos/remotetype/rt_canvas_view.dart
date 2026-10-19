@@ -1,24 +1,20 @@
 // lib/lab/demos/remotetype/rt_canvas_view.dart
 //
 // 横屏画布：触摸板 / 输入框 / 快捷按钮是同一模块系统的三类模块，整个横屏
-// 自由编排。形态源自「游戏手柄」（左手触摸区、右手按钮区），但布局不封死
-// ——编辑模式下模块与按钮都能拖动摆位、调整大小，触摸板/输入框/每个按钮
-// 都能开关显隐。
+// 自由编排。当前编排属于「激活的布局」—— 用户可在编辑态从底部「布局」入口
+// 切换 / 复制 / 删除（详见 rt_canvas_presets + rt_canvas_layouts_sheet）。
 //
 // 两态（边界刻意做得明显）：
 //   use（使用态）—— 触摸板吃手势、输入框打字、按钮点按触发 + 长按拖动；
-//                   顶部浮层 = 连接点 · 灵敏度 · 进入编辑 · 退出。
-//   edit（编辑态）—— 画布主色描边框 + 底部显隐面板 + 右下角完成钮（刻意
-//                   不设顶部横幅：横屏每寸都是操作面，浮条压视野），所有
-//                   使用类手势停用。拖动=移位、拉手=缩放、点按按钮=显隐
-//                   （隐藏者以幽灵呈现可点回）。退出经完成钮或系统返回
-//                   （页面层 PopScope 先退编辑再退画布）。
+//                   顶部浮层 = 连接点 · 灵敏度 · 切换布局 · 进入编辑 · 退出。
+//   edit（编辑态）—— 画布主色描边框 + 底部显隐面板 + 右下角完成钮，所有使用类
+//                   手势停用。拖动=移位、右下角拉手=缩放、点按按钮=显隐
+//                   （隐藏者以幽灵呈现可点回）。切布局会自动清掉拖动预览
+//                   （避免旧布局预览值瞬移到新布局）。
 //
 // 职责切分：快捷键「有哪些」归打字页编辑器（rt_shortcut_bar 的列表编辑），
-// 「显示哪些」归画布（RtCanvasButtonPos.v）——定义与编排两层分离。
-//
-// 布局持久化：RtCanvasLayout（模块锚点含宽高 + 按钮位含倍率/显隐），拖动
-// 期间本地预览、松手一次性回写（页面层落盘）。坐标全部归一化。
+// 「显示哪些」归画布（RtCanvasButtonPos.v）。布局集合「用哪一套」归画布
+// sheet（RtCanvasLayouts）。两层职责相互独立。
 
 import 'dart:async';
 
@@ -27,18 +23,19 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
+import 'rt_canvas_layouts_sheet.dart' show RtCanvasLayoutsSheet;
 import 'rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasButtonPos,
         RtCanvasLayout,
+        RtCanvasLayouts,
         RtShortcutItem;
 import 'rt_session.dart';
 import 'rt_touch_surface.dart'
     show RtConnDot, RtPadChipButton, RtTouchSurface, showRtSensitivitySheet;
 
 /// 按钮自动找位候选槽（画布右侧区，2 列 × 4 行，归一化画布坐标）。
-/// 公开给单测对齐规则。
 const List<Offset> kRtCanvasSlotAnchors = [
   Offset(0.60, 0.34), Offset(0.86, 0.34),
   Offset(0.60, 0.54), Offset(0.86, 0.54),
@@ -71,38 +68,54 @@ class RtCanvasView extends StatefulWidget {
     required this.textController,
     required this.shortcuts,
     required this.firingId,
-    required this.layout,
+    required this.activeLayout,
+    required this.activeId,
+    required this.layouts,
     required this.editMode,
-    required this.onEditModeChanged,
     required this.onLayoutChanged,
+    required this.onSwitchLayout,
+    required this.onCopyToCustom,
+    required this.onDeleteCustom,
+    required this.onEditModeChanged,
     required this.onFire,
     required this.onEditShortcuts,
     required this.onExit,
     required this.onNotify,
   });
 
-  /// 活会话（页面层保证仅在已连接状态下进入本页；重连期间短暂为旧会话，
-  /// RtTouchSurface 对死 socket 发送安全）。
   final RtSession? session;
   final bool connected;
   final double sensitivity;
   final ValueChanged<double> onSensitivityChanged;
 
-  /// 输入框模块与打字页共用同一 controller（同步管线挂在 controller 上，
-  /// 两处输入天然同源）。
   final TextEditingController textController;
   final List<RtShortcutItem> shortcuts;
-
-  /// 正在连发的快捷键 id（页面层防重入，按钮据此高亮）。
   final String? firingId;
 
-  /// 已保存的画布布局（模块锚点 + 按钮位）。
-  final RtCanvasLayout layout;
-  final bool editMode;
-  final ValueChanged<bool> onEditModeChanged;
+  /// 当前激活布局的数据（页面层随 activeId 变化而切到新数据）。
+  final RtCanvasLayout activeLayout;
 
-  /// 摆位 / 缩放 / 显隐回写（页面层持久化）。
+  /// 当前激活布局的 id。仅用于 sheet 高亮与「切布局」时识别——画布渲染
+  /// 只看 activeLayout。
+  final String activeId;
+
+  /// 全部布局（内置 + 自定义），仅 sheet 用。
+  final RtCanvasLayouts layouts;
+  final bool editMode;
+
+  /// 当前激活布局的内容变更（拖动 / 缩放 / 显隐 / 模块开关）。
   final ValueChanged<RtCanvasLayout> onLayoutChanged;
+
+  /// 切换激活布局。
+  final ValueChanged<String> onSwitchLayout;
+
+  /// 「复制当前为新自定义」—— sheet footer 触发。
+  final VoidCallback onCopyToCustom;
+
+  /// 删除某条自定义布局（仅自定义，长按 sheet 列表项触发）。
+  final ValueChanged<String> onDeleteCustom;
+
+  final ValueChanged<bool> onEditModeChanged;
   final ValueChanged<RtShortcutItem> onFire;
   final VoidCallback onEditShortcuts;
   final VoidCallback onExit;
@@ -113,7 +126,7 @@ class RtCanvasView extends StatefulWidget {
 }
 
 class _RtCanvasViewState extends State<RtCanvasView> {
-  // 模块默认规格（布局数据缺条目时兜底）：触摸板居左偏大、输入框右上横条。
+  // 模块未在布局里指定宽高时的兜底规格（与「默认布局」内置值一致）。
   static const double _padDefW = 0.54, _padDefH = 0.84;
   static const double _inputDefW = 0.46, _inputDefH = 0.18;
 
@@ -128,7 +141,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
 
   final GlobalKey _canvasKey = GlobalKey();
 
-  // 移动预览：模块/按钮 id → 当前归一化中心。松手一次性回写。
+  // 移动预览：模块 id → 当前归一化中心。松手一次性回写。
   String? _dragId;
   Offset? _dragPos;
 
@@ -137,30 +150,29 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   double _liveW = 0;
   double _liveH = 0;
 
-  // ================= 布局解析 =================
-
-  /// 内置默认锚点（布局数据缺条目时兜底）——首跑即接近旧手柄形态。
-  static RtCanvasAnchor _defaultAnchor(String id) {
-    if (id == kRtCanvasModuleTouchpad) {
-      return const RtCanvasAnchor(
-        visible: true,
-        x: 0.27,
-        y: 0.55,
-        w: _padDefW,
-        h: _padDefH,
-      );
+  @override
+  void didUpdateWidget(covariant RtCanvasView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 切换布局：清掉上一套布局的拖动/缩放预览，避免预览值瞬移到新布局。
+    if (oldWidget.activeId != widget.activeId) {
+      setState(() {
+        _dragId = null;
+        _dragPos = null;
+        _resizeModuleId = null;
+        _liveW = 0;
+        _liveH = 0;
+      });
     }
-    return const RtCanvasAnchor(
-      visible: true,
-      x: 0.73,
-      y: 0.16,
-      w: _inputDefW,
-      h: _inputDefH,
-    );
   }
 
-  RtCanvasAnchor _anchorOf(String id) =>
-      widget.layout.modules[id] ?? _defaultAnchor(id);
+  // ================= 布局解析 =================
+
+  /// 模块锚点（内置布局与自定义都必有；防御性兜底：缺则按隐藏处理）。
+  RtCanvasAnchor _anchorOf(String id) {
+    final a = widget.activeLayout.modules[id];
+    if (a != null) return a;
+    return const RtCanvasAnchor(visible: false, x: 0.5, y: 0.5);
+  }
 
   Offset _anchorPos(String id) {
     if (_dragId == id && _dragPos != null) return _dragPos!;
@@ -172,8 +184,10 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   (double, double) _moduleFractions(String id) {
     if (_resizeModuleId == id) return (_liveW, _liveH);
     final a = _anchorOf(id);
-    final def = _defaultAnchor(id);
-    return (a.w ?? def.w!, a.h ?? def.h!);
+    if (a.w != null && a.h != null) return (a.w!, a.h!);
+    return id == kRtCanvasModuleTouchpad
+        ? (_padDefW, _padDefH)
+        : (_inputDefW, _inputDefH);
   }
 
   /// 全局坐标 → 画布归一化坐标。画布异常小（尺寸 ≤ 0）时 0/0 = NaN 会
@@ -201,20 +215,12 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     if (id == null || settled == null) return;
     if (id != kRtCanvasModuleTouchpad && id != kRtCanvasModuleInput) return;
     final cur = _anchorOf(id);
-    // 空拖（点按没动）不回写：省一次无谓落盘。
     if ((settled - Offset(cur.x, cur.y)).distance <= 1e-6) return;
-    widget.onLayoutChanged(
-      widget.layout.withModule(
-        id,
-        RtCanvasAnchor(
-          visible: cur.visible,
-          x: settled.dx.clamp(0.0, 1.0).toDouble(),
-          y: settled.dy.clamp(0.0, 1.0).toDouble(),
-          w: cur.w,
-          h: cur.h,
-        ),
-      ),
-    );
+    widget.onLayoutChanged(_patchAnchor(
+      id,
+      x: settled.dx.clamp(0.0, 1.0).toDouble(),
+      y: settled.dy.clamp(0.0, 1.0).toDouble(),
+    ));
     unawaited(HapticFeedback.selectionClick());
   }
 
@@ -225,40 +231,53 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     setState(() => _resizeModuleId = null);
     if (id == null) return;
     final cur = _anchorOf(id);
-    final def = _defaultAnchor(id);
-    // 空拖（碰拉手没动）不回写。
-    if ((wf - (cur.w ?? def.w!)).abs() <= 1e-6 &&
-        (hf - (cur.h ?? def.h!)).abs() <= 1e-6) {
+    if ((wf - (cur.w ?? _moduleFractions(id).$1)).abs() <= 1e-6 &&
+        (hf - (cur.h ?? _moduleFractions(id).$2)).abs() <= 1e-6) {
       return;
     }
-    widget.onLayoutChanged(
-      widget.layout.withModule(
-        id,
-        RtCanvasAnchor(visible: cur.visible, x: cur.x, y: cur.y, w: wf, h: hf),
-      ),
-    );
+    widget.onLayoutChanged(_patchAnchor(id, w: wf, h: hf));
     unawaited(HapticFeedback.selectionClick());
   }
 
   void _updateButton(String id, RtCanvasButtonPos pos) {
-    widget.onLayoutChanged(widget.layout.withButton(id, pos));
+    widget.onLayoutChanged(_patchButton(id, pos));
   }
 
   void _toggleModuleVisible(String id) {
     final cur = _anchorOf(id);
-    widget.onLayoutChanged(
-      widget.layout.withModule(
-        id,
-        RtCanvasAnchor(
-          visible: !cur.visible,
-          x: cur.x,
-          y: cur.y,
-          w: cur.w,
-          h: cur.h,
-        ),
-      ),
-    );
+    widget.onLayoutChanged(_patchAnchor(id, visible: !cur.visible));
     unawaited(HapticFeedback.selectionClick());
+  }
+
+  /// 拷贝当前 activeLayout 并替换指定模块/按钮后返回新 RtCanvasLayout。
+  RtCanvasLayout _patchAnchor(
+    String id, {
+    bool? visible,
+    double? x,
+    double? y,
+    double? w,
+    double? h,
+  }) {
+    final modules = Map<String, RtCanvasAnchor>.of(widget.activeLayout.modules);
+    final cur = modules[id] ??
+        const RtCanvasAnchor(visible: true, x: 0.5, y: 0.5);
+    modules[id] = RtCanvasAnchor(
+      visible: visible ?? cur.visible,
+      x: x ?? cur.x,
+      y: y ?? cur.y,
+      w: w ?? cur.w,
+      h: h ?? cur.h,
+    );
+    return RtCanvasLayout(modules: modules, buttons: widget.activeLayout.buttons);
+  }
+
+  RtCanvasLayout _patchButton(String id, RtCanvasButtonPos pos) {
+    final buttons = Map<String, RtCanvasButtonPos>.of(widget.activeLayout.buttons);
+    buttons[id] = pos;
+    return RtCanvasLayout(
+      modules: widget.activeLayout.modules,
+      buttons: buttons,
+    );
   }
 
   // ================= UI =================
@@ -288,7 +307,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
               );
             },
           ),
-          // 顶层：use 态浮层 / edit 态横幅 + 显隐面板（互斥，边界一眼可辨）
           if (widget.editMode) ..._editChrome(cs) else _useOverlay(cs),
         ],
       ),
@@ -316,6 +334,12 @@ class _RtCanvasViewState extends State<RtCanvasView> {
             ),
             const SizedBox(width: 8),
             RtPadChipButton(
+              icon: Icons.dashboard_customize_outlined,
+              tooltip: '切换布局',
+              onTap: () => _openLayoutsSheet(),
+            ),
+            const SizedBox(width: 8),
+            RtPadChipButton(
               icon: Icons.edit,
               tooltip: '编辑布局',
               onTap: () => widget.onEditModeChanged(true),
@@ -332,11 +356,10 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
-  // ---- 编辑态 chrome：横幅 + 底部显隐面板 + 画布描边 ----
+  // ---- 编辑态 chrome：底部面板 + 右下角完成钮 + 画布描边 ----
 
   List<Widget> _editChrome(ColorScheme cs) {
     return [
-      // 画布主色描边：编辑态的「场」边界
       Positioned.fill(
         child: IgnorePointer(
           child: Container(
@@ -349,9 +372,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
           ),
         ),
       ),
-      // 右下角完成钮：编辑态唯一常驻出口（不设顶部横幅，横屏视野优先；
-      // 拖动/缩放/显隐操作靠模块自身的编辑框与幽灵态自解释）。实心主色
-      // 与左侧半透明芯片拉开层级——它是这态里唯一的「离开」动作。
       Align(
         alignment: Alignment.bottomRight,
         child: SafeArea(
@@ -365,7 +385,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
           ),
         ),
       ),
-      // 底部显隐面板：模块开关 + 快捷键增删入口
       Align(
         alignment: Alignment.bottomCenter,
         child: SafeArea(
@@ -385,6 +404,12 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                   icon: Icons.keyboard_alt_outlined,
                   label: '输入框',
                   id: kRtCanvasModuleInput,
+                ),
+                ActionChip(
+                  avatar: Icon(Icons.dashboard_customize_outlined,
+                      size: 18, color: cs.onSurfaceVariant),
+                  label: const Text('布局'),
+                  onPressed: _openLayoutsSheet,
                 ),
                 ActionChip(
                   avatar: Icon(Icons.playlist_add,
@@ -419,9 +444,34 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
+  // ---- 布局 sheet ----
+
+  Future<void> _openLayoutsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => RtCanvasLayoutsSheet(
+        layouts: widget.layouts,
+        activeId: widget.activeId,
+        onSwitch: (id) {
+          widget.onSwitchLayout(id);
+          Navigator.of(ctx).pop();
+        },
+        onCopy: () {
+          widget.onCopyToCustom();
+          Navigator.of(ctx).pop();
+        },
+        onDelete: (id) {
+          widget.onDeleteCustom(id);
+          Navigator.of(ctx).pop();
+        },
+      ),
+    );
+  }
+
   // ---- 模块通用：尺寸解析与编辑态包装 ----
 
-  /// 模块像素尺寸（缩放预览优先；输入框高度另有像素硬钳）。
   Size _moduleSizePx(String id, Size canvasSize) {
     final (wf, hf) = _moduleFractions(id);
     double w = wf * canvasSize.width;
@@ -432,7 +482,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     return Size(w, h);
   }
 
-  /// 编辑态模块包装：直拖移位（pan）+ 右下角拉手缩放。
   Widget _editModuleWrapper({
     required String id,
     required String label,
@@ -451,8 +500,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
             });
           },
           onPanUpdate: (d) {
-            // 双指各拖一个模块时只跟自己的 id——共享预览字段没守卫会把
-            // 两个模块拽成同步移动。
             if (_dragId != id || _dragPos == null) return;
             final box =
                 _canvasKey.currentContext?.findRenderObject() as RenderBox?;
@@ -464,7 +511,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
               );
             });
           },
-          // end/cancel 同样认 id：预览被后落指覆盖时，先落指的抬手是空操作。
           onPanEnd: (_) {
             if (_dragId == id) _commitModuleDrag();
           },
@@ -476,10 +522,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
               });
             }
           },
-          // 模块本体停用（触摸板手势/输入框键盘），只留移位 pan。
           child: IgnorePointer(child: _editFrame(child, label)),
         ),
-        // 右下缩放拉手：前置于模块之上，命中优先于移位 pan。
         Positioned(
           right: 2,
           bottom: 2,
@@ -526,7 +570,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
-  /// 编辑态模块外框：主色描边 + 名称签（边界一眼可辨）。
   Widget _editFrame(Widget child, String label) {
     final cs = context.colors.scheme;
     return Container(
@@ -565,7 +608,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
-  /// 归一化中心 + 像素规格 → 像素矩形（夹回画布内）。
   ({double left, double top}) _moduleRect(
     Offset pos,
     Size moduleSize,
@@ -600,7 +642,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       connected: widget.connected,
       sensitivity: widget.sensitivity,
       onNotify: widget.onNotify,
-      // 编辑态不展示手势图例（图例讲的是使用态手势）。
       showLegend: !widget.editMode,
     );
     if (widget.editMode) {
@@ -665,7 +706,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       ),
     );
     if (widget.editMode) {
-      // 编辑态：输入框停用（不弹键盘），只留移位/缩放。
       box = _editModuleWrapper(
         id: kRtCanvasModuleInput,
         label: '输入框',
@@ -684,10 +724,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   // ---- 模块：快捷按钮 ----
 
   List<Widget> _buttonModules(Size canvasSize) {
-    // 摆位解析：已存的直接用；没存过的按候选槽找空位（本次 build 内
-    // 顺次占位，保证多个新按钮互不重叠、且重建结果稳定）。
     final assigned = <String, Offset>{
-      for (final e in widget.layout.buttons.entries)
+      for (final e in widget.activeLayout.buttons.entries)
         e.key: Offset(e.value.x, e.value.y),
     };
     final resolved = <String, Offset>{};
@@ -705,9 +743,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     final out = <Widget>[];
     for (final item in widget.shortcuts) {
       final center = resolved[item.id]!;
-      final pos = widget.layout.buttons[item.id] ??
+      final pos = widget.activeLayout.buttons[item.id] ??
           RtCanvasButtonPos(x: center.dx, y: center.dy);
-      // 使用态隐藏按钮不渲染；编辑态以幽灵呈现（可点回）。
       if (!widget.editMode && !pos.v) continue;
       out.add(
         RtCanvasButton(
