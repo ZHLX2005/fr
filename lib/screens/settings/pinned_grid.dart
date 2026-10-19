@@ -81,51 +81,53 @@ class _PinnedGridState extends ConsumerState<PinnedGrid> {
       );
     }
 
+    // 非编辑态：直接返回网格（避免 Stack + 单非定位子导致 ListView 中布局
+    // 受约束异常，影响图标渲染）。
+    if (!_editMode) {
+      return _SortableGrid(
+        entries: entries,
+        visibleSlotCount: widget.visibleSlotCount,
+        onLongHold: _enterEdit,
+      );
+    }
+
+    // 编辑态：Stack 叠放网格 + 完成按钮 + 底部垃圾桶。
     return Stack(
       children: [
-        if (_editMode)
-          _EditableGrid(
-            entries: entries,
-            visibleSlotCount: widget.visibleSlotCount,
-          )
-        else
-          _SortableGrid(
-            entries: entries,
-            visibleSlotCount: widget.visibleSlotCount,
-            onLongHold: _enterEdit,
-          ),
-        if (_editMode)
-          Positioned(
-            top: 4,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16, top: 0),
-                child: FilledButton.icon(
-                  onPressed: _exitEdit,
-                  icon: const Icon(Icons.check, size: 18),
-                  label: const Text('完成'),
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
+        _EditableGrid(
+          entries: entries,
+          visibleSlotCount: widget.visibleSlotCount,
+        ),
+        Positioned(
+          top: 4,
+          right: 0,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16, top: 0),
+              child: FilledButton.icon(
+                onPressed: _exitEdit,
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('完成'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
                   ),
                 ),
               ),
             ),
           ),
-        if (_editMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: _TrashZone(onAccept: _removePin),
-            ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SafeArea(
+            top: false,
+            child: _TrashZone(onAccept: _removePin),
           ),
+        ),
       ],
     );
   }
@@ -185,9 +187,12 @@ class _SortableGrid extends ConsumerWidget {
             itemBuilder: (context, i) {
               return itemBuilder(
                 _LongHoldDetector(
+                  // ReorderableBuilder 要求直接子节点带 ValueKey（assert）。
+                  // 放在 _LongHoldDetector 上以满足契约；_PinnedCell 仍可放 key
+                  // 走元素复用，但顶层 key 必填。
+                  key: ValueKey(entries[i].id),
                   onLongHold: onLongHold,
                   child: _PinnedCell(
-                    key: ValueKey(entries[i].id),
                     entry: entries[i],
                     isHome: i == 0,
                     inOverflow: i >= visibleSlotCount,
@@ -211,7 +216,7 @@ class _SortableGrid extends ConsumerWidget {
 /// 2s 长按检测：手指按下 2s 内未越过 12px → 触发 [onLongHold]。
 /// 走 Listener + Timer，不进手势竞技场，不影响 ReorderableBuilder 的 drag。
 class _LongHoldDetector extends StatefulWidget {
-  const _LongHoldDetector({required this.onLongHold, required this.child});
+  const _LongHoldDetector({super.key, required this.onLongHold, required this.child});
 
   final VoidCallback onLongHold;
   final Widget child;
