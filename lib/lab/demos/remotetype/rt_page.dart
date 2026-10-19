@@ -4,12 +4,17 @@
 //   大厅（连接列表）—— 优先「统一登录 → 我名下的电脑 → 点一下即连」；
 //             服务端没开启统一登录时才退回「选 PC + 填配对 key」。
 //             常显主壳底栏（钉选后它是主页），AppBar 左侧无返回。
-//   详情（输入页）—— 全文同步输入框 + 端到端指示。AppBar 左侧簇 = 返回
-//             大厅 + 全屏开关（全屏只压底栏）；返回不断连，会话仍托管。
+//   详情（输入页）—— 全文同步输入框 + 端到端指示。无底栏（沉浸打字）。
+//             AppBar 左侧簇 = 返回大厅 + 横屏模式；系统手势/返回键经
+//             PopScope 拦截，与按钮同义（画布编辑→画布使用→详情→大厅）。
+//             返回不断连，会话仍托管。
+//   横屏画布 —— 触摸板 / 输入框 / 快捷按钮同一模块系统自由编排，
+//             use / edit 两态边界明显，见 rt_canvas_view.dart。
 //
 // 板块拆分（本文件只留装配/状态/连接，其余见各自文件头）：
 //   rt_pairing_view.dart   大厅 UI（两态）
 //   rt_input_view.dart     详情 UI
+//   rt_canvas_view.dart    横屏画布 UI（模块系统 + 编辑态）
 //   rt_connecting_overlay.dart  连接中遮罩
 //   rt_text_sync.dart      文本同步管线（composing 挂起/补发 + 防抖）
 //
@@ -38,13 +43,13 @@ import '../../../core/ui/shell/quick_nav_bottom_bar.dart'
 import '../../demo_session_host.dart';
 import 'rt_constants.dart';
 import 'rt_connecting_overlay.dart';
+import 'rt_canvas_view.dart';
 import 'rt_input_view.dart';
 import 'rt_pairing_view.dart';
 import 'rt_prefs.dart';
 import 'rt_session.dart';
 import 'rt_shortcut_bar.dart';
 import 'rt_text_sync.dart';
-import 'rt_touchpad_view.dart';
 
 class RemoteTypePage extends ConsumerStatefulWidget {
   const RemoteTypePage({super.key});
@@ -97,15 +102,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   // 重放进行中（连点保护）
   bool _replaying = false;
 
-  // 触摸板模式（v0.6.0+）：页面级内存态，与 enterMode 同待遇不持久化。
-  // 横屏只为触摸板服务——进触摸板放开方向锁，退出/离页恢复竖屏
-  // （AndroidManifest 全局锁 portrait，这里负责运行期借出与归还）。
-  bool _touchpadMode = false;
+  // 横屏画布模式（触摸板/输入框/按钮同一画布编排，详见 rt_canvas_view.dart）：
+  // 页面级内存态不持久化；横竖屏锁只在画布期间放开（运行期借出与归还，
+  // AndroidManifest 全局锁 portrait）。
+  bool _canvasMode = false;
+  // 画布编辑子态（use/edit）：纯画布内部状态，不锁方向、不动底栏。
+  bool _canvasEdit = false;
   double _padSensitivity = kRtPadSensitivityDefault;
-
-  // 输入页全屏（AppBar 左侧按钮进出）：隐藏主壳底栏换取沉浸。页面级内存态
-  // 与触摸板同待遇不持久化；返回大厅即复位（大厅常显底栏，藏了没法导航）。
-  bool _fullscreen = false;
+  // 画布布局（模块锚点 + 按钮位）：跨会话记住，持久化（RtPrefs）。
+  RtCanvasLayout _canvasLayout = const RtCanvasLayout();
 
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
@@ -142,8 +147,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(_loadPrefs());
     // 托管重进：host 里有活会话就原地接管（pop 重进不断连）
     _reattachHostedSession();
-    // 底栏显隐随页面状态同步：大厅（连接列表）常显，触摸板 / 输入页全屏态
-    // 才隐藏。请求按本页 nav id 记名——IndexedStack 里钉选页 State 全部常驻，
+    // 底栏显隐随页面状态同步：大厅（连接列表）常显，详情/画布全程隐藏。
+    // 请求按本页 nav id 记名——IndexedStack 里钉选页 State 全部常驻，
     // 裸 bool 会把本页的请求泄漏到其它钉选页（provider 注释）。
     _syncBottomBar();
     // 配对页可见期间轮询在线列表（连上后页面切换，轮询空转开销可忽略）
@@ -174,12 +179,14 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final history = await RtPrefs.loadHistory();
     final barDisplay = await RtPrefs.loadBarDisplay();
     final padSensitivity = await RtPrefs.loadTouchpadSensitivity();
+    final canvasLayout = await RtPrefs.loadCanvasLayout();
     if (!mounted) return;
     setState(() {
       _shortcuts = shortcuts;
       _history = history;
       _barDisplay = barDisplay;
       _padSensitivity = padSensitivity;
+      _canvasLayout = canvasLayout;
     });
   }
 
@@ -268,34 +275,39 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   // ================= 触摸板模式 =================
 
-  /// 进/出触摸板：横竖屏锁只在触摸板期间放开（打字页横屏没意义还晃布局）。
-  void _setTouchpadMode(bool on) {
-    if (_touchpadMode == on) return;
-    setState(() => _touchpadMode = on);
+  /// 进/出横屏画布：横竖屏锁只在画布期间放开（打字页横屏没意义还晃布局）。
+  void _setCanvasMode(bool on) {
+    if (_canvasMode == on) return;
+    setState(() => _canvasMode = on);
     _syncBottomBar();
     unawaited(
       on ? LineOrientation.enableAll() : LineOrientation.portraitOnly(),
     );
   }
 
-  // ================= 底栏显隐 / 全屏 / 返回大厅 =================
+  /// 进/出画布编辑子态：纯画布内部状态，方向锁与底栏不动。
+  void _setCanvasEdit(bool on) {
+    if (_canvasEdit == on) return;
+    setState(() => _canvasEdit = on);
+  }
 
-  /// 底栏隐匿请求同步：只压主壳底栏、不动系统状态栏。大厅（连接列表）常显
-  /// ——它是钉选后的主页，藏了就没法导航；触摸板手势面全出血、输入页全屏态
-  /// 才隐藏。请求按本页 nav id 记名，切到其它钉选页时主壳不生效。
+  /// 画布布局回写（拖动落位 / 显隐切换）：先落 state 再异步落盘
+  /// （失败不回滚——下次进页读盘仍旧位，本次会话内所见即所得优先）。
+  void _updateCanvasLayout(RtCanvasLayout layout) {
+    setState(() => _canvasLayout = layout);
+    unawaited(RtPrefs.saveCanvasLayout(layout));
+  }
+
+  // ================= 底栏显隐 / 横屏手柄 / 返回大厅 =================
+
+  /// 底栏隐匿请求同步：详情（打字）页全程无底栏（沉浸），横屏画布亦然
+  /// （都有 `_session`）；只有大厅（连接列表）常显——它是钉选后的主页，
+  /// 藏了就没法导航。请求按本页 nav id 记名，切到其它钉选页时主壳不生效。
   void _syncBottomBar() {
-    final hide = _touchpadMode || (_session != null && _fullscreen);
+    final hide = _session != null;
     ref.read(bottomBarVisibilityProvider.notifier).setHidden(
           hide ? demoNavId(kRemoteTypeDemoSlug) : null,
         );
-  }
-
-  /// 输入页全屏开关（AppBar 左侧按钮进出）：退出入口就是同一颗按钮，所以
-  /// 只压底栏不藏 AppBar——藏了就得靠手势唤出，得不偿失。
-  void _setFullscreen(bool on) {
-    if (_fullscreen == on) return;
-    setState(() => _fullscreen = on);
-    _syncBottomBar();
   }
 
   /// 返回连接大厅：会话不销毁——仍托管在 host（断开唯一入口是 host.drop），
@@ -305,13 +317,18 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // 重连进行中不响应返回：_connect 完成回调会把会话写回 `_session`，
     // 中途退出会被拽回输入页；等这波重连落地再返回。
     if (_connecting) return;
+    final wasImmersive = _canvasMode;
     _eventSub?.cancel();
     _eventSub = null;
     setState(() {
       _session = null;
-      _fullscreen = false;
+      _canvasMode = false;
+      _canvasEdit = false;
     });
     _syncBottomBar();
+    // 非常规路径（AppBar 返回只在大厅/详情可达，理论摸不到）兜底：
+    // 带着横屏借出走大厅的话，把竖屏锁还回去。
+    if (wasImmersive) unawaited(LineOrientation.portraitOnly());
   }
 
   // ================= 连接 =================
@@ -344,6 +361,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     if (hosted != null && hosted.targetClientId == _selectedClient) {
       _reattachHostedSession();
       setState(() {});
+      _syncBottomBar(); // 大厅 → 详情，底栏隐匿随 `_session` 翻转
       return;
     }
     // 换了目标电脑：旧托管会话显式销毁——host.attach 契约是「有则复用绝不
@@ -367,6 +385,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           if (keepTypingUi) _session = null;
           _error = '设备列表已过期，请下拉刷新后重试';
         });
+        _syncBottomBar(); // 重连失败回大厅时归还底栏
         return;
       }
       key = matched.first.sessionKey;
@@ -391,6 +410,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         if (keepTypingUi) _session = null;
         _error = e.message;
       });
+      _syncBottomBar(); // 重连失败回大厅时归还底栏
       return;
     } catch (e) {
       await session.dispose();
@@ -400,6 +420,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         if (keepTypingUi) _session = null;
         _error = '连接失败：$e';
       });
+      _syncBottomBar(); // 重连失败回大厅时归还底栏
       return;
     }
 
@@ -422,6 +443,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _connected = true;
       _e2eOk = false;
     });
+    _syncBottomBar(); // 大厅 → 详情，底栏隐匿随 `_session` 翻转
   }
 
   /// 断开并回到配对页（对齐原型 nav「断开」）。
@@ -442,6 +464,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _syncFlash = false;
       _syncSent = 0;
     });
+    _syncBottomBar(); // 详情 → 大厅（断开），底栏随 `_session` 翻转归还
   }
 
   /// 保持输入页，拆旧会话后重连（对齐原型：overlay 盖在输入页上，不闪回配对）。
@@ -669,68 +692,80 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // 对齐原型 --bg / --card：页底走 tray（surfaceContainerHighest），
     // 浮卡走 surface；禁止 M3 elevation surfaceTint 把奶油卡染成 sage。
     final pageBg = cs.surfaceContainerHighest;
-    // 底栏在场（大厅 / 输入页非全屏态）时给内容留出浮层高度，别被胶囊挡住
-    // composer 和兜底连接按钮；键盘弹出时主壳收起底栏，预留同步撤掉。
+    // 底栏只在大厅在场：详情页全程无底栏（沉浸），给内容留出的
+    // 浮层高度也一并撤掉；键盘弹出时主壳收起底栏，预留同步撤掉。
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final barShown = !_touchpadMode && !_fullscreen && keyboard == 0;
-    // 触摸板模式不要 AppBar：手势面全出血，退出/灵敏度都在页内浮层。
-    Widget body = _session == null || !_touchpadMode
-        ? Stack(
-            children: [
-              _session == null
-                  ? RtPairingView(
-                      unified: _unified,
-                      readiness: _readiness,
-                      error: _error,
-                      connecting: _connecting,
-                      clientsLoading: _clientsLoading,
-                      clients: _clients,
-                      computers: _computers,
-                      selectedClient: _selectedClient,
-                      keyController: _keyController,
-                      onRefresh: _refreshClients,
-                      onSelectClient: (cid) =>
-                          setState(() => _selectedClient = cid),
-                      onConnect: _connect,
-                    )
-                  : RtInputView(
-                      controller: _textController,
-                      enterMode: _enterMode,
-                      onEnterModeChanged: (mode) {
-                        setState(() => _enterMode = mode);
-                        _sync.scheduleSync();
-                      },
-                      syncFlash: _syncFlash,
-                      onClear: () {
-                        _textController.clear();
-                        setState(() {});
-                      },
-                      onReplay: _replayText,
-                      onComposerTapOutside: _sync.scheduleSync,
-                      onTextChanged: () => setState(() {}),
-                      shortcuts: _shortcuts,
-                      barDisplay: _barDisplay,
-                      connected: _connected,
-                      firingId: _firingShortcutId,
-                      onFire: _fireShortcut,
-                      onEdit: _editShortcuts,
-                      onHistory: _openHistory,
-                      onBarDisplay: _openBarDisplay,
-                    ),
-              if (_connecting) RtConnectingOverlay(label: _connectingLabel()),
-            ],
-          )
-        : RtTouchpadView(
-            session: _session,
-            connected: _connected,
-            sensitivity: _padSensitivity,
-            onSensitivityChanged: (v) {
-              _padSensitivity = v;
-              unawaited(RtPrefs.saveTouchpadSensitivity(v));
-            },
-            onExit: () => _setTouchpadMode(false),
-            onNotify: _showSnack,
-          );
+    final barShown = _session == null && keyboard == 0;
+    // 画布模式不要 AppBar：全出血，编辑/退出/显隐都在画布浮层。
+    Widget body;
+    if (_session != null && _canvasMode) {
+      body = RtCanvasView(
+        session: _session,
+        connected: _connected,
+        sensitivity: _padSensitivity,
+        onSensitivityChanged: (v) {
+          _padSensitivity = v;
+          unawaited(RtPrefs.saveTouchpadSensitivity(v));
+        },
+        textController: _textController,
+        shortcuts: _shortcuts,
+        firingId: _firingShortcutId,
+        layout: _canvasLayout,
+        editMode: _canvasEdit,
+        onEditModeChanged: _setCanvasEdit,
+        onLayoutChanged: _updateCanvasLayout,
+        onFire: (item) => unawaited(_fireShortcut(item)),
+        onEditShortcuts: _editShortcuts,
+        onExit: () => _setCanvasMode(false),
+        onNotify: _showSnack,
+      );
+    } else {
+      body = Stack(
+        children: [
+          _session == null
+              ? RtPairingView(
+                  unified: _unified,
+                  readiness: _readiness,
+                  error: _error,
+                  connecting: _connecting,
+                  clientsLoading: _clientsLoading,
+                  clients: _clients,
+                  computers: _computers,
+                  selectedClient: _selectedClient,
+                  keyController: _keyController,
+                  onRefresh: _refreshClients,
+                  onSelectClient: (cid) =>
+                      setState(() => _selectedClient = cid),
+                  onConnect: _connect,
+                )
+              : RtInputView(
+                  controller: _textController,
+                  enterMode: _enterMode,
+                  onEnterModeChanged: (mode) {
+                    setState(() => _enterMode = mode);
+                    _sync.scheduleSync();
+                  },
+                  syncFlash: _syncFlash,
+                  onClear: () {
+                    _textController.clear();
+                    setState(() {});
+                  },
+                  onReplay: _replayText,
+                  onComposerTapOutside: _sync.scheduleSync,
+                  onTextChanged: () => setState(() {}),
+                  shortcuts: _shortcuts,
+                  barDisplay: _barDisplay,
+                  connected: _connected,
+                  firingId: _firingShortcutId,
+                  onFire: _fireShortcut,
+                  onEdit: _editShortcuts,
+                  onHistory: _openHistory,
+                  onBarDisplay: _openBarDisplay,
+                ),
+          if (_connecting) RtConnectingOverlay(label: _connectingLabel()),
+        ],
+      );
+    }
     if (barShown) {
       body = Padding(
         padding: EdgeInsets.only(
@@ -739,13 +774,32 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         child: body,
       );
     }
-    return Scaffold(
-      // 键盘不压缩页面：输入框固定高度，键盘直接覆盖底部（与网页控制台一致）。
-      // 配对页自行用 viewInsets 兜底（见 RtPairingView）。
-      resizeToAvoidBottomInset: false,
-      backgroundColor: pageBg,
-      appBar: _touchpadMode ? null : _buildTypingAppBar(pageBg),
-      body: body,
+    // 系统返回（手势/返回键）逐层退出：画布编辑→画布使用→详情→大厅。
+    // 本页是壳根钉选页（IndexedStack 常驻），pop 根路由 = 退出应用——
+    // 只有大厅态放行 pop（Android 根页惯例）。_exitDetail 内部挡
+    // _connecting：重连进行中返回不响应，防 _connect 完成回调拽回输入页。
+    return PopScope(
+      canPop: _session == null && !_canvasMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_canvasEdit) {
+          _setCanvasEdit(false); // 编辑先回使用，再按一次才退画布
+          return;
+        }
+        if (_canvasMode) {
+          _setCanvasMode(false);
+          return;
+        }
+        _exitDetail();
+      },
+      child: Scaffold(
+        // 键盘不压缩页面：输入框固定高度，键盘直接覆盖底部（与网页控制台一致）。
+        // 配对页自行用 viewInsets 兜底（见 RtPairingView）。
+        resizeToAvoidBottomInset: false,
+        backgroundColor: pageBg,
+        appBar: _canvasMode ? null : _buildTypingAppBar(pageBg),
+        body: body,
+      ),
     );
   }
 
@@ -764,8 +818,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       backgroundColor: pageBg,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,
-      // 详情页左侧簇：返回大厅 + 全屏开关（返回居最左对齐系统习惯）。
-      // 壳根页不能 pop，返回必须显式按钮。
+      // 详情页左侧簇：返回大厅 + 横屏手柄（返回居最左对齐系统习惯）。
+      // 壳根页不能 pop；系统手势返回已由 build 的 PopScope 拦截成
+      // _exitDetail，这颗按钮与它同义。
       leading: inDetail
           ? Row(
               children: [
@@ -775,25 +830,16 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                   onPressed: _exitDetail,
                 ),
                 IconButton(
-                  icon: Icon(
-                    _fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                  ),
-                  tooltip: _fullscreen ? '退出全屏' : '全屏',
-                  onPressed: () => _setFullscreen(!_fullscreen),
+                  icon: const Icon(Icons.sports_esports),
+                  tooltip: '横屏模式',
+                  // 未连接时置灰：画布（触摸板/按钮）没有连接毫无意义
+                  onPressed: _connected ? () => _setCanvasMode(true) : null,
                 ),
               ],
             )
           : null,
       leadingWidth: inDetail ? 96 : null,
       actions: [
-        if (_session != null)
-          IconButton(
-            icon: const Icon(Icons.touch_app_outlined),
-            tooltip: '触摸板',
-            onPressed: _connected
-                ? () => _setTouchpadMode(true)
-                : null, // 未连接时置灰：触摸板没有连接毫无意义
-          ),
         if (_session != null) ...[
           IconButton(
             icon: const Icon(Icons.refresh),

@@ -1,12 +1,14 @@
-// lib/lab/demos/remotetype/rt_touchpad_view.dart
+// lib/lab/demos/remotetype/rt_touch_surface.dart
 //
-// 触摸板页 UI：全屏手势面 + 极简浮层（退出 / 灵敏度 / 连接点 + 动作提示）。
-// 为「躺床上不用看」设计：一切反馈以触感优先（HapticFeedback），视觉提示
-// 只做辅助——手势判定全在 rt_touchpad_engine（纯逻辑），本文件只做搬运：
+// 触摸手势面（自包含）：Listener → 引擎 → 合批发送 → 惯性帧钟 + 动作反馈。
+// 手势判定全在 rt_touchpad_engine（纯逻辑），本文件只做搬运：
 //   Listener 指针事件 → engine.down/move/up/cancel
-//   engine 回调 → 合批（kRtPadSendTickMs）→ session.syncMouse / syncHotkey
+//   engine 回调 → 合批（kRtPadSendTickMs）→ session.syncMouse
 //
-// 横屏：全出血布局无方向假设，配合页面层 LineOrientation.enableAll 生效。
+// [RtTouchSurface] 是手势的唯一接线处，横屏画布（rt_canvas_view）的触摸板
+// 模块直接嵌它。连接点 / 圆形小钮 / 灵敏度 sheet 一并公开共用。
+// （原全屏触摸板页 RtTouchpadView 已退役——能力被画布的触摸板模块覆盖。）
+//
 // 断连不拦手势：本地照常判定，仅在发送处静默丢弃并低频提示（回连自愈）。
 
 import 'dart:async';
@@ -19,32 +21,34 @@ import '../../../core/theme/context/colors.dart';
 import 'rt_constants.dart';
 import 'rt_session.dart';
 import 'rt_touchpad_engine.dart';
-
-class RtTouchpadView extends StatefulWidget {
-  const RtTouchpadView({
+/// 触摸手势面（自包含）。新增手势宿主（画布模块等）直接嵌它。
+class RtTouchSurface extends StatefulWidget {
+  const RtTouchSurface({
     super.key,
     required this.session,
     required this.connected,
     required this.sensitivity,
-    required this.onSensitivityChanged,
-    required this.onExit,
     required this.onNotify,
+    this.showLegend = true,
+    this.showCenterMark = true,
   });
 
-  /// 活会话（页面层保证仅在已连接状态下进入本页；重连期间可能短暂为
-  /// 旧会话——syncMouse 对死 socket 返回 false，安全）。
   final RtSession? session;
   final bool connected;
   final double sensitivity;
-  final ValueChanged<double> onSensitivityChanged;
-  final VoidCallback onExit;
   final void Function(String message) onNotify;
 
+  /// 首次进入显示手势图例（首次触摸即隐藏）。
+  final bool showLegend;
+
+  /// 中心方位标记（「不用看」时的一点方位感）。
+  final bool showCenterMark;
+
   @override
-  State<RtTouchpadView> createState() => _RtTouchpadViewState();
+  State<RtTouchSurface> createState() => _RtTouchSurfaceState();
 }
 
-class _RtTouchpadViewState extends State<RtTouchpadView>
+class _RtTouchSurfaceState extends State<RtTouchSurface>
     with SingleTickerProviderStateMixin {
   late final RtTouchpadEngine _engine = RtTouchpadEngine(
     onMove: _onMove,
@@ -67,14 +71,14 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
   Duration? _lastTickElapsed;
 
   // 提示层状态。
-  bool _showHint = true;
+  late bool _showHint = widget.showLegend;
   String? _actionLabel;
   Timer? _actionTimer;
   DateTime _lastOfflineNotifyAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastScrollFlashAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
-  void didUpdateWidget(covariant RtTouchpadView oldWidget) {
+  void didUpdateWidget(covariant RtTouchSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
     _engine.sensitivity = widget.sensitivity;
   }
@@ -294,17 +298,16 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
   Widget build(BuildContext context) {
     final c = context.colors;
     final cs = c.scheme;
-    return Scaffold(
-      backgroundColor: cs.surfaceContainerHighest,
-      body: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: _onPointerDown,
-        onPointerMove: _onPointerMove,
-        onPointerUp: _onPointerUp,
-        onPointerCancel: _onPointerCancel,
-        child: Stack(
-          children: [
-            // 手势面本体：极淡的中心标记给「不用看」时的一点方位感
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
+      child: Stack(
+        children: [
+          // 手势面本体：极淡的中心标记给「不用看」时的一点方位感
+          if (widget.showCenterMark)
             Center(
               child: IgnorePointer(
                 child: Container(
@@ -324,120 +327,100 @@ class _RtTouchpadViewState extends State<RtTouchpadView>
                 ),
               ),
             ),
-            if (_showHint)
-              Center(
-                child: IgnorePointer(
-                  child: _GestureLegend(cs: cs),
-                ),
-              ),
-            // 顶部浮层：左连接点 · 右灵敏度/退出
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                child: Row(
-                  children: [
-                    _ConnDot(connected: widget.connected, cs: cs),
-                    const Spacer(),
-                    _PadChipButton(
-                      icon: Icons.tune,
-                      tooltip: '触摸板灵敏度',
-                      onTap: () => _openSensitivitySheet(context),
-                    ),
-                    const SizedBox(width: 8),
-                    _PadChipButton(
-                      icon: Icons.keyboard,
-                      tooltip: '返回打字',
-                      onTap: widget.onExit,
-                    ),
-                  ],
-                ),
+          if (_showHint)
+            Center(
+              child: IgnorePointer(
+                child: _GestureLegend(cs: cs),
               ),
             ),
-            // 底部动作提示 chip
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 18,
-              child: IgnorePointer(
-                child: Center(
-                  child: AnimatedOpacity(
-                    opacity: _actionLabel != null ? 1 : 0,
-                    duration: const Duration(milliseconds: 160),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        _actionLabel ?? '',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: cs.onPrimary,
-                        ),
+          // 底部动作提示 chip
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 18,
+            child: IgnorePointer(
+              child: Center(
+                child: AnimatedOpacity(
+                  opacity: _actionLabel != null ? 1 : 0,
+                  duration: const Duration(milliseconds: 160),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      _actionLabel ?? '',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onPrimary,
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Future<void> _openSensitivitySheet(BuildContext context) async {
-    var value = widget.sensitivity;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) {
-        final cs = Theme.of(sheetCtx).colorScheme;
-        return StatefulBuilder(
-          builder: (sheetCtx, setSheet) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '触摸板灵敏度',
-                    style: Theme.of(sheetCtx).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+/// 触摸板灵敏度 sheet（触摸板页 / 横屏手柄页共用）。
+Future<void> showRtSensitivitySheet(
+  BuildContext context, {
+  required double value,
+  required ValueChanged<double> onChanged,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (sheetCtx) {
+      final cs = Theme.of(sheetCtx).colorScheme;
+      return StatefulBuilder(
+        builder: (sheetCtx, setSheet) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '触摸板灵敏度',
+                  style: Theme.of(sheetCtx).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '指针速度倍率（触摸板自己的加速度曲线，不受电脑设置影响）',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '指针速度倍率（触摸板自己的加速度曲线，不受电脑设置影响）',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                  Slider(
-                    value: value,
-                    min: kRtPadSensitivityMin,
-                    max: kRtPadSensitivityMax,
-                    divisions: 21,
-                    label: value.toStringAsFixed(1),
-                    onChanged: (v) {
-                      setSheet(() => value = v);
-                      widget.onSensitivityChanged(v);
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+                ),
+                Slider(
+                  value: value,
+                  min: kRtPadSensitivityMin,
+                  max: kRtPadSensitivityMax,
+                  divisions: 21,
+                  label: value.toStringAsFixed(1),
+                  onChanged: (v) {
+                    setSheet(() => value = v);
+                    onChanged(v);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
 /// 手势图例（首次进入显示，首次触摸即隐藏）。
@@ -509,9 +492,9 @@ class _LegendChip extends StatelessWidget {
   }
 }
 
-/// 连接状态点（不用看也要能瞥一眼）。
-class _ConnDot extends StatelessWidget {
-  const _ConnDot({required this.connected, required this.cs});
+/// 连接状态点（不用看也要能瞥一眼）。触摸板页 / 横屏手柄页共用。
+class RtConnDot extends StatelessWidget {
+  const RtConnDot({super.key, required this.connected, required this.cs});
 
   final bool connected;
   final ColorScheme cs;
@@ -548,9 +531,10 @@ class _ConnDot extends StatelessWidget {
   }
 }
 
-/// 触摸板页的圆形小按钮（退出 / 灵敏度）。
-class _PadChipButton extends StatelessWidget {
-  const _PadChipButton({
+/// 触摸板页的圆形小按钮（退出 / 灵敏度 / 编辑等浮层动作）。共用。
+class RtPadChipButton extends StatelessWidget {
+  const RtPadChipButton({
+    super.key,
     required this.icon,
     required this.tooltip,
     required this.onTap,

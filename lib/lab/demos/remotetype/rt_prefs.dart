@@ -1,6 +1,7 @@
-// RemoteType 本地偏好：可编排快捷键（含序列宏）+ 历史输入。
+// RemoteType 本地偏好：可编排快捷键（含序列宏）+ 历史输入 + 手柄按钮摆位。
 
 import 'dart:convert';
+import 'dart:ui' show Offset;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +12,7 @@ const _kShortcutsKeyV2 = 'rt_shortcuts_v2';
 const _kHistoryKey = 'rt_input_history_v1';
 const _kBarDisplayKey = 'rt_bar_display_v1';
 const _kTouchpadSensitivityKey = 'rt_touchpad_sensitivity_v1';
+const _kCanvasLayoutKey = 'rt_canvas_layout_v1';
 const _kMaxHistory = 40;
 
 /// 快捷键托盘的显示配置（与快捷键数据分离——只是外观，不影响发送内容）。
@@ -142,6 +144,89 @@ List<RtShortcutItem> kDefaultRtShortcuts() {
   ];
 }
 
+/// 横屏画布模块锚点：显隐 + 归一化中心（0..1）。
+class RtCanvasAnchor {
+  const RtCanvasAnchor({
+    required this.visible,
+    required this.x,
+    required this.y,
+  });
+
+  final bool visible;
+  final double x;
+  final double y;
+
+  Map<String, dynamic> toJson() => {'v': visible, 'x': x, 'y': y};
+
+  factory RtCanvasAnchor.fromJson(Map<String, dynamic> j) => RtCanvasAnchor(
+        // 坐标异常一律钳回画布内（拖动越界的旧数据自愈），不丢整条。
+        visible: j['v'] == true,
+        x: (j['x'] is num ? (j['x'] as num).toDouble() : 0.5)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+        y: (j['y'] is num ? (j['y'] as num).toDouble() : 0.5)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+      );
+}
+
+/// 横屏画布布局：模块（触摸板 / 输入框）锚点 + 按钮归一化中心。
+/// 空表 = 首跑，画布用内置默认布局。删掉的按钮残位无害（同 id 回归原位）。
+class RtCanvasLayout {
+  const RtCanvasLayout({this.modules = const {}, this.buttons = const {}});
+
+  final Map<String, RtCanvasAnchor> modules;
+  final Map<String, Offset> buttons;
+
+  RtCanvasLayout withModule(String id, RtCanvasAnchor anchor) => RtCanvasLayout(
+        modules: Map.of(modules)..[id] = anchor,
+        buttons: buttons,
+      );
+
+  RtCanvasLayout withButton(String id, Offset pos) => RtCanvasLayout(
+        modules: modules,
+        buttons: Map.of(buttons)..[id] = pos,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'modules': {for (final e in modules.entries) e.key: e.value.toJson()},
+        'buttons': {
+          for (final e in buttons.entries)
+            e.key: {'x': e.value.dx, 'y': e.value.dy},
+        },
+      };
+
+  factory RtCanvasLayout.fromJson(Map<String, dynamic> j) {
+    // 坏条目只丢自己（is 判型而非 as 强转——强转抛错会把整表兜底掉）。
+    final modules = <String, RtCanvasAnchor>{};
+    final rawModules = j['modules'];
+    if (rawModules is Map) {
+      for (final e in rawModules.entries) {
+        if (e.value is Map) {
+          modules[e.key.toString()] =
+              RtCanvasAnchor.fromJson((e.value as Map).cast<String, dynamic>());
+        }
+      }
+    }
+    final buttons = <String, Offset>{};
+    final rawButtons = j['buttons'];
+    if (rawButtons is Map) {
+      for (final e in rawButtons.entries) {
+        if (e.value is! Map) continue;
+        final jb = (e.value as Map).cast<String, dynamic>();
+        final jx = jb['x'];
+        final jy = jb['y'];
+        if (jx is! num || jy is! num) continue;
+        buttons[e.key.toString()] = Offset(
+          jx.toDouble().clamp(0.0, 1.0).toDouble(),
+          jy.toDouble().clamp(0.0, 1.0).toDouble(),
+        );
+      }
+    }
+    return RtCanvasLayout(modules: modules, buttons: buttons);
+  }
+}
+
 class RtPrefs {
   RtPrefs._();
 
@@ -237,5 +322,23 @@ class RtPrefs {
     final p = await SharedPreferences.getInstance();
     final v = value.clamp(kRtPadSensitivityMin, kRtPadSensitivityMax).toDouble();
     await p.setDouble(_kTouchpadSensitivityKey, v);
+  }
+
+  /// 横屏画布布局（模块锚点 + 按钮摆位）。JSON 坏形整表兜底为空（画布回
+  /// 内置默认），条目级坏形在 RtCanvasLayout.fromJson 内只丢自己。
+  static Future<RtCanvasLayout> loadCanvasLayout() async {
+    final p = await SharedPreferences.getInstance();
+    final raw = p.getString(_kCanvasLayoutKey);
+    if (raw == null || raw.isEmpty) return const RtCanvasLayout();
+    try {
+      return RtCanvasLayout.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return const RtCanvasLayout();
+    }
+  }
+
+  static Future<void> saveCanvasLayout(RtCanvasLayout layout) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kCanvasLayoutKey, jsonEncode(layout.toJson()));
   }
 }
