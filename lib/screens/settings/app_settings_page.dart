@@ -1,8 +1,8 @@
 // 应用设置：钉选快捷区（OS 通知栏快捷开关式编排）。
 //
-// 主页面只显示当前已钉的入口格子：点按打开、短按拖动排序、长按 2s 进编辑态
-// （拖入底部垃圾桶可删除）。拖拽手感对齐 ⋯ 溢出面板的 q 弹配置，
-// 见 const_settings。编辑态逻辑（垃圾桶 / 长按 2s 检测）见 pinned_grid.dart。
+// 主页面只显示当前已钉的入口格子：点按打开、长按拖动排序，拖起时底部浮现
+// 垃圾桶，拖入直接删除（拖拽手感对齐 ⋯ 溢出面板的 q 弹配置，见
+// const_settings）。网格与垃圾桶交互见 pinned_grid.dart。
 // 全量清单（tag 分组 + 搜索 + 点选钉/拔）收进右上「管理」拉起的圆角弹窗，
 // 见 pin_editor_sheet.dart。通用项（主题 / 底栏容量）保留为底部一组卡片。
 
@@ -53,7 +53,7 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 6, 4, 12),
               child: Text(
-                '点按打开 · 短按拖动排序 · 长按 2s 编辑（拖入垃圾桶删除）',
+                '点按打开 · 长按拖动排序 · 拖入垃圾桶删除',
                 style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
             ),

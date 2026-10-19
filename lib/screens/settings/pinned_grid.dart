@@ -1,16 +1,17 @@
-// 设置页 · 钉选网格（含编辑态 + 垃圾桶）。
+// 设置页 · 钉选网格（拖动排序 + 拖入垃圾桶删除）。
 //
-// 双态：
-//   · 排序态（默认）：短按拖动 = 排序；长按 2s 无位移 = 进编辑态。
-//   · 编辑态：单元格长按可拖 → 底部垃圾桶 DragTarget 接受 = 拔钉（直接删）。
+// 单一拖拽模式：长按格子拖动（原手感，200ms）。
+//   · 松手在网格 → 换位排序（ReorderableBuilder 原路）；
+//   · 松手在垃圾桶 → 直接删除（无确认，removePin 保底 ≥1 条）。
+// 两者落点不同，互不冲突。
 //
-// 编辑态切回排序态：右上角「完成」按钮。
-// 退出编辑态不影响钉选列表；拔钉走 nav_pins_notifier.removePin（至少留 1 条）。
+// 拖起瞬间底部浮现垃圾桶，松手即收。垃圾桶接受与网格换位是两条独立通路：
+//   DragTarget.onAccept（先）置 _droppedOnTrash 并 removePin →
+//   包的 onReorder（后）看到 flag 直接跳过重排（列表已被删除更新）。
 //
-// 手动长按 2s 检测走 Listener + Timer，绕开 ReorderableBuilder 包内部的
-// LongPressDraggable/Draggable 手势竞争；判「未移动」用 12px 阈值。
-
-import 'dart:async';
+// data 传递靠包提供的 CustomDraggable（包内 Draggable 的 data 仅从
+// CustomDraggable 读取，普通子节点恒 null，DragTarget 收不到候选）。
+// 顶层 key 契约：itemBuilder 直接子节点必须带 ValueKey（CustomDraggable 承担）。
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,12 +23,6 @@ import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/ui/shell/nav_entry_icon.dart';
 import 'const_settings.dart';
-
-/// 长按 2s 进编辑态的时间窗口。
-const Duration _kEnterEditModeHold = Duration(seconds: 2);
-
-/// 长按判定未移动的位移阈值（屏幕 px）。
-const double _kEnterEditModeMoveThreshold = 12.0;
 
 /// 拖到垃圾桶的视觉放大。
 const double _kTrashHoverScale = 1.08;
@@ -47,23 +42,11 @@ class PinnedGrid extends ConsumerStatefulWidget {
 }
 
 class _PinnedGridState extends ConsumerState<PinnedGrid> {
-  bool _editMode = false;
+  /// 本次拖拽是否已被垃圾桶接受（onAccept 先于 onReorder 触发）。
+  bool _droppedOnTrash = false;
 
-  void _enterEdit() {
-    if (_editMode) return;
-    HapticFeedback.mediumImpact();
-    setState(() => _editMode = true);
-  }
-
-  void _exitEdit() {
-    if (!_editMode) return;
-    setState(() => _editMode = false);
-  }
-
-  Future<void> _removePin(String id) async {
-    HapticFeedback.heavyImpact();
-    await ref.read(navPinsProvider.notifier).removePin(id);
-  }
+  /// 是否有格子正在被拖动（仅控制垃圾桶显隐）。
+  bool _dragging = false;
 
   @override
   Widget build(BuildContext context) {
@@ -81,96 +64,97 @@ class _PinnedGridState extends ConsumerState<PinnedGrid> {
       );
     }
 
-    // 非编辑态：直接返回网格（避免 Stack + 单非定位子导致 ListView 中布局
-    // 受约束异常，影响图标渲染）。
-    if (!_editMode) {
-      return _SortableGrid(
-        entries: entries,
-        visibleSlotCount: widget.visibleSlotCount,
-        onLongHold: _enterEdit,
-      );
-    }
-
-    // 编辑态：Stack 叠放网格 + 完成按钮 + 底部垃圾桶。
+    // Stack 常驻两子：网格 + 拖动中才可见的垃圾桶。结构不随拖动切换，
+    // 避免 ReorderableBuilder 在拖拽途中被重建。
     return Stack(
       children: [
-        _EditableGrid(
+        _SortableGrid(
           entries: entries,
           visibleSlotCount: widget.visibleSlotCount,
-        ),
-        Positioned(
-          top: 4,
-          right: 0,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16, top: 0),
-              child: FilledButton.icon(
-                onPressed: _exitEdit,
-                icon: const Icon(Icons.check, size: 18),
-                label: const Text('完成'),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          onDragStarted: _handleDragStarted,
+          onDragEnd: _handleDragEnd,
+          onReorder: _handleReorder,
         ),
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          child: SafeArea(
-            top: false,
-            child: _TrashZone(onAccept: _removePin),
+          child: _TrashZone(
+            visible: _dragging,
+            onAccept: _handleTrashAccept,
           ),
         ),
       ],
     );
   }
+
+  void _handleDragStarted(int index) {
+    HapticFeedback.lightImpact();
+    _droppedOnTrash = false;
+    if (!_dragging) setState(() => _dragging = true);
+  }
+
+  void _handleDragEnd(int index) {
+    HapticFeedback.mediumImpact();
+    if (_dragging) setState(() => _dragging = false);
+    // _droppedOnTrash 留给 onReorder 消费（包契约：onDragEnd 先于 onReorder）。
+  }
+
+  void _handleReorder(List<String> Function(List<String>) reorderFn) {
+    if (_droppedOnTrash) {
+      // 已删除：列表由 removePin 更新，跳过基于旧列表的重排。
+      _droppedOnTrash = false;
+      return;
+    }
+    ref
+        .read(navPinsProvider.notifier)
+        .setPins(
+          // 必须用网格 children 同源的 entries 派生列表，保证与
+          // reorderFn 的 index 逐位对齐（pinIds 里若有未解析 id，
+          // entries 会比 pinIds 短，直接喂 pinIds 会错位重排）。
+          reorderFn(widget.entries.map((e) => e.id).toList()),
+        );
+  }
+
+  void _handleTrashAccept(String id) {
+    _droppedOnTrash = true;
+    HapticFeedback.heavyImpact();
+    ref.read(navPinsProvider.notifier).removePin(id);
+  }
 }
 
-// ── 排序态网格：ReorderableBuilder + Listener 监测 2s 长按 ──────────────
+// ── 拖拽网格：ReorderableBuilder + CustomDraggable 携带 id ──────────────
 
 class _SortableGrid extends ConsumerWidget {
   const _SortableGrid({
     required this.entries,
     required this.visibleSlotCount,
-    required this.onLongHold,
+    required this.onDragStarted,
+    required this.onDragEnd,
+    required this.onReorder,
   });
 
   final List<NavEntry> entries;
   final int visibleSlotCount;
-  final VoidCallback onLongHold;
+  final ItemCallback onDragStarted;
+  final ItemCallback onDragEnd;
+  final void Function(List<String> Function(List<String>)) onReorder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     return RepaintBoundary(
       child: ReorderableBuilder<String>.builder(
-        // 短按立即拖（长按抬起手延迟 = 0）—— 长按 2s 进编辑态走
-        // 外层 Listener + Timer，跟包内 drag 完全不冲突。
-        longPressDelay: Duration.zero,
+        // 原长按手感（200ms）：区分点按打开 / 拖动，编辑弹窗同一参数。
+        longPressDelay: kSettingsDragLongPressDelay,
         feedbackScaleFactor: kSettingsDragFeedbackScale,
         animationConfig: kSettingsDragConfig,
         dragChildBoxDecoration: settingsDragChildDecoration(cs.onSurface),
-        onDragStarted: (_) => HapticFeedback.lightImpact(),
+        onDragStarted: onDragStarted,
         // 跨格换位 tick（包契约：仅真正换位时回调，非逐帧）
         onUpdatedDraggedChild: (_) => HapticFeedback.selectionClick(),
-        onDragEnd: (_) => HapticFeedback.mediumImpact(),
-        onReorder: (reorderFn) {
-          ref
-              .read(navPinsProvider.notifier)
-              .setPins(
-                // 必须用网格 children 同源的 entries 派生列表，保证与
-                // reorderFn 的 index 逐位对齐（pinIds 里若有未解析 id，
-                // entries 会比 pinIds 短，直接喂 pinIds 会错位重排）。
-                reorderFn(entries.map((e) => e.id).toList()),
-              );
-        },
+        onDragEnd: onDragEnd,
+        onReorder: onReorder,
         itemCount: entries.length,
         childBuilder: (itemBuilder) {
           return GridView.builder(
@@ -186,12 +170,11 @@ class _SortableGrid extends ConsumerWidget {
             itemCount: entries.length,
             itemBuilder: (context, i) {
               return itemBuilder(
-                _LongHoldDetector(
-                  // ReorderableBuilder 要求直接子节点带 ValueKey（assert）。
-                  // 放在 _LongHoldDetector 上以满足契约；_PinnedCell 仍可放 key
-                  // 走元素复用，但顶层 key 必填。
+                // 顶层 key 契约放这里；data 让包内 Draggable 带上 id，
+                // 垃圾桶 DragTarget<String> 才能接受候选。
+                CustomDraggable(
                   key: ValueKey(entries[i].id),
-                  onLongHold: onLongHold,
+                  data: entries[i].id,
                   child: _PinnedCell(
                     entry: entries[i],
                     isHome: i == 0,
@@ -213,209 +196,102 @@ class _SortableGrid extends ConsumerWidget {
   }
 }
 
-/// 2s 长按检测：手指按下 2s 内未越过 12px → 触发 [onLongHold]。
-/// 走 Listener + Timer，不进手势竞技场，不影响 ReorderableBuilder 的 drag。
-class _LongHoldDetector extends StatefulWidget {
-  const _LongHoldDetector({super.key, required this.onLongHold, required this.child});
-
-  final VoidCallback onLongHold;
-  final Widget child;
-
-  @override
-  State<_LongHoldDetector> createState() => _LongHoldDetectorState();
-}
-
-class _LongHoldDetectorState extends State<_LongHoldDetector> {
-  Offset? _pressStart;
-  Timer? _holdTimer;
-
-  @override
-  void dispose() {
-    _holdTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startHold(Offset pos) {
-    _pressStart = pos;
-    _holdTimer?.cancel();
-    _holdTimer = Timer(_kEnterEditModeHold, () {
-      _pressStart = null;
-      widget.onLongHold();
-    });
-  }
-
-  void _cancelHold() {
-    _holdTimer?.cancel();
-    _holdTimer = null;
-    _pressStart = null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (e) => _startHold(e.position),
-      onPointerMove: (e) {
-        final start = _pressStart;
-        if (start == null) return;
-        if ((e.position - start).distance > _kEnterEditModeMoveThreshold) {
-          _cancelHold();
-        }
-      },
-      onPointerUp: (_) => _cancelHold(),
-      onPointerCancel: (_) => _cancelHold(),
-      child: widget.child,
-    );
-  }
-}
-
-// ── 编辑态网格：每格 LongPressDraggable（数据 = id），底部 DragTarget ───
-
-class _EditableGrid extends StatelessWidget {
-  const _EditableGrid({
-    required this.entries,
-    required this.visibleSlotCount,
-  });
-
-  final List<NavEntry> entries;
-  final int visibleSlotCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    // 给底部垃圾桶预留空间，避免最末行格子被压住。
-    const double kTrashReserve = 84;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: kTrashReserve),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: kSettingsCellCrossAxisCount,
-        mainAxisSpacing: kSettingsCellSpacing,
-        crossAxisSpacing: kSettingsCellSpacing,
-        childAspectRatio: kSettingsCellAspectRatio,
-      ),
-      itemCount: entries.length,
-      itemBuilder: (context, i) {
-        final entry = entries[i];
-        return LongPressDraggable<String>(
-          data: entry.id,
-          delay: const Duration(milliseconds: 150),
-          feedback: Container(
-            decoration: settingsDragChildDecoration(cs.onSurface),
-            child: _PinnedCell(
-              entry: entry,
-              isHome: i == 0,
-              inOverflow: i >= visibleSlotCount,
-              onTap: () {},
-              scale: kSettingsDragFeedbackScale,
-            ),
-          ),
-          childWhenDragging: Opacity(
-            opacity: 0.28,
-            child: _PinnedCell(
-              entry: entry,
-              isHome: i == 0,
-              inOverflow: i >= visibleSlotCount,
-              onTap: () {},
-            ),
-          ),
-          child: _PinnedCell(
-            key: ValueKey(entry.id),
-            entry: entry,
-            isHome: i == 0,
-            inOverflow: i >= visibleSlotCount,
-            onTap: () {}, // 编辑态：tap = no-op；退出编辑态再开
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── 垃圾桶：DragTarget<String>，悬停时高亮 + 微放大 ─────────────────────
+// ── 垃圾桶：DragTarget<String>，拖动中浮现，悬停高亮 + 微放大 ───────────
 
 class _TrashZone extends StatelessWidget {
-  const _TrashZone({required this.onAccept});
+  const _TrashZone({required this.visible, required this.onAccept});
+
+  /// false 时整棵从树上摘掉（DragTarget 不在 → 不拦截指针）。
+  final bool visible;
 
   final ValueChanged<String> onAccept;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: DragTarget<String>(
-        onAcceptWithDetails: (details) => onAccept(details.data),
-        builder: (context, candidate, rejected) {
-          final hovering = candidate.isNotEmpty;
-          final color = hovering ? cs.errorContainer : cs.surface;
-          final onColor = hovering ? cs.onErrorContainer : cs.onSurfaceVariant;
-          final borderColor = hovering ? cs.error : cs.outlineVariant;
-          return AnimatedScale(
-            scale: hovering ? _kTrashHoverScale : 1.0,
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOutBack,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                vertical: 14,
-                horizontal: 24,
-              ),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: borderColor,
-                  width: hovering ? 2 : 1,
+    return Visibility(
+      visible: visible,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: DragTarget<String>(
+          onAcceptWithDetails: (details) => onAccept(details.data),
+          builder: (context, candidate, rejected) {
+            final cs = Theme.of(context).colorScheme;
+            final hovering = candidate.isNotEmpty;
+            final color = hovering ? cs.errorContainer : cs.surface;
+            final onColor = hovering
+                ? cs.onErrorContainer
+                : cs.onSurfaceVariant;
+            final borderColor = hovering ? cs.error : cs.outlineVariant;
+            return Center(
+              child: AnimatedScale(
+                scale: hovering ? _kTrashHoverScale : 1.0,
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutBack,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 22,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: borderColor,
+                      width: hovering ? 2 : 1,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.delete_outline_rounded,
+                        color: onColor,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        hovering ? '松手删除' : '拖到这里删除',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: onColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.delete_outline_rounded,
-                    color: onColor,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    hovering ? '松手删除' : '拖到这里删除',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: onColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-// ── 共享：已钉格子卡面（排序 / 编辑两态） ───────────────────────────────
+// ── 已钉格子卡面 ────────────────────────────────────────────────────────
 
+/// 已钉格子：surface 卡面 + 角标（首页 / ⋯ 槽位）；按压 iOS 弹性缩放。
 class _PinnedCell extends StatefulWidget {
   const _PinnedCell({
-    super.key,
     required this.entry,
     required this.isHome,
     required this.inOverflow,
     required this.onTap,
-    this.scale = 1.0,
   });
 
   final NavEntry entry;
   final bool isHome;
   final bool inOverflow;
   final VoidCallback onTap;
-
-  /// 拖动反馈图层的额外缩放（1.0 = 原尺寸）。
-  final double scale;
 
   @override
   State<_PinnedCell> createState() => _PinnedCellState();
@@ -453,15 +329,6 @@ class _PinnedCellState extends State<_PinnedCell>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final card = _buildCard(cs);
-    if (widget.scale != 1.0) {
-      // 拖动反馈：禁用 InkWell onTap 也保持弹性，但跳过 onHighlightChanged。
-      return Transform.scale(scale: widget.scale, child: card);
-    }
-    return card;
-  }
-
-  Widget _buildCard(ColorScheme cs) {
     return Material(
       color: cs.surface,
       borderRadius: BorderRadius.circular(kSettingsCellRadius),
@@ -474,9 +341,9 @@ class _PinnedCellState extends State<_PinnedCell>
           animation: _ctrl,
           builder: (context, child) {
             final t = _pressed ? _ctrl.value : 1 - _ctrl.value;
-            final press = 1 + (1.06 - 1) * _pressCurve.transform(t);
+            final scale = 1 + (1.06 - 1) * _pressCurve.transform(t);
             return Transform.scale(
-              scale: press,
+              scale: scale,
               alignment: Alignment.center,
               child: child,
             );
@@ -499,6 +366,8 @@ class _PinnedCellState extends State<_PinnedCell>
                           ),
                         ),
                         child: Center(
+                          // 设置页钉选约定：tint = onPrimaryContainer 主轮廓，
+                          // 强调点走 NavEntryIcon 主题自适应
                           child: NavEntryIcon(
                             entry: widget.entry,
                             size: kSettingsCellIconSize,
