@@ -2,20 +2,22 @@
 //
 // 横屏画布：触摸板 / 输入框 / 快捷按钮是同一模块系统的三类模块，整个横屏
 // 自由编排。形态源自「游戏手柄」（左手触摸区、右手按钮区），但布局不封死
-// ——编辑模式下每个模块可拖动摆位、触摸板与输入框可开关显隐。
+// ——编辑模式下模块与按钮都能拖动摆位、调整大小，触摸板/输入框/每个按钮
+// 都能开关显隐。
 //
 // 两态（边界刻意做得明显）：
 //   use（使用态）—— 触摸板吃手势、输入框打字、按钮点按触发 + 长按拖动；
 //                   顶部浮层 = 连接点 · 灵敏度 · 进入编辑 · 退出。
-//   edit（编辑态）—— 触摸板/输入框/按钮全部转入摆位（画布主色描边框 +
-//                   顶部横幅 + 底部显隐面板；所有使用类手势停用，拖动直达
-//                   不需长按）。进出经顶部横幅「完成」或系统返回（页面层
-//                   PopScope 先退编辑再退画布）。
+//   edit（编辑态）—— 画布主色描边框 + 顶部横幅 + 底部显隐面板，所有使用类
+//                   手势停用。拖动=移位、右下角拉手=缩放、点按按钮=显隐
+//                   （隐藏者以幽灵呈现可点回）。进出经「完成」或系统返回
+//                   （页面层 PopScope 先退编辑再退画布）。
 //
-// 布局持久化：RtCanvasLayout（模块锚点 + 按钮归一化中心），拖动期间本地
-// 预览、松手一次性回写（页面层落盘）。坐标全部归一化，与屏幕尺寸解耦。
+// 职责切分：快捷键「有哪些」归打字页编辑器（rt_shortcut_bar 的列表编辑），
+// 「显示哪些」归画布（RtCanvasButtonPos.v）——定义与编排两层分离。
 //
-// AppBar 不参与（全出血）；退出走浮层或系统返回。
+// 布局持久化：RtCanvasLayout（模块锚点含宽高 + 按钮位含倍率/显隐），拖动
+// 期间本地预览、松手一次性回写（页面层落盘）。坐标全部归一化。
 
 import 'dart:async';
 
@@ -23,7 +25,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/context/colors.dart';
-import 'rt_prefs.dart' show RtCanvasAnchor, RtCanvasLayout, RtShortcutItem;
+import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
+import 'rt_prefs.dart'
+    show
+        RtCanvasAnchor,
+        RtCanvasButtonPos,
+        RtCanvasLayout,
+        RtShortcutItem;
 import 'rt_session.dart';
 import 'rt_touch_surface.dart'
     show RtConnDot, RtPadChipButton, RtTouchSurface, showRtSensitivitySheet;
@@ -92,7 +100,7 @@ class RtCanvasView extends StatefulWidget {
   final bool editMode;
   final ValueChanged<bool> onEditModeChanged;
 
-  /// 摆位落位 / 显隐切换回写（页面层持久化）。
+  /// 摆位 / 缩放 / 显隐回写（页面层持久化）。
   final ValueChanged<RtCanvasLayout> onLayoutChanged;
   final ValueChanged<RtShortcutItem> onFire;
   final VoidCallback onEditShortcuts;
@@ -104,30 +112,50 @@ class RtCanvasView extends StatefulWidget {
 }
 
 class _RtCanvasViewState extends State<RtCanvasView> {
-  // 按钮规格。
-  static const double _btnW = 86;
-  static const double _btnH = 56;
+  // 模块默认规格（布局数据缺条目时兜底）：触摸板居左偏大、输入框右上横条。
+  static const double _padDefW = 0.54, _padDefH = 0.84;
+  static const double _inputDefW = 0.46, _inputDefH = 0.18;
 
-  // 模块规格（位置可编排、大小固定 v1）：触摸板按画布比例、输入框定高。
-  static const double _padWf = 0.54;
-  static const double _padHf = 0.84;
-  static const double _inputH = 64;
+  // 模块尺寸范围（wMin, wMax, hMin, hMax，归一化）。
+  static (double, double, double, double) _moduleRange(String id) =>
+      id == kRtCanvasModuleTouchpad
+          ? (0.25, 1.0, 0.35, 1.0)
+          : (0.20, 1.0, 0.08, 0.40);
+
+  // 输入框像素高度硬钳（fraction 随画布高浮动，太扁/太高都不成框）。
+  static const double _inputHMinPx = 44, _inputHMaxPx = 180;
 
   final GlobalKey _canvasKey = GlobalKey();
 
-  // 拖动预览（编辑态）：模块/按钮 id → 当前归一化中心。松手一次性回写。
+  // 移动预览：模块/按钮 id → 当前归一化中心。松手一次性回写。
   String? _dragId;
   Offset? _dragPos;
 
+  // 模块缩放预览：id + 实时宽高（归一化）。
+  String? _resizeModuleId;
+  double _liveW = 0;
+  double _liveH = 0;
+
   // ================= 布局解析 =================
 
-  /// 内置默认布局（布局数据缺条目时兜底）：触摸板居左、输入框右上，
-  /// 按钮自动找位——首跑即接近旧手柄形态。
+  /// 内置默认锚点（布局数据缺条目时兜底）——首跑即接近旧手柄形态。
   static RtCanvasAnchor _defaultAnchor(String id) {
     if (id == kRtCanvasModuleTouchpad) {
-      return const RtCanvasAnchor(visible: true, x: 0.27, y: 0.55);
+      return const RtCanvasAnchor(
+        visible: true,
+        x: 0.27,
+        y: 0.55,
+        w: _padDefW,
+        h: _padDefH,
+      );
     }
-    return const RtCanvasAnchor(visible: true, x: 0.73, y: 0.16);
+    return const RtCanvasAnchor(
+      visible: true,
+      x: 0.73,
+      y: 0.16,
+      w: _inputDefW,
+      h: _inputDefH,
+    );
   }
 
   RtCanvasAnchor _anchorOf(String id) =>
@@ -139,7 +167,15 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     return Offset(a.x, a.y);
   }
 
-  /// 全局坐标 → 画布归一化坐标。画布异常小（span ≤ 0）时 0/0 = NaN 会
+  /// 模块实时宽高（缩放预览优先，否则锚点值，缺省回默认）。
+  (double, double) _moduleFractions(String id) {
+    if (_resizeModuleId == id) return (_liveW, _liveH);
+    final a = _anchorOf(id);
+    final def = _defaultAnchor(id);
+    return (a.w ?? def.w!, a.h ?? def.h!);
+  }
+
+  /// 全局坐标 → 画布归一化坐标。画布异常小（尺寸 ≤ 0）时 0/0 = NaN 会
   /// 一路漏进 Positioned 撑爆布局，落中心兜底。
   Offset _toCanvasNormalized(Offset global) {
     final box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
@@ -148,11 +184,13 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     if (size.width <= 0 || size.height <= 0) return const Offset(0.5, 0.5);
     final local = box.globalToLocal(global);
     double clamp01(double v) => v.clamp(0.0, 1.0).toDouble();
-    return Offset(clamp01(local.dx / size.width), clamp01(local.dy / size.height));
+    return Offset(
+        clamp01(local.dx / size.width), clamp01(local.dy / size.height));
   }
 
-  /// 拖动落位回写：use 态按钮长按拖动与 edit 态模块拖动共用一个出口。
-  void _commitDrag() {
+  // ================= 回写 =================
+
+  void _commitModuleDrag() {
     final id = _dragId;
     final settled = _dragPos;
     setState(() {
@@ -160,21 +198,65 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       _dragPos = null;
     });
     if (id == null || settled == null) return;
-    final clamped = Offset(
-      settled.dx.clamp(0.0, 1.0).toDouble(),
-      settled.dy.clamp(0.0, 1.0).toDouble(),
-    );
-    if (id == kRtCanvasModuleTouchpad || id == kRtCanvasModuleInput) {
-      final cur = _anchorOf(id);
-      widget.onLayoutChanged(
-        widget.layout.withModule(
-          id,
-          RtCanvasAnchor(visible: cur.visible, x: clamped.dx, y: clamped.dy),
+    if (id != kRtCanvasModuleTouchpad && id != kRtCanvasModuleInput) return;
+    final cur = _anchorOf(id);
+    // 空拖（点按没动）不回写：省一次无谓落盘。
+    if ((settled - Offset(cur.x, cur.y)).distance <= 1e-6) return;
+    widget.onLayoutChanged(
+      widget.layout.withModule(
+        id,
+        RtCanvasAnchor(
+          visible: cur.visible,
+          x: settled.dx.clamp(0.0, 1.0).toDouble(),
+          y: settled.dy.clamp(0.0, 1.0).toDouble(),
+          w: cur.w,
+          h: cur.h,
         ),
-      );
-    } else {
-      widget.onLayoutChanged(widget.layout.withButton(id, clamped));
+      ),
+    );
+    unawaited(HapticFeedback.selectionClick());
+  }
+
+  void _commitModuleResize() {
+    final id = _resizeModuleId;
+    final wf = _liveW;
+    final hf = _liveH;
+    setState(() => _resizeModuleId = null);
+    if (id == null) return;
+    final cur = _anchorOf(id);
+    final def = _defaultAnchor(id);
+    // 空拖（碰拉手没动）不回写。
+    if ((wf - (cur.w ?? def.w!)).abs() <= 1e-6 &&
+        (hf - (cur.h ?? def.h!)).abs() <= 1e-6) {
+      return;
     }
+    widget.onLayoutChanged(
+      widget.layout.withModule(
+        id,
+        RtCanvasAnchor(visible: cur.visible, x: cur.x, y: cur.y, w: wf, h: hf),
+      ),
+    );
+    unawaited(HapticFeedback.selectionClick());
+  }
+
+  void _updateButton(String id, RtCanvasButtonPos pos) {
+    widget.onLayoutChanged(widget.layout.withButton(id, pos));
+  }
+
+  void _toggleModuleVisible(String id) {
+    final cur = _anchorOf(id);
+    widget.onLayoutChanged(
+      widget.layout.withModule(
+        id,
+        RtCanvasAnchor(
+          visible: !cur.visible,
+          x: cur.x,
+          y: cur.y,
+          w: cur.w,
+          h: cur.h,
+        ),
+      ),
+    );
     unawaited(HapticFeedback.selectionClick());
   }
 
@@ -282,7 +364,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '编辑布局 · 拖动模块调整位置',
+                    '编辑布局 · 拖动移位 · 拉角缩放 · 点按按钮显隐',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -327,8 +409,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                   id: kRtCanvasModuleInput,
                 ),
                 ActionChip(
-                  avatar: Icon(Icons.playlist_add, size: 18,
-                      color: cs.onSurfaceVariant),
+                  avatar: Icon(Icons.playlist_add,
+                      size: 18, color: cs.onSurfaceVariant),
                   label: const Text('编辑快捷键'),
                   onPressed: widget.onEditShortcuts,
                 ),
@@ -349,16 +431,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     final visible = _anchorOf(id).visible;
     return FilterChip(
       selected: visible,
-      onSelected: (_) {
-        final cur = _anchorOf(id);
-        widget.onLayoutChanged(
-          widget.layout.withModule(
-            id,
-            RtCanvasAnchor(visible: !cur.visible, x: cur.x, y: cur.y),
-          ),
-        );
-        unawaited(HapticFeedback.selectionClick());
-      },
+      onSelected: (_) => _toggleModuleVisible(id),
       avatar: Icon(
         visible ? Icons.visibility : Icons.visibility_off,
         size: 18,
@@ -368,13 +441,182 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
+  // ---- 模块通用：尺寸解析与编辑态包装 ----
+
+  /// 模块像素尺寸（缩放预览优先；输入框高度另有像素硬钳）。
+  Size _moduleSizePx(String id, Size canvasSize) {
+    final (wf, hf) = _moduleFractions(id);
+    double w = wf * canvasSize.width;
+    double h = hf * canvasSize.height;
+    if (id == kRtCanvasModuleInput) {
+      h = h.clamp(_inputHMinPx, _inputHMaxPx).toDouble();
+    }
+    return Size(w, h);
+  }
+
+  /// 编辑态模块包装：直拖移位（pan）+ 右下角拉手缩放。
+  Widget _editModuleWrapper({
+    required String id,
+    required String label,
+    required Widget child,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (_) {
+            HapticFeedback.mediumImpact();
+            setState(() {
+              _dragId = id;
+              _dragPos = _anchorPos(id);
+            });
+          },
+          onPanUpdate: (d) {
+            // 双指各拖一个模块时只跟自己的 id——共享预览字段没守卫会把
+            // 两个模块拽成同步移动。
+            if (_dragId != id || _dragPos == null) return;
+            final box =
+                _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+            if (box == null) return;
+            setState(() {
+              _dragPos = Offset(
+                _dragPos!.dx + d.delta.dx / box.size.width,
+                _dragPos!.dy + d.delta.dy / box.size.height,
+              );
+            });
+          },
+          // end/cancel 同样认 id：预览被后落指覆盖时，先落指的抬手是空操作。
+          onPanEnd: (_) {
+            if (_dragId == id) _commitModuleDrag();
+          },
+          onPanCancel: () {
+            if (_dragId == id) {
+              setState(() {
+                _dragId = null;
+                _dragPos = null;
+              });
+            }
+          },
+          // 模块本体停用（触摸板手势/输入框键盘），只留移位 pan。
+          child: IgnorePointer(child: _editFrame(child, label)),
+        ),
+        // 右下缩放拉手：前置于模块之上，命中优先于移位 pan。
+        Positioned(
+          right: 2,
+          bottom: 2,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (_) {
+              HapticFeedback.mediumImpact();
+              final (wf, hf) = _moduleFractions(id);
+              setState(() {
+                _resizeModuleId = id;
+                _liveW = wf;
+                _liveH = hf;
+              });
+            },
+            onPanUpdate: (d) {
+              if (_resizeModuleId != id) return;
+              final box =
+                  _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+              if (box == null || box.size.width <= 0 || box.size.height <= 0) {
+                return;
+              }
+              final (wMin, wMax, hMin, hMax) = _moduleRange(id);
+              setState(() {
+                _liveW = (_liveW + d.delta.dx / box.size.width)
+                    .clamp(wMin, wMax)
+                    .toDouble();
+                _liveH = (_liveH + d.delta.dy / box.size.height)
+                    .clamp(hMin, hMax)
+                    .toDouble();
+              });
+            },
+            onPanEnd: (_) {
+              if (_resizeModuleId == id) _commitModuleResize();
+            },
+            onPanCancel: () {
+              if (_resizeModuleId == id) {
+                setState(() => _resizeModuleId = null);
+              }
+            },
+            child: RtCanvasGripDot(cs: context.colors.scheme),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 编辑态模块外框：主色描边 + 名称签（边界一眼可辨）。
+  Widget _editFrame(Widget child, String label) {
+    final cs = context.colors.scheme;
+    return Container(
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: cs.primary.withValues(alpha: 0.75),
+          width: 1.6,
+        ),
+      ),
+      child: Stack(
+        children: [
+          child,
+          Positioned(
+            left: 8,
+            top: 4,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.drag_indicator,
+                    size: 14, color: cs.primary.withValues(alpha: 0.9)),
+                const SizedBox(width: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: cs.primary.withValues(alpha: 0.9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 归一化中心 + 像素规格 → 像素矩形（夹回画布内）。
+  ({double left, double top}) _moduleRect(
+    Offset pos,
+    Size moduleSize,
+    Size canvasSize,
+  ) {
+    final cx = (pos.dx * canvasSize.width).clamp(
+      moduleSize.width / 2,
+      canvasSize.width < moduleSize.width
+          ? moduleSize.width / 2
+          : canvasSize.width - moduleSize.width / 2,
+    );
+    final cy = (pos.dy * canvasSize.height).clamp(
+      moduleSize.height / 2,
+      canvasSize.height < moduleSize.height
+          ? moduleSize.height / 2
+          : canvasSize.height - moduleSize.height / 2,
+    );
+    return (left: cx - moduleSize.width / 2, top: cy - moduleSize.height / 2);
+  }
+
   // ---- 模块：触摸板 ----
 
   Widget _touchpadModule(Size canvasSize) {
-    final w = canvasSize.width * _padWf;
-    final h = canvasSize.height * _padHf;
-    final rect = _moduleRect(_anchorPos(kRtCanvasModuleTouchpad),
-        Size(w, h), canvasSize);
+    final size = _moduleSizePx(kRtCanvasModuleTouchpad, canvasSize);
+    final rect = _moduleRect(
+      _anchorPos(kRtCanvasModuleTouchpad),
+      size,
+      canvasSize,
+    );
     Widget pad = RtTouchSurface(
       session: widget.session,
       connected: widget.connected,
@@ -384,17 +626,17 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       showLegend: !widget.editMode,
     );
     if (widget.editMode) {
-      // 编辑态：手势面停用，拖动直达（pan 不进手势仲裁的长按等待）。
-      pad = _panDraggable(
+      pad = _editModuleWrapper(
         id: kRtCanvasModuleTouchpad,
-        child: IgnorePointer(child: _editFrame(pad, '触摸板')),
+        label: '触摸板',
+        child: SizedBox(width: size.width, height: size.height, child: pad),
       );
     }
     return Positioned(
       left: rect.left,
       top: rect.top,
-      width: w,
-      height: h,
+      width: size.width,
+      height: size.height,
       child: pad,
     );
   }
@@ -402,12 +644,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   // ---- 模块：输入框 ----
 
   Widget _inputModule(Size canvasSize) {
-    final w = canvasSize.width * 0.46;
-    final rect = _moduleRect(
-      _anchorPos(kRtCanvasModuleInput),
-      Size(w, _inputH),
-      canvasSize,
-    );
+    final size = _moduleSizePx(kRtCanvasModuleInput, canvasSize);
+    final rect = _moduleRect(_anchorPos(kRtCanvasModuleInput), size, canvasSize);
     final cs = context.colors.scheme;
     Widget box = Container(
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -449,13 +687,20 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       ),
     );
     if (widget.editMode) {
-      // 编辑态：输入框停用（不弹键盘），拖动直达。
-      box = _panDraggable(
+      // 编辑态：输入框停用（不弹键盘），只留移位/缩放。
+      box = _editModuleWrapper(
         id: kRtCanvasModuleInput,
-        child: IgnorePointer(child: _editFrame(box, '输入框')),
+        label: '输入框',
+        child: SizedBox(width: size.width, height: size.height, child: box),
       );
     }
-    return Positioned(left: rect.left, top: rect.top, width: w, height: _inputH, child: box);
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: size.width,
+      height: size.height,
+      child: box,
+    );
   }
 
   // ---- 模块：快捷按钮 ----
@@ -463,7 +708,10 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   List<Widget> _buttonModules(Size canvasSize) {
     // 摆位解析：已存的直接用；没存过的按候选槽找空位（本次 build 内
     // 顺次占位，保证多个新按钮互不重叠、且重建结果稳定）。
-    final assigned = Map.of(widget.layout.buttons);
+    final assigned = <String, Offset>{
+      for (final e in widget.layout.buttons.entries)
+        e.key: Offset(e.value.x, e.value.y),
+    };
     final resolved = <String, Offset>{};
     for (final item in widget.shortcuts) {
       final saved = assigned[item.id];
@@ -475,238 +723,37 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       assigned[item.id] = slot;
       resolved[item.id] = slot;
     }
-    return [
-      for (final item in widget.shortcuts)
-        _buttonModule(item, savedPos: resolved[item.id]!, canvasSize: canvasSize),
-    ];
-  }
 
-  Widget _buttonModule(
-    RtShortcutItem item, {
-    required Offset savedPos,
-    required Size canvasSize,
-  }) {
-    final c = context.colors;
-    final cs = c.scheme;
-    final busy = widget.firingId == item.id;
-    final dragging = _dragId == item.id;
-    final pos = dragging && _dragPos != null ? _dragPos! : savedPos;
-
-    // 归一化中心 → 像素中心，再夹回按钮完整在场内。
-    final cx = (pos.dx * canvasSize.width).clamp(
-      _btnW / 2,
-      canvasSize.width < _btnW ? _btnW / 2 : canvasSize.width - _btnW / 2,
-    );
-    final cy = (pos.dy * canvasSize.height).clamp(
-      _btnH / 2,
-      canvasSize.height < _btnH ? _btnH / 2 : canvasSize.height - _btnH / 2,
-    );
-
-    final bg = busy ? cs.primary : c.surface;
-    final fg = busy ? cs.onPrimary : (widget.connected ? c.text : c.textMuted);
-
-    Widget button = AnimatedScale(
-      scale: dragging ? 1.10 : 1.0,
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOutBack,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        width: _btnW,
-        height: _btnH,
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: dragging
-                ? cs.primary.withValues(alpha: 0.8)
-                : cs.outlineVariant.withValues(alpha: 0.6),
-            width: dragging ? 1.6 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: cs.shadow.withValues(alpha: dragging ? 0.22 : 0.10),
-              blurRadius: dragging ? 18 : 8,
-              offset: Offset(0, dragging ? 8 : 3),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            // 编辑态禁触发：摆位时误发快捷键代价高（锁屏类还有确认弹窗）。
-            onTap: widget.editMode ? null : () => widget.onFire(item),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Center(
-                child: busy
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: cs.onPrimary,
-                        ),
-                      )
-                    : Text(
-                        item.label,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.15,
-                          fontWeight: FontWeight.w600,
-                          color: fg,
-                        ),
-                      ),
-              ),
+    final out = <Widget>[];
+    for (final item in widget.shortcuts) {
+      final center = resolved[item.id]!;
+      final pos = widget.layout.buttons[item.id] ??
+          RtCanvasButtonPos(x: center.dx, y: center.dy);
+      // 使用态隐藏按钮不渲染；编辑态以幽灵呈现（可点回）。
+      if (!widget.editMode && !pos.v) continue;
+      out.add(
+        RtCanvasButton(
+          item: item,
+          pos: pos,
+          canvasSize: canvasSize,
+          connected: widget.connected,
+          busy: widget.firingId == item.id,
+          editMode: widget.editMode,
+          toCanvasNormalized: _toCanvasNormalized,
+          onTransform: (c, sc) => _updateButton(
+            item.id,
+            pos.copyWith(
+              x: c?.dx.clamp(0.0, 1.0).toDouble(),
+              y: c?.dy.clamp(0.0, 1.0).toDouble(),
+              s: sc,
             ),
           ),
+          onToggleVisible: () =>
+              _updateButton(item.id, pos.copyWith(v: !pos.v)),
+          onFire: widget.onFire,
         ),
-      ),
-    );
-
-    if (widget.editMode) {
-      button = _panDraggable(id: item.id, startPos: savedPos, child: button);
-    } else {
-      // 使用态：长按拖动（抓取点保持不跳）；轻点让给内层 InkWell。
-      button = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onLongPressStart: (d) {
-          HapticFeedback.mediumImpact();
-          final finger = _toCanvasNormalized(d.globalPosition);
-          setState(() {
-            _dragId = item.id;
-            _dragPos = savedPos; // 拾起瞬间按钮原地不动
-            _grabDelta = finger - savedPos;
-          });
-        },
-        onLongPressMoveUpdate: (d) {
-          final finger = _toCanvasNormalized(d.globalPosition);
-          setState(() => _dragPos = finger - _grabDelta);
-        },
-        onLongPressEnd: (_) => _commitDrag(),
-        onLongPressCancel: () {
-          setState(() {
-            _dragId = null;
-            _dragPos = null;
-          });
-        },
-        child: button,
       );
     }
-    return Positioned(
-      left: cx - _btnW / 2,
-      top: cy - _btnH / 2,
-      child: button,
-    );
-  }
-
-  // 抓取点偏差：拾起时手指与按钮中心的距离，拖动期间保持不跳。
-  Offset _grabDelta = Offset.zero;
-
-  // ---- 编辑态拖动通用件 ----
-
-  /// 编辑态的直拖包装：pan 不需要长按等待，进入编辑即所见即所得。
-  /// [startPos] 缺省时按钮取其已解析摆位——自动找位的新按钮拖动起点
-  /// 必须是它屏幕上的位置，落到中心兜底会瞬移。
-  Widget _panDraggable({
-    required String id,
-    required Widget child,
-    Offset? startPos,
-  }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onPanStart: (_) {
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _dragId = id;
-          _dragPos = startPos ??
-              (id == kRtCanvasModuleTouchpad || id == kRtCanvasModuleInput
-                  ? _anchorPos(id)
-                  : widget.layout.buttons[id] ?? const Offset(0.5, 0.5));
-        });
-      },
-      onPanUpdate: (d) {
-        final box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-        if (box == null || _dragPos == null) return;
-        final size = box.size;
-        setState(() {
-          _dragPos = Offset(
-            _dragPos!.dx + d.delta.dx / size.width,
-            _dragPos!.dy + d.delta.dy / size.height,
-          );
-        });
-      },
-      onPanEnd: (_) => _commitDrag(),
-      onPanCancel: () {
-        setState(() {
-          _dragId = null;
-          _dragPos = null;
-        });
-      },
-      child: child,
-    );
-  }
-
-  /// 编辑态模块外框：主色描边 + 名称签（边界一眼可辨）。
-  Widget _editFrame(Widget child, String label) {
-    final cs = context.colors.scheme;
-    return Container(
-      foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: cs.primary.withValues(alpha: 0.75),
-          width: 1.6,
-        ),
-      ),
-      child: Stack(
-        children: [
-          child,
-          Positioned(
-            left: 8,
-            top: 4,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.drag_indicator, size: 14,
-                    color: cs.primary.withValues(alpha: 0.9)),
-                const SizedBox(width: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: cs.primary.withValues(alpha: 0.9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 归一化中心 + 固定规格 → 像素矩形（夹回画布内）。
-  ({double left, double top}) _moduleRect(
-    Offset pos,
-    Size moduleSize,
-    Size canvasSize,
-  ) {
-    final cx = (pos.dx * canvasSize.width).clamp(
-      moduleSize.width / 2,
-      canvasSize.width < moduleSize.width
-          ? moduleSize.width / 2
-          : canvasSize.width - moduleSize.width / 2,
-    );
-    final cy = (pos.dy * canvasSize.height).clamp(
-      moduleSize.height / 2,
-      canvasSize.height < moduleSize.height
-          ? moduleSize.height / 2
-          : canvasSize.height - moduleSize.height / 2,
-    );
-    return (left: cx - moduleSize.width / 2, top: cy - moduleSize.height / 2);
+    return out;
   }
 }

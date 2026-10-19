@@ -1,7 +1,6 @@
 // RemoteType 本地偏好：可编排快捷键（含序列宏）+ 历史输入 + 手柄按钮摆位。
 
 import 'dart:convert';
-import 'dart:ui' show Offset;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -144,19 +143,31 @@ List<RtShortcutItem> kDefaultRtShortcuts() {
   ];
 }
 
-/// 横屏画布模块锚点：显隐 + 归一化中心（0..1）。
+/// 横屏画布模块锚点：显隐 + 归一化中心（0..1）+ 归一化宽高。
 class RtCanvasAnchor {
   const RtCanvasAnchor({
     required this.visible,
     required this.x,
     required this.y,
+    this.w,
+    this.h,
   });
 
   final bool visible;
   final double x;
   final double y;
 
-  Map<String, dynamic> toJson() => {'v': visible, 'x': x, 'y': y};
+  /// 归一化宽高（相对画布，0..1）；null = 用模块内置默认（旧数据兼容）。
+  final double? w;
+  final double? h;
+
+  Map<String, dynamic> toJson() => {
+        'v': visible,
+        'x': x,
+        'y': y,
+        if (w != null) 'w': w,
+        if (h != null) 'h': h,
+      };
 
   factory RtCanvasAnchor.fromJson(Map<String, dynamic> j) => RtCanvasAnchor(
         // 坐标异常一律钳回画布内（拖动越界的旧数据自愈），不丢整条。
@@ -167,33 +178,85 @@ class RtCanvasAnchor {
         y: (j['y'] is num ? (j['y'] as num).toDouble() : 0.5)
             .clamp(0.0, 1.0)
             .toDouble(),
+        w: _clampFraction(j['w']),
+        h: _clampFraction(j['h']),
+      );
+
+  static double? _clampFraction(dynamic v) =>
+      v is num ? v.toDouble().clamp(0.05, 1.0).toDouble() : null;
+}
+
+/// 画布按钮尺寸倍率上下限（编辑拖动与持久化读入同一处钳制——单一事实源）。
+const double kRtCanvasBtnScaleMin = 0.6;
+const double kRtCanvasBtnScaleMax = 2.2;
+
+/// 画布按钮位：归一化中心 + 尺寸倍率 + 画布内可见性。
+/// （快捷键的「有哪些」归打字页编辑器，「显示哪些」归这里的 v。）
+class RtCanvasButtonPos {
+  const RtCanvasButtonPos({
+    required this.x,
+    required this.y,
+    this.s = 1.0,
+    this.v = true,
+  });
+
+  final double x;
+  final double y;
+
+  /// 尺寸倍率（乘在按钮基准规格上）。
+  final double s;
+
+  /// 画布内可见性（编辑态以幽灵呈现可点回，使用态不渲染）。
+  final bool v;
+
+  RtCanvasButtonPos copyWith({double? x, double? y, double? s, bool? v}) =>
+      RtCanvasButtonPos(
+        x: x ?? this.x,
+        y: y ?? this.y,
+        s: s ?? this.s,
+        v: v ?? this.v,
+      );
+
+  Map<String, dynamic> toJson() => {'x': x, 'y': y, 's': s, 'v': v};
+
+  factory RtCanvasButtonPos.fromJson(Map<String, dynamic> j) =>
+      RtCanvasButtonPos(
+        x: (j['x'] is num ? (j['x'] as num).toDouble() : 0.5)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+        y: (j['y'] is num ? (j['y'] as num).toDouble() : 0.5)
+            .clamp(0.0, 1.0)
+            .toDouble(),
+        // 旧形状（只有 x/y）兼容读：s/v 缺省即默认；倍率钳到编辑限位
+        // （与拖动缩放同一对常量，存的和调的不会是两套范围）。
+        s: (j['s'] is num ? (j['s'] as num).toDouble() : 1.0)
+            .clamp(kRtCanvasBtnScaleMin, kRtCanvasBtnScaleMax)
+            .toDouble(),
+        v: j['v'] != false,
       );
 }
 
-/// 横屏画布布局：模块（触摸板 / 输入框）锚点 + 按钮归一化中心。
+/// 横屏画布布局：模块（触摸板 / 输入框）锚点 + 按钮位（含倍率/显隐）。
 /// 空表 = 首跑，画布用内置默认布局。删掉的按钮残位无害（同 id 回归原位）。
 class RtCanvasLayout {
   const RtCanvasLayout({this.modules = const {}, this.buttons = const {}});
 
   final Map<String, RtCanvasAnchor> modules;
-  final Map<String, Offset> buttons;
+  final Map<String, RtCanvasButtonPos> buttons;
 
   RtCanvasLayout withModule(String id, RtCanvasAnchor anchor) => RtCanvasLayout(
         modules: Map.of(modules)..[id] = anchor,
         buttons: buttons,
       );
 
-  RtCanvasLayout withButton(String id, Offset pos) => RtCanvasLayout(
+  RtCanvasLayout withButton(String id, RtCanvasButtonPos pos) => RtCanvasLayout(
         modules: modules,
         buttons: Map.of(buttons)..[id] = pos,
       );
 
   Map<String, dynamic> toJson() => {
         'modules': {for (final e in modules.entries) e.key: e.value.toJson()},
-        'buttons': {
-          for (final e in buttons.entries)
-            e.key: {'x': e.value.dx, 'y': e.value.dy},
-        },
+        'buttons': {for (final e in buttons.entries) e.key: e.value.toJson()},
       };
 
   factory RtCanvasLayout.fromJson(Map<String, dynamic> j) {
@@ -202,25 +265,21 @@ class RtCanvasLayout {
     final rawModules = j['modules'];
     if (rawModules is Map) {
       for (final e in rawModules.entries) {
-        if (e.value is Map) {
-          modules[e.key.toString()] =
-              RtCanvasAnchor.fromJson((e.value as Map).cast<String, dynamic>());
-        }
+        if (e.value is! Map) continue;
+        final jm = (e.value as Map).cast<String, dynamic>();
+        // 坐标坏形（类型不对）整条丢弃——缺省可兜底，坏形兜底会凭空挪模块。
+        if (jm['x'] is! num || jm['y'] is! num) continue;
+        modules[e.key.toString()] = RtCanvasAnchor.fromJson(jm);
       }
     }
-    final buttons = <String, Offset>{};
+    final buttons = <String, RtCanvasButtonPos>{};
     final rawButtons = j['buttons'];
     if (rawButtons is Map) {
       for (final e in rawButtons.entries) {
         if (e.value is! Map) continue;
         final jb = (e.value as Map).cast<String, dynamic>();
-        final jx = jb['x'];
-        final jy = jb['y'];
-        if (jx is! num || jy is! num) continue;
-        buttons[e.key.toString()] = Offset(
-          jx.toDouble().clamp(0.0, 1.0).toDouble(),
-          jy.toDouble().clamp(0.0, 1.0).toDouble(),
-        );
+        if (jb['x'] is! num || jb['y'] is! num) continue; // 同上：坏形整条丢弃
+        buttons[e.key.toString()] = RtCanvasButtonPos.fromJson(jb);
       }
     }
     return RtCanvasLayout(modules: modules, buttons: buttons);
