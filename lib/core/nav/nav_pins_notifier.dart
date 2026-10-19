@@ -137,6 +137,16 @@ class NavPinsNotifier extends Notifier<NavPinsState> {
     await setPins(cur);
   }
 
+  /// 直接拔钉单条（垃圾桶用，无撤销）。
+  /// 至少留 1 条，避免底栏无入口；调用方需自行保证。
+  Future<void> removePin(String id) async {
+    final cur = [...state.pinIds];
+    if (!cur.contains(id)) return;
+    if (cur.length <= 1) return;
+    cur.remove(id);
+    await setPins(cur);
+  }
+
   bool isPinned(String id) => state.pinIds.contains(id);
 }
 
