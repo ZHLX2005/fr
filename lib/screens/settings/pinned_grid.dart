@@ -2,12 +2,12 @@
 //
 // 单一拖拽模式：长按格子拖动（原手感，200ms）。
 //   · 松手在网格 → 换位排序（ReorderableBuilder 原路）；
-//   · 松手在垃圾桶 → 直接删除（无确认，removePin 保底 ≥1 条）。
+//   · 松手在垃圾桶（屏幕底部 FAB）→ 直接删除（无确认，removePin 保底 ≥1 条）。
 // 两者落点不同，互不冲突。
 //
-// 拖起瞬间底部浮现垃圾桶，松手即收。垃圾桶接受与网格换位是两条独立通路：
-//   DragTarget.onAccept（先）置 _droppedOnTrash 并 removePin →
-//   包的 onReorder（后）看到 flag 直接跳过重排（列表已被删除更新）。
+// 删除/换位时序冲突的解法：onReorder 见「当前 provider 列表已比拖起时短」
+// 直接跳过本次重排，避免把已删 id 写回。垃圾桶是宿主 (AppSettingsPage)
+// Scaffold 的 FAB，本网格仅通过 onDraggingChanged 通知宿主显隐。
 //
 // data 传递靠包提供的 CustomDraggable（包内 Draggable 的 data 仅从
 // CustomDraggable 读取，普通子节点恒 null，DragTarget 收不到候选）。
@@ -24,30 +24,25 @@ import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/ui/shell/nav_entry_icon.dart';
 import 'const_settings.dart';
 
-/// 拖到垃圾桶的视觉放大。
-const double _kTrashHoverScale = 1.08;
-
 class PinnedGrid extends ConsumerStatefulWidget {
   const PinnedGrid({
     super.key,
     required this.entries,
     required this.visibleSlotCount,
+    required this.onDraggingChanged,
   });
 
   final List<NavEntry> entries;
   final int visibleSlotCount;
+
+  /// 拖动开始/结束（宿主据此显隐屏幕底部垃圾桶 FAB）。
+  final ValueChanged<bool> onDraggingChanged;
 
   @override
   ConsumerState<PinnedGrid> createState() => _PinnedGridState();
 }
 
 class _PinnedGridState extends ConsumerState<PinnedGrid> {
-  /// 本次拖拽是否已被垃圾桶接受（onAccept 先于 onReorder 触发）。
-  bool _droppedOnTrash = false;
-
-  /// 是否有格子正在被拖动（仅控制垃圾桶显隐）。
-  bool _dragging = false;
-
   @override
   Widget build(BuildContext context) {
     final entries = widget.entries;
@@ -64,62 +59,38 @@ class _PinnedGridState extends ConsumerState<PinnedGrid> {
       );
     }
 
-    // Stack 常驻两子：网格 + 拖动中才可见的垃圾桶。结构不随拖动切换，
-    // 避免 ReorderableBuilder 在拖拽途中被重建。
-    return Stack(
-      children: [
-        _SortableGrid(
-          entries: entries,
-          visibleSlotCount: widget.visibleSlotCount,
-          onDragStarted: _handleDragStarted,
-          onDragEnd: _handleDragEnd,
-          onReorder: _handleReorder,
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _TrashZone(
-            visible: _dragging,
-            onAccept: _handleTrashAccept,
-          ),
-        ),
-      ],
+    return _SortableGrid(
+      entries: entries,
+      visibleSlotCount: widget.visibleSlotCount,
+      onDragStarted: _handleDragStarted,
+      onDragEnd: _handleDragEnd,
+      onReorder: _handleReorder,
     );
   }
 
   void _handleDragStarted(int index) {
     HapticFeedback.lightImpact();
-    _droppedOnTrash = false;
-    if (!_dragging) setState(() => _dragging = true);
+    widget.onDraggingChanged(true);
   }
 
   void _handleDragEnd(int index) {
     HapticFeedback.mediumImpact();
-    if (_dragging) setState(() => _dragging = false);
-    // _droppedOnTrash 留给 onReorder 消费（包契约：onDragEnd 先于 onReorder）。
+    widget.onDraggingChanged(false);
   }
 
   void _handleReorder(List<String> Function(List<String>) reorderFn) {
-    if (_droppedOnTrash) {
-      // 已删除：列表由 removePin 更新，跳过基于旧列表的重排。
-      _droppedOnTrash = false;
-      return;
-    }
+    final entriesIds = widget.entries.map((e) => e.id).toList();
+    // 拖拽途中格子被垃圾桶删走 → provider 列表已比拖起时短。此时基于旧
+    // entries 重排会把已删 id 写回，跳过本次 onReorder（列表保持删后状态）。
+    if (ref.read(navPinsProvider).pinIds.length < entriesIds.length) return;
     ref
         .read(navPinsProvider.notifier)
         .setPins(
           // 必须用网格 children 同源的 entries 派生列表，保证与
           // reorderFn 的 index 逐位对齐（pinIds 里若有未解析 id，
           // entries 会比 pinIds 短，直接喂 pinIds 会错位重排）。
-          reorderFn(widget.entries.map((e) => e.id).toList()),
+          reorderFn(entriesIds),
         );
-  }
-
-  void _handleTrashAccept(String id) {
-    _droppedOnTrash = true;
-    HapticFeedback.heavyImpact();
-    ref.read(navPinsProvider.notifier).removePin(id);
   }
 }
 
@@ -191,87 +162,6 @@ class _SortableGrid extends ConsumerWidget {
             },
           );
         },
-      ),
-    );
-  }
-}
-
-// ── 垃圾桶：DragTarget<String>，拖动中浮现，悬停高亮 + 微放大 ───────────
-
-class _TrashZone extends StatelessWidget {
-  const _TrashZone({required this.visible, required this.onAccept});
-
-  /// false 时整棵从树上摘掉（DragTarget 不在 → 不拦截指针）。
-  final bool visible;
-
-  final ValueChanged<String> onAccept;
-
-  @override
-  Widget build(BuildContext context) {
-    return Visibility(
-      visible: visible,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: DragTarget<String>(
-          onAcceptWithDetails: (details) => onAccept(details.data),
-          builder: (context, candidate, rejected) {
-            final cs = Theme.of(context).colorScheme;
-            final hovering = candidate.isNotEmpty;
-            final color = hovering ? cs.errorContainer : cs.surface;
-            final onColor = hovering
-                ? cs.onErrorContainer
-                : cs.onSurfaceVariant;
-            final borderColor = hovering ? cs.error : cs.outlineVariant;
-            return Center(
-              child: AnimatedScale(
-                scale: hovering ? _kTrashHoverScale : 1.0,
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOutBack,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 22,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: borderColor,
-                      width: hovering ? 2 : 1,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 18,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.delete_outline_rounded,
-                        color: onColor,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        hovering ? '松手删除' : '拖到这里删除',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: onColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
       ),
     );
   }

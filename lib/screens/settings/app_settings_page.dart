@@ -7,6 +7,7 @@
 // 见 pin_editor_sheet.dart。通用项（主题 / 底栏容量）保留为底部一组卡片。
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/nav/nav_catalog.dart';
@@ -25,6 +26,9 @@ class AppSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
+  /// 有钉选格子正在被拖动（仅用于显隐屏幕底部垃圾桶 FAB）。
+  bool _dragging = false;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -35,41 +39,109 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
         .whereType<NavEntry>()
         .toList();
 
-    return Scaffold(
-      // 页底 highest，卡面 surface —— 靠明度分层，不用投影。
-      backgroundColor: cs.surfaceContainerHighest,
-      // 底栏浮层：勿 SafeArea(bottom)，否则留白露出 Scaffold 色条。
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            8,
-            16,
-            16 + QuickNavBottomBar.bodyBottomReserve(context),
-          ),
-          children: [
-            _Header(onManage: () => showPinEditorSheet(context)),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 6, 4, 12),
-              child: Text(
-                '点按打开 · 长按拖动排序 · 拖入垃圾桶删除',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+    // 底部垃圾桶用页面级 Stack 浮层（不能走 Scaffold FAB 槽——
+    // QuickNavBottomBar 是 MainScreen 层浮层，会盖在 FAB 之上）。
+    // 位置：底栏 reserve 之上、右下角，48px 小圆钮减小误操作。
+    return Stack(
+      children: [
+        Scaffold(
+          // 页底 highest，卡面 surface —— 靠明度分层，不用投影。
+          backgroundColor: cs.surfaceContainerHighest,
+          // 底栏浮层：勿 SafeArea(bottom)，否则留白露出 Scaffold 色条。
+          body: SafeArea(
+            bottom: false,
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                8,
+                16,
+                16 + QuickNavBottomBar.bodyBottomReserve(context),
               ),
+              children: [
+                _Header(onManage: () => showPinEditorSheet(context)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 6, 4, 12),
+                  child: Text(
+                    '点按打开 · 长按拖动排序 · 拖到右下垃圾桶删除',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                PinnedGrid(
+                  entries: entries,
+                  visibleSlotCount: pins.visibleSlotCount,
+                  onDraggingChanged: (v) {
+                    if (_dragging == v) return;
+                    setState(() => _dragging = v);
+                  },
+                ),
+                _GeneralCard(
+                  themeLabel: AppTheme.getThemeDisplayName(themeMode),
+                  capacity: pins.capacity,
+                  onCapacity: (c) =>
+                      ref.read(navPinsProvider.notifier).setCapacity(c),
+                ),
+              ],
             ),
-            PinnedGrid(
-              entries: entries,
-              visibleSlotCount: pins.visibleSlotCount,
-            ),
-            _GeneralCard(
-              themeLabel: AppTheme.getThemeDisplayName(themeMode),
-              capacity: pins.capacity,
-              onCapacity: (c) =>
-                  ref.read(navPinsProvider.notifier).setCapacity(c),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (_dragging)
+          Positioned(
+            right: 16,
+            bottom: QuickNavBottomBar.bodyBottomReserve(context) + 12,
+            child: _TrashFab(
+              onAccept: (id) {
+                HapticFeedback.heavyImpact();
+                ref.read(navPinsProvider.notifier).removePin(id);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 拖动中出现的小垃圾桶：48px 圆钮，单个 icon；候选悬停时染错色 + 微放大。
+class _TrashFab extends StatelessWidget {
+  const _TrashFab({required this.onAccept});
+
+  final ValueChanged<String> onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DragTarget<String>(
+      onAcceptWithDetails: (details) => onAccept(details.data),
+      builder: (context, candidate, rejected) {
+        final hovering = candidate.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOut,
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: hovering ? cs.errorContainer : cs.surface,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: hovering ? cs.error : Colors.black12,
+              width: hovering ? 1.5 : 1,
+            ),
+            boxShadow: const [
+              BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 4)),
+            ],
+          ),
+          child: Transform.scale(
+            scale: hovering ? 1.18 : 1.0,
+            child: Icon(
+              Icons.delete_outline_rounded,
+              size: 22,
+              color: hovering ? cs.onErrorContainer : cs.onSurfaceVariant,
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -37,7 +37,7 @@ void main() {
     expect(find.text('实验室'), findsOneWidget);
   });
 
-  testWidgets('拖动中垃圾桶浮现，拖入垃圾桶删除对应格', (tester) async {
+  testWidgets('拖动中屏幕底部垃圾桶浮现，拖入删除对应格', (tester) async {
     final container = await pump(tester);
     addTearDown(container.dispose);
     expect(container.read(navPinsProvider).pinIds, [
@@ -47,7 +47,7 @@ void main() {
     ]);
 
     // 垃圾桶默认不可见
-    expect(find.text('拖到这里删除'), findsNothing);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
 
     // 长按「Time」格 200ms 触发拖动
     final cell = find.text('Time');
@@ -58,12 +58,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // 拖动中垃圾桶可见
-    expect(find.text('拖到这里删除'), findsOneWidget);
+    // 拖动中屏幕底部小垃圾桶可见（48px icon 钮）
+    final trashIcon = find.byIcon(Icons.delete_outline_rounded);
+    expect(trashIcon, findsOneWidget);
+    // 位置在屏幕底部（y 超过视口高度的 4/5）
+    expect(tester.getCenter(trashIcon).dy, greaterThan(600 * 0.8));
 
-    // 回拖到垃圾桶中心松手
-    final trashCenter = tester.getCenter(find.text('拖到这里删除'));
-    await gesture.moveTo(trashCenter);
+    // 拖到垃圾桶中心松手
+    await gesture.moveTo(tester.getCenter(trashIcon));
     await tester.pump(const Duration(milliseconds: 200));
     await gesture.up();
     await tester.pumpAndSettle();
@@ -73,7 +75,7 @@ void main() {
       'core-lab',
     ]);
     // 松手后垃圾桶收回
-    expect(find.text('拖到这里删除'), findsNothing);
+    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
   });
 
   testWidgets('网格内拖动换位（不受垃圾桶通路影响）', (tester) async {
