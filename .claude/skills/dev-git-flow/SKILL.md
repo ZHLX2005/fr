@@ -21,7 +21,7 @@ description: Git 工程流程层。覆盖三个子域：①PR 管理（合并 PR
 
 ## 跨子域规则（不进子域也要记住）
 
-- **合并方式永远 `--squash --delete-branch`**（本项目惯例），必须显式指定，不能用默认 `--merge`。
+- **合并方式永远 `--squash --delete-branch`**（本项目惯例），必须显式指定——gh 没有默认合并方式，非交互模式下缺省会直接报错（--merge, --rebase, or --squash required）。
 - **force push 必带 `--with-lease`**，禁止裸 `--force`。
 - 生成规范 skill 只产 `SKILL.md`，**禁止生成独立 .md 文档**（孤儿文档无人维护）。
 - 提交遵循 Conventional Commits；只 add 本次任务产生的文件（与 flutter-biz 主工作流规范一致）。

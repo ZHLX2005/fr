@@ -375,13 +375,12 @@ class LabDemoHandler extends FrRouteHandler {
 
 **关键**：handler **不动 timePage 判断**——路由可达性自动满足 B。`demoRegistry.get(demoKey)` 走 slug 主索引 + title 副索引。
 
-桌面 widget 入口 (`main.dart`)：
+桌面 widget 入口（`lib/app_lifecycle/fr_method_channel_translator.dart`，main.dart 仅一行 `FrMethodChannelTranslator.translate(call)` 接线）：
 ```dart
 'navigateToClock'    => 'fr://lab/demo/clock',
-'navigateToCalendar' => 'fr://lab/demo/calendar',
 ```
 
-**硬编码 slug**——改 slug 必须同步改这两行（属于 `A06-Flutter-Demo-slug别名与Tab合并SOP` ref 范畴）。
+**硬编码 slug**——改 slug 必须同步改翻译表对应 case（属于 `A06-Flutter-Demo-slug别名与Tab合并SOP` ref 范畴）。
 
 ### 修改 Lab 过滤的边界
 

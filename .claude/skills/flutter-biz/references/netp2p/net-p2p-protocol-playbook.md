@@ -57,7 +57,7 @@ description: 当用户提及 Relay/LAN/快照/action 流/net_p2p/net_engine 协�
 | 项 | 不变量 |
 |---|--------|
 | **房间号** | 6 位数字，0-9，碰撞重试 |
-| **deviceId** | 启动时 `${microseconds}-${milliseconds%1000}`（无需持久化：每次会话独立） |
+| **deviceId** | 持久化 RelayDeviceId UUID（`lib/core/net_engine/relay_v3/relay_device_id.dart`，dev-<uuid4> 存 SP，断线重进恢复房主/角色身份） |
 | **房间生命周期** | server-driven TTL 30 分钟（v1）/ 手动清理（v2）/ 30 分钟空闲 TTL（v3，纯内存） |
 | **消息序列化** | `channelName` + `sourceDeviceId` + `payload`（JSON 文本帧，v1）；`{type:"snapshot", data, ts}`（v3） |
 | **可靠性** | v1: UDP fire-and-forget（LAN）/ WS pub/sub（Relay）；v3: WS snapshot 全量覆盖 + HTTP action 因果有序 |
@@ -150,7 +150,7 @@ Host                                              Guest
 
 ## 6. 关键文件路径
 
-### 6.1 后端（Go）— `D:\a_go\proj_1\dev_ctr_hello`
+### 6.1 后端（Go）— `D:\a_go\proj_1\dev_ctr_hello`（后端开发机/部署机路径，本机若无此目录以部署环境为准）
 
 | 文件 | 用途 |
 |---|---|
@@ -168,13 +168,13 @@ Host                                              Guest
 
 | 文件 | 用途 |
 |---|---|
-| `lib/core/net_engine/net_engine.dart` | 框架门面（导出 LAN + v3） |
+| `lib/core/net_engine/net_engine_types.dart` | net_engine 类型定义（`MessageNetMode` 等；原 net_engine.dart 门面已不存在） |
 | `lib/core/net_engine/lan/lan_discovery.dart` | LAN 发现 + 邀请/接受 UI |
 | `lib/core/net_engine/lan/lan_transport.dart` | LAN UDP transport |
 | `lib/core/net_engine/relay_v3/relay_v3_transport.dart` | **v3 RelayV3Transport + RoomHandle + Snapshot** |
 | `lib/core/net_engine/relay_v3/relay_v3_widget.dart` | **v3 建房 lobby widget** |
-| `lib/core/net_engine/widgets/participants_grid.dart` | LobbyParticipants 圆环 |
-| `lib/core/net_p2p/net_p2p_discovery_host.dart` | NetP2PPage（LAN/Relay 模式切换 + `_defaultChatScript`） |
+| `lib/core/net_engine/relay_v3/participants_grid.dart` | LobbyParticipants 圆环 |
+| `lib/core/net_p2p/net_p2p_discovery_host.dart` | NetP2PPage（LAN/Relay 模式切换；默认脚本已抽出至 `lib/core/net_p2p/scripts/lobby_chat_script.dart` 的 `kLobbyChatScript`） |
 | `lib/core/net_p2p/pages/net_p2p_snapshot_chat.dart` | **v3 快照聊天页（RoomHandle 驱动）** |
 | ~~`lib/core/net_engine/relay/`~~ | v1 已删除 |
 | ~~`lib/core/net_engine/relay_snapshot/`~~ | v2 已删除（折叠进 relay_v3） |

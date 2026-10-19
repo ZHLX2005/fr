@@ -13,6 +13,8 @@ description: |
 
 把"压缩领先 commit → force push → gh pr create → squash merge"打包成可重复执行的 SOP。
 
+> ⚠️ fr 仓库当前只有 upstream（git@github.com:ZHLX2005/fr.git）、无 origin fork，本地 master 与 upstream/master 直推同步——本 skill 仅在用户显式添加 origin fork 后才会用到；单 upstream 场景直接 git push 即可。
+
 ## 0. 适用前提检查（必做）
 
 ```bash
@@ -100,7 +102,7 @@ git push upstream HEAD --force-with-lease
 UPSTREAM=$(git remote get-url upstream | sed -E 's#.*github.com[:/](.+)/.+(\.git)?$#\1#')
 BRANCH=$(git branch --show-current)
 
-# 2. 自动探测 base 分支：upstream/HEAD → main → master
+# 2. base 分支探测：upstream/HEAD 优先，探测失败走白名单，白名单外兜底 master
 BASE=$(git symbolic-ref --short refs/remotes/upstream/HEAD 2>/dev/null | sed 's#upstream/##')
 if [ -z "$BASE" ]; then
   BASE=$(git remote show upstream 2>/dev/null | sed -n 's/.*HEAD branch: //p')
@@ -127,7 +129,7 @@ gh pr create \
 **参数推断规则**（按优先级）：
 
 1. **`--repo`** — 从 `git remote get-url upstream` 解析。例如 `git@github.com:ZHLX2005/fr.git` → `ZHLX2005/fr`。
-2. **`--base`** — 按上面 BASE 变量自动探测（main 优先，master 兜底）。
+2. **`--base`** — 按上面 BASE 变量自动探测（upstream/HEAD 优先，探测失败走白名单，白名单外兜底 master）。
 3. **`--head`** — 当前分支名（`git branch --show-current`）。
 4. **`--title`** — 优先用用户给的话；未指定时用 `<branch> → <base> (squash of N commits)`。
 5. **`--body`** — 默认含原 N 个 commit 的标题列表（从 `git log upstream/master..HEAD` 摘），
@@ -163,10 +165,7 @@ gh pr create --web --repo "$UPSTREAM" --base "$BASE" --head "$BRANCH"
 ## 5. 总结显示 PR 具体内容
 
 ```bash
-gh pr view <num> --repo "$UPSTREAM" \
-  --json number,title,state,url,body,author,createdAt,mergedAt,
-         headRefName,baseRefName,mergeCommit,additions,deletions,
-         changedFiles,files
+gh pr view <num> --repo "$UPSTREAM" --json number,title,state,url,body,author,createdAt,mergedAt,headRefName,baseRefName,mergeCommit,additions,deletions,changedFiles,files
 ```
 
 字段说明：

@@ -8,10 +8,11 @@
 lib/lab/demos/block_editor_demo/
 ├── block_editor_demo.dart    # DemoPage 入口 + 底部 Toolbar
 ├── state.dart                # EditorState (ChangeNotifier)
-├── card.dart                 # BlockCard 块卡片
+├── card.dart                 # BlockCard 块卡片（含键盘事件 + 引用菜单 + AI Bar 触发）
 ├── note_panel.dart           # 笔记列表侧边栏
 ├── type_panel.dart           # 类型 + 工具操作面板
-└── message_dialog.dart       # 消息 / 引用对话框
+├── ai/                       # AI 对话条（ai_bar / ai_bubble / ai_chat_service / ai_settings_* 等）
+└── mode/                     # 编辑工具栏模式（toolbar_mode / toolbar_factory / edit_toolbar / tools/）
 
 lib/core/note/widget/                          # 策略渲染体系
 ├── widget.dart                # barrel
@@ -155,19 +156,23 @@ class OrderedListItemWidgetStrategy extends BlockWidgetStrategy {
 1. 在 `strategies/` 新建 `your_type_widget_strategy.dart`
 2. 实现 `BlockWidgetStrategy` — `build()` + 可选 `buildEditor()` + `typeInfoList`
 3. 在 `strategies.dart` barrel 中添加 export
-4. 在 `BlockWidgetBuilder`（`block_widget_builder.dart`）中注册：
+4. 在 `BlockWidgetBuilder`（`lib/core/note/widget/di/block_widget_di.dart`）中注册：
    ```dart
    class BlockWidgetBuilder {
-     Map<String, BlockWidgetStrategy> build() => {
-       'paragraph': ParagraphWidgetStrategy(),
-       'heading': HeadingWidgetStrategy(),
-       'your_type': YourTypeWidgetStrategy(),  // ← 新增
-       ...
-     };
+     const BlockWidgetBuilder();
+     BlockWidgetFactory build() {
+       return BlockWidgetFactory({
+         'page': PageWidgetStrategy(),
+         'paragraph': ParagraphWidgetStrategy(),
+         'heading': HeadingWidgetStrategy(),
+         'your_type': YourTypeWidgetStrategy(),  // ← 新增
+         ...
+       });
+     }
    }
    ```
 
-实现 `BlockWidgetBuilder` 的文件路径与 `BlockWidgetFactory` 相邻。它负责构造策略 Map，传给 `BlockWidgetFactory` 构造函数。
+`BlockWidgetBuilder` 位于 `widget/di/` 子目录（DI 配套），与 `BlockWidgetFactory`（`widget/block_widget_factory.dart`）相邻。它负责构造策略 Map，包装为 `BlockWidgetFactory` 实例供渲染链使用。
 
 ---
 
@@ -275,9 +280,9 @@ Focus(
       if (newType != null) widget.editorState.addBlockWithType(newType);
       return KeyEventResult.handled;
     }
-    // 3. 空格（空块弹出消息对话框）
+    // 3. 空格（空块召唤 AI Bar）
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space && _controller.text.isEmpty) {
-      _showMessageDialog();
+      widget.editorState.activateAiBar(widget.block.id);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -299,10 +304,10 @@ onChanged: (value) {
     if (newType != null) widget.editorState.addBlockWithType(newType);
     return;
   }
-  // 软键盘空格触发对话框（空块时）
+  // 软键盘空格召唤 AI Bar（空块时，兼容 U+0020 与 U+00A0/NBSP 等常见空格变体）
   if (value.length == 1 && (value == ' ' || value == ' ')) {
     _controller.text = '';
-    _showMessageDialog();
+    widget.editorState.activateAiBar(widget.block.id);
     return;
   }
   widget.editorState.updateContent(widget.block.id, value);
@@ -316,8 +321,8 @@ onChanged: (value) {
 | 硬件 Backspace 删空块 | `KeyDownEvent` 守卫，防止 `KeyUp` 二次触发 |
 | 硬件 Enter 创建新块 | `onKeyEvent` + `!ml` 守卫 |
 | 软键盘 Enter 创建新块 | `onChanged` 检测 `\n` 后缀 |
-| 硬件空格（空块）→ 对话框 | `onKeyEvent space + text.isEmpty` |
-| 软键盘空格（空块）→ 对话框 | `onChanged` 检测单字符空格 |
+| 硬件空格（空块）→ AI Bar | `onKeyEvent space + text.isEmpty`（activateAiBar） |
+| 软键盘空格（空块）→ AI Bar | `onChanged` 检测单字符空格 |
 | 输入类型转换 | 仅 `ParagraphType` 调用 `tryConvert` |
 | 多行块（CodeType） | `multiline=true` → `maxLines: null`，不处理 Enter |
 
@@ -337,13 +342,14 @@ Widget _buildContextMenu(BuildContext context, EditableTextState editableTextSta
       onPressed: () {
         final selectedText = value.text.substring(value.selection.start, value.selection.end);
         final noteRoot = NoteRootScope.of(context).noteRoot;
-        // 创建带 originalBlockId 的临时 Block
-        final quotedBlock = noteRoot.createBlock(
+        // 创建带 originalBlockId 的临时 Block（保留源 block ID，留作 Agent 集成锚点）
+        noteRoot.createBlock(
           const ParagraphType(),
           content: RichText.text(selectedText),
           properties: {'originalBlockId': widget.block.id},
         );
-        _showMessageDialog(quoteData: noteRoot.serializeBlock(quotedBlock));
+        // 唤起 AI Bar（替代原 MessageDialog）
+        widget.editorState.activateAiBar(widget.block.id);
       },
     ));
   }
@@ -354,64 +360,32 @@ Widget _buildContextMenu(BuildContext context, EditableTextState editableTextSta
 }
 ```
 
-### 引用数据格式
+### 引用数据结构
 
-**quoteData** 是完整的 Block 序列化 JSON，含 `properties.originalBlockId`：
-
-```json
-{
-  "id": "<new-uuid>",
-  "type": "paragraph",
-  "content": {"spans": [{"text": "选中的文本", "format": null}]},
-  "properties": {"originalBlockId": "<源 block 的 id>"}
-}
-```
+`selectedText` 落地为一个带 `originalBlockId` 的临时 Block（实际 code 路径见上面 `contextMenuBuilder`；引用消息的渲染/会话承接改由 `AiBar` 接管，见下方「AI Bar」节）。
 
 `originalBlockId` 保留源 block ID，为未来 Agent 集成时定位源数据。
 
 ---
 
-## MessageDialog — 消息 / 引用对话框
+## AI Bar — 引用 / 召唤 AI 入口（替代原 MessageDialog）
 
-`message_dialog.dart`，底部弹出（`showModalBottomSheet`）。
+> 2026-10 现状：`lib/lab/demos/block_editor_demo/message_dialog.dart` 已删除，
+> 原 MessageDialog（底部 `showModalBottomSheet`，含引用块 + 消息气泡 + 发送）由 `AiBar` 接管。
+> 实现位于 `lib/lab/demos/block_editor_demo/ai/`（`ai_bar.dart` / `ai_bubble.dart` /
+> `ai_chat_service.dart` / `ai_settings_*` / `diff_*` 等）。
 
 ### 触发方式
 
 | 触发 | 条件 | 位置 |
 |------|------|------|
-| 硬件空格 | 空 block 选中 + 硬件键盘空格 | `Focus.onKeyEvent` |
-| 软键盘空格 | 空 block 选中 + 软键盘空格 | `TextField.onChanged` |
-| 文本选择"引用" | 选中文本 → 右键菜单 → 引用 | `contextMenuBuilder` |
+| 硬件空格 | 空 block 选中 + 硬件键盘空格 | `card.dart` `Focus.onKeyEvent` |
+| 软键盘空格 | 空 block 选中 + 软键盘空格（兼容 U+0020 / U+00A0） | `card.dart` `TextField.onChanged` |
+| 文本选择"引用" | 选中文本 → 右键菜单 → 引用 | `card.dart` `contextMenuBuilder` |
 
-### UI 结构
-
-```
-┌────────────────────────────────────┐
-│    ───  (拖拽条)                    │
-│  💬 发送消息              关闭      │
-│  ─────────────────────────          │
-│  ┌──────────────────────────┐      │
-│  │ ║ 引用文本（灰色左边框）  │      │
-│  └──────────────────────────┘      │
-│  ┌──────────────────────┐          │
-│  │      消息气泡         │ → 右对齐 │
-│  └──────────────────────┘          │
-│  ─────────────────────────          │
-│  ┌─ 圆角输入框 ────┐ [➤]          │
-│  └────────────────┘                │
-└────────────────────────────────────┘
-```
-
-### 关键设计
-
-- **引用只发送一次**：`_pendingQuote` 第一次发送后置 null，后续消息不携带
-- **自动滚动**：发送后 `ScrollController.animateTo(maxScrollExtent)`
-- **消息气泡**：蓝色背景、右对齐、最大宽度 75%
-- **引用块**：灰色背景 + 蓝色左边框 + 最多 3 行溢出省略
-- **键盘适配**：`margin: EdgeInsets.only(bottom: viewInsets.bottom)` 整体上移
-- `showModalBottomSheet` 使用 `isScrollControlled: true` + `useSafeArea: true`
-
----
+三种触发最终都走同一个入口：`editorState.activateAiBar(blockId)`（`state.dart`），由 `card.dart`
+在被选 block 下方渲染 `AiBar`（`ai/ai_bar.dart`）；AI 对话列表 / 设置 / Diff Viewer 等均在
+`ai/` 子目录内。
 
 ## Toolbar — 底部工具栏
 
@@ -652,9 +626,9 @@ confirmDismiss: (_) async {
 | 选中编辑 | ✅ | `card.dart` |
 | Backspace 删除空块 | ✅ | `card.dart` — Focus.onKeyEvent KeyDown 守卫 |
 | Enter 创建新块（硬件/软键盘） | ✅ | `Focus.onKeyEvent` + `onChanged` `\n` 检测 |
-| 空格（空块）→ 消息对话框 | ✅ | 硬件: `onKeyEvent` / 软键盘: `onChanged` |
-| 文本选择引用 | ✅ | `contextMenuBuilder` + originalBlockId |
-| 消息对话框（底部弹出） | ✅ | `message_dialog.dart` |
+| 空格（空块）→ AI Bar | ✅ | 硬件: `onKeyEvent` / 软键盘: `onChanged`（activateAiBar） |
+| 文本选择引用 | ✅ | `contextMenuBuilder` + originalBlockId → activateAiBar |
+| AI Bar（引用 / 召唤 AI；原 MessageDialog 已删除） | ✅ | `lab/demos/block_editor_demo/ai/ai_bar.dart` |
 | 输入触发类型转换 | ✅ | `TypeConversionRule` + `updateContent()` |
 | 拖拽排序 | ✅ | ReorderableListView |
 | Markdown 导入文件 + 文字 | ✅ | `md_to_block.dart` + insert-at-cursor |

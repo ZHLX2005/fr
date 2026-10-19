@@ -361,7 +361,7 @@ final isBeingChallenged = room.isBeingChallenged(snap);
 - `lib/lab/demos/coup_lua/coup_script.dart` - Lua 状态机脚本
 - `lib/lab/demos/coup_lua/engine.dart` - 网络动作封装
 - `lib/lab/demos/coup_lua/widgets.dart` - 游戏界面
-- `.claude/skills/net-p2p-protocol-playbook/references/v3-lua-state-machine.md` - v3 参考文档
+- `.claude/skills/flutter-biz/references/netp2p/relay-lua-state-machine.md` - v3 参考文档
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: flutter-ui-theme-architecture
-description: 本项目 zen / purple / ink / rose / lemon / cobalt 六主题色彩与 UI 主题架构的总入口。当需要理解主题系统怎么运作、改主题配色、扩展语义角色、迁移组件到主题通道、新增组件样式、或评审目录用色是否合规时触发。首页只做 ref 导航，架构细节按需读对应子 ref。
+description: 本项目 zen / purple / ink / rose / lemon / cobalt / dark 七主题色彩与 UI 主题架构的总入口。当需要理解主题系统怎么运作、改主题配色、扩展语义角色、迁移组件到主题通道、新增组件样式、或评审目录用色是否合规时触发。首页只做 ref 导航，架构细节按需读对应子 ref。
 ---
 
 # UI 主题架构（ref 导航页）
@@ -28,18 +28,20 @@ tokens(原料) → theme(色板) → strategy(策略) → component(组件)
 | A01 | [[A01-系统架构与数据流]] | 刚接触主题系统，想知道它怎么分层、哪些文件、一次主题切换的数据如何流动 |
 | A02 | [[A02-扩展SOP与迁移]] | 新增一套主题配色 / 新增强调色语义角色 / 新增组件样式 / 把既有硬编码迁移到主题通道 / 判断哪些 hex 要豁免 |
 | B01 | [[B01-颜色用量审计]] | 评审或改动某目录前，查该目录用色规模、迁移完整度、残留 hex 归属、Top 热点文件 |
-| B02 | [[B02-特例策略]] | 想知道 tetris 棋盘配色为何"不跟 5 主题"、识别色策略怎么写 |
+| B02 | [[B02-特例策略]] | 想知道 tetris 棋盘配色为何"不跟主题切换"、识别色策略怎么写 |
 
 ## 六策略速览（v6.2 架构，6 通道）
+
+> 角色数列的数字含 `scheme` 访问器：Color 6 角色 + scheme 兜底；Board 10 角色 + scheme；Chess 12 角色 + scheme。
 
 | strategy | 入口 | 角色数 | 数据源 | 适用于 |
 | --- | --- | --- | --- | --- |
 | `ColorStrategy` | `context.colors` | 6 核心 + scheme 兜底 | **从 scheme 派生** | 普通组件、页面、卡片 |
-| `BoardColorStrategy` | `context.boardColors` | 11 棋盘专属 | **从 scheme 派生** | 棋牌棋盘 UI（gomoku/reversi/jungle） |
-| `ChessColorStrategy` | `context.chessColors` | 13 国际象棋专属 | **从 scheme 派生** | 国际象棋（v6.2+ 新增第 6 通道） |
+| `BoardColorStrategy` | `context.boardColors` | 10 角色 + scheme（合计 11） | **从 scheme 派生** | 棋牌棋盘 UI（gomoku/reversi/jungle） |
+| `ChessColorStrategy` | `context.chessColors` | 12 角色 + scheme（合计 13） | **从 scheme 派生** | 国际象棋（v6.2+ 新增第 6 通道） |
 | `TetrisColorStrategy` | `context.tetrisColors` | 4 角色（棋盘环境 + 方块色） | **native const（特例）** | 俄罗斯方块 |
 | `TeamAvatarColorStrategy` | `context.teamAvatar` | 6 头像色 | **native const（识别色锁定）** | 团队卡 |
-| `TorchProtectColorStrategy` | `context.torchProtect` | 10 护眼色预设 | **从 scheme 派生** | 灯具护眼 |
+| `TorchProtectColorStrategy` | `context.torchProtect` | 4 个 scheme 派生角色（预设不走通道，torch_demo 直连 `TorchColors.presets`，见 [[B01-颜色用量审计]]） | **从 scheme 派生** | 灯具护眼 |
 
 > **核心约定**：4 个 strategy 走"scheme 派生"（切主题 = 换 scheme = 自动重新派生）；2 个 strategy（tetris / teamAvatar）走"native const"（玩家靠颜色识别，跨主题锁定）。特例细节见 [[B02-特例策略]]。
 

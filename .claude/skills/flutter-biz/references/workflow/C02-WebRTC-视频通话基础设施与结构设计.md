@@ -29,7 +29,7 @@ WebRTC 的 P2P 连接依赖信令服务器完成初始握手，信令是"控制�
 
 ### Step 1: 设计信令协议
 
-定义核心消息类型（参考 `flutter_webrtc_server/pkg/signaler/signaler.go`）：
+定义核心消息类型（参考 `flutter_webrtc_server/pkg/signaler/signaler.go`，**参考仓库未随库克隆**）：
 
 | 消息类型 | 方向 | 用途 |
 |---------|------|------|
@@ -334,6 +334,8 @@ Read: lib/src/call_sample/signaling.dart
 Read: packages/webrtc-im/client/service/webrtc.ts
 Read: packages/webrtc-im/client/service/transfer.ts
 ```
+
+> 注：上述 `flutter_webrtc_server` / `webrtc-im` / `filetransfer_p2p` 参考仓库均未随库克隆（`.claude/repo/` 下当前无 WebRTC 参考项目），路径为历史参考。
 
 ## 适用场景
 

@@ -142,6 +142,8 @@ flutter analyze lib/lab/ lib/screens/profile/lab/
 
 **对照表**（2026-08-30 当前状态）：
 
+> 注：以下为 2026-08-30 快照；联机条目持续新增（chess/draughts/go 等已 lobby spec 化），现状以 lib/screens/profile/lab/game_center/const_game_center.dart 的 kGameMeta 为准，命名落地由 core/game_kit/lobby/ 各 *_lobby_spec.dart 承接。
+
 | slug | title | 联机分类 | 备注 |
 |---|---|---|---|
 | `surround-game-lua` | 围追堵截（联机） | multiplayer + board | |

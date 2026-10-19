@@ -271,7 +271,9 @@ end
 
 ---
 
-## 9. 测试策略（verify_lua_drivers.py）
+## 9. 测试策略
+
+> 注（2026-10 核对）：原 verify_lua_drivers.py 已删除；现役工具 `.tool/relay-room-tester/emoji_e2e.dart` + `test/core/net_engine/relay_v3_transport_test.dart`。下文测试 case 设计思路仍适用。
 
 每个权限规则至少一个测试 case：
 

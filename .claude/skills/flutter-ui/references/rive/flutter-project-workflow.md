@@ -166,7 +166,7 @@ lib/lab/demos/rive_demo/                    # 统一 demo 目录
 - 共享 widget（错误视图、状态 chip）提到目录根
 - 旧 demo 文件删除，slug 通过 `demoRegistry.register(demo, key: alias)` 保留为别名
 
-详细方案 + 别名机制 + 踩坑见 flutter-work-flow 的 [[A06-Flutter-Demo-slug别名与Tab合并SOP]] ref。
+详细方案 + 别名机制 + 踩坑见 `flutter-biz` 层 `workflow` 子域的 `[[A06-Flutter-Demo-slug别名与Tab合并SOP]]` ref（位于 `.claude/skills/flutter-biz/references/workflow/`）。
 
 ## Common Mistakes
 
@@ -188,4 +188,4 @@ After implementation:
 
 - 0.14.x API 写法、DataBind 双向绑定、ViewModel 用法 → [[flutter-databind-0.14]]
 - 通用 Rive 平台（Luau/React/状态机 API）→ rive-skills 主文档
-- lab demo 工程规范 → `flutter-work-flow`
+- lab demo 工程规范 → `flutter-biz`（`workflow` 子域）

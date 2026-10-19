@@ -31,7 +31,7 @@ GameGridCard / GameFeaturedCard → gameMetaOf(demo.slug) → GameArtwork
 
 | 级 | 来源 | 谁设置 | 落点 |
 |---|---|---|---|
-| 1 | 远程封面 `remoteCover`（KV `game-center_skin:index`，skinId = slug，`small`/`large` 两张） | ve game-skin-admin 上传，见 [[extend-sop]] §4 | `gameCenterCoverOf(slug, …)` → `GameArtwork` |
+| 1 | 远程封面 `remoteCover`（KV `game-center_skin:index`，skinId = slug，`small`/`large` 两张） | ve game-skin-admin 上传（ve 管理端 SOP ref 已在四层合并中丢失，如需补充向用户索取原稿） | `gameCenterCoverOf(slug, …)` → `GameArtwork` |
 | 2 | 用户自定义背景图 `LabCardProvider.getBackground(title)` | 长按 Lab 卡设图 | `game_center_cards.dart` → `DemoCoverImage` |
 | 3 | 程序化封面 `GameMeta.gradient` + `.pattern` + `.icon` | 登记在 `kGameMeta` | `game_center_artwork.dart` `GameArtwork` |
 | 兜底 | fallback `kFallbackGameMeta`（灰+game图标+arcade） | 自动 | `const_game_center.dart` |

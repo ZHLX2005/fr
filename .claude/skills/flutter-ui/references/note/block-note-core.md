@@ -15,9 +15,9 @@ description: |
 
 ```
 SKILL.md (入口)
-  ├── reference/types.md           # 数据模型层 — Block, BlockType 19子类, RichText, Span, InlineFormat
-  ├── reference/persistence.md     # 持久化层 — NoteRepository CRUD + NoteFactory 门面
-  └── reference/demo-ui.md         # UI 层 — EditorState, BlockCard, BlockWidgetStrategy, Toolbar, Panels
+  ├── references/types.md           # 数据模型层 — Block, BlockType 19子类, RichText, Span, InlineFormat
+  ├── references/persistence.md     # 持久化层 — NoteRepository CRUD + NoteFactory 门面
+  └── references/demo-ui.md         # UI 层 — EditorState, BlockCard, BlockWidgetStrategy, Toolbar, Panels
 ```
 
 ## 代码结构
@@ -35,21 +35,27 @@ lib/core/note/
 │   │   ├── rich_text.dart           # RichText (List<Span>)
 │   │   ├── span.dart                # Span (text + InlineFormat?)
 │   │   └── inline_format.dart       # InlineFormat sealed 7子类 + 编解码
-│   ├── type/                        # BlockType 继承体系（sealed class + 19 part子类）
-│   │   ├── type.dart                # sealed class BlockType 基类（onEnterType, multiline）
-│   │   ├── type_registry.dart       # 反序列化工厂
-│   │   ├── type_conversion_rule.dart   # TypeConversionRule<T> 输入触发转换规则
-│   │   ├── type_conversion_registry.dart  # 注册表 + createDefault()
-│   │   └── page/paragraph/heading/todo/code/... 各子类 part 文件
-│   └── identity/                    # BlockId, BlockPath
+│   └── type/                        # BlockType 继承体系（sealed class + 19 part子类）
+│       ├── type.dart                # sealed class BlockType 基类（onEnterType, multiline）
+│       ├── type_registry.dart       # 反序列化工厂
+│       ├── type_conversion_rule.dart   # TypeConversionRule<T> 输入触发转换规则
+│       ├── type_conversion_registry.dart  # 注册表 + createDefault()
+│       └── page/paragraph/heading/todo/code/... 各子类 part 文件
+├── identity/                        # BlockId, BlockPath（identity.dart / identity_factory.dart，平级 core/）
 ├── persistence/
-│   └── note_repository.dart         # 文件系统 CRUD（dir.listSync 避免 Windows 挂起）
+│   ├── persistence.dart             # barrel
+│   ├── note_repository.dart         # 文件系统 CRUD（dir.listSync 避免 Windows 挂起）
+│   ├── toml_codec.dart              # TOML 编码/解码
+│   └── note_migration.dart          # 笔记迁移逻辑
 ├── widget/                          # Block widget 策略（O(1) Map 查找）
 │   ├── widget.dart                  # barrel
 │   ├── block_renderer.dart          # BlockRenderer 门面
 │   ├── block_widget_factory.dart    # BlockWidgetFactory O(1) Map 策略分发
 │   ├── block_widget_strategy.dart   # 策略接口（build + buildEditor）
 │   ├── block_type_info.dart         # BlockTypeInfo
+│   ├── di/                          # DI 配套
+│   │   ├── di.dart                  # barrel
+│   │   └── block_widget_di.dart     # BlockWidgetBuilder — 策略 Map 装配
 │   └── strategies/                  # 每类型一个策略文件
 └── convert/
     └── md_to_block.dart             # Markdown → List<Block>
@@ -57,13 +63,13 @@ lib/core/note/
 
 ## 触发场景
 
-- **Block 数据结构 / 新增 BlockType** → 读 `reference/types.md`
-- **笔记保存/加载 / NoteFactory 架构** → 读 `reference/persistence.md`
-- **Demo UI 架构 / 新增渲染策略** → 读 `reference/demo-ui.md`
-- **工具栏添加新工具** → 读 `reference/demo-ui.md` Toolbar 章节
-- **选中高亮 / Material 错误** → 读 `reference/demo-ui.md` BlockCard 章节
-- **Backspace/Enter/空格键盘事件** → 读 `reference/demo-ui.md` BlockCard 键盘事件小节
-- **消息对话框 / 引用** → 读 `reference/demo-ui.md` MessageDialog 章节 + Context Menu 章节
-- **Markdown 导入** → 读 `reference/demo-ui.md` MD Import 章节
-- **输入触发类型转换** → 读 `reference/demo-ui.md` Input Conversion 章节
+- **Block 数据结构 / 新增 BlockType** → 读 `references/types.md`
+- **笔记保存/加载 / NoteFactory 架构** → 读 `references/persistence.md`
+- **Demo UI 架构 / 新增渲染策略** → 读 `references/demo-ui.md`
+- **工具栏添加新工具** → 读 `references/demo-ui.md` Toolbar 章节
+- **选中高亮 / Material 错误** → 读 `references/demo-ui.md` BlockCard 章节
+- **Backspace/Enter/空格键盘事件** → 读 `references/demo-ui.md` BlockCard 键盘事件小节
+- **引用 / AI Bar（原 MessageDialog 已删除）** → 读 `references/demo-ui.md` AI Bar 章节 + Context Menu 章节
+- **Markdown 导入** → 读 `references/demo-ui.md` MD Import 章节
+- **输入触发类型转换** → 读 `references/demo-ui.md` Input Conversion 章节
 - **文件结构 / 目录组织** → 回到本页代码结构

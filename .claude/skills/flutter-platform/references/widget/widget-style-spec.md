@@ -30,7 +30,7 @@
 
 #### A. Vector drawable 替代 emoji(本项目模式)
 
-`res/drawable/notion_widget_icon.xml`:
+`android/app/src/main/res/drawable/notion_widget_icon.xml`:
 
 ```xml
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -237,7 +237,7 @@
 
 修改 widget 样式后,按序检查:
 
-- [ ] **去 emoji**: grep `grep -E "[☀-➿]" res/layout/*.xml` 应无 emoji 字符
+- [ ] **去 emoji**: grep `grep -E "[☀-➿]" android/app/src/main/res/layout/*.xml` 应无 emoji 字符
 - [ ] **minWidth/Height ≤ 40dp**: 必须等于系统下限
 - [ ] **resizeMode 不含 vertical**(若要支持 1×1)
 - [ ] **layout 是 FrameLayout + match_parent**(若是单交互按钮)

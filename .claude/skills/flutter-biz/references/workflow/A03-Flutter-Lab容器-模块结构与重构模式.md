@@ -23,7 +23,6 @@ lib/screens/profile/lab/
 │   ├── lab_panel_gesture.dart        LabPanelGestureCoordinator（三路输入收敛）
 │   ├── lab_panel_content.dart        面板内容（标题条/收藏格子/删除区）
 │   ├── lab_panel_handle.dart         PanelHandle（把手，自订阅 progress）
-│   └── lab_panel_painters.dart       PanelSurfacePainter
 ├── demo_grid/
 │   ├── demo_card.dart                DemoCard + 长按背景设置 sheet
 │   └── demo_reveal_grid.dart         DemoScrollRevealGrid（2 列固定网格）

@@ -24,7 +24,7 @@ description: FR 项目平台桥接层——Flutter ↔ Android 原生。覆盖�
 
 - **`updateWidget` 永远用 `qualifiedAndroidName`**（全限定类名）——`androidName` 对子包下的 Provider 必然 `ClassNotFoundException` 且异常被插件静默吞掉（90% widget bug 的根因）。
 - **走字类实时值由原生 `Chronometer` 自走**，Flutter 只在状态切换时推一次——不要退回 1Hz 推送（会被系统判后台高耗电）。
-- **3 参数 `startForeground(id, n, 0x00000020)` 无条件使用**——不要 `if (SDK_INT >= 34)` 分支，部分厂商 Android 14 设备 SDK_INT ≠ 34。
+- **MediaProjection FGS 用 `ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION` 常量 + `SDK_INT >= Build.VERSION_CODES.Q` 分支调 3 参 `startForeground`，低版本走 2 参兜底**——3 参重载 API 29 才存在，minSdk 24 下无条件 3 参会在 API 24-28 抛 `NoSuchMethodError`；不要硬编码 `0x00000020`（与 manifest `foregroundServiceType` 对齐，subset 不匹配见 PROJ 子域）。
 - 改了 `android/` 目录任何内容必须 `flutter build apk` 验证（analyze 看不到 Kotlin/原生链路问题）。
 
 ## 协作 skill

@@ -365,7 +365,7 @@ def main():
     ap.add_argument("source_dir", help="N 张 PNG/WebP 所在目录（chess 12 张，gomoku 3 张）")
     ap.add_argument("skin_id", help="数字或小写 ASCII id，例如 8 / neo")
     ap.add_argument("--name", default=None, help="displayName（默认：'皮肤 {skin_id}'）")
-    ap.add_argument("--game", default="chess", help="gameId，决定 KV key/tag 前缀/file 前缀与 piece keys（default: chess；已知: chess, gomoku）")
+    ap.add_argument("--game", default="chess", help="gameId，决定 KV key/tag 前缀/file 前缀与 piece keys（default: chess；已知: chess, gomoku, game-center）")
     ap.add_argument("--base", default=os.environ.get("CHESS_SKIN_BASE_URL", "http://47.110.80.47:8988"),
                     help="API base URL (default from env or hardcoded)")
     ap.add_argument("--group", type=int, default=int(os.environ.get("CHESS_SKIN_GROUP", "190")),

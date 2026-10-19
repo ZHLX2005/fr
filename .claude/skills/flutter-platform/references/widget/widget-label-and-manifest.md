@@ -52,7 +52,6 @@ Android widget picker 的 label 来源是 `<receiver>` 的 `android:label`。
 ```xml
 <!-- strings.xml -->
 <string name="widget_label_clock">小豆子 · 时钟</string>
-<string name="widget_label_calendar">小豆子 · 日历</string>
 <string name="widget_label_timetable">小豆子 · 课表</string>
 <string name="widget_label_notion">小豆子 · 拍照</string>
 <string name="widget_label_recorder">小豆子 · 录音</string>
@@ -224,30 +223,29 @@ class _RecorderDemoPageState extends State<RecorderDemoPage> {
 
 `addPostFrameCallback` 等当前帧渲染结束,所有 initState 都跑完,再触发。
 
-## MethodChannel 翻译表抽取到 schema 层
+## MethodChannel 翻译表抽到独立 Translator
 
 主 SKILL.md + [[widget-click-deeplink]] 都强调"`navigateToXxx` 三件套要对齐"。
-但翻译表(`call.method → fr:// URL`)散落在 `main.dart` 的 switch 里,
+但翻译表(`call.method → fr:// URL`)曾散落在 `main.dart` 的内联 switch 里,
 加新 widget 必须同时改 main.dart + bootstrap_routes,易漏。
 
-**正确做法**:把 switch 表抽到 `core/schema/method_channel_translator.dart`,
-与 `bootstrap_routes.dart` 同目录可见:
+**现行做法**:switch 表已抽到独立类 `FrMethodChannelTranslator`(`lib/app_lifecycle/fr_method_channel_translator.dart`),成员与 `WidgetChannel.kt` 的 `when` 分支严格对称:
 
 ```dart
-// lib/core/schema/method_channel_translator.dart
+// lib/app_lifecycle/fr_method_channel_translator.dart
 class FrMethodChannelTranslator {
   FrMethodChannelTranslator._();
 
   static String? translate(MethodCall call) {
     return switch (call.method) {
       'navigateToLab' => 'fr://lab',
-      'navigateToCalendar' => 'fr://lab/demo/calendar',
       'navigateToClock' => 'fr://lab/demo/clock',
       'navigateToTimetable' => 'fr://timetable',
       'navigateToNotionImage' =>
         'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
       'navigateToRecorder' =>
         'fr://lab/demo/recorder?autostart=${(call.arguments as bool?) ?? true}',
+      'navigateToClockWidgetToggle' => 'fr://clock/widget-toggle',
       _ => null,
     };
   }
@@ -255,17 +253,17 @@ class FrMethodChannelTranslator {
 ```
 
 ```dart
-// lib/main.dart
-Future<dynamic> _handleMethodCall(MethodCall call) async {
+// lib/main.dart —— 一行委托
+Future<dynamic> _handleRootMethodCall(MethodCall call) async {
   final frUrl = FrMethodChannelTranslator.translate(call);
   if (frUrl == null) return;
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    FrNavigator.handle(navigatorKey.currentContext, frUrl);
+    FrNavigator.handle(rootNavigatorKey.currentContext, frUrl);
   });
 }
 ```
 
-并在 `core/schema/schema.dart` 导出,统一入口。
+加新 widget 只需往 `translate` 的 switch 加一行 case,`main.dart` 与 `bootstrap_routes.dart` 都不动;该类不导出到 `core/schema/`,挂在 `lib/app_lifecycle/`(widget 深链属于 app 生命周期桥接)。
 
 ## 错误案例
 
@@ -277,7 +275,7 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
 | `appwidget-provider` 缺 `description` + `previewLayout` | picker 中 label 下方无说明,缩略图空白 | 全部 widget 一次性补齐 description + previewLayout |
 | 仅跑 `flutter analyze` 不跑 `flutter build apk` | widget label / description 错误 analyze 不会报 | 涉及 manifest / 资源改动,先 `flutter build apk --debug` |
 | handler 直接 `await controller.start()` | controller 还没 attach,UI 没 mount,permission 没 probe | pending flag + 页面 mount 后 `addPostFrameCallback` 消费 |
-| 把 MethodChannel 翻译表散落在 main.dart | 加新 widget 必须同时改 main.dart + bootstrap_routes,易漏 | 抽到 `core/schema/method_channel_translator.dart`,与 bootstrap_routes 同目录 |
+| 把 MethodChannel 翻译表散落在 main.dart | 加新 widget 必须同时改 main.dart + bootstrap_routes,易漏 | 抽到 `lib/app_lifecycle/fr_method_channel_translator.dart`,加 case 即可,main.dart 不动 |
 
 ## 验证清单
 

@@ -87,7 +87,7 @@ void dispose() {
 
 ## Lab Demo 创建规范
 
-遵循 `flutter-work-flow` skill 的 Demo 规范：
+遵循 `flutter-biz` skill（`workflow` 子域）的 Demo 规范：
 
 1. **文件位置**：`lib/lab/demos/rive_xxx_demo.dart`（单文件，扁平化）
 2. **必须继承 `DemoPage`**：

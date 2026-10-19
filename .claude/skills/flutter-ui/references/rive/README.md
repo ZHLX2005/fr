@@ -1,5 +1,7 @@
 # Rive Skills for Claude
 
+> 上游 `rive-skills` 包原始 README，仅作存档；本层入口见 `rive-skills.md`。
+
 Comprehensive Claude Code skills for working with the [Rive](https://rive.app) interactive animation platform.
 
 ## Overview

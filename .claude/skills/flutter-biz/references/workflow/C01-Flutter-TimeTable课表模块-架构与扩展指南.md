@@ -116,7 +116,7 @@ lib/core/timetable/
 | 适配器绕过 AnimeDraft 直接造 CourseItem | 丢失缺省字段语义（time 缺失无法提示） | 统一走 AnimeDraft → 排期页补齐 → buildAnimeDsl |
 | 大段替换设置页后不 analyze | 括号/缩进错乱编译失败 | 大段编辑后立即 flutter analyze |
 | 新 box 忘记注册 StorageRegistry | 存储分析面板看不到 | init() 四件套：guard+adapter+open+register |
-| test/ 新增测试不 git add -f | 测试没提交 | test/ 被 .gitignore 忽略，需 -f |
+| test/ 新增测试不 git add -f（白名单外） | 测试没提交 | test/core、test/lab、test/api、test/app_lifecycle 已白名单放行，正常 `git add` 即可；其余（如 test/temp）仍需 `git add -f` |
 | DSL 只导出课程不带 config 段 | 配置丢失 | exportToDsl 始终携带 config 段 |
 | 常用配置堆进主设置页 | 设置页膨胀 | 非常用数字配置进高级设置独立页 |
 | 把起始日期塞进高级设置页 | 课表 UX 断链（用户要求回移第一层） | 起始日期是课表模式 UX 自动化（通用直选/学校对齐周一），永远留在主设置页 |

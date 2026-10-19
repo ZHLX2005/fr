@@ -90,7 +90,7 @@ Actions:
 Example signal:
 
 - stack line numbers imply a method call that no longer exists locally
-- crash says `onStartCommand` called `promoteToForeground()`, but local source shows `showBubble()`
+- crash says `onStartCommand` called `promoteToForeground()`, but local source shows `showFloatingWindow()`
 
 Meaning:
 
@@ -165,7 +165,7 @@ Bad:
 ```kotlin
 ACTION_START -> {
     promoteToForeground()
-    showBubble()
+    showFloatingWindow()
 }
 ```
 
@@ -173,7 +173,7 @@ Good:
 
 ```kotlin
 ACTION_START -> {
-    showBubble()
+    showFloatingWindow()
 }
 ```
 

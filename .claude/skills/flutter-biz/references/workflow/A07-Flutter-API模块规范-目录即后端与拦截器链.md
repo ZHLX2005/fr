@@ -411,7 +411,7 @@ Notion 单图上传**必须**分 3 步，1 个 HTTP 请求搞不定：
 | 2 | `POST /v1/file_uploads/{id}/send` | multipart/form-data 上传字节（form 字段名固定为 `file`） |
 | 3 | `PATCH /v1/blocks/{page_id}/children` | 把 image block（`type: file_upload`）追加到 page |
 
-参考源码：`.claude/repo/notion-cli/cmd/file.go` 的 `uploadFromSource` 函数（行 323-377）。
+参考源码：notion-cli 参考仓库已移出 `.claude/repo/`（如需对照后端实现找用户要路径）。
 
 ### 关键决策
 
@@ -509,7 +509,7 @@ String requireTestToken() {
 
 | 错误操作 | 实际后果 | 正确做法 |
 |---------|---------|---------|
-| **改 `.gitignore` 把 `test/api/` 加白名单让测试入库** | GitHub secret scanning 拦截 push，token 差点泄漏 | `.gitignore` 第 42-46 行已有 `test/*` 排除规则（仅 `test/core/localnet/` 例外）；**绝不轻易改这条规则**。token 测试永远本地跑，不入库 |
+| **改 `.gitignore` 把 `test/api/` 加白名单让测试入库** | GitHub secret scanning 拦截 push，token 差点泄漏 | `.gitignore` 已将 `test/core` / `test/lab` / `test/api` / `test/app_lifecycle` 列入白名单放行（测试已入库）；token 测试改用空字符串默认 + 本地跑（不入 CI 的 secret scanning）。**绝不轻易缩白名单或提交带真 token 的测试** |
 | **用 `http.MultipartFile.headers` 覆盖 content-type** | `flutter analyze` 报 `undefined_getter`（私有字段） | 用 `http.MultipartRequest` 走标准 API，或**手工构造 multipart body**（最终选这条路） |
 | **测试期望 `contentLength=99999` 时 Notion 拒绝** | Notion 实际接受（content_length 是 hint 非 hard limit），测试失败 | 改测试**无效 token 抛 401** — 更可靠 |
 | **直接写 Dart 不知道 Notion API 中文 property 是否支持** | 浪费时间调试 | **先用 curl 验证一次**：bash curl 把中文 property name 和 response 都过一遍再写 Dart |
@@ -539,7 +539,7 @@ String requireTestToken() {
 - [ ] `notion_exception.dart` — 解析 4xx/5xx 的 `code` + `message` 字段
 - [ ] 每个端点一个文件，控制在 200 行内
 - [ ] Provider 在 `api_providers.dart` 用 StateProvider 暴露 token + endpoint
-- [ ] **测试文件放 `test/api/<backend>/`，本地跑不入库**（遵守 `.gitignore`）
+- [ ] **测试文件放 `test/api/<backend>/`，已入库**（`.gitignore` 白名单放行 test/core/lab/api/app_lifecycle；token 测试用空字符串默认 + 本地跑避免 secret scanning）
 - [ ] `flutter analyze` 无 error
 - [ ] demo 文件 ≤ 400 行，单文件优先（参考 `crash_log_demo.dart`）
 - [ ] commit 前 grep 检查无密钥泄漏

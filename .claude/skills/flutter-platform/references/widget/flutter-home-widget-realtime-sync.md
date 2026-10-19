@@ -306,6 +306,7 @@ void _onTick() {
 丢状态。**纪律**：`startCountdown` / `pauseCountdown` / `resetCountdown` /
 `updateTime` 里的 `await _saveClocks()` 一个都不能删。
 
+```dart
 @override
 void didChangeAppLifecycleState(AppLifecycleState state) {
   if (state == AppLifecycleState.resumed) {
@@ -315,7 +316,7 @@ void didChangeAppLifecycleState(AppLifecycleState state) {
 }
 ```
 
-### C. Kotlin 端原生重算（src: `ClockWidgetProvider.kt`）
+### D. Kotlin 端原生重算（src: `ClockWidgetProvider.kt`）
 
 ```kotlin
 internal fun updateAppWidget(context: Context, mgr: AppWidgetManager, id: Int) {
@@ -335,7 +336,7 @@ internal fun updateAppWidget(context: Context, mgr: AppWidgetManager, id: Int) {
 }
 ```
 
-### D. 刷新按钮兜底（XML + Kotlin onReceive）
+### E. 刷新按钮兜底（XML + Kotlin onReceive）
 
 ```xml
 <!-- clock_widget.xml -->
@@ -366,19 +367,21 @@ val refreshPi = PendingIntent.getBroadcast(
 views.setOnClickPendingIntent(R.id.widget_refresh, refreshPi)
 ```
 
-### E. AndroidManifest.xml 注册
+### F. AndroidManifest.xml 注册
 
 ```xml
+<!-- 显式 Intent 广播无需 intent-filter 注册 -->
 <receiver android:name=".native.widget.ClockWidgetProvider" android:exported="true">
     <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-        <action android:name="io.github.xiaodouzi.fr.action.CLOCK_WIDGET_REFRESH" />
     </intent-filter>
     <meta-data
         android:name="android.appwidget.provider"
         android:resource="@xml/clock_widget_info" />
 </receiver>
 ```
+
+> **显式 Intent 广播无需 intent-filter 注册**：`ClockWidgetProvider` 的刷新按钮用 `Intent(context, ClockWidgetProvider::class.java)` 显式组件 Intent 构造 PendingIntent（src 中 `updateAppWidget` 内的 `refreshIntent` 段），系统按目标 component 直接派发，不需要在 `<receiver>` 内追加 `<action>`。只有改用隐式广播（如 `Intent(ACTION_REFRESH)` + `sendBroadcast`）才需要 intent-filter；本项目目前所有 widget 的刷新走显式 Intent，所以 `AndroidManifest.xml:180-190` 仅声明 `APPWIDGET_UPDATE`。
 
 ## 错误案例
 
@@ -390,8 +393,7 @@ views.setOnClickPendingIntent(R.id.widget_refresh, refreshPi)
 | 只在 Flutter 端算 remaining | 进程被系统杀（低内存/久后台）后 widget 数据冻结 | 原生侧基于 `startTimeMs + startRemainingSeconds` 重算 |
 | PendingIntent requestCode 全用 `0` | 多 widget 实例时点其中一个，所有 widget 行为混淆 | 用 `appWidgetId` 作 requestCode |
 | Android 12+ 漏 `FLAG_IMMUTABLE` | `IllegalArgumentException` 崩溃，widget 完全无法点击 | `FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE` |
-| 没有 tick 去重 (`_isUpdating`) | 慢设备 IO 堆积，写一次要 5 秒，UI 卡死 | 在 Service 顶层加 `static bool _isUpdating` |
-| Manifest 缺自定义 action intent-filter | 刷新按钮点击无响应，`onReceive` 收不到 | 加上 `<action android:name="...ACTION_REFRESH" />` |
+| 写盘堆积时加 `_isUpdating` flag 跳过 tick 推送（已废弃） | 静默丢最新帧：暂停态永远写不出，widget 顽固卡「进行中」 | 串行合并链保证最终态必写出（原则 3）；写盘堆积查 `Future.wait` 漏 await / 写盘合并链是否生效 |
 | 修复时只改 Kotlin 重算逻辑，没排查 Flutter 触发链 | 看似修了"进程死亡时显示对"，但**正常运行时仍然 30 分钟一更**——根因没解决 | 先 grep `qualifiedAndroidName`、`Class.forName`，再看一次插件源码 |
 
 ## 验证清单
@@ -423,7 +425,7 @@ widget 不刷新
     │   └─ 是 → 下一步
     │
     ├─ getData 拿到的值是新值？
-    │   ├─ 否 → Future.wait 没等齐 / SharedPreferences 写慢 / _isUpdating 堵了
+    │   ├─ 否 → 写盘堆积：检查 `Future.wait` 是否漏 await / 写盘合并链是否生效
     │   └─ 是 → RemoteViews 没正确 setTextViewText / id 错
     │
     └─ Flutter 进程被杀后还正确？
@@ -450,6 +452,6 @@ widget 不刷新
 - "widget 都是小豆子 / widget 没法区分 / picker 显示一样 / 给 widget 加 label / widget label 命名"
   → [[widget-label-and-manifest]]
 
-## 调用 skill-creator（可选）
+## 调用 skill-development（可选）
 
-本 skill 已完整覆盖：触发条件、核心原则、端到端架构、关键代码、错误案例、验证清单、排查 flowchart。如需写测试用例或量化评估，可调用 skill-creator。
+本 skill 已完整覆盖：触发条件、核心原则、端到端架构、关键代码、错误案例、验证清单、排查 flowchart。如需写测试用例或量化评估，可调用 skill-development。

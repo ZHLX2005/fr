@@ -340,7 +340,7 @@ await handle.applyAction(
 | WS 立刻断开                     | 检查是否 Join 过；device_id 一致                                 |
 | snapshot 不更新                 | 检查 Lua handler 是否`return c`                                |
 
-诊断工具：项目 `.tool/relay-v3-simulator/scripts/prove_bug.py` 验证后端 / `relay_v3_sim.py` 跑全流程。
+诊断工具：现役工具 `.tool/relay-room-tester/emoji_e2e.dart`（原 `.tool/relay-v3-simulator/` 下 prove_bug.py / relay_v3_sim.py 已删除，2026-10 核对）。
 
 ---
 

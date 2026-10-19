@@ -1,13 +1,15 @@
 ---
 name: v2-snapshot-driven
-description: v2 协议详细参考 — snapshot/快照驱动模型，由 RelaySnapshotTransport 使用。推荐新功能默认走这个版本。排查"晚加入者错过事件""两端不同步""房间状态丢失"等问题时优先读
+description: v2 snapshot 协议已删除的历史参考，仅用于理解历史与迁移；新功能一律走 v3 Lua 状态机
 ---
 
 # V2 Snapshot-Driven Protocol
 
+> ⚠️ **历史存档（2026-10 核对）**：v2 snapshot 协议前后端代码均已删除，本文仅供理解历史与迁移。新功能一律走 v3（见 [[relay-lua-state-machine]] 或 playbook §1）。
+
 Relay 协议 v2 = snapshot/快照模型。**服务端权威 snapshot，客户端零合并算法**。
 
-> 新功能 / 新业务 / 严格状态同步场景 → 走 v2。  
+> 新功能 / 新业务 / 严格状态同步场景 → 走 v3（见 [[relay-lua-state-machine]]）。  
 > LAN 模式保留 v1，不在此 ref 范围。
 
 ## 1. 核心架构

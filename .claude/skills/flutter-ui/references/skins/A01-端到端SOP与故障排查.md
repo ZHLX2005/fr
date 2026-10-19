@@ -186,12 +186,9 @@ dart run tool/publish_game_center_index.dart
 
 ### 5.2 上传单首歌
 
-```bash
-python .claude/skills/flutter-ui/scripts/add_skin.py D:/songs/my-song my-song --game line
-# 脚本期望 D:/songs/my-song/ 下有 audio.mp3 + cover.webp + chart.json
-```
-
-> 当前 `add_skin.py` 主要面向 skin/cover 类型（图片 + 固定命名）。line 的端到端 SOP **推荐用 migrate 脚本**（见 §5.3）或写类似工具；单首手动上传可参考 `migrate_line_from_supabase.py` 的 `migrate_one()` 思路直接调后端 API。
+> 当前 `add_skin.py` 仅 `chess / gomoku / game-center` 三类在 `GAME_ASSET_KEYS` 登记；
+> 传入 `--game line` 未登记会回退到 chess 12 键并因缺文件直接 die。
+> line 端到端上传**走 §5.3 `migrate_line_from_supabase.py`**（或先把 `line` 资产键登记到 `add_skin.py:47-56` 的 `GAME_ASSET_KEYS` 再用）。
 
 ### 5.3 从 Supabase 迁移（一次性）
 

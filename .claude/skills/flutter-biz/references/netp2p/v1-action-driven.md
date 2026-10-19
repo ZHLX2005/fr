@@ -7,7 +7,7 @@ description: v1 协议详细参考 — action/事件驱动模型（topic pub/sub
 
 Relay 协议 v1 = topic pub/sub，事件流模型。
 
-> 当前为 net_p2p 的**遗留用法**。LAN 模式保留 v1；Relay 模式新功能走 v2 snapshot。
+> 当前为 net_p2p 的**遗留用法**。LAN 模式保留 v1；Relay 模式新功能走 v3 Lua 状态机。
 
 ## 1. 核心架构
 

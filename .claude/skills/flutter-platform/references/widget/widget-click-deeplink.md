@@ -9,7 +9,7 @@
 
 - 用户反馈"点击 widget 进入的是首页/列表,想直接进入具体页面"
 - 第一次为 widget 加 `setOnClickPendingIntent(R.id.widget_root, ...)`
-- 给新 widget(`CalendarWidget`/`TimetableWidget` 等)做主体点击跳转
+- 给新 widget(`RecorderWidget`/`TimetableWidget` 等)做主体点击跳转
 - 想利用现有 `fr://lab/demo/{slug}` 路由而不重新写一套 Intent extra 解析
 - 排查 "widget 点击后页面被多次 push / 返回手势要折叠多次" 类 bug
 - 排查 "点击 widget 只进 app 首页,进不到 demo,且 notion/recorder 都失效" 类 bug → **带 query 的 URI 用 `==` 匹配了**(见下方必踩坑)
@@ -35,8 +35,9 @@
                    │ "navigateToClock"
                    ▼
 ┌──────────── Flutter 端 ────────────────┐
-│ main.dart _handleMethodCall            │
-│   └─ switch call.method:               │  ③ "navigateToClock" → "fr://lab/demo/clock"
+│ main.dart _handleRootMethodCall        │
+│   └─ FrMethodChannelTranslator         │  ③ "navigateToClock" → "fr://lab/demo/clock"
+│      .translate(call)                  │
 │        → FrNavigator.handle(           │
 │           navigatorKey.currentContext, │
 │           frUrl)                       │
@@ -56,7 +57,7 @@
 
 - `fr://lab/demo/clock` 是字符串,放 Intent.data 是 Android 标准的"深链"模式
 - `MainActivity` 已有的 `handleIntent` 就是按 `intent.data` 分发的,白嫖现有代码
-- 与 calendar/timetable/notion 的做法完全对称,后续维护一致
+- 与 timetable/notion/recorder 的做法完全对称,后续维护一致
 - 调试时 `adb shell am start -a android.intent.action.VIEW -d "fr://lab/demo/clock"` 可直接拉起测试
 
 ## 关键代码模式(以 clock 为例)
@@ -64,7 +65,7 @@
 ### 1. ClockWidgetProvider.kt —— 主体点击 Intent
 
 ```kotlin
-// ClockWidgetProvider.kt:84-96 (updateAppWidget 内)
+// ClockWidgetProvider.kt — updateAppWidget 内主体点击段
 val intent = Intent(context, MainActivity::class.java).apply {
     action = Intent.ACTION_VIEW
     data = android.net.Uri.parse("fr://lab/demo/clock")  // ← 直达 demo 页面
@@ -88,13 +89,16 @@ setOnClickPendingIntent(R.id.widget_container, pendingIntent)
 ### 2. MainActivity.kt —— handleIntent 加 fr:// URL 解析
 
 ```kotlin
-// MainActivity.kt:217-233 (handleIntent when 分支)
+// MainActivity.kt — handleIntent when 分支
 when {
-    uriStr == "fr://calendar" || uri.path == "/calendar" -> {
-        widgetChannel.notifyNavigateToCalendar()
+    // fr://recorder 短别名 + fr://lab/demo/recorder 主链 + path 兜底（与时钟走同一模式）
+    uriStr == "fr://recorder" || uriStr.startsWith("fr://lab/demo/recorder") ||
+        uri.path == "/demo/recorder" -> {
+        // 桌面 widget 默认 autostart=true；普通 fr:// 链接可显式 ?autostart=false
+        widgetChannel.notifyNavigateToRecorder(uri.getBooleanQueryParameter("autostart", true))
     }
-    uriStr == "fr://clock" || uriStr == "fr://lab/demo/clock" ||
-        uri.path == "/lab/demo/clock" -> {                       // ← 新增
+    uriStr == "fr://clock" || uriStr.startsWith("fr://lab/demo/clock") ||
+        uri.path == "/lab/demo/clock" -> {
         widgetChannel.notifyNavigateToClock()
     }
     uriStr == "fr://timetable" || uri.path == "/timetable" -> {
@@ -131,12 +135,16 @@ class WidgetChannel(messenger: BinaryMessenger) {
         setMethodCallHandler { call, result ->
             when (call.method) {
                 "navigateToLab" -> { onNavigateToLab?.invoke(); result.success(null) }
-                "navigateToCalendar" -> { onNavigateToCalendar?.invoke(); result.success(null) }
-                "navigateToClock" -> { onNavigateToClock?.invoke(); result.success(null) }  // ← 新增
+                "navigateToClock" -> { onNavigateToClock?.invoke(); result.success(null) }
                 "navigateToTimetable" -> { onNavigateToTimetable?.invoke(); result.success(null) }
                 "navigateToNotionImage" -> {
                     val autocapture = call.argument<Boolean>("autocapture") ?: false
                     onNavigateToNotionImage?.invoke(autocapture)
+                    result.success(null)
+                }
+                "navigateToRecorder" -> {
+                    val autostart = call.argument<Boolean>("autostart") ?: true
+                    onNavigateToRecorder?.invoke(autostart)
                     result.success(null)
                 }
                 else -> result.notImplemented()
@@ -145,76 +153,90 @@ class WidgetChannel(messenger: BinaryMessenger) {
     }
 
     var onNavigateToLab: (() -> Unit)? = null
-    var onNavigateToCalendar: (() -> Unit)? = null
-    var onNavigateToClock: (() -> Unit)? = null           // ← 新增
+    var onNavigateToClock: (() -> Unit)? = null
     var onNavigateToTimetable: (() -> Unit)? = null
+
+    /// Notion 图床页面跳转回调，[autocapture] = true 表示从桌面 widget 进入，
+    /// 期望自动触发拍照。
     var onNavigateToNotionImage: ((Boolean) -> Unit)? = null
 
+    /// 录音机页面跳转回调，[autostart] = true 表示从桌面 widget 进入，
+    /// 期望自动开始录音。
+    var onNavigateToRecorder: ((Boolean) -> Unit)? = null
+
     fun notifyNavigateToLab() { channel.invokeMethod("navigateToLab", null) }
-    fun notifyNavigateToCalendar() { channel.invokeMethod("navigateToCalendar", null) }
-    fun notifyNavigateToClock() { channel.invokeMethod("navigateToClock", null) }   // ← 新增
+    fun notifyNavigateToClock() { channel.invokeMethod("navigateToClock", null) }
     fun notifyNavigateToTimetable() { channel.invokeMethod("navigateToTimetable", null) }
     fun notifyNavigateToNotionImage(autocapture: Boolean) {
         channel.invokeMethod("navigateToNotionImage", autocapture)
+    }
+    fun notifyNavigateToRecorder(autostart: Boolean) {
+        channel.invokeMethod("navigateToRecorder", autostart)
     }
 }
 ```
 
 **对称性原则**:每次给 `handleIntent` 加新深链,都对应 `navigateToXxx` method + `onNavigateToXxx` 回调 + `notifyNavigateToXxx()` 调用 —— 这三处必须同时改,缺一会出现"日志说 invoke 了但 Flutter 端 switch 没命中"。
 
-### 4. main.dart —— _handleMethodCall 翻译成 fr:// URL
+### 4. FrMethodChannelTranslator —— MethodChannel call 翻译成 fr:// URL（main.dart 一行委托）
+
+`call.method → fr:// URL` 翻译表已抽到独立类 `FrMethodChannelTranslator`（`lib/app_lifecycle/fr_method_channel_translator.dart`，与 `WidgetChannel.kt` 的 `when` 分支严格对称）。`main.dart` 只剩一行委托：
 
 ```dart
-// lib/main.dart:108-121
-Future<dynamic> _handleMethodCall(MethodCall call) async {
-  final frUrl = switch (call.method) {
-    'navigateToLab' => 'fr://lab',
-    'navigateToCalendar' => 'fr://lab/demo/calendar',
-    'navigateToClock' => 'fr://lab/demo/clock',         // ← 新增
-    'navigateToTimetable' => 'fr://timetable',
-    'navigateToNotionImage' =>
-      'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
-    _ => null,
-  };
+// lib/main.dart
+Future<dynamic> _handleRootMethodCall(MethodCall call) async {
+  final frUrl = FrMethodChannelTranslator.translate(call);
   if (frUrl == null) return;
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    FrNavigator.handle(navigatorKey.currentContext, frUrl);
+    FrNavigator.handle(rootNavigatorKey.currentContext, frUrl);
   });
 }
 ```
 
+**加新 widget → 只需往 `FrMethodChannelTranslator.translate` 的 switch 加一行 case**（同步在 `WidgetChannel.kt` 加对应 `when` 分支 + 回调 + notify 方法，「三件套」）。`main.dart` 与 `bootstrap_routes.dart` 都不动。
+
 **为什么用 `addPostFrameCallback`?**
 
-MethodChannel 回调可能在 build 阶段触发,直接 `nav.push` 会抛 "Navigator is currently locked"。
-`addPostFrameCallback` 把 push 推迟到当前帧结束后,Flutter 端能干净地 push 新页面。
+MethodChannel 回调可能在 build 阶段触发，直接 `nav.push` 会抛 "Navigator is currently locked"。
+`addPostFrameCallback` 把 push 推迟到当前帧结束后，Flutter 端能干净地 push 新页面。
 
 **为什么 `FrNavigator.handle` 已经够了?**
 
-`FrNavigator.handle()` 内部已经做了 4 件事,不需要在 main.dart 重复实现:
+`FrNavigator.handle()` 内部已经做了 4 件事，不需要在 main.dart 重复实现：
 - `frRouter.resolve(url)` —— 解析 URL 找 handler
-- 防重复堆叠 —— 探查栈顶 route name,如果已 push 过同名 route 直接 return
+- 防重复堆叠（CLEAR_TOP 语义）—— 见下方「必踩坑:防重复堆叠」
 - `MaterialPageRoute(settings: RouteSettings(name: ...))` —— 给每条 fr:// 路由唯一命名
 - `nav.push(target)` —— 真正入栈
 
-## 必踩坑:防重复堆叠
+## 必踩坑:防重复堆叠（CLEAR_TOP 语义）
 
-`FrNavigator.handle()` (`lib/core/schema/fr_navigator.dart:51-69`) 用 `RouteSettings.name` 探查栈顶:
+`FrNavigator.handle()`（`lib/core/schema/fr_navigator.dart` 的 `handle` 方法）走的是 **CLEAR_TOP 语义**：目标路由已在栈中（任意深度）→ `popUntil` 把已存在实例提到栈顶，不再 push；不在栈中 → 正常 push。栈是否已有目标路由的判定委托给 `FrRouteStack`（NavigatorObserver，`main.dart` 注册到 `MaterialApp.navigatorObservers`）跟踪全栈。
 
 ```dart
+// lib/core/schema/fr_navigator.dart（handle 方法末尾）
 final routeName = '/fr/${match.authority}/${match.path}';
-String? currentName;
-nav.popUntil((route) {
-  currentName = route.settings.name;
-  return true; // 立即停止,不会 pop 任何页面
-});
-if (currentName == routeName) return;
-nav.push(MaterialPageRoute(settings: RouteSettings(name: routeName), builder: ...));
+if (frRouteStack.containsName(routeName)) {
+  nav.popUntil(
+    (route) => route.settings.name == routeName || route.isFirst,
+  );
+  return;
+}
+nav.push(
+  MaterialPageRoute(
+    settings: RouteSettings(name: routeName),
+    builder: (_) => target,
+  ),
+);
 ```
 
-**为什么要做这个?**
+`route.isFirst` 是保险：Observer 与栈漂移时最多 pop 到根页，不会清空调。
+
+**为什么不能只探查栈顶 route name 就 return？** 旧实现就是只查栈顶——桌面 widget 交替点不同入口、或目标页之上压了其他页面时，同一页面会被反复 push，"返回手势因此要折叠多次才能退出"。改成「任意深度 containsName + popUntil 上提」后，行为对齐 Android `Intent.FLAG_ACTIVITY_CLEAR_TOP`。
+
+**场景**:
 
 桌面 widget 点击、冷启动 Intent、`onNewIntent` 三个入口都会触发同一条 fr:// URL。
-不做这个检查会出现:
+不做 CLEAR_TOP 会出现:
 - 用户点 widget 一次 → push clock
 - 滑出 app → 再次点 widget → 又 push 一个 clock
 - 退出要按两次 back
@@ -265,8 +287,8 @@ uriStr == "fr://recorder" || uriStr.startsWith("fr://lab/demo/recorder") ||
 | 错误操作 | 实际后果 | 正确做法 |
 |---------|---------|---------|
 | widget 点击 Intent data 写 `"fr://lab"` | 进入 lab 首页,用户要多点一次才能到目标 demo | 写完整深链 `"fr://lab/demo/{slug}"`,命中 `LabDemoHandler` |
-| 改 `WidgetChannel.kt` 加 `navigateToClock` 但忘改 `MainActivity.handleIntent` when 分支 | handleIntent 永远命中不到 `fr://lab/demo/clock`,变成"logcat 看到 invoke 但 Flutter 端不进栈" | 三处同改:handleIntent when + WidgetChannel + main.dart switch |
-| `main.dart` switch 里把 `navigateToClock` 写成 `fr://lab`(而不是 `fr://lab/demo/clock`) | 翻译成 fr://lab 后走 `LabIndexHandler`,进首页 | 必须翻译成最终路由 URL,与 `bootstrap_routes.dart` 注册的 authority 严格对齐 |
+| 改 `WidgetChannel.kt` 加 `navigateToClock` 但忘改 `MainActivity.handleIntent` when 分支 | handleIntent 永远命中不到 `fr://lab/demo/clock`,变成"logcat 看到 invoke 但 Flutter 端不进栈" | 三处同改:handleIntent when + WidgetChannel + FrMethodChannelTranslator.translate |
+| `FrMethodChannelTranslator` translate 里把 `navigateToClock` 写成 `fr://lab`(而不是 `fr://lab/demo/clock`) | 翻译成 fr://lab 后走 `LabIndexHandler`,进首页 | 必须翻译成最终路由 URL,与 `bootstrap_routes.dart` 注册的 authority 严格对齐 |
 | 直接 `Navigator.pushNamed` 绕过 FrNavigator | 失去防重复堆叠 / 失去 SnackBar 错误提示 / 失去和 fr:// 路由体系的一致性 | 统一走 `FrNavigator.handle(context, frUrl)`,享受所有已有防护 |
 | 改完不删桌面旧 widget 实例 | 部分 launcher 把 Intent Intent extras 缓存,看不到新效果 | 长按删除旧 widget,重新从 picker 添加(只针对改 manifest 的场景;改 Intent.data 通常无需重添) |
 | PendingIntent requestCode 写 `appWidgetId` 配合 `getActivity` | 无害但不必要;`getActivity` 走系统启动器,系统按 data 区分 | `getActivity` 用 0 即可,只有 `getBroadcast`/`getService` 需要 appWidgetId |
@@ -283,7 +305,7 @@ uriStr == "fr://recorder" || uriStr.startsWith("fr://lab/demo/recorder") ||
 - [ ] `WidgetChannel.kt` 三处齐全: when 分支 / `onNavigateToXxx` 字段 / `notifyNavigateToXxx()` 方法
 - [ ] `MainActivity.handleIntent` when 分支包含新 URI,且与 WidgetChannel method name 一致
 - [ ] **带 query 的 URI 用 `startsWith` 匹配**(`fr://xxx?flag=true` 用 `==` 会静默 drop;`uri.path` 不含 authority 段)
-- [ ] `main.dart _handleMethodCall` switch 包含新 method,翻译出的 fr:// URL 与 `bootstrap_routes.dart` 注册的 authority 对齐
+- [ ] `FrMethodChannelTranslator.translate` switch 包含新 case,翻译出的 fr:// URL 与 `bootstrap_routes.dart` 注册的 authority 对齐
 - [ ] **冷启动验证**:kill app → 点 widget → 应直接进入目标 demo(不经过 lab 首页)
 - [ ] **温启动验证**:app 在后台 → 点 widget → 应直接进入目标 demo,不堆叠新实例
 - [ ] **返回手势验证**:进入目标 demo 后按一次 back,应回到 MainScreen(不是再 pop 一层同名 demo)
@@ -312,7 +334,7 @@ var onNavigateToXxx: (() -> Unit)? = null
 fun notifyNavigateToXxx() { channel.invokeMethod("navigateToXxx", null) }
 ```
 
-### Step 3: MainActivity.kt + main.dart 各加一行
+### Step 3: MainActivity.kt + FrMethodChannelTranslator 各加一行
 
 ```kotlin
 // MainActivity.kt handleIntent when
@@ -320,8 +342,10 @@ fun notifyNavigateToXxx() { channel.invokeMethod("navigateToXxx", null) }
 uriStr == "fr://lab/demo/<slug>" || uriStr.startsWith("fr://lab/demo/<slug>") ->
     widgetChannel.notifyNavigateToXxx()
 
-// main.dart _handleMethodCall switch
+// lib/app_lifecycle/fr_method_channel_translator.dart translate switch
 'navigateToXxx' => 'fr://lab/demo/<slug>',
 ```
+
+**main.dart 不动**:翻译已收口到 `FrMethodChannelTranslator`,新 widget 只需往该类 `translate` 加一行 case。
 
 **主 SKILL.md 不用动** —— 整个 widget 端点击跳转是这次实战提炼出的独立主题,在这里沉淀。新 widget 按这 3 步复制即可。

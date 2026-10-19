@@ -263,6 +263,8 @@ class _State extends State {
 
 **判据**：只有"用户身份、无游戏语义"的字段才能进共享 module。任何和 game rule 相关的都禁止。
 
+> 📸 **快照注记（2026-10 核对）**：入口已迁移到 `lib/core/game_kit/lobby/` 的 `GameLobbyPage` + 各游戏 `*_lobby_spec.dart`（identityResolver 用 `RelayDeviceIdResolver`，deviceId 为持久化稳定 UUID，不再按 demo 前缀现生成）。本节按当时实现写作，保留为历史参考。
+
 ---
 
 ---
@@ -397,6 +399,8 @@ end
 ```
 
 **Flutter 关键代码**：
+
+> 📸 **快照注记（2026-10 核对）**：入口已迁移到 `lib/core/game_kit/lobby/` 的 `GameLobbyPage` + 各游戏 `*_lobby_spec.dart`（五子棋见 `lib/core/gomoku/lobby/gomoku_lobby_spec.dart`，identityResolver 用 `RelayDeviceIdResolver`）。下文 `LobbyEntryPage` 内联写法保留为历史参考。
 
 ```dart
 // widgets.dart — LobbyEntryPage
@@ -774,6 +778,8 @@ Container(
 
 ## 7. widget 抽象边界（第 3 个游戏出现时再抽）
 
+> 📸 **快照注记（2026-10 核对）**：「再抽象」已落地——`lib/core/game_kit/lobby/`（`GameLobbyPage` / `GameLobbySpec`）即本节预设的抽象形态；新游戏写 `*_lobby_spec.dart` 接入即可，本节保留为设计推理历史。
+
 当出现 **第 3 个**对战游戏时，可抽以下组件（共性 >90%）：
 
 ### ✅ 可抽
@@ -835,7 +841,7 @@ VersusRoomShell(
 8. **测试**：
    - `flutter analyze` 0 error
    - 手动联调：两端同时输入房间号 → 先到=房主 → ACK×2 → 对弈 → 胜负 → 再来
-   - 后端场景测试：`.tool/relay-room-tester` 跑 `test_rooms.py`
+   - 后端场景测试：`.tool/relay-room-tester/`（emoji_e2e.dart）+ `test/` 下 relay_v3_transport_test.dart
 
 ---
 
@@ -902,7 +908,7 @@ GomokuAliasPrefs.load().then((v) {
 - Demo 入口：`lib/lab/demos/gomoku_lua_demo.dart`
 - Lua 脚本：`lib/lab/demos/gomoku_lua/gomoku_script.dart`
 - **共享昵称 reference**：`lib/services/lua/lua_game_alias.dart`
-- 端到端测试：`.tool/relay-room-tester/scripts/test_rooms.py`
+- 端到端测试：`.tool/relay-room-tester/`（emoji_e2e.dart）+ `test/core/net_engine/relay_v3_transport_test.dart`
 
 ---
 

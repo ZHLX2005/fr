@@ -38,39 +38,33 @@ SecurityException: Media projections require a foreground service
 of type ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
 ```
 
-### 2. 始终使用 3 参数 startForeground，不依赖 SDK_INT 判断
+### 2. promoteToForeground：ServiceInfo 常量 + SDK_INT >= Q 分支调 3 参 startForeground
 
-某些厂商（如荣耀 Honor）Android 14 设备的 `Build.VERSION.SDK_INT` 可能不等于 34，但系统仍要求 foreground service type。
+**现行做法（与现网 FloatingWindowManager.kt / PigmentFloatingManager.kt 一致）：**
 
-**正确做法：**
 ```kotlin
 fun promoteToForeground() {
-    try {
-        startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
-    } catch (e: Exception) {
-        Log.e("Tag", "promoteToForeground failed: ${e.message}", e)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(
+            NOTIFICATION_ID,
+            createNotification(),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+        )
+    } else {
+        startForeground(NOTIFICATION_ID, createNotification())
     }
 }
 ```
 
-**错误做法：**
-```kotlin
-// 不要这样做！某些 Android 14 设备 SDK_INT != 34
-if (Build.VERSION.SDK_INT >= 34) {
-    startForeground(id, notification, 0x00000020)
-} else {
-    startForeground(id, notification)  // 缺少 foregroundServiceType
-}
-```
+3 参重载是 API 29 才存在的 API；本项目 minSdk 24，**无条件调 3 参会在 API 24-28 直接 `NoSuchMethodError`**，所以必须 `SDK_INT >= Q` 分支 + 2 参兜底。pre-Q 上 manifest 也没有 `foregroundServiceType` 属性，2 参即可。
 
-### 3. 使用硬编码值替代 ServiceInfo 常量
+> **历史记录（已废弃）**：早期一轮修复曾在部分厂商（如荣耀 Honor）Android 14 设备上观察到 `SDK_INT != 34` 仍要求 foreground service type，当时把结论写成「无条件 3 参 + 硬编码 `0x00000020`」。该做法在 API 24-28 必崩；且 `0x00000020` 与 `ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION` 是同一个值，硬编码没有任何收益——已废弃，不要照搬。
 
-`ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION` 可能在某些 compileSdk 版本中不可用。
+### 3. 类型常量直接用 `ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION`，不要硬编码
 
-```kotlin
-// 硬编码值 = 1 << 5 = 32 = 0x00000020
-startForeground(NOTIFICATION_ID, createNotification(), 0x00000020)
-```
+`ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION`（= 1 << 5 = 0x20）在本仓库 compileSdk 下编译正常——现网两个 Service 均 `import android.content.pm.ServiceInfo` 后直接用常量，编译发布无问题。
+
+> **历史记录（已废弃）**：旧结论「ServiceInfo 常量可能编译失败、须硬编码 `0x00000020`」源于一次本地 compileSdk/gradle 配置问题，不代表现状。如今写硬编码反而会被 FGS 排查 SOP 当作 stale bitmask 嫌疑（见 [[fgs-debug-cases]] Rule 1）。再遇「常量编译失败」，先查 compileSdk 配置，不要回退硬编码。
 
 ### 4. Manifest 必须声明权限和 foregroundServiceType
 
@@ -140,14 +134,16 @@ if (isWaitingForScreenshotPermission) {
 
 ## 错误案例警示
 
-### 错误 1：使用 import ServiceInfo
+### 错误 1：使用 import ServiceInfo ——（历史记录，已废弃）
 
-```kotlin
-import android.app.ServiceInfo  // 编译失败！某些 compileSdk 不包含
-startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
-```
-
-**修复：** 硬编码 `0x00000020`
+> 早期某次本地构建曾报 `ServiceInfo` 常量不可用，当时的 workaround 是硬编码 `0x00000020`：
+>
+> ```kotlin
+> import android.app.ServiceInfo  // 当时编译失败
+> startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+> ```
+>
+> **该结论已废弃**：现网 FloatingWindowManager.kt / PigmentFloatingManager.kt 都直接 `import android.content.pm.ServiceInfo` + 常量，编译发布正常。若再遇「常量编译失败」，是本地 compileSdk/gradle 配置问题，修配置，不要回退硬编码。
 
 ### 错误 2：showFloatingWindow 的 else if 分支重复请求权限
 
@@ -192,11 +188,11 @@ catch (e: Exception) {
 
 当悬浮窗截屏功能异常时，按以下顺序排查：
 
-1. **SecurityException?** → 检查 `promoteToForeground` 是否在 `getMediaProjection` 之前，且使用了 3 参数版本
+1. **SecurityException?** → 检查 `promoteToForeground` 是否在 `getMediaProjection` 之前，且按 `SDK_INT >= Q` 分支用了带 type 的 3 参版本
 2. **权限重复申请?** → 检查 `showFloatingWindow` 是否有多余的 else if 分支
 3. **截图后无结果?** → 检查 `acquireFrame` 返回值，添加 retry 机制和 Log
 4. **静默无响应?** → 检查 `isWaitingForScreenshotPermission` 是否卡在 `true`
-5. **编译报错?** → 用 `0x00000020` 替代 `ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION`
+5. **编译报错?** → 先查 compileSdk/gradle 配置；不要用 `0x00000020` 硬编码替代 `ServiceInfo` 常量（历史 workaround 已废弃，见规则 3）
 
 ### 关键 Log 标签
 
@@ -209,7 +205,7 @@ catch (e: Exception) {
 
 ## 何时读哪个 ref
 
-主文档承担 **7 轮修复经验的主线**（promoteToForeground 顺序、3 参数 startForeground、硬编码 0x20、retry 机制等）。以下特化场景需加载 ref：
+主文档承担 **7 轮修复经验的主线**（promoteToForeground 顺序、ServiceInfo 常量 + SDK_INT 分支、retry 机制等）。以下特化场景需加载 ref：
 
 | ref | 何时读取 | 路径 |
 |---|---|---|

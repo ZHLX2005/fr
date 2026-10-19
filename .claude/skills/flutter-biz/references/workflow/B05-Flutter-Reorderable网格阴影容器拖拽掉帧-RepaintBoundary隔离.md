@@ -14,7 +14,7 @@
 落位飞回（`releasedItem`，本例 360ms）——**每一帧都会把动画区域标脏**，重绘请求沿
 render tree 向上传播到最近的 RepaintBoundary：
 
-- 页面侧：`_PinnedGrid` 外包了 `RepaintBoundary`，且整页「明度分层、不用投影」→
+- 页面侧：`lib/screens/settings/pinned_grid.dart` 里的 `_PinnedGrid` 外包了 `RepaintBoundary`，且整页「明度分层、不用投影」→
   每帧只重绘网格自己那层，代价极小。
 - 弹窗侧：网格区没有隔离 → 每帧脏区扩散到整张 sheet 图层，而 sheet 卡片带
   `boxShadow: blurRadius 40` 的大阴影 → **每帧重渲染一次全宽 mask blur**。
@@ -27,7 +27,7 @@ auto-scroll 定时器根本不会创建）——差异全在宿主容器的重�
 ## 修复
 
 给动画发生的子树包一层 `RepaintBoundary`（main_screen.dart `_openMore` 的
-⋯ 网格、app_settings_page.dart `_PinnedGrid` 均已加）：
+⋯ 网格、`lib/screens/settings/pinned_grid.dart` 的 `_PinnedGrid` 均已加）：
 
 ```dart
 RepaintBoundary(

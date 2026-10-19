@@ -144,8 +144,8 @@ rm lib/lab/demos/rive_pendulum_demo.dart \
 
 - fr:// 路由总设计：`A02-Flutter-自定义Scheme路由中心化-fr-Router`
 - fr:// 日常使用 / 加新 demo：`A01-Flutter-fr路由-注册规范与防腐蚀`
-- Rive demo 完整流程：`rive-skills/references/flutter-project-workflow`
-- Rive 0.14.x API / DataBind：`rive-skills/references/flutter-databind-0.14`
+- Rive demo 完整流程：`.claude/skills/flutter-ui/references/rive/flutter-project-workflow`
+- Rive 0.14.x API / DataBind：`.claude/skills/flutter-ui/references/rive/flutter-databind-0.14`
 
 ---
 

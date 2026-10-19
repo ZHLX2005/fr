@@ -221,6 +221,8 @@ if (e.statusCode == 409 && body.contains('code collision')) {
 
 ## 5. 端到端验证（项目 `.tool/relay-room-tester`）
 
+> 注（2026-10 核对）：下表 11 场景来自已删除的 `test_rooms.py`，保留作覆盖面历史参考。现役工具：`.tool/relay-room-tester/`（emoji_e2e.dart）+ `test/core/net_engine/relay_v3_transport_test.dart`。
+
 ```text
 场景 1: 空号创建 → 201 + 6 位 room_code                  OK
 场景 2: 指定号创建 → 201 + 指定号                        OK
@@ -235,11 +237,7 @@ if (e.statusCode == 409 && body.contains('code collision')) {
 场景 11: 用项目内 kGomokuScript 端到端满员拒绝 → 409     OK
 ```
 
-复跑命令：
-
-```bash
-cd .tool/relay-room-tester && uv run python3 scripts/test_rooms.py
-```
+复跑：现役工具 `.tool/relay-room-tester/emoji_e2e.dart` + `test/core/net_engine/relay_v3_transport_test.dart`（原 `cd .tool/relay-room-tester && uv run python3 scripts/test_rooms.py` 已随 test_rooms.py 删除）。
 
 ---
 

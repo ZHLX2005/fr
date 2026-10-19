@@ -280,10 +280,13 @@ void registerAllFrRoutes() {
   frRouter.registerAll([
     FrRoute('lab',               handler: const LabIndexHandler()),
     FrRoute('lab/demo',          handler: const LabDemoHandler()),
+    FrRoute('lab/demo/recorder', handler: const RecorderHandler()),
+    FrRoute('clock/widget-toggle',handler: const ClockWidgetToggleHandler()),
     FrRoute('lab/core',          handler: const LabCoreHandler()),
     FrRoute('notion/image-host', handler: const NotionImageHostHandler()),
     FrRoute('notion/create-page',handler: const NotionCreatePageHandler()),
     FrRoute('timetable',         handler: const TimetableHandler()),
+    FrRoute('share/receive',     handler: const ShareReceiveHandler()),
   ]);
 }
 ```
@@ -292,28 +295,31 @@ void registerAllFrRoutes() {
 
 ## MethodChannel 反注册 → fr:// URL 翻译
 
-main.dart 用一个 switch 分发桌面 widget 的 MethodChannel 反注册（统一翻译成 `fr://...` URL 后走 `FrNavigator.handle`）：
+MethodChannel 反注册已收口到 `lib/app_lifecycle/fr_method_channel_translator.dart` 的翻译表（统一翻译成 `fr://...` URL），main.dart 只保留一行接线，调 `FrMethodChannelTranslator.translate(call)` 后走 `FrNavigator.handle`：
 
 ```dart
-Future<dynamic> _handleMethodCall(MethodCall call) async {
-  // 4 个 method 全部翻译成 fr:// URL，统一走 FrNavigator
-  final frUrl = switch (call.method) {
+// lib/app_lifecycle/fr_method_channel_translator.dart — 翻译表
+static String? translate(MethodCall call) {
+  return switch (call.method) {
     'navigateToLab'        => 'fr://lab',
-    'navigateToCalendar'   => 'fr://lab/demo/日历待办',
+    'navigateToClock'      => 'fr://lab/demo/clock',
     'navigateToTimetable'  => 'fr://timetable',
     'navigateToNotionImage'=> 'fr://notion/image-host?autocapture=${(call.arguments as bool?) ?? false}',
     _ => null,
   };
-  if (frUrl == null) return;
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    FrNavigator.handle(navigatorKey.currentContext, frUrl);
-  });
 }
+
+// lib/main.dart — 唯一接线
+final frUrl = FrMethodChannelTranslator.translate(call);
+if (frUrl == null) return;
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  FrNavigator.handle(rootNavigatorKey.currentContext, frUrl);
+});
 ```
 
 **收益**：
 
-- 新增 MethodChannel 入口只需加一行 switch case
+- 新增 MethodChannel 入口只需在 fr_method_channel_translator.dart 加一行 switch case（不进 main.dart）
 - query 参数（autocapture）序列化到 URL，handler 端用 `queryBool` 解析
 - 与文本链接、内部代码走完全相同的分发链路
 

@@ -7,10 +7,10 @@
 
 | 我想… | 动哪些文件 | 详见 |
 | --- | --- | --- |
-| 新增一套主题配色 | `tokens/color/theme/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
+| 新增一套主题配色 | `lib/design_tokens/color/palettes/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
 | 新增强调色 / 语义角色（如在 `ColorStrategy` 加 `info`） | `colors/strategy/color_strategy/color_strategy.dart` + `colors/strategy/color_strategy/themes/default.dart`（+ 其他 strategy 如有同类需求） | §2 |
 | 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `core/ui/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
-| 新增 / 改一个复用的组件样式 | `component/` 或 `core/ui/theme/zen_theme.dart` helper | §3 |
+| 新增 / 改一个复用的组件样式 | `lib/core/ui/zen/zen_theme.dart` helper（与 `lib/core/ui/*` 对齐） | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
 | 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[B02-特例策略]] |
 | 看历史踩过的反模式 / 找正确做法 | 踩坑经验库 | §4.5 |
@@ -35,14 +35,12 @@
 
 **数据入口两件套必须同步**（缺一不可，否则 `getThemeData` 会缺参）：
 
-1. **`tokens/color/theme/<mode>.dart` → `<Mode>Colors`**：新增 `class` 含 `static const ColorScheme scheme` + `static const AppColorsExtension appColors`。
+1. **`lib/design_tokens/color/palettes/<mode>.dart` → `<Mode>Colors`**：新增 `class` 含 `static const ColorScheme scheme` + `static const AppColorsExtension appColors`。
    - 按「主色族不动 + 环境族染互补 hue（差 150°~170°）+ tertiary 互补强副 + error 保持」设计。
    - onPrimary/onError 等配套角色直接写在同文件的 ColorScheme 字面量里；环境色注意与主色 hue 对比度。
-2. **`app_theme.dart`**：
-   - `enum AppThemeMode` 加一个枚举值。
-   - `getThemeDisplayName` / `getThemeIcon` 的 switch 各补一支。
-   - `getThemeData` 的 switch 加 `_buildTheme(scheme:..., ext:..., cardShadow:...)`（cardShadow 深色主题用深 alpha 黑 `Color(0x66000000)`，浅色用 `Color(0x14000000)`，与现码一致）。
-3. **`state/theme_provider.dart`**：若新主题是深色（`Brightness.dark`），`materialThemeModeProvider` 的 switch 要补 `AppThemeMode.<new> => ThemeMode.dark`，否则浅色主题全落 `_ => light` 分支。
+2. **`lib/core/theme/colors/theme_mode.dart`**：`enum AppThemeMode` 加一个枚举值（枚举独立成文件，避免 app_theme ↔ factory 循环依赖；`app_theme.dart` 通过 `export 'colors/theme_mode.dart' show AppThemeMode;` 重新导出，外部消费者无感）。
+3. **`app_theme.dart`**：`getThemeDisplayName` / `getThemeIcon` / `getThemeData` 三个 switch 各补一支；`getThemeData` 内 `_buildTheme(scheme:..., ext:..., cardShadow:...)`（cardShadow 深色主题用深 alpha 黑 `Color(0x66000000)`，浅色用 `Color(0x14000000)`，与现码一致）。
+4. **`state/theme_provider.dart`**：若新主题是深色（`Brightness.dark`），`materialThemeModeProvider` 的 switch 要补 `AppThemeMode.<new> => ThemeMode.dark`，否则浅色主题全落 `_ => light` 分支。
 
 校验：切到新主题整页审一遍（重点：卡片/对话框 surface 对比、正文 onSurface、边框 outline、危险 error）。
 
@@ -66,8 +64,8 @@
 
 - **能用内置的，不建新的**：普通按钮/卡片用 `FilledButtonTheme`/`ElevatedButtonTheme`/`CardTheme`（已在 `app_theme.dart` 的 `_buildTheme` 注册，统一从 scheme 派生）。
 - **非内置复合样式**（如 hero 圆钮、状态点）：
-  - 纯样式 → `lib/core/theme/component/` 下加静态方法（读 `Theme.of(context).colorScheme.X`，不写裸 hex）。
-  - 需要 widget 结构 + 样式 → `lib/core/ui/theme/zen_theme.dart` 加 helper 或委托 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
+  - `lib/core/theme/component/` 目录已解散（2026-10 清理，零消费者）；新加样式落到 `lib/core/ui/zen/zen_theme.dart` 的 helper 或 `lib/core/ui/*` 下的 widget（纯样式函数读 `Theme.of(context).colorScheme.X`，不写裸 hex）。
+  - 需要 widget 结构 + 样式 → `lib/core/ui/zen/zen_theme.dart` 加 helper 或委托 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
 - 新增 helper 后，在 `color-usage-audit.md` 的相关目录行补一句使用点，保持审计表新鲜。
 
 ## 4. 把既有硬编码迁到主题通道（迁移 SOP）
@@ -103,7 +101,7 @@
 
 **正确做法**：用 `surface`（页面/卡片/AppBar/BottomNavBar 的背景标准值）。
 
-**踩坑案例**：`lib/core/ui/theme/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
+**踩坑案例**：`lib/core/ui/zen/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
 
 ### 4.5.2 ❌ 用 `inversePrimary` 当 AppBar / Scaffold 背景
 
@@ -135,7 +133,7 @@
 
 ### 4.5.9 ❌ 修改 ColorScheme 后没核对引用面
 
-**正确做法**：改 ColorScheme 后跑 §6 校验流程，grep 新值是否在所有 5 主题下的边界用例都正常。
+**正确做法**：改 ColorScheme 后跑 §6 校验流程，grep 新值是否在所有 7 主题下的边界用例都正常。
 
 ### 4.5.10 ❌ 整文件声明"主题豁免"但里面有些项不该豁免
 
@@ -213,7 +211,7 @@ flutter analyze --no-pub        # 0 error
 flutter build apk --debug        # √ Built
 ```
 
-- 切到 zen / purple / ink / rose / lemon / cobalt 六主题各审关键页一次（壳层、卡片、board 棋盘、game 色板）。
+- 切到 zen / purple / ink / rose / lemon / cobalt / dark 七主题各审关键页一次（壳层、卡片、board 棋盘、game 色板）。
 - **特例页面**（tetris / team_card）跨主题审一次：切主题后该不动的角色必须不变。
 - 新增枚举 / 扩角色后，确认无遗漏 switch 分支（`getThemeData` / `materialThemeModeProvider` / displayName / icon）。
 - strategy 扩展后跑一次测试或至少 analyze，确认 `==`/`hashCode` 改动不崩。

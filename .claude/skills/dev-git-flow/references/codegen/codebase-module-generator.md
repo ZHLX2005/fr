@@ -5,7 +5,7 @@ description: 阅读任意目录，分析模块结构，生成防腐蚀规范 ski
 
 # Codebase 模块规范生成器
 
-调用 /writing-skills 或 /skill-creator 获得 skill 规范。
+调用 `skill-development`（创建/修复/改进 skill 的规范）与 `key_board`（生命周期管理）获得 skill 规范。
 
 给出 bad_example 和 good_eg 的正反案例。
 
@@ -19,6 +19,15 @@ description: 阅读任意目录，分析模块结构，生成防腐蚀规范 ski
 ## 核心原则
 
 **只生成 `.claude/skills/<name>/SKILL.md` 文件，不生成孤儿 markdown 文档。**
+
+## Flutter/Dart 项目适配
+
+本 SOP 的示例从 Chrome 扩展 / JS 项目移植，分析 Dart 项目时按本节替换分析对象，流程骨架（只产 SKILL.md、依赖矩阵、正反案例）不变。
+
+- **import 分析**：对象改为 Dart `import 'package:...'` 与相对 import（含 `export` / `part`）；不适用 ES `import` / `export` 语法分析。
+- **依赖清单**：读 `pubspec.yaml`（`dependencies` / `dev_dependencies`），替代 package.json。
+- **skill 命名**：下方决策树产出的 `chrome-ext-*-standards` 等命名是 JS 项目示例；Dart 项目命名应贴合 `lib/` 分层（如 `flutter-ui` / `flutter-biz` 风格）。
+- **异味维度**：3.4 的 chrome.* API / DOM 检测替换为 Flutter 场景——Widget 生命周期、async gap、Provider/Hive 等项目实际异味维度（参考同仓 `.claude/skills/flutter-biz/` 的 codegen 产物风格）。
 
 ---
 
@@ -43,6 +52,8 @@ Get-ChildItem -Recurse -File | Select-Object FullName, @{N='Lines';E={(Get-Conte
 | 命名模式 | 识别模块划分（如 `xxx.js` + `xxx-utils.js`） |
 
 ### Step 2: 模块依赖分析
+
+（JS 项目示例，Dart 项目见上方适配节）
 
 对每个源文件提取：
 
@@ -71,6 +82,8 @@ export { xxx, yyy }          // 多导出
 ```
 
 ### Step 3: 代码异味识别
+
+（JS 项目示例，Dart 项目见上方适配节）
 
 #### 3.1 模块大小检查
 
@@ -156,6 +169,8 @@ description: <触发描述>
 
 ## 决策树：何时生成什么规范
 
+（JS 项目示例，Dart 项目见上方适配节）
+
 ```
 开始分析目录
     │
@@ -197,7 +212,7 @@ description: <触发描述>
 .claude/skills/chrome-ext-background-standards/
 └── SKILL.md   ← 唯一的输出物
 
-# skill 文件本身就是规范，可被 /skill-discovery 发现和复用
+# skill 文件本身就是规范，可被 skill 路由层发现和复用
 ```
 
 ---

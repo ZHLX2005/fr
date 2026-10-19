@@ -42,15 +42,15 @@ test('fr://settings resolves to SettingsHandler', () async {
 
 在场景 A 的 3 步之上，**额外 2 步**：
 
-4. **main.dart 翻译 MethodChannel** — `_handleMethodCall` switch 加一个 case
+4. **翻译 MethodChannel** — 在 `lib/app_lifecycle/fr_method_channel_translator.dart` 的翻译表加一个 case（main.dart 无需改动，`FrMethodChannelTranslator.translate` 自动生效）
 5. **Android 端** widget 的 `PendingIntent` / `MethodChannel` 调用对应 method
 
 ```dart
-// 4. main.dart _handleMethodCall
-'navigateToSettings' => 'fr://settings',
+// 4. lib/app_lifecycle/fr_method_channel_translator.dart
+'navigateToClockWidgetToggle' => 'fr://clock/widget-toggle',
 
 // 5. Android Kotlin（widget provider 或 service）
-methodChannel.invokeMethod("navigateToSettings")
+methodChannel.invokeMethod("navigateToClockWidgetToggle")
 ```
 
 > **不要**在 main.dart 里直接 `Navigator.push(SettingsPage())` —— 那样就绕过了路由表，桌面 widget 路径和文本链接路径就不统一了。
@@ -225,7 +225,7 @@ import '../../../main.dart';  // main 又 import schema/schema.dart → 循环
 
 ```dart
 // ✅ 正确：handler 是 main 的下游，直接引用目标 Page
-import '../../../screens/settings/settings_page.dart';
+import 'package:xiaodouzi_fr/core/timetable/presentation/timetable_page.dart';
 ```
 
 **为什么错**：Dart 循环 import 在某些情况下编译失败；main 改动会牵连所有 handler。
@@ -328,7 +328,7 @@ FrRoute('{authority}', handler: const {Name}Handler()),
 | handler 文件 | `{name}_handler.dart`，snake_case | `settings_handler.dart` |
 | fr:// authority | 全小写，多段用 `/` | `settings`、`lab/demo`、`notion/image-host` |
 | MethodChannel method | `navigateTo{Name}`，PascalCase | `navigateToSettings` |
-| 目标 Page | 独立文件，handler 引用它 | `SettingsPage` |
+| 目标 Page | 独立文件，handler 引用它 | `TimetablePage`（`settings` 走 `registerNavBuilder('core-settings')`，不进 fr://） |
 | **demo URL slug** | **纯 ASCII 小写 + 连字符**，子类 `@override String get slug` 自带 | `clock`、`calendar`、`notion-image-host` |
 | demo 显示 title | 中文，仅作 UI 显示，**不进 URL** | `时钟`、`日历待办`、`Notion 图床` |
 
