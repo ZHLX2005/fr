@@ -1,4 +1,4 @@
-// test/core/xiangqi/p2p/xiangqi_can_perform_test.dart
+﻿// test/core/xiangqi/p2p/xiangqi_can_perform_test.dart
 //
 // XiangqiRoom.canPerform —— 客户端按钮可点性的**唯一真相源**。
 //
@@ -10,8 +10,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/p2p/xiangqi_room.dart';
-import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
-    show Snapshot;
 
 Snapshot _snap({
   String hostId = 'host',

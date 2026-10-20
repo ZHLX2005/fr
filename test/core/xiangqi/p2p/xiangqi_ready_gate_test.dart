@@ -1,4 +1,4 @@
-// test/core/xiangqi/p2p/xiangqi_ready_gate_test.dart
+﻿// test/core/xiangqi/p2p/xiangqi_ready_gate_test.dart
 //
 // XiangqiRoomPage READY 门 + 断连重连 专项测试（对齐 chess_ready_gate_test.dart
 // / draughts 同款房间页专项测试）。
@@ -26,11 +26,10 @@ import 'package:xiaodouzi_fr/core/xiangqi/p2p/xiangqi_room_page.dart';
 
 /// 真实 RelayV3Transport + MockClient（不联网）。
 class FakeTransport extends RelayV3Transport {
-  FakeTransport({required String deviceId})
+  FakeTransport({required super.deviceId})
       : super(
           relayUrl: 'http://fake',
           alias: 'me',
-          deviceId: deviceId,
           httpClient: MockClient((req) async => http.Response('{}', 200)),
         );
 }
@@ -45,13 +44,11 @@ class FakeReadyHandle extends RoomHandle {
 
   FakeReadyHandle({
     required FakeTransport transport,
-    required String code,
-    Snapshot? initial,
+    required super.code,
+    super.initial,
   }) : super.testCreate(
           transport: transport,
-          code: code,
           wsUrl: 'ws://fake/ws3/$code',
-          initial: initial,
         );
 
   @override
@@ -105,8 +102,8 @@ Snapshot makeSnap({
       'host_id': hostId,
       'guest_id': guestId,
       'players': <String, dynamic>{
-        if (hostId != null) hostId: '房主',
-        if (guestId != null) guestId: '访客',
+        ?hostId: '房主',
+        ?guestId: '访客',
       },
       if (ready != null) 'ready': ready,
       if (disconnected != null) 'disconnected': disconnected,

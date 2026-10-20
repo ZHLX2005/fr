@@ -1,4 +1,4 @@
-// test/core/xiangqi/p2p/xiangqi_can_perform_equivalence_test.dart
+﻿// test/core/xiangqi/p2p/xiangqi_can_perform_equivalence_test.dart
 //
 // **客户端 canPerform 与服务端 Lua role_check 的等价性证明**。
 //
@@ -19,14 +19,11 @@
 //     · on_action_MOVE 的轮次反证（side_to_move(c, #c.moves + 1)）
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/xiangqi/constants/xiangqi_constants.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/engine/make_move.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/board_state.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/move.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/piece.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/p2p/xiangqi_room.dart';
-import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
-    show Snapshot;
 
 /// 服务端 Lua `side_to_move(c, n)` 的 Dart 复刻。
 String _luaSideToMove({
