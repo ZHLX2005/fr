@@ -264,6 +264,18 @@ class XiangqiBoard extends StatelessWidget {
                   // ③ 棋子（SVG）—— 配色由 palette 注入（深色主题下与棋盘一起变暗）
                   for (final (idx, piece) in state.occupied)
                     _pieceAt(idx, piece, cell, p),
+                  // ④ 上层高亮（吃子提醒 + 上一手圆斑）—— 必须盖在棋子**之上**
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _XiangqiOverlayPainter(
+                        palette: p,
+                        flipped: flipped,
+                        captureTargets: captureTargets,
+                        lastMoveFrom: lastMoveFrom,
+                        lastMoveTo: lastMoveTo,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -325,15 +337,6 @@ class _XiangqiBoardPainter extends CustomPainter {
   final int? lastMoveFrom;
   final int? lastMoveTo;
   final int? checkSquare;
-
-  // 炮位 / 兵位记号（逻辑坐标）
-  static const List<(int, int)> _cannonPoints = [
-    (2, 1), (2, 7), (7, 1), (7, 7),
-  ];
-  static const List<(int, int)> _pawnPoints = [
-    (3, 0), (3, 2), (3, 4), (3, 6), (3, 8),
-    (6, 0), (6, 2), (6, 4), (6, 6), (6, 8),
-  ];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -428,32 +431,9 @@ class _XiangqiBoardPainter extends CustomPainter {
     palace(0);
     palace(7);
 
-    // 5) 炮位 / 兵位记号
-    for (final (row, col) in _cannonPoints) {
-      _drawCornerMarks(canvas, line, originX, originY, cell, row, col);
-    }
-    for (final (row, col) in _pawnPoints) {
-      _drawCornerMarks(canvas, line, originX, originY, cell, row, col);
-    }
-
-    // 6) 上一手高亮（起止两点）
-    if (lastMoveFrom != null || lastMoveTo != null) {
-      final lm = Paint()
-        ..color = palette.lastMove
-        ..isAntiAlias = true;
-      for (final idx in [lastMoveFrom, lastMoveTo]) {
-        if (idx == null) continue;
-        final c = _pointOf(idx, originX, originY, cell);
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: c,
-            width: cell * 0.86,
-            height: cell * 0.86,
-          ),
-          lm,
-        );
-      }
-    }
+    // 5) 上一手高亮（起止两点）—— 移到**上层** overlay 画，且改成**圆形**：
+    //    旧版是画在棋子下层的实心方块，方角突兀、且终点被棋子完全盖住。
+    //    圆形软斑贴在棋子上/下的观感好得多（见 _XiangqiOverlayPainter）。
 
     // 7) 选中环
     if (selectedIndex != null) {
@@ -469,37 +449,22 @@ class _XiangqiBoardPainter extends CustomPainter {
       );
     }
 
-    // 8) 可走点标记
-    //    · 空点（可走不可吃）→ 绿色空心圈（画在空交点上，不被子遮挡）
-    //    · 吃子点 → **套在对方棋子外圈的红环**（半径 0.50 cell > 棋子半径
-    //      0.423 cell）。旧版画成实心小圆点（半径 0.30），而棋盘 CustomPaint
-    //      在棋子**之下** → 被不透明棋子圆盘 100% 盖住，玩家根本看不出
-    //      「这匹马我能吃」（红色 captureTarget 实际是死代码）。改成外圈
-    //      红环才可见 —— 吃子是中国象棋的核心动作，必须一眼可见。
+    // 8) 可走点标记（**空交点**上的绿色空心圈）
+    //    吃子点（落在对方棋子那一格）的标记画在**上层** overlay 里 ——
+    //    见 _XiangqiOverlayPainter：必须画在棋子**上面**才是"这子我能吃"
+    //    的 UI 提醒，画在下层会被不透明圆盘盖掉。
     for (final idx in legalTargets) {
+      if (captureTargets.contains(idx)) continue; // 吃子点交给上层画
       final c = _pointOf(idx, originX, originY, cell);
-      final isCapture = captureTargets.contains(idx);
-      if (isCapture) {
-        canvas.drawCircle(
-          c,
-          cell * 0.50,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = cell * 0.075
-            ..color = palette.captureTarget
-            ..isAntiAlias = true,
-        );
-      } else {
-        canvas.drawCircle(
-          c,
-          cell * 0.26,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = cell * 0.07
-            ..color = palette.legalTarget
-            ..isAntiAlias = true,
-        );
-      }
+      canvas.drawCircle(
+        c,
+        cell * 0.26,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = cell * 0.07
+          ..color = palette.legalTarget
+          ..isAntiAlias = true,
+      );
     }
 
     // 9) 被将军红环
@@ -533,52 +498,6 @@ class _XiangqiBoardPainter extends CustomPainter {
     );
   }
 
-  /// 炮位 / 兵位记号：在交点四角画折角短线（边线处只画内侧两角）。
-  void _drawCornerMarks(
-    Canvas canvas,
-    Paint line,
-    double originX,
-    double originY,
-    double cell,
-    int row,
-    int col,
-  ) {
-    const near = 0.13;
-    const far = 0.31;
-    final px = originX + cell * _viewCol(col);
-    final py = originY + cell * _viewRow(row);
-
-    for (final dr in [-1, 1]) {
-      for (final dc in [-1, 1]) {
-        // 越界方向（棋盘左右外沿）不画
-        final viewCol = _viewCol(col);
-        final viewRow = _viewRow(row);
-        if (dc < 0 && viewCol == 0) continue;
-        if (dc > 0 && viewCol == kXiangqiCols - 1) continue;
-        if (dr < 0 && viewRow == 0) continue;
-        if (dr > 0 && viewRow == kXiangqiRows - 1) continue;
-
-        final hx = px + dc * cell * near;
-        final hy = py + dr * cell * near;
-        final fx = px + dc * cell * far;
-        final fy = py + dr * cell * far;
-
-        // 横段：(near, far) → (far, far)
-        canvas.drawLine(
-          Offset(hx, fy),
-          Offset(fx, fy),
-          line,
-        );
-        // 竖段：(far, near) → (far, far)
-        canvas.drawLine(
-          Offset(fx, hy),
-          Offset(fx, fy),
-          line,
-        );
-      }
-    }
-  }
-
   @override
   bool shouldRepaint(covariant _XiangqiBoardPainter old) =>
       old.state != state ||
@@ -592,6 +511,105 @@ class _XiangqiBoardPainter extends CustomPainter {
       old.palette != palette;
 
   static bool _setEquals(Set<int> a, Set<int> b) =>
+      a.length == b.length && a.every(b.contains);
+}
+
+/// **上层**高亮层 —— 画在棋子**之上**。
+///
+/// 两件事必须画在棋子上面，否则会被不透明的象牙圆盘盖掉：
+///
+/// 1. **吃子提醒**（红环 + 淡红晕）：选中一枚子后，**对方能被这枚子吃掉的
+///    棋子**上套一个红环 —— "这匹马我能吃"必须一眼看到。画在下层的话，
+///    即使环比棋子大也只是一圈细边，提示太弱；画在上层才是真正的 UI 提醒。
+/// 2. **上一手高亮**（圆形软斑）：旧版是下层的实心**方块**，方角突兀、
+///    终点还被棋子完全盖住。改成圆斑：起点是柔和的实心圆，终点（通常有子）
+///    是套在棋子外的一圈淡色圆环。
+class _XiangqiOverlayPainter extends CustomPainter {
+  _XiangqiOverlayPainter({
+    required this.palette,
+    required this.flipped,
+    required this.captureTargets,
+    required this.lastMoveFrom,
+    required this.lastMoveTo,
+  });
+
+  final XiangqiBoardPalette palette;
+  final bool flipped;
+
+  /// 可被吃的对方棋子（1D 索引）
+  final Set<int> captureTargets;
+
+  final int? lastMoveFrom;
+  final int? lastMoveTo;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cell = size.width / _Grid.canvasCols;
+    final originX = cell * _Grid.origin;
+    final originY = cell * _Grid.origin;
+
+    Offset pointOf(int index) {
+      final row = xiangqiRowOf(index);
+      final col = xiangqiColOf(index);
+      final vCol = flipped ? kXiangqiCols - 1 - col : col;
+      final vRow = flipped ? kXiangqiRows - 1 - row : row;
+      return Offset(originX + cell * vCol, originY + cell * vRow);
+    }
+
+    // ① 上一手：起点 = 柔和实心圆；终点 = 套在棋子外的淡色圆环
+    final lastMove = Paint()
+      ..color = palette.lastMove
+      ..isAntiAlias = true;
+    final from = lastMoveFrom;
+    if (from != null) {
+      canvas.drawCircle(pointOf(from), cell * 0.40, lastMove);
+    }
+    final to = lastMoveTo;
+    if (to != null) {
+      canvas.drawCircle(
+        pointOf(to),
+        cell * 0.50,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = cell * 0.055
+          ..color = palette.lastMove
+          ..isAntiAlias = true,
+      );
+    }
+
+    // ② 吃子提醒：淡红晕 + 红环，套在对方棋子外圈
+    for (final idx in captureTargets) {
+      final c = pointOf(idx);
+      // 淡红晕（半透明填充，让对方棋子有"被盯上"的观感）
+      canvas.drawCircle(
+        c,
+        cell * 0.44,
+        Paint()
+          ..color = palette.captureTarget.withValues(alpha: 0.18)
+          ..isAntiAlias = true,
+      );
+      // 红环（实线，套在棋子圆盘之外）
+      canvas.drawCircle(
+        c,
+        cell * 0.50,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = cell * 0.075
+          ..color = palette.captureTarget
+          ..isAntiAlias = true,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _XiangqiOverlayPainter old) =>
+      old.flipped != flipped ||
+      !_sameSet(old.captureTargets, captureTargets) ||
+      old.lastMoveFrom != lastMoveFrom ||
+      old.lastMoveTo != lastMoveTo ||
+      old.palette != palette;
+
+  static bool _sameSet(Set<int> a, Set<int> b) =>
       a.length == b.length && a.every(b.contains);
 }
 

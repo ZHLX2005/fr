@@ -134,14 +134,18 @@ class XiangqiPieceArt {
 
   static String _build(XiangqiPiece piece, XiangqiPieceColors colors) {
     final glyph = kXiangqiGlyphPaths[piece.chineseName] ?? '';
-    // 字形 path 在 100×100 画布里占 6..94；棋子内圈直径 77 → 缩到 0.72
+    // 字形 path 在 100×100 画布里占 6..94；棋子内圈直径 79 → 缩到 0.72
     // 让汉字既填满内圈又留出边距（与实物棋子"字比圈略小"的比例一致）。
     const inkScale = 0.72;
+    // 圆润感来自**几何**而不是渐变：外圈 r=47 + 细描边（2.6），内圈 r=39.5
+    // 再套一道细环 —— 视觉上是一枚圆鼓鼓的象牙/木片。
+    // （试过 radialGradient 模拟微隆起，但 vector_graphics 的 url(#id) 渐变
+    //   解析不稳会把圆盘渲成灰褐色，故不用。）
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-        '<circle cx="50" cy="50" r="46" fill="${_hex(colors.disc)}" '
-        'stroke="${_hex(colors.ring)}" stroke-width="3"/>'
-        '<circle cx="50" cy="50" r="38.5" fill="none" '
-        'stroke="${_hex(colors.ring)}" stroke-width="1.4" opacity="0.72"/>'
+        '<circle cx="50" cy="50" r="47" fill="${_hex(colors.disc)}" '
+        'stroke="${_hex(colors.ring)}" stroke-width="2.6"/>'
+        '<circle cx="50" cy="50" r="39.5" fill="none" '
+        'stroke="${_hex(colors.ring)}" stroke-width="1.2" opacity="0.62"/>'
         '<g transform="translate(50 50) scale($inkScale) translate(-50 -50)">'
         '<path d="$glyph" fill="${_hex(colors.ink)}"/>'
         '</g>'
@@ -169,7 +173,6 @@ class XiangqiPieceSvg extends StatelessWidget {
     required this.piece,
     required this.size,
     this.colors,
-    this.showShadow = true,
   });
 
   /// 要渲染的棋子
@@ -184,49 +187,18 @@ class XiangqiPieceSvg extends StatelessWidget {
   /// 不能出现"深色棋盘 + 浅色棋子"的割裂。
   final XiangqiPieceColors? colors;
 
-  /// 是否绘制落子阴影（SVG filter 不受支持 → 用 Flutter 叠一层模糊圆）
-  final bool showShadow;
-
   @override
   Widget build(BuildContext context) {
     final c = colors ?? XiangqiPieceColors.of(piece.color);
-    final art = SvgPicture.string(
+    // 纯圆盘，**不画落子阴影** —— 阴影那层椭圆把圆盘压得"不圆"，
+    // 看着发扁；去掉后棋子就是干净的正圆（也更像实物棋子）。
+    return SvgPicture.string(
       XiangqiPieceArt.svgFor(piece, colors: c),
       width: size,
       height: size,
       fit: BoxFit.contain,
       // 解析失败兜底：渲染一个纯色圆盘（绝不空白 / 绝不抛错）。
       errorBuilder: (_, _, _) => _FallbackDisc(colors: c, size: size),
-    );
-
-    if (!showShadow) return art;
-
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        // 阴影：椭圆柔影（模拟棋子落在棋盘上的接触阴影）
-        Positioned(
-          left: size * 0.08,
-          right: size * 0.08,
-          top: size * 0.80,
-          height: size * 0.14,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: c.shadow,
-              borderRadius: BorderRadius.circular(size),
-              boxShadow: [
-                BoxShadow(
-                  color: c.shadow,
-                  blurRadius: size * 0.18,
-                  spreadRadius: size * 0.02,
-                ),
-              ],
-            ),
-          ),
-        ),
-        art,
-      ],
     );
   }
 }
