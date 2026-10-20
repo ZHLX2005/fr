@@ -18,12 +18,14 @@
 // sheet（RtCanvasLayouts）。两层职责相互独立。
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
+import 'rt_canvas_dpad.dart' show RtCanvasDpad;
 import 'rt_canvas_layouts_sheet.dart' show RtCanvasLayoutsSheet;
 import 'rt_prefs.dart'
     show
@@ -34,6 +36,7 @@ import 'rt_prefs.dart'
         RtShortcutItem,
         kRtCanvasInputDefH,
         kRtCanvasInputDefW,
+        kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleTouchpad,
         kRtCanvasPadDefH,
@@ -81,6 +84,7 @@ class RtCanvasView extends StatefulWidget {
     required this.onDeleteCustom,
     required this.onRenameCustom,
     required this.onResetBuiltin,
+    required this.onDirection,
     required this.onEditModeChanged,
     required this.onFire,
     required this.onEditShortcuts,
@@ -126,6 +130,9 @@ class RtCanvasView extends StatefulWidget {
   /// 内置布局恢复出厂摆放（sheet 内置长按触发）。
   final ValueChanged<String> onResetBuiltin;
 
+  /// 方向轮盘触发一发方向键（'up'/'down'/'left'/'right'；按住连发由轮盘自驱）。
+  final ValueChanged<String> onDirection;
+
   final ValueChanged<bool> onEditModeChanged;
   final ValueChanged<RtShortcutItem> onFire;
   final VoidCallback onEditShortcuts;
@@ -137,11 +144,14 @@ class RtCanvasView extends StatefulWidget {
 }
 
 class _RtCanvasViewState extends State<RtCanvasView> {
-  // 模块尺寸范围（wMin, wMax, hMin, hMax，归一化）。
+  // 模块尺寸范围（wMin, wMax, hMin, hMax，归一化）。轮盘恒以正方形渲染
+  // （取宽高像素较小者），范围即正方形的两轴限位。
   static (double, double, double, double) _moduleRange(String id) =>
-      id == kRtCanvasModuleTouchpad
-          ? (0.25, 1.0, 0.35, 1.0)
-          : (0.20, 1.0, 0.08, 0.40);
+      switch (id) {
+        kRtCanvasModuleTouchpad => (0.25, 1.0, 0.35, 1.0),
+        kRtCanvasModuleDpad => (0.12, 0.65, 0.12, 0.85),
+        _ => (0.20, 1.0, 0.08, 0.40),
+      };
 
   // 输入框像素高度硬钳（fraction 随画布高浮动，太扁/太高都不成框）。
   static const double _inputHMinPx = 44, _inputHMaxPx = 180;
@@ -329,6 +339,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
+                  if (_anchorOf(kRtCanvasModuleDpad).visible)
+                    _dpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleTouchpad).visible)
                     _touchpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleInput).visible)
@@ -448,6 +460,11 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                   icon: Icons.keyboard_alt_outlined,
                   label: '输入框',
                   id: kRtCanvasModuleInput,
+                ),
+                _moduleVisibilityChip(
+                  icon: Icons.gamepad_outlined,
+                  label: '轮盘',
+                  id: kRtCanvasModuleDpad,
                 ),
                 ActionChip(
                   avatar: Icon(Icons.dashboard_customize_outlined,
@@ -686,6 +703,38 @@ class _RtCanvasViewState extends State<RtCanvasView> {
           : canvasSize.height - moduleSize.height / 2,
     );
     return (left: cx - moduleSize.width / 2, top: cy - moduleSize.height / 2);
+  }
+
+  // ---- 模块：方向轮盘 ----
+
+  Widget _dpadModule(Size canvasSize) {
+    final (wf, hf) = _moduleFractions(kRtCanvasModuleDpad);
+    // 恒正方形：取宽高像素较小者（fractions 相对 W/H 两轴，直接乘会出椭圆）。
+    final side = math.min(wf * canvasSize.width, hf * canvasSize.height);
+    final rect = _moduleRect(
+      _anchorPos(kRtCanvasModuleDpad),
+      Size(side, side),
+      canvasSize,
+    );
+    Widget pad = RtCanvasDpad(
+      enabled: widget.connected,
+      showLegend: !widget.editMode,
+      onDirection: widget.onDirection,
+    );
+    if (widget.editMode) {
+      pad = _editModuleWrapper(
+        id: kRtCanvasModuleDpad,
+        label: '轮盘',
+        child: SizedBox(width: side, height: side, child: pad),
+      );
+    }
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: side,
+      height: side,
+      child: pad,
+    );
   }
 
   // ---- 模块：触摸板 ----

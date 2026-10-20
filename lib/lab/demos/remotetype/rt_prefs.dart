@@ -24,6 +24,12 @@ const String kRtCanvasPresetTouchpad = 'touchpad';
 const String kRtCanvasModuleTouchpad = 'touchpad';
 const String kRtCanvasModuleInput = 'input';
 
+/// 方向轮盘（游戏布局的左手区：上下左右发方向键，按住连发）。
+const String kRtCanvasModuleDpad = 'dpad';
+
+/// 画布按钮形状：pill = 圆角胶囊（常规快捷键）；circle = 圆形（手柄键）。
+enum RtCanvasButtonShape { pill, circle }
+
 /// 模块「未指定宽高时」的兜底规格（内置预设 / 画布渲染 / sheet 缩略图
 /// 三处共用的单一事实源；与原画布默认值一致）。
 const double kRtCanvasPadDefW = 0.54, kRtCanvasPadDefH = 0.84;
@@ -206,7 +212,7 @@ class RtCanvasAnchor {
 const double kRtCanvasBtnScaleMin = 0.6;
 const double kRtCanvasBtnScaleMax = 2.2;
 
-/// 画布按钮位：归一化中心 + 尺寸倍率 + 画布内可见性。
+/// 画布按钮位：归一化中心 + 尺寸倍率 + 画布内可见性 + 形状。
 /// （快捷键的「有哪些」归打字页编辑器，「显示哪些」归这里的 v。）
 class RtCanvasButtonPos {
   const RtCanvasButtonPos({
@@ -214,6 +220,7 @@ class RtCanvasButtonPos {
     required this.y,
     this.s = 1.0,
     this.v = true,
+    this.shape = RtCanvasButtonShape.pill,
   });
 
   final double x;
@@ -225,15 +232,32 @@ class RtCanvasButtonPos {
   /// 画布内可见性（编辑态以幽灵呈现可点回，使用态不渲染）。
   final bool v;
 
-  RtCanvasButtonPos copyWith({double? x, double? y, double? s, bool? v}) =>
+  /// 形状：圆形（手柄键，短键名居中）/ 胶囊（默认，完整标签）。
+  final RtCanvasButtonShape shape;
+
+  RtCanvasButtonPos copyWith({
+    double? x,
+    double? y,
+    double? s,
+    bool? v,
+    RtCanvasButtonShape? shape,
+  }) =>
       RtCanvasButtonPos(
         x: x ?? this.x,
         y: y ?? this.y,
         s: s ?? this.s,
         v: v ?? this.v,
+        shape: shape ?? this.shape,
       );
 
-  Map<String, dynamic> toJson() => {'x': x, 'y': y, 's': s, 'v': v};
+  Map<String, dynamic> toJson() => {
+        'x': x,
+        'y': y,
+        's': s,
+        'v': v,
+        // 旧形状（胶囊）不写——旧版本读到未知 shape 字段也能按缺省兜底。
+        if (shape == RtCanvasButtonShape.circle) 'shape': 'circle',
+      };
 
   factory RtCanvasButtonPos.fromJson(Map<String, dynamic> j) =>
       RtCanvasButtonPos(
@@ -249,6 +273,9 @@ class RtCanvasButtonPos {
             .clamp(kRtCanvasBtnScaleMin, kRtCanvasBtnScaleMax)
             .toDouble(),
         v: j['v'] != false,
+        shape: j['shape'] == 'circle'
+            ? RtCanvasButtonShape.circle
+            : RtCanvasButtonShape.pill,
       );
 }
 

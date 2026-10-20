@@ -81,8 +81,14 @@ void main() {
   });
 
   group('RtCanvasButtonPos（按钮位）', () {
-    test('round-trip：中心/倍率/显隐', () {
-      const pos = RtCanvasButtonPos(x: 0.6, y: 0.34, s: 1.5, v: false);
+    test('round-trip：中心/倍率/显隐/圆形形状', () {
+      const pos = RtCanvasButtonPos(
+        x: 0.6,
+        y: 0.34,
+        s: 1.5,
+        v: false,
+        shape: RtCanvasButtonShape.circle,
+      );
       final restored = RtCanvasButtonPos.fromJson(
         pos.toJson().cast<String, dynamic>(),
       );
@@ -90,6 +96,13 @@ void main() {
       expect(restored.y, 0.34);
       expect(restored.s, 1.5);
       expect(restored.v, isFalse);
+      expect(restored.shape, RtCanvasButtonShape.circle);
+      // 胶囊（默认）不落 shape 字段，读回仍是胶囊
+      const pill = RtCanvasButtonPos(x: 0.1, y: 0.2);
+      expect(
+        RtCanvasButtonPos.fromJson(pill.toJson().cast<String, dynamic>()).shape,
+        RtCanvasButtonShape.pill,
+      );
     });
 
     test('旧形状（只有 x/y）兼容读：倍率 1.0、可见', () {
@@ -377,28 +390,49 @@ void main() {
       );
     });
 
-    test('每套都覆盖触摸板和输入框（active 渲染兜底）', () {
-      for (final p in kRtCanvasBuiltinPresets) {
-        expect(p.data.modules.containsKey(kRtCanvasModuleTouchpad), isTrue,
-            reason: '${p.id} 缺 touchpad');
-        expect(p.data.modules.containsKey(kRtCanvasModuleInput), isTrue,
-            reason: '${p.id} 缺 input');
+    test('每套模块语义：默认/键盘全双模块，游戏纯手柄，触控屏只有触摸板', () {
+      for (final id in [kRtCanvasPresetDefault, kRtCanvasPresetKeyboard]) {
+        final p = kRtCanvasBuiltinPresets.firstWhere((x) => x.id == id);
+        expect(p.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue,
+            reason: '$id 缺 touchpad');
+        expect(p.data.modules[kRtCanvasModuleInput]?.visible, isTrue,
+            reason: '$id 缺 input');
       }
+      final game =
+          kRtCanvasBuiltinPresets.firstWhere((p) => p.id == kRtCanvasPresetGame);
+      expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue,
+          reason: '游戏布局缺轮盘');
+      expect(game.data.modules.containsKey(kRtCanvasModuleTouchpad), isFalse,
+          reason: '游戏布局 = 纯手柄，不内嵌触摸板条目');
+      expect(game.data.modules.containsKey(kRtCanvasModuleInput), isFalse,
+          reason: '游戏布局 = 纯手柄，不内嵌输入框条目');
+      final pad = kRtCanvasBuiltinPresets
+          .firstWhere((p) => p.id == kRtCanvasPresetTouchpad);
+      expect(pad.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue);
+      expect(pad.data.modules.length, 1, reason: '触控屏布局 = 只有一块触摸板');
     });
 
-    test('游戏布局 = 手柄形态：左摇杆区 + 右侧按钮簇菱形主键，输入框隐藏', () {
+    test('游戏布局 = 手柄形态：左轮盘 + 右侧圆形按钮簇（菱形/肩键/次键）', () {
       final game = kRtCanvasBuiltinPresets
           .firstWhere((p) => p.id == kRtCanvasPresetGame);
-      // 触摸板占左半（摇杆区），输入框隐藏
-      final pad = game.data.modules[kRtCanvasModuleTouchpad]!;
-      expect(pad.x, lessThan(0.35), reason: '触摸板应靠左（摇杆区）');
-      expect(game.data.modules[kRtCanvasModuleInput]!.visible, isFalse);
-      // 前 4 条默认快捷键落菱形主键位（上/右/下/左），四角与中心就座
-      const diamond = ['default_0', 'default_1', 'default_2', 'default_3'];
-      for (final id in diamond) {
+      // 轮盘占左半（方向区）
+      final dpad = game.data.modules[kRtCanvasModuleDpad]!;
+      expect(dpad.x, lessThan(0.35), reason: '轮盘应靠左');
+      // 全部按钮圆形（手柄键）
+      expect(game.data.buttons, isNotEmpty);
+      expect(
+        game.data.buttons.values
+            .every((p) => p.shape == RtCanvasButtonShape.circle),
+        isTrue,
+        reason: '手柄键应全部为圆形',
+      );
+      // 菱形主键（上/右/下/左）+ 双肩键就座
+      for (final id in ['default_0', 'default_1', 'default_2', 'default_3']) {
         expect(game.data.buttons.containsKey(id), isTrue, reason: id);
       }
-      // 主键/四角/中心 9 个预排位互不重叠（同倍率下中心距 ≥ 按钮 X 间距）
+      // 10 条默认快捷键全部预排（无残留走自动找位的按钮）
+      expect(game.data.buttons.length, 10);
+      // 预排位互不拥挤（归一化中心距下限）
       final centers =
           game.data.buttons.values.map((p) => Offset(p.x, p.y)).toList();
       for (var i = 0; i < centers.length; i++) {
@@ -407,8 +441,6 @@ void main() {
               reason: '预排位 $i/$j 过近');
         }
       }
-      // 默认快捷键共 10 条：第 10 条未预排，走候选槽自动找位
-      expect(game.data.buttons.length, 9);
     });
   });
 

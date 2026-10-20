@@ -10,16 +10,20 @@
 // 画布 view 在 _openLayoutsSheet 里 showModalBottomSheet 调用本件；本件
 // 只负责「展示 + 收集意图」，持久化与状态切换由页面的回调接管。
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'rt_prefs.dart'
     show
         RtCanvasAnchor,
+        RtCanvasButtonShape,
         RtCanvasLayout,
         RtCanvasLayouts,
         RtCanvasNamedLayout,
         kRtCanvasInputDefH,
         kRtCanvasInputDefW,
+        kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleTouchpad,
         kRtCanvasPadDefH,
@@ -379,6 +383,7 @@ class _LayoutThumb extends StatelessWidget {
           // 与画布渲染同语义：锚点缺失 = 隐藏；宽高缺省 = 模块默认规格。
           final touchpad = data.modules[kRtCanvasModuleTouchpad];
           final input = data.modules[kRtCanvasModuleInput];
+          final dpad = data.modules[kRtCanvasModuleDpad];
           void addModule(RtCanvasAnchor? a, double defW, double defH) {
             if (a == null || !a.visible) return;
             final fw = a.w ?? defW;
@@ -400,6 +405,27 @@ class _LayoutThumb extends StatelessWidget {
             );
           }
 
+          // 轮盘缩略 = 圆形（画布端恒正方形渲染，取两轴较小者）。
+          if (dpad != null && dpad.visible) {
+            final fw = dpad.w ?? 0.30;
+            final fh = dpad.h ?? 0.78;
+            final side = math.min(fw * w, fh * h);
+            moduleBoxes.add(
+              Positioned(
+                left: (dpad.x * w - side / 2).clamp(0.0, w - side),
+                top: (dpad.y * h - side / 2).clamp(0.0, h - side),
+                width: side,
+                height: side,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.surface,
+                    border: Border.all(color: moduleBorder, width: 1),
+                  ),
+                ),
+              ),
+            );
+          }
           addModule(touchpad, kRtCanvasPadDefW, kRtCanvasPadDefH);
           addModule(input, kRtCanvasInputDefW, kRtCanvasInputDefH);
           return Stack(
@@ -414,8 +440,11 @@ class _LayoutThumb extends StatelessWidget {
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: cs.onSurfaceVariant,
+                        // 圆形手柄键用主题色点，胶囊键用中性点——一眼分清。
                         shape: BoxShape.circle,
+                        color: e.value.shape == RtCanvasButtonShape.circle
+                            ? cs.primary
+                            : cs.onSurfaceVariant,
                       ),
                     ),
                   ),

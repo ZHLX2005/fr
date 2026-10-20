@@ -21,13 +21,18 @@ import '../../../core/theme/context/colors.dart';
 import 'rt_prefs.dart'
     show
         RtCanvasButtonPos,
+        RtCanvasButtonShape,
         RtShortcutItem,
         kRtCanvasBtnScaleMax,
         kRtCanvasBtnScaleMin;
+import 'rt_shortcut_bar.dart' show RtKeyDisplay;
 
 /// 按钮基准规格（倍率 1.0）。倍率上下限在 rt_prefs（单一事实源）。
 const double kRtCanvasBtnBaseW = 86;
 const double kRtCanvasBtnBaseH = 56;
+
+/// 圆形按钮基准直径（倍率 1.0）。手柄键用——面积取胶囊两档之间。
+const double kRtCanvasBtnCircleBase = 62;
 
 class RtCanvasButton extends StatefulWidget {
   const RtCanvasButton({
@@ -105,10 +110,11 @@ class _RtCanvasButtonState extends State<RtCanvasButton> {
     final cs = c.scheme;
     final ghost = widget.editMode && !widget.pos.v;
     final dragging = _dragPos != null || _dragScale != null;
+    final round = widget.pos.shape == RtCanvasButtonShape.circle;
 
-    // 倍率 → 像素规格；中心夹回按钮完整在场内。
-    final w = kRtCanvasBtnBaseW * _scale;
-    final h = kRtCanvasBtnBaseH * _scale;
+    // 倍率 → 像素规格；圆形取正方形，中心夹回按钮完整在场内。
+    final w = round ? kRtCanvasBtnCircleBase * _scale : kRtCanvasBtnBaseW * _scale;
+    final h = round ? w : kRtCanvasBtnBaseH * _scale;
     final cx = (_center.dx * widget.canvasSize.width).clamp(
       w / 2,
       widget.canvasSize.width < w ? w / 2 : widget.canvasSize.width - w / 2,
@@ -132,8 +138,9 @@ class _RtCanvasButtonState extends State<RtCanvasButton> {
         width: w,
         height: h,
         decoration: BoxDecoration(
+          shape: round ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: round ? null : BorderRadius.circular(14),
           color: bg,
-          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: dragging
                 ? cs.primary.withValues(alpha: 0.8)
@@ -155,7 +162,8 @@ class _RtCanvasButtonState extends State<RtCanvasButton> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: round ? null : BorderRadius.circular(14),
+            customBorder: round ? const CircleBorder() : null,
             onTap: widget.editMode
                 ? widget.onToggleVisible // 编辑态：点按 = 显隐切换
                 : () => widget.onFire(widget.item),
@@ -171,30 +179,32 @@ class _RtCanvasButtonState extends State<RtCanvasButton> {
                           color: cs.onPrimary,
                         ),
                       )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              widget.item.label,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12 * _scale,
-                                height: 1.15,
-                                fontWeight: FontWeight.w600,
-                                color: fg,
+                    : round
+                        ? _circleLabel(fg)
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.item.label,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12 * _scale,
+                                    height: 1.15,
+                                    fontWeight: FontWeight.w600,
+                                    color: fg,
+                                  ),
+                                ),
                               ),
-                            ),
+                              if (ghost) ...[
+                                const SizedBox(width: 4),
+                                Icon(Icons.visibility_off,
+                                    size: 12, color: cs.onSurfaceVariant),
+                              ],
+                            ],
                           ),
-                          if (ghost) ...[
-                            const SizedBox(width: 4),
-                            Icon(Icons.visibility_off,
-                                size: 12, color: cs.onSurfaceVariant),
-                          ],
-                        ],
-                      ),
               ),
             ),
           ),
@@ -206,6 +216,43 @@ class _RtCanvasButtonState extends State<RtCanvasButton> {
       left: cx - w / 2,
       top: cy - h / 2,
       child: widget.editMode ? _buildEditWrapper(button) : _buildUseWrapper(button),
+    );
+  }
+
+  /// 圆形（手柄键）标签：末位主键的短名（RtKeyDisplay 同表），居中单行。
+  /// 隐藏幽灵补一个小 visibility 角标。
+  Widget _circleLabel(Color fg) {
+    final cs = context.colors.scheme;
+    final chord = widget.item.chords.isEmpty
+        ? null
+        : widget.item.chords.last;
+    final keys = (chord == null || chord.keys.isEmpty)
+        ? const ['?']
+        : chord.keys;
+    final short = RtKeyDisplay.labelFor(keys.last);
+    final fontSize = switch (short.length) {
+      <= 2 => 17.0,
+      <= 4 => 13.0,
+      _ => 10.5,
+    };
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          short,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: fontSize * _scale,
+            fontWeight: FontWeight.w700,
+            color: fg,
+          ),
+        ),
+        if (widget.editMode && !widget.pos.v) ...[
+          const SizedBox(height: 2),
+          Icon(Icons.visibility_off, size: 11, color: cs.onSurfaceVariant),
+        ],
+      ],
     );
   }
 

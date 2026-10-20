@@ -779,6 +779,19 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _sync.scheduleSync();
   }
 
+  /// 方向轮盘一发（'up'/'down'/'left'/'right'）。连发由轮盘自驱（160ms），
+  /// 这里只管连接守卫 + 单发投递。键名与快捷键编辑器同一套词汇表，
+  /// PC 端按普通 hotkey 信封处理。
+  Future<void> _fireDirectionKey(String key) async {
+    final session = _session;
+    if (session == null || !_connected) {
+      _showSnack('未连接电脑');
+      return;
+    }
+    final sent = await session.syncHotkey([key]);
+    if (!sent && mounted) _showSnack('发送失败（连接已断开？）');
+  }
+
   // ================= UI 装配 =================
 
   @override
@@ -815,6 +828,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         onDeleteCustom: _deleteCustom,
         onRenameCustom: _renameLayout,
         onResetBuiltin: _resetBuiltin,
+        onDirection: _fireDirectionKey,
         onEditModeChanged: _setCanvasEdit,
         onFire: (item) => unawaited(_fireShortcut(item)),
         onEditShortcuts: _editShortcuts,
