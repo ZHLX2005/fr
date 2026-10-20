@@ -1,4 +1,4 @@
-// test/core/xiangqi/xiangqi_rules_extra_test.dart
+﻿// test/core/xiangqi/xiangqi_rules_extra_test.dart
 //
 // 中国象棋规则补强用例 —— 覆盖首轮「fresh-eyes 正确性审查」指出的盲区：
 //
@@ -25,7 +25,6 @@ import 'package:xiaodouzi_fr/core/xiangqi/engine/move_generator.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/engine/xiangqi_engine.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/board_state.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/game_status.dart';
-import 'package:xiaodouzi_fr/core/xiangqi/models/move.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/piece.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/p2p/xiangqi_room.dart';
 

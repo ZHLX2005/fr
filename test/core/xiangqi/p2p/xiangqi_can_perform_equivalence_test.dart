@@ -19,6 +19,8 @@
 //     · on_action_MOVE 的轮次反证（side_to_move(c, #c.moves + 1)）
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaodouzi_fr/core/xiangqi/constants/xiangqi_constants.dart';
+import 'package:xiaodouzi_fr/core/xiangqi/engine/fen_codec.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/engine/make_move.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/board_state.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/models/move.dart';
@@ -266,5 +268,67 @@ void main() {
       );
       expect(XiangqiRoom.canPerform('SOMETHING_NEW', snap, isHost: false), isTrue);
     });
+  });
+
+  group('⑨ 悔棋后轮次方 = side_to_move(#c.moves)，申请方成为当前走子方', () {
+    // 服务端 UNDO_ACCEPT 的 pop 规则（见 Lua on_action_UNDO_ACCEPT）：
+    //   先手方申请 → n 偶数 pop 2 / n 奇数 pop 1
+    //   后手方申请 → n 偶数 pop 1 / n 奇数 pop 2
+    //   目标：pop 之后轮次回到**申请方**。
+    int popsFor({required int n, required bool requesterIsFirst}) =>
+        requesterIsFirst ? ((n % 2 == 1) ? 1 : 2) : ((n % 2 == 1) ? 2 : 1);
+
+    for (final n in [1, 2, 3, 4, 5]) {
+      for (final requesterIsFirst in [true, false]) {
+        // 服务端 UNDO_OFFER 的前置门：后手方申请要求 n >= 2（先手方 n >= 1 即可）
+        // → n=1 且后手方申请会被服务端直接拒绝，根本不会走到 pop。
+        if (!requesterIsFirst && n < 2) {
+          test('n=$n 后手方申请 → 服务端 UNDO_OFFER 门直接拒绝（不会 pop）', () {
+            expect(n < 2, isTrue);
+          });
+          continue;
+        }
+        test('n=$n 申请方=${requesterIsFirst ? '先手' : '后手'} → pop 后该申请方走', () {
+          // 造 n 手真实棋谱（红先黑后交替）
+          const line = [
+            'b7e7', 'h0g2', 'a6a5', 'g3g4', 'b9c7',
+          ];
+          var board = XiangqiBoardState.initial();
+          final history = <XiangqiMoveRecord>[];
+          for (var i = 0; i < n; i++) {
+            final m = XiangqiMove.fromUci(line[i]);
+            expect(m, isNotNull);
+            board = applyXiangqiMoveSimple(board, m!);
+            history.add(XiangqiMoveRecord(
+              uci: line[i],
+              by: i.isEven ? 'H' : 'G',
+              ts: i,
+              fen: fenFromBoardState(board),
+            ));
+          }
+
+          // 服务端 pop 之后剩余的棋谱
+          final pops = popsFor(n: n, requesterIsFirst: requesterIsFirst);
+          final remaining = history.sublist(0, history.length - pops);
+
+          // 客户端按剩余棋谱重放
+          final r = XiangqiRoom.rebuildBoardVerified(
+            remaining,
+            initialFen: kXiangqiStartingFen,
+            initialSide: XiangqiColor.red,
+          );
+
+          // 申请方必须成为当前走子方（先手方 = 红，后手方 = 黑）
+          final requesterColor =
+              requesterIsFirst ? XiangqiColor.red : XiangqiColor.black;
+          expect(
+            r.board.sideToMove,
+            requesterColor,
+            reason: 'n=$n 申请方=${requesterIsFirst ? '先手' : '后手'}：'
+                'pop $pops 手后轮次必须回到申请方',
+          );
+        });
+      }
+    }
   });
 }
