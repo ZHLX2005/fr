@@ -111,81 +111,94 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
     final cs = c.scheme;
     final enabled = widget.enabled;
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final size = constraints.biggest;
-      return Listener(
-        onPointerDown: (e) => _onPointerDown(e, size),
-        onPointerMove: (e) => _onPointerMove(e, size),
-        onPointerUp: _onPointerUp,
-        onPointerCancel: _onPointerUp,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 150),
-          opacity: enabled ? 1.0 : 0.45,
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: c.surface,
-                border: Border.all(
-                  color: _activeDir != null
-                      ? cs.primary.withValues(alpha: 0.85)
-                      : cs.outlineVariant.withValues(alpha: 0.7),
-                  width: _activeDir != null ? 2 : 1.4,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: cs.shadow.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  // 四向箭头（激活向高亮）
-                  for (final e in _dirs.entries)
-                    Align(
-                      alignment: switch (e.key) {
-                        'up' => Alignment(0, -0.82),
-                        'down' => Alignment(0, 0.82),
-                        'left' => Alignment(-0.82, 0),
-                        _ => Alignment(0.82, 0),
-                      },
-                      child: Icon(
-                        e.value,
-                        size: 30,
-                        color: _activeDir == e.key
-                            ? cs.primary
-                            : (enabled
-                                ? c.textMuted
-                                : c.textMuted.withValues(alpha: 0.6)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        return Listener(
+          onPointerDown: (e) => _onPointerDown(e, size),
+          onPointerMove: (e) => _onPointerMove(e, size),
+          onPointerUp: _onPointerUp,
+          onPointerCancel: _onPointerUp,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 150),
+            opacity: enabled ? 1.0 : 0.45,
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: LayoutBuilder(
+                builder: (context, inner) {
+                  // 箭头/中心毂随轮盘尺寸缩放（小轮盘不撑爆，大轮盘不显空旷）。
+                  final side = math.min(inner.maxWidth, inner.maxHeight);
+                  final arrowSize = (side * 0.16).clamp(18.0, 34.0);
+                  final hubSize = (side * 0.17).clamp(22.0, 36.0);
+                  return Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: c.surface,
+                      border: Border.all(
+                        color: _activeDir != null
+                            ? cs.primary.withValues(alpha: 0.85)
+                            : cs.outlineVariant.withValues(alpha: 0.7),
+                        width: _activeDir != null ? 2 : 1.4,
                       ),
-                    ),
-                  // 中心毂
-                  Center(
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: cs.surfaceContainerHighest,
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.shadow.withValues(alpha: 0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
-                      child: widget.showLegend
-                          ? Icon(Icons.sports_esports,
-                              size: 15, color: c.textMuted)
-                          : null,
+                      ],
                     ),
-                  ),
-                ],
+                    child: Stack(
+                      children: [
+                        // 四向箭头（激活向高亮）
+                        for (final e in _dirs.entries)
+                          Align(
+                            alignment: switch (e.key) {
+                              'up' => Alignment(0, -0.80),
+                              'down' => Alignment(0, 0.80),
+                              'left' => Alignment(-0.80, 0),
+                              _ => Alignment(0.80, 0),
+                            },
+                            child: Icon(
+                              e.value,
+                              size: arrowSize,
+                              color: _activeDir == e.key
+                                  ? cs.primary
+                                  : (enabled
+                                        ? c.textMuted
+                                        : c.textMuted.withValues(alpha: 0.6)),
+                            ),
+                          ),
+                        // 中心毂
+                        Center(
+                          child: Container(
+                            width: hubSize,
+                            height: hubSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: cs.surfaceContainerHighest,
+                              border: Border.all(
+                                color: cs.outlineVariant.withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: widget.showLegend
+                                ? Icon(
+                                    Icons.sports_esports,
+                                    size: hubSize * 0.5,
+                                    color: c.textMuted,
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }

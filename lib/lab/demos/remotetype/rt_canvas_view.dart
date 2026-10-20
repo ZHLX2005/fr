@@ -47,10 +47,14 @@ import 'rt_touch_surface.dart'
 
 /// 按钮自动找位候选槽（画布右侧区，2 列 × 4 行，归一化画布坐标）。
 const List<Offset> kRtCanvasSlotAnchors = [
-  Offset(0.60, 0.34), Offset(0.86, 0.34),
-  Offset(0.60, 0.54), Offset(0.86, 0.54),
-  Offset(0.60, 0.74), Offset(0.86, 0.74),
-  Offset(0.60, 0.92), Offset(0.86, 0.92),
+  Offset(0.60, 0.34),
+  Offset(0.86, 0.34),
+  Offset(0.60, 0.54),
+  Offset(0.86, 0.54),
+  Offset(0.60, 0.74),
+  Offset(0.86, 0.74),
+  Offset(0.60, 0.92),
+  Offset(0.86, 0.92),
 ];
 
 /// 摆位自动找位：候选槽里第一个与已摆按钮都拉开距离的空位；全满落右侧
@@ -223,9 +227,12 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     if (_resizeModuleId == id) return (_liveW, _liveH);
     final a = _anchorOf(id);
     if (a.w != null && a.h != null) return (a.w!, a.h!);
-    return id == kRtCanvasModuleTouchpad
-        ? (kRtCanvasPadDefW, kRtCanvasPadDefH)
-        : (kRtCanvasInputDefW, kRtCanvasInputDefH);
+    return switch (id) {
+      // 轮盘默认规格 = 游戏布局内置值（缩略图同源，两处不许两套）。
+      kRtCanvasModuleDpad => (0.30, 0.78),
+      kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
+      _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
+    };
   }
 
   /// 全局坐标 → 画布归一化坐标。画布异常小（尺寸 ≤ 0）时 0/0 = NaN 会
@@ -238,7 +245,9 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     final local = box.globalToLocal(global);
     double clamp01(double v) => v.clamp(0.0, 1.0).toDouble();
     return Offset(
-        clamp01(local.dx / size.width), clamp01(local.dy / size.height));
+      clamp01(local.dx / size.width),
+      clamp01(local.dy / size.height),
+    );
   }
 
   // ================= 回写 =================
@@ -254,11 +263,13 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     if (id != kRtCanvasModuleTouchpad && id != kRtCanvasModuleInput) return;
     final cur = _anchorOf(id);
     if ((settled - Offset(cur.x, cur.y)).distance <= 1e-6) return;
-    widget.onLayoutChanged(_patchAnchor(
-      id,
-      x: settled.dx.clamp(0.0, 1.0).toDouble(),
-      y: settled.dy.clamp(0.0, 1.0).toDouble(),
-    ));
+    widget.onLayoutChanged(
+      _patchAnchor(
+        id,
+        x: settled.dx.clamp(0.0, 1.0).toDouble(),
+        y: settled.dy.clamp(0.0, 1.0).toDouble(),
+      ),
+    );
     unawaited(HapticFeedback.selectionClick());
   }
 
@@ -283,6 +294,33 @@ class _RtCanvasViewState extends State<RtCanvasView> {
 
   void _toggleModuleVisible(String id) {
     final cur = _anchorOf(id);
+    // 首次加回（无锚点条目）给一个语义化初始位：轮盘落左侧手柄位，
+    // 其余落画布中心——避免轮盘凭空压在右侧按钮簇上。
+    if (widget.activeLayout.modules[id] == null) {
+      final seed = id == kRtCanvasModuleDpad
+          ? const RtCanvasAnchor(
+              visible: true,
+              x: 0.24,
+              y: 0.52,
+              w: 0.30,
+              h: 0.78,
+            )
+          : null;
+      if (seed != null) {
+        widget.onLayoutChanged(
+          _patchAnchor(
+            id,
+            visible: true,
+            x: seed.x,
+            y: seed.y,
+            w: seed.w,
+            h: seed.h,
+          ),
+        );
+        unawaited(HapticFeedback.selectionClick());
+        return;
+      }
+    }
     widget.onLayoutChanged(_patchAnchor(id, visible: !cur.visible));
     unawaited(HapticFeedback.selectionClick());
   }
@@ -297,8 +335,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     double? h,
   }) {
     final modules = Map<String, RtCanvasAnchor>.of(widget.activeLayout.modules);
-    final cur = modules[id] ??
-        const RtCanvasAnchor(visible: true, x: 0.5, y: 0.5);
+    final cur =
+        modules[id] ?? const RtCanvasAnchor(visible: true, x: 0.5, y: 0.5);
     modules[id] = RtCanvasAnchor(
       visible: visible ?? cur.visible,
       x: x ?? cur.x,
@@ -306,11 +344,16 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       w: w ?? cur.w,
       h: h ?? cur.h,
     );
-    return RtCanvasLayout(modules: modules, buttons: widget.activeLayout.buttons);
+    return RtCanvasLayout(
+      modules: modules,
+      buttons: widget.activeLayout.buttons,
+    );
   }
 
   RtCanvasLayout _patchButton(String id, RtCanvasButtonPos pos) {
-    final buttons = Map<String, RtCanvasButtonPos>.of(widget.activeLayout.buttons);
+    final buttons = Map<String, RtCanvasButtonPos>.of(
+      widget.activeLayout.buttons,
+    );
     buttons[id] = pos;
     return RtCanvasLayout(
       modules: widget.activeLayout.modules,
@@ -372,10 +415,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                 _activeName() ?? '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: cs.onSurfaceVariant,
-                ),
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
             ),
             const Spacer(),
@@ -412,7 +452,9 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
-  // ---- 编辑态 chrome：底部面板 + 右下角完成钮 + 画布描边 ----
+  // ---- 编辑态 chrome：顶部面板 + 左下完成钮 + 画布描边 ----
+  // 面板放顶部、完成钮放左下：游戏布局的按钮簇占据右半与底部（次键
+  // y≈0.88），chrome 放底部会压簇、放右下会压键——顶部与左下是簇外空位。
 
   List<Widget> _editChrome(ColorScheme cs) {
     return [
@@ -429,10 +471,10 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         ),
       ),
       Align(
-        alignment: Alignment.bottomRight,
+        alignment: Alignment.bottomLeft,
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 0, 12),
             child: FilledButton.icon(
               onPressed: () => widget.onEditModeChanged(false),
               icon: const Icon(Icons.check, size: 18),
@@ -442,43 +484,54 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         ),
       ),
       Align(
-        alignment: Alignment.bottomCenter,
+        alignment: Alignment.topCenter,
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _moduleVisibilityChip(
-                  icon: Icons.mouse_outlined,
-                  label: '触摸板',
-                  id: kRtCanvasModuleTouchpad,
-                ),
-                _moduleVisibilityChip(
-                  icon: Icons.keyboard_alt_outlined,
-                  label: '输入框',
-                  id: kRtCanvasModuleInput,
-                ),
-                _moduleVisibilityChip(
-                  icon: Icons.gamepad_outlined,
-                  label: '轮盘',
-                  id: kRtCanvasModuleDpad,
-                ),
-                ActionChip(
-                  avatar: Icon(Icons.dashboard_customize_outlined,
-                      size: 18, color: cs.onSurfaceVariant),
-                  label: const Text('布局'),
-                  onPressed: _openLayoutsSheet,
-                ),
-                ActionChip(
-                  avatar: Icon(Icons.playlist_add,
-                      size: 18, color: cs.onSurfaceVariant),
-                  label: const Text('编辑快捷键'),
-                  onPressed: widget.onEditShortcuts,
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _moduleVisibilityChip(
+                    icon: Icons.mouse_outlined,
+                    label: '触摸板',
+                    id: kRtCanvasModuleTouchpad,
+                  ),
+                  const SizedBox(width: 8),
+                  _moduleVisibilityChip(
+                    icon: Icons.keyboard_alt_outlined,
+                    label: '输入框',
+                    id: kRtCanvasModuleInput,
+                  ),
+                  const SizedBox(width: 8),
+                  _moduleVisibilityChip(
+                    icon: Icons.gamepad_outlined,
+                    label: '轮盘',
+                    id: kRtCanvasModuleDpad,
+                  ),
+                  const SizedBox(width: 8),
+                  ActionChip(
+                    avatar: Icon(
+                      Icons.dashboard_customize_outlined,
+                      size: 18,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    label: const Text('布局'),
+                    onPressed: _openLayoutsSheet,
+                  ),
+                  const SizedBox(width: 8),
+                  ActionChip(
+                    avatar: Icon(
+                      Icons.playlist_add,
+                      size: 18,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    label: const Text('编辑快捷键'),
+                    onPressed: widget.onEditShortcuts,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -666,8 +719,11 @@ class _RtCanvasViewState extends State<RtCanvasView> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.drag_indicator,
-                    size: 14, color: cs.primary.withValues(alpha: 0.9)),
+                Icon(
+                  Icons.drag_indicator,
+                  size: 14,
+                  color: cs.primary.withValues(alpha: 0.9),
+                ),
                 const SizedBox(width: 2),
                 Text(
                   label,
@@ -773,7 +829,11 @@ class _RtCanvasViewState extends State<RtCanvasView> {
 
   Widget _inputModule(Size canvasSize) {
     final size = _moduleSizePx(kRtCanvasModuleInput, canvasSize);
-    final rect = _moduleRect(_anchorPos(kRtCanvasModuleInput), size, canvasSize);
+    final rect = _moduleRect(
+      _anchorPos(kRtCanvasModuleInput),
+      size,
+      canvasSize,
+    );
     final cs = context.colors.scheme;
     Widget box = Container(
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -873,7 +933,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     final out = <Widget>[];
     for (final item in widget.shortcuts) {
       final center = resolved[item.id]!;
-      final pos = widget.activeLayout.buttons[item.id] ??
+      final pos =
+          widget.activeLayout.buttons[item.id] ??
           RtCanvasButtonPos(x: center.dx, y: center.dy);
       if (!widget.editMode && !pos.v) continue;
       out.add(
