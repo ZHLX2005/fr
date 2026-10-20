@@ -469,19 +469,37 @@ class _XiangqiBoardPainter extends CustomPainter {
       );
     }
 
-    // 8) 可走点标记（空心圆环；吃子点用醒目色实心环）
+    // 8) 可走点标记
+    //    · 空点（可走不可吃）→ 绿色空心圈（画在空交点上，不被子遮挡）
+    //    · 吃子点 → **套在对方棋子外圈的红环**（半径 0.50 cell > 棋子半径
+    //      0.423 cell）。旧版画成实心小圆点（半径 0.30），而棋盘 CustomPaint
+    //      在棋子**之下** → 被不透明棋子圆盘 100% 盖住，玩家根本看不出
+    //      「这匹马我能吃」（红色 captureTarget 实际是死代码）。改成外圈
+    //      红环才可见 —— 吃子是中国象棋的核心动作，必须一眼可见。
     for (final idx in legalTargets) {
       final c = _pointOf(idx, originX, originY, cell);
       final isCapture = captureTargets.contains(idx);
-      canvas.drawCircle(
-        c,
-        cell * (isCapture ? 0.30 : 0.26),
-        Paint()
-          ..style = isCapture ? PaintingStyle.fill : PaintingStyle.stroke
-          ..strokeWidth = cell * 0.07
-          ..color = isCapture ? palette.captureTarget : palette.legalTarget
-          ..isAntiAlias = true,
-      );
+      if (isCapture) {
+        canvas.drawCircle(
+          c,
+          cell * 0.50,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = cell * 0.075
+            ..color = palette.captureTarget
+            ..isAntiAlias = true,
+        );
+      } else {
+        canvas.drawCircle(
+          c,
+          cell * 0.26,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = cell * 0.07
+            ..color = palette.legalTarget
+            ..isAntiAlias = true,
+        );
+      }
     }
 
     // 9) 被将军红环

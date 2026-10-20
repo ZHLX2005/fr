@@ -343,6 +343,16 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     return xiangqiIsInCheck(_board, side);
   }
 
+  /// **我**被将军（轮到我走且我的将被攻击）—— 必须立刻明示"必须应将"。
+  ///
+  /// 旧版只有「将军！对手须应将」（对手被将军时），轮到自己被将军时
+  /// 界面仍写「轮到你走」，玩家要点几枚子发现没落点才反应过来。
+  bool get _iAmInCheck {
+    if (!_isPlaying) return false;
+    if (_board.sideToMove != _myColor) return false;
+    return xiangqiIsInCheck(_board, _myColor);
+  }
+
   // ── 终局上报 ──
 
   /// FEN 局面串里的棋子数（用于对手走子的吃子音判定）。
@@ -1054,7 +1064,12 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
         children: [
           _colorDot(_myColor),
           const SizedBox(width: 6),
-          Text('$meName（我）', style: Theme.of(context).textTheme.bodyMedium),
+          // 显式写出执子色：红黑是中国象棋最基本的认知入口，
+          // 光靠一个 12px 圆点（尤其黑方视角下棋盘是翻转的）玩家认不出自己是谁。
+          Text(
+            '$meName（我·${_myColor == XiangqiColor.red ? '执红' : '执黑'}）',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           const Spacer(),
           if (oppOffline)
             Text('对手已离线',
@@ -1070,14 +1085,18 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
 
   Widget _colorDot(XiangqiColor c) {
     // 棋子配色走棋盘 palette（唯一真相源，同 draughts 的 DraughtsBoardPalette.light）。
+    //
+    // ⚠ 填充用 **ink**（实心红 / 实心黑）而不是 disc（红黑都是象牙白）——
+    //   12px 的「奶油圆 + 1.6px 细边」在状态栏里根本分不出红黑，
+    //   而「我执红还是执黑」是中国象棋最基本的认知入口。
     final piece = XiangqiBoardPalette.light.pieceOf(c);
     return Container(
       width: 12,
       height: 12,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: piece.disc,
-        border: Border.all(color: piece.ring, width: 1.6),
+        color: piece.ink,
+        border: Border.all(color: piece.ring, width: 1.2),
       ),
     );
   }
@@ -1294,7 +1313,12 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     final replayIndex = _replayIndexSafe();
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        // ⚠ 顶部留 64px 给**聊天 pill**（BoardChatOverlay 停靠在棋盘区左上角
+        //   (16,16)、48×48 不透明）。9×10 的盘比 8×8 竖直方向多占 ~37px，
+        //   竖向余量被吃光 → pill 会**盖住并吃掉点击**左上角那枚车
+        //   （棋盘 0 行的交点就落在 pill 里）。留出 64px 后棋盘顶边恒 ≥ 64，
+        //   与 pill 永不相交（代价仅是矮屏上棋盘略小，宽度不变）。
+        padding: const EdgeInsets.only(top: 64, left: 12, right: 12, bottom: 12),
         child: ConstrainedBox(
           // 象棋盘 9×10（高比宽大 1 格）→ 宽上限比跳棋小一圈，
           // 避免在竖屏上顶掉操作条（对齐 chess / draughts 的排版约束）。
@@ -1346,6 +1370,15 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
               padding: const EdgeInsets.only(top: 4),
               child: Text('将军！对手须应将',
                   style: dt.bodySmall?.copyWith(color: scheme.error)),
+            ),
+          if (_iAmInCheck)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('将军！你的将受攻，必须应将',
+                  style: dt.bodySmall?.copyWith(
+                    color: scheme.error,
+                    fontWeight: FontWeight.w700,
+                  )),
             ),
           const SizedBox(height: 10),
           _actionButtons(context, gameOver: gameOver),
