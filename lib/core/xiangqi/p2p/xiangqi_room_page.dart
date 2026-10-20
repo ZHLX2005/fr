@@ -126,6 +126,9 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   /// true = 服务端 disconnected 表含自己 → 顶部红 banner + 冻结棋盘输入。
   bool _isMeDisconnected = false;
 
+  /// true = 棋谱与服务端权威局面对不上（异常客户端 / 引擎分歧）→ 顶部黄 banner。
+  bool _desynced = false;
+
   // ── 终局复盘（对齐 chess / draughts 回放模式：父层持状态，条只渲染）──
 
   /// 自动播放步进间隔（chess 同款 800ms）。
@@ -277,10 +280,19 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     }
     if (fen != null && fen.isNotEmpty) _prevFen = fen;
     _pendingLocalFen = null; // 每次快照清一次（echo 已消费 / 其它情况丢弃）。
-    _board = XiangqiRoom.rebuildBoard(
+    // 棋谱重放（服务端权威优先）：先手方以服务端 initial_side 为准
+    //（不能只看 FEN 轮次字段 —— 残局 / 自定义开局时二者可能不一致 →
+    //  棋盘回合整体反转）。
+    final replay = XiangqiRoom.rebuildBoardVerified(
       _history,
       initialFen: XiangqiRoom.initialFen(s),
+      serverFen: XiangqiRoom.fen(s),
+      initialSide: XiangqiRoom.initialSide(s),
     );
+    _board = replay.board;
+    // 棋谱与服务端对不上（异常客户端 / 引擎分歧）→ 提示玩家，
+    // 避免「棋盘点不动又看不出原因」（见 XiangqiRoom.rebuildBoardVerified）。
+    _desynced = !replay.consistent || !replay.matchesServerFen;
     _selected = null;
     _targets = const {};
     if (_history.isEmpty) {
@@ -870,6 +882,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
                       ),
               ),
               if (_wsOffline) _buildWsOfflineOverlay(context),
+              if (_desynced && state == 'playing') _buildDesyncBanner(context),
               if (_isMeDisconnected && state == 'playing')
                 _buildMeOfflineBanner(context),
             ],
@@ -1089,6 +1102,43 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// 「棋谱与服务端不一致」顶部 banner。
+  ///
+  /// 服务端只校验走法记号形状、不做象棋规则推理，客户端又按 `c.moves` 重放
+  /// 局面 —— 若某手本地无法重放，两端棋盘会分叉，且「棋盘回合」与「权限表
+  /// 回合」判反 → 棋盘对双方都点不动且毫无提示。
+  /// 本 banner 把这件事**说出来**（棋盘已按服务端 FEN 对齐，可继续走）。
+  Widget _buildDesyncBanner(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        color: scheme.tertiaryContainer.withValues(alpha: 0.95),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.sync_problem_rounded,
+                size: 16, color: scheme.onTertiaryContainer),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                '棋谱与服务端不一致，已按服务端局面同步',
+                style: TextStyle(
+                  color: scheme.onTertiaryContainer,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

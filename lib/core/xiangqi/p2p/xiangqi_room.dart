@@ -63,6 +63,34 @@ class XiangqiMoveRecord {
   }
 }
 
+/// 重放结果：局面 + 是否与服务端权威局面一致。
+class XiangqiReplayResult {
+  /// 重放（必要时修复）后的棋盘状态。
+  final XiangqiBoardState board;
+
+  /// 全程无需修复（每手都能正常重放）。
+  final bool consistent;
+
+  /// 首次发生「无法重放 / 与服务端不一致」的手数（null = 全程一致）。
+  ///
+  /// 该手之后的位置取自服务端上报的 FEN（协议里的权威事实来源），
+  /// 因此棋盘**与服务端对齐**，只是这一手被本地引擎判为不合法。
+  final int? repairedAtPly;
+
+  /// 最终棋盘是否与服务端 `c.fen` 完全一致（局面 + 轮次）。
+  ///
+  /// 检测到不一致时会把棋盘**改为服务端局面**，故修复后恒为 true；
+  /// 只有服务端 FEN 本身无法解析时才是 false。
+  final bool matchesServerFen;
+
+  const XiangqiReplayResult({
+    required this.board,
+    required this.consistent,
+    required this.repairedAtPly,
+    required this.matchesServerFen,
+  });
+}
+
 /// 中国象棋房间封装
 class XiangqiRoom {
   final RoomHandle handle;
@@ -277,27 +305,104 @@ class XiangqiRoom {
   }
 
   /// 用引擎把棋谱重放成棋盘状态（服务端只存记号，不存局面）。
+  ///
+  /// ⚠ 只做**结构**重放（起点有子 / 终点非己方子），不逐手做规则校验 ——
+  ///   逐手规则校验很贵（每手一次全量走法生成），而最终与服务端 `c.fen`
+  ///   的交叉核对是等价且**便宜**的兜底（见 [rebuildBoardVerified]）。
   static XiangqiBoardState rebuildBoard(
     List<XiangqiMoveRecord> history, {
     String initialFen = kXiangqiStartingFen,
     XiangqiColor? fallbackSide,
   }) {
-    var state = boardStateFromFen(initialFen);
-    if (fallbackSide != null &&
-        state.sideToMove != fallbackSide &&
-        history.isEmpty) {
-      state = state.copyWith(sideToMove: fallbackSide);
+    return rebuildBoardVerified(
+      history,
+      initialFen: initialFen,
+      initialSide: fallbackSide,
+    ).board;
+  }
+
+  /// **可核对**的棋谱重放 —— 服务端权威优先。
+  ///
+  /// 为什么需要它：服务端只校验走法记号的**形状**（不做象棋规则推理），
+  /// 而客户端把 `c.moves` 当权威棋谱重放。若某手在本地**无法重放**
+  /// （记号非法 / 起点无子 / 终点是己方子 —— 正常对局不会出现，异常客户端
+  /// 或引擎分歧会出现），旧实现会**静默跳过**该手：
+  ///   · 客户端棋盘与服务端 `c.fen` 分叉；
+  ///   · 棋盘回合（按局面推）与权限表回合（按手数奇偶推）判反 →
+  ///     AND 门把**双方**都锁死 → 对局彻底卡死且毫无提示。
+  ///
+  /// 本方法做三件事：
+  ///   1. 逐手结构校验；遇到无法重放的手 → **不静默跳过**，改用该手之后
+  ///      服务端上报的 FEN（权威事实）把棋盘对齐到服务端，并记录
+  ///      [XiangqiReplayResult.repairedAtPly]。
+  ///   2. 先手方以服务端 `initial_side` 为准（与 Lua `side_to_move` 同源），
+  ///      不依赖初始 FEN 的轮次字段（残局 / 自定义开局时二者可能不一致）。
+  ///   3. 最终与服务端 `c.fen` 交叉核对；不一致则以服务端为准。
+  static XiangqiReplayResult rebuildBoardVerified(
+    List<XiangqiMoveRecord> history, {
+    String initialFen = kXiangqiStartingFen,
+    String? serverFen,
+    XiangqiColor? initialSide,
+  }) {
+    var state = _boardStateOrNull(initialFen) ?? XiangqiBoardState.initial();
+    // 先手方以服务端 initial_side 为准（**不能**只看 FEN 轮次字段 ——
+    // 残局 / 自定义开局时二者可能不一致 → 棋盘回合整体反转）。
+    if (initialSide != null) {
+      state = state.copyWith(sideToMove: initialSide);
     }
-    for (final rec in history) {
+
+    int? repairedAt;
+    for (var i = 0; i < history.length; i++) {
+      final rec = history[i];
       final move = XiangqiMove.fromUci(rec.uci);
-      if (move == null) continue; // 坏记录跳过，不拖垮整盘
+      if (move == null) {
+        repairedAt ??= i;
+        final repaired = _boardStateOrNull(rec.fen);
+        if (repaired == null) break;
+        state = repaired;
+        continue;
+      }
       try {
         state = applyXiangqiMoveSimple(state, move);
       } catch (_) {
-        continue; // 非法着法跳过
+        // 无法重放（起点无子 / 终点己方子）→ 用服务端该手后的 FEN 对齐。
+        repairedAt ??= i;
+        final repaired = _boardStateOrNull(rec.fen);
+        if (repaired == null) break;
+        state = repaired;
       }
     }
-    return state;
+
+    // 与服务端 c.fen 交叉核对（最终兜底）：不一致 → **以服务端为准**。
+    // 修复后棋盘即与服务端一致，故 matchesServerFen 仍为 true；
+    // 只有服务端 FEN 本身不可解析时才是 false。
+    var matchesServerFen = true;
+    if (serverFen != null && serverFen.isNotEmpty) {
+      final serverState = _boardStateOrNull(serverFen);
+      if (serverState == null) {
+        matchesServerFen = false;
+      } else if (serverState.positionKey != state.positionKey) {
+        repairedAt ??= history.length;
+        state = serverState;
+      }
+    }
+
+    return XiangqiReplayResult(
+      board: state,
+      consistent: repairedAt == null,
+      repairedAtPly: repairedAt,
+      matchesServerFen: matchesServerFen,
+    );
+  }
+
+  /// 解析 FEN → 棋盘；非法 FEN 返回 null（不抛）。
+  static XiangqiBoardState? _boardStateOrNull(String fen) {
+    if (fen.isEmpty) return null;
+    try {
+      return boardStateFromFen(fen);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 全部局面键（含起点）—— 供重复局面检测（象棋一般不强制和棋，保留接口平行）

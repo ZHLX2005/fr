@@ -34,7 +34,10 @@ const String kXiangqiScriptLifecycle = r'''
 -- 判断中国象棋 FEN 是否结构合法：`<10 段局面> <轮次> ...`
 --   局面段：10 段用 '/' 分隔，每段宽 9（数字 = 连续空格数，字母 = 棋子）
 --   轮次段：'r'（红走）/ 'b'（黑走）
--- 只做结构校验（宽度 / 字符集 / 段数），不做局面合理性 —— 那是引擎的活。
+-- 结构校验（宽度 / 字符集 / 段数）+ **棋子数量与将帅存在性**校验。
+-- ⚠ 数量校验不是可有可无：缺将的畸形局面被当作开局接受 → 客户端引擎立刻
+--   判 noGeneral → 终局秒判负（还没走一步就结束）。与客户端
+--   isValidXiangqiFen / kXiangqiPieceCountCaps 同表。
 function is_valid_xiangqi_fen(fen)
   if type(fen) ~= "string" then return false end
   local parts = {}
@@ -59,6 +62,24 @@ function is_valid_xiangqi_fen(fen)
     end
     if width ~= 9 then return false end
   end
+  -- 棋子数量：双方各恰好一个将；士/象/马/车/炮 各 ≤ 2，卒/兵 ≤ 5
+  local caps = { K = 1, A = 2, B = 2, N = 2, R = 2, C = 2, P = 5 }
+  local counts = {}
+  for ch in parts[1]:gmatch(".") do
+    if ch:match("[KABNRCPkabnrcp]") then
+      -- key 保留原始大小写（红 / 黑分列）
+      counts[ch] = (counts[ch] or 0) + 1
+    end
+  end
+  for key, cap in pairs(caps) do
+    -- 上下限是**每方**的：大写 = 红、小写 = 黑，必须分别比。
+    local upper = counts[key] or 0
+    local lower = counts[key:lower()] or 0
+    if upper > cap or lower > cap then return false end
+  end
+  -- 双方各恰好一个将（大小写各一个）
+  if (counts["K"] or 0) ~= 1 then return false end
+  if (counts["k"] or 0) ~= 1 then return false end
   return true
 end
 

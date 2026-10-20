@@ -378,6 +378,33 @@ void _emptyRoomReclaimGuards() {
 }
 
 void _moveGuards() {
+  group('kXiangqiScript 服务端不变量 静态守卫', () {
+    test('is_valid_xiangqi_fen 校验棋子数量与双方各一个将', () {
+      final helper = _functionBlock('function is_valid_xiangqi_fen(fen)');
+      expect(helper, contains('local caps = { K = 1, A = 2, B = 2, N = 2, R = 2, C = 2, P = 5 }'),
+          reason: '数量上限表必须与服务端 is_valid_xiangqi_fen 一致');
+      expect(helper, contains('if (counts["K"] or 0) ~= 1 then return false end'),
+          reason: '红方必须恰好一个将（缺将 → 客户端立刻判 noGeneral → 秒判负）');
+      expect(helper, contains('if (counts["k"] or 0) ~= 1 then return false end'),
+          reason: '黑方必须恰好一个将');
+      expect(
+        helper,
+        contains('if upper > cap or lower > cap then return false end'),
+        reason: '数量上限是**每方**的（大写红 / 小写黑）必须分别比',
+      );
+    });
+
+    test('CLAIM_END 要求至少走过一手（0 手不能宣布终局）', () {
+      final block = _functionBlock('on_action_CLAIM_END = function');
+      expect(
+        block,
+        contains('if #c.moves < 1 then'),
+        reason: 'Lua 5.1 的 -1 % 2 == 1 会让 0 手时的 non_current_player 判给对侧，'
+            '导致未走一步即可自称获胜',
+      );
+    });
+  });
+
   group('kXiangqiScript MOVE 校验 静态守卫', () {
     test('MOVE 校验记号结构 + FEN 结构 + 轮次反证', () {
       final block = _functionBlock('on_action_MOVE = function');
