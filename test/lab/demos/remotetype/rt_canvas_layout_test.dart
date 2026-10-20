@@ -402,6 +402,12 @@ void main() {
           kRtCanvasBuiltinPresets.firstWhere((p) => p.id == kRtCanvasPresetGame);
       expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue,
           reason: '游戏布局缺轮盘');
+      expect(game.data.modules[kRtCanvasModuleVpad]?.visible, isTrue,
+          reason: '游戏布局缺手柄键区');
+      expect(game.data.hideShortcuts, isTrue,
+          reason: '游戏布局不渲染快捷键按钮（按钮区归手柄模块）');
+      expect(game.data.buttons, isEmpty,
+          reason: '快捷键按钮位全部交空手柄模块');
       expect(game.data.modules.containsKey(kRtCanvasModuleTouchpad), isFalse,
           reason: '游戏布局 = 纯手柄，不内嵌触摸板条目');
       expect(game.data.modules.containsKey(kRtCanvasModuleInput), isFalse,
@@ -412,35 +418,18 @@ void main() {
       expect(pad.data.modules.length, 1, reason: '触控屏布局 = 只有一块触摸板');
     });
 
-    test('游戏布局 = 手柄形态：左轮盘 + 右侧圆形按钮簇（菱形/肩键/次键）', () {
+    test('游戏布局 = 纯手柄：左轮盘 + 右手柄键区（两端分区互不相交）', () {
       final game = kRtCanvasBuiltinPresets
           .firstWhere((p) => p.id == kRtCanvasPresetGame);
-      // 轮盘占左半（方向区）
       final dpad = game.data.modules[kRtCanvasModuleDpad]!;
-      expect(dpad.x, lessThan(0.35), reason: '轮盘应靠左');
-      // 全部按钮圆形（手柄键）
-      expect(game.data.buttons, isNotEmpty);
+      final vpad = game.data.modules[kRtCanvasModuleVpad]!;
+      expect(dpad.x, lessThan(0.35), reason: '轮盘靠左（十字键区）');
+      expect(vpad.x, greaterThan(0.60), reason: '手柄键区靠右（ABXY 区）');
       expect(
-        game.data.buttons.values
-            .every((p) => p.shape == RtCanvasButtonShape.circle),
-        isTrue,
-        reason: '手柄键应全部为圆形',
+        dpad.x + dpad.w! / 2,
+        lessThan(vpad.x - vpad.w! / 2),
+        reason: '轮盘与手柄键区水平区间不应相交',
       );
-      // 菱形主键（上/右/下/左）+ 双肩键就座
-      for (final id in ['default_0', 'default_1', 'default_2', 'default_3']) {
-        expect(game.data.buttons.containsKey(id), isTrue, reason: id);
-      }
-      // 10 条默认快捷键全部预排（无残留走自动找位的按钮）
-      expect(game.data.buttons.length, 10);
-      // 预排位互不拥挤（归一化中心距下限）
-      final centers =
-          game.data.buttons.values.map((p) => Offset(p.x, p.y)).toList();
-      for (var i = 0; i < centers.length; i++) {
-        for (var j = i + 1; j < centers.length; j++) {
-          expect((centers[i] - centers[j]).distance, greaterThanOrEqualTo(0.13),
-              reason: '预排位 $i/$j 过近');
-        }
-      }
     });
   });
 

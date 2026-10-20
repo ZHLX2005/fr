@@ -27,6 +27,7 @@ import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
 import 'rt_canvas_layouts_sheet.dart' show RtCanvasLayoutsSheet;
+import 'rt_canvas_vpad.dart' show RtCanvasVpad;
 import 'rt_prefs.dart'
     show
         RtCanvasAnchor,
@@ -39,6 +40,7 @@ import 'rt_prefs.dart'
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleTouchpad,
+        kRtCanvasModuleVpad,
         kRtCanvasPadDefH,
         kRtCanvasPadDefW;
 import 'rt_session.dart';
@@ -89,6 +91,7 @@ class RtCanvasView extends StatefulWidget {
     required this.onRenameCustom,
     required this.onResetBuiltin,
     required this.onDirection,
+    required this.onVpadKey,
     required this.onEditModeChanged,
     required this.onFire,
     required this.onEditShortcuts,
@@ -134,8 +137,13 @@ class RtCanvasView extends StatefulWidget {
   /// 内置布局恢复出厂摆放（sheet 内置长按触发）。
   final ValueChanged<String> onResetBuiltin;
 
-  /// 方向轮盘触发一发方向键（'up'/'down'/'left'/'right'；按住连发由轮盘自驱）。
-  final ValueChanged<String> onDirection;
+  /// 方向轮盘方向变化（非 null = 方向，null = 回中；映射 vpad_dpad）。
+  final ValueChanged<String?> onDirection;
+
+  /// 手柄键区按键事件（button: a/b/x/y/lb/rb 或 trigger: lt/rt，按下与
+  /// 松开各回报一次；映射 vpad_button / vpad_trigger）。
+  final void Function({String? button, String? trigger, required bool pressed})
+      onVpadKey;
 
   final ValueChanged<bool> onEditModeChanged;
   final ValueChanged<RtShortcutItem> onFire;
@@ -154,6 +162,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       switch (id) {
         kRtCanvasModuleTouchpad => (0.25, 1.0, 0.35, 1.0),
         kRtCanvasModuleDpad => (0.12, 0.65, 0.12, 0.85),
+        kRtCanvasModuleVpad => (0.25, 0.70, 0.35, 1.0),
         _ => (0.20, 1.0, 0.08, 0.40),
       };
 
@@ -230,6 +239,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     return switch (id) {
       // 轮盘默认规格 = 游戏布局内置值（缩略图同源，两处不许两套）。
       kRtCanvasModuleDpad => (0.30, 0.78),
+      kRtCanvasModuleVpad => (0.44, 0.90),
       kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
       _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
     };
@@ -384,6 +394,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                 children: [
                   if (_anchorOf(kRtCanvasModuleDpad).visible)
                     _dpadModule(canvasSize),
+                  if (_anchorOf(kRtCanvasModuleVpad).visible)
+                    _vpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleTouchpad).visible)
                     _touchpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleInput).visible)
@@ -509,6 +521,12 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                     icon: Icons.gamepad_outlined,
                     label: '轮盘',
                     id: kRtCanvasModuleDpad,
+                  ),
+                  const SizedBox(width: 8),
+                  _moduleVisibilityChip(
+                    icon: Icons.sports_esports_outlined,
+                    label: '手柄',
+                    id: kRtCanvasModuleVpad,
                   ),
                   const SizedBox(width: 8),
                   ActionChip(
@@ -793,6 +811,37 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
+  // ---- 模块：手柄键区（ABXY + LB/RB + LT/RT，接 PC 虚拟手柄）----
+
+  Widget _vpadModule(Size canvasSize) {
+    final (wf, hf) = _moduleFractions(kRtCanvasModuleVpad);
+    final size = Size(wf * canvasSize.width, hf * canvasSize.height);
+    final rect = _moduleRect(
+      _anchorPos(kRtCanvasModuleVpad),
+      size,
+      canvasSize,
+    );
+    Widget pad = RtCanvasVpad(
+      enabled: widget.connected,
+      onKey: ({String? button, String? trigger, required bool pressed}) =>
+          widget.onVpadKey(button: button, trigger: trigger, pressed: pressed),
+    );
+    if (widget.editMode) {
+      pad = _editModuleWrapper(
+        id: kRtCanvasModuleVpad,
+        label: '手柄',
+        child: SizedBox(width: size.width, height: size.height, child: pad),
+      );
+    }
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: size.width,
+      height: size.height,
+      child: pad,
+    );
+  }
+
   // ---- 模块：触摸板 ----
 
   Widget _touchpadModule(Size canvasSize) {
@@ -914,6 +963,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   // ---- 模块：快捷按钮 ----
 
   List<Widget> _buttonModules(Size canvasSize) {
+    // 纯手柄布局（游戏布局）：按钮区归 vpad 模块，快捷键按钮整体不参与。
+    if (widget.activeLayout.hideShortcuts) return const [];
     final assigned = <String, Offset>{
       for (final e in widget.activeLayout.buttons.entries)
         e.key: Offset(e.value.x, e.value.y),

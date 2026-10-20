@@ -5,22 +5,21 @@
 // 用户从「布局」sheet 复制当前为新自定义，做个人编排；自定义无数量上限。
 //
 // 与「键盘布局」/「触控屏布局」等命名保持口语（用户记忆点 = 用途，
-// 不是几何）。预设只定义模块锚点（含宽高 + 显隐）与预排按钮位；缺省部分
-// 由画布兜底（模块缺失 = 隐藏，编辑态 chip 可随时加回）。
-// 游戏 = 纯手柄：左轮盘（方向键连发）+ 右圆形按钮簇（ABXY 菱形 + 双肩键）；
+// 不是几何）。预设只定义模块锚点（含宽高 + 显隐）与 hideShortcuts 语义；
+// 缺省部分由画布兜底（模块缺失 = 隐藏，编辑态 chip 可随时加回）。
+// 游戏 = 纯手柄：左轮盘（vpad 十字键）+ 右手柄键区（ABXY + 肩键/扳机）；
 // 触控屏 = 只有一块触摸板；默认 = 触摸板 + 输入框 + 按钮栅格；键盘 = 大输入条。
 
 import 'rt_prefs.dart'
     show
         RtCanvasAnchor,
-        RtCanvasButtonPos,
-        RtCanvasButtonShape,
         RtCanvasLayout,
         RtCanvasLayouts,
         RtCanvasNamedLayout,
         kRtCanvasInputDefH,
         kRtCanvasInputDefW,
         kRtCanvasModuleDpad,
+        kRtCanvasModuleVpad,
         kRtCanvasPadDefH,
         kRtCanvasPadDefW,
         kRtCanvasPresetDefault,
@@ -54,48 +53,31 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
           },
         ),
       ),
-      // 2. 游戏：纯手柄形态——左侧方向轮盘（上下左右移动，按住连发），
-      //    右侧圆形按钮簇：4 颗主键菱形（ABXY 位）+ 顶部双肩键（LT/RT 位）
-      //    + 次键补位。触摸板 / 输入框不进这套布局（编辑态可随时加回）。
-      //    按键全部圆形（shape: circle），标签显示末位主键短名。
+      // 2. 游戏：纯手柄形态——左侧方向轮盘（vpad 十字键，回中 = none）
+      //    + 右侧手柄键区（ABXY 菱形 + LB/LT/RT/RB 肩键行），全部走 PC 端
+      //    虚拟手柄协议。快捷键按钮不参与（hideShortcuts：按钮区归手柄
+      //    模块）；触摸板 / 输入框不内嵌（编辑态 chip 可随时加回）。
       RtCanvasNamedLayout(
         id: kRtCanvasPresetGame,
         name: '游戏布局',
         builtIn: true,
         data: RtCanvasLayout(
+          hideShortcuts: true,
           modules: {
             kRtCanvasModuleDpad: RtCanvasAnchor(
               visible: true,
-              x: 0.24,
+              x: 0.22,
               y: 0.52,
               w: 0.30,
               h: 0.78,
             ),
-          },
-          buttons: {
-            // 菱形主键（上/右/下/左 = ABXY 位）
-            'default_0': RtCanvasButtonPos(
-                x: 0.80, y: 0.40, s: 1.0, shape: RtCanvasButtonShape.circle),
-            'default_1': RtCanvasButtonPos(
-                x: 0.93, y: 0.56, s: 1.0, shape: RtCanvasButtonShape.circle),
-            'default_2': RtCanvasButtonPos(
-                x: 0.80, y: 0.72, s: 1.0, shape: RtCanvasButtonShape.circle),
-            'default_3': RtCanvasButtonPos(
-                x: 0.66, y: 0.56, s: 1.0, shape: RtCanvasButtonShape.circle),
-            // 双肩键（LT / RT 位）
-            'default_4': RtCanvasButtonPos(
-                x: 0.58, y: 0.28, s: 0.75, shape: RtCanvasButtonShape.circle),
-            'default_5': RtCanvasButtonPos(
-                x: 0.94, y: 0.28, s: 0.75, shape: RtCanvasButtonShape.circle),
-            // 次键补位（簇中心 + 底部一排）
-            'default_8': RtCanvasButtonPos(
-                x: 0.80, y: 0.56, s: 0.7, shape: RtCanvasButtonShape.circle),
-            'default_6': RtCanvasButtonPos(
-                x: 0.70, y: 0.88, s: 0.7, shape: RtCanvasButtonShape.circle),
-            'default_7': RtCanvasButtonPos(
-                x: 0.90, y: 0.88, s: 0.7, shape: RtCanvasButtonShape.circle),
-            'default_9': RtCanvasButtonPos(
-                x: 0.52, y: 0.88, s: 0.7, shape: RtCanvasButtonShape.circle),
+            kRtCanvasModuleVpad: RtCanvasAnchor(
+              visible: true,
+              x: 0.77,
+              y: 0.53,
+              w: 0.42,
+              h: 0.92,
+            ),
           },
         ),
       ),

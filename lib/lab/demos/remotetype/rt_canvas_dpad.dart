@@ -1,11 +1,12 @@
 // lib/lab/demos/remotetype/rt_canvas_dpad.dart
 //
-// 方向轮盘模块（游戏布局左手区）：圆形轮盘，上下左右四向发方向键。
-//   · 按下立即发一发；按住不松 160ms 连发（游戏里按住 = 持续移动）。
-//   · 按住期间手指滑到另一向 = 换向（先停旧向连发，新向立即发一发）。
-//   · 滑回中心死区（半径 25%）= 停发不松手；再滑出 = 恢复。
-// 方向键名走 syncHotkey 既有词汇（'up'/'down'/'left'/'right'，与快捷键
-// 编辑器 RtKeyDisplay 同一套键名表）。
+// 方向轮盘模块（游戏布局左手区）：圆形轮盘，接 PC 端虚拟手柄的十字键。
+//   · 手指按到某向 → 立即回报该向（vpad_dpad up/down/left/right）；
+//     PC 端虚拟手柄保持该状态，**无需连发**。
+//   · 按住滑到另一向 = 换向；滑回中心死区（半径 25%）或松手 = 回报 null
+//     （映射为 vpad_dpad 'none' 回中）。
+// 方向名与 rust input-agent vpad.rs 的 vpad_dir 白名单一致（up/down/left/
+// right/none），经 rt-align normalizeVpadOp 白名单放行。
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -15,10 +16,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/context/colors.dart';
 
-/// 轮盘连发间隔。
-const Duration kRtDpadRepeatInterval = Duration(milliseconds: 160);
-
-/// 中心死区占半径比例：指针在死区内 = 无方向（停发）。
+/// 中心死区占半径比例：指针在死区内 = 无方向（回中）。
 const double kRtDpadDeadZoneRatio = 0.25;
 
 class RtCanvasDpad extends StatefulWidget {
@@ -32,8 +30,9 @@ class RtCanvasDpad extends StatefulWidget {
   /// false（未连接）：置灰且不响应。
   final bool enabled;
 
-  /// 方向触发（含连发的每一发）。key ∈ 'up'/'down'/'left'/'right'。
-  final ValueChanged<String> onDirection;
+  /// 方向变化回报：非 null = 新方向（vpad_dpad up/down/left/right）；
+  /// null = 回中（vpad_dpad none）。只在变化时回调，不连发。
+  final ValueChanged<String?> onDirection;
 
   /// 编辑态由外层描边框接管说明，图例可不画。
   final bool showLegend;
@@ -51,16 +50,9 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
   };
 
   String? _activeDir;
-  Timer? _repeat;
   bool _pointerDown = false;
 
-  @override
-  void dispose() {
-    _repeat?.cancel();
-    super.dispose();
-  }
-
-  // ================= 方向判定与连发 =================
+  // ================= 方向判定与回报 =================
 
   /// 指针相对轮盘中心的方向；死区内返回 null。
   String? _dirAt(Offset local, Size size) {
@@ -75,15 +67,9 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
 
   void _setDirection(String? dir) {
     if (dir == _activeDir) return;
-    _repeat?.cancel();
-    _repeat = null;
     setState(() => _activeDir = dir);
-    if (dir == null) return;
-    unawaited(HapticFeedback.selectionClick());
+    if (dir != null) unawaited(HapticFeedback.selectionClick());
     widget.onDirection(dir);
-    _repeat = Timer.periodic(kRtDpadRepeatInterval, (_) {
-      if (mounted && widget.enabled) widget.onDirection(dir);
-    });
   }
 
   void _onPointerDown(PointerDownEvent e, Size size) {
@@ -165,8 +151,8 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
                               color: _activeDir == e.key
                                   ? cs.primary
                                   : (enabled
-                                        ? c.textMuted
-                                        : c.textMuted.withValues(alpha: 0.6)),
+                                      ? c.textMuted
+                                      : c.textMuted.withValues(alpha: 0.6)),
                             ),
                           ),
                         // 中心毂

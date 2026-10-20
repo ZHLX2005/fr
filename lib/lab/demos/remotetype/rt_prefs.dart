@@ -24,8 +24,11 @@ const String kRtCanvasPresetTouchpad = 'touchpad';
 const String kRtCanvasModuleTouchpad = 'touchpad';
 const String kRtCanvasModuleInput = 'input';
 
-/// 方向轮盘（游戏布局的左手区：上下左右发方向键，按住连发）。
+/// 方向轮盘（游戏布局的左手区：vpad_dpad 四向 + none 回中）。
 const String kRtCanvasModuleDpad = 'dpad';
+
+/// 虚拟手柄键区（ABXY 面键 + LB/RB 肩键 + LT/RT 扳机，固定布局的模块）。
+const String kRtCanvasModuleVpad = 'vpad';
 
 /// 画布按钮形状：pill = 圆角胶囊（常规快捷键）；circle = 圆形（手柄键）。
 enum RtCanvasButtonShape { pill, circle }
@@ -394,27 +397,37 @@ class RtCanvasLayouts {
   }
 }
 
-/// 横屏画布布局：模块（触摸板 / 输入框）锚点 + 按钮位（含倍率/显隐）。
+/// 横屏画布布局：模块（触摸板 / 输入框 / 轮盘 / 手柄键区）锚点 + 按钮位。
 /// 空表 = 首跑，画布用内置默认布局。删掉的按钮残位无害（同 id 回归原位）。
 class RtCanvasLayout {
-  const RtCanvasLayout({this.modules = const {}, this.buttons = const {}});
+  const RtCanvasLayout({
+    this.modules = const {},
+    this.buttons = const {},
+    this.hideShortcuts = false,
+  });
 
   final Map<String, RtCanvasAnchor> modules;
   final Map<String, RtCanvasButtonPos> buttons;
 
+  /// true = 此布局不渲染快捷键按钮（游戏布局 = 纯手柄，按钮区归 vpad 模块）。
+  final bool hideShortcuts;
+
   RtCanvasLayout withModule(String id, RtCanvasAnchor anchor) => RtCanvasLayout(
         modules: Map.of(modules)..[id] = anchor,
         buttons: buttons,
+        hideShortcuts: hideShortcuts,
       );
 
   RtCanvasLayout withButton(String id, RtCanvasButtonPos pos) => RtCanvasLayout(
         modules: modules,
         buttons: Map.of(buttons)..[id] = pos,
+        hideShortcuts: hideShortcuts,
       );
 
   Map<String, dynamic> toJson() => {
         'modules': {for (final e in modules.entries) e.key: e.value.toJson()},
         'buttons': {for (final e in buttons.entries) e.key: e.value.toJson()},
+        if (hideShortcuts) 'hs': true,
       };
 
   factory RtCanvasLayout.fromJson(Map<String, dynamic> j) {
@@ -440,7 +453,11 @@ class RtCanvasLayout {
         buttons[e.key.toString()] = RtCanvasButtonPos.fromJson(jb);
       }
     }
-    return RtCanvasLayout(modules: modules, buttons: buttons);
+    return RtCanvasLayout(
+      modules: modules,
+      buttons: buttons,
+      hideShortcuts: j['hs'] == true,
+    );
   }
 }
 

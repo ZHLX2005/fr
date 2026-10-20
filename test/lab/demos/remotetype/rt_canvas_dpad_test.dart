@@ -1,9 +1,9 @@
 // test/lab/demos/remotetype/rt_canvas_dpad_test.dart
 //
-// 方向轮盘交互单测：
-//   - 按下方向立即发一发 + 按住连发（160ms 周期）
-//   - 按住滑到另一向 = 换向（旧向停发、新向立即发）
-//   - 松手停发
+// 方向轮盘交互单测（vpad 十字键语义）：
+//   - 按到某向立即回报该向一次（虚拟手柄保持状态，**不连发**）
+//   - 按住滑到另一向 = 换向（旧向停、新向回报）
+//   - 松手 / 滑回中心死区 = 回报 null（映射 vpad_dpad 'none' 回中）
 //   - 未连接（enabled: false）不响应
 //
 // 判定口径与 RtCanvasDpad._dirAt 一致：相对轮盘中心，|dx|≥|dy| 取左右，
@@ -15,7 +15,7 @@ import 'package:xiaodouzi_fr/lab/demos/remotetype/rt_canvas_dpad.dart';
 
 Future<void> pumpDpad(
   WidgetTester tester, {
-  required ValueChanged<String> onDirection,
+  required ValueChanged<String?> onDirection,
   bool enabled = true,
 }) async {
   await tester.pumpWidget(
@@ -39,35 +39,44 @@ Future<void> pumpDpad(
 }
 
 void main() {
-  testWidgets('按下右侧立即发 right，按住连发，滑到下方换向 down，松手停', (tester) async {
-    final fired = <String>[];
+  testWidgets('按下右侧立即回报 right（只一发，状态由虚拟手柄保持）', (tester) async {
+    final fired = <String?>[];
     await pumpDpad(tester, onDirection: fired.add);
 
     final center = tester.getCenter(find.byType(RtCanvasDpad));
     final gesture = await tester.startGesture(center + const Offset(70, 0));
     await tester.pump();
-    expect(fired, ['right'], reason: '按下立即发一发');
+    expect(fired, ['right']);
 
-    // 按住连发：340ms 内应再发 ≥2 发（160ms 周期）
-    await tester.pump(const Duration(milliseconds: 340));
-    expect(fired.length, greaterThanOrEqualTo(3), reason: '按住应连发');
-    expect(fired.every((d) => d == 'right'), isTrue);
-
-    // 按住滑到下方 = 换向（旧向停发，新向立即发）
-    await gesture.moveBy(const Offset(-70, 70));
-    await tester.pump();
-    expect(fired.last, 'down');
-
-    // 松手 = 停发
+    // 按住 1 秒不连发（vpad 状态型指令）
+    await tester.pump(const Duration(seconds: 1));
+    expect(fired, ['right'], reason: '按住不连发');
     await gesture.up();
-    await tester.pump();
-    final count = fired.length;
-    await tester.pump(const Duration(milliseconds: 340));
-    expect(fired.length, count, reason: '松手后不应再发');
   });
 
-  testWidgets('中心死区内按下不触发方向', (tester) async {
-    final fired = <String>[];
+  testWidgets('按住滑到下方换向 down；松手回报 null 回中', (tester) async {
+    final fired = <String?>[];
+    await pumpDpad(tester, onDirection: fired.add);
+
+    final center = tester.getCenter(find.byType(RtCanvasDpad));
+    final gesture = await tester.startGesture(center + const Offset(70, 0));
+    await tester.pump();
+    // 滑到下方 = 换向
+    await gesture.moveBy(const Offset(-70, 70));
+    await tester.pump();
+    expect(fired, ['right', 'down']);
+    // 同向再移动不重复回报
+    await gesture.moveBy(const Offset(0, 10));
+    await tester.pump();
+    expect(fired, ['right', 'down'], reason: '同方向不重复回报');
+    // 松手 = 回中
+    await gesture.up();
+    await tester.pump();
+    expect(fired, ['right', 'down', null]);
+  });
+
+  testWidgets('中心死区内按下不触发方向；滑出死区才回报', (tester) async {
+    final fired = <String?>[];
     await pumpDpad(tester, onDirection: fired.add);
 
     final center = tester.getCenter(find.byType(RtCanvasDpad));
@@ -76,17 +85,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(fired, isEmpty, reason: '死区内无方向');
 
-    // 滑出死区（右侧 60px）→ 触发 right
+    // 滑出死区（右侧 60px）→ 回报 right
     await gesture.moveBy(const Offset(45, 0));
     await tester.pump();
-    expect(fired.last, 'right');
+    expect(fired, ['right']);
 
     await gesture.up();
     await tester.pump();
+    expect(fired, ['right', null]);
   });
 
   testWidgets('未连接（enabled: false）不响应', (tester) async {
-    final fired = <String>[];
+    final fired = <String?>[];
     await pumpDpad(tester, onDirection: fired.add, enabled: false);
 
     final center = tester.getCenter(find.byType(RtCanvasDpad));
@@ -96,6 +106,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await gesture.up();
     await tester.pump();
-    expect(fired, isEmpty, reason: '置灰态不应发方向键');
+    expect(fired, isEmpty, reason: '置灰态不应回报方向');
   });
 }

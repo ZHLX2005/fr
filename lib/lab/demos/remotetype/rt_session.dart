@@ -81,6 +81,29 @@ Map<String, dynamic> rtMousePlaintext(
   };
 }
 
+/// RT1 P2C 虚拟手柄指令明文（v0.7.0+ vpad_* 协议）。
+///
+/// [cmd] 一条 vpad 指令（action + 字段，形状由 PC 端 normalizeVpadOp
+/// 白名单把关，与 rust input-agent vpad.rs parse_* 一致）：
+///   {'action':'vpad_init',  'vpad_slot':1}
+///   {'action':'vpad_release','vpad_handle':'pad1'} / {'action':'vpad_release_all'}
+///   {'action':'vpad_button', 'vpad_handle':'pad1','vpad_button':'a','vpad_value_bool':true}
+///   {'action':'vpad_trigger','vpad_handle':'pad1','vpad_trigger':'lt','vpad_value':1.0}
+///   {'action':'vpad_dpad',   'vpad_handle':'pad1','vpad_dir':'up'}
+/// 与 hotkey/mouse 同属「事件」语义：seq 去重之前处理、不回 ACK；rust 端按
+/// handle 维护累积状态，press/release 成对发送即可。独立成顶层纯函数以便单测。
+Map<String, dynamic> rtVpadPlaintext(
+  Map<String, dynamic> cmd,
+  int ts,
+  String phoneId,
+) {
+  return {
+    'vpad': Map<String, dynamic>.of(cmd),
+    'ts': ts,
+    'phoneId': phoneId,
+  };
+}
+
 class RtSessionException implements Exception {
   RtSessionException(this.kind, this.message);
 
@@ -518,6 +541,32 @@ class RtSession {
       aad: rtBuildAad(derived.room, kRtDirPhoneToPc, _seq),
       plaintext: rtMousePlaintext(
         mouse,
+        DateTime.now().millisecondsSinceEpoch,
+        _phoneId,
+      ),
+      sid: _sid,
+      seq: _seq,
+    );
+    _sendJson({'clientId': _target, 'text': jsonEncode(envelope)});
+    return true;
+  }
+
+  /// 发送一条虚拟手柄指令（v0.7.0+ vpad_* 协议），形状见 [rtVpadPlaintext]。
+  ///
+  /// 与 [syncHotkey]/[syncMouse] 同属事件语义、共用 seq 域与加密路径，PC 端
+  /// 不回 ACK；保序由 PC 端 vpad 专用串行链保证（press/release 不会乱序）。
+  ///
+  /// 返回 true = 信封已实际发出（WS 未连接返回 false）。
+  Future<bool> syncVpad(Map<String, dynamic> cmd) async {
+    if (cmd.isEmpty) return false;
+    final derived = await _derivedFuture;
+    if (_ws == null) return false;
+    _seq += 1;
+    final envelope = await rtSeal(
+      key: derived.keyPhoneToPc,
+      aad: rtBuildAad(derived.room, kRtDirPhoneToPc, _seq),
+      plaintext: rtVpadPlaintext(
+        cmd,
         DateTime.now().millisecondsSinceEpoch,
         _phoneId,
       ),

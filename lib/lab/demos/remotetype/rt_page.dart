@@ -280,6 +280,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   @override
   void dispose() {
+    // 画布在手柄使用中退出：尽力释放虚拟手柄（会话仍托管，WS 活着就能送达）。
+    if (_vpadReady != null) unawaited(_releaseVpad());
     _pollTimer?.cancel();
     _syncFlashTimer?.cancel();
     _eventSub?.cancel();
@@ -302,6 +304,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// 进/出横屏画布：横竖屏锁只在画布期间放开（打字页横屏没意义还晃布局）。
   void _setCanvasMode(bool on) {
     if (_canvasMode == on) return;
+    if (!on && _vpadReady != null) unawaited(_releaseVpad());
     setState(() => _canvasMode = on);
     _syncBottomBar();
     unawaited(
@@ -436,6 +439,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final wasImmersive = _canvasMode;
     _eventSub?.cancel();
     _eventSub = null;
+    if (wasImmersive) unawaited(_releaseVpad());
     setState(() {
       _session = null;
       _canvasMode = false;
@@ -604,6 +608,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         setState(() => _e2eOk = true);
       case RtEventKind.connected:
         setState(() => _connected = true);
+        // 断线期间 PC agent 可能重启（vpad 句柄失效）：重置初始化链，
+        // 下一条 vpad 指令会重新 release_all + init。
+        _vpadReady = null;
       case RtEventKind.disconnected:
         // willRetry：socket 死了但会话在自动重连——只把 chips 灰掉，不弹提示；
         // 重试那一次也失败（willRetry=false）才是最终断开，那时才打扰用户。
@@ -779,17 +786,64 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _sync.scheduleSync();
   }
 
-  /// 方向轮盘一发（'up'/'down'/'left'/'right'）。连发由轮盘自驱（160ms），
-  /// 这里只管连接守卫 + 单发投递。键名与快捷键编辑器同一套词汇表，
-  /// PC 端按普通 hotkey 信封处理。
-  Future<void> _fireDirectionKey(String key) async {
+  // ================= 虚拟手柄（vpad_* 协议） =================
+
+  /// vpad 句柄：手机是 PC 虚拟手柄的唯一客户端，句柄固定 pad1（init 前
+  /// 先 release_all 清残留，rust 端 next_index 从 1 起 → init 必得 pad1）。
+  static const String _vpadHandle = 'pad1';
+
+  /// 懒初始化链：首次 vpad 指令时 release_all + init（不用进画布就 init
+  /// ——ViGEmBus 缺失时 init 会触发 PC 弹 UAC，不能在画布入口就惊扰）。
+  Future<bool>? _vpadReady;
+
+  /// 发送一条 vpad 指令；首次调用先跑初始化链（release_all → init pad1）。
+  Future<void> _sendVpad(Map<String, dynamic> cmd) async {
+    if (_session == null || !_connected) return;
+    _vpadReady ??= _bootstrapVpad();
+    await _vpadReady;
+    await _vpadRaw(cmd);
+  }
+
+  /// 不做初始化链的裸发送（初始化/释放自己就是链上的一环，避递归）。
+  Future<bool> _vpadRaw(Map<String, dynamic> cmd) async {
     final session = _session;
-    if (session == null || !_connected) {
-      _showSnack('未连接电脑');
-      return;
+    if (session == null || !_connected) return false;
+    return session.syncVpad(cmd);
+  }
+
+  Future<bool> _bootstrapVpad() async {
+    await _vpadRaw({'action': 'vpad_release_all'});
+    return _vpadRaw({'action': 'vpad_init', 'vpad_slot': 1});
+  }
+
+  /// 退出画布 / 页面销毁时释放手柄（等初始化链落地再放，防 release 抢跑）。
+  Future<void> _releaseVpad() async {
+    final ready = _vpadReady;
+    _vpadReady = null;
+    if (ready != null) await ready;
+    await _vpadRaw({
+      'action': 'vpad_release',
+      'vpad_handle': _vpadHandle,
+    });
+  }
+
+  /// 手柄键区按键 → vpad_button / vpad_trigger（扳机按压 = 行程 1.0/0.0）。
+  void _onVpadKey({String? button, String? trigger, required bool pressed}) {
+    if (button != null) {
+      unawaited(_sendVpad({
+        'action': 'vpad_button',
+        'vpad_handle': _vpadHandle,
+        'vpad_button': button,
+        'vpad_value_bool': pressed,
+      }));
+    } else if (trigger != null) {
+      unawaited(_sendVpad({
+        'action': 'vpad_trigger',
+        'vpad_handle': _vpadHandle,
+        'vpad_trigger': trigger,
+        'vpad_value': pressed ? 1.0 : 0.0,
+      }));
     }
-    final sent = await session.syncHotkey([key]);
-    if (!sent && mounted) _showSnack('发送失败（连接已断开？）');
   }
 
   // ================= UI 装配 =================
@@ -828,7 +882,14 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         onDeleteCustom: _deleteCustom,
         onRenameCustom: _renameLayout,
         onResetBuiltin: _resetBuiltin,
-        onDirection: _fireDirectionKey,
+        onDirection: (dir) => unawaited(
+          _sendVpad({
+            'action': 'vpad_dpad',
+            'vpad_handle': _vpadHandle,
+            'vpad_dir': dir ?? 'none',
+          }),
+        ),
+        onVpadKey: _onVpadKey,
         onEditModeChanged: _setCanvasEdit,
         onFire: (item) => unawaited(_fireShortcut(item)),
         onEditShortcuts: _editShortcuts,
