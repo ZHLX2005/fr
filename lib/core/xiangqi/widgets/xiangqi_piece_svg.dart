@@ -1,4 +1,4 @@
-// lib/core/xiangqi/widgets/xiangqi_piece_svg.dart
+﻿// lib/core/xiangqi/widgets/xiangqi_piece_svg.dart
 //
 // 中国象棋棋子 —— **纯 SVG 绘制**（无图片素材 / 无字体依赖）。
 //
@@ -55,14 +55,10 @@ class XiangqiPieceColors {
   /// 汉字颜色
   final Color ink;
 
-  /// 落子阴影色
-  final Color shadow;
-
   const XiangqiPieceColors({
     required this.disc,
     required this.ring,
     required this.ink,
-    required this.shadow,
     this.scheme = 'light',
   });
 
@@ -71,7 +67,6 @@ class XiangqiPieceColors {
     disc: Color(0xFFF8EBD0),
     ring: Color(0xFFB2312B),
     ink: Color(0xFFA8261F),
-    shadow: Color(0x33B2312B),
   );
 
   /// 黑方：冷象牙底 + 墨黑描边与字
@@ -79,7 +74,6 @@ class XiangqiPieceColors {
     disc: Color(0xFFEDE8DC),
     ring: Color(0xFF2C2B30),
     ink: Color(0xFF232227),
-    shadow: Color(0x332C2B30),
   );
 
   /// 红方（深色主题）：整体压暗，避免深色棋盘上出现"浅盘浮在暗底"的割裂感。
@@ -87,7 +81,6 @@ class XiangqiPieceColors {
     disc: Color(0xFFE0C79A),
     ring: Color(0xFFC0392B),
     ink: Color(0xFFA8261F),
-    shadow: Color(0x33C0392B),
     scheme: 'dark',
   );
 
@@ -96,7 +89,6 @@ class XiangqiPieceColors {
     disc: Color(0xFFD2CCBE),
     ring: Color(0xFF3A3A42),
     ink: Color(0xFF232227),
-    shadow: Color(0x333A3A42),
     scheme: 'dark',
   );
 
