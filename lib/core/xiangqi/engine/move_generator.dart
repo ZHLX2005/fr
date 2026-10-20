@@ -130,7 +130,11 @@ bool xiangqiPieceAttacks(
       return board.isEmpty(xiangqiIndex(midR, midC));
 
     case XiangqiPieceType.general:
-      // 将帅照面：同列且中间无子 → 攻击
+      // 将帅照面：同列且中间无子 → 攻击。
+      // ⚠ 这里「攻击」的是**整条纵线**而非某个具体子 —— 这正是「将帅照面」
+      //   规则的正确表达：走完任何一手后，若双将同列相望，该方将被判「被将军」，
+      //   该着法随之被判非法（不限于移动将/帅本人，任何棋子让开纵线都算）。
+      //   若 [xiangqiIsSquareAttacked] 被用于「受攻击格」类 UI，需注意此语义。
       if (fc == tc && xiangqiSlidesUnobstructed(board, fr, fc, tr, tc)) {
         return true;
       }

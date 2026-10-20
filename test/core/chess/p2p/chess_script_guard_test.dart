@@ -1,4 +1,4 @@
-// test/core/chess/p2p/chess_script_guard_test.dart
+﻿// test/core/chess/p2p/chess_script_guard_test.dart
 //
 // kChessScript 静态守卫测试 —— 客户端无法嵌 Lua VM，对脚本源码做防回归断言。
 //
@@ -25,6 +25,7 @@ void main() {
   _v6FirstMoverGuards();
   _v7SetRulesGuards();
   _v8EmptyRoomReclaimGuards();
+  _claimEndMoveCountGuards();
   _firstMoverFenConsistencyGuards();
   group('kChessScript on_leave 静态守卫：playing/ready 退出不终止（v4, id47）', () {
     test('playing/ready 分支不再按 reason 分流，也无 host 销毁分支', () {
@@ -439,6 +440,25 @@ void _firstMoverFenConsistencyGuards() {
         block,
         contains('c.initial_fen = fen_set_side(c.initial_fen, p.first_mover)'),
         reason: '残局已存在时切换先手方，也必须同步 FEN 轮次字段',
+      );
+    });
+  });
+}
+
+/// v10 CLAIM_END 至少走过一手 静态守卫（三棋统一）。
+///
+/// Lua 5.1 的 `-1 % 2 == 1` 会让 0 手时的 `non_current_player` 判给对侧
+/// → 未走一步即可自称获胜。三个棋种的服务端脚本统一加 `#c.moves < 1` 门
+/// （象棋已加，此处补棋的守卫）。
+void _claimEndMoveCountGuards() {
+  group('kChessScript v10 CLAIM_END 手数门 静态守卫', () {
+    test('on_action_CLAIM_END 要求 #c.moves >= 1', () {
+      final block = _functionBlock('on_action_CLAIM_END = function');
+      expect(
+        block,
+        contains('if #c.moves < 1 then'),
+        reason: '0 手时 role_check 的 non_current_player 会判给对侧 → '
+            '必须挡住「未走一步就宣布终局」',
       );
     });
   });

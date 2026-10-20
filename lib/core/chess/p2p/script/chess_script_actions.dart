@@ -178,6 +178,12 @@ on_action_CLAIM_END = function(c, p)
   if c.status ~= "playing" and c.status ~= "check" then
     return c
   end
+  -- ⚠ 至少走过一手才可能终局：0 手时「刚走完的一方」无意义
+  --   （Lua 5.1 的 -1 % 2 == 1 会让 role_check 判给对侧 → 0 手即可宣布
+  --    自己获胜）。终局只能由引擎在合法着法之后判定。
+  if #c.moves < 1 then
+    return c
+  end
   local reason = p.reason
   if reason ~= "checkmate" and reason ~= "stalemate" then
     return c

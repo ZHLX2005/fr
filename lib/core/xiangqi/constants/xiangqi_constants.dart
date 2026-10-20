@@ -79,13 +79,6 @@ int xiangqiRowOf(int index) => index ~/ kXiangqiCols;
 /// 1D 索引 → col
 int xiangqiColOf(int index) => index % kXiangqiCols;
 
-/// 该格是否在九宫内
-bool xiangqiInPalace(int row, int col) =>
-    col >= kXiangqiPalaceMinCol &&
-    col <= kXiangqiPalaceMaxCol &&
-    row >= kXiangqiBlackPalaceMinRow &&
-    row <= kXiangqiRedPalaceMaxRow;
-
 /// 该格是否属于某方的九宫
 bool xiangqiInPalaceOf(int row, int col, {required bool isRed}) {
   if (col < kXiangqiPalaceMinCol || col > kXiangqiPalaceMaxCol) return false;

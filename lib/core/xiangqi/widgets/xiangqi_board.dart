@@ -241,6 +241,10 @@ class XiangqiBoard extends StatelessWidget {
                     ),
                   ),
                   // ② 楚河汉界（SVG 汉字，叠在河界上）
+                  //
+                  // 文字按**屏幕空间**直立绘制，不随棋盘 180° 旋转 ——
+                  // 与主流数字象棋一致（黑方视角下题字仍然正立可读）。
+                  // 实物棋盘从黑方看是倒置的，但数字版一律直立。
                   Positioned(
                     left: cell * _Grid.origin,
                     top: cell * (_Grid.origin + kXiangqiRiverRow),
