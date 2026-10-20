@@ -77,7 +77,7 @@ flutter analyze lib/lab/ lib/screens/profile/lab/
 
 **新增分类**（极少发生）需同步改 3 处：
 
-1. `GameCategory` 加 `static const String`（lib/screens/profile/lab/game_center/const_game_center.dart:24）
+1. `GameCategory` 加 `static const String`（lib/screens/profile/lab/game_center/`const_game_center.dart` 的 `GameCategory` 定义（按符号检索，行号会漂移））
 2. `kGameCategoryTabs` 加一项（决定 tab 顺序）
 3. `kGameCategoryIcons` 加一个 `IconData` + `kGameCategoryLabels` 加一个标签
 

@@ -116,7 +116,7 @@ setChronometerCountDown(viewId, true)          // ← 后
 不可见 —— RemoteViews 整批 action 应用完才绘制，且 `setCountDown()` 自己会调
 `updateText()` 立刻纠正文本。
 
-**4. `setChronometerCountDown` 是 API 24**（不是网上说的 17），minSdk 必须 ≥ 24。
+**4. `setChronometerCountDown` 是 API 24**（不是网上说的 17）。注意：仓库当前 `minSdk = flutter.minSdkVersion`（注释 21），并未在 Gradle 显式锁 24；新增使用该 API 的 provider 时先确认 effective minSdk，否则加 `SDK_INT >= 24` 分支兜底。
 
 **5. 显示格式由 `DateUtils.formatElapsedTime` 决定，补不了前导零。**
 

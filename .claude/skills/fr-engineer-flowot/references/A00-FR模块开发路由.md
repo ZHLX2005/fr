@@ -23,7 +23,7 @@ description: FR 项目级工程入门与业务模块总览。新建/扩展 Lab�
 | [[A03-Lab容器结构与扩展]] | 修改 Lab 容器、DemoPage、DemoGrid 或新建 Lab demo 前 |
 | [[A04-TimePage-Focus模块]] | 修改 TimePage、Focus、时间过滤或深链时 |
 | [[A05-游戏中心扩展]] | 新增游戏、分类或封面入口时 |
-| [[A06-Demo-Slug别名与Tab合并]] | 调整 demo slug/兼容旧 URL 或合并相关 demo 时 |
+| [[A06-Demo-Slug别名]] | 兼容旧 `fr://` URL 的 slug 别名注册与移除时 |
 | [[A07-API模块规范与拦截器链]] | 新增 API 端点、接入后端或修改请求拦截链时 |
 | [[A08-FR工程开发与验证规范]] | 所有业务实现的目录/布局约束、analyze/codegen/测试/Android build、CHANGELOG 与 Git 交付前检查 |
 
@@ -41,7 +41,3 @@ description: FR 项目级工程入门与业务模块总览。新建/扩展 Lab�
 - 常量集中在模块常量文件；Android bridge 集中在 `lib/native/`；Hive 通过 D 序列 repository/标准 API 封装。
 - 外部 URL、桌面 widget、通知或多个入口需要唤起页面时使用项目 `fr://` 注册规范；流程内部一次性页面遵循模块现有导航模式。
 - 按仓库测试/codegen 约定验证。Android 原生变更额外执行 `flutter build apk`。
-
-## 同名遗留文档
-
-原 workflow B01/B02/B04/B05 与 C01–C04 暂不属于本序列；详见 [[UNMAPPED-REVIEW]]。不把问题案例或深水子系统强塞为 A 成员。

@@ -12,7 +12,9 @@ description: 在 Oboe audio callback 里混入 WAV 采样替代合成音色 — 
 - 你想让用户能上传自己的 wav 文件作为拍声音色
 - 你有多个页面/组件要共用同一个 Oboe stream + 已加载的 samples
 
-**前提**：你已经有一个跑通的 Oboe bridge（SKILL.md 的 6 步 SOP 已经做完）。本 ref 是在既有 `onAudioReady` 回调里叠加采样层，并配合一个 Dart 单例 service 来跨页面共享。
+**前提**：你已经有一个跑通的 Oboe bridge。本 ref 是在既有 `onAudioReady` 回调里叠加采样层，并配合 `MetronomeService` 单例跨页面共享。
+>
+> ⚠️ **并发边界**：当前 C++（`metronome.cpp`）在替换 slot 时先释放旧 PCM 再写指针，注释明确接受与 audio callback 并发读的竞态。**不要在播放中热替换音色**；确需动态更换，先实现同步所有权（如双缓冲/回调内交换）并加测试。
 
 ---
 
@@ -105,7 +107,7 @@ static bool loadSampleInto(int level, const char* path, double targetSampleRate)
     }
 
     freeSlot(level);                  // ← 热替换前先释放旧 pcm
-    gSlots[level].pcm = out;
+    gSlots[level].pcm = out; // 注意：替换发生在 audio callback 并发读取期间（见下）
     gSlots[level].lengthSamples = outFrames;
 }
 ```
@@ -116,7 +118,7 @@ static bool loadSampleInto(int level, const char* path, double targetSampleRate)
 int load_sample(int level, const char* path);   // 返回 1/0
 void clear_sample(int level);                   // 释放 slot
 
-// shutdown_audio() 不要 free gSamples — samples 是用户配置，应该跨
+// shutdown_audio() 不要 free gSlots — samples 是用户配置，应该跨
 // stream 生命周期保留。显式卸载通过 clear_sample() 或下一次 load_sample()。
 ```
 
@@ -244,7 +246,7 @@ controller.soundForLevel(uiToCppSlot[displayIdx]);
 | `MetronomeService.instance` 单例持有 stream + slots | controller dispose 不影响 stream，sample 跨页面持久 |
 | `MetronomeFFI` 瘦壳转发到 service | 老 consumer 代码无需修改即可享受单例好处 |
 | `MetronomeController.dispose()` 只调 `pause()`，不调 `shutdown()` | 切换页面不破坏已加载的 samples |
-| `shutdown_audio()` 不再 free gSamples | samples 跟随 app 进程而不是 stream 周期 |
+| `shutdown_audio()` 不再 free gSlots | samples 跟随 app 进程而不是 stream 周期 |
 | `_ensureReady` 里 fire-and-forget 预加载 | 无感知，首个 beat 靠合成 fallback，后续自动切到采样 |
 | dr_wav.h `drwav_open_file_and_read_pcm_frames_f32` 一把解码 | 一次调用完成所有格式转换 + 重采样到 float32 |
 | `clear_sample` + free 旧 pcm 再赋值新 pcm | 热替换安全，audio thread 读到的是完整的新 buffer |
@@ -256,7 +258,7 @@ controller.soundForLevel(uiToCppSlot[displayIdx]);
 | 错误操作 | 后果 | 正确做法 |
 |----------|------|----------|
 | `MetronomeController.dispose()` 调 `MetronomeFFI.shutdown()` | 关 stream + 释放 samples，下个页面用不了 | 只 `pause()`；stream 跟随 app 进程 |
-| `shutdown_audio()` 把 `gSamples[]` 也 free 掉 | stream 重开后已加载的 woodfish 没了 | shutdown 只关 stream；samples 是用户配置，跨生命周期保留 |
+| `shutdown_audio()` 把 `gSlots[]` 也 free 掉 | stream 重开后已加载的 woodfish 没了 | shutdown 只关 stream；samples 是用户配置，跨生命周期保留 |
 | Oboe stream 跟着 Controller 走（每次 controller new 一个） | 多 controller 各自 stream → 资源浪费 + 配置丢失 | service 单例，stream 跟 app 进程 |
 | 静态类持有 stream（`MetronomeFFI` 直接管） | 多调用方 unclear 谁负责 dispose | 抽单例 `MetronomeService`，原 facade 变瘦壳 |
 | UI 行序直接传给 `loadSample(level, path)` | 选"强拍"实际加载到 weak slot | 加 `uiToCppSlot` 映射表 |

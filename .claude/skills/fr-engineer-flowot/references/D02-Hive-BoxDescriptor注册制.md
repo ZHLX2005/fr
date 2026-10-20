@@ -42,7 +42,7 @@ StorageManager → Lab「存储分析」面板
 
 ## 实现约束
 
-- UI 与一般业务代码**不得直接调用 Hive 全局 API**，包括 `Hive.box()`、`Hive.openBox()`、`Hive.registerAdapter()`；不得把 box 句柄当作全局服务 API。
+- UI 与一般业务代码**不得直接调用 Hive 全局 API**，包括 `Hive.box()`、`Hive.openBox()`、`Hive.registerAdapter()`；不得把 box 句柄当作全局服务 API。存储基础设施（`StorageManager` 的 legacy fallback、导入/导出子系统）是例外边界，新 feature 不得新增类似直连。
 - HiveStore、repository、BoxDescriptor 是存储基础实现边界，内部为履行职责可通过对应泛型/descriptor 回调访问 Hive。
 - 已注册 typed box 的 descriptor 必须保持正确的泛型、TypeId 与打开回调一致；untyped box 使用 untyped descriptor 路径。
 - formatter 只生成可读文本，不返回 Widget、不承担颜色/主题设计。

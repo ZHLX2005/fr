@@ -34,7 +34,7 @@ description: FR Relay-v3 Lua 状态机接入的大序列与唯一总路由。维
 
 - 任何 v3 业务先读 Ca01；新增游戏登记再读 Ca02。
 - Cb01 综合调用 Ca01/Ca03、Cb02/Cb03 和 Cc01；只在匹配的业务变体时加载相应成员。
-- RelayLua 以外的 Timetable/WebRTC/追剧等旧 workflow C01–C04 仍在 [[UNMAPPED-REVIEW]]，不属于本 C 序列。
+- C 序列只含 RelayLua；Timetable/WebRTC 等其他子系统不属于本序列，也不要因编号相似混入。
 
 ---
 
@@ -130,16 +130,12 @@ type:"action_X" ❌      →  on_action_action_X（不存在，422）
 **契约（2026-10-20 真实 relay e2e 实测定案）**：
 
 - 服务端把 action 的 `params` **原样透传**给 Lua handler，**不会**把请求里的
-  `source_device_id` 自动塞进 `params`。
-- 因此 Lua 里的 `p.device_id` **来自 `params.device_id`** ——
-  由客户端 `RoomHandle.applyAction` 负责注入：
-
-  ```dart
-  final injected = <String, dynamic>{
-    'device_id': did,          // ← 客户端注入
-    ...params,                 // 调用方参数可覆盖
-  };
-  ```
+  `source_device_id` 自动合并进 `params`。
+- 客户端 `RoomHandle.applyAction` 会先注入 `device_id` 再合并业务参数
+  （`lib/core/net_engine/relay_v3/relay_v3_transport.dart`），Lua 因此读到
+  `p.device_id`。**注意**：当前合并顺序允许业务参数覆盖 `device_id`，
+  且该字段是客户端输入而非服务端身份证明——Lua 的权限判断只应视作
+  客户端自报身份；跨设备信任/防伪需服务端按已验证连接身份校验（待服务端来源）。
 
 - **失败模式极其隐蔽**：如果 action 的 `params` 里没有 `device_id`，
   Lua 里 `c.ready[p.device_id] = true` 会因为 **table index is nil** 抛错 →
@@ -147,18 +143,17 @@ type:"action_X" ❌      →  on_action_action_X（不存在，422）
   更糟的是 `c.players[p.device_id]` 读 nil 不报错，直接 `return c` 静默跳过，
   整个准备门永远打不开。
 
-- **写线下 e2e 探针（Python / curl）时必须手动补**：
+- **写线下 e2e 探针（Python / curl）时必须手动补 `params.device_id`**：
 
   ```python
   json={"type": "ACK",
-        "params": {"device_id": device, **params},   # ← 关键
+        "params": {"device_id": device, **params},
         "source_device_id": device}
   ```
 
-  漏了它 → 所有带 `p.device_id` 的 handler 静默失效，
-  而 HTTP 状态码全是 200（极具误导性）。
-
-  参见 `.tool/xiangqi-e2e-probe/probe_xiangqi.py`（24 项全绿的真机探针）。
+  漏了它 → 所有带 `p.device_id` 的 handler 静默失效，而请求仍可能返回
+  HTTP 200、快照不变（极易误判为“已生效”）。
+  现役探针/测试见 `.tool/relay-room-tester/` 与 `test/core/net_engine/relay_v3_transport_test.dart`。
 
 ### 示例：完整业务（扑克游戏）
 
@@ -365,7 +360,7 @@ await handle.applyAction(
 | **对称对战棋盘（围追堵截/象棋/围棋，双方镜像视角）** | 参照 [[Cb03-角色棋盘镜像]] — 逐元素翻转决策表 | 0 |
 | **任何 v3 互联网房间**（必读） | **先用 [[Ca01-服务端权威状态]]** —— 角色/状态用服务端字段，不用客户端自查 | 0 |
 | **有按钮/操作约束的房间**（成熟期） | [[Ca03-Action权限表]] —— action_permissions 表驱动（前期 action 少时用特判更快） | 0 |
-| **双人对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋——2 人轮流 + 有胜负） | 参照 [[Cb01-双人对战房间模板]] —— 端到端模板（六件套 + 状态机 + 四阶段 UX + 胜负判定 + 新游戏 checklist），综合调用 A01 / A03 / B02 / B03 / C01 | 0 |
+| **双人对战游戏**（象棋/围棋/五子棋/围追堵截/井字棋——2 人轮流 + 有胜负） | 参照 [[Cb01-双人对战房间模板]] —— 端到端模板 + `GameLobbySpec`/`GameLobbyPage`，综合调用 [[Ca01-服务端权威状态]] / [[Ca03-Action权限表]] / [[Cb02-社交房间号模式]] / [[Cb03-角色棋盘镜像]] / [[Cc01-团队卡牌大厅模式]] | 0 |
 | **社交场景双人对战（双方输入同一房间号，谁先到谁是房主）** | 参照 [[Cb02-社交房间号模式]] —— 服务端 `requested_code` + Lua `rejected_join` + 客户端 `tryJoinOrCreate` + 撞号/满员 409 区分提示 | 0 |
 
 **零 Go 代码改动。**
@@ -378,10 +373,9 @@ await handle.applyAction(
 | ------------------------------- | ---------------------------------------------------------------- |
 | CreateRoom 400                  | 检查 handler 是否顶层全局                                        |
 | CreateRoom "lua parse error"    | 注释里不能有`--[=[ ]=]` 等特殊字符（Dart 字符串嵌入 Lua 时避免） |
-| ApplyAction 422                 | 检查 type 是否带前缀；context 是否有 nil 索引                    |
-| ApplyAction 422 "unknown event" | on_action_<TYPE></type> 名字不在 `definition.functions` 列表里 |
+| ApplyAction 返回 422（unknown event） | 对照 action `type` 与 Lua `definition.functions`（无前缀 `on_action_<TYPE>`）；server 合同以服务端实现为准 |
 | WS 立刻断开                     | 检查是否 Join 过；device_id 一致                                 |
-| snapshot 不更新                 | 检查 Lua handler 是否`return c`                                |
+| snapshot 不更新（HTTP 200） | ① handler 是否漏 `return c`；② `params.device_id` 是否缺失/被覆盖导致 Lua nil 索引静默失效；③ 服务端 Lua runtime 日志。此类失败不等于 422，需按“200 但快照未变”单独排查 |
 
 诊断工具：现役工具 `.tool/relay-room-tester/emoji_e2e.dart`（原 `.tool/relay-v3-simulator/` 下 prove_bug.py / relay_v3_sim.py 已删除，2026-10 核对）。
 

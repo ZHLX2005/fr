@@ -4,7 +4,7 @@
 >
 > **何时读这个 ref**：改任何 time 模块相关文件 — 改 `lib/core/focus/*`、动 `kTimePageMeta`、`timePage` 标记、Lab 过滤、桌面 widget 深链、新增 / 修改 time 工具时。**不要为了优化加载粒度而拆成多个 ref** — 这 5 个方面都同主题，强行拆开会让 ref 之间互相依赖 / 引用 / 重复定义，反而更难维护。
 >
-> **上游/相关成员**：FR 通用工程规则见 [[A08-FR工程开发与验证规范]]；别名兼容、Lab 容器与游戏目录 SOP 分别见 [[A06-Demo-Slug别名与Tab合并]]、[[A03-Lab容器结构与扩展]]、[[A05-游戏中心扩展]]。Provider 双实例历史问题在 [[UNMAPPED-REVIEW]] 等待归属审核。
+> **上游/相关成员**：FR 通用工程规则见 [[A08-FR工程开发与验证规范]]；别名兼容、Lab 容器与游戏目录 SOP 分别见 [[A06-Demo-Slug别名]]、[[A03-Lab容器结构与扩展]]、[[A05-游戏中心扩展]]。
 
 ---
 
@@ -32,10 +32,10 @@ timePage 标记位 (DemoPage 上加一根 bool 旗)
 | `timePageMetaOf(slug)` + `kFallbackTimePageMeta` | 同上 | 查表函数 + 占位 fallback |
 | `class _ToolItem` (`.registry` / `.internal`) | `lib/core/focus/focus_home_page.dart` | 把「demo 入口」和「内部页入口」统一渲染列表，避免分支 |
 
-**布局三件套**（Focus 主页固定骨架）：
-- `_buildTodayCard(context, fp, onTap: () => _navigateToTimer(context))` — sage 渐变 hero，可点 → `FocusTimerPage()`
-- `_FeaturedToolCard(slug: featured.first.slug)` — 1 张横跨整行的精选大卡
-- `GridView.builder(crossAxisCount: 2, childAspectRatio: 1.6)` — 2 列网格：`[日历, 节拍器, 数据统计, 时间课表]`
+**当前主页骨架（2026-10 核对 `lib/core/focus/focus_home_page.dart`）**：
+- 问候语 `_buildGreeting` → 今日专注卡 `_buildTodayCard`（浅色主题 sage 渐变 / 深色主题 surfaceContainerHighest+边框，可点 → `FocusTimerPage()`）
+- `GridView.builder(crossAxisCount: 2, childAspectRatio: 1.6)`：注册的 timePage demo（`filterByTimePage` + `kTimePageMeta` 查表）+ 固定「时间课表」内部项（直接 push `TimetablePage`）
+- **没有精选大卡/统计入口**；`TimePageMeta.featured` 字段仍在 metadata 中但当前主页不消费，别按旧结构补 UI
 
 ### 三条数据流
 
@@ -60,11 +60,9 @@ FocusHomePage.build()
   ├─ registrySlugs = demoRegistry.getAll()
   │     .filterByTimePage()                              ← 路径 A
   │     .map(e.key).where(kTimePageMeta.containsKey)     ← 路径 B 必须已登记
-  ├─ featured = [s for s in registryMetas if s.meta.featured]
-  ├─ grid = [_ToolItem.registry(slug) | s in non-featured]
-  │      + [_ToolItem.internal('数据统计', ...),
-  │         _ToolItem.internal('时间课表', ...)]
-  └─ 渲染: Greeting → 今日专注卡 → 精选大卡 → 2 列网格
+  ├─ grid = [ _ToolItem.registry(slug) for registryMetas ]
+  │      + [_ToolItem.internal('时间课表', ...)]
+  └─ 渲染: Greeting → 今日专注卡 → 2 列网格（无 featured 分支）
             ↓ tap
             [今日专注卡]   _navigateToTimer(context)
             [精选 / grid]   _openDemo(context, slug) = Navigator.push(
@@ -312,7 +310,7 @@ Widget _buildModeDistribution(FocusProvider fp) { ... }
 | --- | --- | --- |
 | 在 `FocusSession` 上新增「科目」字段 | **subject 概念已经删除**；复活破坏 gamecenter 对称 + stats | 用 `mode` 或新维度字段 |
 | `FocusTimerProvider` 与 `FocusProvider` 各开一套聚合 | 数据双源 | 聚合只在 `FocusProvider` |
-| 改 `_timerStartTime` 但不更新 `_restoreTimerState` | cold-start 后计时跳秒 | 改一处必改对称的另一处；Provider 双实例历史根因见 [[UNMAPPED-REVIEW]] 的待审条目 |
+| 改 `_timerStartTime` 但不更新 `_restoreTimerState` | cold-start 后计时跳秒 | 改一处必改对称的另一处；Provider 双实例历史根因文档已随旧 skill 归档，不在活动序列 |
 | 在 Stats 页加 ListView 不限高度 | 无限列表 + 外层 SingleChildScrollView → 渲染卡死 | 限制 height / `shrinkWrap + NeverScrollableScrollPhysics` |
 | 跨 await 用 builder `context` 不 re-guard | 「BuildContext 跨 async 空隙」lint（BuildContext 跨 await 教训）| 捕获 / re-guard 详见底部错误案例 |
 
@@ -380,7 +378,7 @@ class LabDemoHandler extends FrRouteHandler {
 'navigateToClock'    => 'fr://lab/demo/clock',
 ```
 
-**硬编码 slug**——改 slug 必须同步改翻译表对应 case（属于 `A06-Demo-Slug别名与Tab合并` ref 范畴）。
+**硬编码 slug**——改 slug 必须同步改翻译表对应 case（属于 `A06-Demo-Slug别名` ref 范畴）。
 
 ### 修改 Lab 过滤的边界
 

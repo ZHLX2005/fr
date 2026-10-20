@@ -2,10 +2,11 @@
 
 ## 项目背景
 
-FloatingWindowManager 是安卓悬浮窗服务的核心类，负责：
-- 悬浮窗的创建、显示、隐藏
-- 截图功能（全局截屏 + 区域选区截屏）
-- 与 Flutter 侧通过 MethodChannel 通信
+当前实现分层（2026-10 核对）：常驻截屏已抽取到
+`android/app/src/main/kotlin/io/github/xiaodouzi/fr/native/overlay/FloatingWindowScreenshot.kt`
+（`initPersistentCapture` 常驻 ImageReader/VirtualDisplay、注册 `MediaProjection.Callback` 释放），
+`FloatingWindowManager.kt` 负责悬浮窗/Service 生命周期并委托截屏。下文代码是**模式示意/历史记录**，
+改动时以 `FloatingWindowScreenshot.kt` 为现行事实；屏幕旋转的重建策略当前未实现，需要时作为独立变更设计。
 
 ## 关键难点和技术点
 

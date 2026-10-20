@@ -90,3 +90,4 @@ web_deploy/build-web/
 .workbuddy/
 .claude/settings.local.json
 .gstack/
+.playwright-mcp

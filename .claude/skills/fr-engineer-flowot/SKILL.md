@@ -1,13 +1,13 @@
 ---
 name: fr-engineer-flowot
-description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、skins/Rive 资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 序列路由到对应 SOP。仅适用于 D:\code\a_dart\prj\fr。
+description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 序列路由到对应 SOP。仅适用于 D:\code\a_dart\prj\fr。
 ---
 
 # FR Engineer Flow — 工程总入口
 
 > **适用范围**：仅适用于 `D:\code\a_dart\prj\fr`。本文档只做工程原则和 A–H 路由；操作细节在 `references/`。
 >
-> 每项内容以 FR 当前实现为准，不能仅凭旧 skill 或历史示例推断。遇到文档和代码冲突时先核实真实实现，再更新文档；不可明确归入序列的存量材料见 [[UNMAPPED-REVIEW]]，交用户审核，不得擅自归类或丢弃。
+> 每项内容以 FR 当前实现为准，不能仅凭旧 skill 或历史示例推断。遇到文档和代码冲突时先核实真实实现，再更新文档。
 
 ## 序列路由
 
@@ -18,7 +18,7 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 | **C** | RelayLua 多人业务与联机协议 | [[C00-RelayLua路由]] | 编写 Relay-v3 Lua 房间、联机游戏、大厅或 action/snapshot 协议时 |
 | **D** | Hive 存储架构与模块接入 SOP | [[D00-Hive存储路由]] | 新增/修改本地持久化、Hive Box、仓库 API、StorageRegistry 或存储面板时 |
 | **E** | UI 样式、设计系统与统一色彩 | [[E00-UI与色彩路由]] | 设计/实现 UI、主题配色或评审颜色使用时 |
-| **F** | 外部资产管理、皮肤管线与 Rive | [[F00-资产与Rive路由]] | 导入/发布外部图片音频等资产、皮肤/表情包、Rive 动画与 Flutter 集成时 |
+| **F** | 外部资产管理、皮肤与公开资源管线 | [[F00-外部资产管理路由]] | 导入/发布皮肤、封面、曲库、表情包或排查客户端资源加载/缓存时 |
 | **G** | Android 特殊组件与 Flutter/native 桥接 | [[G00-Android与Native路由]] | 改桌面 widget、MediaProjection/悬浮窗、图标、Manifest、Kotlin/C++/JNI/FFI 时 |
 | **H** | 音频、Oboe 与节拍器生命周期 | [[H00-音频路由]] | 低延迟音频、Oboe、C++ 音频回调、WAV 采样或跨页面音频 service 时 |
 
@@ -37,6 +37,5 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 
 - `SKILL.md` 只保留原则和 A–H 大序列入口；每份 `references/` 文档直接平铺在同一目录，文件名以其序列编号开头（如 `A01-...md`、`Ca01-...md`、`Ga01-...md`）。
 - **只有大序列使用 `00` 总路由**：A00–H00 各自维护所辖全部子序列与成员路由；子序列不创建 `00` 文件，成员从 `01` 开始。
-- 编号范围：A00 维护业务 A01–A08；B00 维护 Ba 子序列；C00 维护 RelayLua 的 Ca/Cb/Cc；E00 维护 Ea/Eb；F00 维护 Fa/Fb；G00 维护 Ga/Gb/Gc；H00 维护 Ha。D 是单一 Hive 子域，由 D00 维护 D01–D03。
-- 同名 A/B/C 在大序列之间不能相互替代：用有命名空间的子序列前缀（如 `Ca01`、`Ea03`、`Fb03`）避免平铺目录时冲突。
-- 无法匹配用户确认的 A–H 内容边界的遗留材料登记在 `UNMAPPED-REVIEW.md`，等待用户审核；不得擅自归类、删除或伪装已迁移。
+- 编号范围：A00 维护业务 A01–A08；B00 维护 Ba 子序列；C00 维护 RelayLua 的 Ca/Cb/Cc；E00 维护 Ea/Eb；F00 维护 Fa；G00 维护 Ga/Gb/Gc；H00 维护 Ha。D 是单一 Hive 子域，由 D00 维护 D01–D03。
+- 同名 A/B/C 在大序列之间不能相互替代：用有命名空间的子序列前缀（如 `Ca01`、`Ea03`、`Fa02`）避免平铺目录时冲突。

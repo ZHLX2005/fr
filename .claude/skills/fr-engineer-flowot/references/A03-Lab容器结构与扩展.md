@@ -1,112 +1,69 @@
-# Flutter Lab 容器 — 模块结构与重构模式
-
-> 何时读：改 `lib/screens/profile/lab/` 下任何文件（Lab 页 / 下拉收藏面板 / 游戏中心 / demo 卡片）、
-> 或要给别的"重手势 + 重动画"页面做同类性能/结构优化时。
->
-
+---
+name: A03-Lab容器结构与扩展
+description: FR Lab registry、DemoPage、收藏面板和游戏中心的真实扩展点与性能/手势模式。修改 Lab 层、添加 Demo 或遇到面板交互性能问题时读取。
 ---
 
-## 一、当前目录结构（改代码前先对号入座）
+# A03 — Lab 容器与模块扩展
 
-```
-lib/screens/profile/lab/
-├── lab_page.dart            页面装配 + 动画驱动 + 双通道发布（~517 行，只做这三件事）
-├── game_center_page.dart    游戏中心页（CustomScrollView + 分类过滤 + 自适应网格）
-├── demo_detail_page.dart    DemoDetailPage —— 打开一个 DemoPage 的公共外壳（Lab/游戏中心共用）
-├── demo_cover_image.dart    DemoCoverImage —— 封面图加载（缩略图缓存/本地/网络，共用）
-├── reveal_item.dart         RevealItem —— 逐项错峰入场动画（节奏参数化，共用）
-├── lab_perf_log.dart        kLabPanelPerfDebug 开关 + labPerfLog()
-├── lab_panel/               下拉收藏面板全套
-│   ├── const_lab_panel.dart          模块常量（色/圆角/时长/网格参数全在这）
-│   ├── lab_panel_colors.dart         LabPanelColors（ColorScheme 推导，亮暗自适应）
-│   ├── lab_panel_state_machine.dart  状态机+metrics（纯逻辑，零 widget，可单测）
-│   ├── lab_panel_gesture.dart        LabPanelGestureCoordinator（三路输入收敛）
-│   ├── lab_panel_content.dart        面板内容（标题条/收藏格子/删除区）
-│   ├── lab_panel_handle.dart         PanelHandle（把手，自订阅 progress）
-├── demo_grid/
-│   ├── demo_card.dart                DemoCard + 长按背景设置 sheet
-│   └── demo_reveal_grid.dart         DemoScrollRevealGrid（2 列固定网格）
-├── game_center/
-│   ├── const_game_center.dart        slug→GameMeta 登记表 + 分类 + 布局常量
-│   ├── game_center_artwork.dart      GameArtwork 程序化封面
-│   └── game_center_cards.dart        精选大卡/网格卡/分类 chip/收藏星标
-└── providers/
-    └── lab_card_provider.dart        收藏 + 自定义背景（SharedPreferences，key=demo.title）
-```
+> **适用范围**：仅适用于 FR 的 Lab/UI 容器。当前目录、注册项会随代码演进；动手前以本文的真实代码入口与 `lib/lab/lab_bootstrap.dart` 注册表复核，不把数量/行数快照当契约。
 
-改动路标：
-- 加游戏 → 只动 `const_game_center.dart`（kGameMeta 加一条）+ demo override `type => DemoType.game`
-- 调面板视觉参数 → 只动 `const_lab_panel.dart`
-- 改面板开合手感（阈值/速度）→ `lab_panel_state_machine.dart` 的 `LabPullPanelMetrics`
-- 改手势路径 → `lab_panel_gesture.dart`，不要把逻辑写回 lab_page
+## 1. 先确定改动落点
 
-## 二、双通道发布模式（重手势页面的性能骨架）
-
-问题：拖拽/动画每帧 `setState(() {})` → 整页（AppBar+网格+面板）全部重建，慢帧。
-
-解法——把状态拆成两条通道：
-
-```dart
-// 连续量：每帧变，只走 notifier，不 setState
-final ValueNotifier<double> _progressNotifier = ValueNotifier(0.0);
-// 离散量：状态机 state 真的换了才 setState
-LabPullPanelState _publishedState = LabPullPanelState.collapsed;
-
-void _publish() {                 // 所有「改完状态机就刷新」的唯一出口
-  if (!mounted) return;
-  _progressNotifier.value = _sm.progress;
-  if (_publishedState != _sm.state) {
-    _publishedState = _sm.state;
-    setState(() {});
-  }
-}
-```
-
-配套两个关键点，缺一不可：
-
-1. **订阅端各自 `ValueListenableBuilder`**：AppBar 折叠、主内容位移、面板高度、内容变换、把手 —— 每帧只重建这些轻量包装。
-2. **重活 widget 实例只造一次**：demo 网格 / 面板背景 / 面板内容在 build 里先建好，
-   每帧把**同一个实例**传进 builder —— `Element.update` 遇 `identical(new, old)` 直接短路，子树不进 build。
-
-派生量（readyToOpen / closeProgress）是 progress 的纯函数 → 订阅端自己算，不要逐帧当 prop 传。
-
-## 三、手势收敛模式
-
-重手势页面常有 N 条输入路径（本例三条：Listener 指针流 / ScrollNotification / handle GestureDetector）。
-**全部收进一个 Coordinator 类**，页面 State 只留两个出口：`onProgressChanged`（发布）+ `onAction`（播动画）。
-
-- 速度**必须用 `VelocityTracker`**（`package:flutter/gestures.dart`），不要 `DateTime.now()` 手算
-  dy/dt —— 相邻两事件的抖动会放大成假速度；VelocityTracker 最小二乘拟合，与系统手势同口径。
-- **必须处理 `onPointerCancel`**：指针被来电/通知栏抢走时给 dragging 状态收尾，否则面板卡在中间进度。
-- Coordinator 依赖用函数注入（`viewportHeight: () => _lastViewportHeight`），保持零 widget 依赖可单测。
-
-## 四、part → import 模块的拆法
-
-part 链的代价：所有 part 共享 library 私有名，互相咬合 → 任何复用都要先把私有类"提升"为公共类。
-（DemoDetailPage、DemoCoverImage、RevealItem 都是这么被迫提升出来的。）
-
-拆分套路：
-1. 按职责分目录（面板一套 / 网格一套），每文件顶部写职责注释
-2. 跨文件使用的类提升为公共名（`_DemoCard`→`DemoCard`）；State 类保持私有
-3. library 级全局函数/开关（如 `_labPerfLog`）落成独立小文件
-4. 常量层（const_xxx.dart）随模块走，公共常量放共享件自身文件里
-5. 拆完 `dart format` 整目录 + `dart analyze` 必须 0 error 才提交
-
-## 五、真踩过的坑
-
-| 坑 | 现象 | 结论 |
+| 改动目标 | 当前实现入口 | 下一步 |
 |---|---|---|
-| 每帧 setState 整页重建 | 拖面板慢帧（作者留了 perf 日志开关自证） | 双通道 + identical 短路（第二节） |
-| DateTime.now() 手算速度 | 抬手瞬间抖动 → 假速度误触发开/合 | VelocityTracker |
-| 无 onPointerCancel | 来电/通知栏抢指针 → 面板卡中间 | 三路输入都要有 cancel 收尾 |
-| itemBuilder 里 firstWhere 扫全表 | 收藏 8 个 × demo 40 个 = 每帧 320 次比较 | build 前建 title→demo Map，didUpdateWidget 跟随重建 |
-| 别名 slug 重复渲染 | 一个 demo 实例挂多个 slug，getAll() 返回全部 → 列表重复卡片 | UI 渲染前按实例去重 `where(seen.add)`；路由查询才用全量 |
-| 收藏 key 用中文 title | 改 demo 标题 = 用户收藏/背景静默丢失 | 已知债务（P0#1 未做）：迁 slug 需一次性数据迁移，动 provider 前先看这条 |
-| 面板高度想改 Align 裁剪省事 | 把手跟不上面板上边缘，被切掉 | 面板必须 Positioned + height 真收缩 |
+| DemoPage/slug/type/session scope | `lib/lab/lab_container.dart` | 阅读 `DemoPage` 与 `DemoRegistry`；新增 demo 后在 `lab_bootstrap.dart` 注册 |
+| Lab 列表、收藏面板装配 | `lib/screens/profile/lab/lab_page.dart` | 找对应 builder/Provider，确认重建边界 |
+| 下拉收藏面板状态/metrics | `lib/screens/profile/lab/lab_panel/lab_panel_state_machine.dart` | 纯状态转移尽量在此测试，不把手势条件塞回页面 |
+| 指针/滚动/把手的输入协调 | `lib/screens/profile/lab/lab_panel/lab_panel_gesture.dart` | 修改某一路输入时核对其他路径及 cancel 收尾 |
+| Demo 网格与卡片 | `lib/screens/profile/lab/demo_grid/` | 检查 instance 去重、item builder 与重绘范围 |
+| 游戏中心 | `lib/screens/profile/lab/game_center_page.dart`、`game_center/` | 新游戏必须同步 kGameMeta、Demo 注册和 kGameCenterCatalog；发布目录流程见 [[A05-游戏中心扩展]] |
+| Demo 详情页/共享封面 | `demo_detail_page.dart`、`demo_cover_image.dart` | Lab/游戏中心共用外壳，先复用现有组件 |
 
-## 六、验收清单（动过 lab/ 后跑一遍）
+上述文件路径是当前入口导航，不表示目录下每个文件职责永不变化；修改前确认符号仍存在。
 
-- [ ] `dart analyze lib` 0 error（孤儿文件也会被扫到）
-- [ ] 真机链路：下拉展开 → 把手收起 → 中途松手回弹 → 收藏格子长按排序/拖删
-- [ ] 拖拽全程 demo 网格不重建（打开 `kLabPanelPerfDebug` 看慢帧日志）
-- [ ] 游戏中心收藏与 Lab 面板收藏同源（同一个 LabCardProvider）
+## 2. 新增 Lab Demo 工作流
+
+1. 确认它确实属于 Lab Demo，而不是已有独立页面或 core 业务模块；先查 `lab_bootstrap.dart` 是否已有相近实现。
+2. 在 `lib/lab/demos/` 实现 `DemoPage` 子类，明确 title、description、canonical ASCII `slug`、`DemoType` 和需要的 scope。
+3. 在 `lib/lab/lab_bootstrap.dart` 注册一次；如要兼容旧 deep link，按 [[A06-Demo-Slug别名]] 注册旧 key 到同一实例。
+4. 外部/多入口导航遵循 [[A01-fr路由注册与防腐蚀]]；新游戏另执行 [[A05-游戏中心扩展]] 的 catalog 和发布步骤。
+5. 按 A08 对目录职责、布局、测试、analyze/codegen 和交付进行验证。
+
+Demo 默认单文件，不以目录树整洁为由先拆文件。超过约 400 行**或已有独立职责/复用边界**时，才评估移至 `lib/lab/demos/<module>/`；阈值是评估信号而非机械规则。
+
+## 3. Lab 面板性能模式
+
+当前面板用纯状态机管理离散 panel state/metrics，通过 `ValueNotifier<double>` 发布连续拖动 progress；页面只有离散状态变化才 `setState`，各轻量 builder 订阅其所需值。
+
+改动拖动/动画时：
+
+- 先读 `lab_panel_state_machine.dart`、`lab_panel_gesture.dart` 和 `lab_page.dart` 的真实连接。
+- 连续值不要触发无关整页重建；大网格、模糊背景等重绘负担需检查 repaint boundary / widget subtree。
+- `Listener`、`ScrollNotification`、把手 GestureDetector 等并存输入必须集中协调；每个 pointer lifecycle 都有 cancel/end 收尾。
+- 不在 builder 中反复全 registry 搜索或创建昂贵静态内容；先 profile/看已有 `labPerfLog` 再做优化。
+- 修改交互后验证展开、半途松手、取消指针、快速重复操作、滚动及收藏管理。
+
+## 4. 游戏中心注册约束
+
+游戏中心的三份关键数据需要保持一致：
+
+1. demo registry 中的 `DemoPage` 且 `type == DemoType.game`；
+2. `kGameMeta` 中的 UI 分类/标签信息；
+3. `kGameCenterCatalog` 中可供管理端与公开目录发布使用的 entry。
+
+修改前看 `game_center_page.dart` 中当前断言和 `test/lab/game_center_catalog_test.dart`。加游戏时按 [[A05-游戏中心扩展]] 补 catalog、相关测试与公开目录发布；不要只改 UI 分类表。常规调色/封面视觉按 E 序列，资源上传按 F00/Fa 序列。
+
+## 5. 真实问题排查闭环
+
+| 症状 | 先查 | 修复与验证 |
+|---|---|---|
+| Demo 不出现在 Lab | bootstrap 注册、slug/type/scope 和 Lab filter | 补齐唯一注册和 metadata；运行相应 registry/slug test，再 analyze |
+| 一个 demo 在 Lab/游戏中心重复 | `demoRegistry.getAll()` 的 alias 条目是否指向同一个实例、UI 是否按实例去重 | UI 用实例身份去重，registry 保留 alias 路由；测试主 key 和 alias resolve 同一对象 |
+| 拖动期间整页掉帧 | `setState` 调用范围、ValueListenable 订阅树、阴影/blur 重绘 | 缩小重建范围并 profile；不得仅凭视觉猜测优化效果 |
+| 面板在中途卡住 | `onPointerCancel` / scroll end / state machine reset | 补相应输入路径的 cleanup 和 widget/controller test |
+| 新游戏管理端无封面入口 | `kGameCenterCatalog` 是否与 demo/`kGameMeta` 一致、是否发布最新目录 | 按 A05 更新目录并跑双向 catalog test；用户授权后再执行远端发布 |
+
+## 边界
+
+- 这一 ref 指导 Lab 容器与列表/面板；游戏规则、主题配色、远端资产、Hive 数据分别使用 C/E/F/D 序列。
+- 具体路径或数值若与当前源码不一致，应更新此导航表与对应 SOP，不能把旧快照当成事实。

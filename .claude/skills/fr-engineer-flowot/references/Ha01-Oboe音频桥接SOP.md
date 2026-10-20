@@ -64,7 +64,7 @@ mkdir -p android/app/src/main/cpp
 
 | 文件 | 内容 |
 |------|------|
-| `metronome.h` | C 接口声明：`init_audio` / `play` / `pause` / `set_bpm` / `set_beats_per_bar` / `set_tick_callback` |
+| `metronome.h` | C 接口声明：`init_audio` / `play_metronome` / `pause_metronome` / `set_bpm` / `set_beats_per_bar` / `set_tick_callback` |
 | `metronome.cpp` | `class Metronome : public AudioStreamCallback`，全局 `gMetronome` + `gStream`，`extern "C"` 暴露给 FFI |
 | `CMakeLists.txt` | `find_package(oboe REQUIRED CONFIG)` + `target_link_libraries(metronome oboe::oboe log)` |
 

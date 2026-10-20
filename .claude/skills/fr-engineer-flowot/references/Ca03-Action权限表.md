@@ -80,9 +80,9 @@ on_init = function(c, p)
   c.action_permissions = {
     ACK              = "any",                -- 任何人
     DEAL             = "host",               -- 房主
-    MOVE             = "current_player",     -- 当前回合方
+    MOVE             = "current_player",     -- 当前回合方（事前）
     RESIGN           = "any",
-    WIN              = "current_player",
+    WIN              = "non_current_player", -- 事后事件：刚下完的一方声明
     RESET            = "host",
     UNDO_REQUEST     = "non_current_player", -- 刚下完一步的责任方
     UNDO_RESPONSE    = "non_requester",      -- 不是悔棋请求方
@@ -96,6 +96,9 @@ end
 ```lua
 function role_check(c, p, action)
   local rule = c.action_permissions[action]
+  -- 现行实现对未登记 action fail-open（rule == nil 视作 any）。
+  -- 新表必须显式列出全部 action；若新业务要求 deny-by-default，
+  -- 把 nil 分支改为 return false 并同步客户端 canPerform。
   if rule == nil or rule == "any" then return true end
   if not c.players[p.device_id] then return false end
   if rule == "host" then return p.device_id == c.host_id end
@@ -140,6 +143,8 @@ static bool canPerform(
   bool justMovedByMe = false,
 }) {
   final rule = actionPermissions(snap)[action];
+  // 与服务端 role_check 同一语义：现行实现对未登记 action 视作 any。
+  // 新表显式登记所有 action；需要 deny-by-default 时两侧同时改。
   if (rule == null || rule == 'any') return true;
   if (rule == 'host') return isHost;
   if (rule == 'current_player') return isMyTurn;
@@ -181,7 +186,6 @@ final canMountTouch = _snap?.state == 'playing' && _canPerform('MOVE');
 | `current_player` | 当前回合方（事前：轮到谁行动） | MOVE / 出牌 |
 | `non_current_player` | 刚下完一步的人（**事后：已轮到对手**） | UNDO_REQUEST（悔棋请求）/ **WIN（胜利声明）** |
 | `non_requester` | 不是某请求的发起方 | UNDO_RESPONSE（悔棋裁决） |
-| `host` | 房主 | DEAL / RESET |
 
 **新增规则**：在 `role_check` 加一个 `if rule == "xxx"` 分支 + Dart `canPerform` 对应分支。一次性，全局复用。
 

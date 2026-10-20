@@ -9,7 +9,7 @@ description: Clock 是数据驱动（startTime + wall-clock），Metronome 是�
 
 | 组件 | 状态类型 | 驱动模型 | 退出页面行为 |
 |------|---------|---------|--------------|
-| Clock | **数据驱动**（startTime + startRemainingSeconds） | wall-clock 减 startTime = 当前剩余 | Provider 可以销毁，timer 可以停，下次进入重算就行 |
+| Clock | **数据驱动**（startTime + startRemainingSeconds） | wall-clock 减 startTime = 当前剩余 | `LabClockProvider` 由 main() 全局注册（lazy:false），页面退出不销毁；前台 timer 只做 UI tick，不逐秒 I/O |
 | Metronome | **流驱动**（Oboe 持续 emit float 采样） | audio thread 不停 = 一直有声 | Service 必须活着；page 只是按钮面板 |
 
 ## Clock 是怎么"算时间"的
@@ -21,9 +21,9 @@ final newRemaining = clock.startRemainingSeconds - elapsed;
 ```
 
 **关键**：剩余时间完全靠 wall-clock 时间差，**不需要 timer 也能算对**。所以：
-- 退出 ClockDemo → Provider 销毁 → Timer 停 → **但下次进入 page 时**，Provider 重新构造 → `loadClocks()` → `_recalculateRunningClocks()` 一秒钟内重算 → 用户看到正确剩余
-- App 切到后台被 Doze 冻结 → timer 不跑 → `didChangeAppLifecycleState.resumed` 时重算 → 正确剩余
-- App 被系统杀 → 重启 → 启动时 `loadClocks()` 读 SP 里的 `startTime` → 立刻重算 → 正确剩余
+- Provider 是全局单例（main() 注册），页面进退不销毁；timer 只在前台跑 UI tick
+- App 后台 → timer 停 → resumed 时重算 wall-clock 差值
+- App 被杀 → 重启 → 启动恢复 `startTime`/`startRemainingSeconds` → 立即重算正确剩余
 
 **timer 在 clock 里的真正作用**（不是算时间）：
 1. **每秒钟触发 UI rebuild** — 让用户看到秒级倒数动画
@@ -42,7 +42,7 @@ void onAudioReady(AudioStream *stream, void *audioData, int32_t numFrames) {
 }
 ```
 
-**关键**：发声完全靠 audio thread 持续 emit float 采样到 speaker buffer。**Oboe stream 一旦 `stop()` / `close()`，**声就立刻停了。** 没有 "数据驱动" 这条路。
+**关键**：发声完全靠 audio thread 持续 emit float 采样到 speaker buffer；Oboe stream 关闭声音立刻停。注意 MetronomeService 是“单例常驻、流按需”设计：pause 后空闲 30s 会真正 shutdown 流（省电），再次 play/setBpm 时按需重建；sample 配置跨流保留。
 
 ```dart
 // Controller dispose 时必须只 pause，不能 shutdown

@@ -1,6 +1,8 @@
-# C01 · 游戏表面 ColorScheme 契约
+# Ea14 · 游戏表面 ColorScheme 契约
 
 > 何时读：改游戏中心 / 房间就绪 / 大厅入口，且要跟 `AppThemeMode`（zen/purple/ink/rose/lemon/cobalt/dark 七主题）切换；或对照 `docs/prototypes/game-surfaces-palettes.html`。
+>
+> **通用消费通道**：普通/棋盘/象棋/俄罗斯方块/团队头像/护眼走 `context.colors/boardColors/chessColors/tetrisColors/teamAvatar/torchProtect`；数独走 `context.sudokuColors`（`lib/core/theme/context/sudoku_colors.dart`，注意其 ThemeExtension 尚未注入 app_theme，读数走 factory fallback）。
 >
 > 色值真相：`lib/design_tokens/color/palettes/{zen,purple,ink,rose,lemon,cobalt,dark}.dart`。主题机制见 `Eb01-主题架构路由`。
 

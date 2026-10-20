@@ -137,7 +137,7 @@ static String _safeDecode(String s) {
 
 demo 用英文 slug 作 URL key（`fr://lab/demo/clock`），中文 title（`时钟`）仅作显示文字。
 slug 通过 `DemoPage.slug` abstract getter 强制每个 demo 子类自带（全局 `kDemoSlugs` map 不存在；旧 slug 通过别名机制兼容）。
-历史 slug 通过 `demoRegistry.register(demo, key: alias)` 别名机制兼容。详见 [[A06-Demo-Slug别名与Tab合并]] 与规范 ref「命名约定」。
+历史 slug 通过 `demoRegistry.register(demo, key: alias)` 别名机制兼容。详见 [[A06-Demo-Slug别名]] 与规范 ref「命名约定」。
 
 ### 测试教训
 

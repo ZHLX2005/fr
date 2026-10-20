@@ -3,13 +3,15 @@
 > 本文是 **FR 主题系统扩展与迁移 SOP**：新增配色/语义角色/组件样式、把硬编码迁到主题通道、判断豁免和特例策略。总路由见 [[Eb01-主题架构路由]]。
 > 系统分层/文件地图先看 [[Eb02-系统架构与数据流]]；用量现状/热点文件看 [[Eb04-颜色用量审计]]；识别色锁定业务怎么写看 [[Eb05-颜色特例策略]]。
 
+> **Sudoku 通道现状**：`SudokuColorStrategy`/context API 已存在（`lib/core/theme/context/sudoku_colors.dart`），但 `ThemeStrategyFactory` 与 `app_theme.dart` 尚未注入其 extension，context 走 factory fallback。新增 Sudoku 相关改动时按此现状处理，别误以为全链路已注册。
+
 ## 0. 扩展动作速查表
 
 | 我想… | 动哪些文件 | 详见 |
 | --- | --- | --- |
 | 新增一套主题配色 | `lib/design_tokens/color/palettes/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
 | 新增强调色 / 语义角色（如在 `ColorStrategy` 加 `info`） | `colors/strategy/color_strategy/color_strategy.dart` + `colors/strategy/color_strategy/themes/default.dart`（+ 其他 strategy 如有同类需求） | §2 |
-| 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `core/ui/context_<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
+| 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `lib/core/theme/context/<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
 | 新增 / 改一个复用的组件样式 | `lib/core/ui/zen/zen_theme.dart` helper（与 `lib/core/ui/*` 对齐） | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
 | 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[Eb05-颜色特例策略]] |
@@ -66,7 +68,7 @@
 - **非内置复合样式**（如 hero 圆钮、状态点）：
   - `lib/core/theme/component/` 目录已解散（2026-10 清理，零消费者）；新加样式落到 `lib/core/ui/zen/zen_theme.dart` 的 helper 或 `lib/core/ui/*` 下的 widget（纯样式函数读 `Theme.of(context).colorScheme.X`，不写裸 hex）。
   - 需要 widget 结构 + 样式 → `lib/core/ui/zen/zen_theme.dart` 加 helper 或委托 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
-- 新增 helper 后，在 `color-usage-audit.md` 的相关目录行补一句使用点，保持审计表新鲜。
+- 新增 helper 后，用色规模/热点登记进 [[Eb04-颜色用量审计]] 对应章节，保持审计 ref 新鲜。
 
 ## 4. 把既有硬编码迁到主题通道（迁移 SOP）
 
@@ -79,13 +81,13 @@
 | 棋盘专属 | `context.boardColors.X` | player1/player2/winHighlight…见 §4 表 |
 | tetris 棋盘 + 7 方块色 | `context.tetrisColors.X` | `pieceBackground` / `pieceColors[1..7]`（Map 强制 1..7 索引） |
 | 团队卡头像 | `context.teamAvatar.avatars[i]` | i = 0..5 |
-| 护眼色预设 | `context.torchProtect.presets[i]` | i = 0..9 |
+| 护眼色预设 | `context.torchProtect.protectPresets`（固定预设数组，不走主题通道） | i = 0..9 |
 | 状态色 / 分类色 | `Theme.of(context).extension<AppColorsExtension>()!` | `success / warning / info / category[i]` |
 
 **流程**：
 1. `grep -rn "Color(0xFF" <dir> --include="*.dart"` 列出待迁点（及 `Color(0x` / `Colors.`）。
 2. 迁完跑 §6 校验。
-3. 若目录出现成片迁移，回到 `color-usage-audit.md` 迁移历史表登记新批次、更新残留计数。
+3. 若目录出现成片迁移，回到 [[Eb04-颜色用量审计]] 对应目录/迁移小节登记新批次并更新残留计数。
 
 **命名不带裸 hex 的注意点**：`const` widget / `static const` 里原本用 `Color(0xFF...)` 又要求 const 的，先看能否改读 `ColorScheme` 实例值（const 就放弃，改非 const；确需常量则在 token 文件内定义并注释豁免理由）；`Color.lerp` 派生的色允许在策略类内（它们是计算产物不是硬编码）。
 

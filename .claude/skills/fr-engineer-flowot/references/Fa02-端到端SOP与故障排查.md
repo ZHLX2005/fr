@@ -1,7 +1,8 @@
 # 端到端 SOP + 故障排查（游戏资源全套）
 
-> 本文是外部游戏资源管线的端到端发布与故障排查手册；总路由和远端变更安全约束见 [[Fa01-外部游戏资源管线路由]]。加载架构见 [[Fa03-加载架构与文件地图]]；表情包细节见 [[Fa04-表情包端到端SOP]]。
-> 架构细节见 [[Fa03-加载架构与文件地图]]；表情包特定见 [[Fa04-表情包端到端SOP]]。
+> 本文是外部游戏资源管线的端到端发布与故障排查手册；总路由与远端变更安全约束见 [[Fa01-外部游戏资源管线路由]]，加载架构见 [[Fa03-加载架构与文件地图]]，表情包细节见 [[Fa04-表情包端到端SOP]]。
+>
+> 工具能力先核对（当前脚本实况）：`add_skin.py` / `add_emoji_pack.py` 无 dry-run，直接写远端；`retag_existing.py` 与 `migrate_line_from_supabase.py` 有 `--dry-run`；`tool/publish_game_center_index.dart` 直接发布目录。chess 皮肤只认固定 `.png` 文件名；gomoku/game-center 的 `board/small/large` 均为必选 key，缺任一脚本直接退出。
 
 ## 0. 前置条件
 
@@ -36,20 +37,20 @@
 
 ### 2.1 图片资源规范
 
-- **12 张 webp**，透明底，命名固定（与 piece key 对应）：
+- **12 张 PNG**，透明底，命名固定（`add_skin.py` 的 chess 分支只查这些 `.png` 名）：
 
 | 文件名 | piece key | | 文件名 | piece key |
 | --- | --- | --- | --- | --- |
-| `00_white_king.webp` | wK | | `06_black_king.webp` | bK |
-| `01_white_queen.webp` | wQ | | `07_black_queen.webp` | bQ |
-| `02_white_rook.webp` | wR | | `08_black_rook.webp` | bR |
-| `03_white_bishop.webp` | wB | | `09_black_bishop.webp` | bB |
-| `04_white_knight.webp` | wN | | `10_black_knight.webp` | bN |
-| `05_white_pawn.webp` | wp | | `11_black_pawn.webp` | bp |
+| `00_white_king.png` | wK | | `06_black_king.png` | bK |
+| `01_white_queen.png` | wQ | | `07_black_queen.png` | bQ |
+| `02_white_rook.png` | wR | | `08_black_rook.png` | bR |
+| `03_white_bishop.png` | wB | | `09_black_bishop.png` | bB |
+| `04_white_knight.png` | wN | | `10_black_knight.png` | bN |
+| `05_white_pawn.png` | wp | | `11_black_pawn.png` | bp |
 
-- 目录里允许有其它文件（如 `_preview_grid.webp`）——上传脚本只认 12 个固定名，其余自动跳过。
+- 目录里允许有其它文件——chess 上传脚本只认 12 个固定 PNG 名，其余自动跳过（棋盘底图 `board` 目前不在 chess 资产集内，不要依赖文档旧说法）。
 - 单张建议 ≤ 100KB（webp 透明底，现役最大 ~10KB/张）。
-- 可选棋盘底图：`board.png|webp`（1:1 正方形）——v 当前 7 套均未使用。
+- 历史说明：早前文档称 chess 可选 `board.png|webp`；当前 `add_skin.py` 的 chess 资产键不含 board，请不要按此发布。
 
 ### 2.2 端到端
 
@@ -106,15 +107,15 @@ python .claude/skills/fr-engineer-flowot/scripts/retag_existing.py
 
 ### 3.1 图片资源规范
 
-3 张图（建议 webp，允许 png/jpg 互换）：
+3 张图（png 命名，允许 webp/jpg 同名互换）：
 
 | 文件名 | asset key |
 | --- | --- |
 | `black.png` | `black`（黑子） |
 | `white.png` | `white`（白子） |
-| `board.png` | `board`（棋盘底图，可选） |
+| `board.png` | `board`（棋盘底图，**必选**） |
 
-`board` 是可选的；缺失时 `BoardColorStrategy.background` 走程序化背景。
+`add_skin.py` 的 gomoku 资产键是 `black/white/board` 三项，缺任一文件脚本直接退出；棋盘底图的具体视觉派生见客户端 `BoardColorStrategy`。
 
 ### 3.2 端到端
 
@@ -233,16 +234,16 @@ python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py D:/emojis/cel
 | 列表有资源但显示空白 | ① file_id 是否 32-hex 且真实存在：`curl -I 'http://…/files/<id>'`（HEAD 404 是已知怪癖，用 GET/字节计数验证）；② 本地缓存目录是否半残：app 文档目录删掉重下 |
 | 换了图但不更新 | KV index 是全量覆盖语义：重新 publish（version+1 + 新 fileId）；本地已缓存的旧图按资源目录持久化 —— **改图必须换新 id 或让用户清缓存**（同 id 覆盖只影响未下载过的新设备） |
 | upload 脚本 401 | `kvcli auth whoami` 检查登录；token 过期重登 |
-| upload 404 | 用了错误路径（`/api/v1/upload`）——本 skill 脚本已用正确路径，检查是否被改动 |
+| upload 404 | ① 脚本走的是 `POST /api/v1/files`（见 `add_skin.py`/`add_emoji_pack.py`）；② 404 时先打印/检查实际请求 URL、base URL、路径和方法；③ 客户端 `FileEndpoint.uploadByKey` 历史上仍指 `/api/v1/upload`（404 旧契约），别把脚本路径与该客户端端点混谈 |
 | KV 写成功但匿名读 404 | 写入时 `visibility` 不是 `public`，或 `groupId` 不是 190 |
-| 下载 loading 永久转 | 已修复（5s 超时）；若复现检查 `<Resource>Localizer` 是否仍带 timeout |
+| 下载 loading 永久转 | 资源下载默认超时是 `GameSkinLocalizer.defaultTimeout` 15s（KV public 读是 5s）；复现时检查对应 Localizer 构造参数是否被改动，并查看网络日志 |
 | 已下载到本地但点选仍 loading 转圈 | 根因：上层 `_downloadXxx` 不查缓存，会先删目录重下。已修复 —— 上层现在**缓存优先**（`isCached` 命中 → `fromCache` 直接加载）。若复现：① 确认走的是 `ensureLocal`/`isCached` 路径而非直接 `download()`；② 检查 `<documents>/<dir>/<id>/` 是否被误删 |
 | emoji 发了但客户端不显示 | ① scope 是否正确（common vs game）；② emoji id 是否匹配 `^[a-z0-9][a-z0-9-_]{0,31}$`；③ 客户端日志里看 KV 读取是否 200 |
 | chess 客户端本地 catalog 与 KV index 漂移 | `lib/core/chess/skins/chess_skin_meta.dart` 的 `kChessSkinsCatalog` 改后未重发 KV。修复：发布 KV 后保证客户端 Layer 1/2 一致 |
 
 ## 8. 后端参考（为何这么调）
 
-- 上传 controller：`dev_ctr_hello/internal/controller/file/v1/file.go`（`path:"/files"` + multipart `file` 字段）—— 客户端 `FileEndpoint.uploadByKey` 走的 `/api/v1/upload` 是**旧契约，路由未挂载（404）**，勿用。
+- 上传端点事实（本仓可核）：`add_skin.py`/`add_emoji_pack.py` 走 `POST /api/v1/files`；`lib/api/goframe/file/file_endpoint.dart` 的 `uploadByKey` 仍指向 `/api/v1/upload`（旧契约，勿用于新管线）。服务端 controller 源码不在本仓，具体路由实现以服务端仓库为准（待服务端来源）。
 - KV public 匿名读：`GET /api/v1/kv/public/:key?groupId=N`（N≥1）。`groupId=190` = "shared" 公共组。
 - KV share（`/kv/share/:code`）在 MustAuth 组内，**不是**匿名通道，本管线勿用。
 - KV index 全量覆盖语义：publish 脚本**先拉旧 → 合并 → 全量写回**；不要尝试只发增量（会导致历史数据丢失）。

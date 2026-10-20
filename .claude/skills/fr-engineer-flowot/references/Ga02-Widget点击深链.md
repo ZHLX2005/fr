@@ -98,7 +98,7 @@ when {
         widgetChannel.notifyNavigateToRecorder(uri.getBooleanQueryParameter("autostart", true))
     }
     uriStr == "fr://clock" || uriStr.startsWith("fr://lab/demo/clock") ||
-        uri.path == "/lab/demo/clock" -> {
+        uri.path == "/demo/clock" // fr:// 的 lab 在 authority，不在 path -> {
         widgetChannel.notifyNavigateToClock()
     }
     uriStr == "fr://timetable" || uri.path == "/timetable" -> {

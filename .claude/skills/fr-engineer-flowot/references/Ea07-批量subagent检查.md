@@ -90,7 +90,7 @@ Agent(prompt: "Fix group 3 files: h, i, j, k")
 全部 agent 完成后，跑全局检查：
 
 ```bash
-flutter analyze | grep -E "error|warning"
+flutter analyze（不要把退出码交给 grep 管道；要过滤输出时先 `set -o pipefail`） | grep -E "error|warning"
 ```
 
 确认无误后再 commit。如果个别文件出 warning，需确认是本次改动引入的还是已有的 pre-existing issue。

@@ -43,7 +43,7 @@
 - 多个 pack 可在同一 array（每个元素一个 pack）
 - 历史或自有工具产出此形态
 
-**两种形态混合不报错**（parseList 按"看首项"判断全局形态，但单元素 `_looksLikeFlatEmojiItem` 容错——即如果首项是扁平，整批按扁平解析；首项是嵌套，整批按嵌套解析）。
+**同 key 必须单一形态**：`parseList` 按首项决定整批解析模式，另一形态的元素会被跳过或解析成空 pack（不报错、静默丢数据）。不要在同一 `emoji_<scope>:index` 混存两种形态；自有工具发布前先确认/清理旧值。
 
 ## 2. Scope 合并机制（game 覆盖 common）
 
@@ -73,7 +73,7 @@ EmojiBundle.forGame(gameId) 流程:
 | 合并策略 | 同 gameId 内按 skinId 去重覆盖 | **跨 scope 合并**：common + game，game 覆盖 common |
 | 形态 | 单一 JSON array of meta | 两种并存（flat open-set / pack 嵌套） |
 | 兜底 | Layer 1 const catalog | 无 unicode 兜底（未发布的 emoji 不可见） |
-| 本地缓存 | per skin 目录 + `.done` 标记 | per scope 目录 + `.emoji-index.json`（含 fileId 版本校验） |
+| 本地缓存 | per skin 目录 + `.done` 标记 | 统一 `emojis/common/` + `.emoji-index.json`（含 fileId 校验；scope 合并后按 emoji id 覆盖，不分 scope 目录） |
 | 渲染 | ImageProvider map（pieces） | FileImage 优先，回退 NetworkImage |
 
 ## 4. KV key 与 tag
@@ -133,7 +133,7 @@ python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py \
 ```
 
 脚本行为：
-1. 扫描目录，识别每个表情文件（`.<ext>` 扩展名按 webp/png/jpg/gif 顺序）
+1. 扫描目录，识别每个表情文件（允许 `.webp/.png/.jpg/.jpeg/.gif`；同 id 多扩展名视为重复，脚本报错退出）
 2. 逐文件 `POST /api/v1/files`（带 `key=emoji/<scope>/<packId>/<emojiId>` + 三级 tag）
 3. 拼 pack meta `{id: packId, displayName, version, emojis: {id: FileRef}}`
 4. 拉旧 `emoji_<scope>:index` → 按 packId 合并 → 校验 → 写回（`visibility=public`，`groupId=190`，`tags=[<scope>-emoji]`）
@@ -152,7 +152,7 @@ python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py \
 |---|---|
 | 房间内看不到新表情 | ① scope 是否匹配房间 gameId；② KV 读验证：`curl 'http://47.110.80.47:8988/api/v1/kv/public/emoji_<scope>:index?groupId=190'`；③ emoji id 是否匹配 `^[a-z0-9][a-z0-9-_]{0,31}$`（下划线 OK，连字符 OK） |
 | 表情显示但发不出去 | ① emoji_id 参数是否与 KV value 里的 id 一致；② 协议层 EMOJI 命令格式（参 `lib/core/game_kit/emoji/emoji_script.dart`） |
-| 表情飘字但图挂了 | ① `emoji_bundle.dart` 的 `_resolveCachedFileFor` 用 fileId 校验（.emoji-index.json 里若 fileId 不匹配则回退网络）；② 网络被屏蔽 |
+| 表情飘字但图挂了 | ① `emoji_bundle.dart` 按 emoji id 定位 `emojis/common/` 缓存并用 fileId 校验（.emoji-index.json 不匹配则回退网络）；② 网络被屏蔽；③ 同 id 在 common/game 两个 scope 覆盖关系是否符合预期（game 覆盖 common） |
 | 同 pack 重发后旧 file 残留 | 脚本 §6.2 步骤 6 best-effort DELETE；失败也不会阻塞发布，可手动调 DELETE /files/<id> |
 | scope=game 的 emoji 在 common 房间不显示 | 设计如此：game scope 仅在该游戏的房间可见 |
 

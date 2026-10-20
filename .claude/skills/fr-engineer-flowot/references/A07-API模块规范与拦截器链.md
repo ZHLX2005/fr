@@ -125,6 +125,8 @@ class FooService {
 }
 ```
 
+> **现行例外（2026-10 核对）**：`goframe/room/room_endpoint.dart` 自持 http.Client（relay 响应非 GoFrame 包裹格式）；`services/api_client.dart`、`services/apk_download_service.dart`、`services/ai_chat/agent_chat_provider.dart` 等仍在 services 直连 http —— 属于历史遗留/特殊协议（APK 流式下载、Relay、旧 chat），新代码不要模仿；迁移它们属于单独重构任务。Notion 端点文件直接位于 `lib/api/notion/` 根（database/page/file），未按“每端点一子目录”，以现状为准。
+
 ### Rule 1：子目录 = 后端名称，同级排列
 
 ```
@@ -394,7 +396,7 @@ lib/api/notion/                            ← Notion REST API（自持 http.Cli
 ├── page_endpoint.dart           (~85行)   ← createPageWithTimestamp (mention.date 模板)
 └── file_endpoint.dart           (~160行)  ← createFileUpload / sendFileContent / appendImageBlock
 
-test/api/notion/                           ← 链路测试（本地跑，不入库）
+test/api/notion/                           ← 链路测试（已入库：.gitignore 白名单放行 test/api/**；token 用空默认 + 本地注入，不进 CI secrets）
 ├── notion_test_helpers.dart              ← token/db_id 环境变量 + 517 字节测试图
 ├── database_endpoint_test.dart           ← getDatabase / queryLatestPage / listDatabases
 ├── page_endpoint_test.dart               ← createPageWithTimestamp + 错误处理
@@ -411,7 +413,7 @@ Notion 单图上传**必须**分 3 步，1 个 HTTP 请求搞不定：
 | 2 | `POST /v1/file_uploads/{id}/send` | multipart/form-data 上传字节（form 字段名固定为 `file`） |
 | 3 | `PATCH /v1/blocks/{page_id}/children` | 把 image block（`type: file_upload`）追加到 page |
 
-参考源码：notion-cli 参考仓库已移出 `.claude/repo/`（如需对照后端实现找用户要路径）。
+参考源码：notion-cli 参考仓库已移出 `.claude/repo/`（历史决策记录；以 Notion 官方 API 文档为准）。
 
 ### 关键决策
 
@@ -465,7 +467,9 @@ Future<Map<String, dynamic>> createPageWithTimestamp({
   String? titlePropertyName,  // 默认 "名称"
 }) async {
   final propertyName = titlePropertyName ?? '名称';
-  final nowIso = DateTime.now().toIso8601String();
+  // ⚠️ 与当前实现对齐（lib/api/notion/page_endpoint.dart）：
+  // 北京时区页面标题必须追加 '+08:00' 偏移（无时区会被 Notion 按 UTC 渲染）。
+  final nowIso = '${DateTime.now().toIso8601String()}+08:00';
   final body = jsonEncode({
     'parent': {'database_id': databaseId},
     'properties': {

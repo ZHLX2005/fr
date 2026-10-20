@@ -370,134 +370,134 @@
     },
     {
       "source": "flutter-ui/references/rive/flutter-databind-0.14.md",
-      "destination": "references/Fb03-Rive-Flutter-0.14-DataBind.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 8208,
       "source_sha256": "5910f1a566a43bbc35521ec5134a143271358f2a0ba90031a4f5258152c11854"
     },
     {
       "source": "flutter-ui/references/rive/flutter-project-workflow.md",
-      "destination": "references/Fb04-Rive-Flutter项目工作流.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 6379,
       "source_sha256": "e6780e46a923a48de83551ba121020331f0359dbfc143313b23113ddd67528b2"
     },
     {
       "source": "flutter-ui/references/rive/README.md",
-      "destination": "references/Fb02-Rive上游资料索引.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 6485,
       "source_sha256": "879fde92824c0ca969e7e68315e2224da4c2e1c93d5adcf7ee5027cfa7f53c77"
     },
     {
       "source": "flutter-ui/references/rive/rive-animation-mode.md",
-      "destination": "references/Fb05-Rive动画模式.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 9187,
       "source_sha256": "11b9ccf41b2fc3fffc296eb4eea9674e1ae8792e000823424363813b47a43a78"
     },
     {
       "source": "flutter-ui/references/rive/rive-constraints.md",
-      "destination": "references/Fb06-Rive约束.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 10504,
       "source_sha256": "2a4a802a004312ff3157cf2b30531d092f22bfe32e780b9b6df3bcf57500563f"
     },
     {
       "source": "flutter-ui/references/rive/rive-data-binding.md",
-      "destination": "references/Fb07-Rive数据绑定.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 12910,
       "source_sha256": "236402622e54820f2b3480f98b61581655b0e52f9c8f3a8911a708ccac8a8ccf"
     },
     {
       "source": "flutter-ui/references/rive/rive-editor-fundamentals.md",
-      "destination": "references/Fb08-Rive编辑器基础.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 11449,
       "source_sha256": "e7334ad092b330869081c4c253bf2576997dcc740619c5b8aa8577c784ba81b0"
     },
     {
       "source": "flutter-ui/references/rive/rive-events.md",
-      "destination": "references/Fb09-Rive事件.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 11002,
       "source_sha256": "c6d157e7ca66ca3e01a2a0dd84059e1055ba170b05f8894f91302947bf8c0bac"
     },
     {
       "source": "flutter-ui/references/rive/rive-flutter-runtime.md",
-      "destination": "references/Fb10-Rive-FlutterRuntime.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 13997,
       "source_sha256": "458261776f4f55e477a3f69330d073b7379500a0c2d14595011c29f8e5fbc2f2"
     },
     {
       "source": "flutter-ui/references/rive/rive-game-runtimes.md",
-      "destination": "references/Fb11-Rive游戏Runtime.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 11444,
       "source_sha256": "355523795625409b97444969665daca305abf7e0f792f669435d72e7764059d6"
     },
     {
       "source": "flutter-ui/references/rive/rive-layouts.md",
-      "destination": "references/Fb12-Rive布局.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 8226,
       "source_sha256": "0c0b9e69d06d35ea5f45adcad2ed785d817f76e674131a05013eba1e3c6763a0"
     },
     {
       "source": "flutter-ui/references/rive/rive-manipulating-shapes.md",
-      "destination": "references/Fb13-Rive图形编辑.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 8419,
       "source_sha256": "68b676fb631a1163917b15728a323ef889ecbaccbc6c6c19c88aa1a5ccbb3187"
     },
     {
       "source": "flutter-ui/references/rive/rive-mobile-runtimes.md",
-      "destination": "references/Fb14-Rive移动端Runtime.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 10487,
       "source_sha256": "fd584d5dfe844ec0ad3c4fb7b53e382afde9e76bf289528618e38a2d5032dd8b"
     },
     {
       "source": "flutter-ui/references/rive/rive-react-runtime.md",
-      "destination": "references/Fb15-Rive-ReactRuntime.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 17002,
       "source_sha256": "d707fc858030c6abb5582579ed910f79e8bee4a015248d1bac5e5446986308b1"
     },
     {
       "source": "flutter-ui/references/rive/rive-scripting-api.md",
-      "destination": "references/Fb16-Rive脚本API.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 19079,
       "source_sha256": "80b02caab7ffa8ac0ff656add187214ba6b30cbb6ab692e5454cbdf5c20c3134"
     },
     {
       "source": "flutter-ui/references/rive/rive-skills.md",
-      "destination": "references/Fb01-Rive路由.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 18575,
       "source_sha256": "55066a8a5730317c8e49abcf7568f1a5ef3912cc0fc8b8d0491d35dd2136a392"
     },
     {
       "source": "flutter-ui/references/rive/rive-state-machine.md",
-      "destination": "references/Fb17-Rive状态机.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 11345,
       "source_sha256": "b9de84c74e6397a467ef44984c11838f07d65f6f0b597a6d8aee2addc2ea28d2"
     },
     {
       "source": "flutter-ui/references/rive/rive-text.md",
-      "destination": "references/Fb18-Rive文本.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 9155,
       "source_sha256": "430c35d6314196af9831f12e1a5ac72e064e6a168b688e4ea0360349cfc6e47d"
     },
     {
       "source": "flutter-ui/references/rive/rive-web-runtime.md",
-      "destination": "references/Fb19-Rive-WebRuntime.md",
-      "status": "MIGRATED",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
       "source_size": 12882,
       "source_sha256": "a7f389346c0bc4dfd3d912b04719cfc25f6c7a15a5fc167e3f328110b9b59ca8"
     },
@@ -719,6 +719,7 @@
   "notes": [
     "The archive is an exact snapshot of files present at backup time; its inventory carries per-file SHA-256 hashes.",
     "The pre-existing modified A01 workflow file is preserved byte-for-byte in the archive snapshot; migrated A01 follows flat naming.",
-    "The nine already-deleted tracked files listed above were deliberately not restored, per user instruction."
+    "The nine already-deleted tracked files listed above were deliberately not restored, per user instruction.",
+    "Dedicated Rive references were removed from the active skill by explicit user request due to low usage; the archived originals remain untouched."
   ]
 }

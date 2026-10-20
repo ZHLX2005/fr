@@ -43,7 +43,7 @@ Hive 是实现细节。UI/业务调用方只依赖 repository 的领域 API，�
 | 新 box 未出现在 Lab 存储分析 | feature repository init 是否执行、Registry 是否注册、descriptor name 是否与 boxName 相同 | 在初始化时注册 `BoxDescriptor`；不添加 storage manager 特判 |
 | 显示 `Instance of ...` | typed descriptor 是否提供 formatter，返回值是否为可读文本 | 增加 `formatValue` 或 formatter helper |
 | 删除后数据仍在 | repository 是否使用了与保存时相同的 key 类型/规范化 | 在 repository 内把显示 key 转为真实领域 key；不要让面板/UI直接猜 key 类型 |
-| Hive write/read `part` 或 `.g.dart` CI 失败 | 依赖版本、builder 支持语法、生成文件是否更新 | 跑仓库规定的 build_runner，检查实际 CI generator 兼容性；历史案例和现状见 [[UNMAPPED-REVIEW]] |
+| Hive write/read `part` 或 `.g.dart` CI 失败 | 依赖版本、builder 支持语法、生成文件是否更新 | 跑仓库规定的 build_runner，按 CI 报错定位 builder 不兼容语法；历史排障文档已随旧 skill 归档，以当前报错输出为准 |
 
 ## 存储面板边界
 
