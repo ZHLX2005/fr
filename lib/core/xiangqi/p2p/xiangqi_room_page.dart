@@ -1186,7 +1186,18 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   }
 
   void _seekReplay(int i) =>
-      setState(() => _replayIndex = i.clamp(0, _replayStates.length - 1));
+      setState(() => _replayIndex = _replayIndexSafe(i));
+
+  /// 回放索引（安全版）：空表时返回 0。
+  ///
+  /// ⚠ `clamp(0, length - 1)` 在**空表**上是 `clamp(0, -1)` → ArgumentError
+  ///   （"Invalid argument(s): 0"）—— 会把整个房页炸掉，playing 态进不去。
+  ///   故所有回放索引都必须经过这里。
+  int _replayIndexSafe([int? raw]) {
+    if (_replayStates.isEmpty) return 0;
+    final i = raw ?? _replayIndex;
+    return i.clamp(0, _replayStates.length - 1);
+  }
 
   void _stepReplay(int delta) => _seekReplay(_replayIndex + delta);
 
@@ -1226,13 +1237,11 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     for (final m in moves) {
       if (m.from == _selected && m.isCapture) captureTo.add(m.to);
     }
-    // ⚠ 回放索引 clamp **只能在回放态算**：_replayStates 在非回放态是空表，
+    // ⚠ 回放索引必须走 [_replayIndexSafe]：_replayStates 在非回放态是空表，
     //   `_replayStates.length - 1` = -1 → `clamp(0, -1)` 抛 ArgumentError
-    //   （会把整个 playing 态房页炸掉）。draughts 把 clamp 写在三元表达式里
-    //   才躲过这个坑，这里显式 gate 住。
+    //   （"Invalid argument(s): 0"）→ **playing 态房页直接进不去**。
     final replaying = _replayMode && _replayStates.isNotEmpty;
-    final replayIndex =
-        replaying ? _replayIndex.clamp(0, _replayStates.length - 1) : 0;
+    final replayIndex = _replayIndexSafe();
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(12),

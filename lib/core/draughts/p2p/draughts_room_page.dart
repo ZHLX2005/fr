@@ -1156,7 +1156,18 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   }
 
   void _seekReplay(int i) =>
-      setState(() => _replayIndex = i.clamp(0, _replayStates.length - 1));
+      setState(() => _replayIndex = _replayIndexSafe(i));
+
+  /// 回放索引（安全版）：空表时返回 0。
+  ///
+  /// ⚠ `clamp(0, length - 1)` 在**空表**上是 `clamp(0, -1)` → ArgumentError
+  ///   （"Invalid argument(s): 0"）—— 会把整个房页炸掉。
+  ///   与 xiangqi 同款守卫（见 xiangqi_room_page._replayIndexSafe）。
+  int _replayIndexSafe([int? raw]) {
+    if (_replayStates.isEmpty) return 0;
+    final i = raw ?? _replayIndex;
+    return i.clamp(0, _replayStates.length - 1);
+  }
 
   void _stepReplay(int delta) => _seekReplay(_replayIndex + delta);
 
@@ -1205,6 +1216,13 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         threatened.addAll(m.capturedSquares);
       }
     }
+    // ⚠ 回放索引必须走 [_replayIndexSafe]：_replayStates 在非回放态是空表，
+    //   `clamp(0, -1)` 会抛 ArgumentError → 房页炸掉。
+    final replaying = _replayMode && _replayStates.isNotEmpty;
+    final replayIndex = _replayIndexSafe();
+    final replayPathIndex = _replayPaths.isEmpty
+        ? 0
+        : _replayIndex.clamp(0, _replayPaths.length - 1);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -1213,15 +1231,11 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
           child: DraughtsBoard(
             // 回放中显示层整体切换到预计算局面；实况字段（_board/_history/
             // _lastPath）不动 —— 退出回放即回实况（chess 同模式）。
-            state: _replayMode
-                ? _replayStates[_replayIndex.clamp(0, _replayStates.length - 1)]
-                : _board,
+            state: replaying ? _replayStates[replayIndex] : _board,
             flipped: _myColor == DraughtsColor.black,
             selectedSquare: _selected,
             legalTargets: _targets,
-            lastMovePath: _replayMode
-                ? _replayPaths[_replayIndex.clamp(0, _replayPaths.length - 1)]
-                : _lastPath,
+            lastMovePath: replaying ? _replayPaths[replayPathIndex] : _lastPath,
             captureTargets: captureTo,
             mustCapturePieces: mustFrom,
             threatenedSquares: threatened,

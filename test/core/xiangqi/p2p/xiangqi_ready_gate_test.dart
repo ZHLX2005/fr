@@ -21,8 +21,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import 'package:xiaodouzi_fr/core/game_kit/chat/board_chat_overlay.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/constants/xiangqi_constants.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/p2p/xiangqi_room_page.dart';
+import 'package:xiaodouzi_fr/core/xiangqi/widgets/xiangqi_replay_bar.dart';
 
 /// 真实 RelayV3Transport + MockClient（不联网）。
 class FakeTransport extends RelayV3Transport {
@@ -93,6 +95,8 @@ Snapshot makeSnap({
   Map<String, dynamic>? disconnected,
   String fen = kXiangqiStartingFen,
   bool withPermissions = true,
+  int moves = 0,
+  String status = 'playing',
 }) {
   return Snapshot(
     roomCode: 'ABCD',
@@ -108,8 +112,16 @@ Snapshot makeSnap({
       if (ready != null) 'ready': ready,
       if (disconnected != null) 'disconnected': disconnected,
       'fen': fen,
-      'moves': <dynamic>[],
-      'status': 'playing',
+      'moves': [
+        for (final uci in const ['b7e7', 'h0g2', 'a6a5', 'g3g4'].take(moves))
+          {
+            'uci': uci,
+            'by': 'd-host',
+            'ts': 1,
+            'fen': fen,
+          },
+      ],
+      'status': status,
       'host_color': 'r',
       'initial_side': 'r',
       if (withPermissions)
@@ -270,6 +282,151 @@ void main() {
       expect(find.text('认输'), findsOneWidget);
       expect(find.text('悔棋'), findsOneWidget);
       expect(find.text('求和'), findsOneWidget);
+    });
+  });
+
+  group('对话（聊天）', () {
+    testWidgets('playing → 棋盘区挂聊天浮层入口（左上角 pill）',
+        (tester) async {
+      final handle = makeGuestHandle(
+        initial: makeSnap(state: 'playing'),
+      );
+      await tester.pumpWidget(host(handle));
+      await tester.pump();
+      await tester.pump();
+
+      // 聊天入口是棋盘区左上角的 pill（BoardChatOverlay 共享组件）。
+      expect(find.byType(BoardChatOverlay), findsOneWidget);
+    });
+
+    testWidgets('输入文字发送 → 发 CHAT action（带 text + alias）',
+        (tester) async {
+      final handle = makeGuestHandle(
+        initial: makeSnap(state: 'playing'),
+      );
+      await tester.pumpWidget(host(handle));
+      await tester.pump();
+      await tester.pump();
+
+      // 打开 composer：点聊天 pill。
+      final pill = find.byType(InkWell).first;
+      await tester.tap(pill);
+      await tester.pump();
+      await tester.pump();
+
+      // 输入并发送。
+      final field = find.byType(TextField);
+      expect(field, findsOneWidget, reason: 'composer 打开后应有输入框');
+      await tester.enterText(field, '你好');
+      await tester.pump();
+
+      await tester.tap(find.text('发'));
+      await tester.pump();
+      await tester.pump();
+
+      final chatCalls =
+          handle.actionCalls.where((c) => c.$1 == 'CHAT').toList();
+      expect(chatCalls, hasLength(1), reason: '应发出一次 CHAT action');
+      expect(chatCalls.first.$2['text'], '你好');
+      expect(chatCalls.first.$2['alias'], isNotNull);
+    });
+  });
+
+  group('认输 / 悔棋 / 求和', () {
+    testWidgets('点「求和」→ 发 DRAW_OFFER action', (tester) async {
+      final handle = makeGuestHandle(initial: makeSnap(state: 'playing'));
+      await tester.pumpWidget(host(handle));
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.text('求和'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        handle.actionCalls.any((c) => c.$1 == 'DRAW_OFFER'),
+        isTrue,
+        reason: '求和应发 DRAW_OFFER',
+      );
+    });
+
+    testWidgets('点「悔棋」→ 发 UNDO_OFFER action', (tester) async {
+      // 悔棋门：后手方（guest）至少要走 2 手才够一手可悔 —— 与服务端
+      // UNDO_OFFER 的 n>=2 门一致（先手方 n>=1）。
+      final handle = makeGuestHandle(
+        initial: makeSnap(state: 'playing', moves: 2),
+      );
+      await tester.pumpWidget(host(handle));
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.text('悔棋'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        handle.actionCalls.any((c) => c.$1 == 'UNDO_OFFER'),
+        isTrue,
+        reason: '悔棋应发 UNDO_OFFER',
+      );
+    });
+
+    testWidgets('点「认输」→ 二次确认 → 发 RESIGN action', (tester) async {
+      final handle = makeGuestHandle(initial: makeSnap(state: 'playing'));
+      await tester.pumpWidget(host(handle));
+      await tester.pump();
+      await tester.pump();
+
+      // 第一次点：弹二次确认框（不直接发）。
+      await tester.tap(find.text('认输'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('确定要认输吗？'), findsOneWidget);
+      expect(handle.actionCalls.any((c) => c.$1 == 'RESIGN'), isFalse,
+          reason: '二次确认前不应发 RESIGN');
+
+      // 确认：点弹窗里的「认输」。
+      await tester.tap(find.widgetWithText(FilledButton, '认输'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        handle.actionCalls.any((c) => c.$1 == 'RESIGN'),
+        isTrue,
+        reason: '确认后应发 RESIGN',
+      );
+    });
+  });
+
+  group('终局复盘', () {
+    testWidgets('ended 快照 → 终局浮卡 → 点「复盘」→ 回放条接管 + 可步进',
+        (tester) async {
+      final handle = makeGuestHandle(
+        initial: makeSnap(state: 'ended', status: 'ended', moves: 2),
+      );
+      await tester.pumpWidget(host(handle));
+      await tester.pump();
+      await tester.pump();
+
+      // 终局浮卡：应出现「复盘」入口（棋谱非空才有）。
+      final replayBtn = find.text('复盘');
+      expect(replayBtn, findsOneWidget);
+      await tester.ensureVisible(replayBtn);
+      await tester.pump();
+      await tester.tap(replayBtn);
+      await tester.pump();
+      await tester.pump();
+
+      // 回放条接管：出现步进控件 + 步数标签。
+      expect(find.byType(XiangqiReplayBar), findsOneWidget);
+      expect(find.text('2 / 2'), findsOneWidget);
+
+      // 上一步 → 步数标签变 1 / 2（回放索引不越界、不崩）。
+      final stepBack = find.byIcon(Icons.chevron_left);
+      await tester.tap(stepBack);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('1 / 2'), findsOneWidget);
     });
   });
 
