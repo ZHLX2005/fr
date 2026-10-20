@@ -7,6 +7,12 @@
 // 防止与 Lua `role_check` 判反（v8 同款坑：host 未必先手时判反）。
 //
 // 与 chess / draughts 的同款 helper 保持同构（规则词词表一致）。
+//
+// ⚠ 本文件**禁用 null-aware 集合元素**（`?key: value`）—— SDK 自带 analyzer
+//   认得它，但 CI「Generate code」步骤的 build_runner 内置 analyzer 较旧，
+//   解析不了 → "Expected an identifier" → APK 流水线整条红（2026-10-20 实测）。
+//   故 map 里可空值一律用 `if (x != null) x: v` 写法。
+// ignore_for_file: use_null_aware_elements
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/p2p/xiangqi_room.dart';

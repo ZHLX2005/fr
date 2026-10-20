@@ -13,6 +13,14 @@
 //
 // Fake 复用真实 RoomHandle + 真实 RelayV3Transport（MockClient 不联网）+
 // RoomHandle.testCreate 注入初始快照 —— 手动 pushSnapshot 模拟 WS 广播。
+//
+// ⚠ 本文件**禁用 null-aware 集合元素**（`?key: value` / `?value`）——
+//   SDK 自带 analyzer（flutter analyze）认得它，但 CI「Generate code」步骤
+//   的 build_runner 内置 analyzer 较旧，解析不了 → 报
+//   "Expected an identifier" → **APK 构建整条流水线红**（2026-10-20 实测）。
+//   故 map 里可空值一律用 `if (x != null) x: v` 写法，并 ignore 掉
+//   use_null_aware_elements 这条会误导人的 lint。
+// ignore_for_file: use_null_aware_elements
 
 import 'dart:async';
 
@@ -106,8 +114,8 @@ Snapshot makeSnap({
       'host_id': hostId,
       'guest_id': guestId,
       'players': <String, dynamic>{
-        ?hostId: '房主',
-        ?guestId: '访客',
+        if (hostId != null) hostId: '房主',
+        if (guestId != null) guestId: '访客',
       },
       if (ready != null) 'ready': ready,
       if (disconnected != null) 'disconnected': disconnected,

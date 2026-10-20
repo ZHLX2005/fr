@@ -60,6 +60,19 @@ references/   # 序列化命名（A03）：A=扩展SOP（动手扩展一个模�
 import: 任何不能立即完成的任务,请使用todolist相关的工具 先规划任务 然后再每个条目进行完成 禁止没有任何流程的进行代码控制
 
 1. 完成代码之后,优先执行在根目录执行  flutter analyze  | grep error  或者flutter build web --release发现错误  进行最低成本的检查编译报错
+1b. ⚠ **提交前必须跑 codegen 步骤**：`dart run build_runner build --delete-conflicting-outputs`
+   （= CI「Generate code」步骤的同款命令，~50s）。`flutter analyze` **查不出**这一类问题 ——
+   SDK 自带 analyzer 与 build_runner 内置 analyzer **版本不同**，后者更旧。
+   典型症状：新写的 Dart 语法本地 analyze 全绿，CI 却报
+   `SEVERE] json_serializable on xxx.dart: This builder requires Dart inputs without syntax errors`
+   → **"Expected an identifier"**，整条 APK 流水线红在 Generate code（~1m48s 就挂，
+   后面所有步骤全 skipped）。
+   已踩过的具体语法（2026-10-20）：**null-aware 集合元素** `?key: value` / `?value`
+   （Dart 3.8+ 特性）。SDK analyzer 认得、CI builder 的 analyzer 不认得。
+   → 本项目 map/list 里放可空值一律用 `if (x != null) x: v` 写法；
+   若非要用 null-aware 元素，必须加 `// ignore_for_file: use_null_aware_elements`
+   并**同时**确认 CI 的 Generate code 步骤是绿的。
+   （仓库现状：除该次误用外，`lib/` `test/` 全仓无 null-aware 元素用法。）
 2. 如果没有报错,每次完成一次commit都需要推送到github上,让github完成流水线构建apk(本地无 java 开发环境,所有 debug 通过 web 实现);你只能 add、commit 自己变更的文件,禁止使用 add . / commit .
 3. 提交前先 git status 逐条确认改动归属 —— 只提交本次任务产生的文件;并行开发时工作区可能混入他人未提交改动,误提交会把别人的在制品一并推上去
 4. 对于没有被编译导入的文件 因为文件的孤立无法及时报错,所有使用flutter analyze进行孤儿dart文件的分析,你完全不要执行flutter run指令,这是是一个安卓项目,不需要思考web和ios,如果修改了Android目录的内容 必须执行flutter build apk进行验证测试
@@ -102,3 +115,5 @@ native目录:
 1. 完成之后先检查编译是否成功
 2. 检查相关配置是否真正实现,尤其是安卓原生项目的权限配置 —— 每次添加新依赖,确认是否需要在安卓当前配置对应权限或通信通道
 3. 竭尽全力避免溢出问题
+4. ⚠ 提交前跑 `dart run build_runner build --delete-conflicting-outputs`（见上文 1b）——
+   这是 CI 流水线里唯一 `flutter analyze` 覆盖不到的失败点
