@@ -578,10 +578,15 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// tap 与拖动共用同一道门（回放中棋盘只读复盘）。
   ///
   /// v2 新增：lobby / ready 阶段棋盘为空，禁走子；自己掉线时禁走子。
+  ///
+  /// 叠加服务端权限表判定（A03 §3④）：本地引擎的回合判定与
+  /// `canPerform('MOVE')` 任一不满足都不允许落子 —— 服务端会拒绝的着法，
+  /// 客户端就不该给出可点的手感（静默拒绝 → 用户以为卡死）。
   bool get _canInteract =>
       !_replayMode &&
       !_isMeDisconnected &&
       _myTurn &&
+      _canPerform('MOVE') &&
       !_sendLock &&
       (_status == 'playing' || _status == 'check');
 
@@ -1768,7 +1773,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                     )
                   else
                     OutlinedButton(
-                      onPressed: canAck ? _ack : null,
+                      onPressed:
+                          canAck && _canPerform('ACK') ? _ack : null,
                       style: GameReadyCtaStyle.outlined(scheme),
                       child: const Text(
                         '准备好了',
@@ -2104,7 +2110,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                 title: _gameOverTitle(),
                 subtitle: _gameOverSubtitle(),
                 colors: colors,
-                isHost: _isHost,
+                canReset: _canPerform('RESET'),
                 onReset: _reset,
                 onLeave: _leaveAndPop,
                 // 复盘入口：棋谱非空才显示（立刻投降等零走法对局无回放内容）。
@@ -2183,8 +2189,9 @@ class _GameOverCard extends StatelessWidget {
   final String subtitle;
   final ChessColorStrategy colors;
 
-  /// 本地是否为房主 —— 仅房主可见"再来一局"（服务端 RESET 仅 host 可调）。
-  final bool isHost;
+  /// 我能否发 RESET —— 由服务端权限表（action_permissions）判定，
+  /// 仅 true 时可见"再来一局"（服务端 RESET 仅 host 可调）。
+  final bool canReset;
 
   /// 房主点击"再来一局" → 发 RESET action。
   final VoidCallback onReset;
@@ -2198,7 +2205,7 @@ class _GameOverCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.colors,
-    required this.isHost,
+    required this.canReset,
     required this.onReset,
     this.onReplay,
     required this.onLeave,
@@ -2226,8 +2233,8 @@ class _GameOverCard extends StatelessWidget {
             style: TextStyle(fontSize: 16, color: colors.coordinateLabel),
           ),
           const SizedBox(height: 20),
-          // 再来一局：仅房主可见（服务端 RESET 仅 host 可调）
-          if (isHost) ...[
+          // 再来一局：仅服务端权限表判定可发 RESET 时可见
+          if (canReset) ...[
             FilledButton.icon(
               onPressed: onReset,
               icon: const Icon(Icons.replay, size: 18),

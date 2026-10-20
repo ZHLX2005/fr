@@ -1226,7 +1226,13 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     for (final m in moves) {
       if (m.from == _selected && m.isCapture) captureTo.add(m.to);
     }
-    final replayIndex = _replayIndex.clamp(0, _replayStates.length - 1);
+    // ⚠ 回放索引 clamp **只能在回放态算**：_replayStates 在非回放态是空表，
+    //   `_replayStates.length - 1` = -1 → `clamp(0, -1)` 抛 ArgumentError
+    //   （会把整个 playing 态房页炸掉）。draughts 把 clamp 写在三元表达式里
+    //   才躲过这个坑，这里显式 gate 住。
+    final replaying = _replayMode && _replayStates.isNotEmpty;
+    final replayIndex =
+        replaying ? _replayIndex.clamp(0, _replayStates.length - 1) : 0;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -1239,15 +1245,21 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
             child: XiangqiBoard(
               // 回放中显示层整体切换到预计算局面；实况字段（_board/_history/
               // _lastFrom/_lastTo）不动 —— 退出回放即回实况（chess 同模式）。
-              state: _replayMode ? _replayStates[replayIndex] : _board,
+              state: replaying ? _replayStates[replayIndex] : _board,
               flipped: _myColor == XiangqiColor.black,
               selectedIndex: _selected,
               legalTargets: _targets,
               captureTargets: captureTo,
-              lastMoveFrom: _replayMode ? _replayPaths[replayIndex].$1 : _lastFrom,
-              lastMoveTo: _replayMode ? _replayPaths[replayIndex].$2 : _lastTo,
-              checkSquare: _replayMode ? null : _checkSquare,
-              interactive: _isMyTurn && !_sendLock && !_isMeDisconnected,
+              lastMoveFrom:
+                  replaying ? _replayPaths[replayIndex].$1 : _lastFrom,
+              lastMoveTo: replaying ? _replayPaths[replayIndex].$2 : _lastTo,
+              checkSquare: replaying ? null : _checkSquare,
+              // 叠加服务端权限表判定（A03 §3④）：服务端会拒绝的着法，
+              // 客户端就不该给出可点的手感。
+              interactive: _isMyTurn &&
+                  _canPerform('MOVE') &&
+                  !_sendLock &&
+                  !_isMeDisconnected,
               onTapPoint: _onTapPoint,
             ),
           ),

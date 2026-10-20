@@ -1225,7 +1225,12 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
             captureTargets: captureTo,
             mustCapturePieces: mustFrom,
             threatenedSquares: threatened,
-            interactive: _isMyTurn && !_sendLock && !_isMeDisconnected,
+            // 叠加服务端权限表判定（A03 §3④）：服务端会拒绝的着法，
+            // 客户端就不该给出可点的手感。
+            interactive: _isMyTurn &&
+                _canPerform('MOVE') &&
+                !_sendLock &&
+                !_isMeDisconnected,
             onTapSquare: _onTapSquare,
           ),
         ),
