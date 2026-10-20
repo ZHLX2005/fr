@@ -5,12 +5,14 @@
 // 用户从「布局」sheet 复制当前为新自定义，做个人编排；自定义无数量上限。
 //
 // 与「键盘布局」/「触控屏布局」等命名保持口语（用户记忆点 = 用途，
-// 不是几何）。每个预设只定义模块锚点（含宽高 + 显隐），按钮位留空
-// ——首跑按候选槽自动找位（与「游戏布局」玩第一次的体验一致）。
+// 不是几何）。预设只定义模块锚点（含宽高 + 显隐）；按钮位默认留空——
+// 首跑按候选槽自动找位。例外：游戏布局预排手柄按钮簇（4 颗主键菱形 +
+// 四角次键 + 中心 Start 位），为后期接入虚拟手柄预留 ABXY 区形态。
 
 import 'rt_prefs.dart'
     show
         RtCanvasAnchor,
+        RtCanvasButtonPos,
         RtCanvasLayout,
         RtCanvasLayouts,
         RtCanvasNamedLayout,
@@ -49,7 +51,10 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
           },
         ),
       ),
-      // 2. 游戏：触摸板主占、输入框隐藏、按钮全开。
+      // 2. 游戏：完全手柄形态——左侧触摸板 = 摇杆区，右侧按钮簇 = 手柄
+      //    按键区（菱形主键 + 四角次键 + 中心），输入框隐藏。后期接入
+      //    虚拟手柄时按钮簇即 ABXY 区，直接就位。前 9 条默认快捷键预排
+      //    就座；更多 / 自定义快捷键仍走候选槽自动找位。
       RtCanvasNamedLayout(
         id: kRtCanvasPresetGame,
         name: '游戏布局',
@@ -58,10 +63,10 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
           modules: {
             'touchpad': RtCanvasAnchor(
               visible: true,
-              x: 0.30,
-              y: 0.55,
-              w: 0.55,
-              h: 0.85,
+              x: 0.26,
+              y: 0.50,
+              w: 0.46,
+              h: 0.90,
             ),
             'input': RtCanvasAnchor(
               visible: false,
@@ -70,6 +75,20 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
               w: kRtCanvasInputDefW,
               h: kRtCanvasInputDefH,
             ),
+          },
+          buttons: {
+            // 菱形主键（上/右/下/左，倍率 0.9 大键）
+            'default_0': RtCanvasButtonPos(x: 0.79, y: 0.36, s: 0.9),
+            'default_1': RtCanvasButtonPos(x: 0.92, y: 0.54, s: 0.9),
+            'default_2': RtCanvasButtonPos(x: 0.79, y: 0.72, s: 0.9),
+            'default_3': RtCanvasButtonPos(x: 0.66, y: 0.54, s: 0.9),
+            // 四角次键（倍率 0.8）
+            'default_4': RtCanvasButtonPos(x: 0.66, y: 0.36, s: 0.8),
+            'default_5': RtCanvasButtonPos(x: 0.92, y: 0.36, s: 0.8),
+            'default_6': RtCanvasButtonPos(x: 0.66, y: 0.72, s: 0.8),
+            'default_7': RtCanvasButtonPos(x: 0.92, y: 0.72, s: 0.8),
+            // 中心（Start 位）
+            'default_8': RtCanvasButtonPos(x: 0.79, y: 0.54, s: 0.8),
           },
         ),
       ),

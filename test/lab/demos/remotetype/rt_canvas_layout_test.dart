@@ -385,6 +385,31 @@ void main() {
             reason: '${p.id} 缺 input');
       }
     });
+
+    test('游戏布局 = 手柄形态：左摇杆区 + 右侧按钮簇菱形主键，输入框隐藏', () {
+      final game = kRtCanvasBuiltinPresets
+          .firstWhere((p) => p.id == kRtCanvasPresetGame);
+      // 触摸板占左半（摇杆区），输入框隐藏
+      final pad = game.data.modules[kRtCanvasModuleTouchpad]!;
+      expect(pad.x, lessThan(0.35), reason: '触摸板应靠左（摇杆区）');
+      expect(game.data.modules[kRtCanvasModuleInput]!.visible, isFalse);
+      // 前 4 条默认快捷键落菱形主键位（上/右/下/左），四角与中心就座
+      const diamond = ['default_0', 'default_1', 'default_2', 'default_3'];
+      for (final id in diamond) {
+        expect(game.data.buttons.containsKey(id), isTrue, reason: id);
+      }
+      // 主键/四角/中心 9 个预排位互不重叠（同倍率下中心距 ≥ 按钮 X 间距）
+      final centers =
+          game.data.buttons.values.map((p) => Offset(p.x, p.y)).toList();
+      for (var i = 0; i < centers.length; i++) {
+        for (var j = i + 1; j < centers.length; j++) {
+          expect((centers[i] - centers[j]).distance, greaterThanOrEqualTo(0.13),
+              reason: '预排位 $i/$j 过近');
+        }
+      }
+      // 默认快捷键共 10 条：第 10 条未预排，走候选槽自动找位
+      expect(game.data.buttons.length, 9);
+    });
   });
 
   group('RtPrefs 画布布局持久化', () {
