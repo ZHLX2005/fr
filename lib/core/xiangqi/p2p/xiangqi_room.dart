@@ -188,6 +188,59 @@ class XiangqiRoom {
     };
   }
 
+  /// 服务端权威的 action 权限表（action → 规则词）。
+  ///
+  /// 表由 Lua `on_init` 的 `c.action_permissions` 维护（服务端权威），
+  /// 客户端只读不改 —— 见 relay-lua-state-machine skill 的 A03 ref。
+  static Map<String, String> actionPermissions(Snapshot? s) {
+    final raw = s?.context['action_permissions'];
+    if (raw is! Map) return const {};
+    return {
+      for (final e in raw.entries) e.key.toString(): e.value.toString(),
+    };
+  }
+
+  /// 我能不能发这个 action？读服务端 action_permissions + 角色判定。
+  ///
+  /// current_player 由「先手方 + 手数奇偶」推（与 Lua `side_to_move` 同源）：
+  ///   n 偶数 → 轮先手方；n 奇数 → 轮后手方。
+  /// 先手方 = host_color == initial_side 的一方 —— host 未必先手
+  /// （host 执黑 / 黑先残局），故不能硬编码「n 偶 → 轮 host」。
+  ///
+  /// UI 的按钮 enable / 显示**全走本方法**，零特判代码（对齐 gomoku / reversi /
+  /// jungle / chess 的同款 helper）。
+  static bool canPerform(
+    String action,
+    Snapshot? snap, {
+    required bool isHost,
+  }) {
+    final rule = actionPermissions(snap)[action];
+    if (rule == null || rule == 'any') return true;
+    if (rule == 'host') return isHost;
+    if (rule == 'current_player' || rule == 'non_current_player') {
+      final n = (snap?.context['moves'] is List)
+          ? (snap!.context['moves'] as List).length
+          : 0;
+      final hostIsFirst = hostColor(snap) == initialSide(snap);
+      final iAmFirst = isHost == hostIsFirst;
+      final isMyTurn = (n.isEven == iAmFirst);
+      return rule == 'current_player' ? isMyTurn : !isMyTurn;
+    }
+    return false;
+  }
+
+  /// 我是 host / guest 的便捷判别（带 null 兜底：未收到快照 / 身份尚未判定
+  /// 时回退 false，UI 应另行处理「无角色」态）。
+  static bool isHost(Snapshot? s, String myId) {
+    final hid = hostId(s);
+    return hid != null && hid.isNotEmpty && hid == myId;
+  }
+
+  static bool isGuest(Snapshot? s, String myId) {
+    final gid = guestId(s);
+    return gid != null && gid.isNotEmpty && gid == myId;
+  }
+
   static String? status(Snapshot? s) => s?.context['status']?.toString();
 
   static String? winner(Snapshot? s) => s?.context['winner']?.toString();

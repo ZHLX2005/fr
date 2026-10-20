@@ -1,4 +1,4 @@
-// lib/core/chess/p2p/chess_room_page.dart
+﻿// lib/core/chess/p2p/chess_room_page.dart
 //
 // P2P 在线对弈页 —— 快照驱动的国际象棋房间（net_p2p v3 Relay + kChessScript）。
 //
@@ -129,6 +129,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 本地是否为房主（host）—— 终局后"再来一局"按钮仅 host 可见。
   bool _isHost = false;
+
+  /// 我能不能发这个 action？
+  ///
+  /// 权限表来自服务端（Lua `c.action_permissions`）—— 客户端按钮的可点性
+  /// **一律走这里**，零特判代码（对齐 gomoku / reversi / jungle / draughts /
+  /// xiangqi 的同款 helper，见 relay-lua-state-machine skill 的 A03 ref）。
+  bool _canPerform(String action) =>
+      ChessRoom.canPerform(action, _snapshot, isHost: _isHost);
 
   /// 当前选中格（1D index）。
   int? _selectedSquare;
@@ -824,7 +832,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// host 点"开始游戏"（DEAL）—— 把 ready 推 playing。
   /// START 是 DEAL 的别名（向后兼容），这里优先 DEAL。
   Future<void> _deal() async {
-    if (_dealLock || !_isHost) return;
+    if (_dealLock || !_canPerform('DEAL')) return;
     setState(() => _dealLock = true);
     try {
       await _room?.deal();
@@ -843,7 +851,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 房主改规则（SET_RULES）—— 清 ready 回 lobby。
   Future<void> _applyRules(ChessRoomConfig cfg) async {
-    if (_setRulesLock || !_isHost) return;
+    if (_setRulesLock || !_canPerform('SET_RULES')) return;
     final snap = _snapshot;
     final sameColor = cfg.hostColor != 'random' &&
         cfg.hostColor == ChessRoom.hostColor(snap);
@@ -873,7 +881,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 打开对局回放库（已保存整局列表 → 离线回放页，快照列表选步开始）。
   /// 房主选残局 → SET_RULES(initial_fen)。
   Future<void> _pickEndgame() async {
-    if (!_isHost || _setRulesLock) return;
+    if (!_canPerform('SET_RULES') || _setRulesLock) return;
     final skin = widget.localSkin ?? ChessSkinBundle.byId(widget.skinId);
     final snap = await Navigator.of(context).push<ChessEndgameSnapshot>(
       MaterialPageRoute(
@@ -909,7 +917,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 房主清除残局 → 标准开局。
   Future<void> _clearEndgameRules() async {
-    if (!_isHost || _setRulesLock) return;
+    if (!_canPerform('SET_RULES') || _setRulesLock) return;
     setState(() {
       _setRulesLock = true;
       _ackedLocally = false;
@@ -1642,7 +1650,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final bothReady = phase == 'ready';
     final iAmReady =
         bothReady || _ackedLocally || readyMap[myId] == true;
-    final canDeal = bothReady && _isHost;
+    final canDeal = bothReady && _canPerform('DEAL');
     final canAck = !bothReady && players.length >= 2;
 
     return SafeArea(
@@ -1671,16 +1679,17 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
                 // 房间规则：host 可改；guest 只读。改规则会清 ready。
                 ChessRoomRulesPanel(
-                  editable: _isHost && !_setRulesLock,
+                  editable: _canPerform('SET_RULES') && !_setRulesLock,
                   hostColor: ChessRoom.hostColor(snap),
                   firstMover: ChessRoom.initialSide(snap),
                   isEndgame: ChessRoom.isEndgameRoom(snap) ||
                       widget.initialEndgame != null,
                   endgameLabel: ChessRoom.endgameLabel(snap) ??
                       widget.initialEndgame?.label,
-                  onChanged: _isHost ? _applyRules : null,
-                  onPickEndgame: _isHost ? _pickEndgame : null,
-                  onClearEndgame: _isHost ? _clearEndgameRules : null,
+                  onChanged: _canPerform('SET_RULES') ? _applyRules : null,
+                  onPickEndgame: _canPerform('SET_RULES') ? _pickEndgame : null,
+                  onClearEndgame:
+                      _canPerform('SET_RULES') ? _clearEndgameRules : null,
                 ),
                 const SizedBox(height: 12),
 

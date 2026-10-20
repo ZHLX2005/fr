@@ -220,6 +220,23 @@ Snapshot makeSnapshot({
       'undo_offers': undoOffers,
       'status': status,
       if (winner != null) 'winner': winner,
+      // 服务端权威的 action 权限表（与 Lua on_init 的 c.action_permissions
+      // 同表）—— 客户端按钮可点性走 ChessRoom.canPerform，必须带上。
+      'action_permissions': <String, String>{
+        'ACK': 'any',
+        'DEAL': 'host',
+        'SET_RULES': 'host',
+        'MOVE': 'current_player',
+        'RESIGN': 'any',
+        'DRAW_OFFER': 'any',
+        'DRAW_ACCEPT': 'any',
+        'DRAW_DECLINE': 'any',
+        'UNDO_OFFER': 'any',
+        'UNDO_ACCEPT': 'any',
+        'UNDO_DECLINE': 'any',
+        'CLAIM_END': 'non_current_player',
+        'RESET': 'host',
+      },
     },
     state: state,
     version: 1,
