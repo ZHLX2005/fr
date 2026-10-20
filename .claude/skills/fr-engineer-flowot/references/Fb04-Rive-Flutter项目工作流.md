@@ -1,0 +1,191 @@
+# Flutter Rive Demo Workflow — 项目 lab 模块添加 Rive demo 流程
+
+> 何时读：要在本项目（xiaodouzi/fr）`lib/lab/demos/` 下加一个 Rive 动画 demo，按标准流程注册到 lab 模块时。
+>
+> 本文档原为独立 `flutter-rive-workflow` skill，合并入 rive 后归档在此。本 ref 是 "流程规范"，与 [[Fb03-Rive-Flutter-0.14-DataBind]] 的 "0.14.x API 写法" 配合使用 —— 前者管目录结构和注册，后者管代码细节。
+
+---
+
+## Overview
+
+Standard process for adding Rive animation demos to this project's lab/demo page architecture.
+
+## When to Use
+- Adding a new Rive animation demo page
+- Loading a .riv file in this Flutter project
+- Registering Rive demos in the lab module
+
+## Core Pattern
+
+### Step 1: Asset Placement
+
+Place .riv file in `assets/rive/<animation-name>/` directory:
+```
+assets/rive/pendulum/pendulum.riv
+```
+
+### Step 2: Register Asset in pubspec.yaml
+
+**Critical:** For directory assets, include trailing slash:
+```yaml
+assets:
+  - assets/rive/smiley_stress_reliever.riv  # single file
+  - assets/rive/pendulum/                    # directory with trailing slash
+```
+
+### Step 3: Create Demo Page
+
+Create `lib/lab/demos/rive_<name>_demo.dart`:
+```dart
+import 'package:flutter/material.dart';
+import 'package:rive/rive.dart' as rive;
+import '../lab_container.dart';
+
+class RiveNameDemo extends DemoPage {
+  @override
+  String get title => 'Rive Name';
+
+  @override
+  String get description => 'Description here';
+
+  @override
+  Widget buildPage(BuildContext context) {
+    return const _RiveNamePage();
+  }
+}
+
+class _RiveNamePage extends StatefulWidget {
+  const _RiveNamePage();
+
+  @override
+  State<_RiveNamePage> createState() => _RiveNamePageState();
+}
+
+class _RiveNamePageState extends State<_RiveNamePage> {
+  late final rive.FileLoader _fileLoader = rive.FileLoader.fromAsset(
+    'assets/rive/<name>/<name>.riv',
+    riveFactory: rive.Factory.rive,
+  );
+
+  @override
+  void dispose() {
+    _fileLoader.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              theme.colorScheme.primary.withValues(alpha: 0.08),
+              theme.colorScheme.surface,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.headlineSmall),
+                Text(description, style: theme.textTheme.bodyMedium),
+                Expanded(
+                  child: rive.RiveWidgetBuilder(
+                    fileLoader: _fileLoader,
+                    builder: (context, state) => switch (state) {
+                      rive.RiveLoading() => const Center(child: CircularProgressIndicator()),
+                      rive.RiveFailed() => _RiveErrorView(error: state.error.toString()),
+                      rive.RiveLoaded() => rive.RiveWidget(
+                          controller: state.controller,
+                          fit: rive.Fit.contain,
+                        ),
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RiveErrorView extends StatelessWidget {
+  final String error;
+  const _RiveErrorView({required this.error});
+  // ... error widget implementation
+}
+
+void registerRiveNameDemo() {
+  demoRegistry.register(RiveNameDemo());
+}
+```
+
+### Step 4: Register in lab_bootstrap.dart
+
+```dart
+import 'demos/rive_<name>_demo.dart';  // Add import
+
+// In registerAllDemos():
+registerRiveNameDemo();  // Add registration call
+```
+
+## Quick Reference
+
+| Task | File | Key Point |
+|------|------|-----------|
+| Add asset | pubspec.yaml | Use trailing slash for directories |
+| Load asset | FileLoader.fromAsset() | Path from assets root: `assets/rive/xxx/xxx.riv` |
+| Display | RiveWidgetBuilder + RiveWidget | Handle Loading/Failed/Loaded states |
+| Register | lab_bootstrap.dart | Add import + call register function |
+
+## Rive 统一 Demo（多场景合并）
+
+当一个技术主题有 ≥ 3 个 demo 且主题相近（如 Rive 摆钟 / 数据绑定 / 实验室），推荐**合并为统一 Tab 容器**而不是分散为多个单文件：
+
+```
+lib/lab/demos/rive_demo/                    # 统一 demo 目录
+├── rive_demo.dart                          # 入口 DemoPage + TabBar 容器
+├── const_rive.dart                         # 共享常量
+├── rive_pendulum_view.dart                 # 子页 1
+├── rive_data_bind_view.dart                # 子页 2
+├── rive_lab_view.dart                      # 子页 3
+└── rive_error_view.dart                    # 共享错误视图
+```
+
+- 入口 DemoPage 用 `TabBarView` + `RiveDemoTab` enum 切换子页
+- 共享常量（asset 路径、tab key、动画参数）统一到 `const_rive.dart`
+- 共享 widget（错误视图、状态 chip）提到目录根
+- 旧 demo 文件删除，slug 通过 `demoRegistry.register(demo, key: alias)` 保留为别名
+
+详细方案 + 别名机制 + 踩坑见 A 序列 [[A06-Demo-Slug别名与Tab合并]] ref（单目录 references/）。
+
+## Common Mistakes
+
+| Mistake | Fix |
+|---------|-----|
+| Forgot to add asset path in pubspec.yaml | Add `assets/rive/<name>/` with trailing slash |
+| Wrong asset path in FileLoader | Path starts from `assets/`, e.g., `assets/rive/pendulum/pendulum.riv` |
+| Forgot to register demo | Both import AND registration call needed |
+| Asset path typo | Verify file exists at `assets/rive/<name>/<name>.riv` |
+
+## Verification
+
+After implementation:
+1. Run `flutter analyze lib/lab/demos/rive_<name>_demo.dart`
+2. Commit and push to trigger GitHub pipeline
+3. Verify asset loads correctly in app
+
+## 相关 ref
+
+- 0.14.x API 写法、DataBind 双向绑定、ViewModel 用法 → [[Fb03-Rive-Flutter-0.14-DataBind]]
+- 通用 Rive 平台（Luau/React/状态机 API）→ Fb01-Rive路由 主文档
+- lab demo 工程规范 → `fr-engineer-flowot`（`workflow` 子域）
