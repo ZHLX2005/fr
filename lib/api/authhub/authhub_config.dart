@@ -77,6 +77,13 @@ class AuthHubConfig {
   /// 扫码登录端点前缀。
   static const String qrBasePath = '/api/qr/sessions';
 
+  /// 二维码图片解码端点（服务端解码，客户端零原生依赖）。
+  ///
+  /// 手机拍一张电脑上的登录码 → 传上来 → 服务端解出内容。
+  /// 这样原生 App 就不必内置 ML Kit 条码引擎（libbarhopper_v3.so 4.2MB +
+  /// .tflite 模型 0.8MB），APK 净省约 5MB。
+  static const String qrDecodePath = '/api/qr/decode';
+
   /// 手机确认页路径（扫码得到的就是这个 URL，App 要能从里面解析出 ticket）。
   static const String qrScanPath = '/scan';
 

@@ -1,4 +1,4 @@
-name: xiaodouzi_fr
+﻿name: xiaodouzi_fr
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -68,7 +68,6 @@ dependencies:
 
   # QR 扫码（统一登录的手机端批准：扫 PC 上那张码）
   # 7.x 要求 minSdk 21（Flutter 默认值即满足）；相机权限 AndroidManifest 里已声明。
-  mobile_scanner: ^5.2.1
 
   # Date Formatting
   intl: ^0.20.1

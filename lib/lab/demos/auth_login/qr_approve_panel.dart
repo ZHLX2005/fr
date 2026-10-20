@@ -1,8 +1,9 @@
-import 'dart:async';
+﻿import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../api/authhub/authhub_config.dart';
 import '../../../api/authhub/authhub_exception.dart';
@@ -10,7 +11,15 @@ import '../../../api/authhub/authhub_models.dart';
 import '../../../api/providers/api_providers.dart';
 import 'const_auth_login.dart';
 
-/// 扫码批准面板：相机扫 PC 上的二维码 → 展示对方设备画像 → 确认 / 拒绝。
+/// 扫码批准面板：拍下电脑上的二维码 → 服务端解码 → 展示对方设备画像 → 确认 / 拒绝。
+///
+/// ── 为什么是"拍照上传"而不是"相机实时预览" ──────────────────────────────
+/// 实时预览要在客户端解二维码，那意味着背上 ML Kit 条码引擎
+/// （libbarhopper_v3.so 4.2MB + 0.8MB .tflite 模型）—— 为了读一张
+/// **电脑屏幕上的**登录码，APK 平白多 5MB。
+/// 改成"拍一张照传上去、服务端解码"后，这 5MB 整块消失；
+/// 代价只是从"对准即扫"变成"对准 + 按一下快门"（image_picker 已经
+/// 在项目里，不额外增加原生体积）。
 ///
 /// ── 为什么"确认"按钮可能压根不出现 ──────────────────────────────────────
 ///
@@ -18,12 +27,6 @@ import 'const_auth_login.dart';
 /// 对不对，靠的只有服务端算出来的那份设备画像（浏览器·系统 / IP / 来源 / 时间）。
 /// 所以画像取不到或全空时，这里**只报错、不给按钮** ——
 /// 让人对着一片空白点"确认登录"，是把安全决策退化成了手滑。
-///
-/// ── 为什么要做扫码去重 ──────────────────────────────────────────────────
-///
-/// 相机对同一张码会以每秒几十帧的频率回调。不去重的话一次对准会打出
-/// 几十个 preview 请求 —— 那既是对认证中心的自我攻击，也会让界面在
-/// "加载中/已加载"之间高频闪烁。
 class QrApprovePanel extends ConsumerStatefulWidget {
   const QrApprovePanel({super.key});
 
@@ -32,12 +35,7 @@ class QrApprovePanel extends ConsumerStatefulWidget {
 }
 
 class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
-  final MobileScannerController _camera = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
-    // 只解 QR：相机同时盯着多种码制时，误识别一张别人的二维码
-    // （网址、WiFi 配置、商品条码）就会去调扫码接口并报出看不懂的错。
-    formats: const [BarcodeFormat.qrCode],
-  );
+  final ImagePicker _picker = ImagePicker();
 
   String? _ticket;
   QrPreview? _preview;
@@ -45,35 +43,64 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
   bool _busy = false;
   bool _done = false;
 
-  /// 最近一次处理的 ticket 与时刻，用于去重
-  String? _lastTicket;
-  DateTime? _lastAt;
-
   @override
   void dispose() {
-    _camera.dispose();
     super.dispose();
   }
 
-  Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_busy || _done) return;
-    final raw = capture.barcodes
-        .map((b) => b.rawValue ?? '')
-        .firstWhere((s) => s.isNotEmpty, orElse: () => '');
-    if (raw.isEmpty) return;
+  /// 拍照 → 上传 → 服务端解码 → 解析 ticket。
+  ///
+  /// 解码失败与"拍到的不是登录码"是两种不同的错，给用户的提示必须分开：
+  /// 前者让人重拍，后者让人去刷新电脑上的码 —— 混成一句"扫不出来"，
+  /// 用户只能反复重拍。
+  Future<void> _pickAndDecode() async {
+    if (_busy) return;
+    final XFile? shot;
+    try {
+      shot = await _picker.pickImage(
+        source: ImageSource.camera,
+        // 压到 1600px 宽：足够服务端识别，又不至于把 8MB 上限顶满。
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 88,
+      );
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '无法打开相机：$e');
+      return;
+    }
+    if (shot == null) return; // 用户取消
 
-    final ticket = AuthHubConfig.parseTicketFromScan(raw);
-    if (ticket == null) return; // 扫到的不是登录码，继续等
-
-    final now = DateTime.now();
-    final repeated = ticket == _lastTicket &&
-        _lastAt != null &&
-        now.difference(_lastAt!) < AuthLoginConst.scanDedupeWindow;
-    if (repeated) return;
-    _lastTicket = ticket;
-    _lastAt = now;
-
-    await _load(ticket);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final Uint8List bytes = await shot.readAsBytes();
+      final raw =
+          await ref.read(authHubQrEndpointProvider).decodeImage(bytes);
+      final ticket = AuthHubConfig.parseTicketFromScan(raw);
+      if (ticket == null) {
+        throw const AuthHubException(
+          error: 'not_login_qr',
+          message: '这张图里不是登录二维码，请对准电脑上显示的那一张。',
+        );
+      }
+      if (!mounted) return;
+      await _load(ticket);
+    } on AuthHubException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _busy = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '识别失败：$e';
+        _busy = false;
+      });
+    }
   }
 
   Future<void> _load(String ticket) async {
@@ -159,8 +186,6 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
       _preview = null;
       _error = null;
       _done = false;
-      _lastTicket = null;
-      _lastAt = null;
     });
   }
 
@@ -183,27 +208,45 @@ class _QrApprovePanelState extends ConsumerState<QrApprovePanel> {
     return Column(
       children: [
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: MobileScanner(
-              controller: _camera,
-              onDetect: _onDetect,
-              errorBuilder: (context, error, child) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    '相机不可用：${error.errorCode.name}\n'
-                    '请检查相机权限，或在「本机自测」页不依赖相机跑完整流程。',
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.qr_code_scanner_rounded,
+                      size: 56, color: scheme.primary),
+                  const SizedBox(height: 16),
+                  Text(
+                    '拍下电脑上显示的登录二维码',
+                    style: Theme.of(context).textTheme.titleMedium,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: scheme.error),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '照片只用于识别这张二维码，会立刻上传到认证中心解码，'
+                    '不会保存在手机上。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _pickAndDecode,
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.photo_camera_outlined, size: 18),
+                    label: const Text('拍照识别二维码'),
+                  ),
+                ],
               ),
             ),
           ),
         ),
         const SizedBox(height: 12),
-        Text('把相机对准电脑上显示的登录二维码', style: Theme.of(context).textTheme.bodyMedium),
         if (_error != null) ...[
           const SizedBox(height: 8),
           Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error)),
