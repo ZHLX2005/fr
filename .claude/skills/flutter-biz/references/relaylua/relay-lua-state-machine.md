@@ -118,6 +118,41 @@ end
 type:"action_X" ❌      →  on_action_action_X（不存在，422）
 ```
 
+### ⚠️ `p.device_id` 从哪来 —— 服务端**不注入**，必须客户端自己带
+
+**契约（2026-10-20 真实 relay e2e 实测定案）**：
+
+- 服务端把 action 的 `params` **原样透传**给 Lua handler，**不会**把请求里的
+  `source_device_id` 自动塞进 `params`。
+- 因此 Lua 里的 `p.device_id` **来自 `params.device_id`** ——
+  由客户端 `RoomHandle.applyAction` 负责注入：
+
+  ```dart
+  final injected = <String, dynamic>{
+    'device_id': did,          // ← 客户端注入
+    ...params,                 // 调用方参数可覆盖
+  };
+  ```
+
+- **失败模式极其隐蔽**：如果 action 的 `params` 里没有 `device_id`，
+  Lua 里 `c.ready[p.device_id] = true` 会因为 **table index is nil** 抛错 →
+  服务端**照常返回 HTTP 200**，但**快照原封不动** → 表现为「点了没反应」。
+  更糟的是 `c.players[p.device_id]` 读 nil 不报错，直接 `return c` 静默跳过，
+  整个准备门永远打不开。
+
+- **写线下 e2e 探针（Python / curl）时必须手动补**：
+
+  ```python
+  json={"type": "ACK",
+        "params": {"device_id": device, **params},   # ← 关键
+        "source_device_id": device}
+  ```
+
+  漏了它 → 所有带 `p.device_id` 的 handler 静默失效，
+  而 HTTP 状态码全是 200（极具误导性）。
+
+  参见 `.tool/xiangqi-e2e-probe/probe_xiangqi.py`（24 项全绿的真机探针）。
+
 ### 示例：完整业务（扑克游戏）
 
 ```lua
@@ -305,6 +340,7 @@ await handle.applyAction(
 | 7 | Flutter 在 lobby`dispose()` 里 `handle.dispose()`              | 聊天页发消息时`_snapshotsCtrl` 已关 → `Bad state` | lobby 释放权，handle 转移给 caller                 |
 | 8 | JSON 数字解析`as int?` 直接 cast                                 | `double` 返回 null                                   | 用`int.tryParse()` / `(v as num).toInt()` 兼容 |
 | 9 | 用`subscribe(topic)` + 合并流还原状态                            | 顺序错乱、晚加入丢消息                                 | 直接`handle.snapshots.listen` 全量替换           |
+| 10 | action 的 `params` 里没带 `device_id`                        | **HTTP 200 但快照不变** —— 带 `p.device_id` 的 handler 静默失效 | 客户端 `RoomHandle.applyAction` 已注入；线下探针要手动补（见 §4） |
 
 ---
 
