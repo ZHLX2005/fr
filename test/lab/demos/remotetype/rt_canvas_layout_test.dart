@@ -6,6 +6,8 @@
 //   - RtCanvasButtonPos（中心 + 倍率 + 显隐）往返 / 旧形状（只有 x/y）兼容
 //   - RtCanvasNamedLayout / RtCanvasLayouts（多套 + 激活）往返 / 非法
 //     activeId 兜底 / 坏条目只丢自己 / 坏 JSON 整表兜底 / nextCustomId
+//   - 布局隔离：改 A 不动 B、切回 A 修改仍在 / withRenamed 只改名
+//   - rtBuiltinPresetOf 出厂查找 / rtEnsureBuiltinPresets 内置补齐（迁移用户）
 //   - kRtCanvasBuiltinPresets 4 套内置 id/builtIn/name 一致性
 //   - RtPrefs 旧 `rt_canvas_layout_v1` → 新 `rt_canvas_layouts_v1` 迁移
 //
@@ -214,6 +216,145 @@ void main() {
         activeId: 'custom-3',
       );
       expect(base.nextCustomId(), 'custom-1');
+    });
+  });
+
+  group('布局隔离（每套配置互不串）', () {
+    const layoutA = RtCanvasNamedLayout(
+      id: 'a',
+      name: 'A',
+      builtIn: true,
+      data: RtCanvasLayout(
+        modules: {
+          'touchpad': RtCanvasAnchor(visible: true, x: 0.2, y: 0.2, w: 0.5, h: 0.5),
+        },
+        buttons: {'k0': RtCanvasButtonPos(x: 0.7, y: 0.3, s: 1.0)},
+      ),
+    );
+    const layoutB = RtCanvasNamedLayout(
+      id: 'b',
+      name: 'B',
+      builtIn: true,
+      data: RtCanvasLayout(
+        modules: {
+          'touchpad': RtCanvasAnchor(visible: true, x: 0.8, y: 0.8, w: 0.6, h: 0.6),
+        },
+        buttons: {'k0': RtCanvasButtonPos(x: 0.3, y: 0.7, s: 1.4)},
+      ),
+    );
+
+    test('改 A 后切 B：B 原样；切回 A：修改仍在（模块与按钮都隔离）', () {
+      var layouts = const RtCanvasLayouts(list: [layoutA, layoutB], activeId: 'a');
+      // 在 A 里大改：触摸板挪走藏起、按钮挪位放大
+      layouts = layouts.withUpdatedActive(const RtCanvasLayout(
+        modules: {
+          'touchpad': RtCanvasAnchor(visible: false, x: 0.1, y: 0.1, w: 0.3, h: 0.3),
+        },
+        buttons: {'k0': RtCanvasButtonPos(x: 0.9, y: 0.9, s: 2.0)},
+      ));
+      layouts = layouts.withActive('b');
+      expect(layouts.activeData.modules['touchpad']!.x, 0.8);
+      expect(layouts.activeData.modules['touchpad']!.visible, isTrue);
+      expect(layouts.activeData.buttons['k0']!.x, 0.3);
+      expect(layouts.activeData.buttons['k0']!.s, 1.4);
+      layouts = layouts.withActive('a');
+      expect(layouts.activeData.modules['touchpad']!.visible, isFalse);
+      expect(layouts.activeData.modules['touchpad']!.x, 0.1);
+      expect(layouts.activeData.buttons['k0']!.x, 0.9);
+      expect(layouts.activeData.buttons['k0']!.s, 2.0);
+    });
+
+    test('withRenamed 只改名字，数据与激活不变；id 不存在原样返回', () {
+      var layouts = const RtCanvasLayouts(list: [layoutA, layoutB], activeId: 'b');
+      final renamed = layouts.withRenamed('a', '我的棋局');
+      expect(renamed.list.first.name, '我的棋局');
+      expect(renamed.list.first.data.modules['touchpad']!.x, 0.2);
+      expect(renamed.activeId, 'b');
+      expect(renamed.list[1].name, 'B');
+      // 未知 id：返回同一内容（不新建实例）
+      expect(identical(layouts.withRenamed('zz', 'x'), layouts), isTrue);
+    });
+  });
+
+  group('rtBuiltinPresetOf / rtEnsureBuiltinPresets', () {
+    test('四套内置都能查到出厂条目；自定义 / 未知 id 返回 null', () {
+      for (final id in [
+        kRtCanvasPresetDefault,
+        kRtCanvasPresetGame,
+        kRtCanvasPresetKeyboard,
+        kRtCanvasPresetTouchpad,
+      ]) {
+        final p = rtBuiltinPresetOf(id);
+        expect(p, isNotNull, reason: id);
+        expect(p!.builtIn, isTrue);
+      }
+      expect(rtBuiltinPresetOf('custom-1'), isNull);
+      expect(rtBuiltinPresetOf('nope'), isNull);
+    });
+
+    test('恢复出厂：copyWith(data: factory.data) 后与出厂数据一致，他布局不动', () {
+      // 模拟用户把「默认布局」改得面目全非后恢复出厂
+      final edited = RtCanvasNamedLayout(
+        id: kRtCanvasPresetDefault,
+        name: '默认布局',
+        builtIn: true,
+        data: const RtCanvasLayout(
+          modules: {
+            'touchpad': RtCanvasAnchor(visible: false, x: 0.9, y: 0.9, w: 0.2, h: 0.2),
+          },
+        ),
+      );
+      final factory = rtBuiltinPresetOf(kRtCanvasPresetDefault)!;
+      final restored = edited.copyWith(data: factory.data);
+      expect(restored.data.modules['touchpad']!.visible, isTrue);
+      expect(restored.data.modules['touchpad']!.x,
+          factory.data.modules['touchpad']!.x);
+      // 原条目不可变更新：edited 本身不被改动
+      expect(edited.data.modules['touchpad']!.visible, isFalse);
+    });
+
+    test('rtEnsureBuiltinPresets：迁移单条导入布局 → 补 4 内置在前、自定义在后', () {
+      const imported = RtCanvasNamedLayout(
+        id: 'imported',
+        name: '导入布局',
+        builtIn: false,
+        data: RtCanvasLayout(),
+      );
+      const layouts = RtCanvasLayouts(list: [imported], activeId: 'imported');
+      final ensured = rtEnsureBuiltinPresets(layouts);
+      expect(ensured.list.length, 5);
+      expect(
+        ensured.list.take(4).map((p) => p.id),
+        [
+          kRtCanvasPresetDefault,
+          kRtCanvasPresetGame,
+          kRtCanvasPresetKeyboard,
+          kRtCanvasPresetTouchpad,
+        ],
+      );
+      expect(ensured.list.last.id, 'imported');
+      expect(ensured.activeId, 'imported');
+    });
+
+    test('rtEnsureBuiltinPresets：已齐全同序 → 原样返回（不产生新实例）', () {
+      const layouts = RtCanvasLayouts(
+        list: [...kRtCanvasBuiltinPresets],
+        activeId: kRtCanvasPresetGame,
+      );
+      expect(identical(rtEnsureBuiltinPresets(layouts), layouts), isTrue);
+    });
+
+    test('rtEnsureBuiltinPresets：activeId 不在表内 → 兜底默认', () {
+      const imported = RtCanvasNamedLayout(
+        id: 'imported',
+        name: '导入布局',
+        builtIn: false,
+        data: RtCanvasLayout(),
+      );
+      // 手工构造 activeId 悬空的坏表（fromJson 会兜底，直接构造绕过）
+      const layouts = RtCanvasLayouts(list: [imported], activeId: 'ghost');
+      final ensured = rtEnsureBuiltinPresets(layouts);
+      expect(ensured.activeId, kRtCanvasPresetDefault);
     });
   });
 

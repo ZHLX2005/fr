@@ -19,6 +19,15 @@ const String kRtCanvasPresetDefault = 'default';
 const String kRtCanvasPresetGame = 'game';
 const String kRtCanvasPresetKeyboard = 'keyboard';
 const String kRtCanvasPresetTouchpad = 'touchpad';
+
+/// 模块 id（布局持久化的键，禁止改动——改了等于丢用户布局）。
+const String kRtCanvasModuleTouchpad = 'touchpad';
+const String kRtCanvasModuleInput = 'input';
+
+/// 模块「未指定宽高时」的兜底规格（内置预设 / 画布渲染 / sheet 缩略图
+/// 三处共用的单一事实源；与原画布默认值一致）。
+const double kRtCanvasPadDefW = 0.54, kRtCanvasPadDefH = 0.84;
+const double kRtCanvasInputDefW = 0.46, kRtCanvasInputDefH = 0.18;
 const _kMaxHistory = 40;
 
 /// 快捷键托盘的显示配置（与快捷键数据分离——只是外观，不影响发送内容）。
@@ -311,6 +320,21 @@ class RtCanvasLayouts {
       }
     }
     return RtCanvasLayouts(list: next, activeId: activeId);
+  }
+
+  /// 重命名指定布局（不可变更新；id 不存在时原样返回）。
+  RtCanvasLayouts withRenamed(String id, String name) {
+    final next = <RtCanvasNamedLayout>[];
+    var hit = false;
+    for (final p in list) {
+      if (p.id == id) {
+        next.add(p.copyWith(name: name));
+        hit = true;
+      } else {
+        next.add(p);
+      }
+    }
+    return hit ? RtCanvasLayouts(list: next, activeId: activeId) : this;
   }
   String nextCustomId() {
     var n = 1;

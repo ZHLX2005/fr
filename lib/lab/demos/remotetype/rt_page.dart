@@ -196,6 +196,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         list: kRtCanvasBuiltinPresets,
         activeId: kRtCanvasPresetDefault,
       );
+    } else {
+      // 旧版迁移路径（v1 → 导入布局）产出的列表没有 4 套内置 → 补齐落盘。
+      final ensured = rtEnsureBuiltinPresets(layouts);
+      if (!identical(ensured, layouts)) {
+        layouts = ensured;
+        unawaited(RtPrefs.saveCanvasLayouts(layouts));
+      }
     }
     if (!mounted) return;
     setState(() {
@@ -371,6 +378,40 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final next = RtCanvasLayouts(list: nextList, activeId: activeAfter);
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
+  }
+
+  /// 重命名自定义布局（sheet 长按菜单；内置名固定不改）。
+  void _renameLayout(String id, String name) {
+    final target = _layouts.list.firstWhere(
+      (p) => p.id == id,
+      orElse: () => const RtCanvasNamedLayout(
+        id: '',
+        name: '',
+        builtIn: true,
+        data: RtCanvasLayout(),
+      ),
+    );
+    if (target.id.isEmpty || target.builtIn) return;
+    final next = _layouts.withRenamed(id, name);
+    setState(() => _layouts = next);
+    unawaited(RtPrefs.saveCanvasLayouts(next));
+  }
+
+  /// 内置布局恢复出厂摆放（数据重置为代码预设，其它布局不动；恰为激活
+  /// 布局时画布立即还原）。
+  void _resetBuiltin(String id) {
+    final factory = rtBuiltinPresetOf(id);
+    if (factory == null) return;
+    final next = RtCanvasLayouts(
+      list: [
+        for (final p in _layouts.list)
+          p.id == id ? p.copyWith(data: factory.data) : p,
+      ],
+      activeId: _layouts.activeId,
+    );
+    setState(() => _layouts = next);
+    unawaited(RtPrefs.saveCanvasLayouts(next));
+    _showSnack('「${factory.name}」已恢复出厂摆放');
   }
 
   // ================= 底栏显隐 / 横屏手柄 / 返回大厅 =================
@@ -772,6 +813,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         onSwitchLayout: _switchLayout,
         onCopyToCustom: _copyToCustom,
         onDeleteCustom: _deleteCustom,
+        onRenameCustom: _renameLayout,
+        onResetBuiltin: _resetBuiltin,
         onEditModeChanged: _setCanvasEdit,
         onFire: (item) => unawaited(_fireShortcut(item)),
         onEditShortcuts: _editShortcuts,

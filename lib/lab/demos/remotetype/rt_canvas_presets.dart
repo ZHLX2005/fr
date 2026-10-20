@@ -12,15 +12,16 @@ import 'rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasLayout,
+        RtCanvasLayouts,
         RtCanvasNamedLayout,
+        kRtCanvasInputDefH,
+        kRtCanvasInputDefW,
+        kRtCanvasPadDefH,
+        kRtCanvasPadDefW,
         kRtCanvasPresetDefault,
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad;
-
-/// 内置预设的「未指定宽高时」兜底规格（保持与原画布默认值一致）。
-const double _kPadDefW = 0.54, _kPadDefH = 0.84;
-const double _kInputDefW = 0.46, _kInputDefH = 0.18;
 
 /// 内置预设列表（按 UI 展示顺序）。用户可改；改后存盘，下次启动沿用用户版。
 const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
@@ -35,15 +36,15 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
               visible: true,
               x: 0.27,
               y: 0.55,
-              w: _kPadDefW,
-              h: _kPadDefH,
+              w: kRtCanvasPadDefW,
+              h: kRtCanvasPadDefH,
             ),
             'input': RtCanvasAnchor(
               visible: true,
               x: 0.73,
               y: 0.16,
-              w: _kInputDefW,
-              h: _kInputDefH,
+              w: kRtCanvasInputDefW,
+              h: kRtCanvasInputDefH,
             ),
           },
         ),
@@ -66,8 +67,8 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
               visible: false,
               x: 0.73,
               y: 0.16,
-              w: _kInputDefW,
-              h: _kInputDefH,
+              w: kRtCanvasInputDefW,
+              h: kRtCanvasInputDefH,
             ),
           },
         ),
@@ -114,10 +115,49 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
               visible: false,
               x: 0.73,
               y: 0.16,
-              w: _kInputDefW,
-              h: _kInputDefH,
+              w: kRtCanvasInputDefW,
+              h: kRtCanvasInputDefH,
             ),
           },
         ),
       ),
     ];
+
+/// 按 id 查内置预设出厂条目（「恢复默认布局」用）；自定义 id 查不到返回 null。
+RtCanvasNamedLayout? rtBuiltinPresetOf(String id) {
+  for (final p in kRtCanvasBuiltinPresets) {
+    if (p.id == id) return p;
+  }
+  return null;
+}
+
+/// 保证布局集里 4 套内置总在场（缺的补出厂版），且排在前、自定义跟后。
+///
+/// 背景：旧版 `rt_canvas_layout_v1` 迁移路径只会产出一条「导入布局」，列表里
+/// 没有 4 套内置——不补的话那批用户永远见不到内置预设。已齐全且顺序一致时
+/// 原样返回（不产生新实例，页面层据此跳过无谓落盘）。纯函数，规则改动须同步
+/// 单测（rt_canvas_layout_test.dart）。
+RtCanvasLayouts rtEnsureBuiltinPresets(RtCanvasLayouts layouts) {
+  final byId = {for (final p in layouts.list) p.id: p};
+  final merged = [
+    for (final b in kRtCanvasBuiltinPresets) byId[b.id] ?? b,
+    ...layouts.list.where((p) => !p.builtIn),
+  ];
+  var sameShape = merged.length == layouts.list.length;
+  if (sameShape) {
+    for (var i = 0; i < merged.length; i++) {
+      if (merged[i].id != layouts.list[i].id) {
+        sameShape = false;
+        break;
+      }
+    }
+  }
+  if (sameShape && layouts.list.any((p) => p.id == layouts.activeId)) {
+    return layouts;
+  }
+  var next = RtCanvasLayouts(list: merged, activeId: layouts.activeId);
+  if (!merged.any((p) => p.id == next.activeId)) {
+    next = next.withActive(kRtCanvasPresetDefault);
+  }
+  return next;
+}

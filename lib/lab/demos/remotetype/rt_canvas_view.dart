@@ -2,7 +2,8 @@
 //
 // 横屏画布：触摸板 / 输入框 / 快捷按钮是同一模块系统的三类模块，整个横屏
 // 自由编排。当前编排属于「激活的布局」—— 用户可在编辑态从底部「布局」入口
-// 切换 / 复制 / 删除（详见 rt_canvas_presets + rt_canvas_layouts_sheet）。
+// 切换 / 复制 / 重命名自定义 / 内置恢复出厂 / 删除（详见 rt_canvas_presets +
+// rt_canvas_layouts_sheet；sheet 渲染持久化版本，缩略图即各布局真实样子）。
 //
 // 两态（边界刻意做得明显）：
 //   use（使用态）—— 触摸板吃手势、输入框打字、按钮点按触发 + 长按拖动；
@@ -30,7 +31,13 @@ import 'rt_prefs.dart'
         RtCanvasButtonPos,
         RtCanvasLayout,
         RtCanvasLayouts,
-        RtShortcutItem;
+        RtShortcutItem,
+        kRtCanvasInputDefH,
+        kRtCanvasInputDefW,
+        kRtCanvasModuleInput,
+        kRtCanvasModuleTouchpad,
+        kRtCanvasPadDefH,
+        kRtCanvasPadDefW;
 import 'rt_session.dart';
 import 'rt_touch_surface.dart'
     show RtConnDot, RtPadChipButton, RtTouchSurface, showRtSensitivitySheet;
@@ -54,10 +61,6 @@ Offset rtFirstFreeCanvasSlot(Set<Offset> placed) {
   return const Offset(0.73, 0.55);
 }
 
-/// 模块 id（布局持久化的键，禁止改动——改了等于丢用户布局）。
-const String kRtCanvasModuleTouchpad = 'touchpad';
-const String kRtCanvasModuleInput = 'input';
-
 class RtCanvasView extends StatefulWidget {
   const RtCanvasView({
     super.key,
@@ -76,6 +79,8 @@ class RtCanvasView extends StatefulWidget {
     required this.onSwitchLayout,
     required this.onCopyToCustom,
     required this.onDeleteCustom,
+    required this.onRenameCustom,
+    required this.onResetBuiltin,
     required this.onEditModeChanged,
     required this.onFire,
     required this.onEditShortcuts,
@@ -115,6 +120,12 @@ class RtCanvasView extends StatefulWidget {
   /// 删除某条自定义布局（仅自定义，长按 sheet 列表项触发）。
   final ValueChanged<String> onDeleteCustom;
 
+  /// 重命名自定义布局（sheet 长按菜单触发）。
+  final void Function(String id, String name) onRenameCustom;
+
+  /// 内置布局恢复出厂摆放（sheet 内置长按触发）。
+  final ValueChanged<String> onResetBuiltin;
+
   final ValueChanged<bool> onEditModeChanged;
   final ValueChanged<RtShortcutItem> onFire;
   final VoidCallback onEditShortcuts;
@@ -126,10 +137,6 @@ class RtCanvasView extends StatefulWidget {
 }
 
 class _RtCanvasViewState extends State<RtCanvasView> {
-  // 模块未在布局里指定宽高时的兜底规格（与「默认布局」内置值一致）。
-  static const double _padDefW = 0.54, _padDefH = 0.84;
-  static const double _inputDefW = 0.46, _inputDefH = 0.18;
-
   // 模块尺寸范围（wMin, wMax, hMin, hMax，归一化）。
   static (double, double, double, double) _moduleRange(String id) =>
       id == kRtCanvasModuleTouchpad
@@ -141,6 +148,9 @@ class _RtCanvasViewState extends State<RtCanvasView> {
 
   final GlobalKey _canvasKey = GlobalKey();
 
+  // 输入框焦点：IME 弹出时输入模块停靠键盘上方（见 _inputModule），失焦回锚点。
+  final FocusNode _inputFocus = FocusNode();
+
   // 移动预览：模块 id → 当前归一化中心。松手一次性回写。
   String? _dragId;
   Offset? _dragPos;
@@ -149,6 +159,24 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   String? _resizeModuleId;
   double _liveW = 0;
   double _liveH = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 焦点变化触发重建：IME 弹出/收起时输入模块在「停靠位 ↔ 锚点位」间切换。
+    _inputFocus.addListener(_onInputFocusChanged);
+  }
+
+  void _onInputFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _inputFocus.removeListener(_onInputFocusChanged);
+    _inputFocus.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant RtCanvasView oldWidget) {
@@ -186,8 +214,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     final a = _anchorOf(id);
     if (a.w != null && a.h != null) return (a.w!, a.h!);
     return id == kRtCanvasModuleTouchpad
-        ? (_padDefW, _padDefH)
-        : (_inputDefW, _inputDefH);
+        ? (kRtCanvasPadDefW, kRtCanvasPadDefH)
+        : (kRtCanvasInputDefW, kRtCanvasInputDefH);
   }
 
   /// 全局坐标 → 画布归一化坐标。画布异常小（尺寸 ≤ 0）时 0/0 = NaN 会
@@ -287,6 +315,9 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     final c = context.colors;
     final cs = c.scheme;
     return Scaffold(
+      // 键盘不压缩画布：横屏弹 IME 若整页 resize，归一化坐标全部漂移、
+      // 模块被压扁——画布保持原尺寸，输入框由 [_inputModule] 停靠到键盘上方。
+      resizeToAvoidBottomInset: false,
       backgroundColor: cs.surfaceContainerHighest,
       body: Stack(
         key: _canvasKey,
@@ -322,6 +353,19 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         child: Row(
           children: [
             RtConnDot(connected: widget.connected, cs: cs),
+            const SizedBox(width: 8),
+            // 当前布局名：配置隔离的可见面——不看 sheet 也知道此刻是哪套。
+            Flexible(
+              child: Text(
+                _activeName() ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ),
             const Spacer(),
             RtPadChipButton(
               icon: Icons.tune,
@@ -444,6 +488,14 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
+  /// 当前激活布局名（sheet 同源；查不到返回 null → 浮层不显示名字）。
+  String? _activeName() {
+    for (final p in widget.layouts.list) {
+      if (p.id == widget.activeId) return p.name;
+    }
+    return null;
+  }
+
   // ---- 布局 sheet ----
 
   Future<void> _openLayoutsSheet() async {
@@ -464,6 +516,14 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         },
         onDelete: (id) {
           widget.onDeleteCustom(id);
+          Navigator.of(ctx).pop();
+        },
+        onRename: (id, name) {
+          widget.onRenameCustom(id, name);
+          Navigator.of(ctx).pop();
+        },
+        onResetBuiltin: (id) {
+          widget.onResetBuiltin(id);
           Navigator.of(ctx).pop();
         },
       ),
@@ -685,6 +745,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
           Expanded(
             child: TextField(
               controller: widget.textController,
+              focusNode: _inputFocus,
               style: const TextStyle(fontSize: 14),
               decoration: const InputDecoration(
                 hintText: '输入同步到电脑…',
@@ -710,6 +771,26 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         id: kRtCanvasModuleInput,
         label: '输入框',
         child: SizedBox(width: size.width, height: size.height, child: box),
+      );
+      return Positioned(
+        left: rect.left,
+        top: rect.top,
+        width: size.width,
+        height: size.height,
+        child: box,
+      );
+    }
+    // 使用态 IME 停靠：键盘弹出且输入框聚焦 → 输入框浮到键盘正上方
+    // （水平近满宽）。画布本体不动（resize 已关），失焦回锚点位；停靠位
+    // 是纯视图态，不落盘。
+    final imeHeight = MediaQuery.viewInsetsOf(context).bottom;
+    if (imeHeight > 0 && _inputFocus.hasFocus) {
+      return Positioned(
+        left: canvasSize.width * 0.04,
+        right: canvasSize.width * 0.04,
+        bottom: imeHeight + 8,
+        height: size.height,
+        child: box,
       );
     }
     return Positioned(
