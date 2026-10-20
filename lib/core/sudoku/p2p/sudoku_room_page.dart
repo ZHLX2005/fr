@@ -10,7 +10,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../theme/context/colors.dart';
-import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
 import '../../nav/nav_route.dart';
 import '../engine/sudoku_generator.dart';
@@ -34,12 +33,6 @@ class SudokuRoomPage extends StatefulWidget {
 class _SudokuRoomPageState extends State<SudokuRoomPage> {
   StreamSubscription<Snapshot>? _snapSub;
   Timer? _elapsedTimer;
-
-  /// 进入对局过渡：准备态（lobby/ready）→ playing 首次切入 → 刷子盖屏。
-  final GameEnterTransition _enterFx = GameEnterTransition();
-
-  /// 计时在等进入过渡揭开（揭开后才置 _startedAt 走表）。
-  bool _enterGatePending = false;
 
   Snapshot? _snap;
   SudokuBoard? _board;
@@ -94,12 +87,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     // 防御服务端快照回退（ended/playing → lobby 等异常倒退）：拒绝应用。
     // 典型触发场景：断线后 heartbeat / fetchSnapshot 拉到过期快照。
     if (RoomHandle.isStateRegression(_snap?.state, s.state)) return;
-    // 进入对局过渡：准备态 → playing 首次切入 → 刷子盖屏；计时等揭开后再走表
-    // —— 「完成 transition 再开始」，双端等同一过渡，起跑线一致。
-    // 重连直落 playing（gate == null）→ 立即起表，不加额外罚时。
-    final enterGate = _enterFx.update(context, s.state == 'playing');
-    final firstPlaying =
-        s.state == 'playing' && _startedAt == null && !_enterGatePending;
+    final firstPlaying = s.state == 'playing' && _startedAt == null;
     setState(() {
       _snap = s;
       // 对齐 chess：快照仍处于 lobby/ready 时，本地乐观 ACK 已无意义
@@ -112,12 +100,8 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
       if (d != null && d.isNotEmpty) _difficulty = d;
       if (firstPlaying) {
         _errors = 0;
-        if (enterGate != null) {
-          _enterGatePending = true; // 过渡揭开后再起表（见下方 whenComplete）
-        } else {
-          _startedAt = DateTime.now();
-          _startElapsedTimer();
-        }
+        _startedAt = DateTime.now();
+        _startElapsedTimer();
       }
       // 题面一致性：服务端允许在 lobby/ready 重复 SET_PUZZLE 覆盖 ctx 题面
       // （host 换难度 / 再次生成）。客户端必须跟随重建本地棋盘 —— 否则本地
@@ -144,18 +128,6 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         }
       }
     });
-    if (firstPlaying && enterGate != null) {
-      // 过渡揭开 → 正式起表（计时把盖屏时间排除在外）。
-      enterGate.whenComplete(() {
-        if (!mounted) return;
-        setState(() {
-          _enterGatePending = false;
-          _startedAt = DateTime.now();
-          _errors = 0;
-        });
-        _startElapsedTimer();
-      });
-    }
   }
 
   void _startElapsedTimer() {

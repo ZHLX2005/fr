@@ -14,11 +14,6 @@
 //   玩家行（头像 / 就绪徽章 / 执子标签）+ CTA 三态。
 //   准备态不显示棋盘（同 chess）。
 //
-// ## 进入对局过渡
-//
-//   GameEnterTransition v2 时机规范：准备态首次切 playing 时刷子盖屏
-//   （每份快照后 update；RESET 回 lobby 后重新武装，再开一局再播）。
-//
 // ## 交互（playing）
 //
 //   点选中己方子 → 高亮该子全部合法落点 → 点落点执行该手。
@@ -59,7 +54,6 @@ import '../../game_audio/piece_sound.dart';
 import '../../game_kit/chat/board_chat_overlay.dart';
 import '../../game_kit/chat/chat_event.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
-import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
 import '../../game_kit/skin/file_resolver.dart';
 import '../../net_engine/relay_v3/relay_connection_status_badge.dart';
@@ -94,9 +88,6 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   StreamSubscription<Snapshot>? _sub;
   StreamSubscription<WSCloseEvent>? _closeSub;
   late final DraughtsRoom _room;
-
-  /// 进入对局过渡：准备态（lobby/ready）→ playing 首次切入 → 刷子盖屏。
-  final GameEnterTransition _enterFx = GameEnterTransition();
 
   Snapshot? _snap;
   List<DraughtsMoveRecord> _history = const [];
@@ -218,8 +209,6 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         RoomHandle.isStateRegression(prev, s.state)) {
       return; // 服务端快照端点回退 → 忽略
     }
-    // 准备态 → playing 首次切入 → 刷子过渡盖屏（GameEnterTransition v2）。
-    _enterFx.update(context, s.state == 'playing');
     setState(() => _applySnapshot(s));
     // 快照仍处于 lobby/ready：本地乐观 ACK 已无意义（服务端 ready 表是权威，
     // SET_RULES / RESET 会清空 ready），清掉本地标记 —— 对齐 chess / sudoku。

@@ -6,8 +6,6 @@
 //   · smartMatch 单入口「进入对局」→ tryJoinOrCreate（先到 = 房主）
 //   · 房间规则（host_color / first_mover / 残局）在准备阶段由房主配置
 //     （ChessRoomPage lobby/ready + Lua SET_RULES），不在进房前配
-//   · 刷子过渡在 ChessRoomPage 内部播：准备态 → playing 首次切入时盖屏
-//     （GameEnterTransition；进房 push 本身不再盖屏）
 //   · ChessIdentity（登录 uid 优先）身份通道
 //     → 已下沉为共享 AccountIdentityResolver / GameIdentity（game_kit）
 //   · AppBar 换肤按钮（actionsBuilder 插槽）；残局库改到准备卡内

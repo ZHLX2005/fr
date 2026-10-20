@@ -30,7 +30,6 @@ import 'package:flutter/material.dart';
 
 import '../../theme/context/chess_colors.dart';
 import '../../game_audio/piece_sound.dart';
-import '../../game_kit/lobby/game_enter_transition.dart';
 import '../../game_kit/lobby/game_ready_style.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
@@ -154,10 +153,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 上一份快照的 state（用于检测 RESET：ended → playing 时清本地态）。
   String? _prevState;
-
-  /// 进入对局过渡：准备态（lobby/ready）→ playing 首次切入 → 刷子盖屏
-  /// （匹配/房主配置/双方准备全就绪后）。RESET 回 lobby 自动重新武装。
-  final GameEnterTransition _enterFx = GameEnterTransition();
 
   /// 发送锁 —— 本地 MOVE 已乐观应用但服务端尚未调和时，禁止再走。
   bool _sendLock = false;
@@ -325,12 +320,6 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   void _applySnapshot(Snapshot snap) {
     _snapshot = snap;
     final state = snap.state;
-
-    // 准备态 → playing 首次切入 → 刷子过渡盖屏（匹配/房主配置/双方准备
-    // 全就绪后）。挂在这里：initState 同步应用 latest、快照流、手动刷新
-    // 三路都经过 _applySnapshot；Overlay 插入由控制器推迟到微任务，
-    // initState 路径也安全。
-    _enterFx.update(context, state == 'playing');
 
     // ── 断连态同步（playing/ready 内）──
     // disconnected 字典含我 → 我掉线（断连等重连）；空 → 我回来了。

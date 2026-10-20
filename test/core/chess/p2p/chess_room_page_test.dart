@@ -585,13 +585,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     await tester.pump();
-    // 新局进入刷子过渡（GameEnterTransition：ended → playing 重新武装盖屏）
-    // → 等过渡播完揭开、遮罩移除后再走子。揭开链有微任务/定时器步进，
-    // pumpAndSettle 在无帧调度时会提前停 → 追加泵帧直到遮罩消失。
-    await tester.pumpAndSettle();
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    // RESET 后快照直接切回 playing（无盖屏过渡），可立即走子。
 
     // 终局覆盖层消失；host 又能正常走子。
     expect(find.text('再来一局'), findsNothing);

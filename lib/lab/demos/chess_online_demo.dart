@@ -288,9 +288,7 @@ class _ChessOnlinePageState extends State<ChessOnlinePage> {
       }
     }
     if (!mounted) return;
-    // 刷子过渡已移到 ChessRoomPage 内部（准备态 → playing 首次切入时播，
-    // 见 GameEnterTransition）：进房先到准备页做房主配置 / 双方准备，
-    // 匹配完成的此刻不再盖屏。
+    // 进房先到准备页做房主配置 / 双方准备，匹配完成的此刻不进对局视图。
     unawaited(Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => ChessRoomPage(

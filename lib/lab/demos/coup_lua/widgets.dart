@@ -17,7 +17,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/game_kit/lobby/game_enter_transition.dart';
 import '../../../core/game_kit/lobby/game_ready_style.dart';
 import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
 
@@ -61,8 +60,6 @@ class OnlineGamePage extends StatefulWidget {
 class _OnlineGamePageState extends State<OnlineGamePage> {
   StreamSubscription<Snapshot>? _sub;
 
-  // 进入对局过渡：准备态 → playing 首次切入 → 刷子过渡盖屏（匹配/配置/准备全就绪后）。
-  final GameEnterTransition _enterFx = GameEnterTransition();
   Snapshot? _snap;
   Snapshot? _prevSnap; // 上一帧快照，用于检测 DEAL/REVEAL 事件
   String? _lastExPlayer; // 上一帧的 ex_player，用于检测 EXCHANGE 进入事件
@@ -75,9 +72,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     _snap = widget.handle.latest;
     _sub = widget.handle.snapshots.listen((s) {
       if (!mounted) return;
-      // 准备态 → playing 首次切入 → 刷子过渡盖屏（匹配/配置/准备全就绪后）。
-      // 放监听器里：_onSnapshot 的 DEAL/REVEAL 分支会提前 return。
-      _enterFx.update(context, s.state == 'playing');
       _onSnapshot(s);
       setState(() => _snap = s);
     });

@@ -141,8 +141,6 @@ class GameLobbyPageState extends State<GameLobbyPage> {
       setState(() => _busy = false);
       // smartMatch：handler 在 onStarted 前向 ctx 注入附加字段
       // （team_card: needsConfig 等基于 snapshot 的判断）。
-      // 刷子过渡不在进房时播 —— 各游戏页在准备态 → 对局界面首次切换时
-      // 自行播放（GameEnterTransition）。
       final ctx = LobbyStartedCtx();
       widget.slots.onStartedExtras?.call(ctx, h);
       unawaited(Future.sync(() => widget.onStarted(h, ctx)));
