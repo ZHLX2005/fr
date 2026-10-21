@@ -1,0 +1,43 @@
+---
+name: A00-FR模块开发路由
+description: FR 项目级工程入门与业务模块总览。新建/扩展 Lab、游戏中心、Chat、页面、路由或 API 前先识别模块落点，并按项目流程进入对应 SOP。
+---
+
+# A00 — FR 模块开发与入门路由
+
+> 适用范围：仅适用于 `D:\code\a_dart\prj\fr`。A 是 FR 业务模块开发大序列；本文件维护本序列所有成员路由和基础入门信息。
+
+## 开始一个 FR 任务
+
+1. **业务全景/模块定位**：查看 `.claude/repo/_self/fr-business-map/project/2026-10-18-v2.md`。该地图回答“有什么、在哪、归谁”；实际注册与源码变化时再核实当前实现。
+2. **仓库入门**：从根目录 `README.md` 了解项目定位、运行环境和主要入口。README 中易变数量可能滞后，以当前业务地图和代码为准。
+3. **辨识模块**：判断 Lab demo、游戏中心、主界面 Chat、TimePage、独立 core 模块或 Android 平台能力；不要把地图类别自动解释成登录权限边界。
+4. **读对应 SOP**：按下表进入本序列，或转到大序列 D00/C00/E00/G00/H00；再修改实现。
+
+## A 序列成员
+
+| 文档 | 何时读取 |
+|---|---|
+| [[A01-fr路由注册与防腐蚀]] | 新页面需外部跳转、增加 `fr://` 链接或自查路由注册时 |
+| [[A02-fr-Router路由机制]] | 改路由设计、authority/path 解析或 handler dispatch 时 |
+| [[A03-Lab容器结构与扩展]] | 修改 Lab 容器、DemoPage、DemoGrid 或新建 Lab demo 前 |
+| [[A04-TimePage-Focus模块]] | 修改 TimePage、Focus、时间过滤或深链时 |
+| [[A05-游戏中心扩展]] | 新增游戏、分类或封面入口时 |
+| [[A06-Demo-Slug别名]] | 兼容旧 `fr://` URL 的 slug 别名注册与移除时 |
+| [[A07-API模块规范与拦截器链]] | 新增 API 端点、接入后端或修改请求拦截链时 |
+| [[A08-FR工程开发与验证规范]] | 所有业务实现的目录/布局约束、analyze/codegen/测试/Android build、CHANGELOG 与 Git 交付前检查 |
+
+## 容器与登录边界
+
+- **Lab** 是 demo 注册、列表/容器、页面包装与运行期管理体系；具体结构与扩展见 [[A03-Lab容器结构与扩展]]。
+- **游戏中心** 是游戏目录和游戏 demo 入口；扩展见 [[A05-游戏中心扩展]]。RelayLua 在线房间见 C 序列。
+- **Chat** 是主界面业务模块，不是 Lab 容器；消息策略与会话持久化见 B 序列。
+- `auth-login` 是 OIDC 登录、扫码批准与单设备自测的 Lab 功能入口，`UnifiedAuthService` 负责认证态编排。除非源码实际增加全局路由守卫，不得宣称 Lab、游戏中心或 Chat 为“登录后容器”或被全局登录保护。
+
+## 模块开发骨架
+
+- 先看地图、目标模块、相关注册入口与可复用 shared/core 能力，确认 demo 级或 `lib/core/<module>/` 完整模块。
+- `lib/lab/demos/` 下 demo 默认单文件；超过 400 行按项目约定拆至 `lib/lab/demos/<模块名>/`。除非用户明确要求，不擅自采用完整 core 方案。
+- 常量集中在模块常量文件；Android bridge 集中在 `lib/native/`；Hive 通过 D 序列 repository/标准 API 封装。
+- 外部 URL、桌面 widget、通知或多个入口需要唤起页面时使用项目 `fr://` 注册规范；流程内部一次性页面遵循模块现有导航模式。
+- 按仓库测试/codegen 约定验证。Android 原生变更额外执行 `flutter build apk`。

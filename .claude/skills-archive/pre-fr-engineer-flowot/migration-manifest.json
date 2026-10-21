@@ -1,0 +1,725 @@
+{
+  "archive_root": ".claude/skills-archive/pre-fr-engineer-flowot/skills",
+  "inventory_file": ".claude/skills-archive/pre-fr-engineer-flowot/inventory-before-move.json",
+  "source_snapshot_file_count": 99,
+  "active_skill_root": ".claude/skills/fr-engineer-flowot",
+  "source_files": [
+    {
+      "source": "flutter-biz/references/audio/android-native-c-setup.md",
+      "destination": "references/Ha02-AndroidNativeCMake与FFI配置.md",
+      "status": "MIGRATED",
+      "source_size": 8773,
+      "source_sha256": "0bc0a1f15c1340ffdf390b970639f42055657c966fa0b473e63f998f34ce10be"
+    },
+    {
+      "source": "flutter-biz/references/audio/clock-vs-metronome-lifecycle.md",
+      "destination": "references/Ha03-Clock与Metronome生命周期.md",
+      "status": "MIGRATED",
+      "source_size": 4315,
+      "source_sha256": "8caf4672ad5e5940562c523cead61492165a894dc20c45b93c571d866a79a8e7"
+    },
+    {
+      "source": "flutter-biz/references/audio/flutter-android-cpp-audio-bridge.md",
+      "destination": "references/Ha01-Oboe音频桥接SOP.md",
+      "status": "MIGRATED",
+      "source_size": 11109,
+      "source_sha256": "9bfaa75b5f07c1868905db2b9f1e807f3612f018abf046cccc62d34235202ccf"
+    },
+    {
+      "source": "flutter-biz/references/audio/oboe-cpp-synthesis.md",
+      "destination": "references/Ha04-Oboe实时合成原理.md",
+      "status": "MIGRATED",
+      "source_size": 8143,
+      "source_sha256": "deb7a61a88160f2e1bef2aecd3e9b7bce2adf26a98348ae9631d1f73a3860b49"
+    },
+    {
+      "source": "flutter-biz/references/audio/wav-sample-playback.md",
+      "destination": "references/Ha05-WAV采样播放.md",
+      "status": "MIGRATED",
+      "source_size": 11813,
+      "source_sha256": "07c8c39fb6f1af1852d9ea66c4785642ff23cc99844057ac6443723e64b5fb27"
+    },
+    {
+      "source": "flutter-biz/references/debuglog/flutter-debug-logging.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 跨领域 debugPrint 排障手册，未指定大序列。",
+      "source_size": 2539,
+      "source_sha256": "172381f7f86c9a102308d320d69120a2b51904e1187a9c6806b4ca20670113ea"
+    },
+    {
+      "source": "flutter-biz/references/message/flutter-message-workflow.md",
+      "destination": "references/Ba01-消息策略模式.md",
+      "status": "MIGRATED",
+      "source_size": 7471,
+      "source_sha256": "6ce469a20603b622e2f7f2da2d73f508f5f5a237a17c61e03df65cd3fe345ed7"
+    },
+    {
+      "source": "flutter-biz/references/message/im-会话持久化规范.md",
+      "destination": "references/Ba02-IM会话持久化规范.md",
+      "status": "MIGRATED",
+      "source_size": 7070,
+      "source_sha256": "508427f17ae5abe8c4c4e4642129695e8dc7bbee368c32a9d61f38dea77fee73"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/A01-server-authoritative-client-state.md",
+      "destination": "references/Ca01-服务端权威状态.md",
+      "status": "MIGRATED",
+      "source_size": 8361,
+      "source_sha256": "b2cf4967991e723e4793e64e334527541e00411eafcb415efe665060294ee3fa"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/A02-naming-and-game-meta.md",
+      "destination": "references/Ca02-命名与GameMeta.md",
+      "status": "MIGRATED",
+      "source_size": 7509,
+      "source_sha256": "75ca5c153cfde89969d7e9dd6ce4e44cfe68b92798199da065950330ae167af6"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/A03-action-permission-table.md",
+      "destination": "references/Ca03-Action权限表.md",
+      "status": "MIGRATED",
+      "source_size": 13643,
+      "source_sha256": "9825619fd8bcaba4f0529100f679c847d6991898c80a6fdf0a664979c04fd775"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/B01-versus-game-room-template.md",
+      "destination": "references/Cb01-双人对战房间模板.md",
+      "status": "MIGRATED",
+      "source_size": 41519,
+      "source_sha256": "ca6f58e76bcf4b3cb964996f18998c82ffa5c71432be1808035a2e6785215eab"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/B02-social-room-code-pattern.md",
+      "destination": "references/Cb02-社交房间号模式.md",
+      "status": "MIGRATED",
+      "source_size": 8992,
+      "source_sha256": "39743eb2a19f67b32aabf539f7037b3300f6eea865b39edb72b21bf2c44ee4a0"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/B03-role-aware-board-mirror.md",
+      "destination": "references/Cb03-角色棋盘镜像.md",
+      "status": "MIGRATED",
+      "source_size": 15008,
+      "source_sha256": "7ff1792ab255ee2e9c758638d3156ea5cc7b0740a8883b93ab72d3d2723a1209"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/B04-board-gesture-patterns.md",
+      "destination": "references/Cb04-棋盘手势模式.md",
+      "status": "MIGRATED",
+      "source_size": 12922,
+      "source_sha256": "4dc8dd69474e463bd892b33611244288394be0961286d89b8aa25ccc80435651"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/C01-team-card-lobby-pattern.md",
+      "destination": "references/Cc01-团队卡牌大厅模式.md",
+      "status": "MIGRATED",
+      "source_size": 11598,
+      "source_sha256": "35b00058964664a5c3ab49a9d3bd4db8fb847cb2af8b6095d4955bd28959ab88"
+    },
+    {
+      "source": "flutter-biz/references/relaylua/relay-lua-state-machine.md",
+      "destination": "references/C00-RelayLua路由.md",
+      "status": "MIGRATED",
+      "source_size": 26189,
+      "source_sha256": "a574e5fc95307433b5ca3408bda2f261151681a1790c7e23a26f10a4bfaa1ff9"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A01-Flutter-fr路由-注册规范与防腐蚀.md",
+      "destination": "references/A01-fr路由注册与防腐蚀.md",
+      "status": "MIGRATED",
+      "source_size": 14974,
+      "source_sha256": "6709cde1aa9d010fce0f8f0b0fa52d6bd5a13b11404d322589e01f00e0dffed9"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A02-Flutter-自定义Scheme路由中心化-fr-Router.md",
+      "destination": "references/A02-fr-Router路由机制.md",
+      "status": "MIGRATED",
+      "source_size": 18382,
+      "source_sha256": "0367c95be0987978d8476d1a8cfd4f201f16448914161d9a66853dddeaa4a51b"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A03-Flutter-Lab容器-模块结构与重构模式.md",
+      "destination": "references/A03-Lab容器结构与扩展.md",
+      "status": "MIGRATED",
+      "source_size": 6927,
+      "source_sha256": "fa7f2fb3adbbea4b173a7fda9d7d4279214242ecc0ee9b46cf6e494fd253d9cd"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A04-Flutter-TimePage-Focus时间模块完整指南.md",
+      "destination": "references/A04-TimePage-Focus模块.md",
+      "status": "MIGRATED",
+      "source_size": 21184,
+      "source_sha256": "515bd94643dbf93d5cdacbab13a3da851e54ef9372d444f5053ecd57f42a0470"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A05-Flutter-游戏中心-扩展游戏路线.md",
+      "destination": "references/A05-游戏中心扩展.md",
+      "status": "MIGRATED",
+      "source_size": 5855,
+      "source_sha256": "1f7a5baae411ed0c26f9f032b84fd5277b5d0677bb971dcb04c2ca355c8b951a"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A06-Flutter-Demo-slug别名与Tab合并SOP.md",
+      "destination": "references/A06-Demo-Slug别名与Tab合并.md",
+      "status": "MIGRATED",
+      "source_size": 6063,
+      "source_sha256": "863ef7d4849abf1f499d291ecd7d559b5dc8ccf794f3b679352b015c994b34d3"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A07-Flutter-API模块规范-目录即后端与拦截器链.md",
+      "destination": "references/A07-API模块规范与拦截器链.md",
+      "status": "MIGRATED",
+      "source_size": 22825,
+      "source_sha256": "1fbd05f12a11bd7c44cad46e54faa1d57f788b1e6f39ab3b9eab0ce3c5049c9d"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A08-Flutter-Hive存储工作流-调试与最佳实践.md",
+      "destination": "references/D01-Hive存储工作流与排障.md",
+      "status": "MIGRATED",
+      "source_size": 6644,
+      "source_sha256": "7595e865cbc9974fd90e2a0b65eed491344bb1079f06c185380ccb60aa2d798c"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A09-Flutter-Hive-存储面板BoxDescriptor注册制.md",
+      "destination": "references/D02-Hive-BoxDescriptor注册制.md",
+      "status": "MIGRATED",
+      "source_size": 13744,
+      "source_sha256": "403e41284d85c1c96945a7d700278c1b5a3e631b61fbffb50c36b91b036abb7d"
+    },
+    {
+      "source": "flutter-biz/references/workflow/A10-Flutter-Hive-新模块存储Checklist.md",
+      "destination": "references/D03-Hive新模块Checklist.md",
+      "status": "MIGRATED",
+      "source_size": 7383,
+      "source_sha256": "d7d6203b4cbbc256f3dd7947850617b328a65eac9ffdc90598bde925545a6008"
+    },
+    {
+      "source": "flutter-biz/references/workflow/B01-Flutter-Provider双重实例冲突-时钟wipe后数据恢复.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: provider 双实例故障案例，未明确归入 A/B/C/D/H。",
+      "source_size": 5026,
+      "source_sha256": "0ab91f276251da50f733d0ead8c66249281a8daf18c5f4fff3a0141caa598792"
+    },
+    {
+      "source": "flutter-biz/references/workflow/B02-Flutter-Hive-TypeAdapter-part文件CI构建失败问题.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: Hive/codegen CI 故障案例；用户审核是否并入 D。",
+      "source_size": 6280,
+      "source_sha256": "719ebb541c7d83d4273644149bb25960b4f17b852b6957dee6237c871c93dc51"
+    },
+    {
+      "source": "flutter-biz/references/workflow/B03-Android-FloatingWindow-常驻截屏模式适配Android14+.md",
+      "destination": "references/Gb03-Android14悬浮截屏常驻模式.md",
+      "status": "MIGRATED",
+      "source_size": 7584,
+      "source_sha256": "c8a5f2a9f3d1265b91e44ed94e4f4902fdfc9e5cfe820f01578806c720e795f6"
+    },
+    {
+      "source": "flutter-biz/references/workflow/B04-Flutter-CollapsingHeader圆角渐变头部与白色内容区布局.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: UI 布局方案案例；用户审核是否并入 E。",
+      "source_size": 2956,
+      "source_sha256": "dfb8f102a1c9218f6c4bba948d3128b2b80442163a9d4010fba92bb165adb9ee"
+    },
+    {
+      "source": "flutter-biz/references/workflow/B05-Flutter-Reorderable网格阴影容器拖拽掉帧-RepaintBoundary隔离.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 性能/交互案例；用户审核序列归属。",
+      "source_size": 2681,
+      "source_sha256": "5924c6fc8bf588d2b280e3d93bd81817f5a37ea196b3d1c66cc2c0ae44b33013"
+    },
+    {
+      "source": "flutter-biz/references/workflow/C01-Flutter-TimeTable课表模块-架构与扩展指南.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: Timetable 深水子系统；顶层 C 按用户决定只包含 RelayLua。",
+      "source_size": 10515,
+      "source_sha256": "24b4702a20a5fa2e515f2d5b430fc763c14cb21844fbe5d79e72b7337731a608"
+    },
+    {
+      "source": "flutter-biz/references/workflow/C02-WebRTC-视频通话基础设施与结构设计.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: WebRTC 子系统；顶层 C 按用户决定只包含 RelayLua。",
+      "source_size": 13040,
+      "source_sha256": "bdab7fba5efacb92cb29cb16bbd86300df492977a6548fc557f3756e4b41a4b1"
+    },
+    {
+      "source": "flutter-biz/references/workflow/C03-Flutter-TimeTable-追剧模式专项.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 依赖 Timetable 的追剧专题；等待 C01 归属审核。",
+      "source_size": 5881,
+      "source_sha256": "ea40f8c34cdcadd70f365f4236c53a5753e0631039eda987fbfa55708d426400"
+    },
+    {
+      "source": "flutter-biz/references/workflow/C04-Flutter-TimeTable-追剧后端API契约.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 依赖 Timetable/追剧模块的 API 契约；等待归属审核。",
+      "source_size": 15053,
+      "source_sha256": "a2cf4e65b4f019112ef22fc4f23825265e95918dffb3b1ce3b9cf1be128c815f"
+    },
+    {
+      "source": "flutter-biz/references/workflow/flutter-work-flow.md",
+      "destination": "references/A00-FR模块开发路由.md; B00/C00/D00/G00/H00; references/UNMAPPED-REVIEW.md (workflow B/C leftovers)",
+      "status": "RESTRUCTURED_ROUTING_AND_UNMAPPED_AUDIT",
+      "source_size": 16092,
+      "source_sha256": "97ee89dd395562ebd33433549a2e040783bd09ad003a62dc0f6c2b4aab754ceb"
+    },
+    {
+      "source": "flutter-biz/SKILL.md",
+      "destination": "SKILL.md + sequence routers (restructured)",
+      "status": "SUPERSEDED_BY_UNIFIED_ROUTER",
+      "source_size": 5234,
+      "source_sha256": "efe3b905728b39ff2b1c230308921c08cddc8293ba9a8081424364b5b14ce310"
+    },
+    {
+      "source": "flutter-platform/references/icon/android-icon-processing.md",
+      "destination": "references/Gc01-Android自适应图标处理.md",
+      "status": "MIGRATED",
+      "source_size": 8549,
+      "source_sha256": "a41458ba961bfbc1d757ab33e84125f7c06de2bae4e0306774003dcb83e971fe"
+    },
+    {
+      "source": "flutter-platform/references/projection/android-media-projection-fix.md",
+      "destination": "references/Gb01-MediaProjection前台服务.md",
+      "status": "MIGRATED",
+      "source_size": 9293,
+      "source_sha256": "b442f8da88e62621eaf078ffb26efe1943053ce417a7006b6a680aaf481295fa"
+    },
+    {
+      "source": "flutter-platform/references/projection/fgs-debug-cases.md",
+      "destination": "references/Gb02-FGS异常排查案例.md",
+      "status": "MIGRATED",
+      "source_size": 7377,
+      "source_sha256": "e35f907beb834d784b3f414d16567b61345c5b307d10e1519c7abde73615d629"
+    },
+    {
+      "source": "flutter-platform/references/widget/flutter-home-widget-realtime-sync.md",
+      "destination": "references/Ga01-桌面Widget实时同步.md",
+      "status": "MIGRATED",
+      "source_size": 22823,
+      "source_sha256": "ff8d110c741b1fc7c8fe9bb2fec4b6ef7503dcda638c3a0072d49f1583a8f074"
+    },
+    {
+      "source": "flutter-platform/references/widget/widget-click-deeplink.md",
+      "destination": "references/Ga02-Widget点击深链.md",
+      "status": "MIGRATED",
+      "source_size": 18704,
+      "source_sha256": "5099c81bc8a15ed00e3639c49d0b96ae86e90e50f4334e1777c5924393dd83c1"
+    },
+    {
+      "source": "flutter-platform/references/widget/widget-label-and-manifest.md",
+      "destination": "references/Ga03-Widget标签与Manifest.md",
+      "status": "MIGRATED",
+      "source_size": 12646,
+      "source_sha256": "e7bb3eb227d74e3a5700d6af73e330c252a6527370e65f931f032f4c4c5a24b0"
+    },
+    {
+      "source": "flutter-platform/references/widget/widget-style-spec.md",
+      "destination": "references/Ga04-Widget样式规范.md",
+      "status": "MIGRATED",
+      "source_size": 9825,
+      "source_sha256": "d794cf339f99ce3478c90db3b9c1ef384f8c11aea145ca3706b5bc6cad291d2e"
+    },
+    {
+      "source": "flutter-platform/scripts/flood_fill_cli.py",
+      "destination": "scripts/flood_fill_cli.py",
+      "status": "MIGRATED",
+      "source_size": 4134,
+      "source_sha256": "53ab50c59fe4267f5b24dfcec255fce716b9061f17ca0670bd886cdd592716f9"
+    },
+    {
+      "source": "flutter-platform/scripts/generate_android_icon.py",
+      "destination": "scripts/generate_android_icon.py",
+      "status": "MIGRATED",
+      "source_size": 2789,
+      "source_sha256": "fbb6e32bd0e93c380bec4bda9ae960bc0f79d3c0e07144f92d1961f4c348c0db"
+    },
+    {
+      "source": "flutter-platform/SKILL.md",
+      "destination": "SKILL.md + sequence routers (restructured)",
+      "status": "SUPERSEDED_BY_UNIFIED_ROUTER",
+      "source_size": 3291,
+      "source_sha256": "9d96a9b4d8daff5a8e49fbc9e67f1fd5f0b35a5600f6d927490e0668ffebf76a"
+    },
+    {
+      "source": "flutter-ui/references/note/block-note-core.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 块编辑器领域入口，未指定大序列。",
+      "source_size": 4414,
+      "source_sha256": "3e76c60af7b614db88fba8cd565b7a91c684a93c565f736a6c930702c17b0d6a"
+    },
+    {
+      "source": "flutter-ui/references/note/demo-ui.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 块编辑器 UI 子文档，未指定大序列。",
+      "source_size": 22286,
+      "source_sha256": "0746e969c250cc15b53b92fb4974cb7069ec673e31d507327d81258ead1a3b0b"
+    },
+    {
+      "source": "flutter-ui/references/note/persistence.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 块编辑器持久化子文档，未指定是否归 D 或另设大序列。",
+      "source_size": 4110,
+      "source_sha256": "563aee50d479fc2c61bf1ae7393dc71ed5b111445a64862b4022d96af75122cb"
+    },
+    {
+      "source": "flutter-ui/references/note/types.md",
+      "destination": "references/UNMAPPED-REVIEW.md",
+      "status": "REVIEW_REQUIRED: 块编辑器类型定义文档，未指定大序列。",
+      "source_size": 9205,
+      "source_sha256": "0db2ab84048625bec62680fcdd4e0c4486ef0d3a04aaff8159b6a6079301388e"
+    },
+    {
+      "source": "flutter-ui/references/rive/flutter-databind-0.14.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 8208,
+      "source_sha256": "5910f1a566a43bbc35521ec5134a143271358f2a0ba90031a4f5258152c11854"
+    },
+    {
+      "source": "flutter-ui/references/rive/flutter-project-workflow.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 6379,
+      "source_sha256": "e6780e46a923a48de83551ba121020331f0359dbfc143313b23113ddd67528b2"
+    },
+    {
+      "source": "flutter-ui/references/rive/README.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 6485,
+      "source_sha256": "879fde92824c0ca969e7e68315e2224da4c2e1c93d5adcf7ee5027cfa7f53c77"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-animation-mode.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 9187,
+      "source_sha256": "11b9ccf41b2fc3fffc296eb4eea9674e1ae8792e000823424363813b47a43a78"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-constraints.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 10504,
+      "source_sha256": "2a4a802a004312ff3157cf2b30531d092f22bfe32e780b9b6df3bcf57500563f"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-data-binding.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 12910,
+      "source_sha256": "236402622e54820f2b3480f98b61581655b0e52f9c8f3a8911a708ccac8a8ccf"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-editor-fundamentals.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 11449,
+      "source_sha256": "e7334ad092b330869081c4c253bf2576997dcc740619c5b8aa8577c784ba81b0"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-events.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 11002,
+      "source_sha256": "c6d157e7ca66ca3e01a2a0dd84059e1055ba170b05f8894f91302947bf8c0bac"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-flutter-runtime.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 13997,
+      "source_sha256": "458261776f4f55e477a3f69330d073b7379500a0c2d14595011c29f8e5fbc2f2"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-game-runtimes.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 11444,
+      "source_sha256": "355523795625409b97444969665daca305abf7e0f792f669435d72e7764059d6"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-layouts.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 8226,
+      "source_sha256": "0c0b9e69d06d35ea5f45adcad2ed785d817f76e674131a05013eba1e3c6763a0"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-manipulating-shapes.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 8419,
+      "source_sha256": "68b676fb631a1163917b15728a323ef889ecbaccbc6c6c19c88aa1a5ccbb3187"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-mobile-runtimes.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 10487,
+      "source_sha256": "fd584d5dfe844ec0ad3c4fb7b53e382afde9e76bf289528618e38a2d5032dd8b"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-react-runtime.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 17002,
+      "source_sha256": "d707fc858030c6abb5582579ed910f79e8bee4a015248d1bac5e5446986308b1"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-scripting-api.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 19079,
+      "source_sha256": "80b02caab7ffa8ac0ff656add187214ba6b30cbb6ab692e5454cbdf5c20c3134"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-skills.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 18575,
+      "source_sha256": "55066a8a5730317c8e49abcf7568f1a5ef3912cc0fc8b8d0491d35dd2136a392"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-state-machine.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 11345,
+      "source_sha256": "b9de84c74e6397a467ef44984c11838f07d65f6f0b597a6d8aee2addc2ea28d2"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-text.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 9155,
+      "source_sha256": "430c35d6314196af9831f12e1a5ac72e064e6a168b688e4ea0360349cfc6e47d"
+    },
+    {
+      "source": "flutter-ui/references/rive/rive-web-runtime.md",
+      "destination": "archive only; user requested removal from active skill for low usage",
+      "status": "USER_REMOVED_LOW_USAGE",
+      "source_size": 12882,
+      "source_sha256": "a7f389346c0bc4dfd3d912b04719cfc25f6c7a15a5fc167e3f328110b9b59ca8"
+    },
+    {
+      "source": "flutter-ui/references/skins/A01-端到端SOP与故障排查.md",
+      "destination": "references/Fa02-端到端SOP与故障排查.md",
+      "status": "MIGRATED",
+      "source_size": 11970,
+      "source_sha256": "0dd95910029bbf18f0f47926fc589c66a259be892aa4062524e60add6012cc36"
+    },
+    {
+      "source": "flutter-ui/references/skins/A02-加载架构与文件地图.md",
+      "destination": "references/Fa03-加载架构与文件地图.md",
+      "status": "MIGRATED",
+      "source_size": 13452,
+      "source_sha256": "9e358f41e7a7288ebe19f3cb5fa23c25311d18f83d56b4c5832b43ae32f140d0"
+    },
+    {
+      "source": "flutter-ui/references/skins/A03-表情包端到端SOP.md",
+      "destination": "references/Fa04-表情包端到端SOP.md",
+      "status": "MIGRATED",
+      "source_size": 7193,
+      "source_sha256": "41c31da7438f4f8fa490234c9551dc8629b1a102bb17ecd3c7c954ec2e0710db"
+    },
+    {
+      "source": "flutter-ui/references/skins/flutter-ui-game-skin-pipeline.md",
+      "destination": "references/Fa01-外部游戏资源管线路由.md",
+      "status": "MIGRATED",
+      "source_size": 19170,
+      "source_sha256": "7c579139560483058a9ff879b159954f8d47aacc2f0ef8ac9420620688b47554"
+    },
+    {
+      "source": "flutter-ui/references/styles/A00-样式方案路由.md",
+      "destination": "references/Ea02-样式分类路由.md",
+      "status": "MIGRATED",
+      "source_size": 1790,
+      "source_sha256": "4e6c78f0b4bf6348a18523a69fdbfea2456e97279d8b725cbe8706ef63024ac1"
+    },
+    {
+      "source": "flutter-ui/references/styles/A01-边框强调式减负.md",
+      "destination": "references/Ea03-边框强调式减负.md",
+      "status": "MIGRATED",
+      "source_size": 7096,
+      "source_sha256": "55288df7d36ac967d139611016340d307239fdede22d76c4e6a829e04f55f8ff"
+    },
+    {
+      "source": "flutter-ui/references/styles/A02-可拉伸banner带圆角mask.md",
+      "destination": "references/Ea04-可拉伸banner带圆角mask.md",
+      "status": "MIGRATED",
+      "source_size": 11490,
+      "source_sha256": "e5f08dcadaa159f0f9bd1c66bff33b50cd9244eb18c13ffe54c80c714e9ea08c"
+    },
+    {
+      "source": "flutter-ui/references/styles/A03-胶囊浮动底部导航.md",
+      "destination": "references/Ea05-胶囊浮动底部导航.md",
+      "status": "MIGRATED",
+      "source_size": 9043,
+      "source_sha256": "2fc1f238c3a22e525b56209e7c99a95107eb2d46dde22a5d7a427390c452a385"
+    },
+    {
+      "source": "flutter-ui/references/styles/A04-商店式内容页.md",
+      "destination": "references/Ea06-商店式内容页.md",
+      "status": "MIGRATED",
+      "source_size": 9068,
+      "source_sha256": "7ca8175c9546fd494c61d357127d9a743d23b7a31a25dc53b64d5156891f7dc2"
+    },
+    {
+      "source": "flutter-ui/references/styles/A05-批量subagent检查.md",
+      "destination": "references/Ea07-批量subagent检查.md",
+      "status": "MIGRATED",
+      "source_size": 4905,
+      "source_sha256": "bd9f19c18e41243eda411ed22b4df02f42212b3ebec44817bd1c03f467ed66e1"
+    },
+    {
+      "source": "flutter-ui/references/styles/A06-Zen浮卡少描边.md",
+      "destination": "references/Ea08-Zen浮卡少描边.md",
+      "status": "MIGRATED",
+      "source_size": 3586,
+      "source_sha256": "9e6a4e47af822108b27dc4385adcfcd610f37135d54001eae1108556810d4403"
+    },
+    {
+      "source": "flutter-ui/references/styles/A07-嵌套托盘与实心分段.md",
+      "destination": "references/Ea09-嵌套托盘与实心分段.md",
+      "status": "MIGRATED",
+      "source_size": 3410,
+      "source_sha256": "bb2f47f0f901f13fda41b22080536f21c1df12864a4c3ab6fe75bb9f32697830"
+    },
+    {
+      "source": "flutter-ui/references/styles/A08-胶囊与方圆角CTA.md",
+      "destination": "references/Ea10-胶囊与方圆角CTA.md",
+      "status": "MIGRATED",
+      "source_size": 2616,
+      "source_sha256": "850826de838cf8df57ab22b65db2d05b52f6126b7a13211481cc6fa5f7c8aed4"
+    },
+    {
+      "source": "flutter-ui/references/styles/A09-大厅与房间就绪.md",
+      "destination": "references/Ea11-大厅与房间就绪.md",
+      "status": "MIGRATED",
+      "source_size": 2322,
+      "source_sha256": "f8c666669ef54b4f897db1548d0c26286256637bc3830f96965fccd7450bba2a"
+    },
+    {
+      "source": "flutter-ui/references/styles/B01-嵌套sheet异步加载防race.md",
+      "destination": "references/Ea12-嵌套sheet异步加载防race.md",
+      "status": "MIGRATED",
+      "source_size": 6257,
+      "source_sha256": "985b5a4240b40310fc8c94c33bc206981b9a3a3bedd18a6d2179b96bfc4c5e25"
+    },
+    {
+      "source": "flutter-ui/references/styles/C00-原型对齐路由.md",
+      "destination": "references/Ea13-原型对齐路由.md",
+      "status": "MIGRATED",
+      "source_size": 2059,
+      "source_sha256": "ff617430c68ca4aa943cb27a8ba60788b54ba8832c4bd43f79e133edfbfa3eb8"
+    },
+    {
+      "source": "flutter-ui/references/styles/C01-游戏表面ColorScheme契约.md",
+      "destination": "references/Ea14-游戏表面ColorScheme契约.md",
+      "status": "MIGRATED",
+      "source_size": 2549,
+      "source_sha256": "3040502ac743fcb3fadf3100a7dd60933e782bd57d985ed3ebeaf15289553c05"
+    },
+    {
+      "source": "flutter-ui/references/styles/flutter-ui-styles.md",
+      "destination": "references/Ea01-样式原则与路由.md",
+      "status": "MIGRATED",
+      "source_size": 7816,
+      "source_sha256": "de8dfdf73112570b86b680fcdb433f61b9b9b5a3fada3f65d03b8ef23e034081"
+    },
+    {
+      "source": "flutter-ui/references/theme/A01-系统架构与数据流.md",
+      "destination": "references/Eb02-系统架构与数据流.md",
+      "status": "MIGRATED",
+      "source_size": 18209,
+      "source_sha256": "c85e29bf0e20f39f00639d011b411776d78607534db61d16218b2e72887f681a"
+    },
+    {
+      "source": "flutter-ui/references/theme/A02-扩展SOP与迁移.md",
+      "destination": "references/Eb03-扩展SOP与迁移.md",
+      "status": "MIGRATED",
+      "source_size": 16287,
+      "source_sha256": "a6d4c37f099828e73cae12ea11701c0c69f23887d3eabccdf5a142731efe8761"
+    },
+    {
+      "source": "flutter-ui/references/theme/B01-颜色用量审计.md",
+      "destination": "references/Eb04-颜色用量审计.md",
+      "status": "MIGRATED",
+      "source_size": 20161,
+      "source_sha256": "b7b05133cae685953f87046ba9ddd64e0e194c1f9f5471e374df18266970fca9"
+    },
+    {
+      "source": "flutter-ui/references/theme/B02-特例策略.md",
+      "destination": "references/Eb05-颜色特例策略.md",
+      "status": "MIGRATED",
+      "source_size": 8380,
+      "source_sha256": "ccef97a377bf2ac43a2a350bd74068193bd1279ff4450056dfb80d7b4a733c45"
+    },
+    {
+      "source": "flutter-ui/references/theme/flutter-ui-theme-architecture.md",
+      "destination": "references/Eb01-主题架构路由.md",
+      "status": "MIGRATED",
+      "source_size": 4123,
+      "source_sha256": "6781c417ee033d2f5a9fc31ca3ae9a17a4a9185a2589695c784fb21f1ba83ed0"
+    },
+    {
+      "source": "flutter-ui/scripts/add_emoji_pack.py",
+      "destination": "scripts/add_emoji_pack.py",
+      "status": "MIGRATED",
+      "source_size": 14838,
+      "source_sha256": "f55a039f28ac4d96c9b606e90b7b2397006d647100798caef9c05e2762c4a3b1"
+    },
+    {
+      "source": "flutter-ui/scripts/add_skin.py",
+      "destination": "scripts/add_skin.py",
+      "status": "MIGRATED",
+      "source_size": 19774,
+      "source_sha256": "f4a289b9fcd2fc61b9554112fc687e4a3f994c4a0e42ea66e8cea8491cbf4949"
+    },
+    {
+      "source": "flutter-ui/scripts/migrate_line_from_supabase.py",
+      "destination": "scripts/migrate_line_from_supabase.py",
+      "status": "MIGRATED",
+      "source_size": 13201,
+      "source_sha256": "99c1df88f50f5827e5ee00fc38d68d7391ca962a798ee3587443f893c55c4648"
+    },
+    {
+      "source": "flutter-ui/scripts/retag_existing.py",
+      "destination": "scripts/retag_existing.py",
+      "status": "MIGRATED",
+      "source_size": 8379,
+      "source_sha256": "9406822a9de512a580731c2a5372503905d8cd72a9cc9104f11fe9cd7f8e8161"
+    },
+    {
+      "source": "flutter-ui/SKILL.md",
+      "destination": "SKILL.md + sequence routers (restructured)",
+      "status": "SUPERSEDED_BY_UNIFIED_ROUTER",
+      "source_size": 3925,
+      "source_sha256": "fed4947df032821be24c6fb302cb7cf1be335c6598eaed8a2d084ba4f37e3079"
+    },
+    {
+      "source": "(new, authored during consolidation)",
+      "destination": "references/A08-FR工程开发与验证规范.md",
+      "status": "NEW_SEQUENCE_MEMBER",
+      "source_size": 0,
+      "source_sha256": null
+    }
+  ],
+  "files_absent_before_backup_due_to_preexisting_worktree_deletions": [
+    ".claude/skills/dev-git-flow/SKILL.md",
+    ".claude/skills/dev-git-flow/references/codegen/codebase-module-generator.md",
+    ".claude/skills/dev-git-flow/references/pr/pr-workflow.md",
+    ".claude/skills/dev-git-flow/references/release/gh-upstream-release.md",
+    ".claude/skills/flutter-biz/references/netp2p/net-p2p-protocol-playbook.md",
+    ".claude/skills/flutter-biz/references/netp2p/v1-action-driven.md",
+    ".claude/skills/flutter-biz/references/netp2p/v2-snapshot-driven.md",
+    ".claude/skills/flutter-biz/references/netp2p/v3-lua-state-machine.md",
+    ".claude/skills/flutter-biz/references/netp2p/v4-coup-bugfixes.md"
+  ],
+  "notes": [
+    "The archive is an exact snapshot of files present at backup time; its inventory carries per-file SHA-256 hashes.",
+    "The pre-existing modified A01 workflow file is preserved byte-for-byte in the archive snapshot; migrated A01 follows flat naming.",
+    "The nine already-deleted tracked files listed above were deliberately not restored, per user instruction.",
+    "Dedicated Rive references were removed from the active skill by explicit user request due to low usage; the archived originals remain untouched."
+  ]
+}

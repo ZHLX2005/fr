@@ -1,4 +1,4 @@
-// lib/core/chess/p2p/chess_room_page.dart
+﻿// lib/core/chess/p2p/chess_room_page.dart
 //
 // P2P 在线对弈页 —— 快照驱动的国际象棋房间（net_p2p v3 Relay + kChessScript）。
 //
@@ -129,6 +129,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 本地是否为房主（host）—— 终局后"再来一局"按钮仅 host 可见。
   bool _isHost = false;
+
+  /// 我能不能发这个 action？
+  ///
+  /// 权限表来自服务端（Lua `c.action_permissions`）—— 客户端按钮的可点性
+  /// **一律走这里**，零特判代码（对齐 gomoku / reversi / jungle / draughts /
+  /// xiangqi 的同款 helper，见 relay-lua-state-machine skill 的 A03 ref）。
+  bool _canPerform(String action) =>
+      ChessRoom.canPerform(action, _snapshot, isHost: _isHost);
 
   /// 当前选中格（1D index）。
   int? _selectedSquare;
@@ -570,10 +578,15 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// tap 与拖动共用同一道门（回放中棋盘只读复盘）。
   ///
   /// v2 新增：lobby / ready 阶段棋盘为空，禁走子；自己掉线时禁走子。
+  ///
+  /// 叠加服务端权限表判定（A03 §3④）：本地引擎的回合判定与
+  /// `canPerform('MOVE')` 任一不满足都不允许落子 —— 服务端会拒绝的着法，
+  /// 客户端就不该给出可点的手感（静默拒绝 → 用户以为卡死）。
   bool get _canInteract =>
       !_replayMode &&
       !_isMeDisconnected &&
       _myTurn &&
+      _canPerform('MOVE') &&
       !_sendLock &&
       (_status == 'playing' || _status == 'check');
 
@@ -824,7 +837,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// host 点"开始游戏"（DEAL）—— 把 ready 推 playing。
   /// START 是 DEAL 的别名（向后兼容），这里优先 DEAL。
   Future<void> _deal() async {
-    if (_dealLock || !_isHost) return;
+    if (_dealLock || !_canPerform('DEAL')) return;
     setState(() => _dealLock = true);
     try {
       await _room?.deal();
@@ -843,7 +856,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 房主改规则（SET_RULES）—— 清 ready 回 lobby。
   Future<void> _applyRules(ChessRoomConfig cfg) async {
-    if (_setRulesLock || !_isHost) return;
+    if (_setRulesLock || !_canPerform('SET_RULES')) return;
     final snap = _snapshot;
     final sameColor = cfg.hostColor != 'random' &&
         cfg.hostColor == ChessRoom.hostColor(snap);
@@ -873,7 +886,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
   /// 打开对局回放库（已保存整局列表 → 离线回放页，快照列表选步开始）。
   /// 房主选残局 → SET_RULES(initial_fen)。
   Future<void> _pickEndgame() async {
-    if (!_isHost || _setRulesLock) return;
+    if (!_canPerform('SET_RULES') || _setRulesLock) return;
     final skin = widget.localSkin ?? ChessSkinBundle.byId(widget.skinId);
     final snap = await Navigator.of(context).push<ChessEndgameSnapshot>(
       MaterialPageRoute(
@@ -909,7 +922,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
   /// 房主清除残局 → 标准开局。
   Future<void> _clearEndgameRules() async {
-    if (!_isHost || _setRulesLock) return;
+    if (!_canPerform('SET_RULES') || _setRulesLock) return;
     setState(() {
       _setRulesLock = true;
       _ackedLocally = false;
@@ -1642,7 +1655,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     final bothReady = phase == 'ready';
     final iAmReady =
         bothReady || _ackedLocally || readyMap[myId] == true;
-    final canDeal = bothReady && _isHost;
+    final canDeal = bothReady && _canPerform('DEAL');
     final canAck = !bothReady && players.length >= 2;
 
     return SafeArea(
@@ -1671,16 +1684,17 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
 
                 // 房间规则：host 可改；guest 只读。改规则会清 ready。
                 ChessRoomRulesPanel(
-                  editable: _isHost && !_setRulesLock,
+                  editable: _canPerform('SET_RULES') && !_setRulesLock,
                   hostColor: ChessRoom.hostColor(snap),
                   firstMover: ChessRoom.initialSide(snap),
                   isEndgame: ChessRoom.isEndgameRoom(snap) ||
                       widget.initialEndgame != null,
                   endgameLabel: ChessRoom.endgameLabel(snap) ??
                       widget.initialEndgame?.label,
-                  onChanged: _isHost ? _applyRules : null,
-                  onPickEndgame: _isHost ? _pickEndgame : null,
-                  onClearEndgame: _isHost ? _clearEndgameRules : null,
+                  onChanged: _canPerform('SET_RULES') ? _applyRules : null,
+                  onPickEndgame: _canPerform('SET_RULES') ? _pickEndgame : null,
+                  onClearEndgame:
+                      _canPerform('SET_RULES') ? _clearEndgameRules : null,
                 ),
                 const SizedBox(height: 12),
 
@@ -1759,7 +1773,8 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                     )
                   else
                     OutlinedButton(
-                      onPressed: canAck ? _ack : null,
+                      onPressed:
+                          canAck && _canPerform('ACK') ? _ack : null,
                       style: GameReadyCtaStyle.outlined(scheme),
                       child: const Text(
                         '准备好了',
@@ -2095,7 +2110,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
                 title: _gameOverTitle(),
                 subtitle: _gameOverSubtitle(),
                 colors: colors,
-                isHost: _isHost,
+                canReset: _canPerform('RESET'),
                 onReset: _reset,
                 onLeave: _leaveAndPop,
                 // 复盘入口：棋谱非空才显示（立刻投降等零走法对局无回放内容）。
@@ -2174,8 +2189,9 @@ class _GameOverCard extends StatelessWidget {
   final String subtitle;
   final ChessColorStrategy colors;
 
-  /// 本地是否为房主 —— 仅房主可见"再来一局"（服务端 RESET 仅 host 可调）。
-  final bool isHost;
+  /// 我能否发 RESET —— 由服务端权限表（action_permissions）判定，
+  /// 仅 true 时可见"再来一局"（服务端 RESET 仅 host 可调）。
+  final bool canReset;
 
   /// 房主点击"再来一局" → 发 RESET action。
   final VoidCallback onReset;
@@ -2189,7 +2205,7 @@ class _GameOverCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.colors,
-    required this.isHost,
+    required this.canReset,
     required this.onReset,
     this.onReplay,
     required this.onLeave,
@@ -2217,8 +2233,8 @@ class _GameOverCard extends StatelessWidget {
             style: TextStyle(fontSize: 16, color: colors.coordinateLabel),
           ),
           const SizedBox(height: 20),
-          // 再来一局：仅房主可见（服务端 RESET 仅 host 可调）
-          if (isHost) ...[
+          // 再来一局：仅服务端权限表判定可发 RESET 时可见
+          if (canReset) ...[
             FilledButton.icon(
               onPressed: onReset,
               icon: const Icon(Icons.replay, size: 18),

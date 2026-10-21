@@ -49,6 +49,7 @@ import 'demos/recorder_demo.dart' show registerRecorderDemo;
 import 'demos/relation_calc_demo.dart';
 import 'demos/chess_online_demo.dart';
 import 'demos/draughts_lua_demo.dart';
+import 'demos/xiangqi_lua_demo.dart';
 import 'demos/sudoku_lua/sudoku_demo.dart' show registerSudokuLuaDemo;
 import 'demos/remotetype_demo.dart' show registerRemoteTypeDemo;
 import 'demos/auth_login_demo.dart';
@@ -103,6 +104,7 @@ void registerAllDemos() {
   registerRelationCalcDemo();
   registerChessOnlineDemo();
   registerDraughtsLuaDemo();
+  registerXiangqiLuaDemo();
   registerSudokuLuaDemo();
   registerRemoteTypeDemo();
 }

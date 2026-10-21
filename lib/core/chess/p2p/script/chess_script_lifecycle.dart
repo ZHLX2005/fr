@@ -119,6 +119,19 @@ function fen_flip(fen)
             .. " " .. new_ep .. " " .. fields[5] .. " " .. fields[6]
 end
 
+-- 改写 FEN 的轮次字段（side-to-move），其余字段原样保留。
+-- ⚠ 服务端权威：先手方（c.initial_side）与 FEN 轮次字段**必须一致** ——
+--   不一致时服务端 side_to_move 与客户端"FEN 轮次方"判反 →
+--   服务端静默拒绝 MOVE（无错误、无 toast）→ 双端互锁死局。
+--   故按 first_mover 改写 FEN，而不是只改 initial_side。
+function fen_set_side(fen, side)
+  local fields = {}
+  for f in fen:gmatch("%S+") do table.insert(fields, f) end
+  if #fields < 2 then return fen end
+  fields[2] = side
+  return table.concat(fields, " ")
+end
+
 -- 轮次由"先手方 + 手数奇偶"推导（first_moker 由 c.initial_side 决定，
 -- 这是棋规本身 —— 白方永远先走除非残局黑先）：
 --   side_to_move(n) = n 偶数 → initial_side；奇数 → 对侧

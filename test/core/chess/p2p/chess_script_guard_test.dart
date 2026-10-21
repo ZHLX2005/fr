@@ -1,4 +1,4 @@
-// test/core/chess/p2p/chess_script_guard_test.dart
+﻿// test/core/chess/p2p/chess_script_guard_test.dart
 //
 // kChessScript 静态守卫测试 —— 客户端无法嵌 Lua VM，对脚本源码做防回归断言。
 //
@@ -25,6 +25,8 @@ void main() {
   _v6FirstMoverGuards();
   _v7SetRulesGuards();
   _v8EmptyRoomReclaimGuards();
+  _claimEndMoveCountGuards();
+  _firstMoverFenConsistencyGuards();
   group('kChessScript on_leave 静态守卫：playing/ready 退出不终止（v4, id47）', () {
     test('playing/ready 分支不再按 reason 分流，也无 host 销毁分支', () {
       final onLeave = _onLeaveBlock();
@@ -397,6 +399,67 @@ void _v8EmptyRoomReclaimGuards() {
       expect(block, contains('c.status = "playing"'));
       expect(block, contains('c.chatRing = {}'));
       expect(block, contains('state = "lobby"'));
+    });
+  });
+}
+
+/// v9 先手方与 FEN 轮次字段一致性 静态守卫（双端互锁死局回归）。
+///
+/// 机理：服务端 `c.initial_side` 与 FEN 第 2 字段（side-to-move）若不一致 →
+///   服务端 `side_to_move` 与客户端「FEN 轮次方」判反 → 服务端静默拒绝 MOVE
+///   （无错误、无 toast）→ 双方互锁，棋盘点不动也看不出原因。
+///
+/// 修法（服务端权威）：SET_RULES 按 first_mover **改写 FEN 的轮次字段**
+///   （fen_set_side），而不是只改 c.initial_side。
+void _firstMoverFenConsistencyGuards() {
+  group('kChessScript v9 first_mover 与 FEN 轮次字段一致 静态守卫', () {
+    test('fen_set_side helper 存在且改写第 2 字段', () {
+      final helper = _functionBlock('function fen_set_side(fen, side)');
+      expect(helper, contains('fields[2] = side'),
+          reason: '必须改写 FEN 第 2 字段（side-to-move）');
+      expect(helper, contains('table.concat(fields, " ")'),
+          reason: '其余字段原样保留');
+    });
+
+    test('SET_RULES 残局分支：initial_fen 走 fen_set_side，initial_side 同源', () {
+      final block = _functionBlock('on_action_SET_RULES = function');
+      expect(block, contains('c.initial_fen = fen_set_side(c.initial_fen, side)'),
+          reason: '残局 FEN 必须按 first_mover 改写轮次字段');
+      expect(block, contains('c.initial_side = side'),
+          reason: 'initial_side 必须与改写后的 FEN 同源（同一个 side 变量）');
+      expect(
+        block,
+        isNot(contains('c.initial_fen = p.initial_fen')),
+        reason: '旧版「原样存 FEN、只改 initial_side」必须移除（死局根因）',
+      );
+    });
+
+    test('SET_RULES 仅改 first_mover 分支：同样同步改写 FEN 轮次字段', () {
+      final block = _functionBlock('on_action_SET_RULES = function');
+      expect(
+        block,
+        contains('c.initial_fen = fen_set_side(c.initial_fen, p.first_mover)'),
+        reason: '残局已存在时切换先手方，也必须同步 FEN 轮次字段',
+      );
+    });
+  });
+}
+
+/// v10 CLAIM_END 至少走过一手 静态守卫（三棋统一）。
+///
+/// Lua 5.1 的 `-1 % 2 == 1` 会让 0 手时的 `non_current_player` 判给对侧
+/// → 未走一步即可自称获胜。三个棋种的服务端脚本统一加 `#c.moves < 1` 门
+/// （象棋已加，此处补棋的守卫）。
+void _claimEndMoveCountGuards() {
+  group('kChessScript v10 CLAIM_END 手数门 静态守卫', () {
+    test('on_action_CLAIM_END 要求 #c.moves >= 1', () {
+      final block = _functionBlock('on_action_CLAIM_END = function');
+      expect(
+        block,
+        contains('if #c.moves < 1 then'),
+        reason: '0 手时 role_check 的 non_current_player 会判给对侧 → '
+            '必须挡住「未走一步就宣布终局」',
+      );
     });
   });
 }

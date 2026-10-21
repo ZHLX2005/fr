@@ -190,10 +190,16 @@ class ChessRoom {
   }
 
   /// v5：host 执子颜色（'w' / 'b'）。服务端在 on_init 时写入 c.host_color；
-  /// nil/缺省/非法值 → 从 initialSide 推（向后兼容旧房间无 host_color 字段）。
+  /// nil/缺省/非法值 → **兜底 'w'**。
+  ///
+  /// ⚠ 兜底值必须与**服务端**一致：Lua `role_check` 里是
+  /// `local host_side = c.host_color or "w"` —— 恒为白。
+  /// 旧版兜底 `initialSide(s)` 在「黑先残局」时会给 'b'，与服务端判反
+  /// （客户端认为 host 是先手方、服务端认为 guest 是）→ 走子被服务端静默拒绝。
+  /// 现与 draughts / xiangqi 的兜底语义统一（同为「固定白」）。
   static String hostColor(Snapshot? s) {
     final raw = (s?.context['host_color']?.toString()) ?? '';
-    return (raw == 'w' || raw == 'b') ? raw : initialSide(s);
+    return (raw == 'w' || raw == 'b') ? raw : 'w';
   }
 
   /// 当前对局状态（"playing" / "check" / "checkmate" / ...）。

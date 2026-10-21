@@ -206,6 +206,14 @@ const Map<String, GameMeta> kGameMeta = {
     mode: '联机双人',
     pattern: GameArtPattern.grid,
   ),
+  'xiangqi-lua': GameMeta(
+    categories: {GameCategory.multiplayer, GameCategory.board},
+    icon: Icons.grid_on_rounded,
+    // 主题豁免：象棋木质棋盘 + 朱红棋子
+    gradient: [Color(0xFF8A6236), Color(0xFFB2312B)],
+    mode: '联机双人',
+    pattern: GameArtPattern.grid,
+  ),
   'jungle-chess-lua': GameMeta(
     categories: {GameCategory.multiplayer, GameCategory.board},
     icon: Icons.pets_rounded,

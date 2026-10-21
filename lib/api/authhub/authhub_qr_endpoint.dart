@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -121,6 +122,78 @@ class AuthHubQrEndpoint {
 
   /// 作废自己建的票（换一张新码之前）。
   Future<void> cancel(String ticket) => _call('POST', '${_path(ticket)}/cancel');
+
+  // ── 手机侧：二维码图片解码（服务端解码）───────────────────────────────
+
+  /// 上传一张二维码照片，让**服务端**解码出内容，返回二维码里的原始字符串。
+  ///
+  /// 为什么不让手机自己解：原生 App 为了读一张"电脑屏幕上的登录码"要背着
+  /// ML Kit 的 libbarhopper_v3.so（4.2MB）+ 0.8MB 的 .tflite 模型 ——
+  /// 改走服务端后，客户端整块约 5MB 的原生依赖消失。
+  ///
+  /// 端点是匿名的（它只回显调用者自己传上来的图里有什么，不回显任何
+  /// 服务端状态），真正的授权在随后的 preview / confirm。
+  Future<String> decodeImage(Uint8List bytes) async {
+    if (bytes.isEmpty) {
+      throw const AuthHubException(
+        error: 'empty_image',
+        message: '图片内容为空，请重新拍一张。',
+      );
+    }
+    final url = '$_issuer${AuthHubConfig.qrDecodePath}';
+    final request = http.MultipartRequest('POST', Uri.parse(url))
+      ..headers['Accept'] = 'application/json'
+      ..files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: 'qr.jpg'),
+      );
+    final sess = await sessionStore?.read();
+    if ((sess ?? '').isNotEmpty) {
+      request.headers['Cookie'] = '${AuthHubConfig.sessionCookieName}=$sess';
+    }
+    if (_cookies.isNotEmpty) {
+      request.headers['Cookie'] =
+          _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+    }
+
+    late final http.Response resp;
+    try {
+      final streamed = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 30));
+      resp = await http.Response.fromStream(streamed);
+    } on http.ClientException catch (e) {
+      throw AuthHubException(
+        error: AuthHubException.errNetwork,
+        message: '无法连接认证中心：${e.message}',
+      );
+    }
+    _captureCookies(resp);
+
+    Map<String, dynamic>? body;
+    if (resp.body.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(utf8.decode(resp.bodyBytes));
+        if (decoded is Map<String, dynamic>) body = decoded;
+      } catch (_) {
+        body = null;
+      }
+    }
+    if (resp.statusCode >= 400) {
+      throw AuthHubException(
+        error: body?['error'] as String? ?? 'http_${resp.statusCode}',
+        message: body?['message'] as String? ?? '认证中心返回 ${resp.statusCode}',
+        statusCode: resp.statusCode,
+      );
+    }
+    final content = body?['data']?['content'] as String?;
+    if (content == null || content.isEmpty) {
+      throw const AuthHubException(
+        error: 'decode_failed',
+        message: '认证中心没有解出内容，请重拍一张。',
+      );
+    }
+    return content;
+  }
 
   // ── 内部 ────────────────────────────────────────────────────────────────
 

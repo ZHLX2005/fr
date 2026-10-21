@@ -90,21 +90,30 @@ on_action_SET_RULES = function(c, p)
     c.initial_side = "w"
     c.endgame_label = nil
   elseif type(p.initial_fen) == "string" and is_valid_fen_structure(p.initial_fen) then
-    c.initial_fen = p.initial_fen
+    local side = nil
     if type(p.first_mover) == "string" and (p.first_mover == "w" or p.first_mover == "b") then
-      c.initial_side = p.first_mover
+      side = p.first_mover
     else
       local fields = {}
-      for f in c.initial_fen:gmatch("%S+") do table.insert(fields, f) end
-      c.initial_side = (fields[2] == "b") and "b" or "w"
+      for f in p.initial_fen:gmatch("%S+") do table.insert(fields, f) end
+      side = (fields[2] == "b") and "b" or "w"
     end
+    -- ⚠ 先手方必须与 FEN 轮次字段一致（服务端权威）：只改 c.initial_side 而
+    --   留着 FEN 原轮次字段，会让服务端 side_to_move 与客户端"FEN 轮次方"
+    --   判反 → 服务端静默拒绝 MOVE → 双端互锁死局。故按 first_mover
+    --   **改写 FEN 的轮次字段**。
+    c.initial_fen = fen_set_side(c.initial_fen, side)
+    c.initial_side = side
     if type(p.endgame_label) == "string" and p.endgame_label ~= "" then
       c.endgame_label = p.endgame_label
     else
       c.endgame_label = "残局"
     end
   elseif type(p.first_mover) == "string" and (p.first_mover == "w" or p.first_mover == "b") then
-    -- 仅改 first_mover（残局已存在时）
+    -- 仅改 first_mover（残局已存在时）—— 同样同步改写 FEN 轮次字段，保持一致。
+    if type(c.initial_fen) == "string" and is_valid_fen_structure(c.initial_fen) then
+      c.initial_fen = fen_set_side(c.initial_fen, p.first_mover)
+    end
     c.initial_side = p.first_mover
   end
 
@@ -167,6 +176,12 @@ on_action_CLAIM_END = function(c, p)
     return c
   end
   if c.status ~= "playing" and c.status ~= "check" then
+    return c
+  end
+  -- ⚠ 至少走过一手才可能终局：0 手时「刚走完的一方」无意义
+  --   （Lua 5.1 的 -1 % 2 == 1 会让 role_check 判给对侧 → 0 手即可宣布
+  --    自己获胜）。终局只能由引擎在合法着法之后判定。
+  if #c.moves < 1 then
     return c
   end
   local reason = p.reason

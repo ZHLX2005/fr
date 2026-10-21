@@ -1,4 +1,4 @@
-// lib/core/draughts/p2p/draughts_room_page.dart
+﻿// lib/core/draughts/p2p/draughts_room_page.dart
 //
 // 国际跳棋对局房页：准备 / 对战 / 终局三态。
 //
@@ -306,6 +306,14 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
       ? kDefaultDraughtsEngine.legalMoves(_board)
       : const [];
 
+  /// 我能不能发这个 action？
+  ///
+  /// 权限表来自服务端（Lua `c.action_permissions`）—— 客户端按钮的可点性
+  /// **一律走这里**，零特判代码（对齐 gomoku / reversi / jungle / chess /
+  /// xiangqi 的同款 helper，见 relay-lua-state-machine skill 的 A03 ref）。
+  bool _canPerform(String action) =>
+      DraughtsRoom.canPerform(action, _snap, isHost: _isHost);
+
   // ── 终局上报 ──
 
   void _maybeDeclareEnd() {
@@ -440,7 +448,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   /// host 点「开始对局」（DEAL）—— 把 ready 推 playing。
   Future<void> _deal() async {
-    if (_dealLock || !_isHost) return;
+    if (_dealLock || !_canPerform('DEAL')) return;
     setState(() => _dealLock = true);
     try {
       await _room.deal();
@@ -457,7 +465,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   /// 房主改执子色（SET_RULES）—— 服务端清 ready、回 lobby。
   Future<void> _applyColorRules(DraughtsColorChoice choice) async {
-    if (_setRulesLock || !_isHost) return;
+    if (_setRulesLock || !_canPerform('SET_RULES')) return;
     final raw = switch (choice) {
       DraughtsColorChoice.hostWhite => 'w',
       DraughtsColorChoice.hostBlack => 'b',
@@ -487,7 +495,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
   /// 房主「再来一局」（RESET）—— sendLock + 失败 snackbar（对齐 chess _reset）。
   Future<void> _reset() async {
-    if (_sendLock || !_isHost) return;
+    if (_sendLock || !_canPerform('RESET')) return;
     setState(() => _sendLock = true);
     try {
       await _room.reset();
@@ -888,9 +896,9 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
 
               // 房间规则：host 可改执子色；guest 只读。改规则会清 ready。
               DraughtsRoomRulesPanel(
-                editable: _isHost && !_setRulesLock,
+                editable: _canPerform('SET_RULES') && !_setRulesLock,
                 hostColor: hostIsWhite ? 'w' : 'b',
-                onChanged: _isHost ? _applyColorRules : null,
+                onChanged: _canPerform('SET_RULES') ? _applyColorRules : null,
               ),
               const SizedBox(height: 12),
 
@@ -936,7 +944,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
               if (players.length >= 2) ...[
                 const SizedBox(height: 22),
                 if (bothReady)
-                  _isHost
+                  _canPerform('DEAL')
                       ? FilledButton(
                           onPressed: _dealLock ? null : _deal,
                           style: GameReadyCtaStyle.filled(scheme),
@@ -972,7 +980,8 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
                   )
                 else
                   OutlinedButton(
-                    onPressed: canAck ? _ack : null,
+                    onPressed:
+                        canAck && _canPerform('ACK') ? _ack : null,
                     style: GameReadyCtaStyle.outlined(scheme),
                     child: const Text(
                       '准备好了',
@@ -1147,7 +1156,18 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
   }
 
   void _seekReplay(int i) =>
-      setState(() => _replayIndex = i.clamp(0, _replayStates.length - 1));
+      setState(() => _replayIndex = _replayIndexSafe(i));
+
+  /// 回放索引（安全版）：空表时返回 0。
+  ///
+  /// ⚠ `clamp(0, length - 1)` 在**空表**上是 `clamp(0, -1)` → ArgumentError
+  ///   （"Invalid argument(s): 0"）—— 会把整个房页炸掉。
+  ///   与 xiangqi 同款守卫（见 xiangqi_room_page._replayIndexSafe）。
+  int _replayIndexSafe([int? raw]) {
+    if (_replayStates.isEmpty) return 0;
+    final i = raw ?? _replayIndex;
+    return i.clamp(0, _replayStates.length - 1);
+  }
 
   void _stepReplay(int delta) => _seekReplay(_replayIndex + delta);
 
@@ -1196,6 +1216,13 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
         threatened.addAll(m.capturedSquares);
       }
     }
+    // ⚠ 回放索引必须走 [_replayIndexSafe]：_replayStates 在非回放态是空表，
+    //   `clamp(0, -1)` 会抛 ArgumentError → 房页炸掉。
+    final replaying = _replayMode && _replayStates.isNotEmpty;
+    final replayIndex = _replayIndexSafe();
+    final replayPathIndex = _replayPaths.isEmpty
+        ? 0
+        : _replayIndex.clamp(0, _replayPaths.length - 1);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -1204,19 +1231,20 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
           child: DraughtsBoard(
             // 回放中显示层整体切换到预计算局面；实况字段（_board/_history/
             // _lastPath）不动 —— 退出回放即回实况（chess 同模式）。
-            state: _replayMode
-                ? _replayStates[_replayIndex.clamp(0, _replayStates.length - 1)]
-                : _board,
+            state: replaying ? _replayStates[replayIndex] : _board,
             flipped: _myColor == DraughtsColor.black,
             selectedSquare: _selected,
             legalTargets: _targets,
-            lastMovePath: _replayMode
-                ? _replayPaths[_replayIndex.clamp(0, _replayPaths.length - 1)]
-                : _lastPath,
+            lastMovePath: replaying ? _replayPaths[replayPathIndex] : _lastPath,
             captureTargets: captureTo,
             mustCapturePieces: mustFrom,
             threatenedSquares: threatened,
-            interactive: _isMyTurn && !_sendLock && !_isMeDisconnected,
+            // 叠加服务端权限表判定（A03 §3④）：服务端会拒绝的着法，
+            // 客户端就不该给出可点的手感。
+            interactive: _isMyTurn &&
+                _canPerform('MOVE') &&
+                !_sendLock &&
+                !_isMeDisconnected,
             onTapSquare: _onTapSquare,
           ),
         ),
@@ -1377,7 +1405,7 @@ class _DraughtsRoomPageState extends State<DraughtsRoomPage> {
                   ),
                 ],
                 const SizedBox(height: 22),
-                if (_isHost)
+                if (_canPerform('RESET'))
                   FilledButton.icon(
                     onPressed: _reset,
                     icon: const Icon(Icons.replay, size: 18),

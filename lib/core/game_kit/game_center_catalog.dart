@@ -126,6 +126,14 @@ const List<GameCenterCatalogEntry> kGameCenterCatalog = [
     mode: '联机双人',
   ),
   GameCenterCatalogEntry(
+    slug: 'xiangqi-lua',
+    title: '中国象棋（联机）',
+    description:
+        'Xiangqi 9×10 · Lua 服务端权威棋谱 · SVG 手绘棋子 · 聊天/认输/悔棋/求和',
+    categories: ['multiplayer', 'board'],
+    mode: '联机双人',
+  ),
+  GameCenterCatalogEntry(
     slug: 'jungle-chess-lua',
     title: '斗兽棋（联机）',
     description: '斗兽棋互联网双人对战 · Lua 服务端权威棋谱 · 棋盘对称翻转',
