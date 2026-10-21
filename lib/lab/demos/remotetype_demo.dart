@@ -6,8 +6,8 @@
 import 'package:flutter/material.dart';
 
 import '../lab_container.dart';
-import 'remotetype/rt_constants.dart' show kRemoteTypeDemoSlug;
-import 'remotetype/rt_page.dart';
+import '../../core/remotetype/rt_constants.dart' show kRemoteTypeDemoSlug;
+import '../../core/remotetype/rt_page.dart';
 
 /// Lab demo 注册项
 class RemoteTypeDemo extends DemoPage {
