@@ -1,11 +1,11 @@
-// lib/core/remotetype/template/rt_canvas_template_input_page.dart
+// lib/core/remotetype/canvas/template/rt_canvas_template_input_page.dart
 //
 // 内置布局模板 · 输入页（竖屏默认）：连接后落到的打字页本身——满屏
 // composer 模块（工具行 + 快捷键托盘 + 输入框）。竖屏激活兜底取它
 // （内置列表里第一套真竖屏）；hideShortcuts：托盘在模块内，画布按钮区
 // 不重复渲染。
 
-import '../rt_prefs.dart'
+import '../../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasLayout,

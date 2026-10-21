@@ -11,7 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_canvas_dpad.dart';
+import 'package:xiaodouzi_fr/core/remotetype/canvas/rt_canvas_dpad.dart';
 
 Future<void> pumpDpad(
   WidgetTester tester, {

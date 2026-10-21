@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_dpad.dart
+// lib/core/remotetype/canvas/rt_canvas_dpad.dart
 //
 // 方向轮盘模块（游戏布局左手区）：圆形轮盘，接 PC 端虚拟手柄的十字键。
 //   · 手指按到某向 → 立即回报该向（vpad_dpad up/down/left/right）；
@@ -14,7 +14,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
 /// 中心死区占半径比例：指针在死区内 = 无方向（回中）。
 const double kRtDpadDeadZoneRatio = 0.25;

@@ -1,11 +1,11 @@
-// lib/core/remotetype/template/rt_canvas_template_game.dart
+// lib/core/remotetype/canvas/template/rt_canvas_template_game.dart
 //
 // 内置布局模板 · 游戏：纯手柄——左拖动轮盘 + 右 ABXY/肩键。
 // 锚点与尺寸与 docs/prototypes/rt-canvas-gamepad.html 的 LAYOUTS.game 同源；
 // 信号走 vpad 通道（vpad_dpad + vpad_button/trigger）；hideShortcuts：
 // 快捷键按钮区归手柄模块，画布按钮不参与。
 
-import '../rt_prefs.dart'
+import '../../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasLayout,

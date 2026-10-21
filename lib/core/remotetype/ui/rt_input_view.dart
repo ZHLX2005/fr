@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_input_view.dart
+// lib/core/remotetype/ui/rt_input_view.dart
 //
 // 输入页 UI（纯展示）：顶部工具行（回车开关 + 清空/重放）+ 快捷键托盘 +
 // 固定高度 composer 浮卡（同步轻闪 / 字数）。
@@ -12,9 +12,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/context/colors.dart';
-import 'rt_constants.dart';
-import 'rt_prefs.dart';
+import '../../../core/theme/context/colors.dart';
+import '../data/rt_constants.dart';
+import '../data/rt_prefs.dart';
 import 'rt_shortcut_bar.dart';
 
 /// 输入页。

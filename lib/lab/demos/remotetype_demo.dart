@@ -1,12 +1,12 @@
 // lib/lab/demos/remotetype_demo.dart
 //
 // Lab 注册入口：远程输入（手机 → 电脑焦点输入框，端到端加密 + 实时对齐）。
-// 业务实现在 demos/remotetype/ 目录；配对与加密协议见其目录内注释。
+// 业务实现在 core/remotetype/ 目录（data/protocol/ui/canvas 分层）；配对与加密协议见其目录内注释。
 
 import 'package:flutter/material.dart';
 
 import '../lab_container.dart';
-import '../../core/remotetype/rt_constants.dart' show kRemoteTypeDemoSlug;
+import '../../core/remotetype/remotetype.dart' show kRemoteTypeDemoSlug;
 import '../../core/remotetype/rt_page.dart';
 
 /// Lab demo 注册项

@@ -18,9 +18,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:xiaodouzi_fr/core/remotetype/template/rt_canvas_presets.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_canvas_view.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_prefs.dart'
+import 'package:xiaodouzi_fr/core/remotetype/canvas/template/rt_canvas_presets.dart';
+import 'package:xiaodouzi_fr/core/remotetype/canvas/rt_canvas_view.dart';
+import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasButtonPos,

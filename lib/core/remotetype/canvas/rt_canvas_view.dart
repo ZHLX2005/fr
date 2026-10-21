@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_view.dart
+// lib/core/remotetype/canvas/rt_canvas_view.dart
 //
 // 横竖屏画布：触摸板 / 输入框 / 虚拟键盘 / 轮盘 / 手柄键区 / 快捷按钮同属
 // 一个模块系统，自由编排。当前编排属于「当前朝向的激活布局」—— 用户可在
@@ -30,7 +30,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
 import 'rt_canvas_kb.dart' show RtCanvasKb;
@@ -39,7 +39,7 @@ import 'rt_canvas_module_page.dart' show showRtCanvasModulePage;
 import 'rt_canvas_modules.dart'
     show kRtCanvasModuleSpecs, rtCanvasModuleDefaults, rtCanvasModuleRange;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad;
-import 'rt_prefs.dart'
+import '../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasButtonPos,
@@ -52,7 +52,7 @@ import 'rt_prefs.dart'
         kRtCanvasModuleKb,
         kRtCanvasModuleTouchpad,
         kRtCanvasModuleVpad;
-import 'rt_session.dart';
+import '../protocol/rt_session.dart';
 import 'rt_touch_surface.dart' show RtTouchSurface, showRtSensitivitySheet;
 
 /// 按钮自动找位候选槽（画布右侧区，2 列 × 4 行，归一化画布坐标）。

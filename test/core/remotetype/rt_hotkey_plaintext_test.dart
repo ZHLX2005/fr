@@ -10,9 +10,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_crypto.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_constants.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_session.dart';
+import 'package:xiaodouzi_fr/core/remotetype/protocol/rt_crypto.dart';
+import 'package:xiaodouzi_fr/core/remotetype/data/rt_constants.dart';
+import 'package:xiaodouzi_fr/core/remotetype/protocol/rt_session.dart';
 
 void main() {
   group('rtHotkeyPlaintext 明文形状', () {

@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_modules.dart
+// lib/core/remotetype/canvas/rt_canvas_modules.dart
 //
 // 画布模块登记表 —— 模块的单一事实源：模块设置页（设置页样式：图标 + 名称 +
 // 说明 + 开关）与编辑态 chip 行都从这里取，避免两处两套清单。
@@ -14,7 +14,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart' show IconData, Icons;
 
-import 'rt_prefs.dart'
+import '../data/rt_prefs.dart'
     show
         kRtCanvasInputDefH,
         kRtCanvasInputDefW,

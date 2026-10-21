@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_crypto.dart
+// lib/core/remotetype/protocol/rt_crypto.dart
 //
 // RT1 协议加密层 —— 与 mn-rt client/lib/rt-crypto.js 逐字节对齐。
 // 跨语言契约由两侧单测钉死：mn-rt test/vectors/rt1-vectors.json（源）
@@ -13,7 +13,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
-import 'rt_constants.dart';
+import '../data/rt_constants.dart';
 
 /// 派生结果：房间号 + 配对盐 + 双方向 AES-256 密钥
 class RtDerived {

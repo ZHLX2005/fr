@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_layouts_sheet.dart
+// lib/core/remotetype/canvas/rt_canvas_layouts_sheet.dart
 //
 // 画布布局选择面板：横屏 / 竖屏两组（布局与朝向绑定，两组相互隔离），
 // 均渲染**持久化版本**（用户改过的内置布局在列表里就是改过的样子，与画布
@@ -18,7 +18,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
-import 'rt_prefs.dart'
+import '../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasButtonShape,

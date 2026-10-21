@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_canvas_vpad.dart';
+import 'package:xiaodouzi_fr/core/remotetype/canvas/rt_canvas_vpad.dart';
 
 void main() {
   testWidgets('按住期间模块被卸载 → dispose 补发松开', (tester) async {

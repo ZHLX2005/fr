@@ -8,7 +8,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:xiaodouzi_fr/core/remotetype/rt_touchpad_engine.dart';
+import 'package:xiaodouzi_fr/core/remotetype/protocol/rt_touchpad_engine.dart';
 
 void main() {
   // 收集器：把引擎回调攒进列表，便于断言顺序与内容。

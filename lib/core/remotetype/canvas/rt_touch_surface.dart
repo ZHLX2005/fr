@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_touch_surface.dart
+// lib/core/remotetype/canvas/rt_touch_surface.dart
 //
 // 触摸手势面（自包含）：Listener → 引擎 → 合批发送 → 惯性帧钟 + 动作反馈。
 // 手势判定全在 rt_touchpad_engine（纯逻辑），本文件只做搬运：
@@ -17,10 +17,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/theme/context/colors.dart';
-import 'rt_constants.dart';
-import 'rt_session.dart';
-import 'rt_touchpad_engine.dart';
+import '../../../core/theme/context/colors.dart';
+import '../data/rt_constants.dart';
+import '../protocol/rt_session.dart';
+import '../protocol/rt_touchpad_engine.dart';
 
 /// 触摸手势面（自包含）。新增手势宿主（画布模块等）直接嵌它。
 class RtTouchSurface extends StatefulWidget {

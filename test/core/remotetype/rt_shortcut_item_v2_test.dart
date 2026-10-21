@@ -10,8 +10,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_constants.dart';
-import 'package:xiaodouzi_fr/core/remotetype/rt_prefs.dart';
+import 'package:xiaodouzi_fr/core/remotetype/data/rt_constants.dart';
+import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart';
 
 void main() {
   group('v2 → v2 往返', () {

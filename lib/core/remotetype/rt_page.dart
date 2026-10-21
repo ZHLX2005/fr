@@ -42,16 +42,16 @@ import '../../core/theme/context/colors.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart'
     show QuickNavBottomBar, bottomBarVisibilityProvider;
 import '../../lab/demo_session_host.dart';
-import 'rt_constants.dart';
-import 'rt_connecting_overlay.dart';
-import 'template/rt_canvas_presets.dart';
-import 'rt_canvas_view.dart';
-import 'rt_input_view.dart';
-import 'rt_pairing_view.dart';
-import 'rt_prefs.dart';
-import 'rt_session.dart';
-import 'rt_shortcut_bar.dart';
-import 'rt_text_sync.dart';
+import 'data/rt_constants.dart';
+import 'ui/rt_connecting_overlay.dart';
+import 'canvas/template/rt_canvas_presets.dart';
+import 'canvas/rt_canvas_view.dart';
+import 'ui/rt_input_view.dart';
+import 'ui/rt_pairing_view.dart';
+import 'data/rt_prefs.dart';
+import 'protocol/rt_session.dart';
+import 'ui/rt_shortcut_bar.dart';
+import 'protocol/rt_text_sync.dart';
 
 class RemoteTypePage extends ConsumerStatefulWidget {
   const RemoteTypePage({super.key});

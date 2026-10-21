@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_text_sync.dart
+// lib/core/remotetype/protocol/rt_text_sync.dart
 //
 // 文本同步管线：控制器监听 → composing 挂起/补发 → 250ms 防抖 → syncText。
 // 会话与端到端状态经 getter 注入，结果经回调交还页面（记账 / 落历史 / 清空 /
@@ -8,7 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'rt_constants.dart';
+import '../data/rt_constants.dart';
 import 'rt_session.dart';
 
 /// 文本同步管线（页面持有一份，随页面销毁）。

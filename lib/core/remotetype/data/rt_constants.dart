@@ -1,9 +1,9 @@
-// lib/core/remotetype/rt_constants.dart
+// lib/core/remotetype/data/rt_constants.dart
 //
 // RemoteType（远程输入）lab demo 常量。
 // 直连模式：唯一后端是 mn-rt 的 server.js（固定部署地址内置，用户不填）。
 
-import '../../api/remotetype/remotetype_config.dart';
+import '../../../api/remotetype/remotetype_config.dart';
 
 /// mn-rt server 固定部署地址（server 托管的网页控制台同源）。
 ///

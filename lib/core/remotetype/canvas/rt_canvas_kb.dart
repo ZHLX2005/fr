@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_kb.dart
+// lib/core/remotetype/canvas/rt_canvas_kb.dart
 //
 // 画布虚拟键盘模块（键盘布局主体）：复用打字页的 RtVirtualKeyboard（5 行
 // QWERTY + 折叠 Fn 区），接 hotkey 通道「按键即发」。
@@ -10,7 +10,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'rt_virtual_keyboard.dart' show RtVirtualKeyboard;
+import '../ui/rt_virtual_keyboard.dart' show RtVirtualKeyboard;
 
 /// 修饰键粘滞态的标准序（合成 chord 时修饰键排前，键名与 hotkey 白名单一致）。
 const List<String> _kModifierOrder = ['win', 'ctrl', 'alt', 'shift'];

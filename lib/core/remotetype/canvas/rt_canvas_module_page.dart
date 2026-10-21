@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_module_page.dart
+// lib/core/remotetype/canvas/rt_canvas_module_page.dart
 //
 // 模块设置页（设置页样式）：分区列表，逐行 = 图标 + 名称 + 说明 + 开关。
 //   · 模块   —— 登记表（rt_canvas_modules）逐行开关「加入 / 移出当前布局」；
@@ -21,7 +21,7 @@ import 'rt_canvas_modules.dart'
         rtCanvasModuleRange,
         rtCanvasModuleSpec,
         rtCanvasSizeStep;
-import 'rt_prefs.dart' show RtCanvasAnchor;
+import '../data/rt_prefs.dart' show RtCanvasAnchor;
 
 /// 打开模块设置页（全屏路由，设置页观感）。
 Future<void> showRtCanvasModulePage(

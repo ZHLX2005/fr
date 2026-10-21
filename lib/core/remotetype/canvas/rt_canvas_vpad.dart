@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_vpad.dart
+// lib/core/remotetype/canvas/rt_canvas_vpad.dart
 //
 // 虚拟手柄键区模块（游戏布局右手区）：固定布局的 Xbox 形态按键，
 //   · 顶行：LB / LT / RT / RB（肩键 + 扳机）
@@ -15,7 +15,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
 /// 触发回调：[button] ∈ a/b/x/y/lb/rb；[trigger] ∈ lt/rt。二者互斥非空；
 /// [pressed] = 按下（true）/ 松开（false），每个键各回报一对。

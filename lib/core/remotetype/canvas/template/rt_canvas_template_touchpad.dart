@@ -1,8 +1,8 @@
-// lib/core/remotetype/template/rt_canvas_template_touchpad.dart
+// lib/core/remotetype/canvas/template/rt_canvas_template_touchpad.dart
 //
 // 内置布局模板 · 触控屏：满屏触摸板（原型 full）。不锁横屏 → 双朝向可用。
 
-import '../rt_prefs.dart'
+import '../../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasLayout,

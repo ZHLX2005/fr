@@ -1,11 +1,11 @@
-// lib/core/remotetype/rt_connecting_overlay.dart
+// lib/core/remotetype/ui/rt_connecting_overlay.dart
 //
 // 连接中遮罩（纯展示）：盖在配对页/输入页上，AbsorbPointer 挡输入，
 // 显示目标电脑名。目标名的解析（computers/selectedClient → label）在 rt_page。
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/context/colors.dart';
+import '../../../core/theme/context/colors.dart';
 
 /// 连接中遮罩。
 class RtConnectingOverlay extends StatelessWidget {

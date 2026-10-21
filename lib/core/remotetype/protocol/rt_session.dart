@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_session.dart
+// lib/core/remotetype/protocol/rt_session.dart
 //
 // RemoteType 直连会话：连 mn-rt server.js（唯一后端）——加密全文信封 → PC 注入 → ACK 回流。
 // 纯数据控制层（无 UI），UI 见 rt_page.dart。
@@ -17,7 +17,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'rt_constants.dart';
+import '../data/rt_constants.dart';
 import 'rt_crypto.dart';
 
 /// 连接失败的可区分错误（文案直接对应用户动作）

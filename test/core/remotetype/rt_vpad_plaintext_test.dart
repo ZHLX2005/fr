@@ -13,7 +13,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:xiaodouzi_fr/core/remotetype/rt_session.dart';
+import 'package:xiaodouzi_fr/core/remotetype/protocol/rt_session.dart';
 
 void main() {
   group('rtVpadPlaintext 明文形状', () {

@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_pairing_view.dart
+// lib/core/remotetype/ui/rt_pairing_view.dart
 //
 // 配对页 UI（纯展示）：统一登录「我名下的电脑，点一下即连」+ 服务端没开
 // 统一登录时的「选 PC + 填配对 key」兜底，两态由 unified 决定。
@@ -6,10 +6,10 @@
 
 import 'package:flutter/material.dart';
 
-import '../../api/remotetype/remotetype.dart';
-import '../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
-import '../../services/remotetype/remotetype_service.dart';
-import '../../core/theme/context/colors.dart';
+import '../../../api/remotetype/remotetype.dart';
+import '../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../../../services/remotetype/remotetype_service.dart';
+import '../../../core/theme/context/colors.dart';
 
 /// 配对页（两态）。
 class RtPairingView extends StatelessWidget {

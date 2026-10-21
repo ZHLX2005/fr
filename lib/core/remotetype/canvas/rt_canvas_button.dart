@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_canvas_button.dart
+// lib/core/remotetype/canvas/rt_canvas_button.dart
 //
 // 画布快捷按钮模块：交互判定与视觉都收在此处，画布层（rt_canvas_view）只管
 // 摆位解析与持久化回写。
@@ -19,15 +19,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/theme/context/colors.dart';
-import 'rt_prefs.dart'
+import '../../../core/theme/context/colors.dart';
+import '../data/rt_prefs.dart'
     show
         RtCanvasButtonPos,
         RtCanvasButtonShape,
         RtShortcutItem,
         kRtCanvasBtnScaleMax,
         kRtCanvasBtnScaleMin;
-import 'rt_shortcut_bar.dart' show RtKeyDisplay;
+import '../ui/rt_shortcut_bar.dart' show RtKeyDisplay;
 
 /// 按钮基准规格（倍率 1.0）。倍率上下限在 rt_prefs（单一事实源）。
 const double kRtCanvasBtnBaseW = 86;

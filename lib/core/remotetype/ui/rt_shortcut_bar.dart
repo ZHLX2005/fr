@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_shortcut_bar.dart
+// lib/core/remotetype/ui/rt_shortcut_bar.dart
 //
 // 输入框上方的快捷键托盘 + 序列宏编排 / 历史 sheet。
 //
@@ -11,9 +11,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/context/colors.dart';
-import 'rt_constants.dart';
-import 'rt_prefs.dart';
+import '../../../core/theme/context/colors.dart';
+import '../data/rt_constants.dart';
+import '../data/rt_prefs.dart';
 import 'rt_virtual_keyboard.dart';
 
 // ============================================================

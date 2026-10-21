@@ -1,4 +1,4 @@
-// lib/core/remotetype/template/rt_canvas_presets.dart
+// lib/core/remotetype/canvas/template/rt_canvas_presets.dart
 //
 // 画布内置布局模板登记（模板本体在 template/ 下按套分文件）：
 //   · 游戏   = 纯手柄（vpad_dpad + vpad_button/trigger）      → rt_canvas_template_game
@@ -9,7 +9,7 @@
 // 「默认布局」「触控屏 · 竖」已退役——ensure 会剔除旧内置条目。
 // 本件只做登记与内置集合的守恒（ensure / 出厂修订），不含摆放数据。
 
-import '../rt_prefs.dart'
+import '../../data/rt_prefs.dart'
     show
         RtCanvasLayouts,
         RtCanvasNamedLayout,

@@ -1,4 +1,4 @@
-// lib/core/remotetype/rt_touchpad_engine.dart
+// lib/core/remotetype/protocol/rt_touchpad_engine.dart
 //
 // 触摸板手势引擎（纯逻辑，零 widget / 零 Flutter 依赖，可单测）。
 //
@@ -26,7 +26,7 @@
 
 import 'dart:math' as math;
 
-import 'rt_constants.dart';
+import '../data/rt_constants.dart';
 
 /// 离散动作。左键拖拽用 press/release 显式成对，页面层保证异常路径补 release。
 enum RtPadAction { leftClick, rightClick, leftPress, leftRelease }
