@@ -38,6 +38,7 @@ import 'package:xiaodouzi_fr/lab/demos/remotetype/rt_prefs.dart'
         kRtCanvasOrientPortrait,
         kRtCanvasPresetDefault,
         kRtCanvasPresetGame,
+        kRtCanvasPresetInputPage,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
         kRtCanvasPresetTouchpadN,
@@ -95,8 +96,13 @@ void main() {
 
     test('宽高越界钳回 0.05..1.0，坐标钳回 0..1', () {
       final anchor = RtCanvasAnchor.fromJson(
-        {'v': true, 'x': 1.5, 'y': -0.1, 'w': 3.0, 'h': 0.01}
-            .cast<String, dynamic>(),
+        {
+          'v': true,
+          'x': 1.5,
+          'y': -0.1,
+          'w': 3.0,
+          'h': 0.01,
+        }.cast<String, dynamic>(),
       );
       expect(anchor.x, 1.0);
       expect(anchor.y, 0.0);
@@ -165,7 +171,12 @@ void main() {
             data: RtCanvasLayout(
               modules: {
                 'touchpad': RtCanvasAnchor(
-                    visible: true, x: 0.27, y: 0.55, w: 0.5, h: 0.7),
+                  visible: true,
+                  x: 0.27,
+                  y: 0.55,
+                  w: 0.5,
+                  h: 0.7,
+                ),
               },
               buttons: {
                 'default_0': RtCanvasButtonPos(x: 0.6, y: 0.34, s: 1.2),
@@ -199,18 +210,19 @@ void main() {
       const base = RtCanvasLayouts(
         list: [
           RtCanvasNamedLayout(
-              id: 'a',
-              name: 'A',
-              builtIn: true,
-              data: RtCanvasLayout()),
+            id: 'a',
+            name: 'A',
+            builtIn: true,
+            data: RtCanvasLayout(),
+          ),
         ],
         activeId: 'a',
       );
-      final moved = base.withUpdatedActive(const RtCanvasLayout(
-        modules: {
-          'touchpad': RtCanvasAnchor(visible: false, x: 0.1, y: 0.1),
-        },
-      ));
+      final moved = base.withUpdatedActive(
+        const RtCanvasLayout(
+          modules: {'touchpad': RtCanvasAnchor(visible: false, x: 0.1, y: 0.1)},
+        ),
+      );
       final switched = base.withActive('a');
       expect(base.activeData.modules, isEmpty);
       expect(moved.activeData.modules['touchpad']!.visible, isFalse);
@@ -222,15 +234,17 @@ void main() {
       const base = RtCanvasLayouts(
         list: [
           RtCanvasNamedLayout(
-              id: 'custom-1',
-              name: '1',
-              builtIn: false,
-              data: RtCanvasLayout()),
+            id: 'custom-1',
+            name: '1',
+            builtIn: false,
+            data: RtCanvasLayout(),
+          ),
           RtCanvasNamedLayout(
-              id: 'custom-2',
-              name: '2',
-              builtIn: false,
-              data: RtCanvasLayout()),
+            id: 'custom-2',
+            name: '2',
+            builtIn: false,
+            data: RtCanvasLayout(),
+          ),
         ],
         activeId: 'custom-1',
       );
@@ -241,15 +255,17 @@ void main() {
       const base = RtCanvasLayouts(
         list: [
           RtCanvasNamedLayout(
-              id: 'custom-3',
-              name: '3',
-              builtIn: false,
-              data: RtCanvasLayout()),
+            id: 'custom-3',
+            name: '3',
+            builtIn: false,
+            data: RtCanvasLayout(),
+          ),
           RtCanvasNamedLayout(
-              id: 'custom-5',
-              name: '5',
-              builtIn: false,
-              data: RtCanvasLayout()),
+            id: 'custom-5',
+            name: '5',
+            builtIn: false,
+            data: RtCanvasLayout(),
+          ),
         ],
         activeId: 'custom-3',
       );
@@ -264,7 +280,13 @@ void main() {
       builtIn: true,
       data: RtCanvasLayout(
         modules: {
-          'touchpad': RtCanvasAnchor(visible: true, x: 0.2, y: 0.2, w: 0.5, h: 0.5),
+          'touchpad': RtCanvasAnchor(
+            visible: true,
+            x: 0.2,
+            y: 0.2,
+            w: 0.5,
+            h: 0.5,
+          ),
         },
         buttons: {'k0': RtCanvasButtonPos(x: 0.7, y: 0.3, s: 1.0)},
       ),
@@ -275,21 +297,38 @@ void main() {
       builtIn: true,
       data: RtCanvasLayout(
         modules: {
-          'touchpad': RtCanvasAnchor(visible: true, x: 0.8, y: 0.8, w: 0.6, h: 0.6),
+          'touchpad': RtCanvasAnchor(
+            visible: true,
+            x: 0.8,
+            y: 0.8,
+            w: 0.6,
+            h: 0.6,
+          ),
         },
         buttons: {'k0': RtCanvasButtonPos(x: 0.3, y: 0.7, s: 1.4)},
       ),
     );
 
     test('改 A 后切 B：B 原样；切回 A：修改仍在（模块与按钮都隔离）', () {
-      var layouts = const RtCanvasLayouts(list: [layoutA, layoutB], activeId: 'a');
+      var layouts = const RtCanvasLayouts(
+        list: [layoutA, layoutB],
+        activeId: 'a',
+      );
       // 在 A 里大改：触摸板挪走藏起、按钮挪位放大
-      layouts = layouts.withUpdatedActive(const RtCanvasLayout(
-        modules: {
-          'touchpad': RtCanvasAnchor(visible: false, x: 0.1, y: 0.1, w: 0.3, h: 0.3),
-        },
-        buttons: {'k0': RtCanvasButtonPos(x: 0.9, y: 0.9, s: 2.0)},
-      ));
+      layouts = layouts.withUpdatedActive(
+        const RtCanvasLayout(
+          modules: {
+            'touchpad': RtCanvasAnchor(
+              visible: false,
+              x: 0.1,
+              y: 0.1,
+              w: 0.3,
+              h: 0.3,
+            ),
+          },
+          buttons: {'k0': RtCanvasButtonPos(x: 0.9, y: 0.9, s: 2.0)},
+        ),
+      );
       layouts = layouts.withActive('b');
       expect(layouts.activeData.modules['touchpad']!.x, 0.8);
       expect(layouts.activeData.modules['touchpad']!.visible, isTrue);
@@ -303,7 +342,10 @@ void main() {
     });
 
     test('withRenamed 只改名字，数据与激活不变；id 不存在原样返回', () {
-      var layouts = const RtCanvasLayouts(list: [layoutA, layoutB], activeId: 'b');
+      var layouts = const RtCanvasLayouts(
+        list: [layoutA, layoutB],
+        activeId: 'b',
+      );
       final renamed = layouts.withRenamed('a', '我的棋局');
       expect(renamed.list.first.name, '我的棋局');
       expect(renamed.list.first.data.modules['touchpad']!.x, 0.2);
@@ -322,8 +364,7 @@ void main() {
       builtIn: true,
       data: RtCanvasLayout(
         modules: {
-          kRtCanvasModuleDpad:
-              RtCanvasAnchor(visible: true, x: 0.2, y: 0.5),
+          kRtCanvasModuleDpad: RtCanvasAnchor(visible: true, x: 0.2, y: 0.5),
         },
       ),
     );
@@ -333,8 +374,7 @@ void main() {
       builtIn: true,
       data: RtCanvasLayout(
         modules: {
-          kRtCanvasModuleKb:
-              RtCanvasAnchor(visible: true, x: 0.5, y: 0.5),
+          kRtCanvasModuleKb: RtCanvasAnchor(visible: true, x: 0.5, y: 0.5),
         },
       ),
     );
@@ -344,8 +384,13 @@ void main() {
       builtIn: true,
       data: RtCanvasLayout(
         modules: {
-          kRtCanvasModuleTouchpad:
-              RtCanvasAnchor(visible: true, x: 0.5, y: 0.5, w: 1, h: 1),
+          kRtCanvasModuleTouchpad: RtCanvasAnchor(
+            visible: true,
+            x: 0.5,
+            y: 0.5,
+            w: 1,
+            h: 1,
+          ),
         },
       ),
     );
@@ -380,10 +425,7 @@ void main() {
       );
       expect(onlyLocked.activeFor(kRtCanvasOrientPortrait), isNull);
       // 仅双朝向横屏 → 竖屏兜底到它
-      const onlyDual = RtCanvasLayouts(
-        list: [landDual],
-        activeId: 'land-dual',
-      );
+      const onlyDual = RtCanvasLayouts(list: [landDual], activeId: 'land-dual');
       expect(onlyDual.activeFor(kRtCanvasOrientPortrait)!.id, 'land-dual');
       // 竖屏激活指向锁横屏 id（脏）→ 兜底第一条竖屏
       final dirty = RtCanvasLayouts(
@@ -400,12 +442,10 @@ void main() {
       expect(layouts.activeIdPortrait, 'port-b');
       expect(layouts.activeId, 'land-a');
       // 锁横屏 id → 竖屏不可用，原样返回
-      final crossed =
-          layouts.withActiveFor(kRtCanvasOrientPortrait, 'land-a');
+      final crossed = layouts.withActiveFor(kRtCanvasOrientPortrait, 'land-a');
       expect(identical(crossed, layouts), isTrue);
       // 双朝向触控可作竖屏激活
-      layouts =
-          layouts.withActiveFor(kRtCanvasOrientPortrait, 'land-dual');
+      layouts = layouts.withActiveFor(kRtCanvasOrientPortrait, 'land-dual');
       expect(layouts.activeIdPortrait, 'land-dual');
       layouts = layouts.withActiveFor(kRtCanvasOrientLandscape, 'land-b');
       expect(layouts.activeId, 'land-b');
@@ -417,10 +457,14 @@ void main() {
         kRtCanvasOrientPortrait,
         const RtCanvasLayout(hideShortcuts: true),
       );
-      expect(layouts.activeFor(kRtCanvasOrientPortrait)!.data.hideShortcuts,
-          isTrue);
-      expect(layouts.activeFor(kRtCanvasOrientLandscape)!.data.hideShortcuts,
-          isFalse);
+      expect(
+        layouts.activeFor(kRtCanvasOrientPortrait)!.data.hideShortcuts,
+        isTrue,
+      );
+      expect(
+        layouts.activeFor(kRtCanvasOrientLandscape)!.data.hideShortcuts,
+        isFalse,
+      );
     });
 
     test('round-trip：朝向与竖屏激活一起存取；旧数据（无 or/activeN）缺省横屏', () {
@@ -450,10 +494,11 @@ void main() {
   });
 
   group('rtBuiltinPresetOf / rtEnsureBuiltinPresets', () {
-    test('三套内置都能查到；退役 / 自定义 / 未知 id 返回 null', () {
+    test('四套内置都能查到；退役 / 自定义 / 未知 id 返回 null', () {
       for (final id in [
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
+        kRtCanvasPresetInputPage,
         kRtCanvasPresetTouchpad,
       ]) {
         final p = rtBuiltinPresetOf(id);
@@ -473,8 +518,13 @@ void main() {
         builtIn: true,
         data: const RtCanvasLayout(
           modules: {
-            'touchpad':
-                RtCanvasAnchor(visible: false, x: 0.9, y: 0.9, w: 0.2, h: 0.2),
+            'touchpad': RtCanvasAnchor(
+              visible: false,
+              x: 0.9,
+              y: 0.9,
+              w: 0.2,
+              h: 0.2,
+            ),
           },
         ),
       );
@@ -485,7 +535,7 @@ void main() {
       expect(edited.data.modules['touchpad']!.visible, isFalse);
     });
 
-    test('rtEnsureBuiltinPresets：迁移单条导入 → 补 3 内置在前、自定义在后', () {
+    test('rtEnsureBuiltinPresets：迁移单条导入 → 补 4 内置在前、自定义在后', () {
       const imported = RtCanvasNamedLayout(
         id: 'imported',
         name: '导入布局',
@@ -494,17 +544,20 @@ void main() {
       );
       const layouts = RtCanvasLayouts(list: [imported], activeId: 'imported');
       final ensured = rtEnsureBuiltinPresets(layouts);
-      expect(ensured.list.length, 4);
-      expect(
-        ensured.list.take(3).map((p) => p.id),
-        [
-          kRtCanvasPresetGame,
-          kRtCanvasPresetKeyboard,
-          kRtCanvasPresetTouchpad,
-        ],
-      );
+      expect(ensured.list.length, 5);
+      expect(ensured.list.take(4).map((p) => p.id), [
+        kRtCanvasPresetGame,
+        kRtCanvasPresetKeyboard,
+        kRtCanvasPresetInputPage,
+        kRtCanvasPresetTouchpad,
+      ]);
       expect(ensured.list.last.id, 'imported');
       expect(ensured.activeId, 'imported');
+      // 竖屏激活兜底 = 输入页（列表里第一套真竖屏内置）。
+      expect(
+        ensured.activeFor(kRtCanvasOrientPortrait)!.id,
+        kRtCanvasPresetInputPage,
+      );
     });
 
     test('rtEnsureBuiltinPresets：剔除退役内置 default / touchpad-n', () {
@@ -530,10 +583,16 @@ void main() {
       expect(ensured.list.map((p) => p.id), [
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
+        kRtCanvasPresetInputPage,
         kRtCanvasPresetTouchpad,
       ]);
       expect(ensured.activeId, kRtCanvasPresetTouchpad);
+      // 退役的竖屏激活清空 → 读侧兜底到输入页。
       expect(ensured.activeIdPortrait, isEmpty);
+      expect(
+        ensured.activeFor(kRtCanvasOrientPortrait)!.id,
+        kRtCanvasPresetInputPage,
+      );
     });
 
     test('rtEnsureBuiltinPresets：已齐全同序 → 原样返回（不产生新实例）', () {
@@ -575,10 +634,7 @@ void main() {
         ],
         activeId: kRtCanvasPresetGame,
       );
-      final ensured = rtEnsureBuiltinPresets(
-        layouts,
-        persistedFactoryRev: 0,
-      );
+      final ensured = rtEnsureBuiltinPresets(layouts, persistedFactoryRev: 0);
       expect(
         ensured.list
             .firstWhere((p) => p.id == kRtCanvasPresetGame)
@@ -609,16 +665,14 @@ void main() {
       expect(ensured.activeId, kRtCanvasPresetTouchpad);
     });
 
-    test('rtEnsureBuiltinPresets：竖屏激活指向锁横屏布局 → 清空（读侧兜底触控屏）',
-        () {
+    test('rtEnsureBuiltinPresets：竖屏激活指向锁横屏布局 → 清空（读侧兜底输入页）', () {
       const imported = RtCanvasNamedLayout(
         id: 'imported',
         name: '导入布局',
         builtIn: false,
         data: RtCanvasLayout(
           modules: {
-            kRtCanvasModuleKb:
-                RtCanvasAnchor(visible: true, x: 0.5, y: 0.5),
+            kRtCanvasModuleKb: RtCanvasAnchor(visible: true, x: 0.5, y: 0.5),
           },
         ),
       );
@@ -631,31 +685,29 @@ void main() {
       expect(ensured.activeIdPortrait, isEmpty);
       expect(
         ensured.activeFor(kRtCanvasOrientPortrait)!.id,
-        kRtCanvasPresetTouchpad,
+        kRtCanvasPresetInputPage,
       );
     });
   });
 
   group('rtCanvasLayoutLocksLandscape / UsableIn', () {
-    test('游戏/键盘锁横屏；触控屏不锁且竖屏可用', () {
+    test('游戏/键盘锁横屏；输入页竖屏可用；触控屏不锁且双朝向可用', () {
       final game = rtBuiltinPresetOf(kRtCanvasPresetGame)!;
       expect(rtCanvasLayoutLocksLandscape(game.data), isTrue);
-      expect(
-        rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, game),
-        isFalse,
-      );
+      expect(rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, game), isFalse);
       final kb = rtBuiltinPresetOf(kRtCanvasPresetKeyboard)!;
       expect(rtCanvasLayoutLocksLandscape(kb.data), isTrue);
+      // 输入页：竖屏内置（不锁横屏——它本来就是竖屏默认）。
+      final inputPage = rtBuiltinPresetOf(kRtCanvasPresetInputPage)!;
+      expect(inputPage.orientation, kRtCanvasOrientPortrait);
+      expect(
+        rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, inputPage),
+        isTrue,
+      );
       final pad = rtBuiltinPresetOf(kRtCanvasPresetTouchpad)!;
       expect(rtCanvasLayoutLocksLandscape(pad.data), isFalse);
-      expect(
-        rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, pad),
-        isTrue,
-      );
-      expect(
-        rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, pad),
-        isTrue,
-      );
+      expect(rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, pad), isTrue);
+      expect(rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, pad), isTrue);
       const hidden = RtCanvasLayout(
         modules: {
           kRtCanvasModuleDpad: RtCanvasAnchor(visible: false, x: 0.2, y: 0.2),
@@ -665,35 +717,34 @@ void main() {
     });
   });
 
-  group('kRtCanvasBuiltinPresets 3 套内置（游戏/键盘/触控屏）', () {
+  group('kRtCanvasBuiltinPresets 4 套内置（游戏/键盘/输入页/触控屏）', () {
     test('id / builtIn / 名称 / 朝向稳定', () {
-      expect(kRtCanvasBuiltinPresets.length, 3);
-      expect(
-        kRtCanvasBuiltinPresets.map((p) => p.id),
-        [
-          kRtCanvasPresetGame,
-          kRtCanvasPresetKeyboard,
-          kRtCanvasPresetTouchpad,
-        ],
-      );
+      expect(kRtCanvasBuiltinPresets.length, 4);
+      expect(kRtCanvasBuiltinPresets.map((p) => p.id), [
+        kRtCanvasPresetGame,
+        kRtCanvasPresetKeyboard,
+        kRtCanvasPresetInputPage,
+        kRtCanvasPresetTouchpad,
+      ]);
       expect(kRtCanvasBuiltinPresets.every((p) => p.builtIn), isTrue);
-      expect(
-        kRtCanvasBuiltinPresets.map((p) => p.name),
-        ['游戏布局', '键盘布局', '触控屏布局'],
-      );
-      expect(
-        kRtCanvasBuiltinPresets.map((p) => p.orientation).toList(),
-        [
-          kRtCanvasOrientLandscape,
-          kRtCanvasOrientLandscape,
-          kRtCanvasOrientLandscape,
-        ],
-      );
+      expect(kRtCanvasBuiltinPresets.map((p) => p.name), [
+        '游戏布局',
+        '键盘布局',
+        '输入页',
+        '触控屏布局',
+      ]);
+      expect(kRtCanvasBuiltinPresets.map((p) => p.orientation).toList(), [
+        kRtCanvasOrientLandscape,
+        kRtCanvasOrientLandscape,
+        kRtCanvasOrientPortrait,
+        kRtCanvasOrientLandscape,
+      ]);
     });
 
     test('键盘=全键盘 hotkey（无触摸板/输入框）', () {
-      final kb = kRtCanvasBuiltinPresets
-          .firstWhere((x) => x.id == kRtCanvasPresetKeyboard);
+      final kb = kRtCanvasBuiltinPresets.firstWhere(
+        (x) => x.id == kRtCanvasPresetKeyboard,
+      );
       expect(kb.data.modules[kRtCanvasModuleKb]?.visible, isTrue);
       expect(kb.data.modules.containsKey(kRtCanvasModuleTouchpad), isFalse);
       expect(kb.data.modules.containsKey(kRtCanvasModuleInput), isFalse);
@@ -706,15 +757,17 @@ void main() {
     });
 
     test('游戏=纯手柄 vpad；触控屏=满屏触摸板 mouse、无快捷键收录', () {
-      final game = kRtCanvasBuiltinPresets
-          .firstWhere((p) => p.id == kRtCanvasPresetGame);
+      final game = kRtCanvasBuiltinPresets.firstWhere(
+        (p) => p.id == kRtCanvasPresetGame,
+      );
       expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue);
       expect(game.data.modules[kRtCanvasModuleVpad]?.visible, isTrue);
       expect(game.data.hideShortcuts, isTrue);
       expect(game.data.modules.containsKey(kRtCanvasModuleTouchpad), isFalse);
       expect(game.data.modules.containsKey(kRtCanvasModuleInput), isFalse);
-      final pad = kRtCanvasBuiltinPresets
-          .firstWhere((p) => p.id == kRtCanvasPresetTouchpad);
+      final pad = kRtCanvasBuiltinPresets.firstWhere(
+        (p) => p.id == kRtCanvasPresetTouchpad,
+      );
       expect(pad.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue);
       expect(pad.data.modules.length, 1);
       expect(pad.data.modules[kRtCanvasModuleTouchpad]!.w, 1.0);
@@ -732,8 +785,9 @@ void main() {
     });
 
     test('游戏布局锚点与原型 LAYOUTS.game 同源、两端互不相交', () {
-      final game = kRtCanvasBuiltinPresets
-          .firstWhere((p) => p.id == kRtCanvasPresetGame);
+      final game = kRtCanvasBuiltinPresets.firstWhere(
+        (p) => p.id == kRtCanvasPresetGame,
+      );
       final dpad = game.data.modules[kRtCanvasModuleDpad]!;
       final vpad = game.data.modules[kRtCanvasModuleVpad]!;
       expect(dpad.x, 0.21);
@@ -744,10 +798,7 @@ void main() {
       expect(vpad.y, 0.53);
       expect(vpad.w, 0.36);
       expect(vpad.h, 0.70);
-      expect(
-        dpad.x + dpad.w! / 2,
-        lessThan(vpad.x - vpad.w! / 2),
-      );
+      expect(dpad.x + dpad.w! / 2, lessThan(vpad.x - vpad.w! / 2));
     });
   });
 
@@ -767,9 +818,7 @@ void main() {
               modules: {
                 'touchpad': RtCanvasAnchor(visible: true, x: 0.27, y: 0.55),
               },
-              buttons: {
-                'd1': RtCanvasButtonPos(x: 0.86, y: 0.54, s: 1.8),
-              },
+              buttons: {'d1': RtCanvasButtonPos(x: 0.86, y: 0.54, s: 1.8)},
             ),
           ),
         ],

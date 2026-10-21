@@ -35,6 +35,9 @@ import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
 import 'rt_canvas_kb.dart' show RtCanvasKb;
 import 'rt_canvas_layouts_sheet.dart' show showRtCanvasLayoutsPanel;
+import 'rt_canvas_module_page.dart' show showRtCanvasModulePage;
+import 'rt_canvas_modules.dart'
+    show kRtCanvasModuleSpecs, rtCanvasModuleDefaults, rtCanvasModuleRange;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad;
 import 'rt_prefs.dart'
     show
@@ -43,18 +46,14 @@ import 'rt_prefs.dart'
         RtCanvasLayout,
         RtCanvasLayouts,
         RtShortcutItem,
-        kRtCanvasInputDefH,
-        kRtCanvasInputDefW,
+        kRtCanvasModuleComposer,
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleKb,
         kRtCanvasModuleTouchpad,
-        kRtCanvasModuleVpad,
-        kRtCanvasPadDefH,
-        kRtCanvasPadDefW;
+        kRtCanvasModuleVpad;
 import 'rt_session.dart';
-import 'rt_touch_surface.dart'
-    show RtTouchSurface, showRtSensitivitySheet;
+import 'rt_touch_surface.dart' show RtTouchSurface, showRtSensitivitySheet;
 
 /// 按钮自动找位候选槽（画布右侧区，2 列 × 4 行，归一化画布坐标）。
 const List<Offset> kRtCanvasSlotAnchors = [
@@ -95,6 +94,7 @@ class RtCanvasView extends StatefulWidget {
     required this.orientation,
     required this.orientHint,
     required this.onHintGoLandscape,
+    required this.composerModule,
     required this.editMode,
     required this.onLayoutChanged,
     required this.onSwitchLayout,
@@ -141,6 +141,10 @@ class RtCanvasView extends StatefulWidget {
 
   /// 提示层「切换为横屏」：页面把方向锁收窄为横屏（防来回弹提示）。
   final VoidCallback onHintGoLandscape;
+
+  /// 输入页模块的内容（页面层装配好的 RtInputView——连接态/回调都在页面，
+  /// 画布只负责按锚点摆放）。
+  final Widget composerModule;
   final bool editMode;
 
   /// 当前激活布局的内容变更（拖动 / 缩放 / 显隐 / 模块开关）。
@@ -167,7 +171,7 @@ class RtCanvasView extends StatefulWidget {
   /// 手柄键区按键事件（button: a/b/x/y/lb/rb 或 trigger: lt/rt，按下与
   /// 松开各回报一次；映射 vpad_button / vpad_trigger）。
   final void Function({String? button, String? trigger, required bool pressed})
-      onVpadKey;
+  onVpadKey;
 
   /// 虚拟键盘一次按键（修饰键已由键盘模块粘滞合成进 chord）→ 发 hotkey。
   final ValueChanged<List<String>> onKbChord;
@@ -184,16 +188,9 @@ class RtCanvasView extends StatefulWidget {
 
 class _RtCanvasViewState extends State<RtCanvasView>
     with SingleTickerProviderStateMixin {
-  // 模块尺寸范围（wMin, wMax, hMin, hMax，归一化）。轮盘恒以正方形渲染
-  // （取宽高像素较小者），范围即正方形的两轴限位。
+  // 模块尺寸限位 / 缺省规格：登记表单一事实源（设置页档位同口径）。
   static (double, double, double, double) _moduleRange(String id) =>
-      switch (id) {
-        kRtCanvasModuleTouchpad => (0.25, 1.0, 0.35, 1.0),
-        kRtCanvasModuleDpad => (0.12, 0.65, 0.12, 0.85),
-        kRtCanvasModuleVpad => (0.25, 0.70, 0.35, 1.0),
-        kRtCanvasModuleKb => (0.40, 1.0, 0.30, 1.0),
-        _ => (0.20, 1.0, 0.08, 0.40),
-      };
+      rtCanvasModuleRange(id);
 
   // 输入框像素高度硬钳（fraction 随画布高浮动，太扁/太高都不成框）。
   static const double _inputHMinPx = 44, _inputHMaxPx = 180;
@@ -285,14 +282,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
     if (_resizeModuleId == id) return (_liveW, _liveH);
     final a = _anchorOf(id);
     if (a.w != null && a.h != null) return (a.w!, a.h!);
-    return switch (id) {
-      // 缺省规格 = 原型 LAYOUTS / 游戏·键盘出厂值（缩略图同源，两处不许两套）。
-      kRtCanvasModuleDpad => (0.22, 0.52),
-      kRtCanvasModuleVpad => (0.36, 0.70),
-      kRtCanvasModuleKb => (0.94, 0.82),
-      kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
-      _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
-    };
+    // 缺省规格 = 登记表出厂值（原型 LAYOUTS 同源；缩略图/设置页档位同口径）。
+    return rtCanvasModuleDefaults(id);
   }
 
   // ================= 回写 =================
@@ -339,30 +330,38 @@ class _RtCanvasViewState extends State<RtCanvasView>
 
   void _toggleModuleVisible(String id) {
     final cur = _anchorOf(id);
-    // 首次加回（无锚点条目）给原型同源初始位；避免落在画布正中压住其它模块。
+    // 首次加回（无锚点条目）：非锁定模块落登记表缺省规格 + 画布中心；
+    // 轮盘/手柄/键盘给出厂语义位（对齐原型 LAYOUTS），避免压住其它模块。
     if (widget.activeLayout.modules[id] == null) {
       final seed = switch (id) {
         kRtCanvasModuleDpad => const RtCanvasAnchor(
-            visible: true,
-            x: 0.21,
-            y: 0.54,
-            w: 0.22,
-            h: 0.52,
-          ),
+          visible: true,
+          x: 0.21,
+          y: 0.54,
+          w: 0.22,
+          h: 0.52,
+        ),
         kRtCanvasModuleVpad => const RtCanvasAnchor(
-            visible: true,
-            x: 0.765,
-            y: 0.53,
-            w: 0.36,
-            h: 0.70,
-          ),
+          visible: true,
+          x: 0.765,
+          y: 0.53,
+          w: 0.36,
+          h: 0.70,
+        ),
         kRtCanvasModuleKb => const RtCanvasAnchor(
-            visible: true,
-            x: 0.50,
-            y: 0.55,
-            w: 0.94,
-            h: 0.82,
-          ),
+          visible: true,
+          x: 0.50,
+          y: 0.55,
+          w: 0.94,
+          h: 0.82,
+        ),
+        kRtCanvasModuleComposer => const RtCanvasAnchor(
+          visible: true,
+          x: 0.50,
+          y: 0.50,
+          w: 1.0,
+          h: 1.0,
+        ),
         _ => null,
       };
       if (seed != null) {
@@ -453,6 +452,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
                     _touchpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleKb).visible)
                     _kbModule(canvasSize),
+                  if (_anchorOf(kRtCanvasModuleComposer).visible)
+                    _composerModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleInput).visible)
                     _inputModule(canvasSize),
                   ..._buttonModules(canvasSize),
@@ -522,8 +523,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
                           // 不预关提示层：面板里真选了竖屏布局才由页面侧
                           // 条件（_portraitChosen）撤下提示；取消则仍提示。
                           onPressed: _openLayoutsSheet,
-                          icon: const Icon(Icons.dashboard_customize_outlined,
-                              size: 18),
+                          icon: const Icon(
+                            Icons.dashboard_customize_outlined,
+                            size: 18,
+                          ),
                           label: const Text('切换布局'),
                         ),
                       ],
@@ -557,6 +560,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
                 value: widget.sensitivity,
                 onChanged: widget.onSensitivityChanged,
               ),
+              onModules: _openModulePage,
               onLayouts: _openLayoutsSheet,
               onEdit: () => widget.onEditModeChanged(true),
               onExit: widget.onExit,
@@ -595,34 +599,25 @@ class _RtCanvasViewState extends State<RtCanvasView>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _moduleVisibilityChip(
-                    icon: Icons.mouse_outlined,
-                    label: '触摸板',
-                    id: kRtCanvasModuleTouchpad,
-                  ),
-                  const SizedBox(width: 8),
-                  _moduleVisibilityChip(
-                    icon: Icons.keyboard_alt_outlined,
-                    label: '输入框',
-                    id: kRtCanvasModuleInput,
-                  ),
-                  const SizedBox(width: 8),
-                  _moduleVisibilityChip(
-                    icon: Icons.keyboard_outlined,
-                    label: '键盘',
-                    id: kRtCanvasModuleKb,
-                  ),
-                  const SizedBox(width: 8),
-                  _moduleVisibilityChip(
-                    icon: Icons.gamepad_outlined,
-                    label: '轮盘',
-                    id: kRtCanvasModuleDpad,
-                  ),
-                  const SizedBox(width: 8),
-                  _moduleVisibilityChip(
-                    icon: Icons.sports_esports_outlined,
-                    label: '手柄',
-                    id: kRtCanvasModuleVpad,
+                  // 模块 chip 行由登记表驱动（与模块设置页同一清单）。
+                  for (final spec in kRtCanvasModuleSpecs) ...[
+                    _moduleVisibilityChip(
+                      icon: spec.icon,
+                      label: spec.name,
+                      id: spec.id,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  ActionChip(
+                    avatar: Icon(Icons.tune, size: 18, color: cs.primary),
+                    label: Text(
+                      '模块编排',
+                      style: TextStyle(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: _openModulePage,
                   ),
                   const SizedBox(width: 8),
                   ActionChip(
@@ -646,11 +641,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
                   ),
                   const SizedBox(width: 8),
                   ActionChip(
-                    avatar: Icon(
-                      Icons.check,
-                      size: 18,
-                      color: cs.primary,
-                    ),
+                    avatar: Icon(Icons.check, size: 18, color: cs.primary),
                     label: Text(
                       '完成',
                       style: TextStyle(
@@ -697,6 +688,42 @@ class _RtCanvasViewState extends State<RtCanvasView>
   }
 
   // ---- 布局 sheet ----
+
+  /// 模块设置页（设置页样式）：模块增删 + 九宫格位置 / 三档尺寸编排。
+  Future<void> _openModulePage() {
+    return showRtCanvasModulePage(
+      context,
+      layoutName: _activeName() ?? '—',
+      connected: widget.connected,
+      visibleOf: (id) => _anchorOf(id).visible,
+      anchorOf: _anchorOf,
+      onToggleModule: (id, on) {
+        // 开关语义 = 设为目标态；当前已一致则不重复翻（防连点竞态回翻）。
+        if (_anchorOf(id).visible != on) _toggleModuleVisible(id);
+      },
+      onSetAnchor: (id, anchor) =>
+          widget.onLayoutChanged(_replaceAnchor(id, anchor)),
+      onOpenLayouts: _openLayoutsSheet,
+      onSensitivity: () => showRtSensitivitySheet(
+        context,
+        value: widget.sensitivity,
+        onChanged: widget.onSensitivityChanged,
+      ),
+      onEditShortcuts: widget.onEditShortcuts,
+      onExit: widget.onExit,
+    );
+  }
+
+  /// 整条替换模块锚点（设置页的位置/尺寸写入走这里，与拖动/缩放同链路落盘）。
+  RtCanvasLayout _replaceAnchor(String id, RtCanvasAnchor anchor) {
+    final modules = Map<String, RtCanvasAnchor>.of(widget.activeLayout.modules);
+    modules[id] = anchor;
+    return RtCanvasLayout(
+      modules: modules,
+      buttons: widget.activeLayout.buttons,
+      hideShortcuts: widget.activeLayout.hideShortcuts,
+    );
+  }
 
   Future<void> _openLayoutsSheet() async {
     await showRtCanvasLayoutsPanel(
@@ -945,11 +972,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
   Widget _vpadModule(Size canvasSize) {
     final (wf, hf) = _moduleFractions(kRtCanvasModuleVpad);
     final size = Size(wf * canvasSize.width, hf * canvasSize.height);
-    final rect = _moduleRect(
-      _anchorPos(kRtCanvasModuleVpad),
-      size,
-      canvasSize,
-    );
+    final rect = _moduleRect(_anchorPos(kRtCanvasModuleVpad), size, canvasSize);
     Widget pad = RtCanvasVpad(
       enabled: widget.connected,
       onKey: ({String? button, String? trigger, required bool pressed}) =>
@@ -1000,6 +1023,35 @@ class _RtCanvasViewState extends State<RtCanvasView>
       width: size.width,
       height: size.height,
       child: pad,
+    );
+  }
+
+  // ---- 模块：输入页（连接后落到的打字页整体，页面层装配内容）----
+
+  Widget _composerModule(Size canvasSize) {
+    final size = _moduleSizePx(kRtCanvasModuleComposer, canvasSize);
+    final rect = _moduleRect(
+      _anchorPos(kRtCanvasModuleComposer),
+      size,
+      canvasSize,
+    );
+    Widget page = Material(
+      color: context.colors.scheme.surfaceContainerHighest,
+      child: widget.composerModule,
+    );
+    if (widget.editMode) {
+      page = _editModuleWrapper(
+        id: kRtCanvasModuleComposer,
+        label: '输入页',
+        child: SizedBox(width: size.width, height: size.height, child: page),
+      );
+    }
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: size.width,
+      height: size.height,
+      child: page,
     );
   }
 
@@ -1099,11 +1151,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
 
   Widget _kbModule(Size canvasSize) {
     final size = _moduleSizePx(kRtCanvasModuleKb, canvasSize);
-    final rect = _moduleRect(
-      _anchorPos(kRtCanvasModuleKb),
-      size,
-      canvasSize,
-    );
+    final rect = _moduleRect(_anchorPos(kRtCanvasModuleKb), size, canvasSize);
     Widget kb = RtCanvasKb(
       enabled: widget.connected,
       onChord: widget.onKbChord,
@@ -1193,7 +1241,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
           s: sc,
         ),
       ),
-      onToggleVisible: onToggleVisible ??
+      onToggleVisible:
+          onToggleVisible ??
           () => _updateButton(item.id, pos.copyWith(v: !pos.v)),
       onFire: widget.onFire,
     );
@@ -1202,7 +1251,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
 
 /// 提示层的旋转手机图标：竖立 → 逆时针倒向横屏（带 easeOut 回弹）→
 /// 停顿 → 回正，1.8s 循环（节奏对齐原型 tilt keyframes）。
-class _RotatePhoneIcon extends StatelessWidget {  const _RotatePhoneIcon({required this.animation});
+class _RotatePhoneIcon extends StatelessWidget {
+  const _RotatePhoneIcon({required this.animation});
 
   final Animation<double> animation;
 
@@ -1211,31 +1261,27 @@ class _RotatePhoneIcon extends StatelessWidget {  const _RotatePhoneIcon({requir
     final cs = context.colors.scheme;
     // 0–18% 竖立 · 18–55% 转到 -90° · 55–82% 停在横屏 · 82–100% 回正。
     final angle = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(0.0), weight: 0.18),
       TweenSequenceItem(
-        tween: ConstantTween(0.0),
-        weight: 0.18,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: 0.0, end: -math.pi / 2)
-            .chain(CurveTween(curve: Curves.easeOutBack)),
+        tween: Tween(
+          begin: 0.0,
+          end: -math.pi / 2,
+        ).chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 0.37,
       ),
+      TweenSequenceItem(tween: ConstantTween(-math.pi / 2), weight: 0.27),
       TweenSequenceItem(
-        tween: ConstantTween(-math.pi / 2),
-        weight: 0.27,
-      ),
-      TweenSequenceItem(
-        tween: Tween(begin: -math.pi / 2, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: -math.pi / 2,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 0.18,
       ),
     ]).animate(animation);
     return AnimatedBuilder(
       animation: animation,
-      builder: (context, child) => Transform.rotate(
-        angle: angle.value,
-        child: child,
-      ),
+      builder: (context, child) =>
+          Transform.rotate(angle: angle.value, child: child),
       child: Container(
         width: 46,
         height: 76,
@@ -1264,13 +1310,14 @@ class _RotatePhoneIcon extends StatelessWidget {  const _RotatePhoneIcon({requir
 }
 
 /// 使用态左上胶囊：状态点 + 布局名 + chevron；点开毛玻璃菜单（灵敏度 /
-/// 切换布局 / 编辑布局 / 返回打字）。收起时不占画布视线，对齐原型。
+/// 模块编排 / 切换布局 / 编辑布局 / 返回打字）。收起时不占画布视线。
 class _CanvasCapsule extends StatefulWidget {
   const _CanvasCapsule({
     required this.cs,
     required this.connected,
     required this.name,
     required this.onSensitivity,
+    required this.onModules,
     required this.onLayouts,
     required this.onEdit,
     required this.onExit,
@@ -1280,6 +1327,7 @@ class _CanvasCapsule extends StatefulWidget {
   final bool connected;
   final String name;
   final VoidCallback onSensitivity;
+  final VoidCallback onModules;
   final VoidCallback onLayouts;
   final VoidCallback onEdit;
   final VoidCallback onExit;
@@ -1290,6 +1338,7 @@ class _CanvasCapsule extends StatefulWidget {
 
 class _CanvasCapsuleState extends State<_CanvasCapsule> {
   static const _sens = 'sens';
+  static const _modules = 'modules';
   static const _layouts = 'layouts';
   static const _edit = 'edit';
   static const _exit = 'exit';
@@ -1334,39 +1383,58 @@ class _CanvasCapsuleState extends State<_CanvasCapsule> {
           PopupMenuItem(
             value: _sens,
             height: 40,
-            child: Row(children: [
-              Icon(Icons.tune, size: 17),
-              SizedBox(width: 10),
-              Text('触摸板灵敏度', style: TextStyle(fontSize: 13)),
-            ]),
+            child: Row(
+              children: [
+                Icon(Icons.tune, size: 17),
+                SizedBox(width: 10),
+                Text('触摸板灵敏度', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: _modules,
+            height: 40,
+            child: Row(
+              children: [
+                Icon(Icons.widgets_outlined, size: 17),
+                SizedBox(width: 10),
+                Text('模块编排', style: TextStyle(fontSize: 13)),
+              ],
+            ),
           ),
           PopupMenuItem(
             value: _layouts,
             height: 40,
-            child: Row(children: [
-              Icon(Icons.dashboard_customize_outlined, size: 17),
-              SizedBox(width: 10),
-              Text('切换布局', style: TextStyle(fontSize: 13)),
-            ]),
+            child: Row(
+              children: [
+                Icon(Icons.dashboard_customize_outlined, size: 17),
+                SizedBox(width: 10),
+                Text('切换布局', style: TextStyle(fontSize: 13)),
+              ],
+            ),
           ),
           PopupMenuItem(
             value: _edit,
             height: 40,
-            child: Row(children: [
-              Icon(Icons.edit_outlined, size: 17),
-              SizedBox(width: 10),
-              Text('编辑布局', style: TextStyle(fontSize: 13)),
-            ]),
+            child: Row(
+              children: [
+                Icon(Icons.edit_outlined, size: 17),
+                SizedBox(width: 10),
+                Text('编辑布局', style: TextStyle(fontSize: 13)),
+              ],
+            ),
           ),
           PopupMenuDivider(),
           PopupMenuItem(
             value: _exit,
             height: 40,
-            child: Row(children: [
-              Icon(Icons.keyboard_outlined, size: 17),
-              SizedBox(width: 10),
-              Text('返回打字', style: TextStyle(fontSize: 13)),
-            ]),
+            child: Row(
+              children: [
+                Icon(Icons.keyboard_outlined, size: 17),
+                SizedBox(width: 10),
+                Text('返回打字', style: TextStyle(fontSize: 13)),
+              ],
+            ),
           ),
         ],
       );
@@ -1375,6 +1443,8 @@ class _CanvasCapsuleState extends State<_CanvasCapsule> {
     switch (selected) {
       case _sens:
         widget.onSensitivity();
+      case _modules:
+        widget.onModules();
       case _layouts:
         widget.onLayouts();
       case _edit:

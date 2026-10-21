@@ -123,8 +123,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// 画布当前朝向（跟随设备旋转；MediaQuery 驱动重建时刷新）。
   String get _canvasOrientation =>
       MediaQuery.orientationOf(context) == Orientation.landscape
-          ? kRtCanvasOrientLandscape
-          : kRtCanvasOrientPortrait;
+      ? kRtCanvasOrientLandscape
+      : kRtCanvasOrientPortrait;
 
   /// 用户在本轮竖屏期间是否已主动选定竖屏布局（面板里切过/建过）。
   /// true = 尊重用户选择，锁定横屏布局不再弹提示层；回横屏自动复位。
@@ -354,8 +354,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// 再异步落盘（失败不回滚——下次进页读盘仍旧位）。只动当前朝向的激活
   /// 布局——横竖屏配置互不串台。
   void _setActiveLayout(RtCanvasLayout layout) {
-    final next =
-        _layouts.withUpdatedActiveFor(_canvasOrientation, layout);
+    final next = _layouts.withUpdatedActiveFor(_canvasOrientation, layout);
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
@@ -428,11 +427,11 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       list: nextList,
       activeId: wasActiveL
           ? (nextList.any((p) => p.id == kRtCanvasPresetTouchpad)
-              ? kRtCanvasPresetTouchpad
-              : (nextList.isNotEmpty ? nextList.first.id : ''))
+                ? kRtCanvasPresetTouchpad
+                : (nextList.isNotEmpty ? nextList.first.id : ''))
           : (nextList.any((p) => p.id == _layouts.activeId)
-              ? _layouts.activeId
-              : kRtCanvasPresetTouchpad),
+                ? _layouts.activeId
+                : kRtCanvasPresetTouchpad),
       activeIdPortrait: wasActiveN ? '' : _layouts.activeIdPortrait,
     );
     setState(() => _layouts = next);
@@ -481,9 +480,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// 藏了就没法导航。请求按本页 nav id 记名，切到其它钉选页时主壳不生效。
   void _syncBottomBar() {
     final hide = _session != null;
-    ref.read(bottomBarVisibilityProvider.notifier).setHidden(
-          hide ? demoNavId(kRemoteTypeDemoSlug) : null,
-        );
+    ref
+        .read(bottomBarVisibilityProvider.notifier)
+        .setHidden(hide ? demoNavId(kRemoteTypeDemoSlug) : null);
   }
 
   /// 返回连接大厅：会话不销毁——仍托管在 host（销毁入口是 host.drop），
@@ -717,8 +716,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // Win+L 等锁屏类：条上一点即发，误触代价高，先确认。
     // 锁屏判定：序列里有任何 chord 是 ['win','l'] 都拦截。
     final hasLockChord = item.chords.any(
-      (c) =>
-          c.keys.length == 2 && c.keys.first == 'win' && c.keys.last == 'l',
+      (c) => c.keys.length == 2 && c.keys.first == 'win' && c.keys.last == 'l',
     );
     if (hasLockChord) {
       final ok = await showRtLockConfirm(context: context, item: item);
@@ -729,9 +727,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     try {
       for (var i = 0; i < item.chords.length; i++) {
         if (i > 0 && item.intervalMs > 0) {
-          await Future<void>.delayed(
-            Duration(milliseconds: item.intervalMs),
-          );
+          await Future<void>.delayed(Duration(milliseconds: item.intervalMs));
           if (!mounted) return; // 异步期间页面退出
         }
         final chordKeys = item.chords[i].keys;
@@ -878,28 +874,29 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final ready = _vpadReady;
     _vpadReady = null;
     if (ready != null) await ready;
-    await _vpadRaw({
-      'action': 'vpad_release',
-      'vpad_handle': _vpadHandle,
-    });
+    await _vpadRaw({'action': 'vpad_release', 'vpad_handle': _vpadHandle});
   }
 
   /// 手柄键区按键 → vpad_button / vpad_trigger（扳机按压 = 行程 1.0/0.0）。
   void _onVpadKey({String? button, String? trigger, required bool pressed}) {
     if (button != null) {
-      unawaited(_sendVpad({
-        'action': 'vpad_button',
-        'vpad_handle': _vpadHandle,
-        'vpad_button': button,
-        'vpad_value_bool': pressed,
-      }));
+      unawaited(
+        _sendVpad({
+          'action': 'vpad_button',
+          'vpad_handle': _vpadHandle,
+          'vpad_button': button,
+          'vpad_value_bool': pressed,
+        }),
+      );
     } else if (trigger != null) {
-      unawaited(_sendVpad({
-        'action': 'vpad_trigger',
-        'vpad_handle': _vpadHandle,
-        'vpad_trigger': trigger,
-        'vpad_value': pressed ? 1.0 : 0.0,
-      }));
+      unawaited(
+        _sendVpad({
+          'action': 'vpad_trigger',
+          'vpad_handle': _vpadHandle,
+          'vpad_trigger': trigger,
+          'vpad_value': pressed ? 1.0 : 0.0,
+        }),
+      );
     }
   }
 
@@ -913,9 +910,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _showSnack('未连接电脑');
       return;
     }
-    final isLock = keys.length == 2 &&
-        keys.first == 'win' &&
-        keys.last == 'l';
+    final isLock = keys.length == 2 && keys.first == 'win' && keys.last == 'l';
     if (isLock) {
       final ok = await showRtLockConfirm(
         context: context,
@@ -959,11 +954,14 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         _portraitChosen = false; // 回横屏自动复位（纯字段，无 setState 需求）
       }
       final landActive = _layouts.activeFor(kRtCanvasOrientLandscape);
-      final orientHint = _canvasOrientation == kRtCanvasOrientPortrait &&
+      final orientHint =
+          _canvasOrientation == kRtCanvasOrientPortrait &&
           !_portraitChosen &&
           landActive != null &&
           rtCanvasLayoutLocksLandscape(landActive.data);
-      final activeEntry = orientHint ? landActive : _layouts.activeFor(_canvasOrientation);
+      final activeEntry = orientHint
+          ? landActive
+          : _layouts.activeFor(_canvasOrientation);
       body = RtCanvasView(
         session: _session,
         connected: _connected,
@@ -981,6 +979,32 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         orientation: _canvasOrientation,
         orientHint: orientHint,
         onHintGoLandscape: _lockCanvasLandscape,
+        // 输入页模块 = 连接后落到的打字页本体（同一份 props，竖屏默认布局
+        // 的唯一模块；放进任意布局即整页打字面）。
+        composerModule: RtInputView(
+          controller: _textController,
+          enterMode: _enterMode,
+          onEnterModeChanged: (mode) {
+            setState(() => _enterMode = mode);
+            _sync.scheduleSync();
+          },
+          syncFlash: _syncFlash,
+          onClear: () {
+            _textController.clear();
+            setState(() {});
+          },
+          onReplay: _replayText,
+          onComposerTapOutside: _sync.scheduleSync,
+          onTextChanged: () => setState(() {}),
+          shortcuts: _shortcuts,
+          barDisplay: _barDisplay,
+          connected: _connected,
+          firingId: _firingShortcutId,
+          onFire: _fireShortcut,
+          onEdit: _editShortcuts,
+          onHistory: _openHistory,
+          onBarDisplay: _openBarDisplay,
+        ),
         editMode: _canvasEdit,
         onLayoutChanged: _setActiveLayout,
         onSwitchLayout: _switchLayout,

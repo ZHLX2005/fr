@@ -3,6 +3,8 @@
 // 画布内置布局预设（与 docs/prototypes/rt-canvas-gamepad.html LAYOUTS 同源）：
 //   · 游戏 = 纯手柄（vpad_dpad + vpad_button/trigger）
 //   · 键盘 = 全键盘（hotkey，Fn 行折叠）
+//   · 输入页 = 竖屏默认：连接后落到的打字页本身（工具行 + 快捷键托盘 +
+//     composer），横竖共用同一会话；竖屏激活兜底就是它
 //   · 触控屏 = 满屏触摸板（mouse；横竖屏双朝向可用）
 // 用户可改；改后存盘。自定义无数量上限。
 // 「默认布局」「触控屏 · 竖」已退役——ensure 会剔除旧内置条目。
@@ -13,12 +15,14 @@ import 'rt_prefs.dart'
         RtCanvasLayout,
         RtCanvasLayouts,
         RtCanvasNamedLayout,
+        kRtCanvasModuleComposer,
         kRtCanvasModuleDpad,
         kRtCanvasModuleKb,
         kRtCanvasModuleVpad,
         kRtCanvasOrientLandscape,
         kRtCanvasOrientPortrait,
         kRtCanvasPresetGame,
+        kRtCanvasPresetInputPage,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
         rtCanvasLayoutUsableIn;
@@ -69,7 +73,28 @@ const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
       },
     ),
   ),
-  // 3. 触控屏：满屏触摸板（原型 full；不锁横屏 → 竖屏也可用）。
+  // 3. 输入页（竖屏默认）：连接后落到的打字页本身——满屏 composer 模块
+  //    （工具行 + 快捷键托盘 + 输入框）。竖屏激活兜底取它（列表里第一套
+  //    竖屏可用内置）；hideShortcuts：托盘在模块内，画布按钮区不重复渲染。
+  RtCanvasNamedLayout(
+    id: kRtCanvasPresetInputPage,
+    name: '输入页',
+    builtIn: true,
+    orientation: kRtCanvasOrientPortrait,
+    data: RtCanvasLayout(
+      hideShortcuts: true,
+      modules: {
+        kRtCanvasModuleComposer: RtCanvasAnchor(
+          visible: true,
+          x: 0.50,
+          y: 0.50,
+          w: 1.0,
+          h: 1.0,
+        ),
+      },
+    ),
+  ),
+  // 4. 触控屏：满屏触摸板（原型 full；不锁横屏 → 竖屏也可用）。
   RtCanvasNamedLayout(
     id: kRtCanvasPresetTouchpad,
     name: '触控屏布局',
@@ -97,11 +122,12 @@ RtCanvasNamedLayout? rtBuiltinPresetOf(String id) {
 }
 
 /// 出厂锚点修订号：升高时 [rtEnsureBuiltinPresets] 强制用新工厂覆盖全部内置
-/// （自定义布局保留）。rev 3 = 去掉默认 / 触控屏·竖，只留游戏/键盘/触控屏。
-const int kRtCanvasBuiltinFactoryRev = 3;
+/// （自定义布局保留）。rev 4 = 新增竖屏内置「输入页」（连接后落到的打字页）。
+const int kRtCanvasBuiltinFactoryRev = 4;
 
-/// 保证布局集里 3 套内置总在场（缺的补出厂版），退役内置剔除；横屏内置在前、
-/// 自定义跟后；两个朝向的激活 id 都必须可用。
+/// 保证布局集里 4 套内置总在场（缺的补出厂版），退役内置剔除；内置按列表
+/// 顺序（横屏两套 → 竖屏输入页 → 双朝向触控屏）、自定义跟后；两个朝向的
+/// 激活 id 都必须可用。
 ///
 /// [persistedFactoryRev] < [kRtCanvasBuiltinFactoryRev] 时强制用当前出厂
 /// 覆盖内置数据。已齐全且顺序一致、两侧激活都有效、且出厂修订已对齐时
@@ -129,7 +155,8 @@ RtCanvasLayouts rtEnsureBuiltinPresets(
   }
   final landscapeOk = merged.any((p) => p.id == layouts.activeId);
   // 竖屏激活：空 = 读侧兜底；非空须指向竖屏可用布局（真竖屏或双朝向触控屏）。
-  final portraitOk = layouts.activeIdPortrait.isEmpty ||
+  final portraitOk =
+      layouts.activeIdPortrait.isEmpty ||
       merged.any(
         (p) =>
             p.id == layouts.activeIdPortrait &&
@@ -149,7 +176,8 @@ RtCanvasLayouts rtEnsureBuiltinPresets(
       kRtCanvasPresetTouchpad,
     );
   }
-  final portraitBad = next.activeIdPortrait.isNotEmpty &&
+  final portraitBad =
+      next.activeIdPortrait.isNotEmpty &&
       !merged.any(
         (p) =>
             p.id == next.activeIdPortrait &&

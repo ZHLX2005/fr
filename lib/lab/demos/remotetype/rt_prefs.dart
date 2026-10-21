@@ -20,6 +20,10 @@ const String kRtCanvasPresetGame = 'game';
 const String kRtCanvasPresetKeyboard = 'keyboard';
 const String kRtCanvasPresetTouchpad = 'touchpad';
 
+/// 竖屏内置预设：输入页（连接后落到的打字页本身，见 rt_input_view）。
+/// 竖屏默认布局就是它——旋转到竖屏看到的是熟悉的打字页，横竖共用同一会话。
+const String kRtCanvasPresetInputPage = 'input-page';
+
 /// 已退役内置 id（旧盘可能仍出现；[rtEnsureBuiltinPresets] 会剔除）。
 const String kRtCanvasPresetDefault = 'default';
 const String kRtCanvasPresetTouchpadN = 'touchpad-n';
@@ -35,6 +39,10 @@ const String kRtCanvasModuleInput = 'input';
 
 /// 虚拟键盘（键盘布局主体：5 行 QWERTY + Fn 折叠，按键即发 hotkey）。
 const String kRtCanvasModuleKb = 'kb';
+
+/// 输入页（连接后落到的打字页整体：工具行 + 快捷键托盘 + composer）。
+/// 竖屏默认布局的唯一模块；也可作为模块放进任意布局。
+const String kRtCanvasModuleComposer = 'composer';
 
 /// 方向轮盘（游戏布局的左手区：vpad_dpad 四向 + none 回中）。
 const String kRtCanvasModuleDpad = 'dpad';
@@ -65,16 +73,16 @@ class RtBarDisplay {
   static const RtBarDisplay defaults = RtBarDisplay(showDetail: false, rows: 1);
 
   RtBarDisplay copyWith({bool? showDetail, int? rows}) => RtBarDisplay(
-        showDetail: showDetail ?? this.showDetail,
-        rows: rows ?? this.rows,
-      );
+    showDetail: showDetail ?? this.showDetail,
+    rows: rows ?? this.rows,
+  );
 
   Map<String, dynamic> toJson() => {'showDetail': showDetail, 'rows': rows};
 
   factory RtBarDisplay.fromJson(Map<String, dynamic> j) => RtBarDisplay(
-        showDetail: j['showDetail'] == true,
-        rows: j['rows'] == 2 ? 2 : 1,
-      );
+    showDetail: j['showDetail'] == true,
+    rows: j['rows'] == 2 ? 2 : 1,
+  );
 }
 
 /// 一组按键（末位主键、其余修饰键）。与原协议层 `hotkey` 字段形状一一对应。
@@ -83,14 +91,15 @@ class RtChord {
   final List<String> keys;
 
   /// 与原 RtShortcutItem.keys 兼容。
-  RtChord.fromLegacy(List<String> legacy)
-    : keys = List<String>.of(legacy);
+  RtChord.fromLegacy(List<String> legacy) : keys = List<String>.of(legacy);
 
   Map<String, dynamic> toJson() => {'keys': keys};
 
   factory RtChord.fromJson(Map<String, dynamic> j) {
     final raw = j['keys'];
-    return RtChord(keys: raw is List ? raw.map((e) => e.toString()).toList() : const []);
+    return RtChord(
+      keys: raw is List ? raw.map((e) => e.toString()).toList() : const [],
+    );
   }
 }
 
@@ -163,7 +172,12 @@ class RtShortcutItem {
       final keys = rawKeys.map((e) => e.toString()).toList();
       return RtShortcutItem.single(id: id, label: label, keys: keys);
     }
-    return RtShortcutItem(id: id, label: label, chords: const [], intervalMs: 0);
+    return RtShortcutItem(
+      id: id,
+      label: label,
+      chords: const [],
+      intervalMs: 0,
+    );
   }
 }
 
@@ -199,25 +213,25 @@ class RtCanvasAnchor {
   final double? h;
 
   Map<String, dynamic> toJson() => {
-        'v': visible,
-        'x': x,
-        'y': y,
-        if (w != null) 'w': w,
-        if (h != null) 'h': h,
-      };
+    'v': visible,
+    'x': x,
+    'y': y,
+    if (w != null) 'w': w,
+    if (h != null) 'h': h,
+  };
 
   factory RtCanvasAnchor.fromJson(Map<String, dynamic> j) => RtCanvasAnchor(
-        // 坐标异常一律钳回画布内（拖动越界的旧数据自愈），不丢整条。
-        visible: j['v'] == true,
-        x: (j['x'] is num ? (j['x'] as num).toDouble() : 0.5)
-            .clamp(0.0, 1.0)
-            .toDouble(),
-        y: (j['y'] is num ? (j['y'] as num).toDouble() : 0.5)
-            .clamp(0.0, 1.0)
-            .toDouble(),
-        w: _clampFraction(j['w']),
-        h: _clampFraction(j['h']),
-      );
+    // 坐标异常一律钳回画布内（拖动越界的旧数据自愈），不丢整条。
+    visible: j['v'] == true,
+    x: (j['x'] is num ? (j['x'] as num).toDouble() : 0.5)
+        .clamp(0.0, 1.0)
+        .toDouble(),
+    y: (j['y'] is num ? (j['y'] as num).toDouble() : 0.5)
+        .clamp(0.0, 1.0)
+        .toDouble(),
+    w: _clampFraction(j['w']),
+    h: _clampFraction(j['h']),
+  );
 
   static double? _clampFraction(dynamic v) =>
       v is num ? v.toDouble().clamp(0.05, 1.0).toDouble() : null;
@@ -257,23 +271,22 @@ class RtCanvasButtonPos {
     double? s,
     bool? v,
     RtCanvasButtonShape? shape,
-  }) =>
-      RtCanvasButtonPos(
-        x: x ?? this.x,
-        y: y ?? this.y,
-        s: s ?? this.s,
-        v: v ?? this.v,
-        shape: shape ?? this.shape,
-      );
+  }) => RtCanvasButtonPos(
+    x: x ?? this.x,
+    y: y ?? this.y,
+    s: s ?? this.s,
+    v: v ?? this.v,
+    shape: shape ?? this.shape,
+  );
 
   Map<String, dynamic> toJson() => {
-        'x': x,
-        'y': y,
-        's': s,
-        'v': v,
-        // 旧形状（胶囊）不写——旧版本读到未知 shape 字段也能按缺省兜底。
-        if (shape == RtCanvasButtonShape.circle) 'shape': 'circle',
-      };
+    'x': x,
+    'y': y,
+    's': s,
+    'v': v,
+    // 旧形状（胶囊）不写——旧版本读到未知 shape 字段也能按缺省兜底。
+    if (shape == RtCanvasButtonShape.circle) 'shape': 'circle',
+  };
 
   factory RtCanvasButtonPos.fromJson(Map<String, dynamic> j) =>
       RtCanvasButtonPos(
@@ -317,35 +330,35 @@ class RtCanvasNamedLayout {
     bool? builtIn,
     RtCanvasLayout? data,
     String? orientation,
-  }) =>
-      RtCanvasNamedLayout(
-        id: id,
-        name: name ?? this.name,
-        builtIn: builtIn ?? this.builtIn,
-        data: data ?? this.data,
-        orientation: orientation ?? this.orientation,
-      );
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'builtIn': builtIn,
-        // 横屏不落字段（旧版本读到未知 orientation 也能按缺省兜底）。
-        if (orientation != kRtCanvasOrientLandscape) 'or': orientation,
-        'data': data.toJson(),
-      };
-  factory RtCanvasNamedLayout.fromJson(Map<String, dynamic> j) => RtCanvasNamedLayout(
-    id: j['id']?.toString() ?? '',
-    name: j['name']?.toString() ?? '',
-    builtIn: j['builtIn'] == true,
-    orientation: j['or'] == kRtCanvasOrientPortrait
-        ? kRtCanvasOrientPortrait
-        : kRtCanvasOrientLandscape,
-    data: RtCanvasLayout.fromJson(
-      j['data'] is Map
-          ? (j['data'] as Map).cast<String, dynamic>()
-          : const <String, dynamic>{},
-    ),
+  }) => RtCanvasNamedLayout(
+    id: id,
+    name: name ?? this.name,
+    builtIn: builtIn ?? this.builtIn,
+    data: data ?? this.data,
+    orientation: orientation ?? this.orientation,
   );
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'builtIn': builtIn,
+    // 横屏不落字段（旧版本读到未知 orientation 也能按缺省兜底）。
+    if (orientation != kRtCanvasOrientLandscape) 'or': orientation,
+    'data': data.toJson(),
+  };
+  factory RtCanvasNamedLayout.fromJson(Map<String, dynamic> j) =>
+      RtCanvasNamedLayout(
+        id: j['id']?.toString() ?? '',
+        name: j['name']?.toString() ?? '',
+        builtIn: j['builtIn'] == true,
+        orientation: j['or'] == kRtCanvasOrientPortrait
+            ? kRtCanvasOrientPortrait
+            : kRtCanvasOrientLandscape,
+        data: RtCanvasLayout.fromJson(
+          j['data'] is Map
+              ? (j['data'] as Map).cast<String, dynamic>()
+              : const <String, dynamic>{},
+        ),
+      );
 }
 
 /// 画布布局集：列表 + 分朝向激活 id。横竖屏各自记激活（隔离）；空表 =
@@ -365,7 +378,8 @@ class RtCanvasLayouts {
   final String activeIdPortrait;
 
   /// 指定朝向的激活布局：横屏看 [activeId]，竖屏看 [activeIdPortrait]。
-  /// 竖屏兜底顺序：真竖屏布局 → 双朝向横屏布局（不锁横屏，如触控屏）→ null。
+  /// 竖屏兜底顺序：真竖屏布局（内置输入页）→ 双朝向横屏布局（不锁横屏，
+  /// 如触控屏）→ null；横屏兜底优先横屏条目（不落到竖屏布局）。
   RtCanvasNamedLayout? activeFor(String orientation) {
     final wantPortrait = orientation == kRtCanvasOrientPortrait;
     final id = wantPortrait ? activeIdPortrait : activeId;
@@ -382,6 +396,9 @@ class RtCanvasLayouts {
         if (rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, p)) return p;
       }
       return null;
+    }
+    for (final p in list) {
+      if (p.orientation == kRtCanvasOrientLandscape) return p;
     }
     return list.isNotEmpty ? list.first : null;
   }
@@ -401,8 +418,9 @@ class RtCanvasLayouts {
 
   /// 切换指定朝向的激活布局（id 须在该朝向可用——含双朝向触控屏）。
   RtCanvasLayouts withActiveFor(String orientation, String id) {
-    final hit =
-        list.any((p) => p.id == id && rtCanvasLayoutUsableIn(orientation, p));
+    final hit = list.any(
+      (p) => p.id == id && rtCanvasLayoutUsableIn(orientation, p),
+    );
     if (!hit) return this;
     if (orientation == kRtCanvasOrientPortrait) {
       if (activeIdPortrait == id) return this;
@@ -421,13 +439,16 @@ class RtCanvasLayouts {
   }
 
   RtCanvasLayouts withList(List<RtCanvasNamedLayout> list) => RtCanvasLayouts(
-        list: list,
-        activeId: activeId,
-        activeIdPortrait: activeIdPortrait,
-      );
+    list: list,
+    activeId: activeId,
+    activeIdPortrait: activeIdPortrait,
+  );
 
   /// 更新指定朝向当前激活布局的数据。
-  RtCanvasLayouts withUpdatedActiveFor(String orientation, RtCanvasLayout data) {
+  RtCanvasLayouts withUpdatedActiveFor(
+    String orientation,
+    RtCanvasLayout data,
+  ) {
     final cur = activeFor(orientation);
     if (cur == null) return this;
     final next = <RtCanvasNamedLayout>[];
@@ -464,6 +485,7 @@ class RtCanvasLayouts {
     }
     return hit ? RtCanvasLayouts(list: next, activeId: activeId) : this;
   }
+
   String nextCustomId() {
     var n = 1;
     final ids = list.map((p) => p.id).toSet();
@@ -472,18 +494,18 @@ class RtCanvasLayouts {
     }
     return 'custom-$n';
   }
+
   Map<String, dynamic> toJson() => {
-        'list': [for (final p in list) p.toJson()],
-        'activeId': activeId,
-        if (activeIdPortrait.isNotEmpty) 'activeN': activeIdPortrait,
-      };
+    'list': [for (final p in list) p.toJson()],
+    'activeId': activeId,
+    if (activeIdPortrait.isNotEmpty) 'activeN': activeIdPortrait,
+  };
   factory RtCanvasLayouts.fromJson(Map<String, dynamic> j) {
     final rawList = j['list'];
     final list = <RtCanvasNamedLayout>[];
     if (rawList is List) {
       for (final e in rawList.whereType<Map>()) {
-        final entry =
-            RtCanvasNamedLayout.fromJson(e.cast<String, dynamic>());
+        final entry = RtCanvasNamedLayout.fromJson(e.cast<String, dynamic>());
         if (entry.id.isEmpty || entry.name.isEmpty) continue;
         list.add(entry);
       }
@@ -546,22 +568,22 @@ class RtCanvasLayout {
   final bool hideShortcuts;
 
   RtCanvasLayout withModule(String id, RtCanvasAnchor anchor) => RtCanvasLayout(
-        modules: Map.of(modules)..[id] = anchor,
-        buttons: buttons,
-        hideShortcuts: hideShortcuts,
-      );
+    modules: Map.of(modules)..[id] = anchor,
+    buttons: buttons,
+    hideShortcuts: hideShortcuts,
+  );
 
   RtCanvasLayout withButton(String id, RtCanvasButtonPos pos) => RtCanvasLayout(
-        modules: modules,
-        buttons: Map.of(buttons)..[id] = pos,
-        hideShortcuts: hideShortcuts,
-      );
+    modules: modules,
+    buttons: Map.of(buttons)..[id] = pos,
+    hideShortcuts: hideShortcuts,
+  );
 
   Map<String, dynamic> toJson() => {
-        'modules': {for (final e in modules.entries) e.key: e.value.toJson()},
-        'buttons': {for (final e in buttons.entries) e.key: e.value.toJson()},
-        if (hideShortcuts) 'hs': true,
-      };
+    'modules': {for (final e in modules.entries) e.key: e.value.toJson()},
+    'buttons': {for (final e in buttons.entries) e.key: e.value.toJson()},
+    if (hideShortcuts) 'hs': true,
+  };
 
   factory RtCanvasLayout.fromJson(Map<String, dynamic> j) {
     // 坏条目只丢自己（is 判型而非 as 强转——强转抛错会把整表兜底掉）。
@@ -664,9 +686,7 @@ class RtPrefs {
     final raw = p.getString(_kBarDisplayKey);
     if (raw == null || raw.isEmpty) return RtBarDisplay.defaults;
     try {
-      return RtBarDisplay.fromJson(
-        jsonDecode(raw) as Map<String, dynamic>,
-      );
+      return RtBarDisplay.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
       return RtBarDisplay.defaults;
     }
@@ -712,7 +732,9 @@ class RtPrefs {
 
   static Future<void> saveTouchpadSensitivity(double value) async {
     final p = await SharedPreferences.getInstance();
-    final v = value.clamp(kRtPadSensitivityMin, kRtPadSensitivityMax).toDouble();
+    final v = value
+        .clamp(kRtPadSensitivityMin, kRtPadSensitivityMax)
+        .toDouble();
     await p.setDouble(_kTouchpadSensitivityKey, v);
   }
 
@@ -725,7 +747,8 @@ class RtPrefs {
     if (raw != null && raw.isNotEmpty) {
       try {
         return RtCanvasLayouts.fromJson(
-            jsonDecode(raw) as Map<String, dynamic>);
+          jsonDecode(raw) as Map<String, dynamic>,
+        );
       } catch (_) {
         // 坏形落入迁移分支（旧 key 可能仍有效）。
       }
@@ -734,19 +757,20 @@ class RtPrefs {
     if (oldRaw != null && oldRaw.isNotEmpty) {
       try {
         final old = RtCanvasLayout.fromJson(
-            jsonDecode(oldRaw) as Map<String, dynamic>);
+          jsonDecode(oldRaw) as Map<String, dynamic>,
+        );
         final migrated = RtCanvasLayouts(
           list: [
             RtCanvasNamedLayout(
-                id: 'imported',
-                name: '导入布局',
-                builtIn: false,
-                data: old),
+              id: 'imported',
+              name: '导入布局',
+              builtIn: false,
+              data: old,
+            ),
           ],
           activeId: 'imported',
         );
-        await p.setString(
-            _kCanvasLayoutsKey, jsonEncode(migrated.toJson()));
+        await p.setString(_kCanvasLayoutsKey, jsonEncode(migrated.toJson()));
         return migrated;
       } catch (_) {}
     }
