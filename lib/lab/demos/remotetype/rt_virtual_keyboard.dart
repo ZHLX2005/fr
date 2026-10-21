@@ -231,7 +231,7 @@ class _KeyDef {
   final double flex;
 }
 
-class _KeyTile extends StatelessWidget {
+class _KeyTile extends StatefulWidget {
   const _KeyTile({
     required this.keyId,
     required this.label,
@@ -245,37 +245,60 @@ class _KeyTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_KeyTile> createState() => _KeyTileState();
+}
+
+class _KeyTileState extends State<_KeyTile> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final cs = c.scheme;
+    final active = widget.active;
     final bg = active ? cs.primaryContainer : cs.surfaceContainerHighest;
     final fg = active ? cs.onPrimaryContainer : c.text;
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        splashColor: cs.primary.withValues(alpha: 0.10),
-        highlightColor: cs.primary.withValues(alpha: 0.06),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
+    return Listener(
+      // 按压缩放回弹（Q 弹键帽）：pointer down/up 驱动，onTap 语义不变
+      // ——快捷键编辑器与画布键盘共用本件，两边手感一致。
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.88 : 1.0,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        child: Material(
+          color: bg,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: widget.onTap,
             borderRadius: BorderRadius.circular(8),
-          ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: label.length <= 2 ? 13 : 11,
-                fontWeight: FontWeight.w700,
-                color: fg,
-                letterSpacing: label.length <= 1 ? 0.4 : 0,
+            splashColor: cs.primary.withValues(alpha: 0.10),
+            highlightColor: cs.primary.withValues(alpha: 0.06),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: cs.shadow.withValues(alpha: 0.06),
+                ),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: widget.label.length <= 2 ? 13 : 11,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                    letterSpacing: widget.label.length <= 1 ? 0.4 : 0,
+                  ),
+                ),
               ),
             ),
           ),

@@ -514,7 +514,7 @@ class RtCanvasLayouts {
   }
 }
 
-/// 横屏画布布局：模块（触摸板 / 输入框 / 轮盘 / 手柄键区）锚点 + 按钮位。
+/// 横屏画布布局：模块（触摸板 / 输入框 / 键盘 / 轮盘 / 手柄键区）锚点 + 按钮位。
 /// 空表 = 首跑，画布用内置默认布局。删掉的按钮残位无害（同 id 回归原位）。
 class RtCanvasLayout {
   const RtCanvasLayout({
@@ -576,6 +576,22 @@ class RtCanvasLayout {
       hideShortcuts: j['hs'] == true,
     );
   }
+}
+
+/// 该布局是否「锁定横屏」（竖屏下不可用，旋转过去要弹提示层而不是静默
+/// 切换）：判定 = 含任何可见的横屏专用操作模块（轮盘 / 手柄键区 / 虚拟
+/// 键盘——这些模块的键位排布以横屏双手拇指位为前提）。触摸板 / 输入框 /
+/// 快捷按钮布局旋转时静默切对侧激活。纯函数，规则改动须同步单测。
+bool rtCanvasLayoutLocksLandscape(RtCanvasLayout data) {
+  const lockedModules = {
+    kRtCanvasModuleDpad,
+    kRtCanvasModuleVpad,
+    kRtCanvasModuleKb,
+  };
+  for (final e in data.modules.entries) {
+    if (lockedModules.contains(e.key) && e.value.visible) return true;
+  }
+  return false;
 }
 
 class RtPrefs {

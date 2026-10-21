@@ -29,6 +29,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../api/remotetype/remotetype.dart';
@@ -125,10 +126,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           ? kRtCanvasOrientLandscape
           : kRtCanvasOrientPortrait;
 
+  /// 用户在本轮竖屏期间是否已主动选定竖屏布局（面板里切过/建过）。
+  /// true = 尊重用户选择，锁定横屏布局不再弹提示层；回横屏自动复位。
+  bool _portraitChosen = false;
+
   RtCanvasLayout get _activeLayout =>
       _layouts.activeFor(_canvasOrientation)?.data ??
       const RtCanvasLayout();
-  String get _activeId => _layouts.activeFor(_canvasOrientation)?.id ?? '';
 
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
@@ -327,6 +331,16 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     setState(() => _canvasEdit = on);
   }
 
+  /// 提示层「切换为横屏」：把方向锁从自由旋转临时收窄为横屏（防再次
+  /// 转回竖屏循环弹提示）；退出画布时 portraitOnly 归还，无需额外还原。
+  Future<void> _lockCanvasLandscape() async {
+    _portraitChosen = false;
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
   /// 激活布局的内容变更（拖动落位 / 缩放 / 显隐 / 模块开关）：先落 state
   /// 再异步落盘（失败不回滚——下次进页读盘仍旧位）。只动当前朝向的激活
   /// 布局——横竖屏配置互不串台。
@@ -338,7 +352,11 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   }
 
   /// 切换激活布局（id 必须与某朝向同侧；只影响那一侧的激活位）。
+  /// 竖屏期间的切换视为「用户主动选了竖屏」，本轮不再弹锁定提示层。
   void _switchLayout(String id) {
+    if (_canvasOrientation == kRtCanvasOrientPortrait) {
+      _portraitChosen = true;
+    }
     final next = _layouts.withActiveFor(
       _layouts.orientationOf(id),
       id,
@@ -366,6 +384,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final next = _layouts
         .withList([..._layouts.list, entry])
         .withActiveFor(orientation, newId);
+    if (orientation == _canvasOrientation) {
+      _portraitChosen = true; // 当前侧的新副本即用户所选
+    }
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
     if (orientation != _canvasOrientation) {
@@ -926,6 +947,18 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // 画布模式不要 AppBar：全出血，编辑/退出/显隐都在画布浮层。
     Widget body;
     if (_session != null && _canvasMode) {
+      // 锁定横屏判定：竖屏 + 横屏激活布局含横屏专用模块（轮盘/手柄/键盘）
+      // 且用户本轮没主动选过竖屏布局 → 弹提示层（画布继续渲染该横屏布局，
+      // 毛玻璃盖住），见 rt_canvas_view 的提示层。
+      if (_canvasOrientation == kRtCanvasOrientLandscape && _portraitChosen) {
+        _portraitChosen = false; // 回横屏自动复位（纯字段，无 setState 需求）
+      }
+      final landActive = _layouts.activeFor(kRtCanvasOrientLandscape);
+      final orientHint = _canvasOrientation == kRtCanvasOrientPortrait &&
+          !_portraitChosen &&
+          landActive != null &&
+          rtCanvasLayoutLocksLandscape(landActive.data);
+      final activeEntry = orientHint ? landActive : _layouts.activeFor(_canvasOrientation);
       body = RtCanvasView(
         session: _session,
         connected: _connected,
@@ -937,10 +970,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         textController: _textController,
         shortcuts: _shortcuts,
         firingId: _firingShortcutId,
-        activeLayout: _activeLayout,
-        activeId: _activeId,
+        activeLayout: activeEntry?.data ?? const RtCanvasLayout(),
+        activeId: activeEntry?.id ?? '',
         layouts: _layouts,
         orientation: _canvasOrientation,
+        orientHint: orientHint,
+        onHintGoLandscape: _lockCanvasLandscape,
         editMode: _canvasEdit,
         onLayoutChanged: _setActiveLayout,
         onSwitchLayout: _switchLayout,

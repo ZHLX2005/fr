@@ -52,6 +52,10 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
   String? _activeDir;
   bool _pointerDown = false;
 
+  // 旋钮位移（像素，相对轮盘中心）。拖动期间跟手（短延时直出），松手
+  // 弹簧回中（easeOutBack 带回弹，对齐原型 knob）。
+  Offset _knob = Offset.zero;
+
   // ================= 方向判定与回报 =================
 
   /// 指针相对轮盘中心的方向；死区内返回 null。
@@ -65,6 +69,17 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
         : (v.dy >= 0 ? 'down' : 'up');
   }
 
+  /// 旋钮目标位：朝指针方向偏移，钳在半径 55% 内；死区回零。
+  Offset _knobTarget(Offset local, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final v = local - center;
+    if (v.distance < radiusOf(size) * kRtDpadDeadZoneRatio) return Offset.zero;
+    final maxR = radiusOf(size) * 0.55;
+    return v.distance <= maxR ? v : (v / v.distance) * maxR;
+  }
+
+  double radiusOf(Size size) => math.min(size.width, size.height) / 2;
+
   void _setDirection(String? dir) {
     if (dir == _activeDir) return;
     setState(() => _activeDir = dir);
@@ -76,16 +91,19 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
     if (!widget.enabled) return;
     _pointerDown = true;
     unawaited(HapticFeedback.mediumImpact());
+    setState(() => _knob = _knobTarget(e.localPosition, size));
     _setDirection(_dirAt(e.localPosition, size));
   }
 
   void _onPointerMove(PointerMoveEvent e, Size size) {
     if (!_pointerDown || !widget.enabled) return;
+    setState(() => _knob = _knobTarget(e.localPosition, size));
     _setDirection(_dirAt(e.localPosition, size));
   }
 
   void _onPointerUp(PointerEvent e) {
     _pointerDown = false;
+    setState(() => _knob = Offset.zero);
     _setDirection(null);
   }
 
@@ -136,7 +154,7 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
                     ),
                     child: Stack(
                       children: [
-                        // 四向箭头（激活向高亮）
+                        // 四向箭头（激活向高亮 + 弹簧放大 1.22，对齐原型）
                         for (final e in _dirs.entries)
                           Align(
                             alignment: switch (e.key) {
@@ -145,27 +163,62 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
                               'left' => Alignment(-0.80, 0),
                               _ => Alignment(0.80, 0),
                             },
-                            child: Icon(
-                              e.value,
-                              size: arrowSize,
-                              color: _activeDir == e.key
-                                  ? cs.primary
-                                  : (enabled
-                                      ? c.textMuted
-                                      : c.textMuted.withValues(alpha: 0.6)),
+                            child: AnimatedScale(
+                              scale: _activeDir == e.key ? 1.22 : 1.0,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutBack,
+                              child: Icon(
+                                e.value,
+                                size: arrowSize,
+                                color: _activeDir == e.key
+                                    ? cs.primary
+                                    : (enabled
+                                        ? c.textMuted
+                                        : c.textMuted.withValues(alpha: 0.6)),
+                              ),
                             ),
                           ),
-                        // 中心毂
+                        // 中心旋钮：拖动跟手、松手弹簧回中（带高光顶缘）。
                         Center(
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: _pointerDown
+                                ? const Duration(milliseconds: 40)
+                                : const Duration(milliseconds: 420),
+                            curve: _pointerDown
+                                ? Curves.linear
+                                : Curves.easeOutBack,
+                            transform: Matrix4.translationValues(
+                              _knob.dx,
+                              _knob.dy,
+                              0,
+                            ),
                             width: hubSize,
                             height: hubSize,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: cs.surfaceContainerHighest,
-                              border: Border.all(
-                                color: cs.outlineVariant.withValues(alpha: 0.6),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  c.surface,
+                                  cs.surfaceContainerHighest,
+                                ],
                               ),
+                              border: Border.all(
+                                color: cs.outlineVariant.withValues(
+                                  alpha: _pointerDown ? 0.95 : 0.6,
+                                ),
+                                width: _pointerDown ? 1.6 : 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: cs.shadow.withValues(
+                                    alpha: _pointerDown ? 0.22 : 0.10,
+                                  ),
+                                  blurRadius: _pointerDown ? 14 : 6,
+                                  offset: Offset(0, _pointerDown ? 4 : 2),
+                                ),
+                              ],
                             ),
                             child: widget.showLegend
                                 ? Icon(

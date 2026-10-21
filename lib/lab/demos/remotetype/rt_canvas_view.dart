@@ -1,25 +1,31 @@
 // lib/lab/demos/remotetype/rt_canvas_view.dart
 //
-// 横屏画布：触摸板 / 输入框 / 快捷按钮是同一模块系统的三类模块，整个横屏
-// 自由编排。当前编排属于「激活的布局」—— 用户可在编辑态从底部「布局」入口
-// 切换 / 复制 / 重命名自定义 / 内置恢复出厂 / 删除（详见 rt_canvas_presets +
-// rt_canvas_layouts_sheet；sheet 渲染持久化版本，缩略图即各布局真实样子）。
+// 横竖屏画布：触摸板 / 输入框 / 虚拟键盘 / 轮盘 / 手柄键区 / 快捷按钮同属
+// 一个模块系统，自由编排。当前编排属于「当前朝向的激活布局」—— 用户可在
+// 编辑态的「布局」入口切换 / 复制（自选横竖屏）/ 重命名 / 恢复出厂 / 删除
+// （详见 rt_canvas_presets + rt_canvas_layouts_sheet；面板渲染持久化版本，
+// 缩略图即各布局真实样子；横屏左抽屉 / 竖屏底抽屉，对齐原型）。
 //
-// 两态（边界刻意做得明显）：
+// 两态（边界刻意做得明显；编辑布局只有一个入口）：
 //   use（使用态）—— 触摸板吃手势、输入框打字、键盘按键即发、按钮点按触发；
-//                   编排手势一律不在使用态提供（编辑唯一入口 = 顶部「编辑布局」）；
-//                   顶部浮层 = 连接点 · 灵敏度 · 切换布局 · 进入编辑 · 退出。
-//   edit（编辑态）—— 画布主色描边框 + 底部显隐面板 + 右下角完成钮，所有使用类
-//                   手势停用。拖动=移位、右下角拉手=缩放、点按按钮=显隐
-//                   （隐藏者以幽灵呈现可点回）。切布局会自动清掉拖动预览
-//                   （避免旧布局预览值瞬移到新布局）。
+//                   编排手势一律不在使用态提供（编辑唯一入口 = 左上胶囊菜单
+//                   的「编辑布局」）；胶囊收起时只露「状态点 + 布局名」。
+//   edit（编辑态）—— 画布主色描边框 + 顶部居中显隐面板（含「完成」），
+//                   所有使用类手势停用。拖动=移位、右下角拉手=缩放、
+//                   点按按钮=显隐（隐藏者以幽灵呈现可点回）。切布局会
+//                   自动清掉拖动预览（避免旧布局预览值瞬移到新布局）。
+//   竖屏提示层 —— 激活布局锁定横屏（含轮盘/手柄/键盘模块）时旋转到竖屏，
+//                   毛玻璃提示层盖住画布：旋转手机动画 + 请横屏使用 +
+//                   一键锁横屏 / 切换布局逃生（用户主动选定竖屏布局后
+//                   本轮不再提示）。
 //
 // 职责切分：快捷键「有哪些」归打字页编辑器（rt_shortcut_bar 的列表编辑），
 // 「显示哪些」归画布（RtCanvasButtonPos.v）。布局集合「用哪一套」归画布
-// sheet（RtCanvasLayouts）。两层职责相互独立。
+// 面板（RtCanvasLayouts，分朝向激活）。两层职责相互独立。
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,7 +34,7 @@ import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
 import 'rt_canvas_kb.dart' show RtCanvasKb;
-import 'rt_canvas_layouts_sheet.dart' show RtCanvasLayoutsSheet;
+import 'rt_canvas_layouts_sheet.dart' show showRtCanvasLayoutsPanel;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad;
 import 'rt_prefs.dart'
     show
@@ -48,7 +54,7 @@ import 'rt_prefs.dart'
         kRtCanvasPadDefW;
 import 'rt_session.dart';
 import 'rt_touch_surface.dart'
-    show RtConnDot, RtPadChipButton, RtTouchSurface, showRtSensitivitySheet;
+    show RtTouchSurface, showRtSensitivitySheet;
 
 /// 按钮自动找位候选槽（画布右侧区，2 列 × 4 行，归一化画布坐标）。
 const List<Offset> kRtCanvasSlotAnchors = [
@@ -87,6 +93,8 @@ class RtCanvasView extends StatefulWidget {
     required this.activeId,
     required this.layouts,
     required this.orientation,
+    required this.orientHint,
+    required this.onHintGoLandscape,
     required this.editMode,
     required this.onLayoutChanged,
     required this.onSwitchLayout,
@@ -126,6 +134,13 @@ class RtCanvasView extends StatefulWidget {
   /// 画布当前朝向（kRtCanvasOrient*，页面随设备旋转刷新）。决定 sheet
   /// 哪一组可交互、以及「当前激活」高亮取哪一侧。
   final String orientation;
+
+  /// true = 当前朝向下激活布局锁定横屏（竖屏不可用）：浮出提示层引导
+  /// 旋转，画布继续渲染该布局（毛玻璃盖住）。
+  final bool orientHint;
+
+  /// 提示层「切换为横屏」：页面把方向锁收窄为横屏（防来回弹提示）。
+  final VoidCallback onHintGoLandscape;
   final bool editMode;
 
   /// 当前激活布局的内容变更（拖动 / 缩放 / 显隐 / 模块开关）。
@@ -167,7 +182,8 @@ class RtCanvasView extends StatefulWidget {
   State<RtCanvasView> createState() => _RtCanvasViewState();
 }
 
-class _RtCanvasViewState extends State<RtCanvasView> {
+class _RtCanvasViewState extends State<RtCanvasView>
+    with SingleTickerProviderStateMixin {
   // 模块尺寸范围（wMin, wMax, hMin, hMax，归一化）。轮盘恒以正方形渲染
   // （取宽高像素较小者），范围即正方形的两轴限位。
   static (double, double, double, double) _moduleRange(String id) =>
@@ -187,6 +203,16 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   // 输入框焦点：IME 弹出时输入模块停靠键盘上方（见 _inputModule），失焦回锚点。
   final FocusNode _inputFocus = FocusNode();
 
+  // 锁定横屏提示层：本轮竖屏期间被用户关过（切了竖屏布局）就不再弹；
+  // 条件消失（回横屏 / 用户选定竖屏布局）自动复位。
+  bool _hintDismissed = false;
+
+  // 提示层手机旋转动画（竖→横→回，1.8s 循环）。
+  late final AnimationController _hintRotate = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  );
+
   // 移动预览：模块 id → 当前归一化中心。松手一次性回写。
   String? _dragId;
   Offset? _dragPos;
@@ -201,6 +227,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     super.initState();
     // 焦点变化触发重建：IME 弹出/收起时输入模块在「停靠位 ↔ 锚点位」间切换。
     _inputFocus.addListener(_onInputFocusChanged);
+    if (widget.orientHint) _hintRotate.repeat();
   }
 
   void _onInputFocusChanged() {
@@ -209,6 +236,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
 
   @override
   void dispose() {
+    _hintRotate.dispose();
     _inputFocus.removeListener(_onInputFocusChanged);
     _inputFocus.dispose();
     super.dispose();
@@ -226,6 +254,14 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         _liveW = 0;
         _liveH = 0;
       });
+    }
+    // 提示层条件消失（回横屏 / 用户已选定竖屏布局）→ 复位 dismiss 记忆，
+    // 下次再转竖屏撞上锁定布局时重新提示。
+    if (!widget.orientHint && _hintDismissed) {
+      _hintDismissed = false;
+    }
+    if (widget.orientHint != oldWidget.orientHint) {
+      widget.orientHint ? _hintRotate.repeat() : _hintRotate.stop();
     }
   }
 
@@ -411,12 +447,86 @@ class _RtCanvasViewState extends State<RtCanvasView> {
             },
           ),
           if (widget.editMode) ..._editChrome(cs) else _useOverlay(cs),
+          if (_hintVisible) _orientHintOverlay(cs),
         ],
       ),
     );
   }
 
-  // ---- 使用态浮层 ----
+  // ---- 锁定横屏提示层（毛玻璃盖住画布 + 旋转手机动画 + 双逃生） ----
+
+  bool get _hintVisible => widget.orientHint && !_hintDismissed;
+
+  Widget _orientHintOverlay(ColorScheme cs) {
+    return Positioned.fill(
+      // 吃掉全部指针：提示层在场时使用态/编辑态手势一律不响应。
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+              child: SafeArea(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _RotatePhoneIcon(animation: _hintRotate),
+                    const SizedBox(height: 18),
+                    Text(
+                      '请横屏使用',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '「${_activeName() ?? '当前布局'}」需要横屏操作',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () {
+                            _hintDismissed = true;
+                            _hintRotate.stop();
+                            widget.onHintGoLandscape();
+                          },
+                          icon: const Icon(Icons.screen_rotation, size: 18),
+                          label: const Text('切换为横屏'),
+                        ),
+                        const SizedBox(width: 10),
+                        FilledButton.tonalIcon(
+                          // 不预关提示层：面板里真选了竖屏布局才由页面侧
+                          // 条件（_portraitChosen）撤下提示；取消则仍提示。
+                          onPressed: _openLayoutsSheet,
+                          icon: const Icon(Icons.dashboard_customize_outlined,
+                              size: 18),
+                          label: const Text('切换布局'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---- 使用态浮层：左上胶囊（状态点 + 布局名 + 菜单），对齐原型 ----
+  // 原型把操作区收进一颗可展开胶囊，收起时只露「布局名 + 状态点」——画布
+  // 主体（触摸板/手柄）不被顶部工具行切割视线。
 
   Widget _useOverlay(ColorScheme cs) {
     return SafeArea(
@@ -424,44 +534,18 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
         child: Row(
           children: [
-            RtConnDot(connected: widget.connected, cs: cs),
-            const SizedBox(width: 8),
-            // 当前布局名：配置隔离的可见面——不看 sheet 也知道此刻是哪套。
-            Flexible(
-              child: Text(
-                _activeName() ?? '',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-              ),
-            ),
-            const Spacer(),
-            RtPadChipButton(
-              icon: Icons.tune,
-              tooltip: '触摸板灵敏度',
-              onTap: () => showRtSensitivitySheet(
+            _CanvasCapsule(
+              cs: cs,
+              connected: widget.connected,
+              name: _activeName() ?? '',
+              onSensitivity: () => showRtSensitivitySheet(
                 context,
                 value: widget.sensitivity,
                 onChanged: widget.onSensitivityChanged,
               ),
-            ),
-            const SizedBox(width: 8),
-            RtPadChipButton(
-              icon: Icons.dashboard_customize_outlined,
-              tooltip: '切换布局',
-              onTap: () => _openLayoutsSheet(),
-            ),
-            const SizedBox(width: 8),
-            RtPadChipButton(
-              icon: Icons.edit,
-              tooltip: '编辑布局',
-              onTap: () => widget.onEditModeChanged(true),
-            ),
-            const SizedBox(width: 8),
-            RtPadChipButton(
-              icon: Icons.keyboard,
-              tooltip: '返回打字',
-              onTap: widget.onExit,
+              onLayouts: _openLayoutsSheet,
+              onEdit: () => widget.onEditModeChanged(true),
+              onExit: widget.onExit,
             ),
           ],
         ),
@@ -469,9 +553,9 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
-  // ---- 编辑态 chrome：顶部面板 + 左下完成钮 + 画布描边 ----
-  // 面板放顶部、完成钮放左下：游戏布局的按钮簇占据右半与底部（次键
-  // y≈0.88），chrome 放底部会压簇、放右下会压键——顶部与左下是簇外空位。
+  // ---- 编辑态 chrome：顶部居中面板（模块显隐 + 布局 + 快捷键 + 完成）+
+  // 画布描边。面板居中挂顶：游戏布局的按钮簇占据右半与底部（次键 y≈0.88），
+  // 底部与右下都会压簇；顶中是簇外空位（对齐原型 ebar chip 行）。
 
   List<Widget> _editChrome(ColorScheme cs) {
     return [
@@ -483,19 +567,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                 color: cs.primary.withValues(alpha: 0.55),
                 width: 2,
               ),
-            ),
-          ),
-        ),
-      ),
-      Align(
-        alignment: Alignment.bottomLeft,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 0, 12),
-            child: FilledButton.icon(
-              onPressed: () => widget.onEditModeChanged(false),
-              icon: const Icon(Icons.check, size: 18),
-              label: const Text('完成'),
             ),
           ),
         ),
@@ -559,6 +630,22 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                     label: const Text('编辑快捷键'),
                     onPressed: widget.onEditShortcuts,
                   ),
+                  const SizedBox(width: 8),
+                  ActionChip(
+                    avatar: Icon(
+                      Icons.check,
+                      size: 18,
+                      color: cs.primary,
+                    ),
+                    label: Text(
+                      '完成',
+                      style: TextStyle(
+                        color: cs.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onPressed: () => widget.onEditModeChanged(false),
+                  ),
                 ],
               ),
             ),
@@ -598,35 +685,31 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   // ---- 布局 sheet ----
 
   Future<void> _openLayoutsSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => RtCanvasLayoutsSheet(
-        layouts: widget.layouts,
-        activeId: widget.activeId,
-        orientation: widget.orientation,
-        onSwitch: (id) {
-          widget.onSwitchLayout(id);
-          Navigator.of(ctx).pop();
-        },
-        onCopy: (copyOrientation) {
-          widget.onCopyToCustom(copyOrientation);
-          Navigator.of(ctx).pop();
-        },
-        onDelete: (id) {
-          widget.onDeleteCustom(id);
-          Navigator.of(ctx).pop();
-        },
-        onRename: (id, name) {
-          widget.onRenameCustom(id, name);
-          Navigator.of(ctx).pop();
-        },
-        onResetBuiltin: (id) {
-          widget.onResetBuiltin(id);
-          Navigator.of(ctx).pop();
-        },
-      ),
+    await showRtCanvasLayoutsPanel(
+      context,
+      layouts: widget.layouts,
+      activeId: widget.activeId,
+      orientation: widget.orientation,
+      onSwitch: (id) {
+        widget.onSwitchLayout(id);
+        Navigator.of(context).pop();
+      },
+      onCopy: (copyOrientation) {
+        widget.onCopyToCustom(copyOrientation);
+        Navigator.of(context).pop();
+      },
+      onDelete: (id) {
+        widget.onDeleteCustom(id);
+        Navigator.of(context).pop();
+      },
+      onRename: (id, name) {
+        widget.onRenameCustom(id, name);
+        Navigator.of(context).pop();
+      },
+      onResetBuiltin: (id) {
+        widget.onResetBuiltin(id);
+        Navigator.of(context).pop();
+      },
     );
   }
 
@@ -741,29 +824,49 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         ),
       ),
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           child,
+          // 模块标签 pill：顶部居中悬出（对齐原型 tag），主色胶囊 + 同色辉光。
           Positioned(
-            left: 8,
-            top: 4,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.drag_indicator,
-                  size: 14,
-                  color: cs.primary.withValues(alpha: 0.9),
+            top: -9,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cs.primary.withValues(alpha: 0.45),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: cs.primary.withValues(alpha: 0.9),
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.drag_indicator,
+                      size: 12,
+                      color: cs.onPrimary.withValues(alpha: 0.95),
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: cs.onPrimary,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -896,44 +999,50 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       canvasSize,
     );
     final cs = context.colors.scheme;
-    Widget box = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        color: context.colors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.10),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: widget.textController,
-              focusNode: _inputFocus,
-              style: const TextStyle(fontSize: 14),
-              decoration: const InputDecoration(
-                hintText: '输入同步到电脑…',
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 10),
+    Widget box = ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 0, 6, 0),
+          decoration: BoxDecoration(
+            color: context.colors.surface.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.10),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
-            ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.backspace_outlined, size: 18),
-            tooltip: '清空',
-            onPressed: () {
-              widget.textController.clear();
-              unawaited(HapticFeedback.selectionClick());
-            },
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: widget.textController,
+                  focusNode: _inputFocus,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                    hintText: '输入同步到电脑…',
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.backspace_outlined, size: 18),
+                tooltip: '清空',
+                onPressed: () {
+                  widget.textController.clear();
+                  unawaited(HapticFeedback.selectionClick());
+                },
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
     if (widget.editMode) {
@@ -1052,5 +1161,269 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       );
     }
     return out;
+  }
+}
+
+/// 提示层的旋转手机图标：竖立 → 逆时针倒向横屏（带 easeOut 回弹）→
+/// 停顿 → 回正，1.8s 循环（节奏对齐原型 tilt keyframes）。
+class _RotatePhoneIcon extends StatelessWidget {  const _RotatePhoneIcon({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colors.scheme;
+    // 0–18% 竖立 · 18–55% 转到 -90° · 55–82% 停在横屏 · 82–100% 回正。
+    final angle = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: ConstantTween(0.0),
+        weight: 0.18,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: -math.pi / 2)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 0.37,
+      ),
+      TweenSequenceItem(
+        tween: ConstantTween(-math.pi / 2),
+        weight: 0.27,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: -math.pi / 2, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 0.18,
+      ),
+    ]).animate(animation);
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) => Transform.rotate(
+        angle: angle.value,
+        child: child,
+      ),
+      child: Container(
+        width: 46,
+        height: 76,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+            width: 2.5,
+          ),
+        ),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            margin: const EdgeInsets.only(top: 6),
+            width: 14,
+            height: 3,
+            decoration: BoxDecoration(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 使用态左上胶囊：状态点 + 布局名 + chevron；点开毛玻璃菜单（灵敏度 /
+/// 切换布局 / 编辑布局 / 返回打字）。收起时不占画布视线，对齐原型。
+class _CanvasCapsule extends StatefulWidget {
+  const _CanvasCapsule({
+    required this.cs,
+    required this.connected,
+    required this.name,
+    required this.onSensitivity,
+    required this.onLayouts,
+    required this.onEdit,
+    required this.onExit,
+  });
+
+  final ColorScheme cs;
+  final bool connected;
+  final String name;
+  final VoidCallback onSensitivity;
+  final VoidCallback onLayouts;
+  final VoidCallback onEdit;
+  final VoidCallback onExit;
+
+  @override
+  State<_CanvasCapsule> createState() => _CanvasCapsuleState();
+}
+
+class _CanvasCapsuleState extends State<_CanvasCapsule> {
+  static const _sens = 'sens';
+  static const _layouts = 'layouts';
+  static const _edit = 'edit';
+  static const _exit = 'exit';
+
+  final GlobalKey _key = GlobalKey();
+  bool _open = false;
+
+  Future<void> _toggleMenu() async {
+    if (_open) return;
+    setState(() => _open = true);
+    unawaited(HapticFeedback.selectionClick());
+    final box = _key.currentContext?.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    String? selected;
+    if (box != null && overlay != null) {
+      // 菜单锚在胶囊正下方，向上留 4px 呼吸、宽度比胶囊略宽。
+      final topLeft = box.localToGlobal(
+        box.size.bottomLeft(Offset.zero) - const Offset(0, 2),
+      );
+      final position = RelativeRect.fromRect(
+        Rect.fromPoints(topLeft, topLeft.translate(200, 8)),
+        Offset.zero & overlay.size,
+      );
+      selected = await showMenu<String>(
+        context: context,
+        position: position,
+        color: widget.cs.surface.withValues(alpha: 0.96),
+        elevation: 8,
+        shadowColor: widget.cs.shadow.withValues(alpha: 0.35),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: widget.cs.outlineVariant.withValues(alpha: 0.7),
+          ),
+        ),
+        popUpAnimationStyle: AnimationStyle(
+          curve: Curves.easeOutBack,
+          duration: const Duration(milliseconds: 280),
+        ),
+        items: const [
+          PopupMenuItem(
+            value: _sens,
+            height: 40,
+            child: Row(children: [
+              Icon(Icons.tune, size: 17),
+              SizedBox(width: 10),
+              Text('触摸板灵敏度', style: TextStyle(fontSize: 13)),
+            ]),
+          ),
+          PopupMenuItem(
+            value: _layouts,
+            height: 40,
+            child: Row(children: [
+              Icon(Icons.dashboard_customize_outlined, size: 17),
+              SizedBox(width: 10),
+              Text('切换布局', style: TextStyle(fontSize: 13)),
+            ]),
+          ),
+          PopupMenuItem(
+            value: _edit,
+            height: 40,
+            child: Row(children: [
+              Icon(Icons.edit_outlined, size: 17),
+              SizedBox(width: 10),
+              Text('编辑布局', style: TextStyle(fontSize: 13)),
+            ]),
+          ),
+          PopupMenuDivider(),
+          PopupMenuItem(
+            value: _exit,
+            height: 40,
+            child: Row(children: [
+              Icon(Icons.keyboard_outlined, size: 17),
+              SizedBox(width: 10),
+              Text('返回打字', style: TextStyle(fontSize: 13)),
+            ]),
+          ),
+        ],
+      );
+    }
+    if (mounted) setState(() => _open = false);
+    switch (selected) {
+      case _sens:
+        widget.onSensitivity();
+      case _layouts:
+        widget.onLayouts();
+      case _edit:
+        widget.onEdit();
+      case _exit:
+        widget.onExit();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: InkWell(
+          onTap: _toggleMenu,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            key: _key,
+            padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+            decoration: BoxDecoration(
+              color: cs.surface.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.7),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: cs.shadow.withValues(alpha: 0.10),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 状态点：连接色 + 同色光晕（对齐原型 dot halo）。
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.connected ? cs.primary : cs.outlineVariant,
+                    boxShadow: widget.connected
+                        ? [
+                            BoxShadow(
+                              color: cs.primary.withValues(alpha: 0.25),
+                              spreadRadius: 2.5,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Text(
+                    widget.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _open ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutBack,
+                  child: Icon(
+                    Icons.expand_more,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

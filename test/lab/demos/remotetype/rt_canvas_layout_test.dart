@@ -19,7 +19,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:xiaodouzi_fr/lab/demos/remotetype/rt_canvas_presets.dart';
 import 'package:xiaodouzi_fr/lab/demos/remotetype/rt_canvas_view.dart';
-import 'package:xiaodouzi_fr/lab/demos/remotetype/rt_prefs.dart';
+import 'package:xiaodouzi_fr/lab/demos/remotetype/rt_prefs.dart'
+    show
+        RtCanvasAnchor,
+        RtCanvasButtonPos,
+        RtCanvasButtonShape,
+        RtCanvasLayout,
+        RtCanvasLayouts,
+        RtCanvasNamedLayout,
+        kRtCanvasBtnScaleMax,
+        kRtCanvasModuleDpad,
+        kRtCanvasModuleInput,
+        kRtCanvasModuleKb,
+        kRtCanvasModuleTouchpad,
+        kRtCanvasModuleVpad,
+        kRtCanvasOrientLandscape,
+        kRtCanvasOrientPortrait,
+        kRtCanvasPresetDefault,
+        kRtCanvasPresetGame,
+        kRtCanvasPresetKeyboard,
+        kRtCanvasPresetTouchpad,
+        kRtCanvasPresetTouchpadN,
+        RtPrefs,
+        rtCanvasLayoutLocksLandscape;
 
 void main() {
   group('rtFirstFreeCanvasSlot 按钮自动找位', () {
@@ -492,6 +514,32 @@ void main() {
         ensured.activeFor(kRtCanvasOrientPortrait)!.id,
         kRtCanvasPresetTouchpadN,
       );
+    });
+  });
+
+  group('rtCanvasLayoutLocksLandscape（锁定横屏判定）', () {
+    test('含可见轮盘/手柄/键盘模块 → 锁定；触摸板/输入框布局不锁', () {
+      // 游戏布局：轮盘 + 手柄键区 → 锁
+      final game = rtBuiltinPresetOf(kRtCanvasPresetGame)!;
+      expect(rtCanvasLayoutLocksLandscape(game.data), isTrue);
+      // 键盘布局：虚拟键盘 → 锁
+      final kb = rtBuiltinPresetOf(kRtCanvasPresetKeyboard)!;
+      expect(rtCanvasLayoutLocksLandscape(kb.data), isTrue);
+      // 默认布局：触摸板 + 输入框 → 不锁（旋转静默切对侧）
+      final def = rtBuiltinPresetOf(kRtCanvasPresetDefault)!;
+      expect(rtCanvasLayoutLocksLandscape(def.data), isFalse);
+      // 触控屏（横/竖）：纯触摸板 → 不锁
+      final pad = rtBuiltinPresetOf(kRtCanvasPresetTouchpad)!;
+      expect(rtCanvasLayoutLocksLandscape(pad.data), isFalse);
+      final padN = rtBuiltinPresetOf(kRtCanvasPresetTouchpadN)!;
+      expect(rtCanvasLayoutLocksLandscape(padN.data), isFalse);
+      // 模块存在但隐藏 → 不锁
+      const hidden = RtCanvasLayout(
+        modules: {
+          kRtCanvasModuleDpad: RtCanvasAnchor(visible: false, x: 0.2, y: 0.2),
+        },
+      );
+      expect(rtCanvasLayoutLocksLandscape(hidden), isFalse);
     });
   });
 

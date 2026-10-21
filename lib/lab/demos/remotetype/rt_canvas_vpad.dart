@@ -23,6 +23,18 @@ typedef RtVpadKeyCallback = void Function({
   required bool pressed,
 });
 
+/// Xbox 面键惯例色（fr design_tokens fA/fB/fX/fY 原值，跨主题恒定——
+/// 玩家对面键颜色的记忆点大于主题统一性，原型同源）。
+const Map<String, Color> _kFaceColors = {
+  'A': Color(0xFF3FB950),
+  'B': Color(0xFFF0524D),
+  'X': Color(0xFF4C8DF6),
+  'Y': Color(0xFFE3B341),
+};
+
+/// Y 键底色偏亮，按住填充时用深字保对比（其余面键白字），原型同规。
+const Color _kFaceYOnColor = Color(0xFF2C2A24);
+
 class RtCanvasVpad extends StatelessWidget {
   const RtCanvasVpad({
     super.key,
@@ -131,6 +143,7 @@ class RtCanvasVpad extends StatelessWidget {
           enabled: enabled,
           round: true,
           diameter: diameter,
+          faceColor: _kFaceColors[label],
           onDown: () => _fire(button: label.toLowerCase(), pressed: true),
           onUp: () => _fire(button: label.toLowerCase(), pressed: false),
         ),
@@ -140,7 +153,8 @@ class RtCanvasVpad extends StatelessWidget {
 }
 
 /// 按住型手柄键：down = 按下（press / trigger 1.0），up/cancel = 松开。
-/// 按住期间高亮；未连接置灰不响应。
+/// 手感对齐原型（iOS Q 弹）：按下缩至 0.88 弹回、held 同色辉光、键面顶部
+/// 高光。未连接置灰不响应。
 class _VpadHoldButton extends StatefulWidget {
   const _VpadHoldButton({
     required this.label,
@@ -149,6 +163,7 @@ class _VpadHoldButton extends StatefulWidget {
     required this.onDown,
     required this.onUp,
     this.diameter,
+    this.faceColor,
   });
 
   final String label;
@@ -159,6 +174,9 @@ class _VpadHoldButton extends StatefulWidget {
 
   /// 圆形直径；null = 撑满父给定的约束（肩键行）。
   final double? diameter;
+
+  /// 面键彩色环（A 绿 / B 红 / X 蓝 / Y 黄）；null = 中性键（肩键/扳机）。
+  final Color? faceColor;
   final VoidCallback onDown;
   final VoidCallback onUp;
 
@@ -170,16 +188,26 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
   bool _held = false;
 
   void _down() {
-    if (!widget.enabled) return;
+    // 卸载后迟到的 pointer 事件仍会派发到缓存的命中路径（旋转 / 切布局
+    // 场景实测可复现）：defunct 态一律吞掉，release 已由 dispose 补发。
+    if (!widget.enabled || !mounted) return;
     unawaited(HapticFeedback.mediumImpact());
     setState(() => _held = true);
     widget.onDown();
   }
 
   void _up() {
-    if (!_held) return;
+    if (!_held || !mounted) return;
     setState(() => _held = false);
     widget.onUp();
+  }
+
+  @override
+  void dispose() {
+    // 按住期间模块被卸载（旋转 / 切布局 / 退画布）：Listener 收不到
+    // pointer cancel，必须在这里补发松开——否则 PC 端虚拟手柄该键卡死。
+    if (_held) widget.onUp();
+    super.dispose();
   }
 
   @override
@@ -188,21 +216,42 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
     final cs = c.scheme;
     final round = widget.round;
     final diameter = widget.diameter;
+    final face = widget.faceColor;
+    final accent = face ?? cs.primary;
+    // Y 键亮底深字，其余按住填充白字（原型同规）。
+    final onAccent =
+        widget.label == 'Y' ? _kFaceYOnColor : (face ?? cs.onPrimary);
 
     final decoration = BoxDecoration(
       shape: round ? BoxShape.circle : BoxShape.rectangle,
-      borderRadius: round ? null : BorderRadius.circular(12),
-      color: _held ? cs.primary : c.surface,
+      borderRadius: round ? null : BorderRadius.circular(999),
+      gradient: _held
+          ? null
+          : LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                c.surface,
+                Color.alphaBlend(
+                  cs.outlineVariant.withValues(alpha: 0.16),
+                  c.surface,
+                ),
+              ],
+            ),
+      color: _held ? accent : null,
       border: Border.all(
         color: _held
-            ? cs.primary
-            : cs.outlineVariant.withValues(alpha: 0.7),
-        width: _held ? 2 : 1.2,
+            ? accent
+            : (face ??
+                cs.outlineVariant.withValues(alpha: 0.7)),
+        width: _held ? 2 : (face != null ? 2 : 1.2),
       ),
       boxShadow: [
         BoxShadow(
-          color: cs.shadow.withValues(alpha: _held ? 0.20 : 0.10),
-          blurRadius: _held ? 12 : 6,
+          color: _held
+              ? accent.withValues(alpha: face != null ? 0.50 : 0.40)
+              : cs.shadow.withValues(alpha: 0.10),
+          blurRadius: _held ? 18 : 6,
           offset: Offset(0, _held ? 4 : 2),
         ),
       ],
@@ -214,8 +263,9 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
         fontSize: round ? 16 : 13,
         fontWeight: FontWeight.w700,
         color: _held
-            ? cs.onPrimary
-            : (widget.enabled ? c.text : c.textMuted),
+            ? onAccent
+            : (face ??
+                (widget.enabled ? c.text : c.textMuted)),
       ),
     );
 
@@ -223,11 +273,18 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
       onPointerDown: (_) => _down(),
       onPointerUp: (_) => _up(),
       onPointerCancel: (_) => _up(),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 90),
-        decoration: decoration,
-        alignment: Alignment.center,
-        child: label,
+      child: AnimatedScale(
+        // 按压缩放回弹：easeOutBack 双向都带一点 overshoot（Q 弹手感）。
+        scale: _held ? 0.88 : 1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutBack,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          decoration: decoration,
+          alignment: Alignment.center,
+          child: label,
+        ),
       ),
     );
 

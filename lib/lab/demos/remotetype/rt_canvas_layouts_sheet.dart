@@ -14,6 +14,7 @@
 // 只负责「展示 + 收集意图」，持久化与状态切换由页面的回调接管。
 
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
@@ -46,6 +47,7 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
     required this.onDelete,
     required this.onRename,
     required this.onResetBuiltin,
+    this.scrollController,
   });
 
   final RtCanvasLayouts layouts;
@@ -55,6 +57,12 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
 
   /// 画布当前朝向（kRtCanvasOrient*）：决定哪一组可交互。
   final String orientation;
+
+  /// 列表滚动控制器：底部上滑壳传入 DraggableScrollableSheet 的控制器
+  /// （拖拽条联动列表）；抽屉壳传 null（列表自管）。
+  final ScrollController? scrollController;
+
+  /// 点按切换当前朝向的激活布局。
   final ValueChanged<String> onSwitch;
 
   /// 复制当前为新自定义（参数 = 用户选的朝向 kRtCanvasOrient*）。
@@ -83,57 +91,37 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
       ),
     ];
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.85,
-      expand: false,
-      builder: (context, controller) {
-        return Container(
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(28),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    // 纯内容：标题 + 分组列表 + 底部复制钮。外壳（底部上滑 / 左侧抽屉）
+    // 由 [showRtCanvasLayoutsPanel] 按朝向装配。
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+          child: Row(
             children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.outlineVariant,
-                  borderRadius: BorderRadius.circular(99),
+              Text(
+                '画布布局',
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              Text(
+                '当前：${_nameOf(layouts, orientation, activeId) ?? '—'}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurfaceVariant,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-                child: Row(
-                  children: [
-                    Text(
-                      '画布布局',
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '当前：${_nameOf(layouts, orientation, activeId) ?? '—'}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                child: ListView(
-                  controller: controller,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  children: [
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView(
+            controller: scrollController,
+            primary: false,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            children: [
                     for (final (groupOrient, entries) in groups)
                       if (entries.isNotEmpty) ...[
                         Padding(
@@ -180,25 +168,22 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => _pickCopyOrientation(context),
-                      icon: const Icon(Icons.copy_all_outlined, size: 18),
-                      label: const Text('复制当前为新自定义'),
-                    ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _pickCopyOrientation(context),
+                    icon: const Icon(Icons.copy_all_outlined, size: 18),
+                    label: const Text('复制当前为新自定义'),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
-      },
-    );
   }
 
   static String? _nameOf(
@@ -582,4 +567,166 @@ class _LayoutThumb extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 布局面板入口：按画布朝向装配外壳（效果对齐原型 rt-canvas-gamepad）。
+///   · 竖屏 = 底部上滑（DraggableScrollableSheet + 顶部拖拽条）；
+///   · 横屏 = 左侧抽屉（通高、右缘圆角、竖 grab 贴右缘、easeOutBack 弹簧
+///     滑入、毛玻璃遮罩）。
+/// 回调语义同 [RtCanvasLayoutsSheet]；关闭由各回调自行 Navigator.pop。
+Future<void> showRtCanvasLayoutsPanel(
+  BuildContext context, {
+  required RtCanvasLayouts layouts,
+  required String activeId,
+  required String orientation,
+  required ValueChanged<String> onSwitch,
+  required ValueChanged<String> onCopy,
+  required ValueChanged<String> onDelete,
+  required void Function(String id, String name) onRename,
+  required ValueChanged<String> onResetBuiltin,
+}) {
+  Widget content({ScrollController? scrollController}) => Builder(
+        builder: (ctx) {
+          // 面板开着时设备旋转：分组交互侧跟实时朝向走（画布朝向 = 设备
+          // 朝向），不用打开时刻的快照。
+          final liveOrientation =
+              MediaQuery.orientationOf(ctx) == Orientation.landscape
+                  ? kRtCanvasOrientLandscape
+                  : kRtCanvasOrientPortrait;
+          return RtCanvasLayoutsSheet(
+            layouts: layouts,
+            activeId: activeId,
+            orientation: liveOrientation,
+            scrollController: scrollController,
+            onSwitch: onSwitch,
+            onCopy: onCopy,
+            onDelete: onDelete,
+            onRename: onRename,
+            onResetBuiltin: onResetBuiltin,
+          );
+        },
+      );
+
+  if (orientation == kRtCanvasOrientPortrait) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.35,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (ctx, controller) {
+            final cs = Theme.of(ctx).colorScheme;
+            return Container(
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                  Expanded(child: content(scrollController: controller)),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // 横屏：左侧抽屉。barrier 用框架的 black38（点击关闭），页面内再叠一层
+  // 忽略指针的 BackdropFilter 做毛玻璃（框架 barrier 不支持 blur）。
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: '关闭布局面板',
+    barrierColor: Colors.black38,
+    transitionDuration: const Duration(milliseconds: 450),
+    pageBuilder: (ctx, anim, secondary) {
+      final cs = Theme.of(ctx).colorScheme;
+      final dw = math.min(400.0, MediaQuery.sizeOf(ctx).width * 0.8);
+      return Stack(
+        children: [
+          // 毛玻璃（IgnorePointer：点击穿透给框架 barrier 走关闭）。
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: dw,
+            child: Container(
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: const BorderRadius.horizontal(
+                  right: Radius.circular(26),
+                ),
+                border: Border(
+                  right: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.20),
+                    blurRadius: 40,
+                    offset: const Offset(12, 0),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(child: SafeArea(child: content())),
+                  // 竖 grab 贴右缘（对齐原型抽屉态拖拽柄）。
+                  Positioned(
+                    top: 18,
+                    right: 7,
+                    child: Container(
+                      width: 5,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: cs.outlineVariant,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+    transitionBuilder: (ctx, anim, _, child) {
+      // easeOutBack 滑入：越过终点再回弹（对齐原型 slideL 弹簧）。
+      final slide = Tween<Offset>(
+        begin: const Offset(-1, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutBack));
+      return SlideTransition(position: slide, child: child);
+    },
+  );
 }
