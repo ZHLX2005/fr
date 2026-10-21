@@ -36,18 +36,34 @@ typedef RtVpadKeyTransformCallback =
     void Function(String key, Offset centerFraction, double scale);
 
 /// 手柄键名（buttons 持久化 id = vpad:<名>）。
+/// 13 键 = 协议面键全量：ABXY + LB/RB + BACK/START/GUIDE + L3/R3，
+/// 外加 LT/RT 扳机（trigger 通道）。
 const List<String> rtVpadKeyOrder = [
   'lb',
   'lt',
   'rt',
   'rb',
+  'back',
+  'start',
+  'guide',
   'y',
   'x',
   'b',
   'a',
+  'l3',
+  'r3',
 ];
 
 const Set<String> _kShoulderKeys = {'lb', 'lt', 'rt', 'rb'};
+
+/// 系统面键行（BACK / START / GUIDE）。
+const Set<String> _kSystemKeys = {'back', 'start', 'guide'};
+
+/// 摇杆键（L3 / R3 = 摇杆中心点击）。
+const Set<String> _kStickKeys = {'l3', 'r3'};
+
+/// ABXY 面键（彩色环）。
+const Set<String> _kFaceKeys = {'a', 'b', 'x', 'y'};
 
 /// Xbox 面键惯例色（fr design_tokens fA/fB/fX/fY 原值，跨主题恒定——
 /// 玩家对面键颜色的记忆点大于主题统一性，原型同源）。
@@ -74,7 +90,7 @@ Map<String, Offset> rtVpadDefaultSlots(Size box) {
   final h = box.height;
   final shoulderH = _rtVpadShoulderH(h);
   const gap = 10.0;
-  final faceH = math.max(0.0, h - shoulderH - gap);
+  final faceH = math.max(0.0, h - shoulderH - gap - _rtVpadSystemH(h) - gap);
   final rowW = w * 0.82;
   final keyW = (rowW - 3 * 7) / 4;
   final left = (w - rowW) / 2;
@@ -82,15 +98,36 @@ Map<String, Offset> rtVpadDefaultSlots(Size box) {
     for (var i = 0; i < _kShoulderKeys.length; i++)
       rtVpadKeyOrder[i]: Offset(left + (i + 0.5) * keyW + i * 7, shoulderH / 2),
   };
+  // 系统面键行（BACK / START / GUIDE）：肩键行下方居中一排小键。
+  final sysW = w * 0.58;
+  final sysKeyW = (sysW - 2 * 6) / 3;
+  final sysLeft = (w - sysW) / 2;
+  final sysRowY = shoulderH + gap + _rtVpadSystemH(h) / 2;
+  const sysOrder = ['back', 'start', 'guide'];
+  for (var i = 0; i < sysOrder.length; i++) {
+    slots[sysOrder[i]] = Offset(sysLeft + (i + 0.5) * sysKeyW + i * 6, sysRowY);
+  }
   final d = _rtVpadFaceD(w, faceH);
   final arm = d * 0.80;
-  final cy = shoulderH + gap + faceH / 2;
+  final cy = shoulderH + gap + _rtVpadSystemH(h) + gap + faceH / 2;
   slots['y'] = Offset(w / 2, cy - arm);
   slots['x'] = Offset(w / 2 - arm, cy);
   slots['b'] = Offset(w / 2 + arm, cy);
   slots['a'] = Offset(w / 2, cy + arm);
+  // 摇杆键：模块盒左右下角（Xbox 摆位：L3 左 / R3 右）。
+  final stickD = _rtVpadStickKeyD(w, h);
+  final stickY = h - stickD / 2 - 4;
+  slots['l3'] = Offset(stickD / 2 + 4, stickY);
+  slots['r3'] = Offset(w - stickD / 2 - 4, stickY);
   return slots;
 }
+
+/// 系统面键行高（BACK / START / GUIDE）。
+double _rtVpadSystemH(double boxH) => math.max(22.0, boxH * 0.09);
+
+/// 摇杆键（L3 / R3）直径。
+double _rtVpadStickKeyD(double boxW, double boxH) =>
+    math.min(boxW * 0.16, boxH * 0.20);
 
 /// 面键出厂直径（模块盒内像素）。
 double _rtVpadFaceD(double boxW, double faceH) =>
@@ -99,15 +136,34 @@ double _rtVpadFaceD(double boxW, double faceH) =>
 /// 键出厂尺寸（模块盒内像素）：面键 = 直径方形；肩键 = 行内等分 × 行高。
 Size rtVpadDefaultKeySize(String key, Size box) {
   final w = box.width;
-  final shoulderH = _rtVpadShoulderH(box.height);
+  final h = box.height;
+  final shoulderH = _rtVpadShoulderH(h);
   const gap = 10.0;
-  final faceH = math.max(0.0, box.height - shoulderH - gap);
+  final faceH = math.max(0.0, h - shoulderH - gap - _rtVpadSystemH(h) - gap);
   if (_kShoulderKeys.contains(key)) {
     final keyW = (w * 0.82 - 3 * 7) / 4;
     return Size(keyW, shoulderH);
   }
+  if (_kSystemKeys.contains(key)) {
+    final sysW = w * 0.58;
+    return Size((sysW - 2 * 6) / 3, _rtVpadSystemH(h));
+  }
+  if (_kStickKeys.contains(key)) {
+    final d = _rtVpadStickKeyD(w, h);
+    return Size(d, d);
+  }
   final d = _rtVpadFaceD(w, faceH);
   return Size(d, d);
+}
+
+/// 键形态：face = ABXY 彩环圆键；shoulder = 肩键/扳机胶囊；system = 系统面键
+/// 小胶囊；stick = 摇杆键小圆键。
+String rtVpadKeyKind(String key) {
+  if (_kFaceKeys.contains(key)) return 'face';
+  if (_kShoulderKeys.contains(key)) return 'shoulder';
+  if (_kSystemKeys.contains(key)) return 'system';
+  if (_kStickKeys.contains(key)) return 'stick';
+  return 'face';
 }
 
 class RtCanvasVpad extends StatefulWidget {
@@ -148,6 +204,7 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
   final Map<String, Offset> _previewCenters = {};
   final Map<String, double> _previewScales = {};
   Offset? _dragGrabDelta;
+  double? _scaleGrabX;
 
   Offset _effectiveCenter(String key, Size box) {
     final preview = _previewCenters[key];
@@ -189,22 +246,66 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
 
   // ---- 编辑态：逐键拖动 / 缩放 ----
 
-  void _startKeyDrag(String key, Size box) {
+  void _startKeyDrag(String key, Offset global, Size box) {
     HapticFeedback.mediumImpact();
+    final center = _effectiveCenter(key, box);
+    // 抓取偏移 = 指针落点 - 键中心（模块盒内坐标，global 先转 local）。
+    final pointer = _pointerOffset(global, box);
     setState(() {
-      // 起点取当前有效中心（像素，模块盒内坐标）；后续按 delta 累加——
-      // 不用 global 位减 local 位（两套坐标系混算会跳）。
-      _dragGrabDelta = _effectiveCenter(key, box);
-      _previewCenters[key] = _dragGrabDelta!;
+      _dragGrabDelta = pointer - center;
+      _previewCenters[key] = center;
     });
   }
 
-  void _updateKeyDrag(String key, Offset delta, Size box) {
-    final start = _dragGrabDelta;
-    if (start == null) return;
+  void _updateKeyDrag(String key, Offset global, Size box) {
+    final grab = _dragGrabDelta;
+    if (grab == null) return;
     setState(() {
-      _previewCenters[key] = _clampCenter(key, start + delta, box);
+      _previewCenters[key] = _clampCenter(
+        key,
+        _pointerOffset(global, box) - grab,
+        box,
+      );
     });
+  }
+
+  /// 指针位置 → 模块盒内坐标（global 先经本组件 RenderBox 转 local——
+  /// 不用 delta 累加，快速一拖的第一个位移不会被手势识别器吞掉）。
+  Offset _moduleLocal(Offset global, Size box) {
+    final render = context.findRenderObject() as RenderBox?;
+    if (render == null) return Offset.zero;
+    return render.globalToLocal(global);
+  }
+
+  /// 指针相对模块盒圆心的偏移。
+  Offset _pointerOffset(Offset global, Size box) {
+    final center = Offset(box.width / 2, box.height / 2);
+    return _moduleLocal(global, box) - center;
+  }
+
+  /// 指针是否落在本键的缩放拉手上（小键的拉手区会盖住键心——命中判别
+  /// 错了会把「拖动」变成「缩放」）。
+  bool _onGrip(Offset global, Size box, String key) {
+    const grip = 20.0;
+    final size = _keySize(key, box);
+    final center = _effectiveCenter(key, box);
+    final keyRect = Rect.fromCenter(
+      center: center,
+      width: size.width,
+      height: size.height,
+    );
+    final gripRect = Rect.fromLTWH(
+      keyRect.right - grip,
+      keyRect.bottom - grip,
+      grip,
+      grip,
+    );
+    return gripRect.contains(_moduleLocal(global, box));
+  }
+
+  void _cancelKeyDrag(String key) {
+    if (!_previewCenters.containsKey(key)) return;
+    setState(() => _previewCenters.remove(key));
   }
 
   void _endKeyDrag(String key, Size box) {
@@ -220,18 +321,29 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
     unawaited(HapticFeedback.selectionClick());
   }
 
-  void _startKeyScale(String key) {
+  void _startKeyScale(String key, Offset global) {
     HapticFeedback.mediumImpact();
-    setState(() => _previewScales[key] = _effectiveScale(key));
+    setState(() {
+      _scaleGrabX = global.dx;
+      _previewScales[key] = _effectiveScale(key);
+    });
   }
 
-  void _updateKeyScale(String key, double delta) {
-    if (_previewScales[key] == null) return;
+  /// 缩放：按「当前 x − 起点 x」算倍率（绝对量，不靠 delta 累加——
+  /// 第一个位移会被手势识别器吞掉）。
+  void _updateKeyScale(String key, Offset global) {
+    final startX = _scaleGrabX;
+    if (startX == null || !_previewScales.containsKey(key)) return;
     setState(() {
-      _previewScales[key] = (_previewScales[key]! + delta / 160)
+      _previewScales[key] = (_previewScales[key]! + (global.dx - startX) / 160)
           .clamp(kRtCanvasBtnScaleMin, kRtCanvasBtnScaleMax)
           .toDouble();
     });
+  }
+
+  void _cancelKeyScale(String key) {
+    if (!_previewScales.containsKey(key)) return;
+    setState(() => _previewScales.remove(key));
   }
 
   void _endKeyScale(String key, Size box) {
@@ -266,40 +378,53 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
   Widget _buildKey(String key, Size box) {
     final center = _clampCenter(key, _effectiveCenter(key, box), box);
     final size = _keySize(key, box);
-    final isShoulder = _kShoulderKeys.contains(key);
+    final kind = rtVpadKeyKind(key);
+    final isTrigger = key == 'lt' || key == 'rt';
+    // 键面标签：ABXY 单字母；系统面键用短名（BACK/START/GUIDE 太长，用
+    // 缩写 B / S / G 会被误认，保留 3~5 字母小字）。
+    final label = switch (kind) {
+      'face' => key.toUpperCase(),
+      'shoulder' => key.toUpperCase(),
+      'system' => const {
+        'back': 'BACK',
+        'start': 'START',
+        'guide': 'GUIDE',
+      }[key]!,
+      _ => key.toUpperCase(),
+    };
     Widget keyWidget = _VpadHoldButton(
-      label: rtVpadKeyLabel(key),
+      label: label,
       enabled: widget.enabled,
       interactive: !widget.editMode,
-      round: !isShoulder,
-      diameter: isShoulder ? null : size.width,
-      faceColor: _kFaceColors[key.toUpperCase()],
+      // 形态：面键/摇杆键 = 圆；肩键/系统面键 = 胶囊。
+      round: kind == 'face' || kind == 'stick',
+      diameter: kind == 'face' || kind == 'stick' ? size.width : null,
+      faceColor: kind == 'face' ? _kFaceColors[key.toUpperCase()] : null,
+      compact: kind == 'system' || kind == 'stick',
       onDown: () => _fire(
-        button: _kShoulderKeys.contains(key) && key != 'lb' && key != 'rb'
-            ? null
-            : key,
-        trigger: key == 'lt' || key == 'rt' ? key : null,
+        button: isTrigger ? null : key,
+        trigger: isTrigger ? key : null,
         pressed: true,
       ),
       onUp: () => _fire(
-        button: _kShoulderKeys.contains(key) && key != 'lb' && key != 'rb'
-            ? null
-            : key,
-        trigger: key == 'lt' || key == 'rt' ? key : null,
+        button: isTrigger ? null : key,
+        trigger: isTrigger ? key : null,
         pressed: false,
       ),
     );
     if (widget.editMode && widget.onKeyTransform != null) {
-      keyWidget = GestureDetector(
+      // 裸 Listener 吃指针事件（不用 pan 识别器）：pan 要第二次 move 才
+      // 回调 update，第一个位移会被吞——快速一拖键位不动。
+      keyWidget = Listener(
         behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => _startKeyDrag(key, box),
-        onPanUpdate: (d) => _updateKeyDrag(key, d.delta, box),
-        onPanEnd: (_) => _endKeyDrag(key, box),
-        onPanCancel: () {
-          if (_previewCenters.containsKey(key)) {
-            setState(() => _previewCenters.remove(key));
-          }
+        onPointerDown: (e) {
+          // 落在缩放拉手上 → 让位给拉手（否则小键的拉手区会吞掉拖动）。
+          if (_onGrip(e.position, box, key)) return;
+          _startKeyDrag(key, e.position, box);
         },
+        onPointerMove: (e) => _updateKeyDrag(key, e.position, box),
+        onPointerUp: (_) => _endKeyDrag(key, box),
+        onPointerCancel: (_) => _cancelKeyDrag(key),
         child: keyWidget,
       );
       // 逐键缩放拉手（右下角，命中区大于视觉）。
@@ -310,23 +435,19 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
           Positioned(
             right: 0,
             bottom: 0,
-            child: GestureDetector(
+            child: Listener(
               behavior: HitTestBehavior.opaque,
-              onPanStart: (_) => _startKeyScale(key),
-              onPanUpdate: (d) => _updateKeyScale(key, d.delta.dx),
-              onPanEnd: (_) => _endKeyScale(key, box),
-              onPanCancel: () {
-                if (_previewScales.containsKey(key)) {
-                  setState(() => _previewScales.remove(key));
-                }
-              },
+              onPointerDown: (e) => _startKeyScale(key, e.position),
+              onPointerMove: (e) => _updateKeyScale(key, e.position),
+              onPointerUp: (_) => _endKeyScale(key, box),
+              onPointerCancel: (_) => _cancelKeyScale(key),
               child: SizedBox(
-                width: 34,
-                height: 34,
+                width: 20,
+                height: 20,
                 child: Center(
                   child: Container(
-                    width: 16,
-                    height: 16,
+                    width: 12,
+                    height: 12,
                     decoration: BoxDecoration(
                       color: context.colors.scheme.primary.withValues(
                         alpha: 0.92,
@@ -373,6 +494,7 @@ class _VpadHoldButton extends StatefulWidget {
     required this.onUp,
     this.diameter,
     this.faceColor,
+    this.compact = false,
   });
 
   final String label;
@@ -389,6 +511,9 @@ class _VpadHoldButton extends StatefulWidget {
 
   /// 面键彩色环（A 绿 / B 红 / X 蓝 / Y 黄）；null = 中性键（肩键/扳机）。
   final Color? faceColor;
+
+  /// 小号键（系统面键 / 摇杆键）：字号更小，容纳 BACK/START/GUIDE。
+  final bool compact;
   final VoidCallback onDown;
   final VoidCallback onUp;
 
@@ -472,7 +597,7 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
       widget.label,
       maxLines: 1,
       style: TextStyle(
-        fontSize: round ? 16 : 13,
+        fontSize: widget.compact ? 10 : (round ? 16 : 13),
         fontWeight: FontWeight.w700,
         color: _held
             ? onAccent

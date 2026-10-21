@@ -1020,6 +1020,14 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           }),
         ),
         onVpadKey: _onVpadKey,
+        onStickAxis: (axis, value) => unawaited(
+          _sendVpad({
+            'action': 'vpad_axis',
+            'vpad_handle': _vpadHandle,
+            'vpad_axis': axis,
+            'vpad_value': value,
+          }),
+        ),
         onKbChord: (keys) => unawaited(_onKbChord(keys)),
         onEditModeChanged: _setCanvasEdit,
         onFire: (item) => unawaited(_fireShortcut(item)),

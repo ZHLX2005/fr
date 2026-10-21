@@ -243,4 +243,68 @@ void main() {
       expect(events, isEmpty, reason: '编辑态按压不触发 vpad 事件');
     });
   });
+
+  group('vpad 13 键（协议面键全量）', () {
+    test('系统面键行（BACK/START/GUIDE）在肩键行下方、ABXY 上方', () {
+      const box = Size(300, 260);
+      final slots = rtVpadDefaultSlots(box);
+      const sys = ['back', 'start', 'guide'];
+      final shoulderY = slots['lb']!.dy;
+      for (final k in sys) {
+        expect(slots[k]!.dy, greaterThan(shoulderY), reason: '$k 在肩键行下方');
+        expect(slots[k]!.dy, lessThan(slots['y']!.dy), reason: '$k 在 ABXY 上方');
+      }
+      expect(slots['back']!.dx, lessThan(slots['start']!.dx));
+      expect(slots['start']!.dx, lessThan(slots['guide']!.dx));
+    });
+
+    test('摇杆键 L3 / R3 落在模块盒左右下角', () {
+      const box = Size(300, 260);
+      final slots = rtVpadDefaultSlots(box);
+      expect(slots['l3']!.dx, lessThan(slots['r3']!.dx));
+      expect(slots['l3']!.dx, lessThan(box.width * 0.2));
+      expect(slots['r3']!.dx, greaterThan(box.width * 0.8));
+      // 摇杆键在 ABXY 下方
+      expect(slots['l3']!.dy, greaterThan(slots['a']!.dy));
+    });
+
+    testWidgets('BACK / START / GUIDE / L3 / R3 按下 → 对应 vpad_button', (
+      tester,
+    ) async {
+      final events = <({String? button, String? trigger, bool pressed})>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                height: 260,
+                child: RtCanvasVpad(
+                  enabled: true,
+                  onKey: ({button, trigger, required pressed}) => events.add((
+                    button: button,
+                    trigger: trigger,
+                    pressed: pressed,
+                  )),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      for (final label in const ['BACK', 'START', 'GUIDE', 'L3', 'R3']) {
+        final center = tester.getCenter(find.text(label));
+        final gesture = await tester.startGesture(center);
+        await tester.pump();
+        await gesture.up();
+        await tester.pump();
+      }
+      final pressed = events
+          .where((e) => e.pressed)
+          .map((e) => e.button)
+          .toSet();
+      expect(pressed, {'back', 'start', 'guide', 'l3', 'r3'});
+    });
+  });
 }

@@ -47,6 +47,11 @@ const String kRtCanvasModuleComposer = 'composer';
 /// 方向轮盘（游戏布局的左手区：vpad_dpad 四向 + none 回中）。
 const String kRtCanvasModuleDpad = 'dpad';
 
+/// 模拟摇杆（左 / 右）——补齐协议已支持（vpad_axis lx/ly/rx/ry）而手机端
+/// 此前没有的能力：4 向轮盘只能「先上再右」，斜向走位的动作游戏多数不认。
+const String kRtCanvasModuleStickL = 'stick-l';
+const String kRtCanvasModuleStickR = 'stick-r';
+
 /// 虚拟手柄键区（ABXY 面键 + LB/RB 肩键 + LT/RT 扳机，固定布局的模块）。
 const String kRtCanvasModuleVpad = 'vpad';
 

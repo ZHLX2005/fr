@@ -38,6 +38,7 @@ import 'rt_canvas_layouts_sheet.dart' show showRtCanvasLayoutsPanel;
 import 'rt_canvas_module_page.dart' show showRtCanvasModulePage;
 import 'rt_canvas_modules.dart'
     show kRtCanvasModuleSpecs, rtCanvasModuleDefaults, rtCanvasModuleRange;
+import 'rt_canvas_stick.dart' show RtCanvasStick;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad, rtVpadKeyOrder;
 import '../data/rt_prefs.dart'
     show
@@ -50,6 +51,8 @@ import '../data/rt_prefs.dart'
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleKb,
+        kRtCanvasModuleStickL,
+        kRtCanvasModuleStickR,
         kRtCanvasModuleTouchpad,
         kRtCanvasModuleVpad;
 import '../protocol/rt_session.dart';
@@ -104,6 +107,7 @@ class RtCanvasView extends StatefulWidget {
     required this.onResetBuiltin,
     required this.onDirection,
     required this.onVpadKey,
+    required this.onStickAxis,
     required this.onKbChord,
     required this.onEditModeChanged,
     required this.onFire,
@@ -172,6 +176,9 @@ class RtCanvasView extends StatefulWidget {
   /// 松开各回报一次；映射 vpad_button / vpad_trigger）。
   final void Function({String? button, String? trigger, required bool pressed})
   onVpadKey;
+
+  /// 模拟摇杆轴值变化（axis ∈ lx/ly/rx/ry，value ∈ -1..1）→ 发 vpad_axis。
+  final void Function(String axis, double value) onStickAxis;
 
   /// 虚拟键盘一次按键（修饰键已由键盘模块粘滞合成进 chord）→ 发 hotkey。
   final ValueChanged<List<String>> onKbChord;
@@ -452,6 +459,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
                     _touchpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleKb).visible)
                     _kbModule(canvasSize),
+                  if (_anchorOf(kRtCanvasModuleStickL).visible)
+                    _stickModule(canvasSize, kRtCanvasModuleStickL, 'l'),
+                  if (_anchorOf(kRtCanvasModuleStickR).visible)
+                    _stickModule(canvasSize, kRtCanvasModuleStickR, 'r'),
                   if (_anchorOf(kRtCanvasModuleComposer).visible)
                     _composerModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleInput).visible)
@@ -1022,6 +1033,33 @@ class _RtCanvasViewState extends State<RtCanvasView>
       width: size.width,
       height: size.height,
       child: pad,
+    );
+  }
+
+  // ---- 模块：模拟摇杆（左 / 右）----
+
+  Widget _stickModule(Size canvasSize, String moduleId, String axes) {
+    final size = _moduleSizePx(moduleId, canvasSize);
+    final rect = _moduleRect(_anchorPos(moduleId), size, canvasSize);
+    Widget stick = RtCanvasStick(
+      enabled: widget.connected,
+      axes: axes,
+      editMode: widget.editMode,
+      onAxis: widget.onStickAxis,
+    );
+    if (widget.editMode) {
+      stick = _editModuleWrapper(
+        id: moduleId,
+        label: axes == 'l' ? '左摇杆' : '右摇杆',
+        child: SizedBox(width: size.width, height: size.height, child: stick),
+      );
+    }
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: size.width,
+      height: size.height,
+      child: stick,
     );
   }
 
