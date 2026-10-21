@@ -101,4 +101,146 @@ void main() {
       reason: '正常路径 dispose 静默',
     );
   });
+  // ═══ 编辑态逐键编排 ═══
+
+  group('rtVpadDefaultSlots 出厂几何', () {
+    test('八键齐全；肩键同排居上，ABXY 呈菱形（Y 上 / X 左 / B 右 / A 下）', () {
+      const box = Size(300, 260);
+      final slots = rtVpadDefaultSlots(box);
+      expect(slots.keys.toSet(), rtVpadKeyOrder.toSet());
+
+      // 肩键：同一行、x 递增
+      final lb = slots['lb']!;
+      final lt = slots['lt']!;
+      final rt = slots['rt']!;
+      final rb = slots['rb']!;
+      expect(lb.dy, lt.dy);
+      expect(lt.dy, rt.dy);
+      expect(rt.dy, rb.dy);
+      expect(lb.dx, lessThan(lt.dx));
+      expect(lt.dx, lessThan(rt.dx));
+      expect(rt.dx, lessThan(rb.dx));
+
+      // ABXY 菱形
+      expect(slots['y']!.dy, lessThan(slots['a']!.dy));
+      expect(slots['x']!.dx, lessThan(slots['b']!.dx));
+      expect(slots['y']!.dx, closeTo(slots['a']!.dx, 0.01));
+      expect(slots['x']!.dy, closeTo(slots['b']!.dy, 0.01));
+
+      // 肩键行在面键之上
+      expect(lb.dy, lessThan(slots['y']!.dy));
+    });
+
+    test('所有键完整落在模块盒内', () {
+      const box = Size(300, 260);
+      final slots = rtVpadDefaultSlots(box);
+      for (final entry in slots.entries) {
+        final size = rtVpadDefaultKeySize(entry.key, box);
+        expect(
+          entry.value.dx - size.width / 2,
+          greaterThanOrEqualTo(-0.01),
+          reason: '${entry.key} 左溢出',
+        );
+        expect(
+          entry.value.dx + size.width / 2,
+          lessThanOrEqualTo(box.width + 0.01),
+          reason: '${entry.key} 右溢出',
+        );
+        expect(
+          entry.value.dy - size.height / 2,
+          greaterThanOrEqualTo(-0.01),
+          reason: '${entry.key} 上溢出',
+        );
+        expect(
+          entry.value.dy + size.height / 2,
+          lessThanOrEqualTo(box.height + 0.01),
+          reason: '${entry.key} 下溢出',
+        );
+      }
+    });
+  });
+
+  group('编辑态逐键编排', () {
+    Future<List<({String key, Offset center, double scale})>> pumpEditVpad(
+      WidgetTester tester,
+    ) async {
+      final calls = <({String key, Offset center, double scale})>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                height: 260,
+                child: RtCanvasVpad(
+                  enabled: true,
+                  editMode: true,
+                  onKey: ({button, trigger, required pressed}) {},
+                  onKeyTransform: (key, center, scale) =>
+                      calls.add((key: key, center: center, scale: scale)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return calls;
+    }
+
+    testWidgets('拖动单个键 → 只回写该键的中心比例', (tester) async {
+      final calls = await pumpEditVpad(tester);
+      final before = rtVpadDefaultSlots(const Size(300, 260))['a']!;
+      final aCenter = tester.getCenter(find.text('A'));
+
+      final gesture = await tester.startGesture(aCenter);
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(calls.length, 1, reason: '拖动落定回写一次');
+      expect(calls.first.key, 'a');
+      expect(
+        calls.first.center.dx,
+        greaterThan(before.dx / 300),
+        reason: '向右拖 → 比例位右移',
+      );
+      expect(
+        calls.first.center.dy,
+        closeTo(before.dy / 260, 0.02),
+        reason: '水平拖动不改纵向',
+      );
+    });
+
+    testWidgets('编辑态按压不发手柄事件（编排与触发不串台）', (tester) async {
+      final events = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                height: 260,
+                child: RtCanvasVpad(
+                  enabled: true,
+                  editMode: true,
+                  onKey: ({button, trigger, required pressed}) =>
+                      events.add('${button ?? trigger}:$pressed'),
+                  onKeyTransform: (key, center, scale) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final aCenter = tester.getCenter(find.text('A'));
+      final gesture = await tester.startGesture(aCenter);
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+      expect(events, isEmpty, reason: '编辑态按压不触发 vpad 事件');
+    });
+  });
 }

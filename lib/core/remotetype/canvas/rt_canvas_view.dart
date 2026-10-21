@@ -38,7 +38,7 @@ import 'rt_canvas_layouts_sheet.dart' show showRtCanvasLayoutsPanel;
 import 'rt_canvas_module_page.dart' show showRtCanvasModulePage;
 import 'rt_canvas_modules.dart'
     show kRtCanvasModuleSpecs, rtCanvasModuleDefaults, rtCanvasModuleRange;
-import 'rt_canvas_vpad.dart' show RtCanvasVpad;
+import 'rt_canvas_vpad.dart' show RtCanvasVpad, rtVpadKeyOrder;
 import '../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
@@ -296,7 +296,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
       _dragPos = null;
     });
     if (id == null || settled == null) return;
-    if (id != kRtCanvasModuleTouchpad && id != kRtCanvasModuleInput) return;
+    // 全部模块都可整搬（旧实现只放行触摸板/输入框，轮盘/手柄/键盘拖不动）。
     final cur = _anchorOf(id);
     if ((settled - Offset(cur.x, cur.y)).distance <= 1e-6) return;
     widget.onLayoutChanged(
@@ -770,6 +770,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
     required String id,
     required String label,
     required Widget child,
+    bool innerInteractive = false,
   }) {
     return Stack(
       clipBehavior: Clip.none,
@@ -806,7 +807,11 @@ class _RtCanvasViewState extends State<RtCanvasView>
               });
             }
           },
-          child: IgnorePointer(child: _editFrame(child, label)),
+          // innerInteractive：模块内容要自己接管手势（手柄逐键拖动）时
+          // 不挡指针——键区手势优先，空白处仍由本层整搬。
+          child: innerInteractive
+              ? _editFrame(child, label)
+              : IgnorePointer(child: _editFrame(child, label)),
         ),
         Positioned(
           right: 2,
@@ -973,8 +978,32 @@ class _RtCanvasViewState extends State<RtCanvasView>
     final (wf, hf) = _moduleFractions(kRtCanvasModuleVpad);
     final size = Size(wf * canvasSize.width, hf * canvasSize.height);
     final rect = _moduleRect(_anchorPos(kRtCanvasModuleVpad), size, canvasSize);
+    // 逐键编排数据：布局 buttons 里的 vpad:<key> 条目（盒内比例位 + 倍率）。
+    final offsets = <String, Offset>{};
+    final scales = <String, double>{};
+    for (final key in rtVpadKeyOrder) {
+      final pos = widget.activeLayout.buttons['vpad:$key'];
+      if (pos == null) continue;
+      offsets[key] = Offset(pos.x * size.width, pos.y * size.height);
+      scales[key] = pos.s;
+    }
     Widget pad = RtCanvasVpad(
       enabled: widget.connected,
+      editMode: widget.editMode,
+      keyOffsets: offsets,
+      keyScales: scales,
+      onKeyTransform: (key, center, scale) {
+        widget.onLayoutChanged(
+          _patchButton(
+            'vpad:$key',
+            RtCanvasButtonPos(
+              x: center.dx.clamp(0.0, 1.0).toDouble(),
+              y: center.dy.clamp(0.0, 1.0).toDouble(),
+              s: scale,
+            ),
+          ),
+        );
+      },
       onKey: ({String? button, String? trigger, required bool pressed}) =>
           widget.onVpadKey(button: button, trigger: trigger, pressed: pressed),
     );
@@ -982,6 +1011,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
       pad = _editModuleWrapper(
         id: kRtCanvasModuleVpad,
         label: '手柄',
+        // 键位要能各自拖动 → 不用 IgnorePointer 挡内容（键区自身接管手势）。
+        innerInteractive: true,
         child: SizedBox(width: size.width, height: size.height, child: pad),
       );
     }
