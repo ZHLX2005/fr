@@ -31,10 +31,12 @@ import 'rt_prefs.dart'
         kRtCanvasModuleInput,
         kRtCanvasModuleKb,
         kRtCanvasModuleTouchpad,
+        kRtCanvasModuleVpad,
         kRtCanvasOrientLandscape,
         kRtCanvasOrientPortrait,
         kRtCanvasPadDefH,
-        kRtCanvasPadDefW;
+        kRtCanvasPadDefW,
+        rtCanvasLayoutUsableIn;
 
 class RtCanvasLayoutsSheet extends StatelessWidget {
   const RtCanvasLayoutsSheet({
@@ -78,16 +80,20 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // 内置 + 自定义，各按朝向分组（渲染持久化版本——列表若直接渲染代码
-    // 常量，用户改过的内置布局在面板里就"失真"了）。
+    // 内置 + 自定义，各按朝向可用分组（触控屏双朝向会出现在两组）。
+    // 渲染持久化版本——列表若直接渲染代码常量，用户改过的内置会"失真"。
     final groups = <(String, List<RtCanvasNamedLayout>)>[
       (
         kRtCanvasOrientLandscape,
-        layouts.list.where((p) => p.orientation == kRtCanvasOrientLandscape).toList(growable: false),
+        layouts.list
+            .where((p) => rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, p))
+            .toList(growable: false),
       ),
       (
         kRtCanvasOrientPortrait,
-        layouts.list.where((p) => p.orientation == kRtCanvasOrientPortrait).toList(growable: false),
+        layouts.list
+            .where((p) => rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, p))
+            .toList(growable: false),
       ),
     ];
 
@@ -192,7 +198,7 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
     String id,
   ) {
     for (final p in layouts.list) {
-      if (p.id == id && p.orientation == orientation) return p.name;
+      if (p.id == id && rtCanvasLayoutUsableIn(orientation, p)) return p.name;
     }
     return null;
   }
@@ -463,21 +469,25 @@ class _LayoutThumb extends StatelessWidget {
           final touchpad = data.modules[kRtCanvasModuleTouchpad];
           final input = data.modules[kRtCanvasModuleInput];
           final dpad = data.modules[kRtCanvasModuleDpad];
+          final vpad = data.modules[kRtCanvasModuleVpad];
           final kb = data.modules[kRtCanvasModuleKb];
           void addModule(RtCanvasAnchor? a, double defW, double defH) {
             if (a == null || !a.visible) return;
             final fw = a.w ?? defW;
             final fh = a.h ?? defH;
+            // 满屏（w/h≈1）贴边无圆角，与原型 .pad.full 一致。
+            final full = fw >= 0.98 && fh >= 0.98;
             moduleBoxes.add(
               Positioned(
-                left: (a.x - fw / 2).clamp(0.0, 1.0) * w,
-                top: (a.y - fh / 2).clamp(0.0, 1.0) * h,
-                width: fw * w,
-                height: fh * h,
+                left: full ? 0 : (a.x - fw / 2).clamp(0.0, 1.0) * w,
+                top: full ? 0 : (a.y - fh / 2).clamp(0.0, 1.0) * h,
+                width: full ? w : fw * w,
+                height: full ? h : fh * h,
                 child: Container(
                   decoration: BoxDecoration(
                     color: cs.surface,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius:
+                        full ? BorderRadius.zero : BorderRadius.circular(4),
                     border: Border.all(color: moduleBorder, width: 1),
                   ),
                 ),
@@ -487,8 +497,8 @@ class _LayoutThumb extends StatelessWidget {
 
           // 轮盘缩略 = 圆形（画布端恒正方形渲染，取两轴较小者）。
           if (dpad != null && dpad.visible) {
-            final fw = dpad.w ?? 0.30;
-            final fh = dpad.h ?? 0.78;
+            final fw = dpad.w ?? 0.22;
+            final fh = dpad.h ?? 0.52;
             final side = math.min(fw * w, fh * h);
             moduleBoxes.add(
               Positioned(
@@ -508,10 +518,60 @@ class _LayoutThumb extends StatelessWidget {
           }
           addModule(touchpad, kRtCanvasPadDefW, kRtCanvasPadDefH);
           addModule(input, kRtCanvasInputDefW, kRtCanvasInputDefH);
+          // 手柄键区：外框 + ABXY 色点（原型 paintThumb 同源）。
+          if (vpad != null && vpad.visible) {
+            final fw = vpad.w ?? 0.36;
+            final fh = vpad.h ?? 0.70;
+            final vx = (vpad.x - fw / 2) * w;
+            final vy = (vpad.y - fh / 2) * h;
+            final vw = fw * w;
+            final vh = fh * h;
+            moduleBoxes.add(
+              Positioned(
+                left: vx.clamp(0.0, w),
+                top: vy.clamp(0.0, h),
+                width: vw,
+                height: vh,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: moduleBorder, width: 1),
+                  ),
+                ),
+              ),
+            );
+            final d = math.min(vw * 0.18, vh * 0.15);
+            final arm = d * 0.62;
+            final spots = <Color, Offset>{
+              const Color(0xFFE3B341): Offset(vx + vw / 2, vy + vh * 0.32),
+              const Color(0xFF4C8DF6):
+                  Offset(vx + vw / 2 - arm * 0.8, vy + vh * 0.52),
+              const Color(0xFFF0524D):
+                  Offset(vx + vw / 2 + arm * 0.8, vy + vh * 0.52),
+              const Color(0xFF3FB950): Offset(vx + vw / 2, vy + vh * 0.72),
+            };
+            for (final e in spots.entries) {
+              moduleBoxes.add(
+                Positioned(
+                  left: e.value.dx - d / 2,
+                  top: e.value.dy - d / 2,
+                  width: d,
+                  height: d,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: e.key,
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
           // 键盘模块：圆角矩形内画横线（键排意象），与触摸板矩形区分开。
           if (kb != null && kb.visible) {
-            final fw = kb.w ?? 0.96;
-            final fh = kb.h ?? 0.70;
+            final fw = kb.w ?? 0.94;
+            final fh = kb.h ?? 0.82;
             final kx = (kb.x - fw / 2).clamp(0.0, 1.0) * w;
             final ky = (kb.y - fh / 2).clamp(0.0, 1.0) * h;
             moduleBoxes.add(

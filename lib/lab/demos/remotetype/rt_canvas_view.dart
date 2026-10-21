@@ -286,10 +286,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
     final a = _anchorOf(id);
     if (a.w != null && a.h != null) return (a.w!, a.h!);
     return switch (id) {
-      // 轮盘默认规格 = 游戏布局内置值（缩略图同源，两处不许两套）。
-      kRtCanvasModuleDpad => (0.30, 0.78),
-      kRtCanvasModuleVpad => (0.44, 0.90),
-      kRtCanvasModuleKb => (0.96, 0.70),
+      // 缺省规格 = 原型 LAYOUTS / 游戏·键盘出厂值（缩略图同源，两处不许两套）。
+      kRtCanvasModuleDpad => (0.22, 0.52),
+      kRtCanvasModuleVpad => (0.36, 0.70),
+      kRtCanvasModuleKb => (0.94, 0.82),
       kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
       _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
     };
@@ -339,18 +339,32 @@ class _RtCanvasViewState extends State<RtCanvasView>
 
   void _toggleModuleVisible(String id) {
     final cur = _anchorOf(id);
-    // 首次加回（无锚点条目）给一个语义化初始位：轮盘落左侧手柄位，
-    // 其余落画布中心——避免轮盘凭空压在右侧按钮簇上。
+    // 首次加回（无锚点条目）给原型同源初始位；避免落在画布正中压住其它模块。
     if (widget.activeLayout.modules[id] == null) {
-      final seed = id == kRtCanvasModuleDpad
-          ? const RtCanvasAnchor(
-              visible: true,
-              x: 0.24,
-              y: 0.52,
-              w: 0.30,
-              h: 0.78,
-            )
-          : null;
+      final seed = switch (id) {
+        kRtCanvasModuleDpad => const RtCanvasAnchor(
+            visible: true,
+            x: 0.21,
+            y: 0.54,
+            w: 0.22,
+            h: 0.52,
+          ),
+        kRtCanvasModuleVpad => const RtCanvasAnchor(
+            visible: true,
+            x: 0.765,
+            y: 0.53,
+            w: 0.36,
+            h: 0.70,
+          ),
+        kRtCanvasModuleKb => const RtCanvasAnchor(
+            visible: true,
+            x: 0.50,
+            y: 0.55,
+            w: 0.94,
+            h: 0.82,
+          ),
+        _ => null,
+      };
       if (seed != null) {
         widget.onLayoutChanged(
           _patchAnchor(

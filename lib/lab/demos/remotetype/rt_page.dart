@@ -117,7 +117,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   // 之后用户编辑/复制/删除/切换都落盘。
   RtCanvasLayouts _layouts = const RtCanvasLayouts(
     list: kRtCanvasBuiltinPresets,
-    activeId: kRtCanvasPresetDefault,
+    activeId: kRtCanvasPresetTouchpad,
   );
 
   /// 画布当前朝向（跟随设备旋转；MediaQuery 驱动重建时刷新）。
@@ -207,14 +207,27 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     if (layouts.list.isEmpty) {
       layouts = const RtCanvasLayouts(
         list: kRtCanvasBuiltinPresets,
-        activeId: kRtCanvasPresetDefault,
+        activeId: kRtCanvasPresetTouchpad,
+      );
+      // 首跑内存铺内置：修订号一并写上，避免下次启动误触发出厂覆盖。
+      unawaited(
+        RtPrefs.saveCanvasBuiltinFactoryRev(kRtCanvasBuiltinFactoryRev),
       );
     } else {
-      // 旧版迁移路径（v1 → 导入布局）产出的列表没有 4 套内置 → 补齐落盘。
-      final ensured = rtEnsureBuiltinPresets(layouts);
+      // 缺内置 → 补齐；出厂修订落后 → 强制用新工厂覆盖内置（自定义保留）。
+      final factoryRev = await RtPrefs.loadCanvasBuiltinFactoryRev();
+      final ensured = rtEnsureBuiltinPresets(
+        layouts,
+        persistedFactoryRev: factoryRev,
+      );
       if (!identical(ensured, layouts)) {
         layouts = ensured;
         unawaited(RtPrefs.saveCanvasLayouts(layouts));
+      }
+      if (factoryRev < kRtCanvasBuiltinFactoryRev) {
+        unawaited(
+          RtPrefs.saveCanvasBuiltinFactoryRev(kRtCanvasBuiltinFactoryRev),
+        );
       }
     }
     if (!mounted) return;
@@ -351,16 +364,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
-  /// 切换激活布局（id 必须与某朝向同侧；只影响那一侧的激活位）。
+  /// 切换激活布局（相对当前画布朝向；触控屏双朝向可在竖屏侧激活）。
   /// 竖屏期间的切换视为「用户主动选了竖屏」，本轮不再弹锁定提示层。
   void _switchLayout(String id) {
     if (_canvasOrientation == kRtCanvasOrientPortrait) {
       _portraitChosen = true;
     }
-    final next = _layouts.withActiveFor(
-      _layouts.orientationOf(id),
-      id,
-    );
+    final next = _layouts.withActiveFor(_canvasOrientation, id);
     if (identical(next, _layouts)) return;
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
@@ -422,12 +432,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final next = RtCanvasLayouts(
       list: nextList,
       activeId: wasActiveL
-          ? (nextList.any((p) => p.id == kRtCanvasPresetDefault)
-              ? kRtCanvasPresetDefault
+          ? (nextList.any((p) => p.id == kRtCanvasPresetTouchpad)
+              ? kRtCanvasPresetTouchpad
               : (nextList.isNotEmpty ? nextList.first.id : ''))
           : (nextList.any((p) => p.id == _layouts.activeId)
               ? _layouts.activeId
-              : kRtCanvasPresetDefault),
+              : kRtCanvasPresetTouchpad),
       activeIdPortrait: wasActiveN ? '' : _layouts.activeIdPortrait,
     );
     setState(() => _layouts = next);

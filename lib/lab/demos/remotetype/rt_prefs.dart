@@ -13,15 +13,15 @@ const _kBarDisplayKey = 'rt_bar_display_v1';
 const _kTouchpadSensitivityKey = 'rt_touchpad_sensitivity_v1';
 const _kCanvasLayoutKey = 'rt_canvas_layout_v1';
 const _kCanvasLayoutsKey = 'rt_canvas_layouts_v1';
+const _kCanvasBuiltinFactoryRevKey = 'rt_canvas_builtin_factory_rev';
 
 /// 内置预设 id（持久化键，禁止改动——改了等于丢用户当前布局）。
-const String kRtCanvasPresetDefault = 'default';
 const String kRtCanvasPresetGame = 'game';
 const String kRtCanvasPresetKeyboard = 'keyboard';
 const String kRtCanvasPresetTouchpad = 'touchpad';
 
-/// 竖屏内置预设 id（触控屏·竖）。竖屏布局集与横屏相互隔离，这是竖屏侧
-/// 的兜底出厂条目——旋转到竖屏时列表永远不为空。
+/// 已退役内置 id（旧盘可能仍出现；[rtEnsureBuiltinPresets] 会剔除）。
+const String kRtCanvasPresetDefault = 'default';
 const String kRtCanvasPresetTouchpadN = 'touchpad-n';
 
 /// 布局朝向（持久化字段，禁止改动取值）。横竖屏布局是两个隔离的集合：
@@ -352,7 +352,7 @@ class RtCanvasNamedLayout {
 class RtCanvasLayouts {
   const RtCanvasLayouts({
     this.list = const [],
-    this.activeId = kRtCanvasPresetDefault,
+    this.activeId = kRtCanvasPresetTouchpad,
     this.activeIdPortrait = '',
   });
   final List<RtCanvasNamedLayout> list;
@@ -360,21 +360,25 @@ class RtCanvasLayouts {
   /// 横屏激活布局 id。
   final String activeId;
 
-  /// 竖屏激活布局 id。空 = 由 [activeFor] 兜底到竖屏列表第一条。
+  /// 竖屏激活布局 id。空 = 由 [activeFor] 兜底（真竖屏自定义 → 双朝向触控屏）。
   final String activeIdPortrait;
 
-  /// 指定朝向的激活布局：横屏看 [activeId]，竖屏看 [activeIdPortrait]
-  /// （空则兜底竖屏第一条——旋转过去永远有布局可用）。跨侧不兜底：
-  /// 竖屏侧没有任何竖屏布局时返回 null（横竖屏集合相互隔离）。
+  /// 指定朝向的激活布局：横屏看 [activeId]，竖屏看 [activeIdPortrait]。
+  /// 竖屏兜底顺序：真竖屏布局 → 双朝向横屏布局（不锁横屏，如触控屏）→ null。
   RtCanvasNamedLayout? activeFor(String orientation) {
     final wantPortrait = orientation == kRtCanvasOrientPortrait;
     final id = wantPortrait ? activeIdPortrait : activeId;
-    for (final p in list) {
-      if (p.id == id && p.orientation == orientation) return p;
+    if (id.isNotEmpty) {
+      for (final p in list) {
+        if (p.id == id && rtCanvasLayoutUsableIn(orientation, p)) return p;
+      }
     }
     if (wantPortrait) {
       for (final p in list) {
         if (p.orientation == kRtCanvasOrientPortrait) return p;
+      }
+      for (final p in list) {
+        if (rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, p)) return p;
       }
       return null;
     }
@@ -394,9 +398,10 @@ class RtCanvasLayouts {
 
   RtCanvasLayouts withActive(String id) => withActiveFor(orientationOf(id), id);
 
-  /// 切换指定朝向的激活布局（id 必须与朝向同侧才生效——防跨侧串台）。
+  /// 切换指定朝向的激活布局（id 须在该朝向可用——含双朝向触控屏）。
   RtCanvasLayouts withActiveFor(String orientation, String id) {
-    final hit = list.any((p) => p.id == id && p.orientation == orientation);
+    final hit =
+        list.any((p) => p.id == id && rtCanvasLayoutUsableIn(orientation, p));
     if (!hit) return this;
     if (orientation == kRtCanvasOrientPortrait) {
       if (activeIdPortrait == id) return this;
@@ -485,22 +490,32 @@ class RtCanvasLayouts {
     final rawActive = j['activeId']?.toString() ?? '';
     final activeId = list.any((p) => p.id == rawActive)
         ? rawActive
-        : kRtCanvasPresetDefault;
-    // 竖屏激活：存盘值有效（存在且确为竖屏布局）才用；否则兜底竖屏
-    // 第一条（再没有就留空，读侧 activeFor 继续兜）。
+        : kRtCanvasPresetTouchpad;
+    // 竖屏激活：存盘值在竖屏可用（真竖屏或双朝向触控屏）才用；否则
+    // 兜底第一条竖屏可用（再没有就留空，读侧 activeFor 继续兜）。
     final rawActiveN = j['activeN']?.toString() ?? '';
     var activeIdPortrait = '';
     if (rawActiveN.isNotEmpty) {
       for (final p in list) {
-        if (p.id == rawActiveN && p.orientation == kRtCanvasOrientPortrait) {
+        if (p.id == rawActiveN &&
+            rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, p)) {
           activeIdPortrait = rawActiveN;
           break;
         }
       }
     }
     if (activeIdPortrait.isEmpty) {
+      // 优先真竖屏条目，再退到双朝向（触控屏）——与 activeFor 兜底顺序一致。
       for (final p in list) {
         if (p.orientation == kRtCanvasOrientPortrait) {
+          activeIdPortrait = p.id;
+          break;
+        }
+      }
+    }
+    if (activeIdPortrait.isEmpty) {
+      for (final p in list) {
+        if (rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, p)) {
           activeIdPortrait = p.id;
           break;
         }
@@ -592,6 +607,15 @@ bool rtCanvasLayoutLocksLandscape(RtCanvasLayout data) {
     if (lockedModules.contains(e.key) && e.value.visible) return true;
   }
   return false;
+}
+
+/// 布局在指定朝向是否可用：同朝向条目；或竖屏下「不锁横屏」的横屏条目
+/// （原型触控屏双朝向）。纯函数，规则改动须同步单测。
+bool rtCanvasLayoutUsableIn(String orientation, RtCanvasNamedLayout entry) {
+  if (entry.orientation == orientation) return true;
+  return orientation == kRtCanvasOrientPortrait &&
+      entry.orientation == kRtCanvasOrientLandscape &&
+      !rtCanvasLayoutLocksLandscape(entry.data);
 }
 
 class RtPrefs {
@@ -731,5 +755,16 @@ class RtPrefs {
   static Future<void> saveCanvasLayouts(RtCanvasLayouts layouts) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kCanvasLayoutsKey, jsonEncode(layouts.toJson()));
+  }
+
+  /// 内置出厂锚点修订号（缺省 0 = 从未对齐过原型 LAYOUTS）。
+  static Future<int> loadCanvasBuiltinFactoryRev() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(_kCanvasBuiltinFactoryRevKey) ?? 0;
+  }
+
+  static Future<void> saveCanvasBuiltinFactoryRev(int rev) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_kCanvasBuiltinFactoryRevKey, rev);
   }
 }

@@ -3,6 +3,8 @@
 // 虚拟手柄键区模块（游戏布局右手区）：固定布局的 Xbox 形态按键，
 //   · 顶行：LB / LT / RT / RB（肩键 + 扳机）
 //   · 主区：ABXY 菱形（Y 上 / X 左 / B 右 / A 下，Xbox 摆位）
+// 几何对齐 docs/prototypes/rt-canvas-gamepad.html：肩键行高 max(36, h*0.16)、
+// 宽 82% 居中；面键直径 min(fw*0.36, fh*0.34)、臂长 0.80*d、绝对定位。
 // 全部接 PC 端虚拟手柄（rust input-agent vpad_* 指令族）：
 //   按下 = vpad_button true / vpad_trigger 1.0；松开 = false / 0.0。
 // 按下/松开成对由本组件保证（Listener down/up/cancel），PC 端串行链保序。
@@ -59,18 +61,27 @@ class RtCanvasVpad extends StatelessWidget {
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        // 肩键行高占 22%，主区给 ABXY 菱形。
-        final shoulderH = (h * 0.22).clamp(34.0, 64.0);
-        final faceD = math.min(
-          (w * 0.22).clamp(40.0, 84.0),
-          (h - shoulderH) * 0.30,
-        );
+        // 原型：shH = max(36, mh*0.16)；shoulders 宽 82% 居中；肩键与面区 gap 10。
+        final shoulderH = math.max(36.0, h * 0.16);
+        const gap = 10.0;
+        final faceH = math.max(0.0, h - shoulderH - gap);
+        final faceW = w;
+        final d = math.min(faceW * 0.36, faceH * 0.34);
+        final arm = d * 0.80;
+        final cx = faceW / 2;
+        final cy = faceH / 2;
+        final spots = <String, Offset>{
+          'Y': Offset(cx, cy - arm),
+          'X': Offset(cx - arm, cy),
+          'B': Offset(cx + arm, cy),
+          'A': Offset(cx, cy + arm),
+        };
         return Column(
           children: [
-            SizedBox(
-              height: shoulderH,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+            Align(
+              child: SizedBox(
+                width: w * 0.82,
+                height: shoulderH,
                 child: Row(
                   children: [
                     Expanded(
@@ -82,7 +93,7 @@ class RtCanvasVpad extends StatelessWidget {
                         onUp: () => _fire(button: 'lb', pressed: false),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 7),
                     Expanded(
                       child: _VpadHoldButton(
                         label: 'LT',
@@ -92,7 +103,7 @@ class RtCanvasVpad extends StatelessWidget {
                         onUp: () => _fire(trigger: 'lt', pressed: false),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 7),
                     Expanded(
                       child: _VpadHoldButton(
                         label: 'RT',
@@ -102,7 +113,7 @@ class RtCanvasVpad extends StatelessWidget {
                         onUp: () => _fire(trigger: 'rt', pressed: false),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 7),
                     Expanded(
                       child: _VpadHoldButton(
                         label: 'RB',
@@ -116,38 +127,35 @@ class RtCanvasVpad extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: gap),
             Expanded(
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  // ABXY 菱形：Y 上 / X 左 / B 右 / A 下（Xbox 摆位）
-                  _diamondSlot(Alignment.topCenter, 'Y', faceD),
-                  _diamondSlot(Alignment.centerLeft, 'X', faceD),
-                  _diamondSlot(Alignment.centerRight, 'B', faceD),
-                  _diamondSlot(Alignment.bottomCenter, 'A', faceD),
+                  for (final k in const ['Y', 'X', 'B', 'A'])
+                    Positioned(
+                      left: spots[k]!.dx - d / 2,
+                      top: spots[k]!.dy - d / 2,
+                      width: d,
+                      height: d,
+                      child: _VpadHoldButton(
+                        label: k,
+                        enabled: enabled,
+                        round: true,
+                        diameter: d,
+                        faceColor: _kFaceColors[k],
+                        onDown: () =>
+                            _fire(button: k.toLowerCase(), pressed: true),
+                        onUp: () =>
+                            _fire(button: k.toLowerCase(), pressed: false),
+                      ),
+                    ),
                 ],
               ),
             ),
           ],
         );
       },
-    );
-  }
-
-  Widget _diamondSlot(Alignment alignment, String label, double diameter) {
-    return Align(
-      alignment: alignment,
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: _VpadHoldButton(
-          label: label,
-          enabled: enabled,
-          round: true,
-          diameter: diameter,
-          faceColor: _kFaceColors[label],
-          onDown: () => _fire(button: label.toLowerCase(), pressed: true),
-          onUp: () => _fire(button: label.toLowerCase(), pressed: false),
-        ),
-      ),
     );
   }
 }
@@ -260,8 +268,9 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
       widget.label,
       maxLines: 1,
       style: TextStyle(
-        fontSize: round ? 16 : 13,
+        fontSize: round ? 14 : 11,
         fontWeight: FontWeight.w700,
+        letterSpacing: round ? 0 : 0.8,
         color: _held
             ? onAccent
             : (face ??
