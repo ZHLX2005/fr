@@ -3,9 +3,10 @@
 // 画布快捷按钮模块：交互判定与视觉都收在此处，画布层（rt_canvas_view）只管
 // 摆位解析与持久化回写。
 //
-// 两态交互（与画布整体约定一致）：
-//   use（使用态）—— 点按触发快捷键；长按拖动移位（抓取点保持不跳）。
-//   edit（编辑态）—— 拖动移位（不需长按）；右下角拉手缩放（横向驱动倍率）；
+// 两态交互（与画布整体约定一致；**编辑布局只有一个入口** = 画布顶部
+// 「编辑布局」，使用态一律不提供任何编排手势）：
+//   use（使用态）—— 点按触发快捷键，仅此而已（无长按拖动）。
+//   edit（编辑态）—— 拖动移位；右下角拉手缩放（横向驱动倍率）；
 //                   点按切换显隐。隐藏的按钮以半透明幽灵呈现（可点回、
 //                   可拖可缩），使用态不渲染。
 //
@@ -43,7 +44,6 @@ class RtCanvasButton extends StatefulWidget {
     required this.connected,
     required this.busy,
     required this.editMode,
-    required this.toCanvasNormalized,
     required this.onTransform,
     required this.onToggleVisible,
     required this.onFire,
@@ -55,9 +55,6 @@ class RtCanvasButton extends StatefulWidget {
   final bool connected;
   final bool busy;
   final bool editMode;
-
-  /// 全局坐标 → 画布归一化坐标（画布层提供，保持坐标口径单一）。
-  final Offset Function(Offset global) toCanvasNormalized;
 
   /// 变换落定（画布层钳制并持久化）。位移与倍率合成一个回调：两指同按
   /// （拖体 + 拉手）各改一个预览字段时，一次提交读的是同一份快照——拆成
@@ -73,11 +70,9 @@ class RtCanvasButton extends StatefulWidget {
 
 class _RtCanvasButtonState extends State<RtCanvasButton> {
   // 拖动/缩放的本地预览（松手一次性回写，拖动期间所见即所得）。
+  // 仅编辑态使用——使用态没有任何编排手势（编辑唯一入口 = 顶部「编辑布局」）。
   Offset? _dragPos;
   double? _dragScale;
-
-  // 抓取点偏差：拾起时手指与按钮中心的距离，拖动期间保持不跳。
-  Offset _grabDelta = Offset.zero;
 
   double get _scale => _dragScale ?? widget.pos.s;
   Offset get _center => _dragPos ?? Offset(widget.pos.x, widget.pos.y);
@@ -215,7 +210,7 @@ class _RtCanvasButtonState extends State<RtCanvasButton> {
     return Positioned(
       left: cx - w / 2,
       top: cy - h / 2,
-      child: widget.editMode ? _buildEditWrapper(button) : _buildUseWrapper(button),
+      child: widget.editMode ? _buildEditWrapper(button) : button,
     );
   }
 
@@ -253,30 +248,6 @@ class _RtCanvasButtonState extends State<RtCanvasButton> {
           Icon(Icons.visibility_off, size: 11, color: cs.onSurfaceVariant),
         ],
       ],
-    );
-  }
-
-  // ---- 使用态：长按拖动 ----
-
-  Widget _buildUseWrapper(Widget button) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      // 只认长按拖动；轻点让给内层 InkWell（手势仲裁：内层赢轻点）。
-      onLongPressStart: (d) {
-        HapticFeedback.mediumImpact();
-        final finger = widget.toCanvasNormalized(d.globalPosition);
-        setState(() {
-          _dragPos = Offset(widget.pos.x, widget.pos.y); // 拾起瞬间原地不动
-          _grabDelta = finger - _dragPos!;
-        });
-      },
-      onLongPressMoveUpdate: (d) {
-        final finger = widget.toCanvasNormalized(d.globalPosition);
-        setState(() => _dragPos = finger - _grabDelta);
-      },
-      onLongPressEnd: (_) => _endDrag(commit: true),
-      onLongPressCancel: () => _endDrag(commit: false),
-      child: button,
     );
   }
 

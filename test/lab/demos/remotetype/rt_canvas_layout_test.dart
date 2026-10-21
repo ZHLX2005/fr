@@ -1,14 +1,15 @@
 // test/lab/demos/remotetype/rt_canvas_layout_test.dart
 //
-// 横屏画布布局逻辑单测：
+// 横竖屏画布布局逻辑单测：
 //   - rtFirstFreeCanvasSlot 按钮自动找位（确定性 / 间距避让 / 全满兜底）
 //   - RtCanvasAnchor（显隐 + 中心 + 宽高）JSON 往返 / 越界钳制 / 旧形状兼容
 //   - RtCanvasButtonPos（中心 + 倍率 + 显隐）往返 / 旧形状（只有 x/y）兼容
-//   - RtCanvasNamedLayout / RtCanvasLayouts（多套 + 激活）往返 / 非法
+//   - RtCanvasNamedLayout / RtCanvasLayouts（多套 + 分朝向激活）往返 / 非法
 //     activeId 兜底 / 坏条目只丢自己 / 坏 JSON 整表兜底 / nextCustomId
-//   - 布局隔离：改 A 不动 B、切回 A 修改仍在 / withRenamed 只改名
+//   - 布局隔离：改 A 不动 B、切回 A 修改仍在 / withRenamed 只改名 /
+//     横竖屏激活互不串台（withActiveFor 跨侧无效）
 //   - rtBuiltinPresetOf 出厂查找 / rtEnsureBuiltinPresets 内置补齐（迁移用户）
-//   - kRtCanvasBuiltinPresets 4 套内置 id/builtIn/name 一致性
+//   - kRtCanvasBuiltinPresets 5 套内置（横 4 + 竖 1）id/builtIn/name/朝向一致性
 //   - RtPrefs 旧 `rt_canvas_layout_v1` → 新 `rt_canvas_layouts_v1` 迁移
 //
 // 持久化契约破坏一次就丢布局——改序列化形状或找位规则前先过这组用例。
@@ -289,13 +290,114 @@ void main() {
     });
   });
 
+  group('朝向隔离（横竖屏激活互不串台）', () {
+    const landA = RtCanvasNamedLayout(
+      id: 'land-a',
+      name: '横A',
+      builtIn: true,
+      data: RtCanvasLayout(),
+    );
+    const landB = RtCanvasNamedLayout(
+      id: 'land-b',
+      name: '横B',
+      builtIn: true,
+      data: RtCanvasLayout(),
+    );
+    const portA = RtCanvasNamedLayout(
+      id: 'port-a',
+      name: '竖A',
+      builtIn: true,
+      orientation: kRtCanvasOrientPortrait,
+      data: RtCanvasLayout(),
+    );
+    const portB = RtCanvasNamedLayout(
+      id: 'port-b',
+      name: '竖B',
+      builtIn: true,
+      orientation: kRtCanvasOrientPortrait,
+      data: RtCanvasLayout(),
+    );
+    const base = RtCanvasLayouts(
+      list: [landA, landB, portA, portB],
+      activeId: 'land-a',
+      activeIdPortrait: 'port-a',
+    );
+
+    test('activeFor 各取各侧；竖屏空激活兜底竖屏第一条', () {
+      final layouts = base;
+      expect(layouts.activeFor(kRtCanvasOrientLandscape)!.id, 'land-a');
+      expect(layouts.activeFor(kRtCanvasOrientPortrait)!.id, 'port-a');
+      const noPortrait = RtCanvasLayouts(list: [landA, landB], activeId: 'land-a');
+      expect(noPortrait.activeFor(kRtCanvasOrientPortrait), isNull);
+      // 竖屏激活指向横屏布局（脏数据）→ 兜底第一条竖屏
+      final dirty = RtCanvasLayouts(
+        list: [landA, portA, portB],
+        activeId: 'land-a',
+        activeIdPortrait: 'land-a',
+      );
+      expect(dirty.activeFor(kRtCanvasOrientPortrait)!.id, 'port-a');
+    });
+
+    test('withActiveFor 只动对应侧；跨侧 id 无效（不产生新实例）', () {
+      var layouts = base;
+      // 竖屏侧切 port-b：横屏激活不动
+      layouts = layouts.withActiveFor(kRtCanvasOrientPortrait, 'port-b');
+      expect(layouts.activeIdPortrait, 'port-b');
+      expect(layouts.activeId, 'land-a');
+      // 跨侧：把竖屏激活设为横屏 id → 无效，原样返回
+      final crossed = layouts.withActiveFor(kRtCanvasOrientPortrait, 'land-a');
+      expect(identical(crossed, layouts), isTrue);
+      // 横屏侧同理只动横屏
+      layouts = layouts.withActiveFor(kRtCanvasOrientLandscape, 'land-b');
+      expect(layouts.activeId, 'land-b');
+      expect(layouts.activeIdPortrait, 'port-b');
+    });
+
+    test('withUpdatedActiveFor 只更新对应侧激活布局的数据', () {
+      var layouts = base.withUpdatedActiveFor(
+        kRtCanvasOrientPortrait,
+        const RtCanvasLayout(hideShortcuts: true),
+      );
+      expect(layouts.activeFor(kRtCanvasOrientPortrait)!.data.hideShortcuts,
+          isTrue);
+      expect(layouts.activeFor(kRtCanvasOrientLandscape)!.data.hideShortcuts,
+          isFalse);
+    });
+
+    test('round-trip：朝向与竖屏激活一起存取；旧数据（无 or/activeN）缺省横屏', () {
+      final restored = RtCanvasLayouts.fromJson(
+        base.toJson().cast<String, dynamic>(),
+      );
+      expect(restored.activeId, 'land-a');
+      expect(restored.activeIdPortrait, 'port-a');
+      expect(restored.activeFor(kRtCanvasOrientPortrait)!.id, 'port-a');
+      // 旧形状：条目无 or → 横屏；无 activeN → 兜底竖屏第一条
+      final legacy = RtCanvasLayouts.fromJson({
+        'list': [
+          {'id': 'a', 'name': 'A', 'builtIn': true, 'data': {}},
+          {
+            'id': 'p',
+            'name': 'P',
+            'builtIn': true,
+            'or': 'portrait',
+            'data': {},
+          },
+        ],
+        'activeId': 'a',
+      });
+      expect(legacy.list.first.orientation, kRtCanvasOrientLandscape);
+      expect(legacy.activeIdPortrait, 'p');
+    });
+  });
+
   group('rtBuiltinPresetOf / rtEnsureBuiltinPresets', () {
-    test('四套内置都能查到出厂条目；自定义 / 未知 id 返回 null', () {
+    test('五套内置都能查到出厂条目；自定义 / 未知 id 返回 null', () {
       for (final id in [
         kRtCanvasPresetDefault,
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
+        kRtCanvasPresetTouchpadN,
       ]) {
         final p = rtBuiltinPresetOf(id);
         expect(p, isNotNull, reason: id);
@@ -326,7 +428,7 @@ void main() {
       expect(edited.data.modules['touchpad']!.visible, isFalse);
     });
 
-    test('rtEnsureBuiltinPresets：迁移单条导入布局 → 补 4 内置在前、自定义在后', () {
+    test('rtEnsureBuiltinPresets：迁移单条导入布局 → 补 5 内置在前、自定义在后', () {
       const imported = RtCanvasNamedLayout(
         id: 'imported',
         name: '导入布局',
@@ -335,14 +437,15 @@ void main() {
       );
       const layouts = RtCanvasLayouts(list: [imported], activeId: 'imported');
       final ensured = rtEnsureBuiltinPresets(layouts);
-      expect(ensured.list.length, 5);
+      expect(ensured.list.length, 6);
       expect(
-        ensured.list.take(4).map((p) => p.id),
+        ensured.list.take(5).map((p) => p.id),
         [
           kRtCanvasPresetDefault,
           kRtCanvasPresetGame,
           kRtCanvasPresetKeyboard,
           kRtCanvasPresetTouchpad,
+          kRtCanvasPresetTouchpadN,
         ],
       );
       expect(ensured.list.last.id, 'imported');
@@ -369,11 +472,32 @@ void main() {
       final ensured = rtEnsureBuiltinPresets(layouts);
       expect(ensured.activeId, kRtCanvasPresetDefault);
     });
+
+    test('rtEnsureBuiltinPresets：竖屏激活指向横屏布局 → 清空（读侧兜底）', () {
+      const imported = RtCanvasNamedLayout(
+        id: 'imported',
+        name: '导入布局',
+        builtIn: false,
+        data: RtCanvasLayout(),
+      );
+      const layouts = RtCanvasLayouts(
+        list: [imported],
+        activeId: 'imported',
+        activeIdPortrait: 'imported', // 导入布局是横屏 → 竖屏激活悬空
+      );
+      final ensured = rtEnsureBuiltinPresets(layouts);
+      expect(ensured.activeIdPortrait, isEmpty,
+          reason: '悬空清空后由 activeFor 兜底竖屏第一条');
+      expect(
+        ensured.activeFor(kRtCanvasOrientPortrait)!.id,
+        kRtCanvasPresetTouchpadN,
+      );
+    });
   });
 
-  group('kRtCanvasBuiltinPresets 4 套内置', () {
-    test('id / builtIn / 名称稳定', () {
-      expect(kRtCanvasBuiltinPresets.length, 4);
+  group('kRtCanvasBuiltinPresets 5 套内置（横 4 + 竖 1）', () {
+    test('id / builtIn / 名称 / 朝向稳定', () {
+      expect(kRtCanvasBuiltinPresets.length, 5);
       expect(
         kRtCanvasBuiltinPresets.map((p) => p.id),
         [
@@ -381,23 +505,51 @@ void main() {
           kRtCanvasPresetGame,
           kRtCanvasPresetKeyboard,
           kRtCanvasPresetTouchpad,
+          kRtCanvasPresetTouchpadN,
         ],
       );
       expect(kRtCanvasBuiltinPresets.every((p) => p.builtIn), isTrue);
       expect(
         kRtCanvasBuiltinPresets.map((p) => p.name),
-        ['默认布局', '游戏布局', '键盘布局', '触控屏布局'],
+        ['默认布局', '游戏布局', '键盘布局', '触控屏布局', '触控屏 · 竖'],
+      );
+      expect(
+        kRtCanvasBuiltinPresets
+            .map((p) => p.orientation)
+            .toList(),
+        [
+          kRtCanvasOrientLandscape,
+          kRtCanvasOrientLandscape,
+          kRtCanvasOrientLandscape,
+          kRtCanvasOrientLandscape,
+          kRtCanvasOrientPortrait,
+        ],
       );
     });
 
-    test('每套模块语义：默认/键盘全双模块，游戏纯手柄，触控屏只有触摸板', () {
-      for (final id in [kRtCanvasPresetDefault, kRtCanvasPresetKeyboard]) {
-        final p = kRtCanvasBuiltinPresets.firstWhere((x) => x.id == id);
-        expect(p.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue,
-            reason: '$id 缺 touchpad');
-        expect(p.data.modules[kRtCanvasModuleInput]?.visible, isTrue,
-            reason: '$id 缺 input');
-      }
+    test('每套模块语义：默认=触摸板+输入框；键盘=触摸板+虚拟键盘（无输入框）',
+        () {
+      final def =
+          kRtCanvasBuiltinPresets.firstWhere((x) => x.id == kRtCanvasPresetDefault);
+      expect(def.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue,
+          reason: '默认布局缺 touchpad');
+      expect(def.data.modules[kRtCanvasModuleInput]?.visible, isTrue,
+          reason: '默认布局缺 input');
+      expect(def.data.hideShortcuts, isFalse);
+
+      final kb =
+          kRtCanvasBuiltinPresets.firstWhere((x) => x.id == kRtCanvasPresetKeyboard);
+      expect(kb.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue,
+          reason: '键盘布局保留小触摸板（鼠标刚需）');
+      expect(kb.data.modules[kRtCanvasModuleKb]?.visible, isTrue,
+          reason: '键盘布局主体 = 虚拟键盘模块');
+      expect(kb.data.modules.containsKey(kRtCanvasModuleInput), isFalse,
+          reason: '键盘布局去掉输入框');
+      expect(kb.data.hideShortcuts, isTrue,
+          reason: '键盘布局不渲染快捷键按钮');
+    });
+
+    test('每套模块语义：游戏纯手柄，触控屏（横/竖）只有触摸板', () {
       final game =
           kRtCanvasBuiltinPresets.firstWhere((p) => p.id == kRtCanvasPresetGame);
       expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue,
@@ -416,6 +568,11 @@ void main() {
           .firstWhere((p) => p.id == kRtCanvasPresetTouchpad);
       expect(pad.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue);
       expect(pad.data.modules.length, 1, reason: '触控屏布局 = 只有一块触摸板');
+      final padN = kRtCanvasBuiltinPresets
+          .firstWhere((p) => p.id == kRtCanvasPresetTouchpadN);
+      expect(padN.data.modules[kRtCanvasModuleTouchpad]?.visible, isTrue);
+      expect(padN.data.modules.length, 1,
+          reason: '触控屏·竖 = 只有一块触摸板');
     });
 
     test('游戏布局 = 纯手柄：左轮盘 + 右手柄键区（两端分区互不相交）', () {

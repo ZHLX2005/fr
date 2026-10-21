@@ -103,7 +103,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   // 重放进行中（连点保护）
   bool _replaying = false;
 
-  // 横屏画布模式（触摸板/输入框/按钮同一画布编排，详见 rt_canvas_view.dart）：
+  // 横屏画布模式（触摸板/输入框/键盘/按钮同一画布编排，详见 rt_canvas_view.dart）：
   // 页面级内存态不持久化；横竖屏锁只在画布期间放开（运行期借出与归还，
   // AndroidManifest 全局锁 portrait）。
   bool _canvasMode = false;
@@ -111,15 +111,24 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   bool _canvasEdit = false;
   double _padSensitivity = kRtPadSensitivityDefault;
   // 画布布局（模块锚点 + 按钮位）：跨会话记住，持久化（RtPrefs）。
-  // 画布布局集（内置 + 自定义 + 当前激活）：跨会话记住，持久化。
-  // 首跑空表：用代码内置 4 套铺一份；之后用户编辑/复制/删除/切换都落盘。
+  // 画布布局集（横竖两朝向 + 各自激活）：跨会话记住，持久化。横竖屏布局
+  // 相互隔离——各有各的列表分组与激活位。首跑空表：用代码内置铺一份；
+  // 之后用户编辑/复制/删除/切换都落盘。
   RtCanvasLayouts _layouts = const RtCanvasLayouts(
     list: kRtCanvasBuiltinPresets,
     activeId: kRtCanvasPresetDefault,
   );
 
-  RtCanvasLayout get _activeLayout => _layouts.activeData;
-  String get _activeId => _layouts.activeId;
+  /// 画布当前朝向（跟随设备旋转；MediaQuery 驱动重建时刷新）。
+  String get _canvasOrientation =>
+      MediaQuery.orientationOf(context) == Orientation.landscape
+          ? kRtCanvasOrientLandscape
+          : kRtCanvasOrientPortrait;
+
+  RtCanvasLayout get _activeLayout =>
+      _layouts.activeFor(_canvasOrientation)?.data ??
+      const RtCanvasLayout();
+  String get _activeId => _layouts.activeFor(_canvasOrientation)?.id ?? '';
 
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
@@ -319,24 +328,30 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   }
 
   /// 激活布局的内容变更（拖动落位 / 缩放 / 显隐 / 模块开关）：先落 state
-  /// 再异步落盘（失败不回滚——下次进页读盘仍旧位）。
+  /// 再异步落盘（失败不回滚——下次进页读盘仍旧位）。只动当前朝向的激活
+  /// 布局——横竖屏配置互不串台。
   void _setActiveLayout(RtCanvasLayout layout) {
-    final next = _layouts.withUpdatedActive(layout);
+    final next =
+        _layouts.withUpdatedActiveFor(_canvasOrientation, layout);
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
-  /// 切换激活布局。
+  /// 切换激活布局（id 必须与某朝向同侧；只影响那一侧的激活位）。
   void _switchLayout(String id) {
-    if (id == _layouts.activeId) return;
-    final next = _layouts.withActive(id);
+    final next = _layouts.withActiveFor(
+      _layouts.orientationOf(id),
+      id,
+    );
+    if (identical(next, _layouts)) return;
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
-  /// 把当前激活布局复制为一条新的自定义，并立即切到它（用户随后可在新
-  /// 副本上自由编辑；不影响任何现有内置或自定义条目）。
-  void _copyToCustom() {
+  /// 把当前激活布局复制为一条新的自定义（[orientation] 由用户在面板里
+  /// 选定横屏 / 竖屏），并切到它。选了另一朝向时：记为该侧激活但不转屏
+  /// ——用户旋转过去就能用（隔离：不影响当前朝向的激活）。
+  void _copyToCustom(String orientation) {
     final newId = _layouts.nextCustomId();
     final displayIndex = newId.startsWith('custom-')
         ? int.tryParse(newId.substring('custom-'.length)) ?? 1
@@ -345,18 +360,27 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       id: newId,
       name: '自定义 $displayIndex',
       builtIn: false,
+      orientation: orientation,
       data: _activeLayout,
     );
     final next = _layouts
         .withList([..._layouts.list, entry])
-        .withActive(newId);
+        .withActiveFor(orientation, newId);
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
+    if (orientation != _canvasOrientation) {
+      _showSnack(
+        orientation == kRtCanvasOrientPortrait
+            ? '已创建竖屏布局，旋转到竖屏即可使用'
+            : '已创建横屏布局，旋转到横屏即可使用',
+      );
+    }
   }
 
-  /// 删除一条自定义布局（仅自定义——内置不允许删）。删的恰是当前激活则
-  /// 回退默认；空集合兜底回内置 4 套（极端：用户只有导入布局一条自定义
-  /// 并删之，列表不能空着，否则画布啥都不渲染）。
+  /// 删除一条自定义布局（仅自定义——内置不允许删）。删的恰是某朝向的
+  /// 激活则该侧回退（横屏回默认，竖屏回竖屏第一条）；空集合兜底回内置
+  /// （极端：用户只有导入布局一条自定义并删之，列表不能空着，否则画布
+  /// 啥都不渲染）。
   void _deleteCustom(String id) {
     final target = _layouts.list.firstWhere(
       (p) => p.id == id,
@@ -372,13 +396,19 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final nextList = filtered.isEmpty
         ? List<RtCanvasNamedLayout>.from(kRtCanvasBuiltinPresets)
         : filtered;
-    final wasActive = _layouts.activeId == id;
-    final activeAfter = wasActive
-        ? kRtCanvasPresetDefault
-        : (nextList.any((p) => p.id == _layouts.activeId)
-            ? _layouts.activeId
-            : kRtCanvasPresetDefault);
-    final next = RtCanvasLayouts(list: nextList, activeId: activeAfter);
+    final wasActiveL = _layouts.activeId == id;
+    final wasActiveN = _layouts.activeIdPortrait == id;
+    final next = RtCanvasLayouts(
+      list: nextList,
+      activeId: wasActiveL
+          ? (nextList.any((p) => p.id == kRtCanvasPresetDefault)
+              ? kRtCanvasPresetDefault
+              : (nextList.isNotEmpty ? nextList.first.id : ''))
+          : (nextList.any((p) => p.id == _layouts.activeId)
+              ? _layouts.activeId
+              : kRtCanvasPresetDefault),
+      activeIdPortrait: wasActiveN ? '' : _layouts.activeIdPortrait,
+    );
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
@@ -411,6 +441,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           p.id == id ? p.copyWith(data: factory.data) : p,
       ],
       activeId: _layouts.activeId,
+      activeIdPortrait: _layouts.activeIdPortrait,
     );
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
@@ -846,6 +877,40 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     }
   }
 
+  // ================= 虚拟键盘（按键即发 hotkey） =================
+
+  /// 画布键盘模块一次按键（修饰键已粘滞合成进 chord）→ hotkey 通道。
+  /// 与快捷键条同一 syncHotkey 路径；Win+L 之类锁屏组合与条上同规，先确认。
+  Future<void> _onKbChord(List<String> keys) async {
+    final session = _session;
+    if (session == null || !_connected) {
+      _showSnack('未连接电脑');
+      return;
+    }
+    final isLock = keys.length == 2 &&
+        keys.first == 'win' &&
+        keys.last == 'l';
+    if (isLock) {
+      final ok = await showRtLockConfirm(
+        context: context,
+        item: RtShortcutItem(
+          id: 'kb-win-l',
+          label: 'Win+L',
+          chords: [RtChord(keys: keys)],
+          intervalMs: 0,
+        ),
+      );
+      if (!ok || !mounted) return;
+    }
+    final sent = await session.syncHotkey(keys);
+    if (!mounted) return;
+    if (sent) {
+      setState(() => _syncSent += 1);
+    } else {
+      _showSnack('发送失败（连接已断开？）');
+    }
+  }
+
   // ================= UI 装配 =================
 
   @override
@@ -875,6 +940,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         activeLayout: _activeLayout,
         activeId: _activeId,
         layouts: _layouts,
+        orientation: _canvasOrientation,
         editMode: _canvasEdit,
         onLayoutChanged: _setActiveLayout,
         onSwitchLayout: _switchLayout,
@@ -890,6 +956,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           }),
         ),
         onVpadKey: _onVpadKey,
+        onKbChord: (keys) => unawaited(_onKbChord(keys)),
         onEditModeChanged: _setCanvasEdit,
         onFire: (item) => unawaited(_fireShortcut(item)),
         onEditShortcuts: _editShortcuts,

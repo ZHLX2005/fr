@@ -6,7 +6,8 @@
 // rt_canvas_layouts_sheet；sheet 渲染持久化版本，缩略图即各布局真实样子）。
 //
 // 两态（边界刻意做得明显）：
-//   use（使用态）—— 触摸板吃手势、输入框打字、按钮点按触发 + 长按拖动；
+//   use（使用态）—— 触摸板吃手势、输入框打字、键盘按键即发、按钮点按触发；
+//                   编排手势一律不在使用态提供（编辑唯一入口 = 顶部「编辑布局」）；
 //                   顶部浮层 = 连接点 · 灵敏度 · 切换布局 · 进入编辑 · 退出。
 //   edit（编辑态）—— 画布主色描边框 + 底部显隐面板 + 右下角完成钮，所有使用类
 //                   手势停用。拖动=移位、右下角拉手=缩放、点按按钮=显隐
@@ -26,6 +27,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
+import 'rt_canvas_kb.dart' show RtCanvasKb;
 import 'rt_canvas_layouts_sheet.dart' show RtCanvasLayoutsSheet;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad;
 import 'rt_prefs.dart'
@@ -39,6 +41,7 @@ import 'rt_prefs.dart'
         kRtCanvasInputDefW,
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
+        kRtCanvasModuleKb,
         kRtCanvasModuleTouchpad,
         kRtCanvasModuleVpad,
         kRtCanvasPadDefH,
@@ -83,6 +86,7 @@ class RtCanvasView extends StatefulWidget {
     required this.activeLayout,
     required this.activeId,
     required this.layouts,
+    required this.orientation,
     required this.editMode,
     required this.onLayoutChanged,
     required this.onSwitchLayout,
@@ -92,6 +96,7 @@ class RtCanvasView extends StatefulWidget {
     required this.onResetBuiltin,
     required this.onDirection,
     required this.onVpadKey,
+    required this.onKbChord,
     required this.onEditModeChanged,
     required this.onFire,
     required this.onEditShortcuts,
@@ -111,12 +116,16 @@ class RtCanvasView extends StatefulWidget {
   /// 当前激活布局的数据（页面层随 activeId 变化而切到新数据）。
   final RtCanvasLayout activeLayout;
 
-  /// 当前激活布局的 id。仅用于 sheet 高亮与「切布局」时识别——画布渲染
-  /// 只看 activeLayout。
+  /// 当前激活布局的 id（页面按当前朝向取的那条）。仅用于 sheet 高亮与
+  /// 「切布局」时识别——画布渲染只看 activeLayout。
   final String activeId;
 
-  /// 全部布局（内置 + 自定义），仅 sheet 用。
+  /// 全部布局（内置 + 自定义，横竖两朝向），sheet 按朝向分组展示用。
   final RtCanvasLayouts layouts;
+
+  /// 画布当前朝向（kRtCanvasOrient*，页面随设备旋转刷新）。决定 sheet
+  /// 哪一组可交互、以及「当前激活」高亮取哪一侧。
+  final String orientation;
   final bool editMode;
 
   /// 当前激活布局的内容变更（拖动 / 缩放 / 显隐 / 模块开关）。
@@ -125,8 +134,8 @@ class RtCanvasView extends StatefulWidget {
   /// 切换激活布局。
   final ValueChanged<String> onSwitchLayout;
 
-  /// 「复制当前为新自定义」—— sheet footer 触发。
-  final VoidCallback onCopyToCustom;
+  /// 「复制当前为新自定义」（自选横屏 / 竖屏）—— sheet footer 触发。
+  final ValueChanged<String> onCopyToCustom;
 
   /// 删除某条自定义布局（仅自定义，长按 sheet 列表项触发）。
   final ValueChanged<String> onDeleteCustom;
@@ -144,6 +153,9 @@ class RtCanvasView extends StatefulWidget {
   /// 松开各回报一次；映射 vpad_button / vpad_trigger）。
   final void Function({String? button, String? trigger, required bool pressed})
       onVpadKey;
+
+  /// 虚拟键盘一次按键（修饰键已由键盘模块粘滞合成进 chord）→ 发 hotkey。
+  final ValueChanged<List<String>> onKbChord;
 
   final ValueChanged<bool> onEditModeChanged;
   final ValueChanged<RtShortcutItem> onFire;
@@ -163,6 +175,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
         kRtCanvasModuleTouchpad => (0.25, 1.0, 0.35, 1.0),
         kRtCanvasModuleDpad => (0.12, 0.65, 0.12, 0.85),
         kRtCanvasModuleVpad => (0.25, 0.70, 0.35, 1.0),
+        kRtCanvasModuleKb => (0.40, 1.0, 0.30, 1.0),
         _ => (0.20, 1.0, 0.08, 0.40),
       };
 
@@ -240,24 +253,10 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       // 轮盘默认规格 = 游戏布局内置值（缩略图同源，两处不许两套）。
       kRtCanvasModuleDpad => (0.30, 0.78),
       kRtCanvasModuleVpad => (0.44, 0.90),
+      kRtCanvasModuleKb => (0.96, 0.70),
       kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
       _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
     };
-  }
-
-  /// 全局坐标 → 画布归一化坐标。画布异常小（尺寸 ≤ 0）时 0/0 = NaN 会
-  /// 一路漏进 Positioned 撑爆布局，落中心兜底。
-  Offset _toCanvasNormalized(Offset global) {
-    final box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return const Offset(0.5, 0.5);
-    final size = box.size;
-    if (size.width <= 0 || size.height <= 0) return const Offset(0.5, 0.5);
-    final local = box.globalToLocal(global);
-    double clamp01(double v) => v.clamp(0.0, 1.0).toDouble();
-    return Offset(
-      clamp01(local.dx / size.width),
-      clamp01(local.dy / size.height),
-    );
   }
 
   // ================= 回写 =================
@@ -336,6 +335,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
   }
 
   /// 拷贝当前 activeLayout 并替换指定模块/按钮后返回新 RtCanvasLayout。
+  /// hideShortcuts 必须原样携带——游戏/键盘布局靠它压掉快捷键按钮，丢了
+  /// 等于「拖一下模块，按钮整体复活」（跨布局配置串台）。
   RtCanvasLayout _patchAnchor(
     String id, {
     bool? visible,
@@ -357,6 +358,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     return RtCanvasLayout(
       modules: modules,
       buttons: widget.activeLayout.buttons,
+      hideShortcuts: widget.activeLayout.hideShortcuts,
     );
   }
 
@@ -368,6 +370,7 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     return RtCanvasLayout(
       modules: widget.activeLayout.modules,
       buttons: buttons,
+      hideShortcuts: widget.activeLayout.hideShortcuts,
     );
   }
 
@@ -398,6 +401,8 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                     _vpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleTouchpad).visible)
                     _touchpadModule(canvasSize),
+                  if (_anchorOf(kRtCanvasModuleKb).visible)
+                    _kbModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleInput).visible)
                     _inputModule(canvasSize),
                   ..._buttonModules(canvasSize),
@@ -518,6 +523,12 @@ class _RtCanvasViewState extends State<RtCanvasView> {
                   ),
                   const SizedBox(width: 8),
                   _moduleVisibilityChip(
+                    icon: Icons.keyboard_outlined,
+                    label: '键盘',
+                    id: kRtCanvasModuleKb,
+                  ),
+                  const SizedBox(width: 8),
+                  _moduleVisibilityChip(
                     icon: Icons.gamepad_outlined,
                     label: '轮盘',
                     id: kRtCanvasModuleDpad,
@@ -594,12 +605,13 @@ class _RtCanvasViewState extends State<RtCanvasView> {
       builder: (ctx) => RtCanvasLayoutsSheet(
         layouts: widget.layouts,
         activeId: widget.activeId,
+        orientation: widget.orientation,
         onSwitch: (id) {
           widget.onSwitchLayout(id);
           Navigator.of(ctx).pop();
         },
-        onCopy: () {
-          widget.onCopyToCustom();
+        onCopy: (copyOrientation) {
+          widget.onCopyToCustom(copyOrientation);
           Navigator.of(ctx).pop();
         },
         onDelete: (id) {
@@ -960,6 +972,35 @@ class _RtCanvasViewState extends State<RtCanvasView> {
     );
   }
 
+  // ---- 模块：虚拟键盘（按键即发 hotkey）----
+
+  Widget _kbModule(Size canvasSize) {
+    final size = _moduleSizePx(kRtCanvasModuleKb, canvasSize);
+    final rect = _moduleRect(
+      _anchorPos(kRtCanvasModuleKb),
+      size,
+      canvasSize,
+    );
+    Widget kb = RtCanvasKb(
+      enabled: widget.connected,
+      onChord: widget.onKbChord,
+    );
+    if (widget.editMode) {
+      kb = _editModuleWrapper(
+        id: kRtCanvasModuleKb,
+        label: '键盘',
+        child: SizedBox(width: size.width, height: size.height, child: kb),
+      );
+    }
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: size.width,
+      height: size.height,
+      child: kb,
+    );
+  }
+
   // ---- 模块：快捷按钮 ----
 
   List<Widget> _buttonModules(Size canvasSize) {
@@ -996,7 +1037,6 @@ class _RtCanvasViewState extends State<RtCanvasView> {
           connected: widget.connected,
           busy: widget.firingId == item.id,
           editMode: widget.editMode,
-          toCanvasNormalized: _toCanvasNormalized,
           onTransform: (c, sc) => _updateButton(
             item.id,
             pos.copyWith(

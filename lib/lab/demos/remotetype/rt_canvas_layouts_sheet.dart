@@ -1,11 +1,14 @@
 // lib/lab/demos/remotetype/rt_canvas_layouts_sheet.dart
 //
-// 画布布局选择 sheet：内置 + 自定义两组，均渲染**持久化版本**（用户改过的
-// 内置布局在列表里就是改过的样子，与画布实际渲染同源——配置隔离的展示面）。
-//   · 点按切换；每条带 16:9 迷你画布缩略图（模块矩形 + 按钮点）。
+// 画布布局选择面板：横屏 / 竖屏两组（布局与朝向绑定，两组相互隔离），
+// 均渲染**持久化版本**（用户改过的内置布局在列表里就是改过的样子，与画布
+// 实际渲染同源——配置隔离的展示面）。
+//   · 仅当前朝向的组可点按切换；另一组置灰展示（旋转设备后即可用），
+//     每条带 16:9 迷你画布缩略图（模块矩形 + 按钮点）+ 朝向徽标。
 //   · 内置长按 → 「恢复出厂摆放」（改坏的内置布局可一键还原，不影响其他布局）。
 //   · 自定义长按 → 重命名 / 删除（删除有确认）。
-//   · 底部「复制当前为新自定义」创建副本并由画布页立即切到它。
+//   · 底部「复制当前为新自定义」→ 先选朝向（横屏 / 竖屏）再创建，画布页
+//     立即切到它（选了另一朝向则记为该侧激活，旋转后生效）。
 //
 // 画布 view 在 _openLayoutsSheet 里 showModalBottomSheet 调用本件；本件
 // 只负责「展示 + 收集意图」，持久化与状态切换由页面的回调接管。
@@ -25,7 +28,10 @@ import 'rt_prefs.dart'
         kRtCanvasInputDefW,
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
+        kRtCanvasModuleKb,
         kRtCanvasModuleTouchpad,
+        kRtCanvasOrientLandscape,
+        kRtCanvasOrientPortrait,
         kRtCanvasPadDefH,
         kRtCanvasPadDefW;
 
@@ -34,6 +40,7 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
     super.key,
     required this.layouts,
     required this.activeId,
+    required this.orientation,
     required this.onSwitch,
     required this.onCopy,
     required this.onDelete,
@@ -42,9 +49,16 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
   });
 
   final RtCanvasLayouts layouts;
+
+  /// 当前朝向的激活布局 id（高亮用；另一侧激活不参与本面板）。
   final String activeId;
+
+  /// 画布当前朝向（kRtCanvasOrient*）：决定哪一组可交互。
+  final String orientation;
   final ValueChanged<String> onSwitch;
-  final VoidCallback onCopy;
+
+  /// 复制当前为新自定义（参数 = 用户选的朝向 kRtCanvasOrient*）。
+  final ValueChanged<String> onCopy;
   final ValueChanged<String> onDelete;
 
   /// 重命名自定义布局（id + 新名字，已 trim 非空）。
@@ -56,13 +70,18 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // 内置 + 自定义（已分组）。内置必须来自 layouts.list（持久化版本）
-    // ——列表若直接渲染代码常量，用户改过的内置布局在 sheet 里就"失真"了。
-    final builtIns =
-        layouts.list.where((p) => p.builtIn).toList(growable: false);
-    final customs = layouts.list
-        .where((p) => !p.builtIn)
-        .toList(growable: false);
+    // 内置 + 自定义，各按朝向分组（渲染持久化版本——列表若直接渲染代码
+    // 常量，用户改过的内置布局在面板里就"失真"了）。
+    final groups = <(String, List<RtCanvasNamedLayout>)>[
+      (
+        kRtCanvasOrientLandscape,
+        layouts.list.where((p) => p.orientation == kRtCanvasOrientLandscape).toList(growable: false),
+      ),
+      (
+        kRtCanvasOrientPortrait,
+        layouts.list.where((p) => p.orientation == kRtCanvasOrientPortrait).toList(growable: false),
+      ),
+    ];
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -100,7 +119,7 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      '当前：${_nameOf(layouts, activeId) ?? '—'}',
+                      '当前：${_nameOf(layouts, orientation, activeId) ?? '—'}',
                       style: TextStyle(
                         fontSize: 12,
                         color: cs.onSurfaceVariant,
@@ -115,33 +134,49 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
                   controller: controller,
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   children: [
-                    for (final p in builtIns)
-                      _LayoutTile(
-                        entry: p,
-                        isActive: p.id == activeId,
-                        onTap: () => onSwitch(p.id),
-                        onLongPress: () => _confirmReset(context, p),
-                      ),
-                    if (customs.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-                        child: Text(
-                          '自定义',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: cs.onSurfaceVariant,
+                    for (final (groupOrient, entries) in groups)
+                      if (entries.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                          child: Row(
+                            children: [
+                              Text(
+                                groupOrient == kRtCanvasOrientPortrait
+                                    ? '竖屏布局'
+                                    : '横屏布局',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                              if (groupOrient != orientation) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  '（旋转到该朝向后可用）',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                      for (final p in customs)
-                        _LayoutTile(
-                          entry: p,
-                          isActive: p.id == activeId,
-                          onTap: () => onSwitch(p.id),
-                          onLongPress: () => _customActions(context, p),
-                        ),
-                    ],
+                        for (final p in entries)
+                          _LayoutTile(
+                            entry: p,
+                            isActive: groupOrient == orientation &&
+                                p.id == activeId,
+                            interactive: groupOrient == orientation,
+                            onTap:
+                                groupOrient == orientation ? () => onSwitch(p.id) : null,
+                            onLongPress: p.builtIn
+                                ? () => _confirmReset(context, p)
+                                : () => _customActions(context, p),
+                          ),
+                      ],
                   ],
                 ),
               ),
@@ -152,7 +187,7 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton.tonalIcon(
-                      onPressed: onCopy,
+                      onPressed: () => _pickCopyOrientation(context),
                       icon: const Icon(Icons.copy_all_outlined, size: 18),
                       label: const Text('复制当前为新自定义'),
                     ),
@@ -166,11 +201,47 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
     );
   }
 
-  static String? _nameOf(RtCanvasLayouts layouts, String id) {
+  static String? _nameOf(
+    RtCanvasLayouts layouts,
+    String orientation,
+    String id,
+  ) {
     for (final p in layouts.list) {
-      if (p.id == id) return p.name;
+      if (p.id == id && p.orientation == orientation) return p.name;
     }
     return null;
+  }
+
+  // ---- 复制：先选朝向 ----
+
+  Future<void> _pickCopyOrientation(BuildContext context) async {
+    final orient = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('复制为新自定义（选择朝向）'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(kRtCanvasOrientLandscape),
+            child: const ListTile(
+              leading: Icon(Icons.stay_current_landscape),
+              title: Text('横屏布局'),
+              subtitle: Text('复制当前内容，归入横屏组'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(kRtCanvasOrientPortrait),
+            child: const ListTile(
+              leading: Icon(Icons.stay_current_portrait),
+              title: Text('竖屏布局'),
+              subtitle: Text('复制当前内容，归入竖屏组（旋转后可用）'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (orient != null) onCopy(orient);
   }
 
   // ---- 内置：长按恢复出厂 ----
@@ -285,71 +356,94 @@ class _LayoutTile extends StatelessWidget {
   const _LayoutTile({
     required this.entry,
     required this.isActive,
+    required this.interactive,
     required this.onTap,
     required this.onLongPress,
   });
 
   final RtCanvasNamedLayout entry;
   final bool isActive;
-  final VoidCallback onTap;
+
+  /// false = 另一朝向的组：置灰展示，点按不响应（旋转后可用）。
+  final bool interactive;
+  final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Row(
-          children: [
-            Icon(
-              isActive ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: isActive ? cs.primary : cs.onSurfaceVariant,
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 96,
-              child: _LayoutThumb(data: entry.data),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                entry.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: cs.onSurface,
-                ),
-              ),
-            ),
-            if (entry.builtIn)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  '内置',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              )
-            else
+    final portrait = entry.orientation == kRtCanvasOrientPortrait;
+    return Opacity(
+      opacity: interactive ? 1.0 : 0.45,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
               Icon(
-                Icons.more_horiz,
-                size: 18,
-                color: cs.onSurfaceVariant,
+                isActive ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: isActive ? cs.primary : cs.onSurfaceVariant,
+                size: 22,
               ),
-          ],
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 96,
+                child: _LayoutThumb(data: entry.data),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight:
+                              isActive ? FontWeight.w700 : FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (portrait) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.stay_current_portrait,
+                        size: 14,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (entry.builtIn)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '内置',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                Icon(
+                  Icons.more_horiz,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -384,6 +478,7 @@ class _LayoutThumb extends StatelessWidget {
           final touchpad = data.modules[kRtCanvasModuleTouchpad];
           final input = data.modules[kRtCanvasModuleInput];
           final dpad = data.modules[kRtCanvasModuleDpad];
+          final kb = data.modules[kRtCanvasModuleKb];
           void addModule(RtCanvasAnchor? a, double defW, double defH) {
             if (a == null || !a.visible) return;
             final fw = a.w ?? defW;
@@ -428,6 +523,39 @@ class _LayoutThumb extends StatelessWidget {
           }
           addModule(touchpad, kRtCanvasPadDefW, kRtCanvasPadDefH);
           addModule(input, kRtCanvasInputDefW, kRtCanvasInputDefH);
+          // 键盘模块：圆角矩形内画横线（键排意象），与触摸板矩形区分开。
+          if (kb != null && kb.visible) {
+            final fw = kb.w ?? 0.96;
+            final fh = kb.h ?? 0.70;
+            final kx = (kb.x - fw / 2).clamp(0.0, 1.0) * w;
+            final ky = (kb.y - fh / 2).clamp(0.0, 1.0) * h;
+            moduleBoxes.add(
+              Positioned(
+                left: kx,
+                top: ky,
+                width: fw * w,
+                height: fh * h,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: moduleBorder, width: 1),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      for (var i = 0; i < 5; i++)
+                        Container(
+                          height: 1.5,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
           return Stack(
             children: [
               ...moduleBoxes,

@@ -20,9 +20,21 @@ const String kRtCanvasPresetGame = 'game';
 const String kRtCanvasPresetKeyboard = 'keyboard';
 const String kRtCanvasPresetTouchpad = 'touchpad';
 
+/// 竖屏内置预设 id（触控屏·竖）。竖屏布局集与横屏相互隔离，这是竖屏侧
+/// 的兜底出厂条目——旋转到竖屏时列表永远不为空。
+const String kRtCanvasPresetTouchpadN = 'touchpad-n';
+
+/// 布局朝向（持久化字段，禁止改动取值）。横竖屏布局是两个隔离的集合：
+/// 各有各的列表展示与激活位，互不串台。旧数据缺省按横屏读。
+const String kRtCanvasOrientLandscape = 'landscape';
+const String kRtCanvasOrientPortrait = 'portrait';
+
 /// 模块 id（布局持久化的键，禁止改动——改了等于丢用户布局）。
 const String kRtCanvasModuleTouchpad = 'touchpad';
 const String kRtCanvasModuleInput = 'input';
+
+/// 虚拟键盘（键盘布局主体：5 行 QWERTY + Fn 折叠，按键即发 hotkey）。
+const String kRtCanvasModuleKb = 'kb';
 
 /// 方向轮盘（游戏布局的左手区：vpad_dpad 四向 + none 回中）。
 const String kRtCanvasModuleDpad = 'dpad';
@@ -282,35 +294,51 @@ class RtCanvasButtonPos {
       );
 }
 
-/// 横屏画布命名布局。
+/// 横屏画布命名布局。[orientation] 把布局钉在某一朝向：横竖屏是两个隔离
+/// 的集合（各自展示、各自激活），自定义创建时二选一。
 class RtCanvasNamedLayout {
   const RtCanvasNamedLayout({
     required this.id,
     required this.name,
     required this.builtIn,
     required this.data,
+    this.orientation = kRtCanvasOrientLandscape,
   });
   final String id;
   final String name;
   final bool builtIn;
+
+  /// 横屏 / 竖屏（kRtCanvasOrient*）。旧数据缺省横屏。
+  final String orientation;
   final RtCanvasLayout data;
-  RtCanvasNamedLayout copyWith({String? name, bool? builtIn, RtCanvasLayout? data}) =>
+  RtCanvasNamedLayout copyWith({
+    String? name,
+    bool? builtIn,
+    RtCanvasLayout? data,
+    String? orientation,
+  }) =>
       RtCanvasNamedLayout(
         id: id,
         name: name ?? this.name,
         builtIn: builtIn ?? this.builtIn,
         data: data ?? this.data,
+        orientation: orientation ?? this.orientation,
       );
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'builtIn': builtIn,
+        // 横屏不落字段（旧版本读到未知 orientation 也能按缺省兜底）。
+        if (orientation != kRtCanvasOrientLandscape) 'or': orientation,
         'data': data.toJson(),
       };
   factory RtCanvasNamedLayout.fromJson(Map<String, dynamic> j) => RtCanvasNamedLayout(
     id: j['id']?.toString() ?? '',
     name: j['name']?.toString() ?? '',
     builtIn: j['builtIn'] == true,
+    orientation: j['or'] == kRtCanvasOrientPortrait
+        ? kRtCanvasOrientPortrait
+        : kRtCanvasOrientLandscape,
     data: RtCanvasLayout.fromJson(
       j['data'] is Map
           ? (j['data'] as Map).cast<String, dynamic>()
@@ -319,38 +347,102 @@ class RtCanvasNamedLayout {
   );
 }
 
-/// 画布布局集：列表 + 当前激活 id。空表 = 首跑由页面铺内置。
+/// 画布布局集：列表 + 分朝向激活 id。横竖屏各自记激活（隔离）；空表 =
+/// 首跑由页面铺内置。
 class RtCanvasLayouts {
   const RtCanvasLayouts({
     this.list = const [],
     this.activeId = kRtCanvasPresetDefault,
+    this.activeIdPortrait = '',
   });
   final List<RtCanvasNamedLayout> list;
+
+  /// 横屏激活布局 id。
   final String activeId;
-  RtCanvasNamedLayout? get active {
+
+  /// 竖屏激活布局 id。空 = 由 [activeFor] 兜底到竖屏列表第一条。
+  final String activeIdPortrait;
+
+  /// 指定朝向的激活布局：横屏看 [activeId]，竖屏看 [activeIdPortrait]
+  /// （空则兜底竖屏第一条——旋转过去永远有布局可用）。跨侧不兜底：
+  /// 竖屏侧没有任何竖屏布局时返回 null（横竖屏集合相互隔离）。
+  RtCanvasNamedLayout? activeFor(String orientation) {
+    final wantPortrait = orientation == kRtCanvasOrientPortrait;
+    final id = wantPortrait ? activeIdPortrait : activeId;
     for (final p in list) {
-      if (p.id == activeId) return p;
+      if (p.id == id && p.orientation == orientation) return p;
+    }
+    if (wantPortrait) {
+      for (final p in list) {
+        if (p.orientation == kRtCanvasOrientPortrait) return p;
+      }
+      return null;
     }
     return list.isNotEmpty ? list.first : null;
   }
+
+  RtCanvasNamedLayout? get active => activeFor(kRtCanvasOrientLandscape);
   RtCanvasLayout get activeData => active?.data ?? const RtCanvasLayout();
-  RtCanvasLayouts withActive(String id) =>
-      RtCanvasLayouts(list: list, activeId: id);
-  RtCanvasLayouts withList(List<RtCanvasNamedLayout> list) =>
-      RtCanvasLayouts(list: list, activeId: activeId);
-  RtCanvasLayouts withUpdatedActive(RtCanvasLayout data) {
+
+  /// 该 id 对应布局所属朝向（查不到回横屏）。
+  String orientationOf(String id) {
+    for (final p in list) {
+      if (p.id == id) return p.orientation;
+    }
+    return kRtCanvasOrientLandscape;
+  }
+
+  RtCanvasLayouts withActive(String id) => withActiveFor(orientationOf(id), id);
+
+  /// 切换指定朝向的激活布局（id 必须与朝向同侧才生效——防跨侧串台）。
+  RtCanvasLayouts withActiveFor(String orientation, String id) {
+    final hit = list.any((p) => p.id == id && p.orientation == orientation);
+    if (!hit) return this;
+    if (orientation == kRtCanvasOrientPortrait) {
+      if (activeIdPortrait == id) return this;
+      return RtCanvasLayouts(
+        list: list,
+        activeId: activeId,
+        activeIdPortrait: id,
+      );
+    }
+    if (activeId == id) return this;
+    return RtCanvasLayouts(
+      list: list,
+      activeId: id,
+      activeIdPortrait: activeIdPortrait,
+    );
+  }
+
+  RtCanvasLayouts withList(List<RtCanvasNamedLayout> list) => RtCanvasLayouts(
+        list: list,
+        activeId: activeId,
+        activeIdPortrait: activeIdPortrait,
+      );
+
+  /// 更新指定朝向当前激活布局的数据。
+  RtCanvasLayouts withUpdatedActiveFor(String orientation, RtCanvasLayout data) {
+    final cur = activeFor(orientation);
+    if (cur == null) return this;
     final next = <RtCanvasNamedLayout>[];
     var replaced = false;
     for (final p in list) {
-      if (!replaced && p.id == activeId) {
+      if (!replaced && p.id == cur.id) {
         next.add(p.copyWith(data: data));
         replaced = true;
       } else {
         next.add(p);
       }
     }
-    return RtCanvasLayouts(list: next, activeId: activeId);
+    return RtCanvasLayouts(
+      list: next,
+      activeId: activeId,
+      activeIdPortrait: activeIdPortrait,
+    );
   }
+
+  RtCanvasLayouts withUpdatedActive(RtCanvasLayout data) =>
+      withUpdatedActiveFor(kRtCanvasOrientLandscape, data);
 
   /// 重命名指定布局（不可变更新；id 不存在时原样返回）。
   RtCanvasLayouts withRenamed(String id, String name) {
@@ -377,6 +469,7 @@ class RtCanvasLayouts {
   Map<String, dynamic> toJson() => {
         'list': [for (final p in list) p.toJson()],
         'activeId': activeId,
+        if (activeIdPortrait.isNotEmpty) 'activeN': activeIdPortrait,
       };
   factory RtCanvasLayouts.fromJson(Map<String, dynamic> j) {
     final rawList = j['list'];
@@ -393,7 +486,31 @@ class RtCanvasLayouts {
     final activeId = list.any((p) => p.id == rawActive)
         ? rawActive
         : kRtCanvasPresetDefault;
-    return RtCanvasLayouts(list: list, activeId: activeId);
+    // 竖屏激活：存盘值有效（存在且确为竖屏布局）才用；否则兜底竖屏
+    // 第一条（再没有就留空，读侧 activeFor 继续兜）。
+    final rawActiveN = j['activeN']?.toString() ?? '';
+    var activeIdPortrait = '';
+    if (rawActiveN.isNotEmpty) {
+      for (final p in list) {
+        if (p.id == rawActiveN && p.orientation == kRtCanvasOrientPortrait) {
+          activeIdPortrait = rawActiveN;
+          break;
+        }
+      }
+    }
+    if (activeIdPortrait.isEmpty) {
+      for (final p in list) {
+        if (p.orientation == kRtCanvasOrientPortrait) {
+          activeIdPortrait = p.id;
+          break;
+        }
+      }
+    }
+    return RtCanvasLayouts(
+      list: list,
+      activeId: activeId,
+      activeIdPortrait: activeIdPortrait,
+    );
   }
 }
 
