@@ -705,7 +705,7 @@ void main() {
       expect(kba.h, 0.82);
     });
 
-    test('游戏=纯手柄 vpad；触控屏=满屏触摸板 mouse', () {
+    test('游戏=纯手柄 vpad；触控屏=满屏触摸板 mouse、无快捷键收录', () {
       final game = kRtCanvasBuiltinPresets
           .firstWhere((p) => p.id == kRtCanvasPresetGame);
       expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue);
@@ -719,6 +719,16 @@ void main() {
       expect(pad.data.modules.length, 1);
       expect(pad.data.modules[kRtCanvasModuleTouchpad]!.w, 1.0);
       expect(pad.data.modules[kRtCanvasModuleTouchpad]!.h, 1.0);
+      // 触控屏不靠 hideShortcuts，靠 buttons 空 + 使用态 opt-in 不渲染。
+      expect(pad.data.hideShortcuts, isFalse);
+      expect(pad.data.buttons, isEmpty);
+    });
+
+    test('空布局（新建自定义起点）= 无模块无按钮', () {
+      const empty = RtCanvasLayout();
+      expect(empty.modules, isEmpty);
+      expect(empty.buttons, isEmpty);
+      expect(empty.hideShortcuts, isFalse);
     });
 
     test('游戏布局锚点与原型 LAYOUTS.game 同源、两端互不相交', () {

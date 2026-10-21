@@ -19,9 +19,9 @@
 //                   一键锁横屏 / 切换布局逃生（用户主动选定竖屏布局后
 //                   本轮不再提示）。
 //
-// 职责切分：快捷键「有哪些」归打字页编辑器（rt_shortcut_bar 的列表编辑），
-// 「显示哪些」归画布（RtCanvasButtonPos.v）。布局集合「用哪一套」归画布
-// 面板（RtCanvasLayouts，分朝向激活）。两层职责相互独立。
+// 职责切分：快捷键「有哪些」归打字页编辑器；画布「显示哪几个」= 布局
+// buttons 显式收录且 v=true（opt-in，未收录使用态不出现）。布局集合
+// 「用哪一套」归画布面板（RtCanvasLayouts，分朝向激活）。
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -1124,57 +1124,79 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 模块：快捷按钮 ----
+  // ---- 模块：快捷按钮（逐键 opt-in）----
+  // 使用态：仅 buttons 里显式收录且 v=true 的键；未收录 = 不渲染。
+  // 编辑态：已收录可拖/显隐；未收录以幽灵出现，点按即写入 buttons(v=true)。
+  // hideShortcuts（游戏/键盘）：整区不参与，编辑态也不出幽灵。
 
   List<Widget> _buttonModules(Size canvasSize) {
-    // 纯手柄布局（游戏布局）：按钮区归 vpad 模块，快捷键按钮整体不参与。
     if (widget.activeLayout.hideShortcuts) return const [];
+
     final assigned = <String, Offset>{
       for (final e in widget.activeLayout.buttons.entries)
         e.key: Offset(e.value.x, e.value.y),
     };
-    final resolved = <String, Offset>{};
-    for (final item in widget.shortcuts) {
-      final saved = assigned[item.id];
-      if (saved != null) {
-        resolved[item.id] = saved;
-        continue;
-      }
-      final slot = rtFirstFreeCanvasSlot(assigned.values.toSet());
-      assigned[item.id] = slot;
-      resolved[item.id] = slot;
-    }
-
     final out = <Widget>[];
     for (final item in widget.shortcuts) {
-      final center = resolved[item.id]!;
-      final pos =
-          widget.activeLayout.buttons[item.id] ??
-          RtCanvasButtonPos(x: center.dx, y: center.dy);
-      if (!widget.editMode && !pos.v) continue;
+      final saved = widget.activeLayout.buttons[item.id];
+      if (!widget.editMode) {
+        if (saved == null || !saved.v) continue;
+        out.add(_shortcutButton(item, saved, canvasSize));
+        continue;
+      }
+      // 编辑态：未收录先占一个空槽做幽灵预览（不落盘，点按才写入）。
+      final RtCanvasButtonPos pos;
+      if (saved != null) {
+        pos = saved;
+      } else {
+        final slot = rtFirstFreeCanvasSlot(assigned.values.toSet());
+        assigned[item.id] = slot;
+        pos = RtCanvasButtonPos(x: slot.dx, y: slot.dy, v: false);
+      }
       out.add(
-        RtCanvasButton(
-          item: item,
-          pos: pos,
-          canvasSize: canvasSize,
-          connected: widget.connected,
-          busy: widget.firingId == item.id,
-          editMode: widget.editMode,
-          onTransform: (c, sc) => _updateButton(
-            item.id,
-            pos.copyWith(
-              x: c?.dx.clamp(0.0, 1.0).toDouble(),
-              y: c?.dy.clamp(0.0, 1.0).toDouble(),
-              s: sc,
-            ),
-          ),
-          onToggleVisible: () =>
-              _updateButton(item.id, pos.copyWith(v: !pos.v)),
-          onFire: widget.onFire,
+        _shortcutButton(
+          item,
+          pos,
+          canvasSize,
+          onToggleVisible: () {
+            if (saved == null) {
+              // 首次点按 = 收录并显示
+              _updateButton(item.id, pos.copyWith(v: true));
+            } else {
+              _updateButton(item.id, pos.copyWith(v: !pos.v));
+            }
+          },
         ),
       );
     }
     return out;
+  }
+
+  Widget _shortcutButton(
+    RtShortcutItem item,
+    RtCanvasButtonPos pos,
+    Size canvasSize, {
+    VoidCallback? onToggleVisible,
+  }) {
+    return RtCanvasButton(
+      item: item,
+      pos: pos,
+      canvasSize: canvasSize,
+      connected: widget.connected,
+      busy: widget.firingId == item.id,
+      editMode: widget.editMode,
+      onTransform: (c, sc) => _updateButton(
+        item.id,
+        pos.copyWith(
+          x: c?.dx.clamp(0.0, 1.0).toDouble(),
+          y: c?.dy.clamp(0.0, 1.0).toDouble(),
+          s: sc,
+        ),
+      ),
+      onToggleVisible: onToggleVisible ??
+          () => _updateButton(item.id, pos.copyWith(v: !pos.v)),
+      onFire: widget.onFire,
+    );
   }
 }
 

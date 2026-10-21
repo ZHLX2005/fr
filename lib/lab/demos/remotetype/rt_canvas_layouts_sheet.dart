@@ -7,8 +7,8 @@
 //     每条带 16:9 迷你画布缩略图（模块矩形 + 按钮点）+ 朝向徽标。
 //   · 内置长按 → 「恢复出厂摆放」（改坏的内置布局可一键还原，不影响其他布局）。
 //   · 自定义长按 → 重命名 / 删除（删除有确认）。
-//   · 底部「复制当前为新自定义」→ 先选朝向（横屏 / 竖屏）再创建，画布页
-//     立即切到它（选了另一朝向则记为该侧激活，旋转后生效）。
+//   · 底部「新建自定义布局」→ 先选朝向（横屏 / 竖屏）再创建空画布
+//     （无模块、无快捷键），画布页立即切到它（选了另一朝向则记为该侧激活）。
 //
 // 画布 view 在 _openLayoutsSheet 里 showModalBottomSheet 调用本件；本件
 // 只负责「展示 + 收集意图」，持久化与状态切换由页面的回调接管。
@@ -182,8 +182,8 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton.tonalIcon(
                     onPressed: () => _pickCopyOrientation(context),
-                    icon: const Icon(Icons.copy_all_outlined, size: 18),
-                    label: const Text('复制当前为新自定义'),
+                    icon: const Icon(Icons.add_box_outlined, size: 18),
+                    label: const Text('新建自定义布局'),
                   ),
                 ),
               ),
@@ -209,14 +209,14 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
     final orient = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('复制为新自定义（选择朝向）'),
+        title: const Text('新建自定义布局（选择朝向）'),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.of(ctx).pop(kRtCanvasOrientLandscape),
             child: const ListTile(
               leading: Icon(Icons.stay_current_landscape),
               title: Text('横屏布局'),
-              subtitle: Text('复制当前内容，归入横屏组'),
+              subtitle: Text('空画布，归入横屏组'),
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -225,7 +225,7 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
             child: const ListTile(
               leading: Icon(Icons.stay_current_portrait),
               title: Text('竖屏布局'),
-              subtitle: Text('复制当前内容，归入竖屏组（旋转后可用）'),
+              subtitle: Text('空画布，归入竖屏组（旋转后可用）'),
               contentPadding: EdgeInsets.zero,
             ),
           ),

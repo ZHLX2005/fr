@@ -130,10 +130,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// true = 尊重用户选择，锁定横屏布局不再弹提示层；回横屏自动复位。
   bool _portraitChosen = false;
 
-  RtCanvasLayout get _activeLayout =>
-      _layouts.activeFor(_canvasOrientation)?.data ??
-      const RtCanvasLayout();
-
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
     controller: _textController,
@@ -376,9 +372,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
-  /// 把当前激活布局复制为一条新的自定义（[orientation] 由用户在面板里
-  /// 选定横屏 / 竖屏），并切到它。选了另一朝向时：记为该侧激活但不转屏
-  /// ——用户旋转过去就能用（隔离：不影响当前朝向的激活）。
+  /// 新建一条空自定义布局（[orientation] 由面板选定；空画布——无模块、
+  /// 无快捷键按钮，编辑态再逐项加回）。选了另一朝向时记为该侧激活但不转屏。
   void _copyToCustom(String orientation) {
     final newId = _layouts.nextCustomId();
     final displayIndex = newId.startsWith('custom-')
@@ -389,7 +384,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       name: '自定义 $displayIndex',
       builtIn: false,
       orientation: orientation,
-      data: _activeLayout,
+      data: const RtCanvasLayout(),
     );
     final next = _layouts
         .withList([..._layouts.list, entry])
@@ -402,8 +397,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     if (orientation != _canvasOrientation) {
       _showSnack(
         orientation == kRtCanvasOrientPortrait
-            ? '已创建竖屏布局，旋转到竖屏即可使用'
-            : '已创建横屏布局，旋转到横屏即可使用',
+            ? '已新建空竖屏布局，旋转到竖屏即可编辑'
+            : '已新建空横屏布局，旋转到横屏即可编辑',
       );
     }
   }
