@@ -406,6 +406,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
   /// 拷贝当前 activeLayout 并替换指定模块/按钮后返回新 RtCanvasLayout。
   /// hideShortcuts 必须原样携带——游戏/键盘布局靠它压掉快捷键按钮，丢了
   /// 等于「拖一下模块，按钮整体复活」（跨布局配置串台）。
+  /// anchor 同理走 copyWith——轮盘的方向模式（dir8）挂在 anchor 上，
+  /// 手建新对象会把它悄悄丢掉（切了八向、拖一下模块就回四向）。
   RtCanvasLayout _patchAnchor(
     String id, {
     bool? visible,
@@ -417,12 +419,12 @@ class _RtCanvasViewState extends State<RtCanvasView>
     final modules = Map<String, RtCanvasAnchor>.of(widget.activeLayout.modules);
     final cur =
         modules[id] ?? const RtCanvasAnchor(visible: true, x: 0.5, y: 0.5);
-    modules[id] = RtCanvasAnchor(
-      visible: visible ?? cur.visible,
-      x: x ?? cur.x,
-      y: y ?? cur.y,
-      w: w ?? cur.w,
-      h: h ?? cur.h,
+    modules[id] = cur.copyWith(
+      visible: visible,
+      x: x,
+      y: y,
+      w: w,
+      h: h,
     );
     return RtCanvasLayout(
       modules: modules,
@@ -1010,6 +1012,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
     Widget pad = RtCanvasDpad(
       enabled: widget.connected,
       showLegend: !widget.editMode,
+      dir8: _anchorOf(kRtCanvasModuleDpad).dir8,
       onDirection: widget.onDirection,
     );
     if (widget.editMode) {

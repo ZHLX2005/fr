@@ -5,8 +5,13 @@
 //     PC 端虚拟手柄保持该状态，**无需连发**。
 //   · 按住滑到另一向 = 换向；滑回中心死区（半径 25%）或松手 = 回报 null
 //     （映射为 vpad_dpad 'none' 回中）。
-// 方向名与 rust input-agent vpad.rs 的 vpad_dir 白名单一致（up/down/left/
-// right/none），经 rt-align normalizeVpadOp 白名单放行。
+// 两种模式（[dir8]）：
+//   · false = 四向（默认）：|dx| ≥ |dy| 归左右，否则归上下——不产生斜向，
+//     供不认斜向的游戏用。
+//   · true = 八向：45° 扇区（八分圆，22.5° 为界），补 up_left/up_right/
+//     down_left/down_right 四个斜向。
+// 方向名与 rust input-agent vpad.rs 的 vpad_dir 白名单一致（四向 + 四斜向 +
+// none），经 rt-align normalizeVpadOp 白名单放行。斜向需 PC 端同步更新。
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -25,17 +30,22 @@ class RtCanvasDpad extends StatefulWidget {
     required this.enabled,
     required this.onDirection,
     this.showLegend = true,
+    this.dir8 = false,
   });
 
   /// false（未连接）：置灰且不响应。
   final bool enabled;
 
-  /// 方向变化回报：非 null = 新方向（vpad_dpad up/down/left/right）；
+  /// 方向变化回报：非 null = 新方向（vpad_dpad up/down/left/right，
+  /// 八向模式另加 up_left/up_right/down_left/down_right）；
   /// null = 回中（vpad_dpad none）。只在变化时回调，不连发。
   final ValueChanged<String?> onDirection;
 
   /// 编辑态由外层描边框接管说明，图例可不画。
   final bool showLegend;
+
+  /// 方向模式：false = 四向（默认）；true = 八向（补四个斜向）。
+  final bool dir8;
 
   @override
   State<RtCanvasDpad> createState() => _RtCanvasDpadState();
@@ -47,6 +57,14 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
     'down': Icons.keyboard_arrow_down,
     'left': Icons.keyboard_arrow_left,
     'right': Icons.keyboard_arrow_right,
+  };
+
+  /// 八向模式的四个斜向箭头（四角，尺寸小于正方向箭头）。
+  static const _diagDirs = <String, IconData>{
+    'up_left': Icons.north_west,
+    'up_right': Icons.north_east,
+    'down_left': Icons.south_west,
+    'down_right': Icons.south_east,
   };
 
   String? _activeDir;
@@ -64,9 +82,24 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
     final v = local - center;
     final radius = math.min(size.width, size.height) / 2;
     if (v.distance < radius * kRtDpadDeadZoneRatio) return null;
-    return v.dx.abs() >= v.dy.abs()
-        ? (v.dx >= 0 ? 'right' : 'left')
-        : (v.dy >= 0 ? 'down' : 'up');
+    if (!widget.dir8) {
+      return v.dx.abs() >= v.dy.abs()
+          ? (v.dx >= 0 ? 'right' : 'left')
+          : (v.dy >= 0 ? 'down' : 'up');
+    }
+    // 八向：45° 扇区八分圆，22.5° 为界。Flutter 坐标 y 向下为正：
+    // 0°=右、90°=下、-90°=上、±180°=左。
+    final deg = math.atan2(v.dy, v.dx) * 180 / math.pi;
+    return switch (deg) {
+      < -157.5 || >= 157.5 => 'left',
+      >= -157.5 && < -112.5 => 'up_left',
+      >= -112.5 && < -67.5 => 'up',
+      >= -67.5 && < -22.5 => 'up_right',
+      >= -22.5 && < 22.5 => 'right',
+      >= 22.5 && < 67.5 => 'down_right',
+      >= 67.5 && < 112.5 => 'down',
+      _ => 'down_left',
+    };
   }
 
   /// 旋钮目标位：朝指针方向偏移，钳在半径 55% 内；死区回零。
@@ -178,6 +211,33 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
                               ),
                             ),
                           ),
+                        // 八向模式：四角斜向箭头（尺寸小于正方向，激活同规则）。
+                        if (widget.dir8)
+                          for (final e in _diagDirs.entries)
+                            Align(
+                              alignment: switch (e.key) {
+                                'up_left' => Alignment(-0.68, -0.68),
+                                'up_right' => Alignment(0.68, -0.68),
+                                'down_left' => Alignment(-0.68, 0.68),
+                                _ => Alignment(0.68, 0.68),
+                              },
+                              child: AnimatedScale(
+                                scale: _activeDir == e.key ? 1.22 : 1.0,
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutBack,
+                                child: Icon(
+                                  e.value,
+                                  size: arrowSize * 0.72,
+                                  color: _activeDir == e.key
+                                      ? cs.primary
+                                      : (enabled
+                                            ? c.textMuted
+                                            : c.textMuted.withValues(
+                                                alpha: 0.6,
+                                              )),
+                                ),
+                              ),
+                            ),
                         // 中心旋钮：拖动跟手、松手弹簧回中（带高光顶缘）。
                         Center(
                           child: AnimatedContainer(

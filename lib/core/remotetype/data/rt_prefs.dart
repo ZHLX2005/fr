@@ -44,7 +44,7 @@ const String kRtCanvasModuleKb = 'kb';
 /// 竖屏默认布局的唯一模块；也可作为模块放进任意布局。
 const String kRtCanvasModuleComposer = 'composer';
 
-/// 方向轮盘（游戏布局的左手区：vpad_dpad 四向 + none 回中）。
+/// 方向轮盘（游戏布局的左手区：vpad_dpad 四向 + none 回中；可选八向补斜向）。
 const String kRtCanvasModuleDpad = 'dpad';
 
 /// 模拟摇杆（左 / 右）——补齐协议已支持（vpad_axis lx/ly/rx/ry）而手机端
@@ -207,6 +207,7 @@ class RtCanvasAnchor {
     required this.y,
     this.w,
     this.h,
+    this.dir8 = false,
   });
 
   final bool visible;
@@ -217,12 +218,33 @@ class RtCanvasAnchor {
   final double? w;
   final double? h;
 
+  /// 方向模式（仅轮盘模块有意义）：false = 四向（默认）；true = 八向补斜向。
+  /// 稀疏持久化——四向不落字段，旧数据读入按缺省兜底。
+  final bool dir8;
+
+  RtCanvasAnchor copyWith({
+    bool? visible,
+    double? x,
+    double? y,
+    double? w,
+    double? h,
+    bool? dir8,
+  }) => RtCanvasAnchor(
+    visible: visible ?? this.visible,
+    x: x ?? this.x,
+    y: y ?? this.y,
+    w: w ?? this.w,
+    h: h ?? this.h,
+    dir8: dir8 ?? this.dir8,
+  );
+
   Map<String, dynamic> toJson() => {
     'v': visible,
     'x': x,
     'y': y,
     if (w != null) 'w': w,
     if (h != null) 'h': h,
+    if (dir8) 'd8': true,
   };
 
   factory RtCanvasAnchor.fromJson(Map<String, dynamic> j) => RtCanvasAnchor(
@@ -236,6 +258,7 @@ class RtCanvasAnchor {
         .toDouble(),
     w: _clampFraction(j['w']),
     h: _clampFraction(j['h']),
+    dir8: j['d8'] == true,
   );
 
   static double? _clampFraction(dynamic v) =>

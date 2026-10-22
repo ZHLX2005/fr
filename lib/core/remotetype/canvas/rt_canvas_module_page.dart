@@ -21,7 +21,7 @@ import 'rt_canvas_modules.dart'
         rtCanvasModuleRange,
         rtCanvasModuleSpec,
         rtCanvasSizeStep;
-import '../data/rt_prefs.dart' show RtCanvasAnchor;
+import '../data/rt_prefs.dart' show RtCanvasAnchor, kRtCanvasModuleDpad;
 
 /// 打开模块设置页（全屏路由，设置页观感）。
 Future<void> showRtCanvasModulePage(
@@ -289,15 +289,10 @@ Future<void> _openArrangeSheet(
                   _GridPicker(
                     anchor: anchor,
                     onPick: (pos) {
+                      // copyWith 保方向模式——手建新锚点会把它丢掉。
                       onSetAnchor(
                         specId,
-                        RtCanvasAnchor(
-                          visible: true,
-                          x: pos.x,
-                          y: pos.y,
-                          w: anchor.w,
-                          h: anchor.h,
-                        ),
+                        anchor.copyWith(visible: true, x: pos.x, y: pos.y),
                       );
                       setSheetState(() {});
                     },
@@ -317,10 +312,8 @@ Future<void> _openArrangeSheet(
                                   final (w, h) = rtCanvasSizeStep(specId, i);
                                   onSetAnchor(
                                     specId,
-                                    RtCanvasAnchor(
+                                    anchor.copyWith(
                                       visible: true,
-                                      x: anchor.x,
-                                      y: anchor.y,
                                       w: w,
                                       h: h,
                                     ),
@@ -339,6 +332,44 @@ Future<void> _openArrangeSheet(
                     ],
                   ),
                   const SizedBox(height: 12),
+                  // 方向模式（仅轮盘）：四向 = 不产生斜向（不认斜向的游戏）；
+                  // 八向 = 补四个斜向，依赖 PC 端白名单同步放行。
+                  if (specId == kRtCanvasModuleDpad) ...[
+                    const SizedBox(height: 18),
+                    Text('方向模式', style: _labelStyle(cs)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        ChoiceChip(
+                          label: const Text('四向'),
+                          selected: !anchor.dir8,
+                          onSelected: (_) {
+                            onSetAnchor(specId, anchor.copyWith(dir8: false));
+                            setSheetState(() {});
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('八向'),
+                          selected: anchor.dir8,
+                          onSelected: (_) {
+                            onSetAnchor(specId, anchor.copyWith(dir8: true));
+                            setSheetState(() {});
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '八向补斜向，需电脑端同步更新',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (anchor.visible)
                     Row(
                       children: [
@@ -375,6 +406,7 @@ TextStyle _labelStyle(ColorScheme cs) => TextStyle(
 );
 
 /// 复位：回到该模块的缺省规格 + 九宫格中心位。
+/// 只复位几何，方向模式（dir8）保留——要回默认方向走「恢复出厂布局」。
 VoidCallback _resetAnchor(
   String specId,
   RtCanvasAnchor Function(String id) anchorOf,
@@ -384,7 +416,7 @@ VoidCallback _resetAnchor(
     final (w, h) = rtCanvasModuleDefaults(specId);
     onSetAnchor(
       specId,
-      RtCanvasAnchor(visible: true, x: 0.5, y: 0.5, w: w, h: h),
+      anchorOf(specId).copyWith(visible: true, x: 0.5, y: 0.5, w: w, h: h),
     );
   };
 }

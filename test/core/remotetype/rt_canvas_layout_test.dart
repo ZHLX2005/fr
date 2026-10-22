@@ -109,6 +109,48 @@ void main() {
       expect(anchor.w, 1.0);
       expect(anchor.h, 0.05);
     });
+
+    test('方向模式 round-trip：八向落 d8 字段并读回', () {
+      const anchor = RtCanvasAnchor(
+        visible: true,
+        x: 0.2,
+        y: 0.5,
+        dir8: true,
+      );
+      final json = anchor.toJson();
+      expect(json['d8'], isTrue);
+      final restored = RtCanvasAnchor.fromJson(json.cast<String, dynamic>());
+      expect(restored.dir8, isTrue);
+    });
+
+    test('方向模式稀疏：四向不落字段，旧数据读入按四向兜底', () {
+      const anchor = RtCanvasAnchor(visible: true, x: 0.5, y: 0.5);
+      expect(anchor.toJson().containsKey('d8'), isFalse);
+      final legacy = RtCanvasAnchor.fromJson(
+        {'v': true, 'x': 0.1, 'y': 0.2}.cast<String, dynamic>(),
+      );
+      expect(legacy.dir8, isFalse);
+    });
+
+    test('copyWith：改几何不丢方向模式，改模式不动几何', () {
+      const anchor = RtCanvasAnchor(
+        visible: true,
+        x: 0.3,
+        y: 0.4,
+        w: 0.5,
+        h: 0.6,
+        dir8: true,
+      );
+      final moved = anchor.copyWith(x: 0.8, y: 0.9);
+      expect(moved.dir8, isTrue, reason: '拖动模块不能把八向模式丢掉');
+      expect(moved.x, 0.8);
+      expect(moved.w, 0.5);
+
+      final four = anchor.copyWith(dir8: false);
+      expect(four.dir8, isFalse);
+      expect(four.x, 0.3);
+      expect(four.h, 0.6);
+    });
   });
 
   group('RtCanvasButtonPos（按钮位）', () {

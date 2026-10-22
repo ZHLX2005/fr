@@ -57,6 +57,22 @@ void main() {
       expect(back['vpad']['vpad_dir'], 'none');
     });
 
+    test('dpad 形状：斜向 vpad_dir 原样透传（八向模式）', () {
+      // 斜向值与 mn-rt rt-align.js VPAD_DIRS / rust vpad.rs parse_dpad 同名，
+      // 手机端只做透传、白名单在 PC 侧。
+      final plain = rtVpadPlaintext(
+        {
+          'action': 'vpad_dpad',
+          'vpad_handle': 'pad1',
+          'vpad_dir': 'up_left',
+        },
+        1,
+        'p',
+      );
+      final back = jsonDecode(jsonEncode(plain)) as Map<String, dynamic>;
+      expect(back['vpad']['vpad_dir'], 'up_left');
+    });
+
     test('trigger 形状：vpad_trigger + 0..1 vpad_value（按压=1.0 / 松开=0.0）', () {
       final press = rtVpadPlaintext(
         {

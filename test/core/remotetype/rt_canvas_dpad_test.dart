@@ -5,9 +5,10 @@
 //   - 按住滑到另一向 = 换向（旧向停、新向回报）
 //   - 松手 / 滑回中心死区 = 回报 null（映射 vpad_dpad 'none' 回中）
 //   - 未连接（enabled: false）不响应
+//   - 两种方向模式：四向（默认，|dx|≥|dy| 取左右，否则上下）与八向
+//     （45° 扇区八分圆，补 up_left/up_right/down_left/down_right）
 //
-// 判定口径与 RtCanvasDpad._dirAt 一致：相对轮盘中心，|dx|≥|dy| 取左右，
-// 否则上下；中心死区（半径 25%）无方向。
+// 判定口径与 RtCanvasDpad._dirAt 一致；中心死区（半径 25%）无方向。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,7 @@ Future<void> pumpDpad(
   WidgetTester tester, {
   required ValueChanged<String?> onDirection,
   bool enabled = true,
+  bool dir8 = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -29,6 +31,7 @@ Future<void> pumpDpad(
               enabled: enabled,
               onDirection: onDirection,
               showLegend: false,
+              dir8: dir8,
             ),
           ),
         ),
@@ -107,5 +110,96 @@ void main() {
     await gesture.up();
     await tester.pump();
     expect(fired, isEmpty, reason: '置灰态不应回报方向');
+  });
+
+  group('方向模式', () {
+    testWidgets('默认四向：45° 角按 |dx|≥|dy| 归 right，不出斜向', (tester) async {
+      final fired = <String?>[];
+      await pumpDpad(tester, onDirection: fired.add);
+
+      final center = tester.getCenter(find.byType(RtCanvasDpad));
+      final gesture = await tester.startGesture(center + const Offset(60, 60));
+      await tester.pump();
+      expect(fired, ['right'], reason: '四向模式不出斜向');
+
+      await gesture.up();
+      await tester.pump();
+      expect(fired, ['right', null]);
+    });
+
+    testWidgets('八向：四个对角各归各位', (tester) async {
+      const cases = <(Offset, String)>[
+        (Offset(60, 60), 'down_right'),
+        (Offset(60, -60), 'up_right'),
+        (Offset(-60, 60), 'down_left'),
+        (Offset(-60, -60), 'up_left'),
+      ];
+      for (final (offset, dir) in cases) {
+        final fired = <String?>[];
+        await pumpDpad(tester, onDirection: fired.add, dir8: true);
+
+        final center = tester.getCenter(find.byType(RtCanvasDpad));
+        final gesture = await tester.startGesture(center + offset);
+        await tester.pump();
+        expect(fired, [dir], reason: '$offset 应判 $dir');
+        await gesture.up();
+        await tester.pump();
+        expect(fired, [dir, null], reason: '松手回中');
+      }
+    });
+
+    testWidgets('八向：22.5° 边界内侧取正方向、外侧取斜向', (tester) async {
+      final fired = <String?>[];
+      await pumpDpad(tester, onDirection: fired.add, dir8: true);
+      final center = tester.getCenter(find.byType(RtCanvasDpad));
+
+      // (70,20) ≈ 16° → 仍在 right 扇区
+      var gesture = await tester.startGesture(center + const Offset(70, 20));
+      await tester.pump();
+      expect(fired, ['right']);
+      await gesture.up();
+      await tester.pump();
+
+      // (70,40) ≈ 30° → 已进 down_right 扇区
+      gesture = await tester.startGesture(center + const Offset(70, 40));
+      await tester.pump();
+      expect(fired, ['right', null, 'down_right']);
+
+      // (-70,20) ≈ 164° → left 扇区
+      await gesture.up();
+      await tester.pump();
+      gesture = await tester.startGesture(center + const Offset(-70, 20));
+      await tester.pump();
+      expect(fired.last, 'left');
+
+      // (-70,40) ≈ 150° → down_left 扇区
+      await gesture.up();
+      await tester.pump();
+      gesture = await tester.startGesture(center + const Offset(-70, 40));
+      await tester.pump();
+      expect(fired.last, 'down_left');
+      await gesture.up();
+      await tester.pump();
+    });
+
+    testWidgets('八向：死区判定先于扇区（死区内无方向，滑出才判）', (tester) async {
+      final fired = <String?>[];
+      await pumpDpad(tester, onDirection: fired.add, dir8: true);
+
+      final center = tester.getCenter(find.byType(RtCanvasDpad));
+      // (15,15) 距离 ≈21 < 25（死区）
+      final gesture = await tester.startGesture(center + const Offset(15, 15));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(fired, isEmpty, reason: '死区内无方向');
+
+      // 滑到对角 → down_right
+      await gesture.moveBy(const Offset(45, 45));
+      await tester.pump();
+      expect(fired, ['down_right']);
+
+      await gesture.up();
+      await tester.pump();
+      expect(fired, ['down_right', null]);
+    });
   });
 }
