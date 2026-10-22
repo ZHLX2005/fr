@@ -35,7 +35,11 @@ import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
 import 'rt_canvas_kb.dart' show RtCanvasKb;
 import 'rt_canvas_modules.dart'
-    show kRtCanvasModuleSpecs, rtCanvasModuleDefaults, rtCanvasModuleRange;
+    show
+        RtCanvasModuleSpec,
+        kRtCanvasModuleSpecs,
+        rtCanvasModuleDefaults,
+        rtCanvasModuleRange;
 import 'rt_canvas_stick.dart' show RtCanvasStick;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad, rtVpadKeyOrder;
 import '../ui/rt_layout_picker.dart' show showRtLayoutPicker;
@@ -197,8 +201,9 @@ class _RtCanvasViewState extends State<RtCanvasView>
   double _liveW = 0;
   double _liveH = 0;
 
-  /// 编辑态顶栏是否收起（收起后只留一颗「编辑工具」chip，不挡画布）。
-  bool _editBarCollapsed = false;
+  /// 编辑态功能清单是否收起（收起后只留一颗「编辑工具」chip，不挡画布）。
+  /// 默认收起——进编辑态先把画布还给用户，清单点开再看。
+  bool _editBarCollapsed = true;
 
   @override
   void initState() {
@@ -231,9 +236,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
         _liveH = 0;
       });
     }
-    // 进入编辑态：顶栏默认展开，方便找完成/模块 chip。
+    // 进入编辑态：默认收起，只留一颗「编辑工具」chip——功能清单点开再看，
+    // 不一进编辑态就把工具条铺在画布上（横屏顶部是主视线）。
     if (widget.editMode && !oldWidget.editMode) {
-      _editBarCollapsed = false;
+      _editBarCollapsed = true;
     }
     if (!widget.editMode && oldWidget.editMode) {
       _vpadKeyEditActive = false;
@@ -480,11 +486,15 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 编辑态 chrome：顶部居中面板（可收起）+ 画布描边。
-  // 展开 = 模块显隐 + 布局 + 快捷键 + 完成；收起 = 只留「编辑工具」chip，
-  // 不挡手柄/键盘视线（对齐「编辑顶栏遮挡」反馈）。
+  // ---- 编辑态 chrome：功能清单可收纳。竖屏收在头部，横屏收在右侧。 ----
+  // 展开 = 模块显隐 + 编辑快捷键 + 完成；收起 = 只留一颗「编辑工具」chip，
+  // 不挡手柄/键盘视线。
+  // 分朝向摆放：竖屏沿用顶部横条（头部位置，横条在窄屏上滑）；横屏把收纳
+  // 挪到右侧竖排面板——横屏的上方是游戏/手柄的主视线，不能被工具条切掉。
 
   List<Widget> _editChrome(ColorScheme cs) {
+    final portrait =
+        MediaQuery.orientationOf(context) == Orientation.portrait;
     return [
       Positioned.fill(
         child: IgnorePointer(
@@ -498,81 +508,223 @@ class _RtCanvasViewState extends State<RtCanvasView>
           ),
         ),
       ),
-      Align(
-        alignment: Alignment.topCenter,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: _editBarCollapsed
-                ? ActionChip(
-                    avatar: Icon(
-                      Icons.edit_note_outlined,
-                      size: 18,
-                      color: cs.primary,
-                    ),
-                    label: Text(
-                      '编辑工具',
-                      style: TextStyle(
-                        color: cs.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onPressed: () => setState(() => _editBarCollapsed = false),
-                  )
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ActionChip(
-                          avatar: Icon(
-                            Icons.unfold_less,
-                            size: 18,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          label: const Text('收起'),
-                          onPressed: () =>
-                              setState(() => _editBarCollapsed = true),
-                        ),
-                        const SizedBox(width: 8),
-                        // 模块 chip 行由登记表驱动（与模块设置页同一清单）。
-                        for (final spec in kRtCanvasModuleSpecs) ...[
-                          _moduleVisibilityChip(
-                            icon: spec.icon,
-                            label: spec.name,
-                            id: spec.id,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        ActionChip(
-                          avatar: Icon(
-                            Icons.playlist_add,
-                            size: 18,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          label: const Text('编辑快捷键'),
-                          onPressed: widget.onEditShortcuts,
-                        ),
-                        const SizedBox(width: 8),
-                        ActionChip(
-                          avatar:
-                              Icon(Icons.check, size: 18, color: cs.primary),
-                          label: Text(
-                            '完成',
-                            style: TextStyle(
-                              color: cs.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          onPressed: () => widget.onEditModeChanged(false),
-                        ),
-                      ],
-                    ),
-                  ),
+      if (portrait)
+        Align(
+          alignment: Alignment.topCenter,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              child: _editBarCollapsed
+                  ? _editTriggerChip(cs)
+                  : _editTopBar(cs),
+            ),
+          ),
+        )
+      else
+        Align(
+          alignment: Alignment.centerRight,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: _editBarCollapsed
+                  ? _editTriggerChip(cs)
+                  : _editSidePanel(cs),
+            ),
+          ),
+        ),
+    ];
+  }
+
+  /// 收纳态：单颗「编辑工具」chip（竖屏在头部、横屏在右侧，同一颗）。
+  Widget _editTriggerChip(ColorScheme cs) => ActionChip(
+    avatar: Icon(Icons.edit_note_outlined, size: 18, color: cs.primary),
+    label: Text(
+      '编辑工具',
+      style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
+    ),
+    onPressed: () => setState(() => _editBarCollapsed = false),
+  );
+
+  /// 展开态 · 竖屏：顶部横条（窄屏上滑）。
+  Widget _editTopBar(ColorScheme cs) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ActionChip(
+            avatar: Icon(
+              Icons.unfold_less,
+              size: 18,
+              color: cs.onSurfaceVariant,
+            ),
+            label: const Text('收起'),
+            onPressed: () => setState(() => _editBarCollapsed = true),
+          ),
+          const SizedBox(width: 8),
+          // 模块 chip 行由登记表驱动（与模块设置页同一清单）。
+          for (final spec in kRtCanvasModuleSpecs) ...[
+            _moduleVisibilityChip(
+              icon: spec.icon,
+              label: spec.name,
+              id: spec.id,
+            ),
+            const SizedBox(width: 8),
+          ],
+          ActionChip(
+            avatar: Icon(
+              Icons.playlist_add,
+              size: 18,
+              color: cs.onSurfaceVariant,
+            ),
+            label: const Text('编辑快捷键'),
+            onPressed: widget.onEditShortcuts,
+          ),
+          const SizedBox(width: 8),
+          ActionChip(
+            avatar: Icon(Icons.check, size: 18, color: cs.primary),
+            label: Text(
+              '完成',
+              style: TextStyle(
+                color: cs.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            onPressed: () => widget.onEditModeChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 展开态 · 横屏：右侧竖排控制列表（模块开关逐行 + 快捷键 + 完成）。
+  /// 顶栏在横屏是主视线，工具一律挪到右缘竖着排。
+  Widget _editSidePanel(ColorScheme cs) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+        maxWidth: 208,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: cs.surface.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.7)),
+          boxShadow: [
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(-2, 4),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _sideRow(
+                cs: cs,
+                icon: Icons.unfold_more,
+                label: '收起',
+                onTap: () => setState(() => _editBarCollapsed = true),
+              ),
+              Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              // 模块显隐：右侧竖排控制列表（与模块设置页同一清单）。
+              for (final spec in kRtCanvasModuleSpecs)
+                _moduleSideRow(cs, spec),
+              Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              _sideRow(
+                cs: cs,
+                icon: Icons.playlist_add,
+                label: '编辑快捷键',
+                onTap: widget.onEditShortcuts,
+              ),
+              _sideRow(
+                cs: cs,
+                icon: Icons.check,
+                label: '完成',
+                primary: true,
+                onTap: () => widget.onEditModeChanged(false),
+              ),
+            ],
           ),
         ),
       ),
-    ];
+    );
+  }
+
+  /// 右侧面板的一行功能（图标 + 文字）。
+  Widget _sideRow({
+    required ColorScheme cs,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool primary = false,
+  }) {
+    final c = context.colors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 17,
+              color: primary ? cs.primary : c.textMuted,
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: primary ? FontWeight.w700 : FontWeight.w500,
+                  color: primary ? cs.primary : c.text,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 右侧面板里的模块行：图标 + 名称 + 显隐开关。
+  Widget _moduleSideRow(ColorScheme cs, RtCanvasModuleSpec spec) {
+    final c = context.colors;
+    final visible = _anchorOf(spec.id).visible;
+    return InkWell(
+      onTap: () => _toggleModuleVisible(spec.id),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        child: Row(
+          children: [
+            Icon(spec.icon, size: 16, color: c.textMuted),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                spec.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, color: c.text),
+              ),
+            ),
+            Icon(
+              visible ? Icons.visibility : Icons.visibility_off,
+              size: 16,
+              color: visible ? cs.primary : c.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _moduleVisibilityChip({
