@@ -188,17 +188,11 @@ void main() {
       return calls;
     }
 
-    testWidgets('先点选再拖动 → 只回写该键的中心比例', (tester) async {
+    testWidgets('点下即拖 → 回写该键中心比例', (tester) async {
       final calls = await pumpEditVpad(tester);
       final before = rtVpadDefaultSlots(const Size(300, 260))['a']!;
       final aCenter = tester.getCenter(find.text('A'));
 
-      // 第一次点按 = 选中（不拖）
-      await tester.tapAt(aCenter);
-      await tester.pump();
-      expect(calls, isEmpty, reason: '仅选中不回写变换');
-
-      // 已选中后再拖
       final gesture = await tester.startGesture(aCenter);
       await gesture.moveBy(const Offset(40, 0));
       await tester.pump();
@@ -219,15 +213,12 @@ void main() {
       );
     });
 
-    testWidgets('未选中时拖动不回写（须先点选）', (tester) async {
+    testWidgets('轻点无位移 → 只选中不落盘', (tester) async {
       final calls = await pumpEditVpad(tester);
       final aCenter = tester.getCenter(find.text('A'));
-      final gesture = await tester.startGesture(aCenter);
-      await gesture.moveBy(const Offset(40, 0));
+      await tester.tapAt(aCenter);
       await tester.pump();
-      await gesture.up();
-      await tester.pump();
-      expect(calls, isEmpty, reason: '首次手势只选中，拖移被忽略');
+      expect(calls, isEmpty, reason: '纯点选不写 buttons');
     });
 
     testWidgets('编辑态按压不发手柄事件（编排与触发不串台）', (tester) async {

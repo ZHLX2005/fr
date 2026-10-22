@@ -10,10 +10,9 @@
 // 按下/松开成对由本组件保证（Listener down/up/cancel + dispose 补发），
 // PC 端串行链保序。
 //
-// 编辑态逐键编排：点按选中 → 选中键显示描边 + 拉手，可拖动/缩放；未选中
-// 键只响应点选。键位以「模块盒内比例」持久化在布局 buttons（id = vpad:<key>）
-// ——模块整体拖/缩时比例随盒子缩放，未自定义的键回落出厂几何
-// （[rtVpadDefaultSlots]），零迁移。
+// 编辑态逐键编排：点下即选中并允许同手势拖动；松手无位移 = 只选中不落盘，
+// 有位移 = 写回中心。选中键显示描边 + 缩放拉手。键位以「模块盒内比例」
+// 持久化在布局 buttons（id = vpad:<key>）。
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -175,6 +174,7 @@ class RtCanvasVpad extends StatefulWidget {
     this.keyScales = const {},
     this.editMode = false,
     this.onKeyTransform,
+    this.onKeyEditActive,
   });
 
   /// false（未连接）：置灰且不响应。
@@ -195,6 +195,10 @@ class RtCanvasVpad extends StatefulWidget {
   /// 编辑态逐键变换落定（拖动松手 / 拉手松手各回报一次）。
   final RtVpadKeyTransformCallback? onKeyTransform;
 
+  /// 逐键拖/缩进行中（true）/结束（false）。外层模块整搬须据此让路，
+  /// 否则父级 [GestureDetector.onPan] 与键 [Listener] 同抢一势，键看起来「拖不动」。
+  final ValueChanged<bool>? onKeyEditActive;
+
   @override
   State<RtCanvasVpad> createState() => _RtCanvasVpadState();
 }
@@ -204,10 +208,15 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
   final Map<String, Offset> _previewCenters = {};
   final Map<String, double> _previewScales = {};
   Offset? _dragGrabDelta;
+  Offset? _dragStartCenter;
   double? _scaleGrabX;
+  double? _scaleAtStart;
 
-  /// 编辑态当前选中键（null = 未选；仅选中键可拖/缩）。
+  /// 编辑态当前选中键（null = 未选；拉手只挂在选中键上）。
   String? _selectedKey;
+
+  /// 拖动判定：位移小于此值视为「只点选」，松手不落盘。
+  static const double _kDragCommitPx = 6;
 
   @override
   void didUpdateWidget(covariant RtCanvasVpad oldWidget) {
@@ -217,7 +226,10 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
       _previewCenters.clear();
       _previewScales.clear();
       _dragGrabDelta = null;
+      _dragStartCenter = null;
       _scaleGrabX = null;
+      _scaleAtStart = null;
+      _setKeyEditActive(false);
     }
   }
 
@@ -261,13 +273,18 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
 
   // ---- 编辑态：逐键拖动 / 缩放 ----
 
+  void _setKeyEditActive(bool active) {
+    widget.onKeyEditActive?.call(active);
+  }
+
   void _startKeyDrag(String key, Offset global, Size box) {
-    HapticFeedback.mediumImpact();
     final center = _effectiveCenter(key, box);
-    // 抓取偏移 = 指针落点 - 键中心（模块盒内坐标，global 先转 local）。
-    final pointer = _pointerOffset(global, box);
+    // 抓取偏移 = 指针落点 - 键中心（均为模块盒内绝对坐标）。
+    final pointer = _moduleLocal(global, box);
+    _setKeyEditActive(true);
     setState(() {
       _dragGrabDelta = pointer - center;
+      _dragStartCenter = center;
       _previewCenters[key] = center;
     });
   }
@@ -278,24 +295,17 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
     setState(() {
       _previewCenters[key] = _clampCenter(
         key,
-        _pointerOffset(global, box) - grab,
+        _moduleLocal(global, box) - grab,
         box,
       );
     });
   }
 
-  /// 指针位置 → 模块盒内坐标（global 先经本组件 RenderBox 转 local——
-  /// 不用 delta 累加，快速一拖的第一个位移不会被手势识别器吞掉）。
+  /// 指针位置 → 模块盒内绝对坐标（global 先经本组件 RenderBox 转 local）。
   Offset _moduleLocal(Offset global, Size box) {
     final render = context.findRenderObject() as RenderBox?;
     if (render == null) return Offset.zero;
     return render.globalToLocal(global);
-  }
-
-  /// 指针相对模块盒圆心的偏移。
-  Offset _pointerOffset(Offset global, Size box) {
-    final center = Offset(box.width / 2, box.height / 2);
-    return _moduleLocal(global, box) - center;
   }
 
   /// 指针是否落在本键的缩放拉手上（小键的拉手区会盖住键心——命中判别
@@ -320,14 +330,28 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
 
   void _cancelKeyDrag(String key) {
     if (!_previewCenters.containsKey(key)) return;
-    setState(() => _previewCenters.remove(key));
+    setState(() {
+      _previewCenters.remove(key);
+      _dragGrabDelta = null;
+      _dragStartCenter = null;
+    });
+    _setKeyEditActive(false);
   }
 
   void _endKeyDrag(String key, Size box) {
     final center = _previewCenters[key];
+    final start = _dragStartCenter;
     if (center == null) return;
-    setState(() => _previewCenters.remove(key));
-    _dragGrabDelta = null;
+    setState(() {
+      _previewCenters.remove(key);
+      _dragGrabDelta = null;
+      _dragStartCenter = null;
+    });
+    _setKeyEditActive(false);
+    // 位移太小 = 纯点选，不落盘（避免「点一下就写 buttons」）。
+    if (start != null && (center - start).distance < _kDragCommitPx) {
+      return;
+    }
     final fraction = Offset(
       (center.dx / box.width).clamp(0.0, 1.0).toDouble(),
       (center.dy / box.height).clamp(0.0, 1.0).toDouble(),
@@ -337,20 +361,22 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
   }
 
   void _startKeyScale(String key, Offset global) {
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
+    _setKeyEditActive(true);
     setState(() {
       _scaleGrabX = global.dx;
-      _previewScales[key] = _effectiveScale(key);
+      _scaleAtStart = _effectiveScale(key);
+      _previewScales[key] = _scaleAtStart!;
     });
   }
 
-  /// 缩放：按「当前 x − 起点 x」算倍率（绝对量，不靠 delta 累加——
-  /// 第一个位移会被手势识别器吞掉）。
+  /// 缩放：起点倍率 + (当前 x − 起点 x)/160（绝对量，不累加每帧）。
   void _updateKeyScale(String key, Offset global) {
     final startX = _scaleGrabX;
-    if (startX == null || !_previewScales.containsKey(key)) return;
+    final base = _scaleAtStart;
+    if (startX == null || base == null) return;
     setState(() {
-      _previewScales[key] = (_previewScales[key]! + (global.dx - startX) / 160)
+      _previewScales[key] = (base + (global.dx - startX) / 160)
           .clamp(kRtCanvasBtnScaleMin, kRtCanvasBtnScaleMax)
           .toDouble();
     });
@@ -358,13 +384,23 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
 
   void _cancelKeyScale(String key) {
     if (!_previewScales.containsKey(key)) return;
-    setState(() => _previewScales.remove(key));
+    setState(() {
+      _previewScales.remove(key);
+      _scaleGrabX = null;
+      _scaleAtStart = null;
+    });
+    _setKeyEditActive(false);
   }
 
   void _endKeyScale(String key, Size box) {
     final scale = _previewScales[key];
     if (scale == null) return;
-    setState(() => _previewScales.remove(key));
+    setState(() {
+      _previewScales.remove(key);
+      _scaleGrabX = null;
+      _scaleAtStart = null;
+    });
+    _setKeyEditActive(false);
     final center = _clampCenter(key, _effectiveCenter(key, box), box);
     widget.onKeyTransform?.call(
       key,
@@ -375,6 +411,13 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
       scale,
     );
     unawaited(HapticFeedback.selectionClick());
+  }
+
+  @override
+  void dispose() {
+    // 拖/缩中途卸载：松开外层模块整搬占用，避免 _vpadKeyEditActive 卡死。
+    _setKeyEditActive(false);
+    super.dispose();
   }
 
   @override
@@ -433,19 +476,20 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
       ),
     );
     if (widget.editMode && widget.onKeyTransform != null) {
-      // 点按选中；已选中才可拖/缩。裸 Listener 吃指针（不用 pan：首位移会被吞）。
+      // 点下选中并可同势拖动。裸 Listener 吃指针（不用 pan：首位移会被吞）。
       keyWidget = Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: (e) {
-          final already = _selectedKey == key;
-          if (!already) {
-            // 首次点按只选中（松手不拖、不落盘）；再点已选中键才开拖/缩。
+          // 点下即选中；同手势可拖。拉手命中留给缩放 Listener。
+          final wasSelected = _selectedKey == key;
+          if (!wasSelected) {
             setState(() => _selectedKey = key);
             unawaited(HapticFeedback.selectionClick());
-            return;
           }
-          // 已选中且落在拉手 → 让位给拉手 Listener。
-          if (_onGrip(e.position, box, key)) return;
+          // 拉手只挂在「已选中」的键上（且作为 Stack 顶层 Listener 抢先
+          // 命中，按下压根到不了这里）——未选中键的右下角不该被当拉手，
+          // 否则首次从角上拖动整段无效。
+          if (wasSelected && _onGrip(e.position, box, key)) return;
           _startKeyDrag(key, e.position, box);
         },
         onPointerMove: (e) {

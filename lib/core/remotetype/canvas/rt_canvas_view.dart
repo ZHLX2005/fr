@@ -221,6 +221,9 @@ class _RtCanvasViewState extends State<RtCanvasView>
   String? _dragId;
   Offset? _dragPos;
 
+  /// 手柄逐键拖/缩进行中 → 模块整搬让路（见 [RtCanvasVpad.onKeyEditActive]）。
+  bool _vpadKeyEditActive = false;
+
   // 模块缩放预览：id + 实时宽高（归一化）。
   String? _resizeModuleId;
   double _liveW = 0;
@@ -265,6 +268,9 @@ class _RtCanvasViewState extends State<RtCanvasView>
     // 进入编辑态：顶栏默认展开，方便找完成/模块 chip。
     if (widget.editMode && !oldWidget.editMode) {
       _editBarCollapsed = false;
+    }
+    if (!widget.editMode && oldWidget.editMode) {
+      _vpadKeyEditActive = false;
     }
     // 提示层条件消失（回横屏 / 用户已选定竖屏布局）→ 复位 dismiss 记忆，
     // 下次再转竖屏撞上锁定布局时重新提示。
@@ -825,6 +831,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onPanStart: (_) {
+            // 逐键拖/缩已占指针：不抢模块整搬，否则键相对画布「拖不动」。
+            if (innerInteractive && _vpadKeyEditActive) return;
             HapticFeedback.mediumImpact();
             setState(() {
               _dragId = id;
@@ -832,6 +840,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
             });
           },
           onPanUpdate: (d) {
+            if (innerInteractive && _vpadKeyEditActive) return;
             if (_dragId != id || _dragPos == null) return;
             final box =
                 _canvasKey.currentContext?.findRenderObject() as RenderBox?;
@@ -1039,6 +1048,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
       editMode: widget.editMode,
       keyOffsets: offsets,
       keyScales: scales,
+      onKeyEditActive: (active) => _vpadKeyEditActive = active,
       onKeyTransform: (key, center, scale) {
         widget.onLayoutChanged(
           _patchButton(
