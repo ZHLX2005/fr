@@ -14,6 +14,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+/// 顶部控件的共用高度：布局胶囊与并排的小圆按钮（返回等）同高。
+const double kRtTopControlHeight = 32.0;
+
 /// 左上角布局胶囊：状态点 + 当前布局名 + chevron，点开进布局面板。
 class RtLayoutCapsule extends StatelessWidget {
   const RtLayoutCapsule({
@@ -48,7 +51,9 @@ class RtLayoutCapsule extends StatelessWidget {
             },
             borderRadius: BorderRadius.circular(999),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+              height: kRtTopControlHeight,
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: cs.surface.withValues(alpha: 0.78),
                 borderRadius: BorderRadius.circular(999),
@@ -110,5 +115,65 @@ class RtLayoutCapsule extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// iOS 风小圆按钮：与布局胶囊同高同材质（半透明 surface + 轻描边 + 柔和投影），
+/// 圆形轮廓。放在胶囊旁边当「返回」这类导航动作——不跟胶囊抢视觉重量，
+/// 但读起来是一对。
+class RtRoundIconButton extends StatelessWidget {
+  const RtRoundIconButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final button = ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onTap();
+            },
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              width: kRtTopControlHeight,
+              height: kRtTopControlHeight,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.78),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.7),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.10),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 18, color: cs.onSurfaceVariant),
+            ),
+          ),
+        ),
+      ),
+    );
+    return tooltip == null
+        ? button
+        : Tooltip(message: tooltip!, child: button);
   }
 }

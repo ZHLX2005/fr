@@ -1028,18 +1028,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                   ),
           ),
           if (_connecting) RtConnectingOverlay(label: _connectingLabel()),
-          // 写字页的左上角胶囊：与其他布局同一份——点开就是布局列表
-          // （快速切换）+ 最下面的设置入口。
-          if (_session != null)
-            Positioned(
-              left: 12,
-              top: 6,
-              child: RtLayoutCapsule(
-                connected: _connected,
-                layoutName: _activeEntry?.name ?? '写字',
-                onOpen: _openLayoutPicker,
-              ),
-            ),
         ],
       );
     }
@@ -1081,37 +1069,45 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   PreferredSizeWidget _buildTypingAppBar(Color pageBg) {
     final inDetail = _session != null;
     return AppBar(
-      // 详情页标题 = 目标电脑名，把「列表 → 详情」的从属关系落到实处；
+      // 详情页不显示电脑名（iOS 式的克制）：标题位让给控件组；
       // 大厅保持「远程输入」。
-      title: inDetail
-          ? Text(
-              _connectingLabel(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          : const Text('远程输入'),
       backgroundColor: pageBg,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,
-      // 详情页左侧簇：返回大厅（返回居最左对齐系统习惯）。
+      // 详情页头部：左侧 = 返回（小圆按钮）+ 布局胶囊，两者并列同高；
+      // 右侧 = 重连（同款小圆按钮）。**不显示电脑名**——头部只留控件，
+      // 布局与设置都在胶囊里（布局列表 + 设置入口），iOS 式的克制。
       // 壳根页不能 pop；系统手势返回已由 build 的 PopScope 拦截成
       // _exitDetail，这颗按钮与它同义。
-      // 头部只留「返回 + 标题」：布局与设置都归左上角胶囊（布局列表 +
-      // 设置入口），不再在头部堆功能键。
-      leading: inDetail
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: '返回连接列表',
-              onPressed: _exitDetail,
+      //
+      // 控件组放 title 槽而不是 leading：Material 的 leading 槽锁死 56px，
+      // 放不下「返回 + 胶囊」；title 槽是弹性宽度，胶囊按名字长度自适应。
+      centerTitle: false,
+      title: inDetail
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RtRoundIconButton(
+                  icon: Icons.arrow_back_ios_new,
+                  tooltip: '返回连接列表',
+                  onTap: _exitDetail,
+                ),
+                const SizedBox(width: 8),
+                RtLayoutCapsule(
+                  connected: _connected,
+                  layoutName: _activeEntry?.name ?? '写字',
+                  onOpen: _openLayoutPicker,
+                ),
+              ],
             )
-          : null,
+          : const Text('远程输入'),
       // 只留一颗重连（连接动作，不是布局/设置功能）；布局与设置都在胶囊里。
       actions: [
         if (inDetail)
-          IconButton(
-            icon: const Icon(Icons.refresh),
+          RtRoundIconButton(
+            icon: Icons.refresh_rounded,
             tooltip: '重连',
-            onPressed: _connecting ? null : _reconnect,
+            onTap: _connecting ? () {} : _reconnect,
           ),
       ],
     );
