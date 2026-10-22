@@ -10,10 +10,10 @@
 // 按下/松开成对由本组件保证（Listener down/up/cancel + dispose 补发），
 // PC 端串行链保序。
 //
-// 编辑态逐键编排：每个键可独立拖动（中心 = 模块盒内像素，钳在盒内）与
-// 缩放（拉手，倍率钳 0.6..2.2）。键位以「模块盒内比例」持久化在布局
-// buttons（id = vpad:<key>）——模块整体拖/缩时比例随盒子缩放，未自定义的
-// 键回落出厂几何（[rtVpadDefaultSlots]），零迁移。
+// 编辑态逐键编排：点按选中 → 选中键显示描边 + 拉手，可拖动/缩放；未选中
+// 键只响应点选。键位以「模块盒内比例」持久化在布局 buttons（id = vpad:<key>）
+// ——模块整体拖/缩时比例随盒子缩放，未自定义的键回落出厂几何
+// （[rtVpadDefaultSlots]），零迁移。
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -206,6 +206,21 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
   Offset? _dragGrabDelta;
   double? _scaleGrabX;
 
+  /// 编辑态当前选中键（null = 未选；仅选中键可拖/缩）。
+  String? _selectedKey;
+
+  @override
+  void didUpdateWidget(covariant RtCanvasVpad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.editMode && oldWidget.editMode) {
+      _selectedKey = null;
+      _previewCenters.clear();
+      _previewScales.clear();
+      _dragGrabDelta = null;
+      _scaleGrabX = null;
+    }
+  }
+
   Offset _effectiveCenter(String key, Size box) {
     final preview = _previewCenters[key];
     if (preview != null) return preview;
@@ -367,6 +382,9 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final box = constraints.biggest;
+        // 不在外层挂 GestureDetector.onTap 取消选中：Listener 不占手势竞技场，
+        // 点键后父级 onTap 仍会赢 → 选中立刻被清掉。改选 = 点另一键；
+        // 再点已选中键 = 直接开拖/缩（无中途取消选中，退出编辑态才复位）。
         return Stack(
           clipBehavior: Clip.none,
           children: [for (final key in rtVpadKeyOrder) _buildKey(key, box)],
@@ -380,6 +398,7 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
     final size = _keySize(key, box);
     final kind = rtVpadKeyKind(key);
     final isTrigger = key == 'lt' || key == 'rt';
+    final selected = widget.editMode && _selectedKey == key;
     // 键面标签：ABXY 单字母；系统面键用短名（BACK/START/GUIDE 太长，用
     // 缩写 B / S / G 会被误认，保留 3~5 字母小字）。
     final label = switch (kind) {
@@ -396,6 +415,7 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
       label: label,
       enabled: widget.enabled,
       interactive: !widget.editMode,
+      selected: selected,
       // 形态：面键/摇杆键 = 圆；肩键/系统面键 = 胶囊。
       round: kind == 'face' || kind == 'stick',
       diameter: kind == 'face' || kind == 'stick' ? size.width : null,
@@ -413,63 +433,90 @@ class _RtCanvasVpadState extends State<RtCanvasVpad> {
       ),
     );
     if (widget.editMode && widget.onKeyTransform != null) {
-      // 裸 Listener 吃指针事件（不用 pan 识别器）：pan 要第二次 move 才
-      // 回调 update，第一个位移会被吞——快速一拖键位不动。
+      // 点按选中；已选中才可拖/缩。裸 Listener 吃指针（不用 pan：首位移会被吞）。
       keyWidget = Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: (e) {
-          // 落在缩放拉手上 → 让位给拉手（否则小键的拉手区会吞掉拖动）。
+          final already = _selectedKey == key;
+          if (!already) {
+            // 首次点按只选中（松手不拖、不落盘）；再点已选中键才开拖/缩。
+            setState(() => _selectedKey = key);
+            unawaited(HapticFeedback.selectionClick());
+            return;
+          }
+          // 已选中且落在拉手 → 让位给拉手 Listener。
           if (_onGrip(e.position, box, key)) return;
           _startKeyDrag(key, e.position, box);
         },
-        onPointerMove: (e) => _updateKeyDrag(key, e.position, box),
-        onPointerUp: (_) => _endKeyDrag(key, box),
-        onPointerCancel: (_) => _cancelKeyDrag(key),
+        onPointerMove: (e) {
+          if (_selectedKey != key || !_previewCenters.containsKey(key)) {
+            return;
+          }
+          _updateKeyDrag(key, e.position, box);
+        },
+        onPointerUp: (_) {
+          if (_selectedKey != key) return;
+          if (_previewCenters.containsKey(key)) _endKeyDrag(key, box);
+        },
+        onPointerCancel: (_) {
+          if (_selectedKey != key) return;
+          _cancelKeyDrag(key);
+        },
         child: keyWidget,
       );
-      // 逐键缩放拉手（右下角，命中区大于视觉）。
-      keyWidget = Stack(
-        clipBehavior: Clip.none,
-        children: [
-          keyWidget,
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (e) => _startKeyScale(key, e.position),
-              onPointerMove: (e) => _updateKeyScale(key, e.position),
-              onPointerUp: (_) => _endKeyScale(key, box),
-              onPointerCancel: (_) => _cancelKeyScale(key),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: Center(
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: context.colors.scheme.primary.withValues(
-                        alpha: 0.92,
+      // 缩放拉手仅选中键显示。
+      if (selected) {
+        keyWidget = Stack(
+          clipBehavior: Clip.none,
+          children: [
+            keyWidget,
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (e) => _startKeyScale(key, e.position),
+                onPointerMove: (e) => _updateKeyScale(key, e.position),
+                onPointerUp: (_) => _endKeyScale(key, box),
+                onPointerCancel: (_) => _cancelKeyScale(key),
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Center(
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: context.colors.scheme.primary.withValues(
+                          alpha: 0.95,
+                        ),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: context.colors.scheme.surface,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: context.colors.scheme.primary
+                                .withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: context.colors.scheme.surface,
-                        width: 1.2,
+                      child: Icon(
+                        Icons.open_in_full,
+                        size: 9,
+                        color: context.colors.scheme.onPrimary,
                       ),
-                    ),
-                    child: Icon(
-                      Icons.open_in_full,
-                      size: 9,
-                      color: context.colors.scheme.onPrimary,
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      );
+          ],
+        );
+      }
     }
     return Positioned(
       left: center.dx - size.width / 2,
@@ -495,6 +542,7 @@ class _VpadHoldButton extends StatefulWidget {
     this.diameter,
     this.faceColor,
     this.compact = false,
+    this.selected = false,
   });
 
   final String label;
@@ -502,6 +550,9 @@ class _VpadHoldButton extends StatefulWidget {
 
   /// false（编辑态）：置灰之外的按压完全关断（拖动编排期间不发事件）。
   final bool interactive;
+
+  /// 编辑态选中：主色描边 + 轻辉光，标识当前精细调整目标。
+  final bool selected;
 
   /// true = 圆形（面键）；false = 圆角胶囊（肩键/扳机，撑满给定尺寸）。
   final bool round;
@@ -560,6 +611,11 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
         ? _kFaceYOnColor
         : (face ?? cs.onPrimary);
 
+    final borderColor = _held
+        ? accent
+        : widget.selected
+            ? cs.primary
+            : (face ?? cs.outlineVariant.withValues(alpha: 0.7));
     final decoration = BoxDecoration(
       shape: round ? BoxShape.circle : BoxShape.rectangle,
       borderRadius: round ? null : BorderRadius.circular(999),
@@ -578,17 +634,17 @@ class _VpadHoldButtonState extends State<_VpadHoldButton> {
             ),
       color: _held ? accent : null,
       border: Border.all(
-        color: _held
-            ? accent
-            : (face ?? cs.outlineVariant.withValues(alpha: 0.7)),
-        width: _held ? 2 : (face != null ? 2 : 1.2),
+        color: borderColor,
+        width: _held || widget.selected ? 2.4 : (face != null ? 2 : 1.2),
       ),
       boxShadow: [
         BoxShadow(
           color: _held
               ? accent.withValues(alpha: face != null ? 0.50 : 0.40)
-              : cs.shadow.withValues(alpha: 0.10),
-          blurRadius: _held ? 18 : 6,
+              : widget.selected
+                  ? cs.primary.withValues(alpha: 0.35)
+                  : cs.shadow.withValues(alpha: 0.10),
+          blurRadius: _held ? 18 : (widget.selected ? 14 : 6),
           offset: Offset(0, _held ? 4 : 2),
         ),
       ],

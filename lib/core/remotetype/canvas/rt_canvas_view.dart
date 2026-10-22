@@ -226,6 +226,9 @@ class _RtCanvasViewState extends State<RtCanvasView>
   double _liveW = 0;
   double _liveH = 0;
 
+  /// 编辑态顶栏是否收起（收起后只留一颗「编辑工具」chip，不挡画布）。
+  bool _editBarCollapsed = false;
+
   @override
   void initState() {
     super.initState();
@@ -258,6 +261,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
         _liveW = 0;
         _liveH = 0;
       });
+    }
+    // 进入编辑态：顶栏默认展开，方便找完成/模块 chip。
+    if (widget.editMode && !oldWidget.editMode) {
+      _editBarCollapsed = false;
     }
     // 提示层条件消失（回横屏 / 用户已选定竖屏布局）→ 复位 dismiss 记忆，
     // 下次再转竖屏撞上锁定布局时重新提示。
@@ -582,9 +589,9 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 编辑态 chrome：顶部居中面板（模块显隐 + 布局 + 快捷键 + 完成）+
-  // 画布描边。面板居中挂顶：游戏布局的按钮簇占据右半与底部（次键 y≈0.88），
-  // 底部与右下都会压簇；顶中是簇外空位（对齐原型 ebar chip 行）。
+  // ---- 编辑态 chrome：顶部居中面板（可收起）+ 画布描边。
+  // 展开 = 模块显隐 + 布局 + 快捷键 + 完成；收起 = 只留「编辑工具」chip，
+  // 不挡手柄/键盘视线（对齐「编辑顶栏遮挡」反馈）。
 
   List<Widget> _editChrome(ColorScheme cs) {
     return [
@@ -605,66 +612,95 @@ class _RtCanvasViewState extends State<RtCanvasView>
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 模块 chip 行由登记表驱动（与模块设置页同一清单）。
-                  for (final spec in kRtCanvasModuleSpecs) ...[
-                    _moduleVisibilityChip(
-                      icon: spec.icon,
-                      label: spec.name,
-                      id: spec.id,
+            child: _editBarCollapsed
+                ? ActionChip(
+                    avatar: Icon(
+                      Icons.edit_note_outlined,
+                      size: 18,
+                      color: cs.primary,
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  ActionChip(
-                    avatar: Icon(Icons.tune, size: 18, color: cs.primary),
                     label: Text(
-                      '模块编排',
+                      '编辑工具',
                       style: TextStyle(
                         color: cs.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    onPressed: _openModulePage,
-                  ),
-                  const SizedBox(width: 8),
-                  ActionChip(
-                    avatar: Icon(
-                      Icons.dashboard_customize_outlined,
-                      size: 18,
-                      color: cs.onSurfaceVariant,
+                    onPressed: () => setState(() => _editBarCollapsed = false),
+                  )
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ActionChip(
+                          avatar: Icon(
+                            Icons.unfold_less,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          label: const Text('收起'),
+                          onPressed: () =>
+                              setState(() => _editBarCollapsed = true),
+                        ),
+                        const SizedBox(width: 8),
+                        // 模块 chip 行由登记表驱动（与模块设置页同一清单）。
+                        for (final spec in kRtCanvasModuleSpecs) ...[
+                          _moduleVisibilityChip(
+                            icon: spec.icon,
+                            label: spec.name,
+                            id: spec.id,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        ActionChip(
+                          avatar:
+                              Icon(Icons.tune, size: 18, color: cs.primary),
+                          label: Text(
+                            '模块编排',
+                            style: TextStyle(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          onPressed: _openModulePage,
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          avatar: Icon(
+                            Icons.dashboard_customize_outlined,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          label: const Text('布局'),
+                          onPressed: _openLayoutsSheet,
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          avatar: Icon(
+                            Icons.playlist_add,
+                            size: 18,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          label: const Text('编辑快捷键'),
+                          onPressed: widget.onEditShortcuts,
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          avatar:
+                              Icon(Icons.check, size: 18, color: cs.primary),
+                          label: Text(
+                            '完成',
+                            style: TextStyle(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onPressed: () => widget.onEditModeChanged(false),
+                        ),
+                      ],
                     ),
-                    label: const Text('布局'),
-                    onPressed: _openLayoutsSheet,
                   ),
-                  const SizedBox(width: 8),
-                  ActionChip(
-                    avatar: Icon(
-                      Icons.playlist_add,
-                      size: 18,
-                      color: cs.onSurfaceVariant,
-                    ),
-                    label: const Text('编辑快捷键'),
-                    onPressed: widget.onEditShortcuts,
-                  ),
-                  const SizedBox(width: 8),
-                  ActionChip(
-                    avatar: Icon(Icons.check, size: 18, color: cs.primary),
-                    label: Text(
-                      '完成',
-                      style: TextStyle(
-                        color: cs.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    onPressed: () => widget.onEditModeChanged(false),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
