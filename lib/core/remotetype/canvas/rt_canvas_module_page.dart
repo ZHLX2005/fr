@@ -24,6 +24,10 @@ import 'rt_canvas_modules.dart'
 import '../data/rt_prefs.dart' show RtCanvasAnchor, kRtCanvasModuleDpad;
 
 /// 打开模块设置页（全屏路由，设置页观感）。
+///
+/// [onSensitivity] / [onEditShortcuts] / [onExit] 是画布在场时才有意义的
+/// 入口（灵敏度要连着触摸板用、编辑快捷键要连着托盘、返回打字是画布的
+/// 退出口）；从 RT 设置页进入时它们为 null，对应行不渲染。
 Future<void> showRtCanvasModulePage(
   BuildContext context, {
   required String layoutName,
@@ -33,9 +37,9 @@ Future<void> showRtCanvasModulePage(
   required void Function(String id, bool on) onToggleModule,
   required void Function(String id, RtCanvasAnchor anchor) onSetAnchor,
   required VoidCallback onOpenLayouts,
-  required VoidCallback onSensitivity,
-  required VoidCallback onEditShortcuts,
-  required VoidCallback onExit,
+  VoidCallback? onSensitivity,
+  VoidCallback? onEditShortcuts,
+  VoidCallback? onExit,
 }) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -93,34 +97,37 @@ Future<void> showRtCanvasModulePage(
                   },
                 ),
                 _SectionHeader('其他'),
-                ListTile(
-                  leading: const Icon(Icons.tune),
-                  title: const Text('触摸板灵敏度'),
-                  enabled: connected,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    onSensitivity();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.playlist_add),
-                  title: const Text('编辑快捷键'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    onEditShortcuts();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.keyboard_outlined),
-                  title: const Text('返回打字'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    onExit();
-                  },
-                ),
+                if (onSensitivity != null)
+                  ListTile(
+                    leading: const Icon(Icons.tune),
+                    title: const Text('触摸板灵敏度'),
+                    enabled: connected,
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      onSensitivity();
+                    },
+                  ),
+                if (onEditShortcuts != null)
+                  ListTile(
+                    leading: const Icon(Icons.playlist_add),
+                    title: const Text('编辑快捷键'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      onEditShortcuts();
+                    },
+                  ),
+                if (onExit != null)
+                  ListTile(
+                    leading: const Icon(Icons.keyboard_outlined),
+                    title: const Text('返回打字'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      onExit();
+                    },
+                  ),
               ],
             ),
           );

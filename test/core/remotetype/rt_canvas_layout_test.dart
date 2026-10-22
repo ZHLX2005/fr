@@ -42,6 +42,7 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
         kRtCanvasPresetTouchpadN,
+        kRtCanvasPresetWriter,
         RtPrefs,
         rtCanvasLayoutLocksLandscape,
         rtCanvasLayoutUsableIn;
@@ -538,9 +539,9 @@ void main() {
   group('rtBuiltinPresetOf / rtEnsureBuiltinPresets', () {
     test('四套内置都能查到；退役 / 自定义 / 未知 id 返回 null', () {
       for (final id in [
+        kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
-        kRtCanvasPresetInputPage,
         kRtCanvasPresetTouchpad,
       ]) {
         final p = rtBuiltinPresetOf(id);
@@ -549,6 +550,8 @@ void main() {
       }
       expect(rtBuiltinPresetOf(kRtCanvasPresetDefault), isNull);
       expect(rtBuiltinPresetOf(kRtCanvasPresetTouchpadN), isNull);
+      // 输入页已退役（由固定死的「写字」接管竖屏入口）。
+      expect(rtBuiltinPresetOf(kRtCanvasPresetInputPage), isNull);
       expect(rtBuiltinPresetOf('custom-1'), isNull);
       expect(rtBuiltinPresetOf('nope'), isNull);
     });
@@ -588,21 +591,21 @@ void main() {
       final ensured = rtEnsureBuiltinPresets(layouts);
       expect(ensured.list.length, 5);
       expect(ensured.list.take(4).map((p) => p.id), [
+        kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
-        kRtCanvasPresetInputPage,
         kRtCanvasPresetTouchpad,
       ]);
       expect(ensured.list.last.id, 'imported');
       expect(ensured.activeId, 'imported');
-      // 竖屏激活兜底 = 输入页（列表里第一套真竖屏内置）。
+      // 竖屏激活兜底 = 写字（列表里第一套真竖屏内置）。
       expect(
         ensured.activeFor(kRtCanvasOrientPortrait)!.id,
-        kRtCanvasPresetInputPage,
+        kRtCanvasPresetWriter,
       );
     });
 
-    test('rtEnsureBuiltinPresets：剔除退役内置 default / touchpad-n', () {
+    test('rtEnsureBuiltinPresets：剔除退役内置 default / touchpad-n / input-page', () {
       const retired = RtCanvasNamedLayout(
         id: kRtCanvasPresetDefault,
         name: '默认布局',
@@ -616,24 +619,31 @@ void main() {
         orientation: kRtCanvasOrientPortrait,
         data: RtCanvasLayout(),
       );
+      const retiredPage = RtCanvasNamedLayout(
+        id: kRtCanvasPresetInputPage,
+        name: '输入页',
+        builtIn: true,
+        orientation: kRtCanvasOrientPortrait,
+        data: RtCanvasLayout(),
+      );
       const layouts = RtCanvasLayouts(
-        list: [retired, retiredN],
+        list: [retired, retiredN, retiredPage],
         activeId: kRtCanvasPresetDefault,
         activeIdPortrait: kRtCanvasPresetTouchpadN,
       );
       final ensured = rtEnsureBuiltinPresets(layouts);
       expect(ensured.list.map((p) => p.id), [
+        kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
-        kRtCanvasPresetInputPage,
         kRtCanvasPresetTouchpad,
       ]);
       expect(ensured.activeId, kRtCanvasPresetTouchpad);
-      // 退役的竖屏激活清空 → 读侧兜底到输入页。
+      // 退役的竖屏激活清空 → 读侧兜底到写字。
       expect(ensured.activeIdPortrait, isEmpty);
       expect(
         ensured.activeFor(kRtCanvasOrientPortrait)!.id,
-        kRtCanvasPresetInputPage,
+        kRtCanvasPresetWriter,
       );
     });
 
@@ -707,7 +717,7 @@ void main() {
       expect(ensured.activeId, kRtCanvasPresetTouchpad);
     });
 
-    test('rtEnsureBuiltinPresets：竖屏激活指向锁横屏布局 → 清空（读侧兜底输入页）', () {
+    test('rtEnsureBuiltinPresets：竖屏激活指向锁横屏布局 → 清空（读侧兜底写字）', () {
       const imported = RtCanvasNamedLayout(
         id: 'imported',
         name: '导入布局',
@@ -727,24 +737,28 @@ void main() {
       expect(ensured.activeIdPortrait, isEmpty);
       expect(
         ensured.activeFor(kRtCanvasOrientPortrait)!.id,
-        kRtCanvasPresetInputPage,
+        kRtCanvasPresetWriter,
       );
     });
   });
 
   group('rtCanvasLayoutLocksLandscape / UsableIn', () {
-    test('游戏/键盘锁横屏；输入页竖屏可用；触控屏不锁且双朝向可用', () {
+    test('游戏/键盘锁横屏；写字页竖屏专属；触控屏不锁且双朝向可用', () {
       final game = rtBuiltinPresetOf(kRtCanvasPresetGame)!;
       expect(rtCanvasLayoutLocksLandscape(game.data), isTrue);
       expect(rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, game), isFalse);
       final kb = rtBuiltinPresetOf(kRtCanvasPresetKeyboard)!;
       expect(rtCanvasLayoutLocksLandscape(kb.data), isTrue);
-      // 输入页：竖屏内置（不锁横屏——它本来就是竖屏默认）。
-      final inputPage = rtBuiltinPresetOf(kRtCanvasPresetInputPage)!;
-      expect(inputPage.orientation, kRtCanvasOrientPortrait);
+      // 写字页：竖屏专属（kind=writer，横屏没有写字形态）。
+      final writer = rtBuiltinPresetOf(kRtCanvasPresetWriter)!;
+      expect(writer.orientation, kRtCanvasOrientPortrait);
       expect(
-        rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, inputPage),
+        rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, writer),
         isTrue,
+      );
+      expect(
+        rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, writer),
+        isFalse,
       );
       final pad = rtBuiltinPresetOf(kRtCanvasPresetTouchpad)!;
       expect(rtCanvasLayoutLocksLandscape(pad.data), isFalse);
@@ -759,26 +773,26 @@ void main() {
     });
   });
 
-  group('kRtCanvasBuiltinPresets 4 套内置（游戏/键盘/输入页/触控屏）', () {
+  group('kRtCanvasBuiltinPresets 4 套内置（写字/游戏/键盘/触控屏）', () {
     test('id / builtIn / 名称 / 朝向稳定', () {
       expect(kRtCanvasBuiltinPresets.length, 4);
       expect(kRtCanvasBuiltinPresets.map((p) => p.id), [
+        kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
         kRtCanvasPresetKeyboard,
-        kRtCanvasPresetInputPage,
         kRtCanvasPresetTouchpad,
       ]);
       expect(kRtCanvasBuiltinPresets.every((p) => p.builtIn), isTrue);
       expect(kRtCanvasBuiltinPresets.map((p) => p.name), [
+        '写字',
         '游戏布局',
         '键盘布局',
-        '输入页',
         '触控屏布局',
       ]);
       expect(kRtCanvasBuiltinPresets.map((p) => p.orientation).toList(), [
-        kRtCanvasOrientLandscape,
-        kRtCanvasOrientLandscape,
         kRtCanvasOrientPortrait,
+        kRtCanvasOrientLandscape,
+        kRtCanvasOrientLandscape,
         kRtCanvasOrientLandscape,
       ]);
     });

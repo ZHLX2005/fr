@@ -1,20 +1,25 @@
 // lib/core/remotetype/rt_page.dart
 //
-// RemoteType demo 主页面：两态装配 + 连接编排 + 动作。
+// RemoteType demo 主页面：连接编排 + 按激活布局渲染 + 动作。
 //   大厅（连接列表）—— 优先「统一登录 → 我名下的电脑 → 点一下即连」；
 //             服务端没开启统一登录时才退回「选 PC + 填配对 key」。
 //             常显主壳底栏（钉选后它是主页），AppBar 左侧无返回。
-//   详情（输入页）—— 全文同步输入框 + 端到端指示。无底栏（沉浸打字）。
-//             AppBar 左侧簇 = 返回大厅 + 横屏模式；系统手势/返回键经
-//             PopScope 拦截，与按钮同义（画布编辑→画布使用→详情→大厅）。
-//             返回不断连，会话仍托管。
-//   横屏画布 —— 触摸板 / 输入框 / 快捷按钮同一模块系统自由编排，
-//             use / edit 两态边界明显，见 rt_canvas_view.dart。
+//   详情 —— 全文同步输入框 + 端到端指示。无底栏（沉浸打字）。
+//             AppBar 左侧 = 返回大厅；右侧 = 切换布局 / 远程输入设置 / 重连。
+//             系统手势/返回键经 PopScope 拦截，与按钮同义（画布编辑→画布使用→
+//             详情→大厅）。返回不断连，会话仍托管。
+//   布局（可插拔）—— 渲染什么由**激活布局的 kind** 决定，不再是页面级两态：
+//             kind=writer（写字，固定形态）→ 写字页；kind=canvas → 画布
+//             （触摸板 / 输入框 / 快捷按钮同一模块系统自由编排，use / edit 两态
+//             边界明显，见 rt_canvas_view.dart）。
+//             竖屏页头与横屏左上角都能切布局；编排（改名/删除/新建/模块摆放）
+//             全在 RT 设置页（settings/rt_settings_page.dart）。
 //
 // 板块拆分（本文件只留装配/状态/连接，其余见各自文件头）：
 //   rt_pairing_view.dart   大厅 UI（两态）
-//   rt_input_view.dart     详情 UI
-//   rt_canvas_view.dart    横屏画布 UI（模块系统 + 编辑态）
+//   rt_input_view.dart     写字页 UI（= 写字布局的固定形态）
+//   rt_canvas_view.dart    画布 UI（模块系统 + 编辑态）
+//   rt_settings_page.dart  RT 设置（布局管理 + 编排 + 输入偏好）
 //   rt_connecting_overlay.dart  连接中遮罩
 //   rt_text_sync.dart      文本同步管线（composing 挂起/补发 + 防抖）
 //
@@ -29,7 +34,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/remotetype/remotetype.dart';
@@ -46,7 +50,9 @@ import 'data/rt_constants.dart';
 import 'ui/rt_connecting_overlay.dart';
 import 'canvas/template/rt_canvas_presets.dart';
 import 'canvas/rt_canvas_view.dart';
+import 'settings/rt_settings_page.dart';
 import 'ui/rt_input_view.dart';
+import 'ui/rt_layout_picker.dart';
 import 'ui/rt_pairing_view.dart';
 import 'data/rt_prefs.dart';
 import 'protocol/rt_session.dart';
@@ -93,7 +99,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   Timer? _syncFlashTimer;
   // 回车注入方式：'enter'=发送（电脑端敲普通 Enter）/ 'shift_enter'=换行
   // （电脑端敲 Shift+Enter，微信等「Enter=发送」的框里只换行不发送）。
-  // 随每条快照下发，可即时切换；页面级内存态（本页其他配置同样不持久化）
+  // 归 RT 设置管并持久化（RtPrefs）——写字页是固定形态，不再带这颗开关。
   String _enterMode = 'enter';
 
   // 快捷键条（可编排）+ 历史输入 + 托盘显示配置
@@ -105,9 +111,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   bool _replaying = false;
 
   // 横屏画布模式（触摸板/输入框/键盘/按钮同一画布编排，详见 rt_canvas_view.dart）：
-  // 页面级内存态不持久化；横竖屏锁只在画布期间放开（运行期借出与归还，
-  // AndroidManifest 全局锁 portrait）。
-  bool _canvasMode = false;
+  // 不再用页面级布尔态切两套写死的页面——当前渲染什么由**激活布局的 kind**
+  // 决定（canvas → 画布；writer → 写字页）。横竖屏各有一套激活布局，
+  // 互不串台（见 rt_prefs 的 RtCanvasLayouts）。
   // 画布编辑子态（use/edit）：纯画布内部状态，不锁方向、不动底栏。
   bool _canvasEdit = false;
   double _padSensitivity = kRtPadSensitivityDefault;
@@ -120,15 +126,21 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     activeId: kRtCanvasPresetTouchpad,
   );
 
+  /// 当前朝向的激活布局条目（横竖屏各一套，隔离）。
+  RtCanvasNamedLayout? get _activeEntry => _layouts.activeFor(
+    _canvasOrientation,
+  );
+
+  /// 当前是否渲染画布：激活布局 kind=canvas。写字布局（kind=writer）走
+  /// 输入页——写字页是「布局之一」，不是页面级的另一套固定形态。
+  bool get _inCanvasLayout =>
+      (_activeEntry?.kind ?? RtLayoutKind.canvas) == RtLayoutKind.canvas;
+
   /// 画布当前朝向（跟随设备旋转；MediaQuery 驱动重建时刷新）。
   String get _canvasOrientation =>
       MediaQuery.orientationOf(context) == Orientation.landscape
       ? kRtCanvasOrientLandscape
       : kRtCanvasOrientPortrait;
-
-  /// 用户在本轮竖屏期间是否已主动选定竖屏布局（面板里切过/建过）。
-  /// true = 尊重用户选择，锁定横屏布局不再弹提示层；回横屏自动复位。
-  bool _portraitChosen = false;
 
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
@@ -197,6 +209,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final history = await RtPrefs.loadHistory();
     final barDisplay = await RtPrefs.loadBarDisplay();
     final padSensitivity = await RtPrefs.loadTouchpadSensitivity();
+    // 回车注入方式（发送 / 换行）：归 RT 设置管，写字页不再带这颗开关。
+    final enterMode = await RtPrefs.loadEnterMode();
     var layouts = await RtPrefs.loadCanvasLayouts();
     // 持久化空（首跑或新装）：不写盘，只在内存里铺内置——首次编辑/切换
     // / 复制再落盘，避免每启动都触发一次 SharedPreferences 写入。
@@ -232,6 +246,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _history = history;
       _barDisplay = barDisplay;
       _padSensitivity = padSensitivity;
+      _enterMode = enterMode;
       _layouts = layouts;
     });
   }
@@ -323,31 +338,10 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   // ================= 触摸板模式 =================
 
-  /// 进/出横屏画布：横竖屏锁只在画布期间放开（打字页横屏没意义还晃布局）。
-  void _setCanvasMode(bool on) {
-    if (_canvasMode == on) return;
-    if (!on && _vpadReady != null) unawaited(_releaseVpad());
-    setState(() => _canvasMode = on);
-    _syncBottomBar();
-    unawaited(
-      on ? LineOrientation.enableAll() : LineOrientation.portraitOnly(),
-    );
-  }
-
   /// 进/出画布编辑子态：纯画布内部状态，方向锁与底栏不动。
   void _setCanvasEdit(bool on) {
     if (_canvasEdit == on) return;
     setState(() => _canvasEdit = on);
-  }
-
-  /// 提示层「切换为横屏」：把方向锁从自由旋转临时收窄为横屏（防再次
-  /// 转回竖屏循环弹提示）；退出画布时 portraitOnly 归还，无需额外还原。
-  Future<void> _lockCanvasLandscape() async {
-    _portraitChosen = false;
-    await SystemChrome.setPreferredOrientations(const [
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
   }
 
   /// 激活布局的内容变更（拖动落位 / 缩放 / 显隐 / 模块开关）：先落 state
@@ -359,118 +353,82 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
-  /// 切换激活布局（相对当前画布朝向；触控屏双朝向可在竖屏侧激活）。
-  /// 竖屏期间的切换视为「用户主动选了竖屏」，本轮不再弹锁定提示层。
+  /// 切布局：按当前朝向切激活项，并按新布局的形态调整方向锁
+  /// （画布放开旋转、写字页收回竖屏）。
   void _switchLayout(String id) {
-    if (_canvasOrientation == kRtCanvasOrientPortrait) {
-      _portraitChosen = true;
-    }
     final next = _layouts.withActiveFor(_canvasOrientation, id);
     if (identical(next, _layouts)) return;
     setState(() => _layouts = next);
     unawaited(RtPrefs.saveCanvasLayouts(next));
+    _applyOrientationLock();
   }
 
-  /// 新建一条空自定义布局（[orientation] 由面板选定；空画布——无模块、
-  /// 无快捷键按钮，编辑态再逐项加回）。选了另一朝向时记为该侧激活但不转屏。
-  void _copyToCustom(String orientation) {
-    final newId = _layouts.nextCustomId();
-    final displayIndex = newId.startsWith('custom-')
-        ? int.tryParse(newId.substring('custom-'.length)) ?? 1
-        : 1;
-    final entry = RtCanvasNamedLayout(
-      id: newId,
-      name: '自定义 $displayIndex',
-      builtIn: false,
-      orientation: orientation,
-      data: const RtCanvasLayout(),
+  /// 回写字页：把竖屏激活切到固定死的「写字」布局并收回竖屏锁。
+  /// 画布的退出口（胶囊里的「返回写字」/ 系统返回键都走这里）。
+  void _goWriter() {
+    final next = _layouts.withActiveFor(
+      kRtCanvasOrientPortrait,
+      kRtCanvasPresetWriter,
     );
-    final next = _layouts
-        .withList([..._layouts.list, entry])
-        .withActiveFor(orientation, newId);
-    if (orientation == _canvasOrientation) {
-      _portraitChosen = true; // 当前侧的新副本即用户所选
+    if (!identical(next, _layouts)) {
+      setState(() => _layouts = next);
+      unawaited(RtPrefs.saveCanvasLayouts(next));
     }
-    setState(() => _layouts = next);
-    unawaited(RtPrefs.saveCanvasLayouts(next));
-    if (orientation != _canvasOrientation) {
-      _showSnack(
-        orientation == kRtCanvasOrientPortrait
-            ? '已新建空竖屏布局，旋转到竖屏即可编辑'
-            : '已新建空横屏布局，旋转到横屏即可编辑',
+    unawaited(LineOrientation.portraitOnly());
+  }
+
+  /// 方向锁跟随当前形态：画布放开旋转（横竖各有各的布局），写字页收回
+  /// 竖屏（横屏没有写字形态）。
+  void _applyOrientationLock() {
+    unawaited(
+      _inCanvasLayout
+          ? LineOrientation.enableAll()
+          : LineOrientation.portraitOnly(),
+    );
+  }
+
+  /// 打开布局切换面板（竖屏页头 / 横屏左上角共用）：只切，不编排。
+  Future<void> _openLayoutPicker() async {
+    await showRtLayoutPicker(
+      context,
+      layouts: _layouts,
+      orientation: _canvasOrientation,
+      activeId: _activeEntry?.id ?? '',
+      onPick: _switchLayout,
+    );
+  }
+
+  /// 打开 RT 设置页（编排 + 发送/换行 + 灵敏度 + 快捷键）。关掉后重载
+  /// 布局与回车方式——设置页自己落盘，页面态要跟着回读。
+  Future<void> _openSettings() async {
+    await showRtSettingsPage(
+      context,
+      onEditCanvasLayout: _inCanvasLayout ? () => _setCanvasEdit(true) : null,
+    );
+    if (!mounted) return;
+    await _reloadPrefs();
+  }
+
+  /// 重读持久化偏好（设置页改动后回读布局 / 回车方式）。
+  Future<void> _reloadPrefs() async {
+    var layouts = await RtPrefs.loadCanvasLayouts();
+    if (layouts.list.isEmpty) {
+      layouts = const RtCanvasLayouts(
+        list: kRtCanvasBuiltinPresets,
+        activeId: kRtCanvasPresetTouchpad,
+      );
+    } else {
+      layouts = rtEnsureBuiltinPresets(
+        layouts,
+        persistedFactoryRev: await RtPrefs.loadCanvasBuiltinFactoryRev(),
       );
     }
-  }
-
-  /// 删除一条自定义布局（仅自定义——内置不允许删）。删的恰是某朝向的
-  /// 激活则该侧回退（横屏回默认，竖屏回竖屏第一条）；空集合兜底回内置
-  /// （极端：用户只有导入布局一条自定义并删之，列表不能空着，否则画布
-  /// 啥都不渲染）。
-  void _deleteCustom(String id) {
-    final target = _layouts.list.firstWhere(
-      (p) => p.id == id,
-      orElse: () => const RtCanvasNamedLayout(
-        id: '',
-        name: '',
-        builtIn: true,
-        data: RtCanvasLayout(),
-      ),
-    );
-    if (target.id.isEmpty || target.builtIn) return;
-    final filtered = _layouts.list.where((p) => p.id != id).toList();
-    final nextList = filtered.isEmpty
-        ? List<RtCanvasNamedLayout>.from(kRtCanvasBuiltinPresets)
-        : filtered;
-    final wasActiveL = _layouts.activeId == id;
-    final wasActiveN = _layouts.activeIdPortrait == id;
-    final next = RtCanvasLayouts(
-      list: nextList,
-      activeId: wasActiveL
-          ? (nextList.any((p) => p.id == kRtCanvasPresetTouchpad)
-                ? kRtCanvasPresetTouchpad
-                : (nextList.isNotEmpty ? nextList.first.id : ''))
-          : (nextList.any((p) => p.id == _layouts.activeId)
-                ? _layouts.activeId
-                : kRtCanvasPresetTouchpad),
-      activeIdPortrait: wasActiveN ? '' : _layouts.activeIdPortrait,
-    );
-    setState(() => _layouts = next);
-    unawaited(RtPrefs.saveCanvasLayouts(next));
-  }
-
-  /// 重命名自定义布局（sheet 长按菜单；内置名固定不改）。
-  void _renameLayout(String id, String name) {
-    final target = _layouts.list.firstWhere(
-      (p) => p.id == id,
-      orElse: () => const RtCanvasNamedLayout(
-        id: '',
-        name: '',
-        builtIn: true,
-        data: RtCanvasLayout(),
-      ),
-    );
-    if (target.id.isEmpty || target.builtIn) return;
-    final next = _layouts.withRenamed(id, name);
-    setState(() => _layouts = next);
-    unawaited(RtPrefs.saveCanvasLayouts(next));
-  }
-
-  /// 内置布局恢复出厂摆放（数据重置为代码预设，其它布局不动；恰为激活
-  /// 布局时画布立即还原）。
-  void _resetBuiltin(String id) {
-    final factory = rtBuiltinPresetOf(id);
-    if (factory == null) return;
-    final next = RtCanvasLayouts(
-      list: [
-        for (final p in _layouts.list)
-          p.id == id ? p.copyWith(data: factory.data) : p,
-      ],
-      activeId: _layouts.activeId,
-      activeIdPortrait: _layouts.activeIdPortrait,
-    );
-    setState(() => _layouts = next);
-    unawaited(RtPrefs.saveCanvasLayouts(next));
-    _showSnack('「${factory.name}」已恢复出厂摆放');
+    final enterMode = await RtPrefs.loadEnterMode();
+    if (!mounted) return;
+    setState(() {
+      _layouts = layouts;
+      _enterMode = enterMode;
+    });
   }
 
   // ================= 底栏显隐 / 横屏手柄 / 返回大厅 =================
@@ -492,13 +450,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // 重连进行中不响应返回：_connect 完成回调会把会话写回 `_session`，
     // 中途退出会被拽回输入页；等这波重连落地再返回。
     if (_connecting) return;
-    final wasImmersive = _canvasMode;
+    final wasImmersive = _inCanvasLayout;
     _eventSub?.cancel();
     _eventSub = null;
     if (wasImmersive) unawaited(_releaseVpad());
     setState(() {
       _session = null;
-      _canvasMode = false;
       _canvasEdit = false;
     });
     _syncBottomBar();
@@ -945,23 +902,10 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final barShown = _session == null && keyboard == 0;
     // 画布模式不要 AppBar：全出血，编辑/退出/显隐都在画布浮层。
+    // 渲染什么由激活布局的 kind 决定：canvas → 画布；writer → 写字页。
+    final canvasMode = _session != null && _inCanvasLayout;
     Widget body;
-    if (_session != null && _canvasMode) {
-      // 锁定横屏判定：竖屏 + 横屏激活布局含横屏专用模块（轮盘/手柄/键盘）
-      // 且用户本轮没主动选过竖屏布局 → 弹提示层（画布继续渲染该横屏布局，
-      // 毛玻璃盖住），见 rt_canvas_view 的提示层。
-      if (_canvasOrientation == kRtCanvasOrientLandscape && _portraitChosen) {
-        _portraitChosen = false; // 回横屏自动复位（纯字段，无 setState 需求）
-      }
-      final landActive = _layouts.activeFor(kRtCanvasOrientLandscape);
-      final orientHint =
-          _canvasOrientation == kRtCanvasOrientPortrait &&
-          !_portraitChosen &&
-          landActive != null &&
-          rtCanvasLayoutLocksLandscape(landActive.data);
-      final activeEntry = orientHint
-          ? landActive
-          : _layouts.activeFor(_canvasOrientation);
+    if (canvasMode) {
       body = RtCanvasView(
         session: _session,
         connected: _connected,
@@ -973,21 +917,14 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         textController: _textController,
         shortcuts: _shortcuts,
         firingId: _firingShortcutId,
-        activeLayout: activeEntry?.data ?? const RtCanvasLayout(),
-        activeId: activeEntry?.id ?? '',
+        activeLayout: _activeEntry?.data ?? const RtCanvasLayout(),
+        activeId: _activeEntry?.id ?? '',
         layouts: _layouts,
         orientation: _canvasOrientation,
-        orientHint: orientHint,
-        onHintGoLandscape: _lockCanvasLandscape,
         // 输入页模块 = 连接后落到的打字页本体（同一份 props，竖屏默认布局
         // 的唯一模块；放进任意布局即整页打字面）。
         composerModule: RtInputView(
           controller: _textController,
-          enterMode: _enterMode,
-          onEnterModeChanged: (mode) {
-            setState(() => _enterMode = mode);
-            _sync.scheduleSync();
-          },
           syncFlash: _syncFlash,
           onClear: () {
             _textController.clear();
@@ -1008,10 +945,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         editMode: _canvasEdit,
         onLayoutChanged: _setActiveLayout,
         onSwitchLayout: _switchLayout,
-        onCopyToCustom: _copyToCustom,
-        onDeleteCustom: _deleteCustom,
-        onRenameCustom: _renameLayout,
-        onResetBuiltin: _resetBuiltin,
+        onOpenSettings: _openSettings,
         onDirection: (dir) => unawaited(
           _sendVpad({
             'action': 'vpad_dpad',
@@ -1032,7 +966,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         onEditModeChanged: _setCanvasEdit,
         onFire: (item) => unawaited(_fireShortcut(item)),
         onEditShortcuts: _editShortcuts,
-        onExit: () => _setCanvasMode(false),
+        onExit: _goWriter,
         onNotify: _showSnack,
       );
     } else {
@@ -1056,11 +990,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                 )
               : RtInputView(
                   controller: _textController,
-                  enterMode: _enterMode,
-                  onEnterModeChanged: (mode) {
-                    setState(() => _enterMode = mode);
-                    _sync.scheduleSync();
-                  },
                   syncFlash: _syncFlash,
                   onClear: () {
                     _textController.clear();
@@ -1095,15 +1024,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // 只有大厅态放行 pop（Android 根页惯例）。_exitDetail 内部挡
     // _connecting：重连进行中返回不响应，防 _connect 完成回调拽回输入页。
     return PopScope(
-      canPop: _session == null && !_canvasMode,
+      canPop: _session == null && !canvasMode,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (_canvasEdit) {
           _setCanvasEdit(false); // 编辑先回使用，再按一次才退画布
           return;
         }
-        if (_canvasMode) {
-          _setCanvasMode(false);
+        if (canvasMode) {
+          _goWriter(); // 回写字页（竖屏激活切「写字」+ 收回竖屏锁）
           return;
         }
         _exitDetail();
@@ -1113,7 +1042,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         // 配对页自行用 viewInsets 兜底（见 RtPairingView）。
         resizeToAvoidBottomInset: false,
         backgroundColor: pageBg,
-        appBar: _canvasMode ? null : _buildTypingAppBar(pageBg),
+        appBar: canvasMode ? null : _buildTypingAppBar(pageBg),
         body: body,
       ),
     );
@@ -1134,34 +1063,36 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       backgroundColor: pageBg,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,
-      // 详情页左侧簇：返回大厅 + 横屏手柄（返回居最左对齐系统习惯）。
+      // 详情页左侧簇：返回大厅（返回居最左对齐系统习惯）。
       // 壳根页不能 pop；系统手势返回已由 build 的 PopScope 拦截成
       // _exitDetail，这颗按钮与它同义。
       leading: inDetail
-          ? Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: '返回连接列表',
-                  onPressed: _exitDetail,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.sports_esports),
-                  tooltip: '横屏模式',
-                  // 未连接时置灰：画布（触摸板/按钮）没有连接毫无意义
-                  onPressed: _connected ? () => _setCanvasMode(true) : null,
-                ),
-              ],
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: '返回连接列表',
+              onPressed: _exitDetail,
             )
           : null,
-      leadingWidth: inDetail ? 96 : null,
+      // 右侧簇：切换布局（竖屏也能换形态：写字 / 触控屏…）→ RT 设置 →
+      // 重连。布局名带在按钮 tooltip 里，不占标题位。
       actions: [
-        if (_session != null)
+        if (inDetail) ...[
+          IconButton(
+            icon: const Icon(Icons.dashboard_customize_outlined),
+            tooltip: '切换布局',
+            onPressed: _openLayoutPicker,
+          ),
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: '远程输入设置',
+            onPressed: _openSettings,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '重连',
             onPressed: _connecting ? null : _reconnect,
           ),
+        ],
       ],
     );
   }

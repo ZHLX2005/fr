@@ -17,13 +17,15 @@ import '../data/rt_constants.dart';
 import '../data/rt_prefs.dart';
 import 'rt_shortcut_bar.dart';
 
-/// 输入页。
+/// 输入页（= 「写字」布局的固定形态）。
+///
+/// 回车注入方式（发送 / 换行）不再摆在工具行上——它归 RT 设置管并持久化
+/// （见 settings/rt_settings_page.dart）。写字页因此是「固定死」的形态：
+/// 工具行只剩清空 / 重放两个行内小动作。
 class RtInputView extends StatelessWidget {
   const RtInputView({
     super.key,
     required this.controller,
-    required this.enterMode,
-    required this.onEnterModeChanged,
     required this.syncFlash,
     required this.onClear,
     required this.onReplay,
@@ -40,10 +42,6 @@ class RtInputView extends StatelessWidget {
   });
 
   final TextEditingController controller;
-
-  /// 回车注入方式：'enter' = 发送 / 'shift_enter' = 换行。
-  final String enterMode;
-  final ValueChanged<String> onEnterModeChanged;
 
   /// 「已同步」轻闪（对齐原型 composer sync flash）。
   final bool syncFlash;
@@ -87,13 +85,9 @@ class RtInputView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 顶部工具行：模式开关靠左，清空 / 重放收右边。
+            // 顶部工具行：清空 / 重放收右边（回车开关归 RT 设置，见文件头）。
             Row(
               children: [
-                _EnterModeToggle(
-                  enterMode: enterMode,
-                  onChanged: onEnterModeChanged,
-                ),
                 const Spacer(),
                 _FlatMiniBtn(label: '清空', onTap: onClear),
                 const SizedBox(width: 6),
@@ -223,8 +217,7 @@ class RtInputView extends StatelessWidget {
 }
 
 /// 清空 / 重放这类行内小动作按钮：浮卡样式，与原型 .btn 一致。
-class _FlatMiniBtn extends StatelessWidget {
-  const _FlatMiniBtn({required this.label, required this.onTap});
+class _FlatMiniBtn extends StatelessWidget {  const _FlatMiniBtn({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -258,87 +251,5 @@ class _FlatMiniBtn extends StatelessWidget {
   }
 }
 
-/// 回车注入方式小开关（发送 / 换行）：本质只是模式控制，紧凑 pill，
-/// 点选切换。不再做成通栏大 tab（那是给高频误触场景的冗余面积）。
-class _EnterModeToggle extends StatelessWidget {
-  const _EnterModeToggle({required this.enterMode, required this.onChanged});
-
-  final String enterMode;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colors.scheme;
-    final isEnter = enterMode == 'enter';
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: const EdgeInsets.all(2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _seg(
-            context,
-            label: '发送',
-            selected: isEnter,
-            onTap: () {
-              if (enterMode == 'enter') return;
-              onChanged('enter');
-            },
-          ),
-          _seg(
-            context,
-            label: '换行',
-            selected: !isEnter,
-            onTap: () {
-              if (enterMode == 'shift_enter') return;
-              onChanged('shift_enter');
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _seg(
-    BuildContext context, {
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    final c = context.colors;
-    final cs = c.scheme;
-    return Material(
-      color: selected ? cs.primary : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.keyboard_return,
-                size: 12,
-                color: selected ? cs.onPrimary : c.textMuted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? cs.onPrimary : c.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+/// 回车注入方式小开关（发送 / 换行）已搬到 RT 设置页并持久化——
+/// 写字页是固定形态，不再带这颗开关（见 settings/rt_settings_page.dart）。

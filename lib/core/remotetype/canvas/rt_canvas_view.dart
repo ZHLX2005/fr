@@ -34,12 +34,11 @@ import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
 import 'rt_canvas_kb.dart' show RtCanvasKb;
-import 'rt_canvas_layouts_sheet.dart' show showRtCanvasLayoutsPanel;
-import 'rt_canvas_module_page.dart' show showRtCanvasModulePage;
 import 'rt_canvas_modules.dart'
     show kRtCanvasModuleSpecs, rtCanvasModuleDefaults, rtCanvasModuleRange;
 import 'rt_canvas_stick.dart' show RtCanvasStick;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad, rtVpadKeyOrder;
+import '../ui/rt_layout_picker.dart' show showRtLayoutPicker;
 import '../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
@@ -95,16 +94,11 @@ class RtCanvasView extends StatefulWidget {
     required this.activeId,
     required this.layouts,
     required this.orientation,
-    required this.orientHint,
-    required this.onHintGoLandscape,
     required this.composerModule,
     required this.editMode,
     required this.onLayoutChanged,
     required this.onSwitchLayout,
-    required this.onCopyToCustom,
-    required this.onDeleteCustom,
-    required this.onRenameCustom,
-    required this.onResetBuiltin,
+    required this.onOpenSettings,
     required this.onDirection,
     required this.onVpadKey,
     required this.onStickAxis,
@@ -139,13 +133,6 @@ class RtCanvasView extends StatefulWidget {
   /// 哪一组可交互、以及「当前激活」高亮取哪一侧。
   final String orientation;
 
-  /// true = 当前朝向下激活布局锁定横屏（竖屏不可用）：浮出提示层引导
-  /// 旋转，画布继续渲染该布局（毛玻璃盖住）。
-  final bool orientHint;
-
-  /// 提示层「切换为横屏」：页面把方向锁收窄为横屏（防来回弹提示）。
-  final VoidCallback onHintGoLandscape;
-
   /// 输入页模块的内容（页面层装配好的 RtInputView——连接态/回调都在页面，
   /// 画布只负责按锚点摆放）。
   final Widget composerModule;
@@ -157,17 +144,8 @@ class RtCanvasView extends StatefulWidget {
   /// 切换激活布局。
   final ValueChanged<String> onSwitchLayout;
 
-  /// 「复制当前为新自定义」（自选横屏 / 竖屏）—— sheet footer 触发。
-  final ValueChanged<String> onCopyToCustom;
-
-  /// 删除某条自定义布局（仅自定义，长按 sheet 列表项触发）。
-  final ValueChanged<String> onDeleteCustom;
-
-  /// 重命名自定义布局（sheet 长按菜单触发）。
-  final void Function(String id, String name) onRenameCustom;
-
-  /// 内置布局恢复出厂摆放（sheet 内置长按触发）。
-  final ValueChanged<String> onResetBuiltin;
+  /// 打开 RT 设置页（编排 / 发送换行 / 灵敏度 / 快捷键都在那里）。
+  final VoidCallback onOpenSettings;
 
   /// 方向轮盘方向变化（非 null = 方向，null = 回中；映射 vpad_dpad）。
   final ValueChanged<String?> onDirection;
@@ -207,16 +185,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
   // 输入框焦点：IME 弹出时输入模块停靠键盘上方（见 _inputModule），失焦回锚点。
   final FocusNode _inputFocus = FocusNode();
 
-  // 锁定横屏提示层：本轮竖屏期间被用户关过（切了竖屏布局）就不再弹；
-  // 条件消失（回横屏 / 用户选定竖屏布局）自动复位。
-  bool _hintDismissed = false;
-
-  // 提示层手机旋转动画（竖→横→回，1.8s 循环）。
-  late final AnimationController _hintRotate = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1800),
-  );
-
   // 移动预览：模块 id → 当前归一化中心。松手一次性回写。
   String? _dragId;
   Offset? _dragPos;
@@ -237,7 +205,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
     super.initState();
     // 焦点变化触发重建：IME 弹出/收起时输入模块在「停靠位 ↔ 锚点位」间切换。
     _inputFocus.addListener(_onInputFocusChanged);
-    if (widget.orientHint) _hintRotate.repeat();
   }
 
   void _onInputFocusChanged() {
@@ -246,7 +213,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
 
   @override
   void dispose() {
-    _hintRotate.dispose();
     _inputFocus.removeListener(_onInputFocusChanged);
     _inputFocus.dispose();
     super.dispose();
@@ -271,14 +237,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
     }
     if (!widget.editMode && oldWidget.editMode) {
       _vpadKeyEditActive = false;
-    }
-    // 提示层条件消失（回横屏 / 用户已选定竖屏布局）→ 复位 dismiss 记忆，
-    // 下次再转竖屏撞上锁定布局时重新提示。
-    if (!widget.orientHint && _hintDismissed) {
-      _hintDismissed = false;
-    }
-    if (widget.orientHint != oldWidget.orientHint) {
-      widget.orientHint ? _hintRotate.repeat() : _hintRotate.stop();
     }
   }
 
@@ -488,81 +446,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
             },
           ),
           if (widget.editMode) ..._editChrome(cs) else _useOverlay(cs),
-          if (_hintVisible) _orientHintOverlay(cs),
         ],
-      ),
-    );
-  }
-
-  // ---- 锁定横屏提示层（毛玻璃盖住画布 + 旋转手机动画 + 双逃生） ----
-
-  bool get _hintVisible => widget.orientHint && !_hintDismissed;
-
-  Widget _orientHintOverlay(ColorScheme cs) {
-    return Positioned.fill(
-      // 吃掉全部指针：提示层在场时使用态/编辑态手势一律不响应。
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-              child: SafeArea(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _RotatePhoneIcon(animation: _hintRotate),
-                    const SizedBox(height: 18),
-                    Text(
-                      '请横屏使用',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '「${_activeName() ?? '当前布局'}」需要横屏操作',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: () {
-                            _hintDismissed = true;
-                            _hintRotate.stop();
-                            widget.onHintGoLandscape();
-                          },
-                          icon: const Icon(Icons.screen_rotation, size: 18),
-                          label: const Text('切换为横屏'),
-                        ),
-                        const SizedBox(width: 10),
-                        FilledButton.tonalIcon(
-                          // 不预关提示层：面板里真选了竖屏布局才由页面侧
-                          // 条件（_portraitChosen）撤下提示；取消则仍提示。
-                          onPressed: _openLayoutsSheet,
-                          icon: const Icon(
-                            Icons.dashboard_customize_outlined,
-                            size: 18,
-                          ),
-                          label: const Text('切换布局'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -586,9 +470,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
                 value: widget.sensitivity,
                 onChanged: widget.onSensitivityChanged,
               ),
-              onModules: _openModulePage,
-              onLayouts: _openLayoutsSheet,
-              onEdit: () => widget.onEditModeChanged(true),
+              onLayouts: _openLayoutPicker,
+              onSettings: widget.onOpenSettings,
               onExit: widget.onExit,
             ),
           ],
@@ -662,29 +545,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
                           const SizedBox(width: 8),
                         ],
                         ActionChip(
-                          avatar:
-                              Icon(Icons.tune, size: 18, color: cs.primary),
-                          label: Text(
-                            '模块编排',
-                            style: TextStyle(
-                              color: cs.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          onPressed: _openModulePage,
-                        ),
-                        const SizedBox(width: 8),
-                        ActionChip(
-                          avatar: Icon(
-                            Icons.dashboard_customize_outlined,
-                            size: 18,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          label: const Text('布局'),
-                          onPressed: _openLayoutsSheet,
-                        ),
-                        const SizedBox(width: 8),
-                        ActionChip(
                           avatar: Icon(
                             Icons.playlist_add,
                             size: 18,
@@ -742,70 +602,17 @@ class _RtCanvasViewState extends State<RtCanvasView>
     return null;
   }
 
-  // ---- 布局 sheet ----
+  // ---- 布局切换（只切，不编排） ----
 
-  /// 模块设置页（设置页样式）：模块增删 + 九宫格位置 / 三档尺寸编排。
-  Future<void> _openModulePage() {
-    return showRtCanvasModulePage(
-      context,
-      layoutName: _activeName() ?? '—',
-      connected: widget.connected,
-      visibleOf: (id) => _anchorOf(id).visible,
-      anchorOf: _anchorOf,
-      onToggleModule: (id, on) {
-        // 开关语义 = 设为目标态；当前已一致则不重复翻（防连点竞态回翻）。
-        if (_anchorOf(id).visible != on) _toggleModuleVisible(id);
-      },
-      onSetAnchor: (id, anchor) =>
-          widget.onLayoutChanged(_replaceAnchor(id, anchor)),
-      onOpenLayouts: _openLayoutsSheet,
-      onSensitivity: () => showRtSensitivitySheet(
-        context,
-        value: widget.sensitivity,
-        onChanged: widget.onSensitivityChanged,
-      ),
-      onEditShortcuts: widget.onEditShortcuts,
-      onExit: widget.onExit,
-    );
-  }
-
-  /// 整条替换模块锚点（设置页的位置/尺寸写入走这里，与拖动/缩放同链路落盘）。
-  RtCanvasLayout _replaceAnchor(String id, RtCanvasAnchor anchor) {
-    final modules = Map<String, RtCanvasAnchor>.of(widget.activeLayout.modules);
-    modules[id] = anchor;
-    return RtCanvasLayout(
-      modules: modules,
-      buttons: widget.activeLayout.buttons,
-      hideShortcuts: widget.activeLayout.hideShortcuts,
-    );
-  }
-
-  Future<void> _openLayoutsSheet() async {
-    await showRtCanvasLayoutsPanel(
+  /// 布局切换面板：只切当前朝向的激活布局。编排（改名 / 删除 / 新建 /
+  /// 恢复出厂 / 模块摆放）都在 RT 设置页里——画布只负责「换一张」。
+  Future<void> _openLayoutPicker() async {
+    await showRtLayoutPicker(
       context,
       layouts: widget.layouts,
-      activeId: widget.activeId,
       orientation: widget.orientation,
-      onSwitch: (id) {
-        widget.onSwitchLayout(id);
-        Navigator.of(context).pop();
-      },
-      onCopy: (copyOrientation) {
-        widget.onCopyToCustom(copyOrientation);
-        Navigator.of(context).pop();
-      },
-      onDelete: (id) {
-        widget.onDeleteCustom(id);
-        Navigator.of(context).pop();
-      },
-      onRename: (id, name) {
-        widget.onRenameCustom(id, name);
-        Navigator.of(context).pop();
-      },
-      onResetBuiltin: (id) {
-        widget.onResetBuiltin(id);
-        Navigator.of(context).pop();
-      },
+      activeId: widget.activeId,
+      onPick: widget.onSwitchLayout,
     );
   }
 
@@ -1367,77 +1174,16 @@ class _RtCanvasViewState extends State<RtCanvasView>
   }
 }
 
-/// 提示层的旋转手机图标：竖立 → 逆时针倒向横屏（带 easeOut 回弹）→
-/// 停顿 → 回正，1.8s 循环（节奏对齐原型 tilt keyframes）。
-class _RotatePhoneIcon extends StatelessWidget {
-  const _RotatePhoneIcon({required this.animation});
-
-  final Animation<double> animation;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colors.scheme;
-    // 0–18% 竖立 · 18–55% 转到 -90° · 55–82% 停在横屏 · 82–100% 回正。
-    final angle = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(0.0), weight: 0.18),
-      TweenSequenceItem(
-        tween: Tween(
-          begin: 0.0,
-          end: -math.pi / 2,
-        ).chain(CurveTween(curve: Curves.easeOutBack)),
-        weight: 0.37,
-      ),
-      TweenSequenceItem(tween: ConstantTween(-math.pi / 2), weight: 0.27),
-      TweenSequenceItem(
-        tween: Tween(
-          begin: -math.pi / 2,
-          end: 0.0,
-        ).chain(CurveTween(curve: Curves.easeOut)),
-        weight: 0.18,
-      ),
-    ]).animate(animation);
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) =>
-          Transform.rotate(angle: angle.value, child: child),
-      child: Container(
-        width: 46,
-        height: 76,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cs.onSurfaceVariant.withValues(alpha: 0.85),
-            width: 2.5,
-          ),
-        ),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: Container(
-            margin: const EdgeInsets.only(top: 6),
-            width: 14,
-            height: 3,
-            decoration: BoxDecoration(
-              color: cs.onSurfaceVariant.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 使用态左上胶囊：状态点 + 布局名 + chevron；点开毛玻璃菜单（灵敏度 /
-/// 模块编排 / 切换布局 / 编辑布局 / 返回打字）。收起时不占画布视线。
+/// 使用态左上胶囊：状态点 + 布局名 + chevron；点开毛玻璃菜单（切换布局 /
+/// 远程输入设置 / 返回写字）。收起时不占画布视线。
 class _CanvasCapsule extends StatefulWidget {
   const _CanvasCapsule({
     required this.cs,
     required this.connected,
     required this.name,
     required this.onSensitivity,
-    required this.onModules,
     required this.onLayouts,
-    required this.onEdit,
+    required this.onSettings,
     required this.onExit,
   });
 
@@ -1445,9 +1191,8 @@ class _CanvasCapsule extends StatefulWidget {
   final bool connected;
   final String name;
   final VoidCallback onSensitivity;
-  final VoidCallback onModules;
   final VoidCallback onLayouts;
-  final VoidCallback onEdit;
+  final VoidCallback onSettings;
   final VoidCallback onExit;
 
   @override
@@ -1456,9 +1201,8 @@ class _CanvasCapsule extends StatefulWidget {
 
 class _CanvasCapsuleState extends State<_CanvasCapsule> {
   static const _sens = 'sens';
-  static const _modules = 'modules';
   static const _layouts = 'layouts';
-  static const _edit = 'edit';
+  static const _settings = 'settings';
   static const _exit = 'exit';
 
   final GlobalKey _key = GlobalKey();
@@ -1510,17 +1254,6 @@ class _CanvasCapsuleState extends State<_CanvasCapsule> {
             ),
           ),
           PopupMenuItem(
-            value: _modules,
-            height: 40,
-            child: Row(
-              children: [
-                Icon(Icons.widgets_outlined, size: 17),
-                SizedBox(width: 10),
-                Text('模块编排', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-          PopupMenuItem(
             value: _layouts,
             height: 40,
             child: Row(
@@ -1532,13 +1265,13 @@ class _CanvasCapsuleState extends State<_CanvasCapsule> {
             ),
           ),
           PopupMenuItem(
-            value: _edit,
+            value: _settings,
             height: 40,
             child: Row(
               children: [
-                Icon(Icons.edit_outlined, size: 17),
+                Icon(Icons.tune, size: 17),
                 SizedBox(width: 10),
-                Text('编辑布局', style: TextStyle(fontSize: 13)),
+                Text('远程输入设置', style: TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -1550,7 +1283,7 @@ class _CanvasCapsuleState extends State<_CanvasCapsule> {
               children: [
                 Icon(Icons.keyboard_outlined, size: 17),
                 SizedBox(width: 10),
-                Text('返回打字', style: TextStyle(fontSize: 13)),
+                Text('返回写字', style: TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -1561,12 +1294,10 @@ class _CanvasCapsuleState extends State<_CanvasCapsule> {
     switch (selected) {
       case _sens:
         widget.onSensitivity();
-      case _modules:
-        widget.onModules();
       case _layouts:
         widget.onLayouts();
-      case _edit:
-        widget.onEdit();
+      case _settings:
+        widget.onSettings();
       case _exit:
         widget.onExit();
     }

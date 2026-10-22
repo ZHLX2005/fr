@@ -10,6 +10,7 @@ const _kShortcutsKeyV1 = 'rt_shortcuts_v1';
 const _kShortcutsKeyV2 = 'rt_shortcuts_v2';
 const _kHistoryKey = 'rt_input_history_v1';
 const _kBarDisplayKey = 'rt_bar_display_v1';
+const _kEnterModeKey = 'rt_enter_mode_v1';
 const _kTouchpadSensitivityKey = 'rt_touchpad_sensitivity_v1';
 const _kCanvasLayoutKey = 'rt_canvas_layout_v1';
 const _kCanvasLayoutsKey = 'rt_canvas_layouts_v1';
@@ -20,13 +21,17 @@ const String kRtCanvasPresetGame = 'game';
 const String kRtCanvasPresetKeyboard = 'keyboard';
 const String kRtCanvasPresetTouchpad = 'touchpad';
 
-/// 竖屏内置预设：输入页（连接后落到的打字页本身，见 rt_input_view）。
-/// 竖屏默认布局就是它——旋转到竖屏看到的是熟悉的打字页，横竖共用同一会话。
-const String kRtCanvasPresetInputPage = 'input-page';
+/// 内置预设：写字页（kind=writer，固定死不可编辑）。竖屏默认入口——
+/// 连接后落到熟悉的打字页，横竖屏共用同一会话。
+const String kRtCanvasPresetWriter = 'writer';
 
 /// 已退役内置 id（旧盘可能仍出现；[rtEnsureBuiltinPresets] 会剔除）。
 const String kRtCanvasPresetDefault = 'default';
 const String kRtCanvasPresetTouchpadN = 'touchpad-n';
+
+/// 已退役内置 id：输入页（连接后落到的打字页曾经做成画布里的满屏模块）。
+/// 现在竖屏入口由固定死的「写字」布局接管——见 kRtCanvasPresetWriter。
+const String kRtCanvasPresetInputPage = 'input-page';
 
 /// 布局朝向（持久化字段，禁止改动取值）。横竖屏布局是两个隔离的集合：
 /// 各有各的列表展示与激活位，互不串台。旧数据缺省按横屏读。
@@ -57,6 +62,27 @@ const String kRtCanvasModuleVpad = 'vpad';
 
 /// 画布按钮形状：pill = 圆角胶囊（常规快捷键）；circle = 圆形（手柄键）。
 enum RtCanvasButtonShape { pill, circle }
+
+/// 布局种类：决定这一条布局由哪套渲染器接管。
+///
+/// RT 的所有布局都是「可插拔」的——页面按当前激活布局的 kind 选渲染路径，
+/// 不再靠页面级布尔态（过去的 _canvasMode）切两套写死的页面：
+///   · writer —— 写字页（固定形态，不做模块化编排；竖屏专属）
+///   · canvas —— 画布（模块锚点 + 按钮位编排）
+enum RtLayoutKind {
+  writer,
+  canvas;
+
+  /// 持久化取值（禁止改动——改了等于丢用户布局）。
+  String get id => switch (this) {
+    RtLayoutKind.writer => 'writer',
+    RtLayoutKind.canvas => 'canvas',
+  };
+
+  /// 读侧兜底：未知/缺省一律按画布（旧数据全是画布布局）。
+  static RtLayoutKind fromId(String? raw) =>
+      raw == 'writer' ? RtLayoutKind.writer : RtLayoutKind.canvas;
+}
 
 /// 模块「未指定宽高时」的兜底规格（内置预设 / 画布渲染 / sheet 缩略图
 /// 三处共用的单一事实源；与原画布默认值一致）。
@@ -345,6 +371,8 @@ class RtCanvasNamedLayout {
     required this.builtIn,
     required this.data,
     this.orientation = kRtCanvasOrientLandscape,
+    this.kind = RtLayoutKind.canvas,
+    this.editable = true,
   });
   final String id;
   final String name;
@@ -352,18 +380,30 @@ class RtCanvasNamedLayout {
 
   /// 横屏 / 竖屏（kRtCanvasOrient*）。旧数据缺省横屏。
   final String orientation;
+
+  /// 这一条布局的渲染形态（画布 / 写字页）。
+  final RtLayoutKind kind;
+
+  /// 是否允许编排编辑。false = 固定死的默认布局（出厂代码即最终形态，
+  /// 持久化里的改动一律忽略，用户也不能重命名/删除/改摆放）。
+  final bool editable;
+
   final RtCanvasLayout data;
   RtCanvasNamedLayout copyWith({
     String? name,
     bool? builtIn,
     RtCanvasLayout? data,
     String? orientation,
+    RtLayoutKind? kind,
+    bool? editable,
   }) => RtCanvasNamedLayout(
     id: id,
     name: name ?? this.name,
     builtIn: builtIn ?? this.builtIn,
     data: data ?? this.data,
     orientation: orientation ?? this.orientation,
+    kind: kind ?? this.kind,
+    editable: editable ?? this.editable,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -371,6 +411,10 @@ class RtCanvasNamedLayout {
     'builtIn': builtIn,
     // 横屏不落字段（旧版本读到未知 orientation 也能按缺省兜底）。
     if (orientation != kRtCanvasOrientLandscape) 'or': orientation,
+    // 非画布布局才落 kind（画布是缺省值，省字段保兼容）。
+    if (kind != RtLayoutKind.canvas) 'k': kind.id,
+    // 可编辑是缺省值；只有固定死的布局才落 false。
+    if (!editable) 'ed': false,
     'data': data.toJson(),
   };
   factory RtCanvasNamedLayout.fromJson(Map<String, dynamic> j) =>
@@ -381,6 +425,8 @@ class RtCanvasNamedLayout {
         orientation: j['or'] == kRtCanvasOrientPortrait
             ? kRtCanvasOrientPortrait
             : kRtCanvasOrientLandscape,
+        kind: RtLayoutKind.fromId(j['k']?.toString()),
+        editable: j['ed'] != false,
         data: RtCanvasLayout.fromJson(
           j['data'] is Map
               ? (j['data'] as Map).cast<String, dynamic>()
@@ -426,9 +472,15 @@ class RtCanvasLayouts {
       return null;
     }
     for (final p in list) {
-      if (p.orientation == kRtCanvasOrientLandscape) return p;
+      if (p.orientation == kRtCanvasOrientLandscape && p.kind != RtLayoutKind.writer) {
+        return p;
+      }
     }
-    return list.isNotEmpty ? list.first : null;
+    // 兜底也跳过写字页（横屏无写字形态）——否则横屏会落到一张写字页。
+    for (final p in list) {
+      if (p.kind != RtLayoutKind.writer) return p;
+    }
+    return null;
   }
 
   RtCanvasNamedLayout? get active => activeFor(kRtCanvasOrientLandscape);
@@ -661,8 +713,13 @@ bool rtCanvasLayoutLocksLandscape(RtCanvasLayout data) {
 }
 
 /// 布局在指定朝向是否可用：同朝向条目；或竖屏下「不锁横屏」的横屏条目
-/// （原型触控屏双朝向）。纯函数，规则改动须同步单测。
+/// （原型触控屏双朝向）。写字页（kind=writer）只属竖屏——横屏下不可用。
+/// 纯函数，规则改动须同步单测。
 bool rtCanvasLayoutUsableIn(String orientation, RtCanvasNamedLayout entry) {
+  // 写字页固定竖屏：横屏没有写字页形态（横屏只有画布）。
+  if (entry.kind == RtLayoutKind.writer) {
+    return orientation == kRtCanvasOrientPortrait;
+  }
   if (entry.orientation == orientation) return true;
   return orientation == kRtCanvasOrientPortrait &&
       entry.orientation == kRtCanvasOrientLandscape &&
@@ -723,6 +780,22 @@ class RtPrefs {
   static Future<void> saveBarDisplay(RtBarDisplay d) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kBarDisplayKey, jsonEncode(d.toJson()));
+  }
+
+  /// 回车注入方式：'enter' = 发送 / 'shift_enter' = 换行。
+  ///
+  /// 这对开关原是写字页工具行上的两颗小按钮（页面级内存态，切走即丢）。
+  /// 现在归到 RT 设置里持久化——换行/发送是「我在哪个 App 里打字」的偏好，
+  /// 不该每次进页面重选。
+  static Future<String> loadEnterMode() async {
+    final p = await SharedPreferences.getInstance();
+    final raw = p.getString(_kEnterModeKey);
+    return raw == 'shift_enter' ? 'shift_enter' : 'enter';
+  }
+
+  static Future<void> saveEnterMode(String mode) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kEnterModeKey, mode == 'shift_enter' ? 'shift_enter' : 'enter');
   }
 
   static Future<List<String>> loadHistory() async {

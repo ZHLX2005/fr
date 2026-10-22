@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
+import '../../core/remotetype/settings/rt_settings_page.dart';
 import '../../core/theme/state/theme_provider.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart';
 import '../profile/theme/theme_page.dart';
@@ -288,6 +289,15 @@ class _GeneralCard extends StatelessWidget {
                 selected: {capacity},
                 onSelectionChanged: (s) => onCapacity(s.first),
               ),
+            ),
+            // 远程输入的设置落点：布局编排 / 发送换行 / 灵敏度 / 快捷键。
+            // 不进常用功能列表——它是模块级设置，挂在设置里更合适。
+            ListTile(
+              leading: const Icon(Icons.keyboard_alt_outlined),
+              title: const Text('远程输入'),
+              subtitle: const Text('布局编排 · 回车行为 · 快捷键'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showRtSettingsPage(context),
             ),
           ],
         ),
