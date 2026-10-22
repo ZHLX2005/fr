@@ -42,6 +42,7 @@ import 'rt_canvas_modules.dart'
         rtCanvasModuleRange;
 import 'rt_canvas_stick.dart' show RtCanvasStick;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad, rtVpadKeyOrder;
+import '../ui/rt_layout_capsule.dart' show RtLayoutCapsule;
 import '../ui/rt_layout_picker.dart' show showRtLayoutPicker;
 import '../data/rt_prefs.dart'
     show
@@ -59,7 +60,7 @@ import '../data/rt_prefs.dart'
         kRtCanvasModuleTouchpad,
         kRtCanvasModuleVpad;
 import '../protocol/rt_session.dart';
-import 'rt_touch_surface.dart' show RtTouchSurface, showRtSensitivitySheet;
+import 'rt_touch_surface.dart' show RtTouchSurface;
 
 /// 按钮自动找位候选槽（画布右侧区，2 列 × 4 行，归一化画布坐标）。
 const List<Offset> kRtCanvasSlotAnchors = [
@@ -110,7 +111,6 @@ class RtCanvasView extends StatefulWidget {
     required this.onEditModeChanged,
     required this.onFire,
     required this.onEditShortcuts,
-    required this.onExit,
     required this.onNotify,
   });
 
@@ -168,7 +168,6 @@ class RtCanvasView extends StatefulWidget {
   final ValueChanged<bool> onEditModeChanged;
   final ValueChanged<RtShortcutItem> onFire;
   final VoidCallback onEditShortcuts;
-  final VoidCallback onExit;
   final void Function(String message) onNotify;
 
   @override
@@ -457,9 +456,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 使用态浮层：左上胶囊（状态点 + 布局名 + 菜单），对齐原型 ----
-  // 原型把操作区收进一颗可展开胶囊，收起时只露「布局名 + 状态点」——画布
-  // 主体（触摸板/手柄）不被顶部工具行切割视线。
+  // ---- 使用态浮层：左上胶囊（状态点 + 布局名），与其他布局共用同一份 ----
+  // 点开即布局面板：第一层是全部布局的列表，最下面是「远程输入设置」入口。
 
   Widget _useOverlay(ColorScheme cs) {
     return SafeArea(
@@ -467,18 +465,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
         padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
         child: Row(
           children: [
-            _CanvasCapsule(
-              cs: cs,
+            RtLayoutCapsule(
               connected: widget.connected,
-              name: _activeName() ?? '',
-              onSensitivity: () => showRtSensitivitySheet(
-                context,
-                value: widget.sensitivity,
-                onChanged: widget.onSensitivityChanged,
-              ),
-              onLayouts: _openLayoutPicker,
-              onSettings: widget.onOpenSettings,
-              onExit: widget.onExit,
+              layoutName: _activeName() ?? '',
+              onOpen: _openLayoutPicker,
             ),
           ],
         ),
@@ -1323,215 +1313,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
           onToggleVisible ??
           () => _updateButton(item.id, pos.copyWith(v: !pos.v)),
       onFire: widget.onFire,
-    );
-  }
-}
-
-/// 使用态左上胶囊：状态点 + 布局名 + chevron；点开毛玻璃菜单（切换布局 /
-/// 远程输入设置 / 返回写字）。收起时不占画布视线。
-class _CanvasCapsule extends StatefulWidget {
-  const _CanvasCapsule({
-    required this.cs,
-    required this.connected,
-    required this.name,
-    required this.onSensitivity,
-    required this.onLayouts,
-    required this.onSettings,
-    required this.onExit,
-  });
-
-  final ColorScheme cs;
-  final bool connected;
-  final String name;
-  final VoidCallback onSensitivity;
-  final VoidCallback onLayouts;
-  final VoidCallback onSettings;
-  final VoidCallback onExit;
-
-  @override
-  State<_CanvasCapsule> createState() => _CanvasCapsuleState();
-}
-
-class _CanvasCapsuleState extends State<_CanvasCapsule> {
-  static const _sens = 'sens';
-  static const _layouts = 'layouts';
-  static const _settings = 'settings';
-  static const _exit = 'exit';
-
-  final GlobalKey _key = GlobalKey();
-  bool _open = false;
-
-  Future<void> _toggleMenu() async {
-    if (_open) return;
-    setState(() => _open = true);
-    unawaited(HapticFeedback.selectionClick());
-    final box = _key.currentContext?.findRenderObject() as RenderBox?;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    String? selected;
-    if (box != null && overlay != null) {
-      // 菜单锚在胶囊正下方，向上留 4px 呼吸、宽度比胶囊略宽。
-      final topLeft = box.localToGlobal(
-        box.size.bottomLeft(Offset.zero) - const Offset(0, 2),
-      );
-      final position = RelativeRect.fromRect(
-        Rect.fromPoints(topLeft, topLeft.translate(200, 8)),
-        Offset.zero & overlay.size,
-      );
-      selected = await showMenu<String>(
-        context: context,
-        position: position,
-        color: widget.cs.surface.withValues(alpha: 0.96),
-        elevation: 8,
-        shadowColor: widget.cs.shadow.withValues(alpha: 0.35),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: widget.cs.outlineVariant.withValues(alpha: 0.7),
-          ),
-        ),
-        popUpAnimationStyle: AnimationStyle(
-          curve: Curves.easeOutBack,
-          duration: const Duration(milliseconds: 280),
-        ),
-        items: const [
-          PopupMenuItem(
-            value: _sens,
-            height: 40,
-            child: Row(
-              children: [
-                Icon(Icons.tune, size: 17),
-                SizedBox(width: 10),
-                Text('触摸板灵敏度', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: _layouts,
-            height: 40,
-            child: Row(
-              children: [
-                Icon(Icons.dashboard_customize_outlined, size: 17),
-                SizedBox(width: 10),
-                Text('切换布局', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: _settings,
-            height: 40,
-            child: Row(
-              children: [
-                Icon(Icons.tune, size: 17),
-                SizedBox(width: 10),
-                Text('远程输入设置', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-          PopupMenuDivider(),
-          PopupMenuItem(
-            value: _exit,
-            height: 40,
-            child: Row(
-              children: [
-                Icon(Icons.keyboard_outlined, size: 17),
-                SizedBox(width: 10),
-                Text('返回写字', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-    if (mounted) setState(() => _open = false);
-    switch (selected) {
-      case _sens:
-        widget.onSensitivity();
-      case _layouts:
-        widget.onLayouts();
-      case _settings:
-        widget.onSettings();
-      case _exit:
-        widget.onExit();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: InkWell(
-          onTap: _toggleMenu,
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            key: _key,
-            padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
-            decoration: BoxDecoration(
-              color: cs.surface.withValues(alpha: 0.78),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.7),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: cs.shadow.withValues(alpha: 0.10),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 状态点：连接色 + 同色光晕（对齐原型 dot halo）。
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.connected ? cs.primary : cs.outlineVariant,
-                    boxShadow: widget.connected
-                        ? [
-                            BoxShadow(
-                              color: cs.primary.withValues(alpha: 0.25),
-                              spreadRadius: 2.5,
-                            ),
-                          ]
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
-                  child: Text(
-                    widget.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                ),
-                AnimatedRotation(
-                  turns: _open ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
-                  child: Icon(
-                    Icons.expand_more,
-                    size: 16,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

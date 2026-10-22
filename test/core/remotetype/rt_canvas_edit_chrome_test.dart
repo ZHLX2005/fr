@@ -45,7 +45,6 @@ Widget _canvas({
               onEditModeChanged: (_) {},
               onFire: (_) async {},
               onEditShortcuts: () {},
-              onExit: () {},
               onNotify: (_) {},
             ),
           ],
