@@ -402,6 +402,49 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(LineOrientation.enableAll());
   }
 
+  /// 共享头部（所有布局共用）：返回小圆按钮 + 布局胶囊。
+  ///
+  /// 内置（游戏 / 键盘 / 触控屏）、内置固定（写字）、用户自定义——一律
+  /// 走这一份，页面级浮层，画布与写字页长得一样。胶囊点开是布局面板：
+  /// 第一层全部布局的列表，最下面是「远程输入设置」入口。
+  ///
+  /// 高度 [kRtSharedHeaderHeight]，写字页内容按它让位（画布是全出血，
+  /// 头部浮在画布左上角，和原来的胶囊一个位置）。
+  Widget _sharedHeader() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+          child: Row(
+            children: [
+              RtRoundIconButton(
+                icon: Icons.arrow_back_ios_new,
+                tooltip: '返回连接列表',
+                onTap: _exitDetail,
+              ),
+              const SizedBox(width: 8),
+              RtLayoutCapsule(
+                connected: _connected,
+                layoutName: _activeEntry?.name ?? '写字',
+                onOpen: _openLayoutPicker,
+              ),
+              const Spacer(),
+              RtRoundIconButton(
+                icon: Icons.refresh_rounded,
+                tooltip: '重连',
+                onTap: _connecting ? () {} : _reconnect,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// 打开布局切换面板（竖屏页头 / 横屏左上角共用）：第一层是布局列表，
   /// 底下附一个「远程输入设置」入口。
   Future<void> _openLayoutPicker() async {
@@ -936,8 +979,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         firingId: _firingShortcutId,
         activeLayout: _activeEntry?.data ?? const RtCanvasLayout(),
         activeId: _activeEntry?.id ?? '',
-        layouts: _layouts,
-        orientation: _canvasOrientation,
         // 输入页模块 = 连接后落到的打字页本体（同一份 props，竖屏默认布局
         // 的唯一模块；放进任意布局即整页打字面）。
         composerModule: RtInputView(
@@ -961,8 +1002,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         ),
         editMode: _canvasEdit,
         onLayoutChanged: _setActiveLayout,
-        onSwitchLayout: _switchLayout,
-        onOpenSettings: _openSettings,
         onDirection: (dir) => unawaited(
           _sendVpad({
             'action': 'vpad_dpad',
@@ -1007,27 +1046,43 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                         setState(() => _selectedClient = cid),
                     onConnect: _connect,
                   )
-                : RtInputView(
-                    controller: _textController,
-                    syncFlash: _syncFlash,
-                    onClear: () {
-                      _textController.clear();
-                      setState(() {});
-                    },
-                    onReplay: _replayText,
-                    onComposerTapOutside: _sync.scheduleSync,
-                    onTextChanged: () => setState(() {}),
-                    shortcuts: _shortcuts,
-                    barDisplay: _barDisplay,
-                    connected: _connected,
-                    firingId: _firingShortcutId,
-                    onFire: _fireShortcut,
-                    onEdit: _editShortcuts,
-                    onHistory: _openHistory,
-                    onBarDisplay: _openBarDisplay,
+                : Padding(
+                    // 给共享头部让位（头部是页面级浮层，压在内容之上）。
+                    padding: const EdgeInsets.only(
+                      top: kRtSharedHeaderHeight,
+                    ),
+                    child: RtInputView(
+                      controller: _textController,
+                      syncFlash: _syncFlash,
+                      onClear: () {
+                        _textController.clear();
+                        setState(() {});
+                      },
+                      onReplay: _replayText,
+                      onComposerTapOutside: _sync.scheduleSync,
+                      onTextChanged: () => setState(() {}),
+                      shortcuts: _shortcuts,
+                      barDisplay: _barDisplay,
+                      connected: _connected,
+                      firingId: _firingShortcutId,
+                      onFire: _fireShortcut,
+                      onEdit: _editShortcuts,
+                      onHistory: _openHistory,
+                      onBarDisplay: _openBarDisplay,
+                    ),
                   ),
           ),
           if (_connecting) RtConnectingOverlay(label: _connectingLabel()),
+        ],
+      );
+    }
+    // 共享头部：所有布局（内置 / 内置固定 / 自定义）共用这一组控件——
+    // 画布与写字页长一个样，浮在内容之上。
+    if (_session != null) {
+      body = Stack(
+        children: [
+          body,
+          _sharedHeader(),
         ],
       );
     }
@@ -1060,56 +1115,22 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
         // 配对页自行用 viewInsets 兜底（见 RtPairingView）。
         resizeToAvoidBottomInset: false,
         backgroundColor: pageBg,
-        appBar: canvasMode ? null : _buildTypingAppBar(pageBg),
+        appBar: _session == null ? _buildLobbyAppBar(pageBg) : null,
         body: body,
       ),
     );
   }
 
-  PreferredSizeWidget _buildTypingAppBar(Color pageBg) {
-    final inDetail = _session != null;
+  /// 大厅（连接列表）的标题栏：只有标题。
+  ///
+  /// 详情态（任何布局）不挂 AppBar——统一走页面级共享头部（返回 + 布局
+  /// 胶囊），所有布局长得一样。
+  PreferredSizeWidget _buildLobbyAppBar(Color pageBg) {
     return AppBar(
-      // 详情页不显示电脑名（iOS 式的克制）：标题位让给控件组；
-      // 大厅保持「远程输入」。
+      title: const Text('远程输入'),
       backgroundColor: pageBg,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,
-      // 详情页头部：左侧 = 返回（小圆按钮）+ 布局胶囊，两者并列同高；
-      // 右侧 = 重连（同款小圆按钮）。**不显示电脑名**——头部只留控件，
-      // 布局与设置都在胶囊里（布局列表 + 设置入口），iOS 式的克制。
-      // 壳根页不能 pop；系统手势返回已由 build 的 PopScope 拦截成
-      // _exitDetail，这颗按钮与它同义。
-      //
-      // 控件组放 title 槽而不是 leading：Material 的 leading 槽锁死 56px，
-      // 放不下「返回 + 胶囊」；title 槽是弹性宽度，胶囊按名字长度自适应。
-      centerTitle: false,
-      title: inDetail
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RtRoundIconButton(
-                  icon: Icons.arrow_back_ios_new,
-                  tooltip: '返回连接列表',
-                  onTap: _exitDetail,
-                ),
-                const SizedBox(width: 8),
-                RtLayoutCapsule(
-                  connected: _connected,
-                  layoutName: _activeEntry?.name ?? '写字',
-                  onOpen: _openLayoutPicker,
-                ),
-              ],
-            )
-          : const Text('远程输入'),
-      // 只留一颗重连（连接动作，不是布局/设置功能）；布局与设置都在胶囊里。
-      actions: [
-        if (inDetail)
-          RtRoundIconButton(
-            icon: Icons.refresh_rounded,
-            tooltip: '重连',
-            onTap: _connecting ? () {} : _reconnect,
-          ),
-      ],
     );
   }
 

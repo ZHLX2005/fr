@@ -27,13 +27,9 @@ Widget _canvas({
               firingId: null,
               activeLayout: const RtCanvasLayout(),
               activeId: 'custom-1',
-              layouts: const RtCanvasLayouts(),
-              orientation: orientation,
               composerModule: const SizedBox.shrink(),
               editMode: editMode,
               onLayoutChanged: (_) {},
-              onSwitchLayout: (_) {},
-              onOpenSettings: () {},
               onDirection: (_) {},
               onVpadKey: ({
                 String? button,

@@ -42,14 +42,11 @@ import 'rt_canvas_modules.dart'
         rtCanvasModuleRange;
 import 'rt_canvas_stick.dart' show RtCanvasStick;
 import 'rt_canvas_vpad.dart' show RtCanvasVpad, rtVpadKeyOrder;
-import '../ui/rt_layout_capsule.dart' show RtLayoutCapsule;
-import '../ui/rt_layout_picker.dart' show showRtLayoutPicker;
 import '../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasButtonPos,
         RtCanvasLayout,
-        RtCanvasLayouts,
         RtShortcutItem,
         kRtCanvasModuleComposer,
         kRtCanvasModuleDpad,
@@ -97,13 +94,9 @@ class RtCanvasView extends StatefulWidget {
     required this.firingId,
     required this.activeLayout,
     required this.activeId,
-    required this.layouts,
-    required this.orientation,
     required this.composerModule,
     required this.editMode,
     required this.onLayoutChanged,
-    required this.onSwitchLayout,
-    required this.onOpenSettings,
     required this.onDirection,
     required this.onVpadKey,
     required this.onStickAxis,
@@ -130,13 +123,6 @@ class RtCanvasView extends StatefulWidget {
   /// 「切布局」时识别——画布渲染只看 activeLayout。
   final String activeId;
 
-  /// 全部布局（内置 + 自定义，横竖两朝向），sheet 按朝向分组展示用。
-  final RtCanvasLayouts layouts;
-
-  /// 画布当前朝向（kRtCanvasOrient*，页面随设备旋转刷新）。决定 sheet
-  /// 哪一组可交互、以及「当前激活」高亮取哪一侧。
-  final String orientation;
-
   /// 输入页模块的内容（页面层装配好的 RtInputView——连接态/回调都在页面，
   /// 画布只负责按锚点摆放）。
   final Widget composerModule;
@@ -144,12 +130,6 @@ class RtCanvasView extends StatefulWidget {
 
   /// 当前激活布局的内容变更（拖动 / 缩放 / 显隐 / 模块开关）。
   final ValueChanged<RtCanvasLayout> onLayoutChanged;
-
-  /// 切换激活布局。
-  final ValueChanged<String> onSwitchLayout;
-
-  /// 打开 RT 设置页（编排 / 发送换行 / 灵敏度 / 快捷键都在那里）。
-  final VoidCallback onOpenSettings;
 
   /// 方向轮盘方向变化（非 null = 方向，null = 回中；映射 vpad_dpad）。
   final ValueChanged<String?> onDirection;
@@ -450,28 +430,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
               );
             },
           ),
-          if (widget.editMode) ..._editChrome(cs) else _useOverlay(cs),
+          if (widget.editMode) ..._editChrome(cs),
+          // 使用态不再自带头部：共享头部由页面层渲染（返回 + 布局胶囊），
+          // 所有布局——内置 / 内置固定 / 自定义——长得一模一样。
         ],
-      ),
-    );
-  }
-
-  // ---- 使用态浮层：左上胶囊（状态点 + 布局名），与其他布局共用同一份 ----
-  // 点开即布局面板：第一层是全部布局的列表，最下面是「远程输入设置」入口。
-
-  Widget _useOverlay(ColorScheme cs) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-        child: Row(
-          children: [
-            RtLayoutCapsule(
-              connected: widget.connected,
-              layoutName: _activeName() ?? '',
-              onOpen: _openLayoutPicker,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -733,29 +695,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
         color: visible ? cs.primary : cs.onSurfaceVariant,
       ),
       label: Text(label),
-    );
-  }
-
-  /// 当前激活布局名（sheet 同源；查不到返回 null → 浮层不显示名字）。
-  String? _activeName() {
-    for (final p in widget.layouts.list) {
-      if (p.id == widget.activeId) return p.name;
-    }
-    return null;
-  }
-
-  // ---- 布局切换（只切，不编排） ----
-
-  /// 布局切换面板：第一层是所有布局的列表，底下附设置入口。编排（改名 /
-  /// 删除 / 新建 / 恢复出厂 / 模块摆放）都在 RT 设置页里。
-  Future<void> _openLayoutPicker() async {
-    await showRtLayoutPicker(
-      context,
-      layouts: widget.layouts,
-      orientation: widget.orientation,
-      activeId: widget.activeId,
-      onPick: widget.onSwitchLayout,
-      onOpenSettings: widget.onOpenSettings,
     );
   }
 

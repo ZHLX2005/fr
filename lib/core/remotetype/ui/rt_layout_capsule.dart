@@ -17,6 +17,10 @@ import 'package:flutter/services.dart';
 /// 顶部控件的共用高度：布局胶囊与并排的小圆按钮（返回等）同高。
 const double kRtTopControlHeight = 32.0;
 
+/// 共享头部占位高度：浮层头部的总高（上留白 + 控件高 + 下留白）。
+/// 写字页内容按它让位；画布是全出血，头部浮在画布左上角。
+const double kRtSharedHeaderHeight = 44.0;
+
 /// 左上角布局胶囊：状态点 + 当前布局名 + chevron，点开进布局面板。
 class RtLayoutCapsule extends StatelessWidget {
   const RtLayoutCapsule({

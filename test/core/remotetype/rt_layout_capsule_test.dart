@@ -34,6 +34,36 @@ void main() {
     expect(opened, 1);
   });
 
+  testWidgets('胶囊与小圆按钮严格同高（共享头部的一对控件）', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              RtRoundIconButton(
+                icon: Icons.arrow_back_ios_new,
+                onTap: () {},
+              ),
+              const SizedBox(width: 8),
+              RtLayoutCapsule(
+                connected: true,
+                layoutName: '写字',
+                onOpen: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final capsuleH = tester.getSize(find.byType(RtLayoutCapsule)).height;
+    final buttonH = tester.getSize(find.byType(RtRoundIconButton)).height;
+    expect(capsuleH, kRtTopControlHeight);
+    expect(buttonH, kRtTopControlHeight);
+    expect(capsuleH, buttonH);
+  });
+
   testWidgets('胶囊在左上角（横竖屏各一份，同一控件）', (tester) async {
     tester.view.physicalSize = const Size(800, 400);
     tester.view.devicePixelRatio = 1;
