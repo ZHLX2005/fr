@@ -22,7 +22,6 @@ import '../canvas/template/rt_canvas_presets.dart';
 import '../data/rt_constants.dart';
 import '../data/rt_layout_ops.dart';
 import '../data/rt_prefs.dart';
-import '../ui/rt_layout_picker.dart';
 import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
 
 /// 打开远程输入设置页。
@@ -58,14 +57,11 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
   String _enterMode = 'enter';
   double _sensitivity = kRtPadSensitivityDefault;
 
-  /// 本页所在设备的朝向（决定「当前布局」与可用列表）。
+  /// 当前朝向（决定「当前布局」与可用列表）。
   String get _orientation =>
       MediaQuery.orientationOf(context) == Orientation.landscape
       ? kRtCanvasOrientLandscape
       : kRtCanvasOrientPortrait;
-
-  String get _activeName =>
-      _layouts.activeFor(_orientation)?.name ?? '—';
 
   @override
   void initState() {
@@ -127,16 +123,6 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
     );
   }
 
-  Future<void> _openLayoutPicker() async {
-    await showRtLayoutPicker(
-      context,
-      layouts: _layouts,
-      orientation: _orientation,
-      activeId: _layouts.activeFor(_orientation)?.id ?? '',
-      onPick: (id) => _saveLayouts(_layouts.withActiveFor(_orientation, id)),
-    );
-  }
-
   Future<void> _openModuleArrange() async {
     final active = _layouts.activeFor(_orientation);
     if (active == null) return;
@@ -166,6 +152,39 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
         );
       },
       onOpenLayouts: _openLayoutManager,
+    );
+  }
+
+  /// 布局列表里的一条：可用的直接点即切；不可用的（另一朝向专属）置灰。
+  Widget _layoutTile(RtCanvasNamedLayout p, ColorScheme cs) {
+    final c = context.colors;
+    final usable = rtCanvasLayoutUsableIn(_orientation, p);
+    final active = p.id == _layouts.activeFor(_orientation)?.id;
+    return ListTile(
+      dense: true,
+      enabled: usable,
+      leading: Icon(
+        p.kind == RtLayoutKind.writer
+            ? Icons.keyboard_alt_outlined
+            : Icons.dashboard_customize_outlined,
+        color: active ? cs.primary : c.textMuted,
+      ),
+      title: Text(
+        p.name,
+        style: TextStyle(
+          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+          color: active ? cs.primary : c.text,
+        ),
+      ),
+      // 固定死的布局没有编辑入口——标出来，免得用户去找。
+      subtitle: p.editable
+          ? null
+          : Text(
+              '固定布局',
+              style: TextStyle(fontSize: 11, color: c.textMuted),
+            ),
+      trailing: active ? Icon(Icons.check, color: cs.primary) : null,
+      onTap: () => _saveLayouts(_layouts.withActiveFor(_orientation, p.id)),
     );
   }
 
@@ -214,19 +233,16 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           _SectionHeader('布局'),
+          // 第一层就是布局列表：所有布局都列出来，点一下即切（常用操作）。
+          // 管理类动作（改名 / 删除 / 新建 / 恢复出厂）收在下一行「布局管理」。
+          for (final p in _layouts.list)
+            _layoutTile(p, cs),
           ListTile(
-            leading: const Icon(Icons.dashboard_customize_outlined),
-            title: const Text('当前布局'),
-            subtitle: Text(_activeName),
+            leading: const Icon(Icons.edit_note_outlined),
+            title: const Text('布局管理'),
+            subtitle: const Text('改名 / 删除 / 新建 / 恢复出厂'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _openLayoutManager,
-          ),
-          ListTile(
-            leading: const Icon(Icons.swap_horiz),
-            title: const Text('切换布局'),
-            subtitle: const Text('写字 / 触控屏 / 游戏 / 键盘'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _openLayoutPicker,
           ),
           ListTile(
             leading: const Icon(Icons.tune),

@@ -387,7 +387,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     );
   }
 
-  /// 打开布局切换面板（竖屏页头 / 横屏左上角共用）：只切，不编排。
+  /// 打开布局切换面板（竖屏页头 / 横屏左上角共用）：第一层是布局列表，
+  /// 底下附一个「远程输入设置」入口。
   Future<void> _openLayoutPicker() async {
     await showRtLayoutPicker(
       context,
@@ -395,6 +396,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       orientation: _canvasOrientation,
       activeId: _activeEntry?.id ?? '',
       onPick: _switchLayout,
+      onOpenSettings: _openSettings,
     );
   }
 

@@ -38,6 +38,13 @@ void main() {
     expect(find.text('远程输入设置'), findsOneWidget);
     expect(find.text('布局'), findsOneWidget);
     expect(find.text('输入'), findsOneWidget);
+    // 第一层 = 布局列表（所有布局直接列出来）
+    expect(find.text('写字'), findsOneWidget);
+    expect(find.text('游戏布局'), findsOneWidget);
+    expect(find.text('键盘布局'), findsOneWidget);
+    expect(find.text('触控屏布局'), findsOneWidget);
+    // 管理类动作收在下一行
+    expect(find.text('布局管理'), findsOneWidget);
     // 回车行为默认 = 发送
     expect(find.text('发送（普通 Enter）'), findsOneWidget);
 
@@ -48,12 +55,15 @@ void main() {
     expect(await RtPrefs.loadEnterMode(), 'shift_enter');
   });
 
-  testWidgets('布局切换面板：只列可用布局，固定布局标注不可编辑', (tester) async {
+  testWidgets('布局切换面板：第一层是所有布局的列表，底下附设置入口', (
+    tester,
+  ) async {
     final layouts = const RtCanvasLayouts(
       list: kRtCanvasBuiltinPresets,
       activeId: kRtCanvasPresetWriter,
       activeIdPortrait: kRtCanvasPresetWriter,
     );
+    var settingsOpened = false;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -67,6 +77,7 @@ void main() {
                   orientation: kRtCanvasOrientPortrait,
                   activeId: kRtCanvasPresetWriter,
                   onPick: (_) {},
+                  onOpenSettings: () => settingsOpened = true,
                 ),
                 child: const Text('打开面板'),
               ),
@@ -80,12 +91,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('切换布局'), findsOneWidget);
+    // 第一层 = 所有布局的列表（按朝向分组，另一组灰显但仍列出）
     expect(find.text('写字'), findsOneWidget);
-    // 竖屏可用：写字 + 触控屏（双朝向）；游戏/键盘锁横屏 → 不列
-    expect(find.text('触控屏布局'), findsOneWidget);
-    expect(find.text('游戏布局'), findsNothing);
-    expect(find.text('键盘布局'), findsNothing);
+    expect(find.text('触控屏布局'), findsWidgets);
+    expect(find.text('游戏布局'), findsOneWidget);
+    expect(find.text('键盘布局'), findsOneWidget);
+    expect(find.text('竖屏布局'), findsOneWidget);
+    expect(find.text('横屏布局'), findsOneWidget);
     // 固定死的布局标注不可编辑
     expect(find.text('固定布局'), findsOneWidget);
+    // 设置入口附在列表下面
+    expect(find.text('远程输入设置'), findsOneWidget);
+
+    // 点设置入口 → 回调触发（面板先关）
+    await tester.tap(find.text('远程输入设置'));
+    await tester.pumpAndSettle();
+    expect(settingsOpened, isTrue);
   });
 }

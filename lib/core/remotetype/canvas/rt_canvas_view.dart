@@ -756,8 +756,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
 
   // ---- 布局切换（只切，不编排） ----
 
-  /// 布局切换面板：只切当前朝向的激活布局。编排（改名 / 删除 / 新建 /
-  /// 恢复出厂 / 模块摆放）都在 RT 设置页里——画布只负责「换一张」。
+  /// 布局切换面板：第一层是所有布局的列表，底下附设置入口。编排（改名 /
+  /// 删除 / 新建 / 恢复出厂 / 模块摆放）都在 RT 设置页里。
   Future<void> _openLayoutPicker() async {
     await showRtLayoutPicker(
       context,
@@ -765,6 +765,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
       orientation: widget.orientation,
       activeId: widget.activeId,
       onPick: widget.onSwitchLayout,
+      onOpenSettings: widget.onOpenSettings,
     );
   }
 
