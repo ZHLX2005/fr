@@ -332,16 +332,17 @@ Future<void> _openArrangeSheet(
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // 方向模式（仅轮盘）：四向 = 不产生斜向（不认斜向的游戏）；
-                  // 八向 = 补四个斜向，依赖 PC 端白名单同步放行。
+                  // 方向布局（仅方向模块）：四向键 = 上下左右 4 颗独立按键，
+                  // 不产生斜向（不认斜向的游戏）；八向 = 轮盘，补四个斜向，
+                  // 依赖 PC 端白名单同步放行。
                   if (specId == kRtCanvasModuleDpad) ...[
                     const SizedBox(height: 18),
-                    Text('方向模式', style: _labelStyle(cs)),
+                    Text('方向布局', style: _labelStyle(cs)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         ChoiceChip(
-                          label: const Text('四向'),
+                          label: const Text('四向键'),
                           selected: !anchor.dir8,
                           onSelected: (_) {
                             onSetAnchor(specId, anchor.copyWith(dir8: false));
@@ -350,7 +351,7 @@ Future<void> _openArrangeSheet(
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('八向'),
+                          label: const Text('八向轮盘'),
                           selected: anchor.dir8,
                           onSelected: (_) {
                             onSetAnchor(specId, anchor.copyWith(dir8: true));

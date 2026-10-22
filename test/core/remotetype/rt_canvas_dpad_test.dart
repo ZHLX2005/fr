@@ -5,10 +5,11 @@
 //   - 按住滑到另一向 = 换向（旧向停、新向回报）
 //   - 松手 / 滑回中心死区 = 回报 null（映射 vpad_dpad 'none' 回中）
 //   - 未连接（enabled: false）不响应
-//   - 两种方向模式：四向（默认，|dx|≥|dy| 取左右，否则上下）与八向
-//     （45° 扇区八分圆，补 up_left/up_right/down_left/down_right）
+//   - 两种布局：四向键（默认，十字矩形命中：臂内归该向，斜角空隙不触发）
+//     与八向轮盘（45° 扇区八分圆，补 up_left/up_right/down_left/down_right）
 //
-// 判定口径与 RtCanvasDpad._dirAt 一致；中心死区（半径 25%）无方向。
+// 判定口径与 RtCanvasDpad._dirAt 一致；四向中心毂（±0.17*side 方形）无方向，
+// 八向死区（半径 25%）无方向。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -113,18 +114,36 @@ void main() {
   });
 
   group('方向模式', () {
-    testWidgets('默认四向：45° 角按 |dx|≥|dy| 归 right，不出斜向', (tester) async {
+    testWidgets('四向键：臂内归该向，斜角空隙不触发（不出斜向）', (tester) async {
       final fired = <String?>[];
       await pumpDpad(tester, onDirection: fired.add);
 
       final center = tester.getCenter(find.byType(RtCanvasDpad));
-      final gesture = await tester.startGesture(center + const Offset(60, 60));
+      // (70,30)：|dy|=30 ≤ 臂半厚(34) → 右臂
+      var gesture = await tester.startGesture(center + const Offset(70, 30));
       await tester.pump();
-      expect(fired, ['right'], reason: '四向模式不出斜向');
-
+      expect(fired, ['right']);
       await gesture.up();
       await tester.pump();
       expect(fired, ['right', null]);
+
+      // (30,70)：|dx|=30 ≤ 臂半厚 → 下臂
+      fired.clear();
+      gesture = await tester.startGesture(center + const Offset(30, 70));
+      await tester.pump();
+      expect(fired, ['down']);
+      await gesture.up();
+      await tester.pump();
+      expect(fired, ['down', null]);
+
+      // (70,60)：横竖臂都不命中 → 斜角空隙，不触发（四向键语义）
+      fired.clear();
+      gesture = await tester.startGesture(center + const Offset(70, 60));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(fired, isEmpty, reason: '斜角空隙不触发');
+      await gesture.up();
+      await tester.pump();
+      expect(fired, isEmpty);
     });
 
     testWidgets('八向：四个对角各归各位', (tester) async {
