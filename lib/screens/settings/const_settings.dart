@@ -42,6 +42,22 @@ BoxDecoration settingsDragChildDecoration(Color onSurface) => BoxDecoration(
   ],
 );
 
+// ── 拖拽垃圾桶（拖动中浮现的删除投放条） ──────────────────────
+// 旧版是 48×48 圆钮：命中区小、图标小，手指瞄准右下角很费劲。
+// 现改为**横向宽扁矩形**（宽 > 高）：命中区面积是旧版的 ~4.7 倍，
+// 拖到右下角松手即删。半径取 18（方圆角）而非全胶囊 —— 工具密集区忌全胶囊。
+const double kSettingsTrashBarWidth = 148.0;
+const double kSettingsTrashBarHeight = 56.0;
+const double kSettingsTrashBarRadius = 18.0;
+const double kSettingsTrashBarIconSize = 24.0;
+const double kSettingsTrashBarLabelSize = 13.0;
+
+/// 候选悬停时投放条的放大倍率（配合 AnimatedScale 做 140ms 过渡）。
+const double kSettingsTrashBarHoverScale = 1.06;
+
+/// 垃圾桶投放条的定位 key（widget 测试 / 探针用）。
+const Key kSettingsTrashBarKey = Key('settings-trash-bar');
+
 // ── 钉选管理弹窗 ────────────────────────────────────────────────
 const double kSettingsSheetRadius = 28.0;
 const double kSettingsSheetBarrierAlpha = 0.28;

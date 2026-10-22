@@ -2,12 +2,13 @@
 //
 // 单一拖拽模式：长按格子拖动（原手感，200ms）。
 //   · 松手在网格 → 换位排序（ReorderableBuilder 原路）；
-//   · 松手在垃圾桶（屏幕底部 FAB）→ 直接删除（无确认，removePin 保底 ≥1 条）。
+//   · 松手在垃圾桶（屏幕底部投放条）→ 直接删除（无确认，removePin 保底 ≥1 条）。
 // 两者落点不同，互不冲突。
 //
 // 删除/换位时序冲突的解法：onReorder 见「当前 provider 列表已比拖起时短」
 // 直接跳过本次重排，避免把已删 id 写回。垃圾桶是宿主 (AppSettingsPage)
-// Scaffold 的 FAB，本网格仅通过 onDraggingChanged 通知宿主显隐。
+// 的页面级浮层（不进 Scaffold FAB 槽），本网格仅通过 onDraggingChanged
+// 通知宿主显隐。
 //
 // data 传递靠包提供的 CustomDraggable（包内 Draggable 的 data 仅从
 // CustomDraggable 读取，普通子节点恒 null，DragTarget 收不到候选）。

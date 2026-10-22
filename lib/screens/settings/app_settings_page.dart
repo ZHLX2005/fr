@@ -15,6 +15,7 @@ import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart';
 import '../profile/theme/theme_page.dart';
+import 'const_settings.dart';
 import 'pin_editor_sheet.dart';
 import 'pinned_grid.dart';
 
@@ -41,7 +42,8 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
 
     // 底部垃圾桶用页面级 Stack 浮层（不能走 Scaffold FAB 槽——
     // QuickNavBottomBar 是 MainScreen 层浮层，会盖在 FAB 之上）。
-    // 位置：底栏 reserve 之上、右下角，48px 小圆钮减小误操作。
+    // 位置：底栏 reserve 之上、右下角；横向宽扁投放条（几何见
+    // const_settings），命中区比旧 48px 圆钮大数倍，拖到角落松手即删。
     return Stack(
       children: [
         Scaffold(
@@ -103,7 +105,8 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
   }
 }
 
-/// 拖动中出现的小垃圾桶：48px 圆钮，单个 icon；候选悬停时染错色 + 微放大。
+/// 拖动中出现的删除投放条：横向宽扁矩形（图标 + 文案），比旧 48px 圆钮
+/// 命中区大数倍，拖到右下角即可松手删除；候选悬停时染错色 + 微放大。
 class _TrashFab extends StatelessWidget {
   const _TrashFab({required this.onAccept});
 
@@ -112,36 +115,68 @@ class _TrashFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return DragTarget<String>(
-      onAcceptWithDetails: (details) => onAccept(details.data),
-      builder: (context, candidate, rejected) {
-        final hovering = candidate.isNotEmpty;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: hovering ? cs.errorContainer : cs.surface,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: hovering ? cs.error : Colors.black12,
-              width: hovering ? 1.5 : 1,
+    // 投放条是页面级 Stack 浮层（在 Scaffold 之外），没有 Material 兜底的
+    // DefaultTextStyle → 文案会落到 Flutter 的 fallback 样式（monospace +
+    // 下划线），中文渲染成豆腐块。包一层透明 Material 拿回主题字体。
+    return Material(
+      type: MaterialType.transparency,
+      child: DragTarget<String>(
+        onAcceptWithDetails: (details) => onAccept(details.data),
+        builder: (context, candidate, rejected) {
+          final hovering = candidate.isNotEmpty;
+          final fg = hovering ? cs.onErrorContainer : cs.onSurfaceVariant;
+          return AnimatedContainer(
+            key: kSettingsTrashBarKey,
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            width: kSettingsTrashBarWidth,
+            height: kSettingsTrashBarHeight,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: hovering ? cs.errorContainer : cs.surface,
+              borderRadius: BorderRadius.circular(kSettingsTrashBarRadius),
+              border: Border.all(
+                color: hovering ? cs.error : cs.outlineVariant,
+                width: hovering ? 1.5 : 1,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-            boxShadow: const [
-              BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 4)),
-            ],
-          ),
-          child: Transform.scale(
-            scale: hovering ? 1.18 : 1.0,
-            child: Icon(
-              Icons.delete_outline_rounded,
-              size: 22,
-              color: hovering ? cs.onErrorContainer : cs.onSurfaceVariant,
+            child: AnimatedScale(
+              scale: hovering ? kSettingsTrashBarHoverScale : 1.0,
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOut,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.delete_outline_rounded,
+                    size: kSettingsTrashBarIconSize,
+                    color: fg,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '拖到这里删除',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: kSettingsTrashBarLabelSize,
+                      fontWeight: FontWeight.w700,
+                      color: fg,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

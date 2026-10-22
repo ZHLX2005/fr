@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaodouzi_fr/core/nav/nav_pins_notifier.dart';
 import 'package:xiaodouzi_fr/screens/settings/app_settings_page.dart';
+import 'package:xiaodouzi_fr/screens/settings/const_settings.dart';
 
 void main() {
   setUp(() {
@@ -27,6 +28,17 @@ void main() {
     return container;
   }
 
+  /// 长按「Time」格 200ms 触发拖动（阈值见 kSettingsDragLongPressDelay）。
+  Future<TestGesture> startDraggingTime(WidgetTester tester) async {
+    final cell = find.text('Time');
+    final gesture = await tester.startGesture(tester.getCenter(cell));
+    await tester.pump(const Duration(milliseconds: 350)); // 过长按阈值
+    await gesture.moveBy(const Offset(0, 200)); // 明确进入拖拽态
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    return gesture;
+  }
+
   testWidgets('设置页正常渲染（无渲染异常）', (tester) async {
     final container = await pump(tester);
     addTearDown(container.dispose);
@@ -35,6 +47,29 @@ void main() {
     expect(find.text('个人'), findsOneWidget);
     expect(find.text('Time'), findsOneWidget);
     expect(find.text('实验室'), findsOneWidget);
+  });
+
+  testWidgets('垃圾桶是横向宽扁投放条（命中区大于旧 48px 圆钮）', (tester) async {
+    final container = await pump(tester);
+    addTearDown(container.dispose);
+
+    final gesture = await startDraggingTime(tester);
+    addTearDown(gesture.up);
+
+    final bar = find.byKey(kSettingsTrashBarKey);
+    expect(bar, findsOneWidget);
+
+    final size = tester.getSize(bar);
+    // 横向：宽 > 高（不再是 48×48 圆钮）
+    expect(size.width, greaterThan(size.height));
+    // 命中区明显大于旧版 48px 圆钮
+    expect(size.width, greaterThan(48));
+    expect(size.height, greaterThanOrEqualTo(48));
+
+    // 带文案提示，别只靠图标猜
+    expect(find.text('拖到这里删除'), findsOneWidget);
+    // 图标仍在
+    expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
   });
 
   testWidgets('拖动中屏幕底部垃圾桶浮现，拖入删除对应格', (tester) async {
@@ -49,24 +84,23 @@ void main() {
     // 垃圾桶默认不可见
     expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
 
-    // 长按「Time」格 200ms 触发拖动
-    final cell = find.text('Time');
-    final cellCenter = tester.getCenter(cell);
-    final gesture = await tester.startGesture(cellCenter);
-    await tester.pump(const Duration(milliseconds: 350)); // 过长按阈值
-    await gesture.moveBy(const Offset(0, 200)); // 明确进入拖拽态
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
+    final gesture = await startDraggingTime(tester);
 
-    // 拖动中屏幕底部小垃圾桶可见（48px icon 钮）
+    // 拖动中屏幕底部垃圾桶投放条可见
     final trashIcon = find.byIcon(Icons.delete_outline_rounded);
     expect(trashIcon, findsOneWidget);
-    // 位置在屏幕底部（y 超过视口高度的 4/5）
-    expect(tester.getCenter(trashIcon).dy, greaterThan(600 * 0.8));
+    final bar = find.byKey(kSettingsTrashBarKey);
+    // 位置在屏幕底部（底边超过视口高度的 4/5）
+    expect(tester.getBottomRight(bar).dy, greaterThan(600 * 0.8));
 
-    // 拖到垃圾桶中心松手
-    await gesture.moveTo(tester.getCenter(trashIcon));
+    // 拖到垃圾桶投放条中心 → 悬停染错色
+    await gesture.moveTo(tester.getCenter(bar));
     await tester.pump(const Duration(milliseconds: 200));
+    final hovered = tester.widget<AnimatedContainer>(bar).decoration! as BoxDecoration;
+    final cs = Theme.of(tester.element(bar)).colorScheme;
+    expect(hovered.color, cs.errorContainer);
+
+    // 松手
     await gesture.up();
     await tester.pumpAndSettle();
 
