@@ -13,6 +13,10 @@
 //
 // 变更全部走 rt_layout_ops.dart 纯函数（与旧管理面板同一套规则）：
 // 内置不可删、不可改名；删掉激活中的自定义布局由 op 回退默认。
+//
+// 视觉（C 形态定稿）：灰底画布（页面）+ 白卡（本卡，无描边）+ 纯文字
+// 组头；色彩只用于标出「当前在用的布局」——激活行图标进 primaryContainer
+// 圆角井，名称/✓ 转 primary。
 
 import 'package:flutter/material.dart';
 
@@ -91,15 +95,14 @@ class RtLayoutsCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.8)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Material(
         color: Colors.transparent,
         child: Column(
           children: [
             for (var gi = 0; gi < groups.length; gi++) ...[
-              _groupHeader(context, groups[gi].$1, groups[gi].$2),
+              _groupHeader(context, groups[gi].$1, groups[gi].$2, gi),
               if (groups[gi].$2.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
@@ -122,7 +125,6 @@ class RtLayoutsCard extends StatelessWidget {
                       key: ValueKey('${groups[gi].$1}_${p.id}'),
                       entry: p,
                       index: i,
-                      showTopBorder: i > 0,
                       isActive: p.id == layouts.activeFor(groups[gi].$1)?.id,
                       onSwitch: () => onSwitch(groups[gi].$1, p.id),
                       onMore: p.editable
@@ -131,11 +133,6 @@ class RtLayoutsCard extends StatelessWidget {
                     );
                   },
                 ),
-              if (gi == 0)
-                Container(
-                  height: 6,
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-                ),
             ],
           ],
         ),
@@ -143,22 +140,23 @@ class RtLayoutsCard extends StatelessWidget {
     );
   }
 
+  /// 组头：纯文字标题（朝向 + 数量），无底色——分组靠标题与留白呼吸
+  ///（C 形态定稿：色彩只留给「当前在用的布局」）。
   Widget _groupHeader(
     BuildContext context,
     String orient,
     List<RtCanvasNamedLayout> entries,
+    int groupIndex,
   ) {
     final c = context.colors;
-    final cs = c.scheme;
-    final current = layouts.activeFor(orient)?.name ?? '—';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: EdgeInsets.fromLTRB(14, groupIndex == 0 ? 12 : 14, 16, 2),
       child: Row(
         children: [
           Text(
             orient == kRtCanvasOrientPortrait ? '竖屏' : '横屏',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
               color: c.textMuted,
             ),
@@ -167,17 +165,8 @@ class RtLayoutsCard extends StatelessWidget {
           Text(
             '${entries.length}',
             style: TextStyle(
-              fontSize: 10.5,
+              fontSize: 10,
               color: c.textMuted.withValues(alpha: 0.7),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '当前 $current',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: cs.primary,
             ),
           ),
         ],

@@ -1,8 +1,9 @@
 // lib/core/remotetype/settings/rt_layout_row_tile.dart
 //
-// 大卡里的一行：把手 + 图标 + 名字 + 标签 + ⋯ + 激活态。
+// 大卡里的一行：把手 + 图标井 + 名字 + 标签 + ⋯ + 激活态。
 //
-// 与卡片分开：这个行只关心「怎么画一行」，不管它属于哪一组、点了做什么。
+// 视觉（C 形态定稿）：激活行不整行染色——激活的图标进 primaryContainer
+// 圆角井、名称转 primary/w700、✓ 实心；色彩只用于标出当前在用的布局。
 
 import 'package:flutter/material.dart';
 
@@ -14,7 +15,6 @@ class RtLayoutRowTile extends StatelessWidget {
     super.key,
     required this.entry,
     required this.index,
-    required this.showTopBorder,
     required this.isActive,
     required this.onSwitch,
     this.onMore,
@@ -24,9 +24,6 @@ class RtLayoutRowTile extends StatelessWidget {
 
   /// 组内序号（ReorderableDragStartListener 用）。
   final int index;
-
-  /// 行顶部分隔线（组内第二行起）。
-  final bool showTopBorder;
 
   /// 该朝向正被这张布局使用。
   final bool isActive;
@@ -44,18 +41,8 @@ class RtLayoutRowTile extends StatelessWidget {
     final isWriter = entry.kind == RtLayoutKind.writer;
     return InkWell(
       onTap: onSwitch,
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.fromLTRB(2, 0, 8, 0),
-        decoration: showTopBorder
-            ? BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: cs.outlineVariant.withValues(alpha: 0.35),
-                  ),
-                ),
-              )
-            : null,
+      child: SizedBox(
+        height: 46,
         child: Row(
           children: [
             ReorderableDragStartListener(
@@ -71,20 +58,31 @@ class RtLayoutRowTile extends StatelessWidget {
                   ),
                   child: Icon(
                     Icons.drag_indicator,
-                    size: 20,
-                    color: c.textMuted.withValues(alpha: 0.7),
+                    size: 19,
+                    color: c.textMuted.withValues(alpha: 0.55),
                   ),
                 ),
               ),
             ),
-            Icon(
-              isWriter
-                  ? Icons.keyboard_alt_outlined
-                  : Icons.dashboard_customize_outlined,
-              size: 21,
-              color: isActive ? cs.primary : c.textMuted,
+            // 图标井：激活 = primaryContainer + primary 图标；非激活 = 极浅灰井。
+            Container(
+              width: 30,
+              height: 30,
+              margin: const EdgeInsets.only(right: 10),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? cs.primaryContainer
+                    : cs.surfaceContainerHighest.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(
+                isWriter
+                    ? Icons.keyboard_alt_outlined
+                    : Icons.dashboard_customize_outlined,
+                size: 18,
+                color: isActive ? cs.primary : c.textMuted,
+              ),
             ),
-            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 entry.name,
@@ -102,7 +100,7 @@ class RtLayoutRowTile extends StatelessWidget {
             else if (entry.builtIn)
               const RtRowBadge(label: '内置')
             else
-              const RtRowBadge(label: '自定义'),
+              const RtRowBadge(label: '自定义', accent: true),
             if (onMore != null)
               IconButton(
                 visualDensity: VisualDensity.compact,
@@ -126,13 +124,13 @@ class RtLayoutRowTile extends StatelessWidget {
   }
 }
 
-/// 行尾小徽：固定 / 内置 / 自定义；菜单里也用作朝向徽（accent）。
+/// 行尾小徽：固定 / 内置（中性灰）；自定义（primaryContainer + primary）。
 class RtRowBadge extends StatelessWidget {
   const RtRowBadge({super.key, required this.label, this.accent = false});
 
   final String label;
 
-  /// true = 主题色徽（菜单里的朝向）；false = 中性徽（内置/固定/自定义）。
+  /// true = 主题色徽（自定义）；false = 中性徽（内置/固定）。
   final bool accent;
 
   @override
@@ -150,7 +148,7 @@ class RtRowBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10.5,
           fontWeight: accent ? FontWeight.w600 : FontWeight.w500,
-          color: accent ? cs.onPrimaryContainer : c.textMuted,
+          color: accent ? cs.primary : c.textMuted,
         ),
       ),
     );

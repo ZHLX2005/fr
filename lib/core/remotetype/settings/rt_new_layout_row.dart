@@ -22,13 +22,11 @@ class RtNewLayoutRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final border = _DashedRoundedRectBorder(
-      color: c.textMuted.withValues(alpha: 0.45),
-    );
+    final border = _DashedRoundedRectBorder(color: c.scheme.outline, radius: 16);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Material(
-        color: c.scheme.surface.withValues(alpha: 0.6),
+        color: c.scheme.surface,
         shape: border,
         child: InkWell(
           customBorder: border,

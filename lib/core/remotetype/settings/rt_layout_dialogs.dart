@@ -6,31 +6,22 @@
 
 import 'package:flutter/material.dart';
 
+import '../../ui/atomic/base_dialog.dart';
 import '../data/rt_prefs.dart' show RtCanvasNamedLayout;
 
 /// 恢复出厂确认（内置）。返回 true = 用户确认。
 Future<bool> confirmResetBuiltin(
   BuildContext context,
   RtCanvasNamedLayout p,
-) async {
-  final ok = await showDialog<bool>(
+) {
+  // bool 合同保留给调用方（动作由调用方在拿到 true 后执行）。
+  return BaseConfirmDialog.show(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('恢复「${p.name}」出厂摆放？'),
-      content: const Text('此布局的摆放修改将被还原，其他布局不受影响。'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('取消'),
-        ),
-        FilledButton.tonal(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: const Text('恢复'),
-        ),
-      ],
-    ),
+    title: '恢复「${p.name}」出厂摆放？',
+    message: '此布局的摆放修改将被还原，其他布局不受影响。',
+    confirmLabel: '恢复',
+    onConfirm: () {},
   );
-  return ok == true;
 }
 
 /// 改名输入（自定义）。返回 null = 取消。
@@ -48,27 +39,15 @@ Future<String?> promptRenameLayout(
 Future<bool> confirmDeleteCustom(
   BuildContext context,
   RtCanvasNamedLayout p,
-) async {
-  final ok = await showDialog<bool>(
+) {
+  // bool 合同保留给调用方（动作由调用方在拿到 true 后执行）。
+  return BaseConfirmDialog.show(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('删除自定义布局？'),
-      content: Text(
-        '「${p.name}」将被删除；若它正在某朝向使用，该朝向回落默认布局。',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('取消'),
-        ),
-        FilledButton.tonal(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: const Text('删除'),
-        ),
-      ],
-    ),
+    title: '删除自定义布局？',
+    message: '「${p.name}」将被删除；若它正在某朝向使用，该朝向回落默认布局。',
+    confirmLabel: '删除',
+    onConfirm: () {},
   );
-  return ok == true;
 }
 
 /// 改名对话框自持 controller：退场动画期间 TextField 仍在树上，

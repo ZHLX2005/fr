@@ -170,6 +170,8 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
     final isEnter = _enterMode == 'enter';
     return Scaffold(
       appBar: AppBar(title: const Text('远程输入设置'), centerTitle: false),
+      // 灰底画布：与卡面 surface 靠明度分层（对齐 app 设置页配方，不用投影）。
+      backgroundColor: cs.surfaceContainerHighest,
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
@@ -195,31 +197,73 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
                 _saveLayouts(rtLayoutsCopyToCustom(_layouts, orient)),
           ),
           const _SectionHeader('输入'),
-          ListTile(
-            leading: const Icon(Icons.keyboard_return),
-            title: const Text('回车行为'),
-            subtitle: Text(isEnter ? '发送（普通 Enter）' : '换行（Shift+Enter）'),
-            trailing: Icon(
-              Icons.swap_horiz,
-              color: cs.primary,
-            ),
-            onTap: _toggleEnterMode,
+          _PrefCard(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.keyboard_return),
+                title: const Text('回车行为'),
+                subtitle: Text(isEnter ? '发送（普通 Enter）' : '换行（Shift+Enter）'),
+                trailing: Icon(Icons.swap_horiz, color: cs.primary),
+                onTap: _toggleEnterMode,
+              ),
+            ],
           ),
           const _SectionHeader('其他'),
-          ListTile(
-            leading: const Icon(Icons.speed),
-            title: const Text('触摸板灵敏度'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _openSensitivity,
-          ),
-          ListTile(
-            leading: const Icon(Icons.playlist_add),
-            title: const Text('编辑快捷键'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _editShortcuts,
+          _PrefCard(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.speed),
+                title: const Text('触摸板灵敏度'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openSensitivity,
+              ),
+              const _CardSeparator(),
+              ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: const Text('编辑快捷键'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _editShortcuts,
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 偏好白卡：把偏好行归进卡片（对齐 app 设置页 _GeneralCard 的做法——
+/// 灰底画布 + 卡面 surface，靠明度分层，不用投影/描边）。
+class _PrefCard extends StatelessWidget {
+  const _PrefCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colors.scheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Material(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Column(mainAxisSize: MainAxisSize.min, children: children),
+      ),
+    );
+  }
+}
+
+/// 白卡内两行之间的细分隔（缩进对齐行文本）。
+class _CardSeparator extends StatelessWidget {
+  const _CardSeparator();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = context.colors.scheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Divider(height: 1, thickness: 1, color: cs.surfaceContainerHighest),
     );
   }
 }

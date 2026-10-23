@@ -60,6 +60,19 @@
 - 全量 `flutter test` 1251 通过 / 10 失败，失败全在 `test/api/notion/*`（缺 `NOTION_TOKEN` 等环境依赖）与本次改动无关
 
 
+## 视觉定稿：C 形态配色（2026-10-24）
+
+色彩层次采纳「C 点缀分层」：色彩只用于标出当前在用的布局，其余退到明度分层。
+
+- 页底 `surfaceContainerHighest`（画布）+ 卡面 `surface`（布局大卡 / 输入卡 / 其他卡，
+  radius 16 无描边）——对齐 app 设置页「灰底白卡」配方，靠明度分层不用投影
+- 组头退成**纯文字标题**（朝向 + 数量，11px/w700 muted）：无底色、无分隔带、
+  无「当前 xxx」回显，组间靠标题与留白呼吸
+- 激活行**不整行染色**：图标进 `primaryContainer` 圆角井（30×30/r9）+ 名称
+  primary/w700 + ✓ 实心；非激活行图标井为 surfaceContainerHighest 低透明
+- 新建虚线行：白底（surface）+ outline 虚线，浮在灰底上
+- 暗黑主题（无彩色系）天然成立：明度关系不变，primaryContainer 是暖灰深井
+
 ## 审查跟进（2026-10-23）
 
 代码审查（3 MEDIUM，无 HIGH/CRITICAL）处置：
