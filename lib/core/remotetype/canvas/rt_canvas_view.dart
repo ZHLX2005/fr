@@ -10,10 +10,9 @@
 //   use（使用态）—— 触摸板吃手势、输入框打字、键盘按键即发、按钮点按触发；
 //                   编排手势一律不在使用态提供（编辑唯一入口 = 左上胶囊菜单
 //                   的「编辑布局」）；胶囊收起时只露「状态点 + 布局名」。
-//   edit（编辑态）—— 画布主色描边框 + 顶部居中显隐面板（含「完成」），
-//                   所有使用类手势停用。拖动=移位、右下角拉手=缩放、
-//                   点按按钮=显隐（隐藏者以幽灵呈现可点回）。切布局会
-//                   自动清掉拖动预览（避免旧布局预览值瞬移到新布局）。
+//   edit（编辑态）—— 画布主色描边框 + 可拖「编辑工具」chip（竖屏展开=
+//                   右上圆角弹窗；横屏展开=右侧竖轨），所有使用类手势停用。
+//                   拖动模块=移位、右下角拉手=缩放、点按按钮=显隐。
 //   竖屏提示层 —— 激活布局锁定横屏（含轮盘/手柄/键盘模块）时旋转到竖屏，
 //                   毛玻璃提示层盖住画布：旋转手机动画 + 请横屏使用 +
 //                   一键锁横屏 / 切换布局逃生（用户主动选定竖屏布局后
@@ -184,6 +183,10 @@ class _RtCanvasViewState extends State<RtCanvasView>
   /// 默认收起——进编辑态先把画布还给用户，清单点开再看。
   bool _editBarCollapsed = true;
 
+  /// 「编辑工具」chip 归一化位置（相对画布 0..1）；null = 按朝向默认位。
+  /// 竖屏默认右上；横屏默认右中。用户拖动能挪开挡模块的位置。
+  Offset? _editToolFrac;
+
   @override
   void initState() {
     super.initState();
@@ -219,9 +222,11 @@ class _RtCanvasViewState extends State<RtCanvasView>
     // 不一进编辑态就把工具条铺在画布上（横屏顶部是主视线）。
     if (widget.editMode && !oldWidget.editMode) {
       _editBarCollapsed = true;
+      _editToolFrac = null; // 每次进编辑回到朝向默认位
     }
     if (!widget.editMode && oldWidget.editMode) {
       _vpadKeyEditActive = false;
+      _editToolFrac = null;
     }
   }
 
@@ -438,15 +443,21 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 编辑态 chrome：功能清单可收纳。竖屏收在头部，横屏收在右侧。 ----
-  // 展开 = 模块显隐 + 编辑快捷键 + 完成；收起 = 只留一颗「编辑工具」chip，
-  // 不挡手柄/键盘视线。
-  // 分朝向摆放：竖屏沿用顶部横条（头部位置，横条在窄屏上滑）；横屏把收纳
-  // 挪到右侧竖排面板——横屏的上方是游戏/手柄的主视线，不能被工具条切掉。
+  // ---- 编辑态 chrome ----
+  // 收起 = 可拖动的「编辑工具」chip；展开 = 功能显隐列表。
+  // 竖屏：默认右上；展开为右上圆角弹窗。横屏：默认右中；展开为右侧竖轨。
+
+  static const Offset _kEditToolDefaultPortrait = Offset(0.88, 0.07);
+  static const Offset _kEditToolDefaultLandscape = Offset(0.93, 0.50);
+
+  Offset _editToolPos(bool portrait) =>
+      _editToolFrac ??
+      (portrait ? _kEditToolDefaultPortrait : _kEditToolDefaultLandscape);
 
   List<Widget> _editChrome(ColorScheme cs) {
     final portrait =
         MediaQuery.orientationOf(context) == Orientation.portrait;
+    final pad = MediaQuery.paddingOf(context);
     return [
       Positioned.fill(
         child: IgnorePointer(
@@ -460,91 +471,193 @@ class _RtCanvasViewState extends State<RtCanvasView>
           ),
         ),
       ),
-      if (portrait)
-        Align(
-          alignment: Alignment.topCenter,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-              child: _editBarCollapsed
-                  ? _editTriggerChip(cs)
-                  : _editTopBar(cs),
-            ),
-          ),
-        )
-      else
-        Align(
-          alignment: Alignment.centerRight,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: _editBarCollapsed
-                  ? _editTriggerChip(cs)
-                  : _editSidePanel(cs),
-            ),
-          ),
+      Positioned.fill(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final pos = _editToolPos(portrait);
+            // chip 中心落在归一化点；钳在安全区内，避免拖出屏幕。
+            const chipW = 118.0, chipH = 40.0;
+            final minL = 8.0;
+            final maxL = constraints.maxWidth - chipW - 8;
+            final minT = pad.top + 6;
+            final maxT = constraints.maxHeight - chipH - pad.bottom - 8;
+            final left = (pos.dx * constraints.maxWidth - chipW / 2)
+                .clamp(minL, maxL > minL ? maxL : minL);
+            final top = (pos.dy * constraints.maxHeight - chipH / 2)
+                .clamp(minT, maxT > minT ? maxT : minT);
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 展开面板：竖屏 = 右上圆角弹窗；横屏 = 右侧竖轨。
+                if (!_editBarCollapsed)
+                  if (portrait)
+                    Positioned(
+                      top: pad.top + 6,
+                      right: 10,
+                      child: _editPortraitPopup(cs),
+                    )
+                  else
+                    Positioned(
+                      top: pad.top + 8,
+                      bottom: pad.bottom + 8,
+                      right: 10,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _editSidePanel(cs),
+                      ),
+                    ),
+                // 可拖「编辑工具」：位移超过阈值才算拖，避免微抖吞掉点按开合。
+                Positioned(
+                  left: left,
+                  top: top,
+                  child: _DraggableEditToolChip(
+                    chip: _editTriggerChip(cs, open: !_editBarCollapsed),
+                    onToggle: () => setState(
+                      () => _editBarCollapsed = !_editBarCollapsed,
+                    ),
+                    onDragDelta: (dx, dy) {
+                      final next = Offset(
+                        ((left + chipW / 2 + dx) / constraints.maxWidth)
+                            .clamp(0.05, 0.95),
+                        ((top + chipH / 2 + dy) / constraints.maxHeight)
+                            .clamp(0.05, 0.95),
+                      );
+                      setState(() => _editToolFrac = next);
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
         ),
+      ),
     ];
   }
 
-  /// 收纳态：单颗「编辑工具」chip（竖屏在头部、横屏在右侧，同一颗）。
-  Widget _editTriggerChip(ColorScheme cs) => ActionChip(
-    avatar: Icon(Icons.edit_note_outlined, size: 18, color: cs.primary),
-    label: Text(
-      '编辑工具',
-      style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
-    ),
-    onPressed: () => setState(() => _editBarCollapsed = false),
-  );
-
-  /// 展开态 · 竖屏：顶部横条（窄屏上滑）。
-  Widget _editTopBar(ColorScheme cs) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ActionChip(
-            avatar: Icon(
-              Icons.unfold_less,
-              size: 18,
-              color: cs.onSurfaceVariant,
-            ),
-            label: const Text('收起'),
-            onPressed: () => setState(() => _editBarCollapsed = true),
+  /// 可拖动的「编辑工具」chip。
+  Widget _editTriggerChip(ColorScheme cs, {required bool open}) {
+    return Material(
+      color: open
+          ? cs.primaryContainer
+          : cs.surface.withValues(alpha: 0.94),
+      elevation: 3,
+      shadowColor: cs.shadow.withValues(alpha: 0.25),
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: open
+                ? cs.primary.withValues(alpha: 0.45)
+                : cs.outlineVariant.withValues(alpha: 0.7),
           ),
-          const SizedBox(width: 8),
-          // 模块 chip 行由登记表驱动（与模块设置页同一清单）。
-          for (final spec in kRtCanvasModuleSpecs) ...[
-            _moduleVisibilityChip(
-              icon: spec.icon,
-              label: spec.name,
-              id: spec.id,
-            ),
-            const SizedBox(width: 8),
-          ],
-          ActionChip(
-            avatar: Icon(
-              Icons.playlist_add,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.edit_note_outlined,
               size: 18,
-              color: cs.onSurfaceVariant,
+              color: open ? cs.onPrimaryContainer : cs.primary,
             ),
-            label: const Text('编辑快捷键'),
-            onPressed: widget.onEditShortcuts,
-          ),
-          const SizedBox(width: 8),
-          ActionChip(
-            avatar: Icon(Icons.check, size: 18, color: cs.primary),
-            label: Text(
-              '完成',
+            const SizedBox(width: 6),
+            Text(
+              '编辑工具',
               style: TextStyle(
-                color: cs.primary,
+                color: open ? cs.onPrimaryContainer : cs.primary,
                 fontWeight: FontWeight.w700,
+                fontSize: 12.5,
               ),
             ),
-            onPressed: () => widget.onEditModeChanged(false),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 展开态 · 竖屏：右上圆角弹窗（功能显隐列表）。
+  Widget _editPortraitPopup(ColorScheme cs) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: math.min(220, MediaQuery.sizeOf(context).width * 0.72),
+        maxHeight: MediaQuery.sizeOf(context).height * 0.62,
+      ),
+      child: Material(
+        color: cs.surface.withValues(alpha: 0.96),
+        elevation: 8,
+        shadowColor: cs.shadow.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.7),
+            ),
           ),
-        ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 2, 2, 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '功能显隐',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () =>
+                            setState(() => _editBarCollapsed = true),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          child: Text(
+                            '收纳',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: cs.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                for (final spec in kRtCanvasModuleSpecs)
+                  _moduleSideRow(cs, spec),
+                Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                _sideRow(
+                  cs: cs,
+                  icon: Icons.playlist_add,
+                  label: '编辑快捷键',
+                  onTap: widget.onEditShortcuts,
+                ),
+                _sideRow(
+                  cs: cs,
+                  icon: Icons.check,
+                  label: '完成',
+                  primary: true,
+                  onTap: () => widget.onEditModeChanged(false),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -676,25 +789,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
           ],
         ),
       ),
-    );
-  }
-
-  Widget _moduleVisibilityChip({
-    required IconData icon,
-    required String label,
-    required String id,
-  }) {
-    final cs = context.colors.scheme;
-    final visible = _anchorOf(id).visible;
-    return FilterChip(
-      selected: visible,
-      onSelected: (_) => _toggleModuleVisible(id),
-      avatar: Icon(
-        visible ? Icons.visibility : Icons.visibility_off,
-        size: 18,
-        color: visible ? cs.primary : cs.onSurfaceVariant,
-      ),
-      label: Text(label),
     );
   }
 
@@ -1252,6 +1346,38 @@ class _RtCanvasViewState extends State<RtCanvasView>
           onToggleVisible ??
           () => _updateButton(item.id, pos.copyWith(v: !pos.v)),
       onFire: widget.onFire,
+    );
+  }
+}
+
+/// 「编辑工具」chip：tap 识别器管点按开合，pan 识别器管拖动移位
+/// （识别器 slop 天然区分两者，不需自数累计位移）。
+class _DraggableEditToolChip extends StatefulWidget {
+  const _DraggableEditToolChip({
+    required this.chip,
+    required this.onToggle,
+    required this.onDragDelta,
+  });
+
+  final Widget chip;
+  final VoidCallback onToggle;
+  final void Function(double dx, double dy) onDragDelta;
+
+  @override
+  State<_DraggableEditToolChip> createState() => _DraggableEditToolChipState();
+}
+
+class _DraggableEditToolChipState extends State<_DraggableEditToolChip> {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // 点按开合走 tap 识别器：pan 识别器对未超 slop 的干净点按会在
+      // pointer-up 自拒（SDK _giveUpPointer），onPanEnd 根本不触发。
+      onTap: widget.onToggle,
+      // 拖动：pan 过识别器 slop 后才 accepted，onPanUpdate 起步即超阈。
+      onPanUpdate: (d) => widget.onDragDelta(d.delta.dx, d.delta.dy),
+      child: widget.chip,
     );
   }
 }

@@ -121,6 +121,14 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   // 互不串台（见 rt_prefs 的 RtCanvasLayouts）。
   // 画布编辑子态（use/edit）：纯画布内部状态，不锁方向、不动底栏。
   bool _canvasEdit = false;
+
+  /// 跨朝向「修改」时钉住的编辑朝向：OS 旋转到位前 MediaQuery 仍是旧朝向，
+  /// 若仍按设备朝向取 active，会改到错误的一侧。编辑结束清空。
+  String? _editBindOrientation;
+
+  /// 从设置「修改」进编辑后跳过一次整表 reload，避免 unawaited 落盘未完成被旧盘覆盖。
+  bool _skipLayoutsReloadOnce = false;
+
   double _padSensitivity = kRtPadSensitivityDefault;
   // 画布布局（模块锚点 + 按钮位）：跨会话记住，持久化（RtPrefs）。
   // 画布布局集（横竖两朝向 + 各自激活）：跨会话记住，持久化。横竖屏布局
@@ -142,10 +150,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       (_activeEntry?.kind ?? RtLayoutKind.canvas) == RtLayoutKind.canvas;
 
   /// 画布当前朝向（跟随设备旋转；MediaQuery 驱动重建时刷新）。
-  String get _canvasOrientation =>
-      MediaQuery.orientationOf(context) == Orientation.landscape
-      ? kRtCanvasOrientLandscape
-      : kRtCanvasOrientPortrait;
+  /// 编辑态若钉了 [_editBindOrientation]，优先用钉住的（跨朝向修改未转完屏时）。
+  String get _canvasOrientation {
+    if (_canvasEdit && _editBindOrientation != null) {
+      return _editBindOrientation!;
+    }
+    return MediaQuery.orientationOf(context) == Orientation.landscape
+        ? kRtCanvasOrientLandscape
+        : kRtCanvasOrientPortrait;
+  }
 
   // 文本同步管线（逻辑在 rt_text_sync.dart）
   late final RtTextSync _sync = RtTextSync(
@@ -343,15 +356,27 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   // ================= 触摸板模式 =================
 
+  /// 设备真实朝向（不看编辑钉住值）——跨朝向「修改」算目标侧时用。
+  String get _deviceOrientation =>
+      MediaQuery.orientationOf(context) == Orientation.landscape
+      ? kRtCanvasOrientLandscape
+      : kRtCanvasOrientPortrait;
+
   /// 进/出画布编辑子态：纯画布内部状态，方向锁与底栏不动。
   void _setCanvasEdit(bool on) {
-    if (_canvasEdit == on) return;
-    setState(() => _canvasEdit = on);
+    if (_canvasEdit == on &&
+        (on || _editBindOrientation == null)) {
+      return;
+    }
+    setState(() {
+      _canvasEdit = on;
+      if (!on) _editBindOrientation = null;
+    });
   }
 
   /// 激活布局的内容变更（拖动落位 / 缩放 / 显隐 / 模块开关）：先落 state
   /// 再异步落盘（失败不回滚——下次进页读盘仍旧位）。只动当前朝向的激活
-  /// 布局——横竖屏配置互不串台。
+  /// 布局——横竖屏配置互不串台。编辑态用 [_canvasOrientation]（可含钉住朝向）。
   void _setActiveLayout(RtCanvasLayout layout) {
     final next = _layouts.withUpdatedActiveFor(_canvasOrientation, layout);
     setState(() => _layouts = next);
@@ -372,7 +397,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       }
     }
     if (entry == null) return;
-    final current = _canvasOrientation;
+    // 用设备朝向判断「就地可用」，避免编辑钉住朝向干扰普通切换。
+    final current = _deviceOrientation;
     final usableHere = rtCanvasLayoutUsableIn(current, entry);
     final targetOrient = usableHere ? current : entry.orientation;
     final next = _layouts.withActiveFor(targetOrient, id);
@@ -380,6 +406,32 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       setState(() => _layouts = next);
       unawaited(RtPrefs.saveCanvasLayouts(next));
     }
+    _applyLayoutOrientation(entry);
+  }
+
+  /// 从设置「修改」进编辑：激活目标侧、钉住朝向、await 落盘、转屏、开编辑。
+  /// 竖屏点横屏布局时，旋转完成前仍渲染/写入目标侧，不会改到竖屏激活。
+  Future<void> _beginEditLayout(String id) async {
+    RtCanvasNamedLayout? entry;
+    for (final p in _layouts.list) {
+      if (p.id == id) {
+        entry = p;
+        break;
+      }
+    }
+    if (entry == null || !entry.editable) return;
+    final device = _deviceOrientation;
+    final usableHere = rtCanvasLayoutUsableIn(device, entry);
+    final targetOrient = usableHere ? device : entry.orientation;
+    final next = _layouts.withActiveFor(targetOrient, id);
+    _skipLayoutsReloadOnce = true;
+    setState(() {
+      _layouts = next;
+      _editBindOrientation = targetOrient;
+      _canvasEdit = true;
+    });
+    await RtPrefs.saveCanvasLayouts(next);
+    if (!mounted) return;
     _applyLayoutOrientation(entry);
   }
 
@@ -463,9 +515,21 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   Future<void> _openSettings() async {
     await showRtSettingsPage(
       context,
-      onEditCanvasLayout: _inCanvasLayout ? () => _setCanvasEdit(true) : null,
+      // 有会话即可「修改」任意可编辑布局（含跨朝向自动转向）；不限当前已在画布。
+      onEditCanvasLayout: _session != null
+          ? (id) {
+              unawaited(_beginEditLayout(id));
+            }
+          : null,
     );
     if (!mounted) return;
+    if (_skipLayoutsReloadOnce) {
+      // 「修改」路径已 await 落盘并更新内存；只回读回车方式，避免旧盘冲掉激活。
+      _skipLayoutsReloadOnce = false;
+      final enterMode = await RtPrefs.loadEnterMode();
+      if (mounted) setState(() => _enterMode = enterMode);
+      return;
+    }
     await _reloadPrefs();
   }
 
@@ -517,6 +581,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     setState(() {
       _session = null;
       _canvasEdit = false;
+      _editBindOrientation = null;
     });
     _syncBottomBar();
     // 非常规路径（AppBar 返回只在大厅/详情可达，理论摸不到）兜底：

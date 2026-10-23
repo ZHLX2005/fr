@@ -25,11 +25,12 @@ import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
 
 /// 打开远程输入设置页。
 ///
-/// [onEditCanvasLayout] 非空时（从 RT 页进入、画布在场）多一行「在画布上
-/// 拖拽编辑」——它需要画布在场，从应用设置进本页时没有这行。
+/// [onEditCanvasLayout] 非空时（从 RT 页进入、画布在场）：布局管理「修改」
+/// 与「在画布上拖拽编辑」会带上布局 id；页面负责切布局、自动转向并进编辑。
+/// 从应用设置进本页时没有这两项。
 Future<void> showRtSettingsPage(
   BuildContext context, {
-  VoidCallback? onEditCanvasLayout,
+  ValueChanged<String>? onEditCanvasLayout,
 }) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -42,7 +43,8 @@ Future<void> showRtSettingsPage(
 class RtSettingsPage extends StatefulWidget {
   const RtSettingsPage({super.key, this.onEditCanvasLayout});
 
-  final VoidCallback? onEditCanvasLayout;
+  /// 参数 = 要编辑的布局 id（可跨朝向；页面侧负责转向）。
+  final ValueChanged<String>? onEditCanvasLayout;
 
   @override
   State<RtSettingsPage> createState() => _RtSettingsPageState();
@@ -118,26 +120,12 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
       onLayoutsChanged: _saveLayouts,
       onEdit: widget.onEditCanvasLayout == null
           ? null
-          : (id) async {
-              RtCanvasNamedLayout? entry;
-              for (final p in _layouts.list) {
-                if (p.id == id) {
-                  entry = p;
-                  break;
-                }
-              }
-              // 只编辑当前朝向可用布局，避免改到另一侧激活却仍停在本朝向画布。
-              if (entry == null ||
-                  !rtCanvasLayoutUsableIn(_orientation, entry)) {
-                return;
-              }
-              await _saveLayouts(_layouts.withActiveFor(_orientation, id));
-              if (!mounted) return;
-              // 关布局面板 → 关设置页 → 进画布编辑（与「在画布上拖拽编辑」同路径）。
+          : (id) {
+              // 关布局面板 → 关设置页 → 交给 RT 页切布局 + 自动转向 + 进编辑。
+              // 不要求当前朝向可用：竖屏也可点「修改」横屏布局，页面会转过去。
               Navigator.of(context).pop();
-              if (!mounted) return;
               Navigator.of(context).pop();
-              widget.onEditCanvasLayout!();
+              widget.onEditCanvasLayout!(id);
             },
     );
   }
@@ -277,8 +265,10 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
               subtitle: const Text('直接拖动模块与按钮摆位'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
+                final id = _layouts.activeFor(_orientation)?.id;
+                if (id == null) return;
                 Navigator.of(context).pop();
-                widget.onEditCanvasLayout!();
+                widget.onEditCanvasLayout!(id);
               },
             ),
           _SectionHeader('输入'),

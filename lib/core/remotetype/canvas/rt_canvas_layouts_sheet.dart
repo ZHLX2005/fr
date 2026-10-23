@@ -5,7 +5,7 @@
 //   · 仅当前朝向的组可点按切换激活；另一组半透明（旋转后可用）；
 //   · ⋯ 与长按同一套小圆角菜单：修改布局 / 恢复出厂（内置）/
 //     重命名·删除（自定义）；固定死布局（writable=false）无菜单；
-//   · 「修改」→ 回调 onEdit（页面切布局并进编辑态）；
+//   · 「修改」→ 回调 onEdit（可跨朝向；页面切布局、自动转向并进编辑）；
 //   · 底部「新建自定义布局」→ 先选朝向再创建空画布。
 //
 // 本件只负责「展示 + 收集意图」，持久化与状态切换由页面的回调接管。
@@ -183,13 +183,13 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
                         isActive: canActivate && p.id == activeId,
                         interactive: canActivate,
                         onTap: canActivate ? () => onSwitch(p.id) : null,
-                        // 「修改」只给当前朝向可用组；另一组仍可恢复/改名/删除。
+                        // 「修改」两组都给：跨朝向由页面切布局并自动转向。
                         onMore: p.editable
                             ? (anchor) => _openActions(
                                   ctx,
                                   p,
                                   anchor,
-                                  allowEdit: canActivate,
+                                  allowEdit: true,
                                 )
                             : null,
                         onLongPress: p.editable
@@ -197,7 +197,7 @@ class RtCanvasLayoutsSheet extends StatelessWidget {
                                   ctx,
                                   p,
                                   null,
-                                  allowEdit: canActivate,
+                                  allowEdit: true,
                                 )
                             : null,
                       );

@@ -1,6 +1,6 @@
-// 画布编辑态 chrome 的摆放规则测试（重构后新增）：
-//   · 竖屏：收纳控件在头部（顶部），点开显示功能清单；
-//   · 横屏：收纳控件在右侧（不放头部），点开显示右侧竖排控制列表。
+// 画布编辑态 chrome 的摆放规则测试：
+//   · 竖屏：收纳 chip 默认在右上（头部一带），点开为右上圆角弹窗功能清单；
+//   · 横屏：收纳 chip 在右缘，点开显示右侧竖排控制列表。
 //
 // 画布本身不需要真会话（session 可空），这里只验 chrome 的位置与展开。
 
@@ -50,7 +50,7 @@ Widget _canvas({
 }
 
 void main() {
-  testWidgets('竖屏：收纳控件在头部（顶部），点开展开功能清单', (tester) async {
+  testWidgets('竖屏：收纳 chip 默认在右上，点开为右上圆角弹窗功能清单', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -60,21 +60,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 默认收纳：只剩一颗「编辑工具」chip
+    // 默认收纳：只剩一颗「编辑工具」chip，默认位右上（头部一带）
     expect(find.text('编辑工具'), findsOneWidget);
     expect(find.text('编辑快捷键'), findsNothing);
 
     final chip = tester.getCenter(find.text('编辑工具'));
-    expect(chip.dy, lessThan(800 * 0.2)); // 靠顶部 = 头部
+    expect(chip.dy, lessThan(800 * 0.2));
+    expect(chip.dx, greaterThan(400 * 0.7));
 
-    // 点开 → 功能清单出现（模块 chip + 编辑快捷键 + 完成）
+    // 点开 → 右上弹窗功能清单（模块行 + 编辑快捷键 + 完成）
     await tester.tap(find.text('编辑工具'));
     await tester.pumpAndSettle();
     expect(find.text('编辑快捷键'), findsOneWidget);
     expect(find.text('完成'), findsOneWidget);
-    // 清单仍落在头部一带
-    final shortcuts = tester.getCenter(find.text('编辑快捷键'));
-    expect(shortcuts.dy, lessThan(800 * 0.2));
+    // 弹窗右挂（不横贯整屏）：清单起点在屏幕右半区
+    final shortcuts = tester.getTopLeft(find.text('编辑快捷键'));
+    expect(shortcuts.dx, greaterThan(400 * 0.4));
   });
 
   testWidgets('横屏：收纳控件在右侧（不在头部），点开显示右侧竖排控制列表', (
