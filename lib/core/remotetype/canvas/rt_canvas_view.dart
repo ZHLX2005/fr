@@ -393,6 +393,13 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
+  /// 快捷键按钮区总开关（hideShortcuts 取反）。
+  RtCanvasLayout _patchHideShortcuts(bool hidden) => RtCanvasLayout(
+    modules: widget.activeLayout.modules,
+    buttons: widget.activeLayout.buttons,
+    hideShortcuts: hidden,
+  );
+
   // ================= UI =================
 
   @override
@@ -641,6 +648,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
                 for (final spec in kRtCanvasModuleSpecs)
                   _moduleSideRow(cs, spec),
                 Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                ..._shortcutSectionRows(cs),
+                Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
                 _sideRow(
                   cs: cs,
                   icon: Icons.playlist_add,
@@ -699,6 +708,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
               // 模块显隐：右侧竖排控制列表（与模块设置页同一清单）。
               for (final spec in kRtCanvasModuleSpecs)
                 _moduleSideRow(cs, spec),
+              Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              ..._shortcutSectionRows(cs),
               Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
               _sideRow(
                 cs: cs,
@@ -790,6 +801,112 @@ class _RtCanvasViewState extends State<RtCanvasView>
         ),
       ),
     );
+  }
+
+  // ---- 面板「快捷键按钮」区：总开关 + 逐键 opt-in ----
+  // 默认整区无按钮：未收录 = 任何形态都不渲染（编辑态也不出幽灵），某键
+  // 要上画布必须在这里显式打开（自动找空位收录）。总开关 = hideShortcuts
+  // 取反（游戏/键盘出厂 true；触控屏/自定义布局可在此切）。
+
+  /// 快捷键按钮区行（编辑工具面板共用：竖屏弹窗 / 横屏右轨）。
+  List<Widget> _shortcutSectionRows(ColorScheme cs) {
+    final c = context.colors;
+    final layout = widget.activeLayout;
+    final regionOn = !layout.hideShortcuts;
+    final rows = <Widget>[
+      // 总开关行：整区显隐。
+      InkWell(
+        onTap: () {
+          // 开→关要写 true（regionOn = !hidden，翻转即写回 regionOn）。
+          widget.onLayoutChanged(_patchHideShortcuts(regionOn));
+          unawaited(HapticFeedback.selectionClick());
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+          child: Row(
+            children: [
+              Icon(Icons.smart_button, size: 16, color: c.textMuted),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  '快捷键按钮',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: c.text),
+                ),
+              ),
+              Icon(
+                regionOn ? Icons.visibility : Icons.visibility_off,
+                size: 16,
+                color: regionOn ? cs.primary : c.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+    if (!regionOn) return rows;
+    if (widget.shortcuts.isEmpty) {
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(31, 2, 6, 7),
+          child: Text(
+            '清单为空，先在下方「编辑快捷键」添加',
+            style: TextStyle(fontSize: 11.5, color: c.textMuted),
+          ),
+        ),
+      );
+      return rows;
+    }
+    for (final item in widget.shortcuts) {
+      final saved = layout.buttons[item.id];
+      final on = saved?.v ?? false;
+      rows.add(
+        InkWell(
+          onTap: () {
+            if (saved != null) {
+              _updateButton(item.id, saved.copyWith(v: !saved.v));
+            } else {
+              // 未收录首次打开：自动找空位收录（避开已收录按钮的槽位）。
+              final occupied = {
+                for (final e in layout.buttons.entries)
+                  Offset(e.value.x, e.value.y),
+              };
+              final slot = rtFirstFreeCanvasSlot(occupied);
+              _updateButton(
+                item.id,
+                RtCanvasButtonPos(x: slot.dx, y: slot.dy, v: true),
+              );
+            }
+            unawaited(HapticFeedback.selectionClick());
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            // 左缩进对齐总开关文字（6 + 16 + 9），视觉上挂在它下面。
+            padding: const EdgeInsets.fromLTRB(31, 5, 6, 5),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12.5, color: c.text),
+                  ),
+                ),
+                Icon(
+                  on ? Icons.visibility : Icons.visibility_off,
+                  size: 15,
+                  color: on ? cs.primary : c.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return rows;
   }
 
   // ---- 模块通用：尺寸解析与编辑态包装 ----
@@ -1273,50 +1390,20 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 模块：快捷按钮（逐键 opt-in）----
-  // 使用态：仅 buttons 里显式收录且 v=true 的键；未收录 = 不渲染。
-  // 编辑态：已收录可拖/显隐；未收录以幽灵出现，点按即写入 buttons(v=true)。
-  // hideShortcuts（游戏/键盘）：整区不参与，编辑态也不出幽灵。
+  // ---- 模块：快捷按钮（逐键 opt-in，收录/显隐走编辑工具面板）----
+  // 默认一个都不渲染：未收录 = 任何形态都不出现（编辑态也不出幽灵预览，
+  // 收录入口在编辑工具面板的「快捷键按钮」区）。已收录：v=true 使用态/
+  // 编辑态正常渲染（编辑态可拖、点按可关）；v=false 编辑态幽灵可点回。
+  // hideShortcuts：整区压掉，编辑态也不渲染（游戏/键盘出厂 true）。
 
   List<Widget> _buttonModules(Size canvasSize) {
     if (widget.activeLayout.hideShortcuts) return const [];
-
-    final assigned = <String, Offset>{
-      for (final e in widget.activeLayout.buttons.entries)
-        e.key: Offset(e.value.x, e.value.y),
-    };
     final out = <Widget>[];
     for (final item in widget.shortcuts) {
       final saved = widget.activeLayout.buttons[item.id];
-      if (!widget.editMode) {
-        if (saved == null || !saved.v) continue;
-        out.add(_shortcutButton(item, saved, canvasSize));
-        continue;
-      }
-      // 编辑态：未收录先占一个空槽做幽灵预览（不落盘，点按才写入）。
-      final RtCanvasButtonPos pos;
-      if (saved != null) {
-        pos = saved;
-      } else {
-        final slot = rtFirstFreeCanvasSlot(assigned.values.toSet());
-        assigned[item.id] = slot;
-        pos = RtCanvasButtonPos(x: slot.dx, y: slot.dy, v: false);
-      }
-      out.add(
-        _shortcutButton(
-          item,
-          pos,
-          canvasSize,
-          onToggleVisible: () {
-            if (saved == null) {
-              // 首次点按 = 收录并显示
-              _updateButton(item.id, pos.copyWith(v: true));
-            } else {
-              _updateButton(item.id, pos.copyWith(v: !pos.v));
-            }
-          },
-        ),
-      );
+      if (saved == null) continue;
+      if (!widget.editMode && !saved.v) continue;
+      out.add(_shortcutButton(item, saved, canvasSize));
     }
     return out;
   }
@@ -1324,9 +1411,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
   Widget _shortcutButton(
     RtShortcutItem item,
     RtCanvasButtonPos pos,
-    Size canvasSize, {
-    VoidCallback? onToggleVisible,
-  }) {
+    Size canvasSize,
+  ) {
     return RtCanvasButton(
       item: item,
       pos: pos,
@@ -1342,9 +1428,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
           s: sc,
         ),
       ),
-      onToggleVisible:
-          onToggleVisible ??
-          () => _updateButton(item.id, pos.copyWith(v: !pos.v)),
+      // 编辑态点按已收录按钮 = 显隐翻转（收录入口在编辑工具面板）。
+      onToggleVisible: () => _updateButton(item.id, pos.copyWith(v: !pos.v)),
       onFire: widget.onFire,
     );
   }
