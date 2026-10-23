@@ -130,6 +130,7 @@ class AppTheme {
     required AppColorsExtension ext,
     required Color cardShadow,
   }) {
+    final textTheme = AppTextThemes.build(scheme.brightness);
     final colorStrategy = ThemeStrategyFactory.create(scheme);
     final boardStrategy = ThemeStrategyFactory.createBoardColorStrategy(scheme);
     final chessStrategy = ThemeStrategyFactory.createChessColorStrategy(scheme);
@@ -144,7 +145,7 @@ class AppTheme {
       colorScheme: scheme,
       useMaterial3: true,
       brightness: scheme.brightness,
-      textTheme: AppTextThemes.build(scheme.brightness),
+      textTheme: textTheme,
       extensions: [
         ext,
         ColorStrategyExtension(colorStrategy),
@@ -167,6 +168,14 @@ class AppTheme {
         backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
         surfaceTintColor: scheme.surfaceTint,
+        // 导航栏紧凑化（全局）：标题走 titleMedium 档（16/w600）而非 M3
+        // AppBar 默认的 titleLarge（22），栏高 56 → 48。个别页仍可覆盖。
+        toolbarHeight: 48,
+        titleTextStyle: textTheme.titleMedium?.copyWith(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: scheme.onSurface,
+        ),
       ),
       floatingActionButtonTheme: isDark
           ? FloatingActionButtonThemeData(

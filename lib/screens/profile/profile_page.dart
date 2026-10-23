@@ -230,6 +230,9 @@ class _ProfilePageState extends State<ProfilePage> {
             // 功能列表（菜单卡片 + 彩蛋）独立放在 SliverToBoxAdapter 内。
             SliverAppBar(
               expandedHeight: 200,
+              // 对齐全局紧凑导航栏（appBarTheme.toolbarHeight 只对 AppBar
+              // 生效，SliverAppBar 收起态默认仍是 kToolbarHeight 56）。
+              toolbarHeight: 48,
               pinned: true,
               floating: false,
               snap: false,
