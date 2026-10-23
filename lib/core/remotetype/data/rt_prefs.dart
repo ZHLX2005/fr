@@ -18,6 +18,9 @@ const _kCanvasBuiltinFactoryRevKey = 'rt_canvas_builtin_factory_rev';
 
 /// 内置预设 id（持久化键，禁止改动——改了等于丢用户当前布局）。
 const String kRtCanvasPresetGame = 'game';
+
+/// 轮盘布局（八向 dir8）；与 [kRtCanvasPresetGame] 方向键布局成对拆分。
+const String kRtCanvasPresetGameWheel = 'game-wheel';
 const String kRtCanvasPresetKeyboard = 'keyboard';
 const String kRtCanvasPresetTouchpad = 'touchpad';
 
@@ -563,7 +566,13 @@ class RtCanvasLayouts {
         next.add(p);
       }
     }
-    return hit ? RtCanvasLayouts(list: next, activeId: activeId) : this;
+    return hit
+        ? RtCanvasLayouts(
+            list: next,
+            activeId: activeId,
+            activeIdPortrait: activeIdPortrait,
+          )
+        : this;
   }
 
   String nextCustomId() {

@@ -197,7 +197,33 @@ void main() {
       final builtin = rtLayoutsRename(withCustom, kRtCanvasPresetGame, '改名');
       expect(
         builtin.list.firstWhere((p) => p.id == kRtCanvasPresetGame).name,
-        '游戏布局',
+        '方向键布局',
+      );
+    });
+
+    test('组内重排：横屏组顺序变化，竖屏专属相对位置不变', () {
+      final before = builtins.list
+          .where((p) => rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, p))
+          .map((p) => p.id)
+          .toList();
+      expect(before.first, isNot(kRtCanvasPresetTouchpad));
+      // 把横屏组第 0 项挪到末尾
+      final next = rtLayoutsReorder(
+        builtins,
+        kRtCanvasOrientLandscape,
+        0,
+        before.length,
+      );
+      final after = next.list
+          .where((p) => rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, p))
+          .map((p) => p.id)
+          .toList();
+      expect(after.last, before.first);
+      expect(after.length, before.length);
+      // 写字仍在竖屏组
+      expect(
+        next.list.any((p) => p.id == kRtCanvasPresetWriter),
+        isTrue,
       );
     });
 

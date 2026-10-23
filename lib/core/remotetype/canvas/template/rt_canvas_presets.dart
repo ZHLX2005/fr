@@ -1,12 +1,12 @@
 // lib/core/remotetype/canvas/template/rt_canvas_presets.dart
 //
 // 画布内置布局模板登记（模板本体在 template/ 下按套分文件）：
-//   · 写字   = 打字页本身（kind=writer，**固定死**：不提供编辑）→ rt_canvas_template_writer
-//   · 游戏   = 纯手柄（vpad_dpad + vpad_button/trigger）      → rt_canvas_template_game
-//   · 键盘   = 全键盘（hotkey，Fn 行折叠）                    → rt_canvas_template_keyboard
-//   · 触控屏 = 满屏触摸板（双朝向可用）                       → rt_canvas_template_touchpad
-// 游戏 / 键盘 / 触控屏用户可改（改后存盘）；写字页固定死（editable=false，
-// 出厂代码即最终形态）。自定义无数量上限。
+//   · 写字     = 打字页本身（kind=writer，**固定死**：不提供编辑）
+//   · 方向键   = 四向十字键 + vpad（id=game，持久化键保留）
+//   · 轮盘     = 八向轮盘 + vpad（id=game-wheel）
+//   · 键盘     = 全键盘（hotkey，Fn 行折叠）
+//   · 触控屏   = 满屏触摸板（双朝向可用）
+// 游戏两套 / 键盘 / 触控屏用户可改（改后存盘）；写字页固定死（editable=false）。
 // 「默认布局」「触控屏 · 竖」「输入页」已退役——ensure 会剔除旧内置条目。
 // 本件只做登记与内置集合的守恒（ensure / 出厂修订），不含摆放数据。
 
@@ -19,15 +19,16 @@ import '../../data/rt_prefs.dart'
         kRtCanvasPresetTouchpad,
         rtCanvasLayoutUsableIn;
 import 'rt_canvas_template_game.dart' show kRtCanvasTemplateGame;
+import 'rt_canvas_template_game_wheel.dart' show kRtCanvasTemplateGameWheel;
 import 'rt_canvas_template_keyboard.dart' show kRtCanvasTemplateKeyboard;
 import 'rt_canvas_template_touchpad.dart' show kRtCanvasTemplateTouchpad;
 import 'rt_canvas_template_writer.dart' show kRtCanvasTemplateWriter;
 
 /// 内置模板列表（按 UI 展示顺序）。写字页排第一——它默认入口。
-/// 游戏 / 键盘 / 触控屏用户可改；改后存盘，下次启动沿用用户版。
 const List<RtCanvasNamedLayout> kRtCanvasBuiltinPresets = [
   kRtCanvasTemplateWriter,
   kRtCanvasTemplateGame,
+  kRtCanvasTemplateGameWheel,
   kRtCanvasTemplateKeyboard,
   kRtCanvasTemplateTouchpad,
 ];
@@ -41,13 +42,13 @@ RtCanvasNamedLayout? rtBuiltinPresetOf(String id) {
 }
 
 /// 出厂锚点修订号：升高时 [rtEnsureBuiltinPresets] 强制用新工厂覆盖全部内置
-/// （自定义布局保留）。rev 4 = 新增竖屏内置「输入页」（连接后落到的打字页）；
-/// rev 5 = 输入页退役，改由固定死的新内置「写字」（kind=writer）接管竖屏入口。
-const int kRtCanvasBuiltinFactoryRev = 5;
+/// （自定义布局保留）。
+/// rev 5 = 输入页退役，改由固定死的「写字」接管竖屏入口；
+/// rev 6 = 游戏拆成「方向键」+「轮盘」两套内置（新增 game-wheel）。
+const int kRtCanvasBuiltinFactoryRev = 6;
 
-/// 保证布局集里 4 套内置总在场（缺的补出厂版），退役内置剔除；内置按列表
-/// 顺序（横屏两套 → 竖屏输入页 → 双朝向触控屏）、自定义跟后；两个朝向的
-/// 激活 id 都必须可用。
+/// 保证布局集里内置总在场（缺的补出厂版），退役内置剔除；内置按列表
+/// 顺序、自定义跟后；两个朝向的激活 id 都必须可用。
 ///
 /// [persistedFactoryRev] < [kRtCanvasBuiltinFactoryRev] 时强制用当前出厂
 /// 覆盖内置数据。已齐全且顺序一致、两侧激活都有效、且出厂修订已对齐时

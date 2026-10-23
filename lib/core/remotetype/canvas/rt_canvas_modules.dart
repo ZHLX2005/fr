@@ -99,8 +99,8 @@ const List<RtCanvasModuleSpec> kRtCanvasModuleSpecs = [
   ),
   RtCanvasModuleSpec(
     id: kRtCanvasModuleDpad,
-    name: '轮盘',
-    desc: '方向轮盘，接电脑虚拟手柄十字键',
+    name: '方向',
+    desc: '四向键 / 八向轮盘，接电脑虚拟手柄十字键',
     icon: Icons.gamepad_outlined,
     locksLandscape: true,
   ),

@@ -40,7 +40,8 @@ void main() {
     expect(find.text('输入'), findsOneWidget);
     // 第一层 = 布局列表（所有布局直接列出来）
     expect(find.text('写字'), findsOneWidget);
-    expect(find.text('游戏布局'), findsOneWidget);
+    expect(find.text('方向键布局'), findsOneWidget);
+    expect(find.text('轮盘布局'), findsOneWidget);
     expect(find.text('键盘布局'), findsOneWidget);
     expect(find.text('触控屏布局'), findsOneWidget);
     // 管理类动作收在下一行
@@ -94,7 +95,8 @@ void main() {
     // 第一层 = 所有布局的列表（按朝向分组，另一组灰显但仍列出）
     expect(find.text('写字'), findsOneWidget);
     expect(find.text('触控屏布局'), findsWidgets);
-    expect(find.text('游戏布局'), findsOneWidget);
+    expect(find.text('方向键布局'), findsOneWidget);
+    expect(find.text('轮盘布局'), findsOneWidget);
     expect(find.text('键盘布局'), findsOneWidget);
     expect(find.text('竖屏布局'), findsOneWidget);
     expect(find.text('横屏布局'), findsOneWidget);

@@ -9,7 +9,7 @@
 //   - 布局隔离：改 A 不动 B、切回 A 修改仍在 / withRenamed 只改名 /
 //     横竖屏激活互不串台（withActiveFor 跨侧无效）
 //   - rtBuiltinPresetOf 出厂查找 / rtEnsureBuiltinPresets 内置补齐（迁移用户）
-//   - kRtCanvasBuiltinPresets 3 套内置（游戏/键盘/触控屏）id/builtIn/name 一致性
+//   - kRtCanvasBuiltinPresets 5 套内置（写字/方向键/轮盘/键盘/触控屏）一致性
 //   - 触控屏双朝向（rtCanvasLayoutUsableIn）
 //   - RtPrefs 旧 `rt_canvas_layout_v1` → 新 `rt_canvas_layouts_v1` 迁移
 //
@@ -38,6 +38,7 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
         kRtCanvasOrientPortrait,
         kRtCanvasPresetDefault,
         kRtCanvasPresetGame,
+        kRtCanvasPresetGameWheel,
         kRtCanvasPresetInputPage,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
@@ -537,10 +538,11 @@ void main() {
   });
 
   group('rtBuiltinPresetOf / rtEnsureBuiltinPresets', () {
-    test('四套内置都能查到；退役 / 自定义 / 未知 id 返回 null', () {
+    test('五套内置都能查到；退役 / 自定义 / 未知 id 返回 null', () {
       for (final id in [
         kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
+        kRtCanvasPresetGameWheel,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
       ]) {
@@ -580,7 +582,7 @@ void main() {
       expect(edited.data.modules['touchpad']!.visible, isFalse);
     });
 
-    test('rtEnsureBuiltinPresets：迁移单条导入 → 补 4 内置在前、自定义在后', () {
+    test('rtEnsureBuiltinPresets：迁移单条导入 → 补 5 内置在前、自定义在后', () {
       const imported = RtCanvasNamedLayout(
         id: 'imported',
         name: '导入布局',
@@ -589,10 +591,11 @@ void main() {
       );
       const layouts = RtCanvasLayouts(list: [imported], activeId: 'imported');
       final ensured = rtEnsureBuiltinPresets(layouts);
-      expect(ensured.list.length, 5);
-      expect(ensured.list.take(4).map((p) => p.id), [
+      expect(ensured.list.length, 6);
+      expect(ensured.list.take(5).map((p) => p.id), [
         kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
+        kRtCanvasPresetGameWheel,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
       ]);
@@ -635,6 +638,7 @@ void main() {
       expect(ensured.list.map((p) => p.id), [
         kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
+        kRtCanvasPresetGameWheel,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
       ]);
@@ -773,24 +777,27 @@ void main() {
     });
   });
 
-  group('kRtCanvasBuiltinPresets 4 套内置（写字/游戏/键盘/触控屏）', () {
+  group('kRtCanvasBuiltinPresets 5 套内置（写字/方向键/轮盘/键盘/触控屏）', () {
     test('id / builtIn / 名称 / 朝向稳定', () {
-      expect(kRtCanvasBuiltinPresets.length, 4);
+      expect(kRtCanvasBuiltinPresets.length, 5);
       expect(kRtCanvasBuiltinPresets.map((p) => p.id), [
         kRtCanvasPresetWriter,
         kRtCanvasPresetGame,
+        kRtCanvasPresetGameWheel,
         kRtCanvasPresetKeyboard,
         kRtCanvasPresetTouchpad,
       ]);
       expect(kRtCanvasBuiltinPresets.every((p) => p.builtIn), isTrue);
       expect(kRtCanvasBuiltinPresets.map((p) => p.name), [
         '写字',
-        '游戏布局',
+        '方向键布局',
+        '轮盘布局',
         '键盘布局',
         '触控屏布局',
       ]);
       expect(kRtCanvasBuiltinPresets.map((p) => p.orientation).toList(), [
         kRtCanvasOrientPortrait,
+        kRtCanvasOrientLandscape,
         kRtCanvasOrientLandscape,
         kRtCanvasOrientLandscape,
         kRtCanvasOrientLandscape,
@@ -812,15 +819,24 @@ void main() {
       expect(kba.h, 0.82);
     });
 
-    test('游戏=纯手柄 vpad；触控屏=满屏触摸板 mouse、无快捷键收录', () {
+    test('方向键=四向十字；轮盘=八向 dir8；触控屏=满屏触摸板', () {
       final game = kRtCanvasBuiltinPresets.firstWhere(
         (p) => p.id == kRtCanvasPresetGame,
       );
       expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue);
+      expect(game.data.modules[kRtCanvasModuleDpad]?.dir8, isFalse);
       expect(game.data.modules[kRtCanvasModuleVpad]?.visible, isTrue);
       expect(game.data.hideShortcuts, isTrue);
       expect(game.data.modules.containsKey(kRtCanvasModuleTouchpad), isFalse);
       expect(game.data.modules.containsKey(kRtCanvasModuleInput), isFalse);
+
+      final wheel = kRtCanvasBuiltinPresets.firstWhere(
+        (p) => p.id == kRtCanvasPresetGameWheel,
+      );
+      expect(wheel.data.modules[kRtCanvasModuleDpad]?.dir8, isTrue);
+      expect(wheel.data.modules[kRtCanvasModuleVpad]?.visible, isTrue);
+      expect(wheel.data.hideShortcuts, isTrue);
+
       final pad = kRtCanvasBuiltinPresets.firstWhere(
         (p) => p.id == kRtCanvasPresetTouchpad,
       );

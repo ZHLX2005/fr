@@ -20,7 +20,6 @@ import '../canvas/rt_canvas_module_page.dart';
 import '../canvas/rt_touch_surface.dart' show showRtSensitivitySheet;
 import '../canvas/template/rt_canvas_presets.dart';
 import '../data/rt_constants.dart';
-import '../data/rt_layout_ops.dart';
 import '../data/rt_prefs.dart';
 import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
 
@@ -77,11 +76,21 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
         list: kRtCanvasBuiltinPresets,
         activeId: kRtCanvasPresetTouchpad,
       );
+      await RtPrefs.saveCanvasBuiltinFactoryRev(kRtCanvasBuiltinFactoryRev);
     } else {
-      layouts = rtEnsureBuiltinPresets(
+      final factoryRev = await RtPrefs.loadCanvasBuiltinFactoryRev();
+      final ensured = rtEnsureBuiltinPresets(
         layouts,
-        persistedFactoryRev: await RtPrefs.loadCanvasBuiltinFactoryRev(),
+        persistedFactoryRev: factoryRev,
       );
+      if (!identical(ensured, layouts)) {
+        layouts = ensured;
+        await RtPrefs.saveCanvasLayouts(layouts);
+      }
+      // 与 rt_page 对齐：ensure 用过新工厂后把修订号写上，避免下次再刷一遍。
+      if (factoryRev < kRtCanvasBuiltinFactoryRev) {
+        await RtPrefs.saveCanvasBuiltinFactoryRev(kRtCanvasBuiltinFactoryRev);
+      }
     }
     final enterMode = await RtPrefs.loadEnterMode();
     final sensitivity = await RtPrefs.loadTouchpadSensitivity();
@@ -106,20 +115,30 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
       layouts: _layouts,
       activeId: _layouts.activeFor(_orientation)?.id ?? '',
       orientation: _orientation,
-      onSwitch: (id) => _saveLayouts(
-        _layouts.withActiveFor(_orientation, id),
-      ),
-      onCopy: (orientation) => _saveLayouts(
-        rtLayoutsCopyToCustom(_layouts, orientation).withActiveFor(
-          orientation,
-          _layouts.nextCustomId(),
-        ),
-      ),
-      onDelete: (id) => _saveLayouts(rtLayoutsDeleteCustom(_layouts, id)),
-      onRename: (id, name) =>
-          _saveLayouts(rtLayoutsRename(_layouts, id, name)),
-      onResetBuiltin: (id) =>
-          _saveLayouts(rtLayoutsResetBuiltin(_layouts, id)),
+      onLayoutsChanged: _saveLayouts,
+      onEdit: widget.onEditCanvasLayout == null
+          ? null
+          : (id) async {
+              RtCanvasNamedLayout? entry;
+              for (final p in _layouts.list) {
+                if (p.id == id) {
+                  entry = p;
+                  break;
+                }
+              }
+              // 只编辑当前朝向可用布局，避免改到另一侧激活却仍停在本朝向画布。
+              if (entry == null ||
+                  !rtCanvasLayoutUsableIn(_orientation, entry)) {
+                return;
+              }
+              await _saveLayouts(_layouts.withActiveFor(_orientation, id));
+              if (!mounted) return;
+              // 关布局面板 → 关设置页 → 进画布编辑（与「在画布上拖拽编辑」同路径）。
+              Navigator.of(context).pop();
+              if (!mounted) return;
+              Navigator.of(context).pop();
+              widget.onEditCanvasLayout!();
+            },
     );
   }
 
@@ -240,7 +259,7 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
           ListTile(
             leading: const Icon(Icons.edit_note_outlined),
             title: const Text('布局管理'),
-            subtitle: const Text('改名 / 删除 / 新建 / 恢复出厂'),
+            subtitle: const Text('拖拽排序 · 改名 / 删除 / 新建 / 恢复'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _openLayoutManager,
           ),

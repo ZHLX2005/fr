@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="zen">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>rt 画布 · 布局管理（拖拽编排 · 方向键/轮盘拆分）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+/*
+ * 对齐现有 rt-canvas-gamepad / settings-list-group-card 色板（fr theme tokens）。
+ * 本原型聚焦：布局列表编排 UX，不重复整页画布编辑细节。
+ *
+ * 设计目标
+ *  1. 横屏 / 竖屏两套独立顺序，组内拖拽编排 = 切换器展示顺序
+ *  2. ⋯ 与长按同一套小圆角操作卡（修改 / 恢复 / 删除 / 重命名）
+ *  3. 游戏拆成「方向键」与「轮盘」两套内置布局，缩略图一眼可辨
+ *  4. 编辑工具栏：竖屏收纳在头部；横屏收纳在右侧（不占头）；展开 = 功能显隐列表
+ */
+
+:root, [data-theme="zen"] {
+  --primary: #7A9A7E; --on-primary: #FFFFFF;
+  --primary-soft: color-mix(in srgb, #7A9A7E 14%, transparent);
+  --surface: #FBF8F1; --tray: #F4F1EA; --page: #F4F1EA;
+  --txt: #2C2C2C; --muted: #8A8475; --outline: #D9D5C8;
+  --error: #A0594A; --error-soft: color-mix(in srgb, #A0594A 10%, transparent);
+  --glass: color-mix(in srgb, #FBF8F1 82%, transparent);
+  --label: "茶禅 Zen";
+}
+[data-theme="ink"] {
+  --primary: #1A1A1A; --on-primary: #FFFFFF;
+  --primary-soft: color-mix(in srgb, #1A1A1A 8%, transparent);
+  --surface: #F7F5F2; --tray: #EEEBE6; --page: #EEEBE6;
+  --txt: #1A1A1A; --muted: #6B6560; --outline: #DDD8D0;
+  --error: #B04650; --error-soft: color-mix(in srgb, #B04650 10%, transparent);
+  --glass: color-mix(in srgb, #F7F5F2 82%, transparent); --label: "墨白 Ink";
+}
+[data-theme="rose"] {
+  --primary: #C8828E; --on-primary: #FFFFFF;
+  --primary-soft: color-mix(in srgb, #C8828E 12%, transparent);
+  --surface: #FFFCFA; --tray: #F5F0F1; --page: #F5F0F1;
+  --txt: #2A2426; --muted: #8A7A7E; --outline: #E8DCE0;
+  --error: #B04650; --error-soft: color-mix(in srgb, #B04650 10%, transparent);
+  --glass: color-mix(in srgb, #FFFCFA 82%, transparent); --label: "粉雾 Rose";
+}
+[data-theme="lemon"] {
+  --primary: #E4C44A; --on-primary: #2C2A22;
+  --primary-soft: color-mix(in srgb, #E4C44A 18%, transparent);
+  --surface: #FFFEFA; --tray: #F3F0E6; --page: #F3F0E6;
+  --txt: #2C2A24; --muted: #7A7568; --outline: #E5E0D4;
+  --error: #C45C4A; --error-soft: color-mix(in srgb, #C45C4A 10%, transparent);
+  --glass: color-mix(in srgb, #FFFEFA 82%, transparent); --label: "柠檬 Lemon";
+}
+[data-theme="cobalt"] {
+  --primary: #163A94; --on-primary: #FFFFFF;
+  --primary-soft: color-mix(in srgb, #163A94 10%, transparent);
+  --surface: #FFFFFF; --tray: #EEF1F7; --page: #EEF1F7;
+  --txt: #1A1A1A; --muted: #5A6578; --outline: #C8D0E0;
+  --error: #B04650; --error-soft: color-mix(in srgb, #B04650 10%, transparent);
+  --glass: color-mix(in srgb, #FFFFFF 82%, transparent); --label: "宝蓝 Cobalt";
+}
+[data-theme="purple"] {
+  --primary: #B9A6D6; --on-primary: #1A1524;
+  --primary-soft: color-mix(in srgb, #B9A6D6 14%, transparent);
+  --surface: #1A1822; --tray: #13111A; --page: #13111A;
+  --txt: #E8E6F0; --muted: #9B97AB; --outline: #3A3648;
+  --error: #E090B0; --error-soft: color-mix(in srgb, #E090B0 12%, transparent);
+  --glass: color-mix(in srgb, #1A1822 82%, transparent); --label: "暮紫 Purple";
+}
+[data-theme="dark"] {
+  --primary: #C9C5BD; --on-primary: #1B1A17;
+  --primary-soft: color-mix(in srgb, #C9C5BD 12%, transparent);
+  --surface: #131311; --tray: #0C0C0A; --page: #0C0C0A;
+  --txt: #E8E7E3; --muted: #9B9A95; --outline: #34332F;
+  --error: #D98D8D; --error-soft: color-mix(in srgb, #D98D8D 12%, transparent);
+  --glass: color-mix(in srgb, #131311 82%, transparent); --label: "暗黑 Dark";
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, #1a2420 0%, transparent 55%),
+    radial-gradient(ellipse 70% 45% at 90% 10%, #152028 0%, transparent 50%),
+    #0B0F13;
+  color: #E8ECE8;
+  font: 13px/1.45 Figtree, "PingFang SC", "Segoe UI", sans-serif;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  padding: 28px 16px 64px;
+  -webkit-font-smoothing: antialiased;
+}
+h1, .brand { font-family: Syne, Figtree, sans-serif; }
+
+.top { width: min(920px, 96vw); }
+.top h1 { font-size: 17px; font-weight: 700; letter-spacing: -.2px; }
+.top .sub { font-size: 12px; color: #8A918A; margin-top: 4px; max-width: 62ch; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.seg {
+  display: flex; background: #1B2128; border: 1px solid #2A3037; border-radius: 13px; padding: 4px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.25);
+}
+.seg .s {
+  padding: 7px 12px; border-radius: 10px; font-size: 12px; color: #8B949E; cursor: pointer;
+  user-select: none; font-weight: 500; border: none; background: transparent; font: inherit;
+  transition: color .15s, background .2s, transform .3s cubic-bezier(.34,1.45,.5,1);
+}
+.seg .s:hover { color: #E8ECE8; }
+.seg .s:active { transform: scale(.94); }
+.seg .s.on {
+  background: #343D47; color: #E8ECE8;
+  box-shadow: 0 1px 5px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.07);
+}
+.hint-chip {
+  font-size: 11px; color: #98A099; background: #161B20; border: 1px solid #262C33;
+  padding: 6px 10px; border-radius: 999px;
+}
+
+/* ══ 双栏：手机 + 旁注 ══ */
+.stage-wrap {
+  width: min(920px, 96vw);
+  display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: start;
+}
+@media (max-width: 820px) {
+  .stage-wrap { grid-template-columns: 1fr; justify-items: center; }
+  .side-notes { width: min(400px, 94vw); }
+}
+
+.device {
+  background: linear-gradient(180deg, #0B0F13, #05070A);
+  border-radius: 36px; padding: 11px; border: 1px solid #1A2026;
+  box-shadow: 0 28px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.screen {
+  position: relative; overflow: hidden; border-radius: 26px; background: var(--tray);
+  width: 400px; height: 780px;
+  transition: width .4s cubic-bezier(.34,1.45,.5,1), height .4s cubic-bezier(.34,1.45,.5,1);
+}
+.screen.w { width: 720px; height: 380px; }
+@media (max-width: 820px) {
+  .screen.w { width: min(94vw, 720px); height: 360px; }
+  .screen:not(.w) { width: min(94vw, 400px); height: min(78vh, 780px); }
+}
+
+/* 画布底 */
+.canvas {
+  position: absolute; inset: 0; z-index: 1;
+}
+.canvas .mod {
+  position: absolute; background: var(--surface); border: 1px solid var(--outline);
+  border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.06);
+  display: grid; place-items: center; color: var(--muted); font-size: 10px; font-weight: 600;
+  letter-spacing: .4px;
+}
+.canvas .mod.full { inset: 0; border-radius: 0; border: none; box-shadow: none; }
+.canvas .mod.round { border-radius: 50%; }
+.canvas .ghost-label {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: var(--muted); background: var(--glass);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--outline); padding: 5px 12px; border-radius: 999px; z-index: 2;
+  pointer-events: none;
+}
+
+/* 方向键示意 */
+.dpad-face {
+  width: 72%; height: 72%; position: relative;
+}
+.dpad-face .arm {
+  position: absolute; background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--outline));
+  border-radius: 8px;
+}
+.dpad-face .h { left: 8%; right: 8%; top: 36%; height: 28%; }
+.dpad-face .v { top: 8%; bottom: 8%; left: 36%; width: 28%; }
+.dpad-face .hub {
+  position: absolute; left: 36%; top: 36%; width: 28%; height: 28%;
+  border-radius: 6px; background: var(--primary);
+}
+
+/* 轮盘示意 */
+.wheel-face {
+  width: 78%; height: 78%; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 50%, var(--outline));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  position: relative;
+}
+.wheel-face .knob {
+  position: absolute; width: 36%; height: 36%; border-radius: 50%;
+  left: 32%; top: 32%; background: var(--primary);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* 面键示意 */
+.face-keys {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 70%;
+}
+.face-keys i {
+  aspect-ratio: 1; border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 22%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--outline));
+  display: grid; place-items: center; font-size: 9px; font-style: normal;
+  font-weight: 700; color: var(--txt);
+}
+
+/* 左上胶囊 */
+.capsule {
+  position: absolute; top: 10px; left: 12px; z-index: 8;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--outline); border-radius: 999px;
+  padding: 7px 12px 7px 10px; color: var(--txt); font-size: 12px; font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.06);
+  pointer-events: none;
+}
+.capsule .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* 布局面板遮罩 */
+.mask {
+  position: absolute; inset: 0; z-index: 20;
+  background: rgba(10,12,14,.38); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: flex-end; justify-content: flex-end;
+}
+.screen.w .mask { align-items: stretch; justify-content: flex-start; }
+
+.panel {
+  width: 100%; max-height: 88%;
+  background: var(--surface); color: var(--txt);
+  border: 1px solid var(--outline); border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -14px 40px rgba(0,0,0,.16);
+  display: flex; flex-direction: column;
+  animation: sheetUp .42s cubic-bezier(.34,1.45,.5,1);
+  overflow: hidden;
+}
+@keyframes sheetUp {
+  from { transform: translateY(28%); opacity: .5; }
+  to { transform: none; opacity: 1; }
+}
+.screen.w .panel {
+  width: min(360px, 78%); max-height: 100%; height: 100%;
+  border-bottom: 1px solid var(--outline);
+  border-radius: 0 24px 24px 0;
+  box-shadow: 14px 0 40px rgba(0,0,0,.16);
+  animation: slideL .42s cubic-bezier(.34,1.45,.5,1);
+}
+@keyframes slideL {
+  from { transform: translateX(-36%); opacity: .5; }
+  to { transform: none; opacity: 1; }
+}
+
+.panel .grab {
+  width: 36px; height: 5px; border-radius: 99px; background: var(--outline);
+  margin: 10px auto 0; flex: none;
+}
+.screen.w .panel .grab {
+  width: 5px; height: 36px; margin: 16px 10px 0 auto;
+}
+
+.panel-hd {
+  padding: 12px 16px 8px; display: flex; align-items: flex-start; gap: 10px; flex: none;
+}
+.panel-hd h2 {
+  font-family: Syne, Figtree, sans-serif;
+  font-size: 15px; font-weight: 700; letter-spacing: -.2px;
+}
+.panel-hd .cur { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.panel-hd .spacer { flex: 1; }
+.panel-hd .close {
+  width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--outline);
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 16px;
+  display: grid; place-items: center;
+  transition: transform .3s cubic-bezier(.34,1.45,.5,1), background .15s;
+}
+.panel-hd .close:hover { background: var(--tray); color: var(--txt); }
+.panel-hd .close:active { transform: scale(.9); }
+
+/* 朝向分段：管理哪一组 */
+.orient-bar {
+  margin: 0 16px 8px; padding: 4px; border-radius: 12px; background: var(--tray);
+  border: 1px solid var(--outline); display: grid; grid-template-columns: 1fr 1fr; gap: 4px; flex: none;
+}
+.orient-bar button {
+  border: none; background: transparent; border-radius: 9px; padding: 8px 6px;
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background .2s, color .15s, transform .3s cubic-bezier(.34,1.45,.5,1);
+}
+.orient-bar button:active { transform: scale(.96); }
+.orient-bar button.on {
+  background: var(--surface); color: var(--txt);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 0 0 1px var(--outline);
+}
+.orient-bar button .count {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  padding: 1px 6px; border-radius: 99px;
+}
+.orient-bar button.on .count {
+  background: var(--primary-soft); color: var(--primary);
+}
+.orient-tip {
+  margin: 0 16px 6px; font-size: 11px; color: var(--muted); line-height: 1.4; flex: none;
+}
+.orient-tip em {
+  font-style: normal; color: var(--primary); font-weight: 600;
+}
+
+.list {
+  flex: 1; overflow: auto; padding: 4px 10px 8px;
+  scrollbar-width: thin;
+}
+.list::-webkit-scrollbar { width: 4px; }
+.list::-webkit-scrollbar-thumb { background: var(--outline); border-radius: 4px; }
+
+.tile {
+  display: grid;
+  grid-template-columns: 28px 22px 96px 1fr auto;
+  align-items: center; gap: 8px;
+  padding: 10px 8px; margin-bottom: 4px;
+  border-radius: 14px; border: 1.5px solid transparent;
+  background: transparent; cursor: pointer; user-select: none;
+  transition: background .15s, border-color .15s, transform .25s cubic-bezier(.34,1.45,.5,1), opacity .2s;
+  touch-action: manipulation;
+}
+.tile:hover { background: var(--tray); }
+.tile:active { transform: scale(.985); }
+.tile.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.tile.dim { opacity: .48; }
+.tile.dragging {
+  opacity: .55; background: var(--surface);
+  border-color: var(--outline);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  transform: scale(1.02);
+  z-index: 3;
+}
+.tile.drop-before { box-shadow: inset 0 2px 0 0 var(--primary); }
+.tile.drop-after { box-shadow: inset 0 -2px 0 0 var(--primary); }
+
+.grip {
+  width: 28px; height: 36px; display: grid; place-items: center;
+  color: var(--muted); cursor: grab; border-radius: 8px;
+  touch-action: none;
+}
+.grip:active { cursor: grabbing; background: color-mix(in srgb, var(--muted) 10%, transparent); }
+.grip svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+.check {
+  width: 22px; height: 22px; display: grid; place-items: center;
+}
+.check svg { width: 18px; height: 18px; }
+.check .off { stroke: var(--muted); fill: none; stroke-width: 1.6; }
+.check .on-ico { fill: var(--primary); stroke: none; }
+
+.thumb {
+  width: 96px; height: 54px; border-radius: 10px; border: 1px solid var(--outline);
+  background: var(--tray); position: relative; overflow: hidden; flex: none;
+}
+.screen.w .thumb { width: 88px; height: 40px; }
+.thumb .m {
+  position: absolute; background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--primary) 55%, var(--outline));
+  border-radius: 4px;
+}
+.thumb .m.c { border-radius: 50%; }
+.thumb .m.cross {
+  background: transparent; border: none;
+}
+.thumb .m.cross::before,
+.thumb .m.cross::after {
+  content: ''; position: absolute; background: color-mix(in srgb, var(--primary) 35%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 55%, var(--outline));
+  border-radius: 2px;
+}
+.thumb .m.cross::before { left: 18%; right: 18%; top: 36%; height: 28%; }
+.thumb .m.cross::after { top: 18%; bottom: 18%; left: 36%; width: 28%; }
+
+.meta { min-width: 0; }
+.meta .n {
+  font-size: 13.5px; font-weight: 600; color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tile.on .meta .n { font-weight: 700; }
+.meta .d {
+  font-size: 11px; color: var(--muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.badges { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.badge {
+  font-size: 10px; color: var(--muted); border: 1px solid var(--outline);
+  padding: 1px 7px; border-radius: 99px; font-weight: 600;
+}
+.badge.lock {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--outline));
+  background: var(--primary-soft);
+}
+
+.more {
+  width: 34px; height: 34px; border-radius: 10px; border: none;
+  background: transparent; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center;
+  transition: background .15s, color .15s, transform .3s cubic-bezier(.34,1.45,.5,1);
+}
+.more:hover { background: color-mix(in srgb, var(--muted) 10%, transparent); color: var(--txt); }
+.more:active { transform: scale(.9); }
+.more.open { background: var(--primary-soft); color: var(--primary); }
+.more svg { width: 18px; height: 18px; fill: currentColor; }
+
+.panel-ft {
+  flex: none; padding: 10px 14px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--outline) 70%, transparent);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.panel-ft .primary {
+  width: 100%; padding: 12px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border: 1.5px solid color-mix(in srgb, var(--primary) 50%, transparent);
+  color: var(--primary);
+  transition: transform .3s cubic-bezier(.34,1.45,.5,1), background .2s;
+}
+.panel-ft .primary:hover { background: color-mix(in srgb, var(--primary) 16%, var(--surface)); }
+.panel-ft .primary:active { transform: scale(.97); }
+.panel-ft .note {
+  font-size: 10.5px; color: var(--muted); text-align: center; line-height: 1.35;
+}
+
+/* ══ 小圆角操作卡（锚定 ⋯ / 长按） ══ */
+.pop-backdrop {
+  position: absolute; inset: 0; z-index: 40; display: none;
+}
+.pop-backdrop.on { display: block; }
+.pop {
+  position: absolute; z-index: 41; min-width: 168px;
+  background: var(--glass); backdrop-filter: blur(22px) saturate(1.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  border: 1px solid var(--outline); border-radius: 14px; padding: 5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 12px 32px rgba(0,0,0,.16);
+  transform-origin: top right;
+  animation: popIn .28s cubic-bezier(.34,1.45,.5,1);
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(.9) translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.pop .pi {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: none; background: transparent; border-radius: 10px;
+  padding: 10px 12px; font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--txt); cursor: pointer; text-align: left;
+  transition: background .12s, transform .25s cubic-bezier(.34,1.45,.5,1);
+}
+.pop .pi:hover { background: var(--primary-soft); }
+.pop .pi:active { transform: scale(.97); }
+.pop .pi.danger { color: var(--error); }
+.pop .pi.danger:hover { background: var(--error-soft); }
+.pop .pi svg {
+  width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; flex: none;
+}
+.pop .sep { height: 1px; background: var(--outline); margin: 4px 8px; }
+.pop .ptitle {
+  font-size: 10.5px; font-weight: 700; color: var(--muted);
+  padding: 6px 12px 4px; letter-spacing: .3px;
+}
+
+/* toast */
+.toast {
+  position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(12px);
+  z-index: 50; opacity: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--txt) 88%, transparent); color: var(--surface);
+  padding: 9px 14px; border-radius: 12px; font-size: 12px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  transition: opacity .25s, transform .35s cubic-bezier(.34,1.45,.5,1);
+  max-width: 86%; text-align: center;
+}
+.toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ══ 编辑工具栏（朝向感知收纳）
+ *  竖屏：收纳钮在头部 → 展开为顶部功能显隐列表
+ *  横屏：收纳钮在右侧 → 展开为右侧竖向功能列表（不占头部，避免挡胶囊/手柄）
+ */
+.editframe {
+  position: absolute; inset: 0; border: 2px solid var(--primary); border-radius: 24px;
+  pointer-events: none; z-index: 7; display: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.editframe.on { display: block; }
+
+.edit-chrome { display: none; position: absolute; z-index: 12; pointer-events: none; }
+.edit-chrome.on { display: block; pointer-events: auto; }
+
+/* 收纳触发钮 */
+.edit-stash {
+  display: none; align-items: center; gap: 7px;
+  background: var(--glass); backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid var(--outline); color: var(--primary);
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+  transition: transform .3s cubic-bezier(.34,1.45,.5,1), box-shadow .2s;
+}
+.edit-stash:active { transform: scale(.94); }
+.edit-stash svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; flex: none; }
+.edit-chrome.collapsed .edit-stash { display: inline-flex; }
+.edit-chrome.expanded .edit-stash { display: none; }
+
+/* 功能显隐列表面板 */
+.edit-tray {
+  display: none; flex-direction: column; gap: 8px;
+  background: var(--glass); backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid var(--outline);
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  animation: popIn .3s cubic-bezier(.34,1.45,.5,1);
+}
+.edit-chrome.expanded .edit-tray { display: flex; }
+.edit-tray .tray-hd {
+  display: flex; align-items: center; gap: 8px; padding: 0 2px;
+}
+.edit-tray .tray-hd .t {
+  font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .3px; flex: 1;
+}
+.edit-tray .tray-hd .collapse {
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font: inherit; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.edit-tray .tray-hd .collapse:hover { background: var(--primary-soft); color: var(--primary); }
+.edit-tray .tray-hd .collapse svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+.mod-list { display: flex; gap: 6px; }
+.mod-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1.5px solid var(--outline); background: var(--surface);
+  color: var(--txt); border-radius: 999px; padding: 7px 11px;
+  font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+  white-space: nowrap;
+  transition: transform .25s cubic-bezier(.34,1.45,.5,1), background .15s, border-color .15s, color .15s, opacity .15s;
+}
+.mod-chip:active { transform: scale(.94); }
+.mod-chip svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.7; flex: none; }
+.mod-chip.on {
+  background: var(--primary); border-color: var(--primary); color: var(--on-primary);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.mod-chip.off {
+  opacity: .55; border-style: dashed;
+  background: color-mix(in srgb, var(--muted) 6%, var(--surface));
+}
+.mod-chip.act {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--outline));
+  color: var(--primary);
+}
+.mod-chip.act.done {
+  background: var(--primary); border-color: var(--primary); color: var(--on-primary); opacity: 1;
+}
+
+/* —— 竖屏：头部收纳 —— */
+.screen:not(.w) .edit-chrome {
+  top: 10px; left: 12px; right: 12px;
+  display: none;
+}
+.screen:not(.w) .edit-chrome.on { display: block; }
+.screen:not(.w) .edit-stash {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  border-radius: 999px; padding: 8px 14px;
+}
+.screen:not(.w) .edit-stash:active { transform: translateX(-50%) scale(.94); }
+.screen:not(.w) .edit-tray {
+  width: 100%; border-radius: 16px; padding: 10px 12px 12px;
+  max-height: min(52%, 360px); overflow: auto;
+}
+.screen:not(.w) .mod-list {
+  flex-wrap: wrap;
+}
+/* 竖屏编辑时左上胶囊让位，避免与头部工具重叠 */
+.screen:not(.w) .capsule.editing { opacity: 0; pointer-events: none; }
+
+/* —— 横屏：右侧收纳（不占头部） —— */
+.screen.w .edit-chrome {
+  top: 12px; right: 10px; bottom: 12px; left: auto;
+  width: auto; max-width: 168px;
+  display: none;
+}
+.screen.w .edit-chrome.on { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
+.screen.w .edit-stash {
+  border-radius: 14px; padding: 12px 10px; writing-mode: vertical-rl;
+  text-orientation: mixed; letter-spacing: .12em; gap: 10px;
+  flex-direction: column;
+}
+.screen.w .edit-stash svg { transform: rotate(90deg); }
+.screen.w .edit-tray {
+  width: 156px; height: 100%; max-height: 100%;
+  border-radius: 18px; padding: 12px 10px;
+  overflow: auto; scrollbar-width: thin;
+}
+.screen.w .mod-list {
+  flex-direction: column; align-items: stretch;
+}
+.screen.w .mod-chip {
+  border-radius: 12px; justify-content: flex-start; width: 100%;
+  padding: 9px 10px;
+}
+.screen.w .edit-tray .tray-hd .collapse { margin-left: auto; }
+
+/* 画布模块在编辑态随显隐淡出 */
+.canvas .mod.is-off { opacity: .28; outline: 1.5px dashed var(--outline); outline-offset: 2px; }
+.canvas .mod.is-off::after {
+  content: '已隐藏'; position: absolute; font-size: 9px; color: var(--muted);
+  bottom: 6px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+}
+
+/* 旁注 */
+.side-notes {
+  background: #161B20; border: 1px solid #262C33; border-radius: 16px; padding: 16px 18px;
+  color: #98A099; font-size: 12.5px; line-height: 1.75;
+}
+.side-notes h3 {
+  font-family: Syne, Figtree, sans-serif;
+  font-size: 12px; color: #E8ECE8; letter-spacing: .4px; text-transform: uppercase;
+  margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+}
+.side-notes h3::before {
+  content: ''; width: 4px; height: 12px; background: #6FAF7B; border-radius: 2px;
+}
+.side-notes + .side-notes { margin-top: 12px; }
+.side-notes ul { list-style: none; }
+.side-notes li { padding: 2px 0; }
+.side-notes b { color: #D5DBD5; font-weight: 600; }
+.side-notes code {
+  background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 4px;
+  font-size: 11px; color: #A9D6B5; font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.side-notes .q { color: #E3B341; }
+
+.brief { width: min(920px, 96vw); }
+.brief summary {
+  list-style: none; cursor: pointer; color: #98A099; font-size: 12px; padding: 4px 0;
+}
+.brief summary::before { content: '+ '; }
+.brief[open] summary::before { content: '− '; }
+.brief .grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;
+}
+@media (max-width: 700px) { .brief .grid { grid-template-columns: 1fr; } }
+.brief .card {
+  background: #161B20; border: 1px solid #262C33; border-radius: 12px; padding: 14px 16px;
+  font-size: 12px; color: #98A099; line-height: 1.8;
+}
+.brief .card h4 {
+  font-size: 11px; color: #E8ECE8; margin-bottom: 6px; letter-spacing: .5px;
+  text-transform: uppercase; font-weight: 700;
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>rt 画布 · 布局管理原型</h1>
+  <div class="sub">
+    布局编排 + 编辑工具朝向收纳（竖屏头部 / 横屏右侧）· 游戏拆「方向键」「轮盘」。
+    色板对齐 FR 主题 tokens。先进「修改布局」可看工具栏。
+  </div>
+  <div class="row">
+    <div class="seg" id="themeSeg">
+      <button type="button" class="s on" data-theme="zen">茶禅</button>
+      <button type="button" class="s" data-theme="ink">墨白</button>
+      <button type="button" class="s" data-theme="rose">粉雾</button>
+      <button type="button" class="s" data-theme="lemon">柠檬</button>
+      <button type="button" class="s" data-theme="cobalt">宝蓝</button>
+      <button type="button" class="s" data-theme="purple">暮紫</button>
+      <button type="button" class="s" data-theme="dark">暗黑</button>
+    </div>
+    <div class="seg" id="orientDevice">
+      <button type="button" class="s" data-dev="n">⤡ 竖屏设备</button>
+      <button type="button" class="s on" data-dev="w">⤢ 横屏设备</button>
+    </div>
+    <span class="hint-chip">拖 ≡ 排序 · ⋯/长按菜单 · 改布局看编辑收纳</span>
+  </div>
+</div>
+
+<div class="stage-wrap">
+  <div class="device">
+    <div class="screen w" id="screen">
+      <div class="canvas" id="canvas"></div>
+      <div class="capsule" id="capsule"><span class="dot"></span><span id="capName">方向键布局</span></div>
+      <div class="editframe" id="editframe"></div>
+
+      <!-- 编辑工具：竖屏=头部收纳 · 横屏=右侧收纳 · 展开=功能显隐列表 -->
+      <div class="edit-chrome collapsed" id="editChrome">
+        <button type="button" class="edit-stash" id="editStash" aria-expanded="false" aria-controls="editTray">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h13"/><path d="M18 10l3 2-3 2"/></svg>
+          <span>编辑工具</span>
+        </button>
+        <div class="edit-tray" id="editTray" role="toolbar" aria-label="功能显隐">
+          <div class="tray-hd">
+            <span class="t" id="trayTitle">功能显隐</span>
+            <button type="button" class="collapse" id="editCollapse" title="收起">
+              <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+              收纳
+            </button>
+          </div>
+          <div class="mod-list" id="modList"></div>
+        </div>
+      </div>
+
+      <div class="mask" id="mask">
+        <div class="panel" id="panel" role="dialog" aria-label="画布布局">
+          <div class="grab" aria-hidden="true"></div>
+          <div class="panel-hd">
+            <div>
+              <h2>画布布局</h2>
+              <div class="cur" id="curLabel">当前：方向键布局</div>
+            </div>
+            <div class="spacer"></div>
+            <button type="button" class="close" id="closePanel" aria-label="关闭">✕</button>
+          </div>
+
+          <div class="orient-bar" id="manageOrient">
+            <button type="button" class="on" data-m="landscape">
+              横屏编排 <span class="count" id="cLand">0</span>
+            </button>
+            <button type="button" data-m="portrait">
+              竖屏编排 <span class="count" id="cPort">0</span>
+            </button>
+          </div>
+          <p class="orient-tip" id="orientTip">
+            拖动调整 <em>横屏</em> 切换顺序；与竖屏互不影响。
+          </p>
+
+          <div class="list" id="list"></div>
+
+          <div class="panel-ft">
+            <button type="button" class="primary" id="btnNew">＋ 新建自定义布局</button>
+            <div class="note">顺序 = 布局切换器展示顺序 · 仅当前设备朝向可点选激活</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pop-backdrop" id="popBd"></div>
+      <div class="pop" id="pop" hidden></div>
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="side-notes">
+      <h3>交互契约</h3>
+      <ul>
+        <li><b>编排与激活拆开</b>：顶部「横屏/竖屏编排」只管顺序；点选激活仍受设备朝向约束（另一朝向行半透明）。</li>
+        <li><b>拖拽</b>：按住左侧 ≡，组内重排；落点指示线；松手写入该朝向顺序。</li>
+        <li><b>⋯ 与长按</b>：同一套小圆角卡片，贴行锚定，不占底栏 sheet。</li>
+        <li><b>修改</b>：关面板 → 画布进编辑态；工具栏按朝向收纳（见下）。</li>
+        <li><b>恢复</b>：仅内置；自定义无此项，改为重命名 / 删除。</li>
+      </ul>
+    </div>
+    <div class="side-notes">
+      <h3>编辑工具栏收纳</h3>
+      <ul>
+        <li><b>竖屏</b>：头部居中「编辑工具」收纳钮 → 点开顶部功能显隐列表。</li>
+        <li><b>横屏</b>：收纳放到<strong>右侧</strong>（竖排标签），不占头部，避免挡左上胶囊与手柄区。</li>
+        <li><b>列表</b>：模块显隐 chip（开=实心 / 关=虚线幽灵）+ 布局 / 快捷键 / 完成。</li>
+        <li>进入编辑默认<strong>收纳</strong>，需要时再展开，少挡画布。</li>
+      </ul>
+    </div>
+    <div class="side-notes">
+      <h3>游戏布局拆分</h3>
+      <ul>
+        <li><b>方向键布局</b>：十字键四向（离散按键），右手 ABXY/肩键。</li>
+        <li><b>轮盘布局</b>：左轮盘（拖动吸附 / 回中），右手同面键。</li>
+        <li>缩略图用十字 vs 圆盘区分，避免「游戏」一词混两种手感。</li>
+        <li class="q">待拍板：竖屏要不要内置游戏变体，还是仅横屏锁定？</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<details class="brief">
+  <summary>与现网差异 / 落代码要点</summary>
+  <div class="grid">
+    <div class="card">
+      <h4>相对 rt_canvas_layouts_sheet</h4>
+      现网：长按 → 底栏 sheet 或确认框；自定义行右侧 more 图标不可点；无拖拽排序；单一「游戏布局」含轮盘。<br />
+      原型：⋯ 可点；长按同菜单；组内拖拽；游戏拆两条内置；编排 tab 可先改另一朝向顺序。
+    </div>
+    <div class="card">
+      <h4>建议持久化</h4>
+      <code>orderLandscape[]</code> / <code>orderPortrait[]</code>（id 序列），与 <code>activeId</code> / <code>activeIdPortrait</code> 独立。<br />
+      内置 id 建议：<code>game_dpad</code>、<code>game_wheel</code>（替换原单一 game）。
+    </div>
+    <div class="card">
+      <h4>相对 rt_canvas_view._editChrome</h4>
+      现网：横竖屏都是顶部居中 chip 行（可收起为「编辑工具」仍在顶）。<br />
+      原型：竖屏收纳/展开都在<strong>头部</strong>；横屏收纳与展开列表都在<strong>右侧竖轨</strong>，头部留给胶囊，不挡手柄。
+    </div>
+  </div>
+</details>
+
+<script>
+const ICONS = {
+  grip: '<svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="17" r="1.2"/><circle cx="15" cy="17" r="1.2"/></svg>',
+  checkOn: '<svg class="on-ico" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.2l-3.5-3.5 1.4-1.4 2.1 2.1 4.5-4.5 1.4 1.4-5.9 5.9z"/></svg>',
+  checkOff: '<svg class="off" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>',
+  more: '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>',
+  edit: '<svg viewBox="0 0 24 24"><path d="M4 20l4-1L20 7l-3-3L5 16l-1 4z"/></svg>',
+  reset: '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0115.5-6.4M21 12a9 9 0 01-15.5 6.4"/><path d="M3 5v5h5M21 19v-5h-5"/></svg>',
+  rename: '<svg viewBox="0 0 24 24"><path d="M4 20h6M14 4l6 6M5 15l9-9 4 4-9 9H5v-4z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M9 7V5h6v2M7 7l1 14h8l1-14"/></svg>',
+  dpad: '<svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>',
+  wheel: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>',
+  vpad: '<svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="2.2"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/><circle cx="16" cy="16" r="2.2"/></svg>',
+  touch: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/></svg>',
+  kb: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h8"/></svg>',
+  input: '<svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 10h8M8 14h5"/></svg>',
+  layout: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+  keys: '<svg viewBox="0 0 24 24"><path d="M4 8h16v3H4zM4 13h10v3H4z"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>',
+};
+
+/** 编辑态功能显隐清单（与模块登记表对齐示意） */
+const EDIT_MODS = [
+  { id: 'dpad', name: '方向键', icon: 'dpad' },
+  { id: 'wheel', name: '轮盘', icon: 'wheel' },
+  { id: 'vpad', name: '手柄', icon: 'vpad' },
+  { id: 'touchpad', name: '触摸板', icon: 'touch' },
+  { id: 'kb', name: '键盘', icon: 'kb' },
+  { id: 'input', name: '输入框', icon: 'input' },
+];
+
+/** @typedef {{ id:string, name:string, desc:string, orient:'landscape'|'portrait'|'both', builtin:boolean, lock?:'landscape', kind:'dpad'|'wheel'|'kb'|'touch'|'custom', dirty?:boolean }} Layout */
+
+/** @type {Layout[]} */
+const CATALOG = [
+  { id: 'game_dpad', name: '方向键布局', desc: '十字四向 · ABXY / 肩键', orient: 'landscape', builtin: true, lock: 'landscape', kind: 'dpad' },
+  { id: 'game_wheel', name: '轮盘布局', desc: '拖动轮盘 · ABXY / 肩键', orient: 'landscape', builtin: true, lock: 'landscape', kind: 'wheel' },
+  { id: 'keyboard', name: '键盘布局', desc: '全键盘 · Fn 行折叠', orient: 'landscape', builtin: true, lock: 'landscape', kind: 'kb' },
+  { id: 'touchpad', name: '触控屏布局', desc: '全屏触摸板 · 横竖通用', orient: 'both', builtin: true, kind: 'touch' },
+  { id: 'input_port', name: '输入页', desc: '竖屏默认 · 输入条', orient: 'portrait', builtin: true, kind: 'custom' },
+  { id: 'my_raid', name: '团本键位', desc: '自定义 · 改过摆放', orient: 'landscape', builtin: false, kind: 'custom', dirty: true },
+  { id: 'my_chat', name: '聊天竖排', desc: '自定义', orient: 'portrait', builtin: false, kind: 'custom' },
+];
+
+const state = {
+  device: 'w', // w landscape / n portrait
+  manage: 'landscape',
+  activeLand: 'game_dpad',
+  activePort: 'input_port',
+  orderLand: ['game_dpad', 'game_wheel', 'keyboard', 'touchpad', 'my_raid'],
+  orderPort: ['input_port', 'touchpad', 'my_chat'],
+  editId: null,
+  /** 编辑工具是否展开；进入编辑默认收纳 */
+  editOpen: false,
+  /** 模块显隐（编辑示意） */
+  modVis: { dpad: true, wheel: true, vpad: true, touchpad: true, kb: true, input: true },
+  dirty: new Set(['my_raid']),
+};
+
+const $ = (id) => document.getElementById(id);
+const screen = $('screen');
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => t.classList.remove('on'), 1800);
+}
+
+function usableIn(orient, L) {
+  if (L.orient === 'both') return true;
+  return L.orient === orient;
+}
+
+function byId(id) {
+  return CATALOG.find((x) => x.id === id);
+}
+
+function activeId() {
+  return state.device === 'w' ? state.activeLand : state.activePort;
+}
+
+function setActive(id) {
+  if (state.device === 'w') state.activeLand = id;
+  else state.activePort = id;
+}
+
+function setEditOpen(open) {
+  state.editOpen = open;
+  const chrome = $('editChrome');
+  chrome.classList.toggle('collapsed', !open);
+  chrome.classList.toggle('expanded', open);
+  $('editStash').setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function renderEditChrome() {
+  const editing = !!state.editId;
+  const chrome = $('editChrome');
+  chrome.classList.toggle('on', editing);
+  $('editframe').classList.toggle('on', editing);
+  $('capsule').classList.toggle('editing', editing && state.device !== 'w');
+  $('mask').style.display = editing ? 'none' : '';
+  if (!editing) return;
+
+  setEditOpen(state.editOpen);
+  $('trayTitle').textContent = state.device === 'w' ? '功能显隐' : '功能显隐 · 点选开关';
+
+  const list = $('modList');
+  list.innerHTML = '';
+  for (const m of EDIT_MODS) {
+    const on = !!state.modVis[m.id];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mod-chip ' + (on ? 'on' : 'off');
+    btn.dataset.mod = m.id;
+    btn.innerHTML = (ICONS[m.icon] || '') + m.name;
+    btn.title = on ? '点击隐藏' : '点击显示';
+    btn.addEventListener('click', () => {
+      state.modVis[m.id] = !state.modVis[m.id];
+      renderAll();
+      toast((state.modVis[m.id] ? '显示 · ' : '隐藏 · ') + m.name);
+    });
+    list.appendChild(btn);
+  }
+
+  const actions = [
+    { id: 'layouts', name: '布局', icon: 'layout', cls: 'act', run: () => { state.editId = null; setEditOpen(false); renderAll(); toast('打开布局面板'); } },
+    { id: 'shortcuts', name: '快捷键', icon: 'keys', cls: 'act', run: () => toast('跳转编辑快捷键（示意）') },
+    { id: 'done', name: '完成', icon: 'check', cls: 'act done', run: finishEdit },
+  ];
+  for (const a of actions) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mod-chip ' + a.cls;
+    btn.innerHTML = (ICONS[a.icon] || '') + a.name;
+    btn.addEventListener('click', a.run);
+    list.appendChild(btn);
+  }
+}
+
+function finishEdit() {
+  if (state.editId) state.dirty.add(state.editId);
+  state.editId = null;
+  state.editOpen = false;
+  renderAll();
+  toast('已保存摆放（示意）');
+}
+
+function markOff(el, visKey) {
+  if (el && state.editId && !state.modVis[visKey]) el.classList.add('is-off');
+}
+
+function renderCanvas() {
+  const id = state.editId || activeId();
+  const L = byId(id) || byId(activeId());
+  $('capName').textContent = L.name;
+  $('curLabel').textContent = '当前：' + byId(activeId()).name;
+  renderEditChrome();
+
+  const c = $('canvas');
+  c.innerHTML = '';
+  const label = document.createElement('div');
+  label.className = 'ghost-label';
+  label.textContent = state.editId
+    ? ('编辑中 · ' + L.name + (state.device === 'w' ? ' · 右侧收纳工具' : ' · 头部收纳工具'))
+    : L.desc;
+  c.appendChild(label);
+
+  if (L.kind === 'touch') {
+    const m = document.createElement('div');
+    m.className = 'mod full';
+    m.dataset.mod = 'touchpad';
+    m.textContent = 'TOUCHPAD';
+    markOff(m, 'touchpad');
+    c.appendChild(m);
+    return;
+  }
+
+  if (L.kind === 'kb') {
+    const m = document.createElement('div');
+    m.className = 'mod';
+    m.dataset.mod = 'kb';
+    m.style.cssText = 'left:4%;top:18%;width:92%;height:72%';
+    m.textContent = 'KEYBOARD';
+    markOff(m, 'kb');
+    c.appendChild(m);
+    return;
+  }
+
+  if (L.kind === 'dpad' || L.kind === 'wheel' || (L.kind === 'custom' && L.orient !== 'portrait')) {
+    const left = document.createElement('div');
+    left.className = 'mod round';
+    const leftKey = (L.kind === 'wheel') ? 'wheel' : 'dpad';
+    left.dataset.mod = leftKey;
+    const side = state.device === 'w' ? '132px' : '120px';
+    left.style.width = side;
+    left.style.height = side;
+    left.style.left = '6%';
+    left.style.top = state.device === 'w' ? '26%' : '42%';
+    if (L.kind === 'dpad' || L.id === 'my_raid') {
+      left.innerHTML = '<div class="dpad-face"><div class="arm h"></div><div class="arm v"></div><div class="hub"></div></div>';
+    } else if (L.kind === 'wheel') {
+      left.innerHTML = '<div class="wheel-face"><div class="knob"></div></div>';
+    } else {
+      left.textContent = 'PAD';
+    }
+    markOff(left, leftKey);
+    c.appendChild(left);
+
+    const right = document.createElement('div');
+    right.className = 'mod';
+    right.dataset.mod = 'vpad';
+    right.style.cssText = state.device === 'w'
+      ? 'right:5%;top:22%;width:38%;height:68%'
+      : 'right:6%;top:40%;width:40%;height:36%';
+    right.innerHTML = '<div class="face-keys"><i>Y</i><i>X</i><i>B</i><i>A</i></div>';
+    markOff(right, 'vpad');
+    c.appendChild(right);
+    return;
+  }
+
+  const bar = document.createElement('div');
+  bar.className = 'mod';
+  bar.dataset.mod = 'input';
+  bar.style.cssText = 'left:5%;bottom:8%;width:90%;height:48px';
+  bar.textContent = 'INPUT';
+  markOff(bar, 'input');
+  c.appendChild(bar);
+}
+
+function thumbHtml(L) {
+  if (L.kind === 'dpad') {
+    return `<div class="m cross" style="left:10%;top:18%;width:34%;height:64%"></div>
+            <div class="m" style="right:10%;top:22%;width:36%;height:56%;border-radius:8px"></div>`;
+  }
+  if (L.kind === 'wheel') {
+    return `<div class="m c" style="left:12%;top:18%;width:34%;height:64%"></div>
+            <div class="m" style="right:10%;top:22%;width:36%;height:56%;border-radius:8px"></div>`;
+  }
+  if (L.kind === 'kb') {
+    return `<div class="m" style="left:6%;top:20%;width:88%;height:60%;border-radius:6px"></div>`;
+  }
+  if (L.kind === 'touch') {
+    return `<div class="m" style="inset:6%;border-radius:6px;opacity:.7"></div>`;
+  }
+  if (L.orient === 'portrait') {
+    return `<div class="m" style="left:10%;bottom:12%;width:80%;height:22%;border-radius:6px"></div>`;
+  }
+  return `<div class="m c" style="left:14%;top:22%;width:28%;height:52%"></div>
+          <div class="m" style="right:12%;top:26%;width:32%;height:48%;border-radius:8px"></div>`;
+}
+
+function orderFor(manage) {
+  return manage === 'landscape' ? state.orderLand : state.orderPort;
+}
+
+function setOrder(manage, next) {
+  if (manage === 'landscape') state.orderLand = next;
+  else state.orderPort = next;
+}
+
+function renderList() {
+  const manage = state.manage;
+  const deviceOrient = state.device === 'w' ? 'landscape' : 'portrait';
+  const order = orderFor(manage);
+  const active = manage === 'landscape' ? state.activeLand : state.activePort;
+  const canActivate = manage === deviceOrient;
+
+  $('cLand').textContent = String(state.orderLand.length);
+  $('cPort').textContent = String(state.orderPort.length);
+  $('orientTip').innerHTML = canActivate
+    ? `拖动调整 <em>${manage === 'landscape' ? '横屏' : '竖屏'}</em> 切换顺序；点行切换激活。`
+    : `正在编排 <em>${manage === 'landscape' ? '横屏' : '竖屏'}</em> 顺序（设备在另一朝向，点选暂不可激活）。`;
+
+  const list = $('list');
+  list.innerHTML = '';
+
+  order.forEach((id, index) => {
+    const L = byId(id);
+    if (!L) return;
+    const isActive = canActivate && id === activeId();
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (isActive ? ' on' : '') + (!canActivate ? ' dim' : '');
+    tile.dataset.id = id;
+    tile.dataset.index = String(index);
+    tile.innerHTML = `
+      <div class="grip" title="拖动排序" aria-label="拖动排序">${ICONS.grip}</div>
+      <div class="check">${isActive ? ICONS.checkOn : ICONS.checkOff}</div>
+      <div class="thumb">${thumbHtml(L)}</div>
+      <div class="meta">
+        <div class="n">${L.name}</div>
+        <div class="d">${L.desc}</div>
+        <div class="badges">
+          ${L.builtin ? '<span class="badge">内置</span>' : '<span class="badge">自定义</span>'}
+          ${L.lock === 'landscape' ? '<span class="badge lock">锁横屏</span>' : ''}
+          ${state.dirty.has(id) ? '<span class="badge">已改</span>' : ''}
+        </div>
+      </div>
+      <button type="button" class="more" aria-label="更多操作">${ICONS.more}</button>
+    `;
+
+    tile.addEventListener('click', (e) => {
+      if (e.target.closest('.grip') || e.target.closest('.more')) return;
+      if (!canActivate) {
+        toast('旋转到该朝向后再切换激活');
+        return;
+      }
+      setActive(id);
+      renderAll();
+      toast('已切换：' + L.name);
+    });
+
+    let pressTimer = null;
+    tile.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.grip') || e.target.closest('.more')) return;
+      pressTimer = setTimeout(() => {
+        openPop(L, tile.querySelector('.more'));
+      }, 480);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => {
+      tile.addEventListener(ev, () => clearTimeout(pressTimer));
+    });
+
+    tile.querySelector('.more').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPop(L, e.currentTarget);
+    });
+
+    bindDrag(tile.querySelector('.grip'), tile, index);
+    list.appendChild(tile);
+  });
+}
+
+/* ── 拖拽排序（指针事件，组内） ── */
+function bindDrag(grip, tile, index) {
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const list = $('list');
+    const tiles = () => [...list.querySelectorAll('.tile')];
+    tile.classList.add('dragging');
+    grip.setPointerCapture(e.pointerId);
+    let from = index;
+
+    const onMove = (ev) => {
+      const y = ev.clientY;
+      let target = null;
+      for (const t of tiles()) {
+        if (t === tile) continue;
+        const r = t.getBoundingClientRect();
+        if (y >= r.top && y <= r.bottom) { target = t; break; }
+      }
+      tiles().forEach((t) => t.classList.remove('drop-before', 'drop-after'));
+      if (target) {
+        const r = target.getBoundingClientRect();
+        const before = y < r.top + r.height / 2;
+        target.classList.add(before ? 'drop-before' : 'drop-after');
+      }
+    };
+
+    const onUp = (ev) => {
+      grip.releasePointerCapture(ev.pointerId);
+      grip.removeEventListener('pointermove', onMove);
+      grip.removeEventListener('pointerup', onUp);
+      tile.classList.remove('dragging');
+      const marked = list.querySelector('.drop-before, .drop-after');
+      const order = orderFor(state.manage).slice();
+      if (marked) {
+        const toId = marked.dataset.id;
+        const to = order.indexOf(toId);
+        const before = marked.classList.contains('drop-before');
+        order.splice(from, 1);
+        let insertAt = order.indexOf(toId);
+        if (!before) insertAt += 1;
+        // if we removed an item before insertAt, indices already adjusted by splice
+        order.splice(insertAt, 0, tile.dataset.id);
+        setOrder(state.manage, order);
+        toast('已更新' + (state.manage === 'landscape' ? '横屏' : '竖屏') + '顺序');
+      }
+      tiles().forEach((t) => t.classList.remove('drop-before', 'drop-after'));
+      renderList();
+    };
+
+    grip.addEventListener('pointermove', onMove);
+    grip.addEventListener('pointerup', onUp);
+  });
+}
+
+/* ── 操作卡 ── */
+function openPop(L, anchor) {
+  closePop();
+  const pop = $('pop');
+  const bd = $('popBd');
+  const isBuiltin = L.builtin;
+
+  let items = `
+    <div class="ptitle">${L.name}</div>
+    <button type="button" class="pi" data-act="edit">${ICONS.edit}修改布局</button>
+  `;
+  if (isBuiltin) {
+    items += `<button type="button" class="pi" data-act="reset">${ICONS.reset}恢复出厂</button>`;
+  } else {
+    items += `
+      <button type="button" class="pi" data-act="rename">${ICONS.rename}重命名</button>
+      <div class="sep"></div>
+      <button type="button" class="pi danger" data-act="delete">${ICONS.trash}删除</button>
+    `;
+  }
+  pop.innerHTML = items;
+  pop.hidden = false;
+  bd.classList.add('on');
+  anchor.classList.add('open');
+
+  // 锚定到 more 按钮（相对 screen）
+  const screenRect = screen.getBoundingClientRect();
+  const ar = anchor.getBoundingClientRect();
+  pop.style.top = '0px';
+  pop.style.left = '0px';
+  pop.style.right = 'auto';
+  // measure
+  const pr = pop.getBoundingClientRect();
+  let top = ar.bottom - screenRect.top + 6;
+  let left = ar.right - screenRect.left - pr.width;
+  if (left < 10) left = 10;
+  if (top + pr.height > screenRect.height - 10) {
+    top = ar.top - screenRect.top - pr.height - 6;
+  }
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+
+  pop.querySelectorAll('.pi').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.act;
+      closePop();
+      if (act === 'edit') {
+        const deviceOrient = state.device === 'w' ? 'landscape' : 'portrait';
+        if (!usableIn(deviceOrient, L)) {
+          toast('请先旋转到该布局可用的朝向再修改');
+          return;
+        }
+        setActive(L.id);
+        state.editId = L.id;
+        state.editOpen = false; // 默认收纳，点头部/右侧再展开
+        renderAll();
+        toast(state.device === 'w'
+          ? '编辑中 · 点右侧「编辑工具」展开'
+          : '编辑中 · 点头部「编辑工具」展开');
+      } else if (act === 'reset') {
+        state.dirty.delete(L.id);
+        toast('已恢复「' + L.name + '」出厂摆放');
+        renderList();
+      } else if (act === 'rename') {
+        const name = prompt('重命名布局', L.name);
+        if (name && name.trim()) {
+          L.name = name.trim().slice(0, 16);
+          toast('已重命名');
+          renderAll();
+        }
+      } else if (act === 'delete') {
+        if (!confirm('删除「' + L.name + '」？')) return;
+        state.orderLand = state.orderLand.filter((x) => x !== L.id);
+        state.orderPort = state.orderPort.filter((x) => x !== L.id);
+        if (state.activeLand === L.id) state.activeLand = state.orderLand[0];
+        if (state.activePort === L.id) state.activePort = state.orderPort[0];
+        const i = CATALOG.findIndex((x) => x.id === L.id);
+        if (i >= 0) CATALOG.splice(i, 1);
+        toast('已删除');
+        renderAll();
+      }
+    });
+  });
+}
+
+function closePop() {
+  $('pop').hidden = true;
+  $('popBd').classList.remove('on');
+  document.querySelectorAll('.more.open').forEach((el) => el.classList.remove('open'));
+}
+
+function renderAll() {
+  renderCanvas();
+  renderList();
+}
+
+/* ── 顶栏控件 ── */
+$('themeSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-theme]');
+  if (!b) return;
+  document.documentElement.setAttribute('data-theme', b.dataset.theme);
+  $('themeSeg').querySelectorAll('.s').forEach((x) => x.classList.toggle('on', x === b));
+});
+
+$('orientDevice').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-dev]');
+  if (!b) return;
+  state.device = b.dataset.dev;
+  screen.classList.toggle('w', state.device === 'w');
+  // 编排 tab 跟随设备，仍可手动切
+  state.manage = state.device === 'w' ? 'landscape' : 'portrait';
+  syncManageTabs();
+  $('orientDevice').querySelectorAll('.s').forEach((x) => x.classList.toggle('on', x === b));
+  closePop();
+  // 编辑态下切朝向：保持编辑，重置为收纳，便于对比头/右收纳位
+  if (state.editId) state.editOpen = false;
+  renderAll();
+});
+
+function syncManageTabs() {
+  $('manageOrient').querySelectorAll('button').forEach((btn) => {
+    btn.classList.toggle('on', btn.dataset.m === state.manage);
+  });
+}
+
+$('manageOrient').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-m]');
+  if (!b) return;
+  state.manage = b.dataset.m;
+  syncManageTabs();
+  closePop();
+  renderList();
+});
+
+$('closePanel').addEventListener('click', () => {
+  toast('正式产品里关闭面板；原型保持打开便于过目');
+});
+
+$('btnNew').addEventListener('click', () => {
+  const orient = state.manage;
+  const id = 'custom_' + Date.now().toString(36);
+  CATALOG.push({
+    id, name: '未命名布局', desc: '自定义 · 空画布',
+    orient, builtin: false, kind: 'custom',
+  });
+  orderFor(orient).push(id);
+  toast('已新建到' + (orient === 'landscape' ? '横屏' : '竖屏'));
+  renderList();
+});
+
+$('editStash').addEventListener('click', () => {
+  setEditOpen(true);
+});
+$('editCollapse').addEventListener('click', () => {
+  setEditOpen(false);
+  toast(state.device === 'w' ? '已收纳到右侧' : '已收纳到头部');
+});
+
+$('popBd').addEventListener('click', closePop);
+
+renderAll();
+</script>
+</body>
+</html>

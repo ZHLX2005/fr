@@ -95,3 +95,36 @@ RtCanvasLayouts rtLayoutsResetBuiltin(RtCanvasLayouts layouts, String id) {
     activeIdPortrait: layouts.activeIdPortrait,
   );
 }
+
+/// 组内拖拽排序：只重排 [orientation] 可用条目的相对顺序，另一朝向专属
+/// 条目相对位置不变。索引语义同 [ReorderableListView.onReorder]
+/// （newIndex 在移除前口径，函数内自行校正）。
+RtCanvasLayouts rtLayoutsReorder(
+  RtCanvasLayouts layouts,
+  String orientation,
+  int oldIndex,
+  int newIndex,
+) {
+  final group = [
+    for (final p in layouts.list)
+      if (rtCanvasLayoutUsableIn(orientation, p)) p,
+  ];
+  if (oldIndex < 0 || oldIndex >= group.length) return layouts;
+  var insertAt = newIndex;
+  if (insertAt > oldIndex) insertAt -= 1;
+  if (insertAt < 0 || insertAt >= group.length) return layouts;
+  if (oldIndex == insertAt) return layouts;
+
+  final moved = group.removeAt(oldIndex);
+  group.insert(insertAt, moved);
+  final queue = List<RtCanvasNamedLayout>.of(group);
+  final next = <RtCanvasNamedLayout>[];
+  for (final p in layouts.list) {
+    if (rtCanvasLayoutUsableIn(orientation, p)) {
+      next.add(queue.removeAt(0));
+    } else {
+      next.add(p);
+    }
+  }
+  return layouts.withList(next);
+}
