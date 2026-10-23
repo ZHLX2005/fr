@@ -106,16 +106,25 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
     });
   }
 
+  /// 最近一次落盘的 Future：关页跳转前要等它落地（见 _editOnCanvas）。
+  Future<void> _lastSave = Future.value();
+
   Future<void> _saveLayouts(RtCanvasLayouts next) async {
     setState(() => _layouts = next);
-    await RtPrefs.saveCanvasLayouts(next);
+    final saving = RtPrefs.saveCanvasLayouts(next);
+    _lastSave = saving;
+    await saving;
   }
 
   /// 行 ⋯「在画布上编辑」：关菜单（调用方已关）→ 关设置页 → 交给 RT 页
   /// 切布局 + 自动转向 + 进编辑。不要求当前朝向可用：竖屏也可编辑横屏布局。
-  void _editOnCanvas(String id) {
+  Future<void> _editOnCanvas(String id) async {
     final cb = widget.onEditCanvasLayout;
     if (cb == null) return;
+    // 等最后一次落盘落地再关页：RT 页在本页关闭后会回读磁盘，
+    // 若读到旧快照再回写就会抹掉刚才的改动。
+    await _lastSave;
+    if (!mounted) return;
     Navigator.of(context).pop();
     cb(id);
   }
@@ -134,12 +143,12 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
       value: _sensitivity,
       onChanged: (v) {
         setState(() => _sensitivity = v);
-        unawaitedSave(v);
+        _unawaitedSave(v);
       },
     );
   }
 
-  void unawaitedSave(double v) {
+  void _unawaitedSave(double v) {
     RtPrefs.saveTouchpadSensitivity(v);
   }
 

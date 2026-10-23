@@ -8,7 +8,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaodouzi_fr/core/remotetype/canvas/template/rt_canvas_presets.dart';
-import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart';
+import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
+    show
+        RtCanvasLayouts,
+        RtPrefs,
+        kRtCanvasOrientLandscape,
+        kRtCanvasOrientPortrait,
+        kRtCanvasPresetKeyboard,
+        kRtCanvasPresetTouchpad,
+        kRtCanvasPresetWriter,
+        rtCanvasLayoutUsableIn;
 import 'package:xiaodouzi_fr/core/remotetype/settings/rt_settings_page.dart';
 import 'package:xiaodouzi_fr/core/remotetype/ui/rt_layout_picker.dart';
 
@@ -193,5 +202,57 @@ void main() {
     await tester.pumpAndSettle();
     layouts = await RtPrefs.loadCanvasLayouts();
     expect(layouts.list.where((p) => !p.builtIn), isEmpty);
+  });
+
+  testWidgets('组内拖拽排序落盘：竖屏组变、横屏组相对次序不变', (tester) async {
+    await _openSettings(tester);
+    // 竖屏组第一行（写字）的把手向下拖过触控屏一行
+    await tester.drag(
+      find.byIcon(Icons.drag_indicator).first,
+      const Offset(0, 120),
+    );
+    await tester.pumpAndSettle();
+    final layouts = await RtPrefs.loadCanvasLayouts();
+    final portraitIds = layouts.list
+        .where((p) => rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, p))
+        .map((p) => p.id)
+        .toList();
+    expect(portraitIds, [kRtCanvasPresetTouchpad, kRtCanvasPresetWriter]);
+    // 排序是全局一份顺序：被写字跨过的双朝向行（触控屏）在横屏组挪到最前；
+    // 排序是全局一份顺序：被写字跨过的双朝向行（触控屏）在横屏组挪到最前；
+    // 横屏专属行（双朝向除外）的相对次序不变（语义见 docs/rt-settings-layouts-card-定稿说明.md）
+    final landscapeIds = layouts.list
+        .where((p) => rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, p))
+        .map((p) => p.id)
+        .toList();
+    expect(landscapeIds.first, kRtCanvasPresetTouchpad);
+    bool exclusiveL(p) =>
+        rtCanvasLayoutUsableIn(kRtCanvasOrientLandscape, p) &&
+        !rtCanvasLayoutUsableIn(kRtCanvasOrientPortrait, p);
+    final exclusiveIds = layouts.list
+        .where(exclusiveL)
+        .map((p) => p.id)
+        .toList();
+    final expectedExclusive = kRtCanvasBuiltinPresets
+        .where(exclusiveL)
+        .map((p) => p.id)
+        .toList();
+    expect(exclusiveIds, expectedExclusive);
+  });
+
+  testWidgets('内置行 ⋯：恢复出厂摆放走确认，布局保留且数据回出厂', (tester) async {
+    await _openSettings(tester);
+    await tester.tap(find.byIcon(Icons.more_horiz).first); // 竖屏组触控屏行
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('恢复出厂摆放'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('恢复'));
+    await tester.pumpAndSettle();
+    final layouts = await RtPrefs.loadCanvasLayouts();
+    final touchpad = layouts.list.firstWhere(
+      (p) => p.id == kRtCanvasPresetTouchpad,
+    );
+    final factory = rtBuiltinPresetOf(kRtCanvasPresetTouchpad)!;
+    expect(touchpad.data.modules.length, factory.data.modules.length);
   });
 }

@@ -60,15 +60,20 @@ class RtLayoutRowTile extends StatelessWidget {
           children: [
             ReorderableDragStartListener(
               index: index,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 8,
-                ),
-                child: Icon(
-                  Icons.drag_indicator,
-                  size: 20,
-                  color: c.textMuted.withValues(alpha: 0.7),
+              // 把手只负责拖：吞掉点按，避免「点了把手却切了布局」。
+              child: GestureDetector(
+                onTap: () {},
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 8,
+                  ),
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 20,
+                    color: c.textMuted.withValues(alpha: 0.7),
+                  ),
                 ),
               ),
             ),

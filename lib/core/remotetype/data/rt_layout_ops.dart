@@ -5,15 +5,14 @@
 //
 // 规则要点：
 //   · 内置布局不可删、不可改名（可改摆放、可恢复出厂）；
-//   · 删掉的恰是某朝向的激活布局 → 该朝向回退（横屏回触控屏，竖屏清空
-//     由读侧 activeFor 兜底到写字）；
+//   · 删掉的恰是某朝向的激活布局 → 该朝向回退（横屏回触控屏，竖屏显式
+//     回写字——写死 id，不依赖列表顺序）；
 //   · 删空集合 → 回内置全集（画布不能啥都不渲染）。
 
 import '../canvas/template/rt_canvas_presets.dart';
 import 'rt_prefs.dart';
 
-/// 复制一份为新的空自定义布局（[orientation] 由用户选；不自动激活——
-/// 激活与否由调用方按「用户是否就在这一侧」决定）。
+/// 复制一份为新的空自定义布局（[orientation] 由用户选；不自动激活）。
 RtCanvasLayouts rtLayoutsCopyToCustom(
   RtCanvasLayouts layouts,
   String orientation,
@@ -59,7 +58,9 @@ RtCanvasLayouts rtLayoutsDeleteCustom(RtCanvasLayouts layouts, String id) {
         : (nextList.any((p) => p.id == layouts.activeId)
               ? layouts.activeId
               : kRtCanvasPresetTouchpad),
-    activeIdPortrait: wasActiveN ? '' : layouts.activeIdPortrait,
+    activeIdPortrait: wasActiveN
+        ? kRtCanvasPresetWriter
+        : layouts.activeIdPortrait,
   );
 }
 

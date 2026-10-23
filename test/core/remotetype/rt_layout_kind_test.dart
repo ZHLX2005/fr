@@ -162,6 +162,20 @@ void main() {
       expect(created.data.modules, isEmpty);
     });
 
+    test('删除激活中的自定义：竖屏激活显式回写字（不依赖列表顺序）', () {
+      var layouts = rtLayoutsCopyToCustom(builtins, kRtCanvasOrientPortrait);
+      layouts = layouts.withActiveFor(kRtCanvasOrientPortrait, 'custom-1');
+      expect(layouts.activeIdPortrait, 'custom-1');
+      // 把写字拖到列表尾（模拟竖屏组重排过），兜底不再依赖「写字在首位」
+      final order = layouts.list.map((p) => p.id).toList();
+      final reordered = layouts.withList([
+        ...order.sublist(1),
+        order.first,
+      ].map((id) => layouts.list.firstWhere((p) => p.id == id)).toList());
+      final deleted = rtLayoutsDeleteCustom(reordered, 'custom-1');
+      expect(deleted.activeIdPortrait, kRtCanvasPresetWriter);
+    });
+
     test('删除：自定义可删、内置不可删；删空集合回内置全集', () {
       final withCustom = rtLayoutsCopyToCustom(
         builtins,

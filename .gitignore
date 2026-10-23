@@ -91,3 +91,4 @@ web_deploy/build-web/
 .claude/settings.local.json
 .gstack/
 .playwright-mcp
+temp/
