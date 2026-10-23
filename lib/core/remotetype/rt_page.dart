@@ -126,8 +126,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// 若仍按设备朝向取 active，会改到错误的一侧。编辑结束清空。
   String? _editBindOrientation;
 
-  /// 从设置「修改」进编辑后跳过一次整表 reload，避免 unawaited 落盘未完成被旧盘覆盖。
-  bool _skipLayoutsReloadOnce = false;
+  /// 设置页点「在画布上编辑」记下的目标布局 id：设置页刚关时先回读盘上
+  /// 最新布局集，再执行编辑——用旧快照回写会抹掉设置页刚做的改动。
+  String? _pendingEditLayoutId;
 
   double _padSensitivity = kRtPadSensitivityDefault;
   // 画布布局（模块锚点 + 按钮位）：跨会话记住，持久化（RtPrefs）。
@@ -424,7 +425,6 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     final usableHere = rtCanvasLayoutUsableIn(device, entry);
     final targetOrient = usableHere ? device : entry.orientation;
     final next = _layouts.withActiveFor(targetOrient, id);
-    _skipLayoutsReloadOnce = true;
     setState(() {
       _layouts = next;
       _editBindOrientation = targetOrient;
@@ -510,27 +510,28 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     );
   }
 
-  /// 打开 RT 设置页（编排 + 发送/换行 + 灵敏度 + 快捷键）。关掉后重载
+  /// 打开 RT 设置页（布局编排 + 回车方式 + 灵敏度 + 快捷键）。关掉后回读
   /// 布局与回车方式——设置页自己落盘，页面态要跟着回读。
+  ///
+  /// 设置页里点「在画布上编辑」只记下目标 id：等设置页关掉、布局回读
+  /// 完毕再执行编辑，避免拿设置页改动前的旧快照回写磁盘。
   Future<void> _openSettings() async {
     await showRtSettingsPage(
       context,
       // 有会话即可「修改」任意可编辑布局（含跨朝向自动转向）；不限当前已在画布。
       onEditCanvasLayout: _session != null
           ? (id) {
-              unawaited(_beginEditLayout(id));
+              _pendingEditLayoutId = id;
             }
           : null,
     );
     if (!mounted) return;
-    if (_skipLayoutsReloadOnce) {
-      // 「修改」路径已 await 落盘并更新内存；只回读回车方式，避免旧盘冲掉激活。
-      _skipLayoutsReloadOnce = false;
-      final enterMode = await RtPrefs.loadEnterMode();
-      if (mounted) setState(() => _enterMode = enterMode);
-      return;
-    }
     await _reloadPrefs();
+    if (!mounted) return;
+    final pending = _pendingEditLayoutId;
+    if (pending == null) return;
+    _pendingEditLayoutId = null;
+    await _beginEditLayout(pending);
   }
 
   /// 重读持久化偏好（设置页改动后回读布局 / 回车方式）。

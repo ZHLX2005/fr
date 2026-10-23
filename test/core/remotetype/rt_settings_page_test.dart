@@ -1,7 +1,8 @@
-// RT 设置页 widget 测试（重构后新增）：
-//   · 设置页能打开、渲染出布局与输入两区；
-//   · 「回车行为」在这里切换并落盘（原先是写字页工具行上的两颗小按钮）；
-//   · 布局切换面板只列当前朝向可用的布局，固定布局标「固定布局」。
+// RT 设置页 widget 测试（布局大卡重构后）：
+//   · 设置页能打开、布局区 = 一张大卡（竖屏组在上、横屏组在下）；
+//   · 旧的四段顶层入口（布局列表 / 布局管理 / 模块与布局 / 拖拽编辑）已收敛；
+//   · 「回车行为」在这里切换并落盘；
+//   · 大卡上的动作真的落盘：切激活 / 新建 / 改名 / 删除。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,12 +12,32 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart';
 import 'package:xiaodouzi_fr/core/remotetype/settings/rt_settings_page.dart';
 import 'package:xiaodouzi_fr/core/remotetype/ui/rt_layout_picker.dart';
 
+/// 打开设置页并等首屏（加载 prefs 是异步的）。
+Future<void> _openSettings(WidgetTester tester) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () => showRtSettingsPage(context),
+              child: const Text('打开设置'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('打开设置'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('设置页渲染布局与输入两区，回车行为可切并落盘', (tester) async {
+  testWidgets('设置页渲染布局大卡与输入区，回车行为可切并落盘', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -38,14 +59,20 @@ void main() {
     expect(find.text('远程输入设置'), findsOneWidget);
     expect(find.text('布局'), findsOneWidget);
     expect(find.text('输入'), findsOneWidget);
-    // 第一层 = 布局列表（所有布局直接列出来）
+    // 大卡双组：竖屏组在上、横屏组在下
+    expect(find.text('竖屏'), findsOneWidget);
+    expect(find.text('横屏'), findsOneWidget);
+    // 组员：写字/方向键/轮盘/键盘各一行；触控屏双朝向 → 两组各一行
     expect(find.text('写字'), findsOneWidget);
     expect(find.text('方向键布局'), findsOneWidget);
     expect(find.text('轮盘布局'), findsOneWidget);
     expect(find.text('键盘布局'), findsOneWidget);
-    expect(find.text('触控屏布局'), findsOneWidget);
-    // 管理类动作收在下一行
-    expect(find.text('布局管理'), findsOneWidget);
+    expect(find.text('触控屏布局'), findsNWidgets(2));
+    // 旧的四段顶层入口已收敛：管理进行尾 ⋯，新建是卡下虚线行
+    expect(find.text('布局管理'), findsNothing);
+    expect(find.text('模块与布局'), findsNothing);
+    expect(find.text('在画布上拖拽编辑'), findsNothing);
+    expect(find.text('新建自定义布局'), findsOneWidget);
     // 回车行为默认 = 发送
     expect(find.text('发送（普通 Enter）'), findsOneWidget);
 
@@ -109,5 +136,62 @@ void main() {
     await tester.tap(find.text('远程输入设置'));
     await tester.pumpAndSettle();
     expect(settingsOpened, isTrue);
+  });
+
+  testWidgets('点行切激活并落盘（横屏组点键盘布局 → activeId 变）', (
+    tester,
+  ) async {
+    await _openSettings(tester);
+    await tester.tap(find.text('键盘布局'));
+    await tester.pumpAndSettle();
+    final layouts = await RtPrefs.loadCanvasLayouts();
+    expect(layouts.activeId, kRtCanvasPresetKeyboard);
+    expect(layouts.list, isNotEmpty);
+  });
+
+  testWidgets('新建：选朝向建空画布 → 落盘一条自定义', (tester) async {
+    await _openSettings(tester);
+    await tester.tap(find.text('新建自定义布局'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('横屏布局'));
+    await tester.pumpAndSettle();
+    final layouts = await RtPrefs.loadCanvasLayouts();
+    final custom = layouts.list.where((p) => !p.builtIn).toList();
+    expect(custom, hasLength(1));
+    expect(custom.single.orientation, kRtCanvasOrientLandscape);
+    expect(custom.single.data.modules, isEmpty);
+  });
+
+  testWidgets('自定义行 ⋯：改名与删除都落盘', (tester) async {
+    await _openSettings(tester);
+    // 先建一条自定义（横屏空画布 → 两组各一行）。
+    await tester.tap(find.text('新建自定义布局'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('横屏布局'));
+    await tester.pumpAndSettle();
+
+    // 改名：行尾 ⋯（最后一行的 ⋯ = 横屏组里的自定义）→ 改名 → 改名对话框
+    await tester.tap(find.byIcon(Icons.more_horiz).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('改名'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '我的游戏盘');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    var layouts = await RtPrefs.loadCanvasLayouts();
+    expect(
+      layouts.list.firstWhere((p) => !p.builtIn).name,
+      '我的游戏盘',
+    );
+
+    // 删除：⋯ → 删除布局 → 确认
+    await tester.tap(find.byIcon(Icons.more_horiz).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除布局'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+    layouts = await RtPrefs.loadCanvasLayouts();
+    expect(layouts.list.where((p) => !p.builtIn), isEmpty);
   });
 }

@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>远控设置页就地管理定稿</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+<style>
+/* ── tokens ── */
+:root{
+  --paper:#F4F4F0; --card:#FCFCFA; --ink:#1C1E22; --muted:#6E7178; --faint:#9B9EA4;
+  --line:#DEDED6; --hair:#EAEAE2;
+  --accent:#163A94; --accent-soft:#E3E9F6; --risk:#B04650; --risk-soft:#F4E2E4;
+  --ok:#2E7D4F;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#151619; --card:#1D1F23; --ink:#E8E9EB; --muted:#A2A5AC; --faint:#7C7F86;
+    --line:#2C2E33; --hair:#26282C;
+    --accent:#93A9E9; --accent-soft:#232B41; --risk:#E08B93; --risk-soft:#3B2528; --ok:#7CC29A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#151619; --card:#1D1F23; --ink:#E8E9EB; --muted:#A2A5AC; --faint:#7C7F86;
+  --line:#2C2E33; --hair:#26282C;
+  --accent:#93A9E9; --accent-soft:#232B41; --risk:#E08B93; --risk-soft:#3B2528; --ok:#7CC29A;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:15px;line-height:1.65;padding:0 20px;-webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.mono{font-family:"IBM Plex Mono",monospace}
+.ms{
+  font-family:"Material Symbols Outlined";font-weight:normal;font-style:normal;line-height:1;
+  letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;direction:ltr;
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+  -webkit-font-feature-settings:'liga';font-feature-settings:'liga';
+}
+code{
+  font-family:"IBM Plex Mono",monospace;font-size:.86em;
+  background:var(--hair);padding:1px 6px;border-radius:5px;color:var(--ink);
+}
+
+/* ── 顶栏 ── */
+.topbar{
+  position:sticky;top:0;z-index:50;margin:0 -20px;padding:10px 20px;
+  padding-top:calc(10px + env(safe-area-inset-top, 0px));
+  background:color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+}
+.topbar-in{max-width:1120px;margin:0 auto;display:flex;align-items:center;gap:18px}
+.brand{font-weight:700;font-size:14px;white-space:nowrap}
+.brand .mono{color:var(--accent);margin-right:8px;font-weight:600}
+.navlinks{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
+.navlinks::-webkit-scrollbar{display:none}
+.navlinks a{font-size:13px;color:var(--muted);padding:4px 10px;border-radius:99px;white-space:nowrap;font-weight:500}
+.navlinks a:hover{text-decoration:none;color:var(--ink);background:var(--hair)}
+.navlinks a.on{color:var(--accent);background:var(--accent-soft)}
+
+.doc{max-width:1120px;margin:0 auto}
+section{scroll-margin-top:64px}
+
+/* ── 文档头 ── */
+.doc-head{padding:52px 0 8px;max-width:780px}
+.doc-head .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600;font-family:"IBM Plex Mono",monospace}
+.doc-head h1{font-size:34px;line-height:1.25;font-weight:700;letter-spacing:-0.01em;margin:10px 0 12px;text-wrap:balance}
+.doc-head .lede{color:var(--muted);font-size:15.5px;max-width:64ch}
+.doc-head .lede b{color:var(--ink)}
+.meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:22px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--faint)}
+.meta b{color:var(--muted);font-weight:500}
+
+.sec{padding:56px 0 8px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+.sec-head .no{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;color:var(--accent)}
+.sec-head h2{font-size:22px;font-weight:700}
+.sec-sub{color:var(--muted);font-size:14px;max-width:70ch;margin-bottom:24px}
+
+.board{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:28px 26px 24px;margin-top:10px}
+.proto{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+.proto-side{flex:1;min-width:300px;max-width:520px}
+
+/* 入口模拟切换 */
+.entry-sim{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.entry-sim .lbl{font-size:12.5px;color:var(--faint)}
+.seg{display:inline-flex;background:var(--hair);border-radius:99px;padding:3px}
+.seg button{
+  border:none;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;
+  font-weight:600;padding:5px 14px;border-radius:99px;cursor:pointer;
+}
+.seg button.on{background:var(--card);color:var(--accent);box-shadow:0 1px 4px rgba(15,18,26,.12)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ── 手机 mockup（固定浅色 app 皮肤） ── */
+.phone{
+  width:312px;max-width:100%;background:#101216;border-radius:40px;padding:9px;
+  border:1px solid rgba(255,255,255,.10);box-shadow:0 14px 34px rgba(15,18,26,.18);
+  position:relative;
+}
+.screen{
+  position:relative;background:#FFFFFF;border-radius:32px;overflow:hidden;
+  display:flex;flex-direction:column;height:680px;
+  font-family:"IBM Plex Sans","PingFang SC","Microsoft YaHei",sans-serif;color:#1A1A1A;
+}
+.appbar{display:flex;align-items:center;gap:6px;min-height:52px;padding:6px 12px 6px 16px;background:#FFFFFF;border-bottom:1px solid #F0F1F4;flex:none}
+.appbar .ttl{font-size:16.5px;font-weight:600;flex:1}
+.sbody{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:24px;scrollbar-width:none}
+.sbody::-webkit-scrollbar{display:none}
+.shead{padding:18px 20px 8px;font-size:12px;font-weight:700;color:#9AA0AC;display:flex;justify-content:space-between;align-items:baseline}
+.shead .cnt{font-family:"IBM Plex Mono",monospace;font-size:11px;color:#C2C7D1;font-weight:500}
+
+/* ── 布局大卡：上下两组 ── */
+.bigcard{
+  margin:2px 12px 8px;border:1px solid #E8EAF0;border-radius:18px;background:#FFFFFF;
+  overflow:hidden;
+}
+.ghead{display:flex;align-items:baseline;gap:8px;padding:13px 16px 5px;font-size:12px;font-weight:700;color:#8A90A0}
+.ghead .gc{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:#C2C7D1;font-weight:500}
+.ghead .cur{margin-left:auto;font-weight:500;font-size:11.5px;color:#163A94}
+.glist{padding-bottom:4px}
+.lrow{
+  display:flex;align-items:center;gap:7px;min-height:46px;padding:0 8px 0 4px;
+  border-top:1px solid #F5F6F9;cursor:pointer;background:#fff;user-select:none;
+}
+.lrow:first-child{border-top:none}
+.lrow.on{background:#F5F7FC}
+.lrow.dragging{opacity:.4}
+.lrow.drop-hint{box-shadow:inset 0 2px 0 #163A94}
+.handle{
+  color:#CDD2DC;font-size:19px;padding:8px 4px;cursor:grab;flex:none;border-radius:8px;
+}
+.handle:hover{color:#8A90A0}
+.handle:focus-visible{outline:2px solid #163A94}
+.lrow .ic{color:#5A6578;font-size:21px;flex:none}
+.lrow .nm{flex:1;min-width:0;font-size:14.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow.on .nm{font-weight:600;color:#163A94}
+.lrow .tag{
+  flex:none;font-size:10.5px;color:#8A90A0;background:#F0F2F6;border-radius:5px;padding:1px 6px;font-weight:500;
+}
+.lrow .tag.custom{color:#163A94;background:#E7ECF8}
+.lrow .mi{
+  flex:none;border:none;background:transparent;color:#9AA0AC;cursor:pointer;
+  padding:6px;border-radius:99px;display:flex;
+}
+.lrow .mi:hover{background:#F2F4F8;color:#3C4048}
+.lrow .mi .ms{font-size:19px}
+.lrow .mi:focus-visible{outline:2px solid #163A94}
+.lrow .mark{flex:none;color:#163A94;font-size:18px;margin-right:4px;font-variation-settings:'FILL' 0,'wght' 600,'GRAD' 0,'opsz' 24}
+.lrow .dot{flex:none;width:15px;height:15px;border-radius:99px;border:1.5px solid #D4D8E0;margin-right:6px}
+.gdiv{height:7px;background:#F7F8FB;border-top:1px solid #F0F1F5;border-bottom:1px solid #F0F1F5}
+
+/* 新建行 */
+.newrow{
+  margin:0 12px 8px;border:1.5px dashed #D5DAE4;border-radius:14px;background:#FDFDFE;
+  display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;color:#5A6578;
+  font-size:14px;font-weight:500;
+}
+.newrow:hover{border-color:#163A94;color:#163A94;background:#F8FAFE}
+.newrow .ms{font-size:20px}
+.newrow:focus-visible{outline:2px solid #163A94}
+
+/* 其余偏好行 */
+.trow{display:flex;align-items:center;gap:14px;min-height:50px;padding:0 20px}
+.trow .ms.ic{color:#5A6578;font-size:22px;flex:none}
+.trow .tt{flex:1;min-width:0}
+.trow .tt b{display:block;font-size:15px;font-weight:500;line-height:1.3}
+.trow .tt small{display:block;font-size:12px;color:#9AA0AC;line-height:1.35;margin-top:1px}
+.trow .chev{color:#C2C7D1;font-size:20px;flex:none}
+
+/* ── 行菜单 sheet ── */
+.scrim{position:absolute;inset:0;background:rgba(18,22,32,.38);opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:8}
+.scrim.open{opacity:1;pointer-events:auto}
+.msheet{
+  position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;
+  padding:6px 0 10px;box-shadow:0 -8px 30px rgba(10,14,24,.18);z-index:9;
+  transform:translateY(105%);transition:transform .22s ease;
+  max-height:86%;overflow-y:auto;scrollbar-width:none;
+}
+.msheet::-webkit-scrollbar{display:none}
+.msheet.open{transform:translateY(0)}
+.grab{width:34px;height:4px;border-radius:99px;background:#DDE0E7;margin:6px auto 8px}
+.ms-t{font-size:14.5px;font-weight:700;padding:2px 20px 8px;color:#3A3E46;display:flex;align-items:center;gap:8px}
+.ms-t .tag{font-size:10.5px;color:#8A90A0;background:#F0F2F6;border-radius:5px;padding:1px 6px;font-weight:500}
+.ms-t .octx{font-size:10.5px;color:#163A94;background:#E3E9F6;border-radius:5px;padding:1px 6px;font-weight:600}
+.mrow{
+  display:flex;align-items:center;gap:13px;padding:10px 20px;font-size:14px;color:#2A2E36;cursor:pointer;
+}
+.mrow:hover{background:#F6F7FA}
+.mrow .ms{font-size:20px;color:#6B7180}
+.mrow .mnote{margin-left:auto;font-size:11px;color:#B0B5C0}
+.mrow.del,.mrow.del .ms{color:#B04650}
+.msep{height:1px;background:#F0F1F4;margin:6px 20px}
+@media (prefers-reduced-motion: reduce){.msheet{transition:none}.scrim{transition:none}}
+
+/* 解剖注记 */
+.callout{
+  position:absolute;z-index:6;width:20px;height:20px;border-radius:99px;
+  background:#163A94;color:#fff;font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;
+  box-shadow:0 0 0 2px #fff;pointer-events:none;
+}
+.anat{list-style:none;margin-top:4px}
+.anat li{display:flex;gap:10px;padding:7px 0;font-size:13.5px;color:var(--muted);border-bottom:1px solid var(--hair);align-items:baseline}
+.anat li:last-child{border-bottom:none}
+.anat .n{
+  flex:none;width:20px;height:20px;border-radius:99px;background:var(--accent);color:var(--paper);
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  font-family:"IBM Plex Mono",monospace;transform:translateY(3px);
+}
+.anat b{color:var(--ink);font-weight:600}
+
+/* ── 表格 ── */
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-top:14px}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--hair);vertical-align:top}
+thead th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;white-space:nowrap;border-bottom:1px solid var(--line)}
+tbody tr:last-child td{border-bottom:none}
+td.cap{font-weight:600;white-space:nowrap}
+td .mono{font-size:11.5px;color:var(--faint);display:block;margin-top:2px}
+.yes{color:var(--accent);font-weight:600}
+
+/* ── 轮次记录 ── */
+.rounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.round{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.round .rh{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.round .rn{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:var(--accent)}
+.round .rt{font-size:14.5px;font-weight:700}
+.round ul{list-style:none}
+.round li{font-size:13px;color:var(--muted);padding:2.5px 0;line-height:1.55;padding-left:16px;position:relative}
+.round li::before{content:"";position:absolute;left:2px;top:11px;width:5px;height:5px;border-radius:99px;background:var(--line)}
+.round li b{color:var(--ink);font-weight:600}
+
+.note{border-left:2px solid var(--accent);background:var(--card);padding:12px 16px;border-radius:0 10px 10px 0;margin:18px 0;font-size:14px;color:var(--muted);max-width:80ch}
+.note b{color:var(--ink)}
+
+@media (max-width:640px){
+  body{padding:0 16px}
+  .doc-head{padding-top:36px}
+  .doc-head h1{font-size:27px}
+  .board{padding:20px 14px 18px}
+  .proto{justify-content:center}
+}
+footer{padding:48px 0 40px;color:var(--faint);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <div class="topbar-in">
+    <span class="brand"><span class="mono">RT</span>就地管理定稿</span>
+    <div class="navlinks" id="nav">
+      <a href="#design">交互原型</a>
+      <a href="#rules">交互规则</a>
+      <a href="#mapping">落地映射</a>
+      <a href="#rounds">五轮迭代</a>
+    </div>
+  </div>
+</nav>
+
+<main class="doc">
+
+  <header class="doc-head">
+    <div class="eyebrow">Final Spec · base C · 5 iterations</div>
+    <h1>远控设置页 · 就地管理定稿</h1>
+    <p class="lede">布局区是<b>一张大卡片</b>：上栏竖屏组、下栏横屏组，两组列表<b>各自独立拖拽排序</b>。点行 = 切该组激活；管理只从行尾 ⋯ 进入（无长按）。可用性由分组表达——不可用的布局不进该组，行状态只剩两态。</p>
+    <div class="meta">
+      <span><b>基线</b> 提案 C 就地管理</span>
+      <span><b>模型</b> activeId / activeIdPortrait 分组即朝向 · 组内顺序沿用面板既有语义</span>
+      <span><b>日期</b> 2026-10-23</span>
+    </div>
+  </header>
+
+  <!-- ═══════ 交互原型 ═══════ -->
+  <section class="sec" id="design">
+    <div class="sec-head"><span class="no">01</span><h2>交互原型</h2></div>
+    <p class="sec-sub">可操作：点行切换该组激活 · 点 ⋯ 开行菜单 · 拖把手组内排序 · 尾行新建。「模拟入口」切换验证应用设置入口下「在画布上编辑」自动隐藏。</p>
+    <div class="board">
+      <div class="proto">
+        <div>
+          <div class="entry-sim">
+            <span class="lbl">模拟入口</span>
+            <div class="seg" id="entrySeg">
+              <button type="button" class="on" data-entry="rt">RT 页（有画布）</button>
+              <button type="button" data-entry="app">应用设置</button>
+            </div>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="appbar"><span class="ttl">远程输入设置</span></div>
+              <div class="sbody" id="sbody">
+                <div class="shead">布局<span class="cnt" id="layCnt"></span></div>
+                <div class="bigcard" id="bigcard"><!-- 两组由 JS 渲染 --></div>
+                <div class="newrow" id="newRow" tabindex="0" role="button"><span class="ms">add_circle_outline</span>新建自定义布局</div>
+                <div class="shead">输入</div>
+                <div class="trow"><span class="ms ic">keyboard_return</span><span class="tt"><b>回车行为</b><small>发送（普通 Enter）</small></span><span class="ms chev" style="color:#163A94">swap_horiz</span></div>
+                <div class="shead">其他</div>
+                <div class="trow"><span class="ms ic">speed</span><span class="tt"><b>触摸板灵敏度</b></span><span class="ms chev">chevron_right</span></div>
+                <div class="trow"><span class="ms ic">playlist_add</span><span class="tt"><b>编辑快捷键</b></span><span class="ms chev">chevron_right</span></div>
+              </div>
+
+              <div class="scrim" id="scrim"></div>
+              <div class="msheet" id="msheet"></div>
+            </div>
+            <span class="callout" id="co1">1</span>
+            <span class="callout" id="co2">2</span>
+            <span class="callout" id="co3">3</span>
+            <span class="callout" id="co4">4</span>
+            <span class="callout" id="co5">5</span>
+          </div>
+        </div>
+
+        <div class="proto-side">
+          <ul class="anat">
+            <li><span class="n">1</span><span><b>竖屏组头</b>——组名 + 数量 + 右侧「当前」回显；横屏组同构。</span></li>
+            <li><span class="n">2</span><span><b>行把手</b>——按住拖动 = <b>组内</b>排序，两组互不影响；顺序即时落盘。</span></li>
+            <li><span class="n">3</span><span><b>行尾 ⋯</b>——唯一管理入口（无长按）。菜单朝向随组而定，不再需要按朝向分组。</span></li>
+            <li><span class="n">4</span><span><b>横屏组</b>——写字不出现（无横屏形态）、方向键/轮盘/键盘不进竖屏组（横屏专用模块），<b>可用性由分组表达</b>。</span></li>
+            <li><span class="n">5</span><span><b>新建落点</b>——大卡下方虚线行；双朝向自定义布局创建后两组各出现一行。</span></li>
+          </ul>
+          <div class="note" style="margin-bottom:6px">双朝向布局（触控屏 / 自定义）在两组各有一行——数据本就按朝向各存一份锚点，<b>菜单里编辑哪行就改哪组</b>。组内排序沿用现面板「横竖屏两组各自拖拽」的既有语义，只是从抽屉搬进设置页。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════ 交互规则 ═══════ -->
+  <section class="sec" id="rules">
+    <div class="sec-head"><span class="no">02</span><h2>交互规则</h2></div>
+    <p class="sec-sub">手势、状态、边界三张表。</p>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>操作</th><th>交互</th><th>结果</th></tr></thead>
+        <tbody>
+          <tr><td class="cap">切换该组激活</td><td>点组内行</td><td>本组 ✓ 移到该行；另一组激活不受影响<span class="mono">withActiveFor(orientation, id)</span></td></tr>
+          <tr><td class="cap">打开行菜单</td><td>点行尾 ⋯（唯一入口，无长按）</td><td>菜单朝向随组而定，动作平铺：编辑 / 恢复 / 改名 / 删除</td></tr>
+          <tr><td class="cap">组内拖拽排序</td><td>按住行首把手</td><td>仅本组内重排，两组各自独立；松手落盘<span class="mono">ReorderableListView × 2</span></td></tr>
+          <tr><td class="cap">在画布上编辑</td><td>菜单 · <span class="mono">open_with</span>（仅 RT 页入口）</td><td>关设置页 → RT 页自动转向进编辑态（摆位编排在此完成）</td></tr>
+          <tr><td class="cap">恢复出厂摆放</td><td>菜单 · 仅内置（自定义无出厂版）</td><td>确认后重置该行朝向的锚点数据</td></tr>
+          <tr><td class="cap">改名 / 删除</td><td>菜单 · 分隔线下</td><td>改名对可编辑布局开放；删除仅自定义（两组同行一起移除）</td></tr>
+          <tr><td class="cap">新建</td><td>点大卡下虚线行</td><td>选朝向建空画布；双朝向布局两组各现一行</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>行状态</th><th>呈现</th><th>规则</th></tr></thead>
+        <tbody>
+          <tr><td class="cap">使用中</td><td><span class="yes">✓</span> 高亮底 · 名称 accent</td><td>每组恰一个；组头右侧同步「当前」回显</td></tr>
+          <tr><td class="cap">未激活</td><td>○ 空心圈</td><td>点即切换</td></tr>
+          <tr><td class="cap">不可用</td><td>不渲染（不存在此态）</td><td>可用性由分组表达：写字不进横屏组；含 dpad / vpad / kb 的布局不进竖屏组<span class="mono">rtCanvasLayoutUsableIn · rt_prefs.dart:728</span></td></tr>
+          <tr><td class="cap">固定布局（写字）</td><td>无 ⋯、标「固定」</td><td>永远出厂版（editable=false），仍可被点选为竖屏激活</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>边界</th><th>处理</th></tr></thead>
+        <tbody>
+          <tr><td class="cap">从应用设置进入（无画布）</td><td>菜单「在画布上编辑」整行隐藏，仅剩 恢复出厂 / 改名 / 删除</td></tr>
+          <tr><td class="cap">删除内置布局</td><td>不存在——内置由工厂保证在场；菜单只给改名</td></tr>
+          <tr><td class="cap">删除正被使用的自定义布局</td><td>该组激活回落默认（竖→写字 / 横→触控屏）后再删</td></tr>
+          <tr><td class="cap">RT 页胶囊</td><td>面板瘦身为快切 + 「管理布局…」跳本页——管理逻辑唯一落点在设置页</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════ 落地映射 ═══════ -->
+  <section class="sec" id="mapping">
+    <div class="sec-head"><span class="no">03</span><h2>落地映射</h2></div>
+    <p class="sec-sub">UI 元素与现有代码符号一一对应，改动集中在 <code>rt_settings_page.dart</code>，面板做减法。</p>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>UI 元素</th><th>代码落点</th><th>现状</th></tr></thead>
+        <tbody>
+          <tr><td class="cap">大卡双组列表</td><td>新增 <span class="mono">LayoutsCard</span> widget（~220 行）</td><td>替换 ①列表（:245）</td></tr>
+          <tr><td class="cap">组内行点击</td><td><span class="mono">RtCanvasLayouts.withActiveFor</span></td><td>已有，直挂</td></tr>
+          <tr><td class="cap">组内拖拽</td><td><span class="mono">ReorderableListView</span> × 2（把手模式）</td><td>面板 :86 同款组内语义，整体搬入</td></tr>
+          <tr><td class="cap">组员过滤</td><td><span class="mono">rtCanvasLayoutUsableIn</span>（:728）</td><td>已有，直挂</td></tr>
+          <tr><td class="cap">⋯ 行菜单</td><td>面板 ⋯ 菜单（:329）迁移，去掉朝向分组（组即朝向）</td><td>搬自 rt_canvas_layouts_sheet.dart</td></tr>
+          <tr><td class="cap">摆位编排</td><td><span class="mono">onEditCanvasLayout</span> → 画布编辑态覆盖（模块开关 + 摆位）</td><td>独立「模块编排」入口裁撤，不再进菜单</td></tr>
+          <tr><td class="cap">画布编辑入口</td><td><span class="mono">onEditCanvasLayout</span> 回调（自动转向）</td><td>自 ⑨ 收编入菜单</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>改动清单</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td class="cap">rt_settings_page.dart</td><td>删 ①⑦⑧⑨ 四段入口；布局区重写为大卡双组 + 新建行；偏好区不动</td></tr>
+          <tr><td class="cap">rt_canvas_layouts_sheet.dart</td><td>面板瘦身为「快切 + 管理布局…」；⋯ 菜单与组内排序逻辑迁出</td></tr>
+          <tr><td class="cap">rt_canvas_module_page.dart</td><td>退役——摆位编排由画布编辑态覆盖，独立模块页不再有入口</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════ 五轮迭代 ═══════ -->
+  <section class="sec" id="rounds">
+    <div class="sec-head"><span class="no">04</span><h2>五轮迭代记录</h2></div>
+    <p class="sec-sub">R1 双栏卡片基线被否后重构，R2 起每轮一个审查透镜，改动留痕。</p>
+    <div class="rounds" id="roundCards"></div>
+  </section>
+
+  <footer>
+    <span class="mono">rt_settings_page.dart · rt_canvas_layouts_sheet.dart · rt_prefs.dart:713-737 · 2026-10-23</span><br>
+    本页为定稿原型与规格，未动任何代码。
+  </footer>
+</main>
+
+<script>
+/* ── 数据：两组各自持有行序（双朝向布局两组各一行） ── */
+const LAYOUTS = {
+  writer:   {name:'写字',       icon:'keyboard_alt',        tag:'fixed'},
+  dpad:     {name:'方向键布局',  icon:'dashboard_customize', tag:'builtin'},
+  wheel:    {name:'轮盘布局',    icon:'dashboard_customize', tag:'builtin'},
+  kb:       {name:'键盘布局',    icon:'dashboard_customize', tag:'builtin'},
+  touchpad: {name:'触控屏布局',  icon:'dashboard_customize', tag:'builtin'},
+  mine:     {name:'我的布局',    icon:'dashboard_customize', tag:'custom'},
+};
+const GROUPS = [
+  {o:'p', label:'竖屏', rows:['writer','touchpad','mine'], active:'writer'},
+  {o:'l', label:'横屏', rows:['dpad','wheel','kb','touchpad','mine'], active:'touchpad'},
+];
+const TAGS = {fixed:'固定', builtin:'内置', custom:'自定义'};
+let entry = 'rt';
+let uid = 0;
+let dragCtx = null; // {g, id}
+
+/* ── 渲染 ── */
+function rowHtml(g, id){
+  const l = LAYOUTS[id];
+  const on = g.active === id;
+  const menu = l.tag === 'fixed' ? '' :
+    `<button class="mi" data-g="${g.o}" data-id="${id}" aria-label="管理 ${l.name}"><span class="ms">more_horiz</span></button>`;
+  const tag = l.tag === 'fixed' ? '<span class="tag">固定</span>' :
+    `<span class="tag ${l.tag === 'custom' ? 'custom' : ''}">${TAGS[l.tag]}</span>`;
+  const right = on ? '<span class="ms mark">check_circle</span>' : '<span class="dot" title="点按启用"></span>';
+  return `<div class="lrow ${on ? 'on' : ''}" data-g="${g.o}" data-id="${id}" ${l.tag === 'fixed' ? '' : ''} role="button" tabindex="0">
+    <span class="handle" draggable="true" aria-label="拖拽排序"><span class="ms">drag_indicator</span></span>
+    <span class="ms ic">${l.icon}</span>
+    <span class="nm">${l.name}</span>
+    ${tag}${menu}${right}
+  </div>`;
+}
+function render(){
+  const card = document.getElementById('bigcard');
+  card.innerHTML = GROUPS.map((g, gi) => {
+    const cur = LAYOUTS[g.active] ? LAYOUTS[g.active].name : '—';
+    const rows = g.rows.map(id => rowHtml(g, id)).join('');
+    const head = `<div class="ghead" data-g="${g.o}">${g.label}<span class="gc">${g.rows.length}</span><span class="cur">当前 ${cur}</span></div>`;
+    const list = `<div class="glist" data-g="${g.o}">${rows}</div>`;
+    return gi === 0 ? head + list + '<div class="gdiv"></div>' : head + list;
+  }).join('');
+  const total = Object.keys(LAYOUTS).length;
+  document.getElementById('layCnt').textContent = total;
+  bind();
+  placeCallouts();
+}
+
+/* ── 交互 ── */
+function bind(){
+  document.querySelectorAll('.lrow').forEach(r => {
+    r.addEventListener('click', e => {
+      if(e.target.closest('.mi') || e.target.closest('.handle')) return;
+      const g = GROUPS.find(x => x.o === r.dataset.g);
+      g.active = r.dataset.id;
+      render();
+    });
+    r.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){
+        if(e.target.closest('.mi') || e.target.closest('.handle')) return;
+        e.preventDefault(); r.click();
+      }
+    });
+  });
+  document.querySelectorAll('.mi').forEach(b => {
+    b.addEventListener('click', () => openMenu(b.dataset.g, b.dataset.id));
+  });
+  bindDrag();
+}
+function openMenu(gO, id){
+  const g = GROUPS.find(x => x.o === gO);
+  const l = LAYOUTS[id];
+  const sh = document.getElementById('msheet');
+  let h = `<div class="grab"></div><div class="ms-t">${l.name}<span class="tag">${TAGS[l.tag]}</span><span class="octx">${g.label}</span></div>`;
+  if(entry === 'rt') h += `<div class="mrow"><span class="ms">open_with</span>在画布上编辑<span class="mnote">自动转向</span></div>`;
+  if(l.tag !== 'custom') h += `<div class="mrow"><span class="ms">settings_backup_restore</span>恢复出厂摆放</div>`;
+  h += `<div class="msep"></div>`;
+  h += `<div class="mrow"><span class="ms">edit</span>改名</div>`;
+  if(l.tag === 'custom') h += `<div class="mrow del"><span class="ms">delete</span>删除布局</div>`;
+  sh.innerHTML = h;
+  sh.classList.add('open');
+  document.getElementById('scrim').classList.add('open');
+  const del = sh.querySelector('.mrow.del');
+  if(del) del.addEventListener('click', () => {
+    deleteLayout(id);
+    closeMenu(); render();
+  });
+}
+function deleteLayout(id){
+  // 兜底：删掉的若正被某组使用，该组激活回落默认（竖→写字，横→触控屏）
+  GROUPS.forEach(g => {
+    const i = g.rows.indexOf(id);
+    if(i > -1) g.rows.splice(i, 1);
+    if(g.active === id) g.active = g.o === 'p' ? 'writer' : 'touchpad';
+  });
+  delete LAYOUTS[id];
+}
+function closeMenu(){
+  document.getElementById('msheet').classList.remove('open');
+  document.getElementById('scrim').classList.remove('open');
+}
+document.getElementById('scrim').addEventListener('click', closeMenu);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeMenu(); });
+
+/* 新建 */
+const newRow = document.getElementById('newRow');
+newRow.addEventListener('click', () => {
+  uid += 1;
+  const id = 'custom' + uid;
+  LAYOUTS[id] = {name:'自定义布局 ' + uid, icon:'dashboard_customize', tag:'custom'};
+  GROUPS[0].rows.push(id);
+  GROUPS[1].rows.push(id);
+  render();
+  newRow.scrollIntoView({block:'nearest', behavior:'smooth'});
+});
+newRow.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); newRow.click(); } });
+
+/* 入口模拟 */
+document.querySelectorAll('#entrySeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    entry = b.dataset.entry;
+    document.querySelectorAll('#entrySeg button').forEach(x => x.classList.toggle('on', x === b));
+    closeMenu();
+  });
+});
+
+/* ── 组内拖拽（把手 DnD，仅本组内重排；拖拽中只挪 DOM，松手一次性落模型） ── */
+function bindDrag(){
+  document.querySelectorAll('.handle').forEach(h => {
+    h.addEventListener('dragstart', e => {
+      const row = h.closest('.lrow');
+      dragCtx = {g: row.dataset.g, id: row.dataset.id};
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try{ e.dataTransfer.setData('text/plain', dragCtx.id); }catch(_){}
+    });
+    h.addEventListener('dragend', () => {
+      if(dragCtx){
+        const g = GROUPS.find(x => x.o === dragCtx.g);
+        const list = document.querySelector(`.glist[data-g="${dragCtx.g}"]`);
+        g.rows = [...list.querySelectorAll('.lrow')].map(r => r.dataset.id); // 按 DOM 定稿
+      }
+      dragCtx = null;
+      render();
+    });
+  });
+  document.querySelectorAll('.lrow').forEach(r => {
+    r.addEventListener('dragover', e => {
+      if(!dragCtx) return;
+      if(r.dataset.g !== dragCtx.g || r.dataset.id === dragCtx.id) return;
+      e.preventDefault();
+      const dragging = document.querySelector('.lrow.dragging');
+      if(!dragging) return;
+      const rect = r.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      r.parentNode.insertBefore(dragging, before ? r : r.nextSibling);
+    });
+  });
+}
+
+/* ── 解剖注记定位 ── */
+function placeCallouts(){
+  const phone = document.querySelector('.phone');
+  const put = (id, el, dx, dy) => {
+    if(!el){ return; }
+    const c = document.getElementById(id);
+    const pr = phone.getBoundingClientRect(), r = el.getBoundingClientRect();
+    c.style.left = (r.left - pr.left + (dx ?? r.width - 8)) + 'px';
+    c.style.top = (r.top - pr.top + (dy ?? r.height/2 - 10)) + 'px';
+  };
+  const gheads = document.querySelectorAll('.ghead');
+  const pRows = document.querySelectorAll('.glist[data-g="p"] .lrow');
+  put('co1', gheads[0], -24);
+  put('co2', pRows[0]?.querySelector('.handle'), 0);
+  put('co3', pRows[1]?.querySelector('.mi'), -26, -2);
+  put('co4', gheads[1], -24);
+  put('co5', document.getElementById('newRow'), -24);
+}
+
+/* ── 轮次记录 ── */
+const ROUNDS = [
+  {n:'R1', t:'基线 → 被否', items:[
+    '落地「每张布局一张卡、卡内上下双栏」——<b>方向性错误</b>：布局被拆散，组顺序无从安放',
+    '你指出：要的是整个布局区一张大卡，里面上下两栏各一组列表',
+  ]},
+  {n:'R2', t:'大卡双组重构', items:[
+    '布局区改为<b>一张大卡</b>：上竖屏组、下横屏组，组间分隔带；组头带数量与「当前」回显',
+    '组内列表各自拖拽（两组互不影响），沿用面板既有组内排序语义',
+    '双朝向布局两组各一行，菜单编辑按行所在组生效',
+  ]},
+  {n:'R3', t:'状态语义简化', items:[
+    '可用性改由<b>分组表达</b>：不可用的布局不进该组，「置灰行」这个状态整个消失',
+    '行状态只剩两态：使用中 ✓ / 未激活 ○；每组恰一个 ✓，组头同步回显',
+    '删使用中自定义布局 → 该组激活回落默认（竖→写字 / 横→触控屏）',
+  ]},
+  {n:'R4', t:'菜单与细节', items:[
+    '菜单朝向随组而定，不再需要竖屏/横屏分组——动作平铺更短',
+    '「恢复出厂摆放」仅内置渲染；「在画布上编辑」仅 RT 页入口渲染（页面可模拟切换验证）',
+    '「模块编排」行整体裁撤——画布编辑态已覆盖摆位编排（复核后拍板）',
+    '⋯-only 无长按；Esc / 遮罩关菜单；行与把手键盘可达',
+  ]},
+  {n:'R5', t:'落地对齐', items:[
+    'UI 元素逐一挂现成符号：withActiveFor / rtCanvasLayoutUsableIn / ReorderableListView × 2 / onEditCanvasLayout',
+    '胶囊面板定角色：瘦身成快切 + 「管理布局…」，管理逻辑唯一落在设置页',
+    '改动清单收敛：rt_settings_page 重写布局区，面板做减法，模块页零改动',
+  ]},
+];
+document.getElementById('roundCards').innerHTML = ROUNDS.map(r =>
+  `<div class="round"><div class="rh"><span class="rn">${r.n}</span><span class="rt">${r.t}</span></div><ul>${r.items.map(i => `<li>${i}</li>`).join('')}</ul></div>`
+).join('');
+
+render();
+/* 图标字体异步塌缩 / 组内滚动 / 窗口缩放都会让注记漂移——就绪后重定位 */
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(placeCallouts);
+window.addEventListener('resize', placeCallouts);
+document.getElementById('sbody').addEventListener('scroll', placeCallouts, {passive:true});
+</script>
+</body>
+</html>

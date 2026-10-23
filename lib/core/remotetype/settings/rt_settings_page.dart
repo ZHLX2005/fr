@@ -2,32 +2,40 @@
 //
 // 远程输入设置页：RT 的「编排」与偏好落点。
 //
-// 从画布/写字页搬过来的东西：
-//   · 布局管理（改名 / 删除 / 新建 / 恢复出厂）——原挂在画布的布局面板；
-//   · 模块与布局（模块开关 + 九宫格位置 + 三档尺寸）——原挂在画布左上角
-//     胶囊的「模块编排」；画布现在只留「切换布局」。
-//   · 发送 / 换行（回车注入方式）——原是写字页工具行上的两颗小按钮
-//     （页面级内存态，切走即丢）；现在持久化在这里，写字页是固定形态。
+// 布局区 = 一张大卡（RtLayoutsCard，见 rt_layouts_card.dart）：
+//   · 上栏「竖屏」组、下栏「横屏」组，两组各自独立管理——点行切激活、
+//     把手组内拖拽排序、行尾 ⋯ 管理菜单、卡下新建虚线行；
+//   · 旧的「布局列表 / 布局管理 / 模块与布局 / 在画布上拖拽编辑」四段
+//     顶层入口全部收敛进大卡：管理只从 ⋯ 进，摆位编排归画布编辑态。
 //
-// 刻意不做的事：「编辑布局」不提到常用功能列表，只做这里的设置项——
-// 用户要编排时进设置，而不是在主路径上摊开一堆编辑入口。
+// 偏好区：回车行为 / 触摸板灵敏度 / 编辑快捷键——与布局无关，维持原样。
+//
+// 刻意不做的事：「编辑布局」不摊在主路径上——用户要编排时从行 ⋯ 或
+// 画布胶囊进，而不是在设置页顶层开一堆编辑入口。
 
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/context/colors.dart';
-import '../canvas/rt_canvas_layouts_sheet.dart';
-import '../canvas/rt_canvas_module_page.dart';
 import '../canvas/rt_touch_surface.dart' show showRtSensitivitySheet;
 import '../canvas/template/rt_canvas_presets.dart';
 import '../data/rt_constants.dart';
+import '../data/rt_layout_ops.dart'
+    show
+        rtLayoutsCopyToCustom,
+        rtLayoutsDeleteCustom,
+        rtLayoutsRename,
+        rtLayoutsReorder,
+        rtLayoutsResetBuiltin;
 import '../data/rt_prefs.dart';
 import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
+import 'rt_layouts_card.dart';
+import 'rt_new_layout_row.dart';
 
 /// 打开远程输入设置页。
 ///
-/// [onEditCanvasLayout] 非空时（从 RT 页进入、画布在场）：布局管理「修改」
-/// 与「在画布上拖拽编辑」会带上布局 id；页面负责切布局、自动转向并进编辑。
-/// 从应用设置进本页时没有这两项。
+/// [onEditCanvasLayout] 非空时（从 RT 页进入、有会话）：行 ⋯ 菜单展示
+/// 「在画布上编辑」；页面负责关掉自己并带上布局 id（页面侧切布局、
+/// 自动转向并进编辑）。从应用设置进本页时没有这项。
 Future<void> showRtSettingsPage(
   BuildContext context, {
   ValueChanged<String>? onEditCanvasLayout,
@@ -57,12 +65,6 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
   );
   String _enterMode = 'enter';
   double _sensitivity = kRtPadSensitivityDefault;
-
-  /// 当前朝向（决定「当前布局」与可用列表）。
-  String get _orientation =>
-      MediaQuery.orientationOf(context) == Orientation.landscape
-      ? kRtCanvasOrientLandscape
-      : kRtCanvasOrientPortrait;
 
   @override
   void initState() {
@@ -109,90 +111,13 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
     await RtPrefs.saveCanvasLayouts(next);
   }
 
-  // ── 布局管理（改名 / 删除 / 新建 / 恢复出厂 / 切换）──────────────────
-
-  Future<void> _openLayoutManager() async {
-    await showRtCanvasLayoutsPanel(
-      context,
-      layouts: _layouts,
-      activeId: _layouts.activeFor(_orientation)?.id ?? '',
-      orientation: _orientation,
-      onLayoutsChanged: _saveLayouts,
-      onEdit: widget.onEditCanvasLayout == null
-          ? null
-          : (id) {
-              // 关布局面板 → 关设置页 → 交给 RT 页切布局 + 自动转向 + 进编辑。
-              // 不要求当前朝向可用：竖屏也可点「修改」横屏布局，页面会转过去。
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
-              widget.onEditCanvasLayout!(id);
-            },
-    );
-  }
-
-  Future<void> _openModuleArrange() async {
-    final active = _layouts.activeFor(_orientation);
-    if (active == null) return;
-    await showRtCanvasModulePage(
-      context,
-      layoutName: active.name,
-      connected: true,
-      visibleOf: (id) => active.data.modules[id]?.visible ?? false,
-      anchorOf: (id) =>
-          active.data.modules[id] ?? const RtCanvasAnchor(visible: false, x: 0.5, y: 0.5),
-      onToggleModule: (id, on) {
-        final anchor = active.data.modules[id] ??
-            const RtCanvasAnchor(visible: false, x: 0.5, y: 0.5);
-        _saveLayouts(
-          _layouts.withUpdatedActiveFor(
-            _orientation,
-            active.data.withModule(id, anchor.copyWith(visible: on)),
-          ),
-        );
-      },
-      onSetAnchor: (id, anchor) {
-        _saveLayouts(
-          _layouts.withUpdatedActiveFor(
-            _orientation,
-            active.data.withModule(id, anchor),
-          ),
-        );
-      },
-      onOpenLayouts: _openLayoutManager,
-    );
-  }
-
-  /// 布局列表里的一条：可用的直接点即切；不可用的（另一朝向专属）置灰。
-  Widget _layoutTile(RtCanvasNamedLayout p, ColorScheme cs) {
-    final c = context.colors;
-    final usable = rtCanvasLayoutUsableIn(_orientation, p);
-    final active = p.id == _layouts.activeFor(_orientation)?.id;
-    return ListTile(
-      dense: true,
-      enabled: usable,
-      leading: Icon(
-        p.kind == RtLayoutKind.writer
-            ? Icons.keyboard_alt_outlined
-            : Icons.dashboard_customize_outlined,
-        color: active ? cs.primary : c.textMuted,
-      ),
-      title: Text(
-        p.name,
-        style: TextStyle(
-          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-          color: active ? cs.primary : c.text,
-        ),
-      ),
-      // 固定死的布局没有编辑入口——标出来，免得用户去找。
-      subtitle: p.editable
-          ? null
-          : Text(
-              '固定布局',
-              style: TextStyle(fontSize: 11, color: c.textMuted),
-            ),
-      trailing: active ? Icon(Icons.check, color: cs.primary) : null,
-      onTap: () => _saveLayouts(_layouts.withActiveFor(_orientation, p.id)),
-    );
+  /// 行 ⋯「在画布上编辑」：关菜单（调用方已关）→ 关设置页 → 交给 RT 页
+  /// 切布局 + 自动转向 + 进编辑。不要求当前朝向可用：竖屏也可编辑横屏布局。
+  void _editOnCanvas(String id) {
+    final cb = widget.onEditCanvasLayout;
+    if (cb == null) return;
+    Navigator.of(context).pop();
+    cb(id);
   }
 
   // ── 输入偏好 ───────────────────────────────────────────────────────
@@ -239,50 +164,39 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          _SectionHeader('布局'),
-          // 第一层就是布局列表：所有布局都列出来，点一下即切（常用操作）。
-          // 管理类动作（改名 / 删除 / 新建 / 恢复出厂）收在下一行「布局管理」。
-          for (final p in _layouts.list)
-            _layoutTile(p, cs),
-          ListTile(
-            leading: const Icon(Icons.edit_note_outlined),
-            title: const Text('布局管理'),
-            subtitle: const Text('拖拽排序 · 改名 / 删除 / 新建 / 恢复'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _openLayoutManager,
-          ),
-          ListTile(
-            leading: const Icon(Icons.tune),
-            title: const Text('模块与布局'),
-            subtitle: const Text('模块开关与摆放位置'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _openModuleArrange,
-          ),
-          if (widget.onEditCanvasLayout != null)
-            ListTile(
-              leading: const Icon(Icons.open_with),
-              title: const Text('在画布上拖拽编辑'),
-              subtitle: const Text('直接拖动模块与按钮摆位'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                final id = _layouts.activeFor(_orientation)?.id;
-                if (id == null) return;
-                Navigator.of(context).pop();
-                widget.onEditCanvasLayout!(id);
-              },
+          const _SectionHeader('布局'),
+          RtLayoutsCard(
+            layouts: _layouts,
+            canEditOnCanvas: widget.onEditCanvasLayout != null,
+            onSwitch: (orient, id) =>
+                _saveLayouts(_layouts.withActiveFor(orient, id)),
+            onReorder: (orient, oldIndex, newIndex) => _saveLayouts(
+              rtLayoutsReorder(_layouts, orient, oldIndex, newIndex),
             ),
-          _SectionHeader('输入'),
+            onEditOnCanvas: widget.onEditCanvasLayout == null
+                ? null
+                : _editOnCanvas,
+            onResetBuiltin: (id) =>
+                _saveLayouts(rtLayoutsResetBuiltin(_layouts, id)),
+            onRename: (id, name) => _saveLayouts(rtLayoutsRename(_layouts, id, name)),
+            onDelete: (id) => _saveLayouts(rtLayoutsDeleteCustom(_layouts, id)),
+          ),
+          RtNewLayoutRow(
+            onCreate: (orient) =>
+                _saveLayouts(rtLayoutsCopyToCustom(_layouts, orient)),
+          ),
+          const _SectionHeader('输入'),
           ListTile(
             leading: const Icon(Icons.keyboard_return),
             title: const Text('回车行为'),
             subtitle: Text(isEnter ? '发送（普通 Enter）' : '换行（Shift+Enter）'),
             trailing: Icon(
-              isEnter ? Icons.swap_horiz : Icons.swap_horiz,
+              Icons.swap_horiz,
               color: cs.primary,
             ),
             onTap: _toggleEnterMode,
           ),
-          _SectionHeader('其他'),
+          const _SectionHeader('其他'),
           ListTile(
             leading: const Icon(Icons.speed),
             title: const Text('触摸板灵敏度'),
