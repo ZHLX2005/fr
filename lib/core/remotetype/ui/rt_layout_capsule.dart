@@ -2,7 +2,7 @@
 //
 // 布局胶囊：所有布局共用的左上角控件。
 //
-// 点开 = 布局面板（第一层是全部布局的列表，最下面是「远程输入设置」入口）。
+// 点开 = 布局抽屉（方格网格两组：竖屏在上、横屏在下；右上角「更多设置」入口）。
 // 连接状态点 + 当前布局名同在一颗胶囊里——用户随时知道「现在在哪张布局、
 // 还在不在连着」，切布局只差一次点按。
 //
@@ -21,7 +21,7 @@ const double kRtTopControlHeight = 32.0;
 /// 写字页内容按它让位；画布是全出血，头部浮在画布左上角。
 const double kRtSharedHeaderHeight = 44.0;
 
-/// 左上角布局胶囊：状态点 + 当前布局名 + chevron，点开进布局面板。
+/// 左上角布局胶囊：状态点 + 当前布局名 + chevron，点开进布局抽屉。
 class RtLayoutCapsule extends StatelessWidget {
   const RtLayoutCapsule({
     super.key,
@@ -36,7 +36,7 @@ class RtLayoutCapsule extends StatelessWidget {
   /// 当前布局名。
   final String layoutName;
 
-  /// 点开：打开布局面板（布局列表 + 设置入口）。
+  /// 点开：打开布局抽屉（方格布局网格 + 右上角更多设置入口）。
   final VoidCallback onOpen;
 
   @override

@@ -13,9 +13,9 @@
 //             （触摸板 / 输入框 / 快捷按钮同一模块系统自由编排，use / edit 两态
 //             边界明显，见 rt_canvas_view.dart）。
 //             每种布局左上角都有同一颗胶囊（见 ui/rt_layout_capsule.dart）：
-//             点开即布局面板——第一层是全部布局的列表（快速切换），最下面是
-//             「远程输入设置」入口（编排等设置全在设置页）。点另一朝向的分组
-//             直接转屏过去（竖屏点横屏组 → 转横屏），不用自己拧手机；转完
+//             点开即布局抽屉——方格网格（竖屏组在上、横屏组在下）快速切换，
+//             右上角「更多设置」入口（编排等设置全在设置页）。点另一朝向的
+//             分组直接转屏过去（竖屏点横屏组 → 转横屏），不用自己拧手机；转完
 //             落在那侧原本激活的布局，横竖两套布置互不覆盖。
 //             写字页与其它布局平级，没有单独的「返回写字」旁门。
 //
@@ -384,7 +384,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
-  /// 切布局（切换面板回调，[groupOrient] = 所点行的分组朝向）：
+  /// 切布局（切换抽屉回调，[groupOrient] = 所点格子的分组朝向）：
   ///   · 点当前朝向组 → 就地激活，方向不动（原有行为）；
   ///   · 点另一朝向组 → **只把屏幕转过去，不改对侧激活**——转完落点是那侧
   ///     原本激活的布局（「切换改为原本的布局」）。横竖两套布置互不覆盖，
@@ -471,8 +471,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// 共享头部（所有布局共用）：返回小圆按钮 + 布局胶囊。
   ///
   /// 内置（游戏 / 键盘 / 触控屏）、内置固定（写字）、用户自定义——一律
-  /// 走这一份，页面级浮层，画布与写字页长得一样。胶囊点开是布局面板：
-  /// 第一层全部布局的列表，最下面是「远程输入设置」入口。
+  /// 走这一份，页面级浮层，画布与写字页长得一样。胶囊点开是布局抽屉：
+  /// 方格网格两组（竖屏在上、横屏在下），右上角「更多设置」入口。
   ///
   /// 高度 [kRtSharedHeaderHeight]，写字页内容按它让位（画布是全出血，
   /// 头部浮在画布左上角，和原来的胶囊一个位置）。
@@ -511,8 +511,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     );
   }
 
-  /// 打开布局切换面板（竖屏页头 / 横屏左上角共用）：第一层是布局列表，
-  /// 底下附一个「远程输入设置」入口。
+  /// 打开布局切换抽屉（竖屏页头 / 横屏左上角共用）：方格网格两组，
+  /// 右上角附「更多设置」入口。
   Future<void> _openLayoutPicker() async {
     await showRtLayoutPicker(
       context,
@@ -1170,7 +1170,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     // 只有大厅态放行 pop（Android 根页惯例）。_exitDetail 内部挡
     // _connecting：重连进行中返回不响应，防 _connect 完成回调拽回输入页。
     // 画布不再有「返回写字」旁门：写字页与其它布局平级，想回去从胶囊的
-    // 布局列表里切即可。
+    // 布局抽屉里切即可。
     return PopScope(
       canPop: _session == null,
       onPopInvokedWithResult: (didPop, _) {
