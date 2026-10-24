@@ -225,8 +225,8 @@ For fully transparent icons, use white background (the icon foreground itself sh
 
 ## Bundled Scripts
 
-- `scripts/flood_fill_cli.py` - Interactive edge color removal tool
-- `scripts/generate_android_icon.py` - Icon scaling and XML fixer
+- `.claude/skills/fr-engineer-flowot/scripts/flood_fill_cli.py` - Interactive edge color removal tool
+- `.claude/skills/fr-engineer-flowot/scripts/generate_android_icon.py` - Icon scaling and XML fixer
 
 `generate_android_icon.py` 用法（**必须从项目根执行**）：
 

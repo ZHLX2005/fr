@@ -196,3 +196,67 @@
 | 新增 | **`Ec03-组件内聚位置`**：`lib/core/ui/` 七个子目录实况树（含 game/ 8 件）、周边层次位置表、新组件三问速查、现存错位清单（RtRoundIconButton / RtConnDot / ios_dialog / BoardThemeData 等 6 项）、找组件速查 |
 | 登记 | E00 的 Eb/Ec 路由表更新；Ea13/Ea14 的旧 Eb01 名称改链；活动 refs 总数 68 → **69**（-2 合并 +3 新增，E 序列 22 → 23） |
 | 验证 | 全部 `[[…]]` 链接与文件名一一对应（仅 Gc01 两处既有 `[[0, -1]]` 矩阵记法误报） |
+# 质检 2026-10-24（第二轮全量复检）
+
+## 审计基线
+
+- 活动范围：`references/` 66 份 ref（A 10 / B 3 / C 9 / D 4 / E 20 / F 5 / G 9 / H 6）+ `SKILL.md` + `scripts/` 6 个脚本；自上轮（2026-10-20）后仓库新增 40+ 提交（remotetype 迁入 `lib/core` 并分层 data/protocol/ui/canvas、A09 新增、设置页/布局系统大改、全局导航栏紧凑化等）。
+- **方法变更**：本轮计划的 9 个序列 subagent 因 API 额度不足（insufficient credits）全部未产出 → 改为主线程机械化四层扫描 + 重点重测：
+  1. 链接层：66 份 ref 全部 `[[锚点]]` 与文件名一一比对（**全部可解析**，8 个 `00` 路由成员表覆盖所有成员，无孤儿 ref）；
+  2. 路径层：提取 ref 中全部 `lib/ android/ test/ scripts/ res/ docs/` 路径 248 条逐一存在性比对（git ls-files + 实盘目录）；
+  3. 行号层：提取 `文件:行号` 引用 15 处逐条与当前文件行号比对；
+  4. 符号层：提取反引号内 PascalCase/类符号 301 个回源码 rg 比对（剔除 Flutter/Android 框架符号与序列代号误报后人工复核）。
+- 重点深测：Eb04（颜色审计快照全部重算）、Ea05（生产底栏参数）、Cb01/Cb02（房间模板提案名、易混字符）。
+- 证据边界：纯文档轮，未运行 `flutter test` / `build`；C/F 序列服务端合同仍标 `待服务端来源 / NEEDS_SOURCE`；上轮 P1/P2 follow-up 本轮抽查确认全部仍在原状。
+
+## 逐序列审计记录
+
+| 序列 | 抽查/扫描 | 结果 |
+|---|---|---|
+| A | 路径/行号/符号全扫 + A01 translator、A04 kTimePageMeta/featured、A05 kGameMeta/kGameCenterCatalog、A09 全部 15 处 `文件:行号` 逐条核验 | **A09 行号全部命中当前代码**（nav_catalog 49/91/116/141/150/152、pins 15/21/45–59/76/103–147、main_screen 39/47/254/261/267/276/287/313）；A01 translator 真路径、`=> 'fr://` 检查命令可跑通；A04 featured 仍仅声明未消费（文档如实）；A05 符号全部存在。未发现需改写项。 |
+| B | Ba01 selection setState、Ba02 pi/Hive 入口抽查 | 与上轮结论一致：Ba01 的取消回调只 `clear()` 不 setState 仍在（`selection_message_strategy.dart:114`），维持 follow-up 不改码；Ba02 的 OCR 持久化 gap 表述仍准确。 |
+| C | Cb01 提案组件名、Cb02 房间号、applyAction 身份注入抽查 | Cb01 §7 的 `RoomLobbyView`/`RoomFinishedOverlay`/`RoomBottomActionBar`/`VersusRoomShell`/`LobbyEntryPage` 在仓库**不存在同名类**（现行 `GameLobbyPage`+`GameLobbySpec`），已加警示注；Cb02 补「易混字符不拦截」产品决定（见下）；`applyAction` 的 `device_id` 可被 `params` 覆盖（`relay_v3_transport.dart:477` spread 次序）仍在，维持 follow-up。 |
+| D | BoxDescriptor/StorageRegistry/HiveStore.openTyped/room 签名核验 | 与当前源码一致（`openTyped(name, {required adapter, int? typeId})`、`StorageRegistry.register` 幂等覆盖、D02 的 StorageManager 例外边界表述准确）。无需修正。 |
+| E | **Eb04 全量重算** + Ea 子序列逐份结构检查 | Eb04 快照漂移最重：`chessColors` 消费点 0→**9 文件**、`colors` 通道 57→**82 文件**且重心 lab→core、热点 Top20 大换血、残留计数口径失效——已全部按 2026-10-23/24 实测回填；Ea08–Ea11 的 H1 还挂着旧编号 A06–A09、三处把 Ea03 写成「A01 描边」；Ea09 落地路径/现状过时（发送/换行已移设置页）；Ea13 自称「子序列元数据」且缺 3 个新原型的映射；Ea05 生产参数与代码不符（胶囊高 50→48、宽固定 90→动态 56–88、primary 20%→14%）。均已修。 |
+| F | 脚本 CLI 签名逐一比对 argparse | Fa02/Fa04/Gc01 示例命令与 `add_skin.py`/`add_emoji_pack.py`/`retag_existing.py`/`migrate_line_from_supabase.py` 实际参数**全部一致**；Gc01 的 scripts 相对路径已补全为 skill 全路径。 |
+| G | Manifest 行号、widget 资源路径、minSdk | Ga01 `AndroidManifest.xml:180-190`（时钟 receiver + APPWIDGET_UPDATE）命中；minSdk=`flutter.minSdkVersion` 与 Ga01「确认 effective 值」口径一致；Ga03/Ga04 的 `res/...` 短路径补全为 `android/app/src/main/res/...`。 |
+| H | metronome 导出名、gSlots、Ha01 反例 | `play_metronome/pause_metronome`（.h/.cpp/FFI binding 三处一致）、`gSlots` 命名与 Ha05 警示表述仍准确。无需修正。 |
+
+## 本轮已落实的文档修正（2026-10-24）
+
+| 文件 | 修正 |
+|---|---|
+| Eb04 | 头部加快照时点声明；§0 残留分类表改 2026-10-23 实测口径（色板源 301 / S 90 / 特例 33 / 调用点残留 384，**明确旧「未分类 0」不可再引用**）；§1 表重测（core Theme.of 82→133）+ 加 sudoku 列；§2 通道消费点全量重列（chessColors 0→9 文件、colors 57→82、boardColors 2→4）+ 补 `context.sudokuColors` 一节（含未注入 caveat）；§3 Top20 重测重排 + 新旧对比注；§4 改「384 处调用点残留」新口径表 + **待归类 71 处**（chess 35 / xiangqi 30 / remotetype 6）显式标出；§5 自检命令修 `lib/widgets`（不存在）→ `lib/services`+`lib/core/ui`、grep→rg、补按目录拆分命令；§6.5 calendar 历史案例标注「demo 已重写为占位页、旧类已删」、word_drag/markdown/zen 三行路径修正；§7 BoardTheme 86→90；§8 标时点快照、player_strip 路径修正 |
+| Ea05 | 开头视觉目标区分 legacy/生产两套几何；Step 3 加生产对照注（`_capsuleH=48`、`capsuleW=(itemW-8).clamp(56,88)`、primary@14%、不固定宽度） |
+| Ea08/Ea09/Ea10/Ea11 | H1 旧编号 A06/A07/A08/A09 → Ea08/Ea09/Ea10/Ea11（与文件名对齐） |
+| Ea08/Ea09/Ea10 | 「A01 描边减负」错指 → Ea03 |
+| Ea09 | 落地参考路径补全（`lib/core/remotetype/ui/rt_shortcut_bar.dart`、`canvas/template/`）；加 2026-10 重构现状注记（发送/换行已移设置页「回车行为」，分段控件配方现役于设置页） |
+| Ea13 | 去误标的「Ea 子序列元数据」（Ea01/Ea02 才是路由）；原型表补 `rt-canvas-gamepad` / `rt-canvas-layouts-manage` / `rt-settings-layouts-card` 三个新原型映射（指向 Ea09/Ea10/A09/Ea06）+ 标注当前原型文件数 10；补「原型增删先回本表补一行」纪律 |
+| Ga03/Ga04 | `res/values/strings.xml`、`res/xml|layout|drawable/notion_widget*` 短路径 → `android/app/src/main/res/...` 全路径 |
+| Gc01 | Bundled Scripts 相对路径 → `.claude/skills/fr-engineer-flowot/scripts/` 全路径 |
+| Cb01 | §7 加警示注：5 个组件名是提案、仓库不存在，现行按 `GameLobbyPage`+`GameLobbySpec` |
+| Cb02 | §2.1 服务端响应表加 `待服务端来源` 注；易混字符行改小写 l→大写 L 对齐客户端常量；**错误表 #3 改写为产品决定（2026-10-24）：客户端不拦截 0/O/1/I/L**，不做输入过滤与提交前校验，现行 `RoomCodeRules` 拦截已登记 follow-up |
+
+## 未解决的源码级 follow-up（本轮不修改应用代码）
+
+上轮 P1/P2 五项（selection setState / applyAction device_id / metronome WAV 竞态 / OCR 失败轮次 / SessionStore 契约）本轮抽查确认仍在，处理边界不变。本轮新增：
+
+| 优先级 | 位置 | 已核实行为/问题 | 处理边界 |
+|---|---|---|---|
+| P2（等用户拍板） | `lib/core/game_kit/lobby/game_lobby_spec.dart:174`（`RoomCodeRules.kConfusingChars`，`game_lobby_page.dart:88` 调用） | 客户端在 `validate` 里拦截 0/O/1/I/L。**用户已于 2026-10-24 拍板「不要拦截易混字符」**，现行实现与该决定相悖。 | 移除 kConfusingChars 校验属行为变更：需同步调整/删除相关测试并记 CHANGELOG；服务端对易混字符的真实行为未核实（可能 400），移除后 UX 影响要在拍板时一并确认。**未经确认不改码。** |
+| P3 | `lib/core/xiangqi/`（30）/ `lib/core/chess/`（35）/ `lib/core/remotetype/`（6） | 2026-10 新模块引入的裸 hex 尚未按 Eb04 的 S/E/特例口径逐项归类（本轮已测得数量并登记在 Eb04 §4「待归类」）。 | 下次颜色专项或迁移时按 Eb04 §5 命令逐文件定性回填；不阻塞功能开发。 |
+| P3（模式级） | 22 份 ref 的错误案例表 | 表头 5 种变体（症状/错误/现象/错误操作/错误想法 × 检查/后果/排查/风险…），未统一为「症状→检查→修复→验证」四列；行数 4–14 不等，未严格执行 Top5。 | 下轮按 ref 逐份统一；优先 Fa02（12 行）/Ha01（14 行）/Ga02（10 行）三份最长的。 |
+
+## 可代码化建议（本轮新提，均未落地）
+
+1. **Eb04 §5 残留 hex 计数进 CI/本地门禁**：命令已是现成单行 rg，包一层 `scripts/color_hex_gate.py`（阈值 + 新增即红），可把「防止漂移」从人工纪律变成机器门禁。
+2. **D03 新模块 Checklist 脚本化**：校验「BoxDescriptor 已注册 / TypeId 无冲突 / adapter 生成文件存在」三件事各是一条 rg/grep，收进 `scripts/hive_check.py`，新模块提交前跑一遍。
+3. **Ga03 widget label 校验**：Manifest 每个 `<receiver>` 必有独立 label + strings.xml 键存在，可脚本化（当前靠 checklist 人查）。
+4. **Ea 样式配方的组件化**：Ea09 实心分段、Ea10 CTA、Ea03 描边按钮仍是「配方文档」，每处使用靠人照抄；若再出现第 3 个使用点，建议沉淀为 `lib/core/ui/atomic/` 下的组件（`SolidSegmented` / `RoundedRectCta` / `BorderEmphasisButton`），skill 只留组件名 + 参数表——把同步成本从「读文档抄代码」降到「引用组件」。
+
+## 操作教训
+
+- subagent 派发前先确认 API 额度；失败时主线程「链接/路径/行号/符号」四层机械扫描能覆盖大部分漂移，人工深读留给重灾区（本轮 = Eb04/Ea05）。
+- 行号引用（`文件:行号`）漂移最快但可机器校验，A09 式写法建议保留——下轮质检可直接复用本轮的比对方法。
+
+> **rebase 注记（2026-10-24，与上节 10-23 质检的合并说明）**：本轮与远端并行的 10-23 组件复用质检改写了同一批 E 序列 ref。冲突按「远端为准」解决：Eb04 的通道/热点/残留计数以 10-23 版口径为准（**残留 664 处**，含分类表：xiangqi=S、remotetype=E、chess=E——本节下文 P3「待归类 71 处」一条已被该分类取代）；Ea05 / Ea08 / Ea09 / Ea10 / Ea11 取远端重写版（frontmatter + 行号真值，覆盖本节对应的 H1 编号与 A01→Ea03 修正）；Ea13 保留远端并补回本轮新增的 3 个原型映射行；ref 总数以 10-23 节的 **69** 为准（本节基线写 66 是冲突前快照）。本轮独有的存活增量：Cb01 提案名警示、Cb02「不拦截易混字符」产品决定、Ga03/Ga04/Gc01 路径补全、可代码化建议与操作教训。

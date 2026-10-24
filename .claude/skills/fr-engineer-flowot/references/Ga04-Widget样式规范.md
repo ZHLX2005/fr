@@ -174,7 +174,7 @@
 
 ## 完整示例:支持 1×1 ~ 2×2 的极简 widget
 
-### `res/xml/notion_widget_info.xml`
+### `android/app/src/main/res/xml/notion_widget_info.xml`
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -192,7 +192,7 @@
 </appwidget-provider>
 ```
 
-### `res/layout/notion_widget.xml`
+### `android/app/src/main/res/layout/notion_widget.xml`
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -218,7 +218,7 @@
 </FrameLayout>
 ```
 
-### `res/drawable/notion_widget_icon.xml`(可选装饰)
+### `android/app/src/main/res/drawable/notion_widget_icon.xml`（可选装饰）
 
 参见上文铁律 1 的 vector 例子。
 

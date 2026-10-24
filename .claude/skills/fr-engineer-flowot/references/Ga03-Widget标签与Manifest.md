@@ -57,7 +57,7 @@ Android widget picker 的 label 来源是 `<receiver>` 的 `android:label`。
 <string name="widget_label_recorder">小豆子 · 录音</string>
 ```
 
-放在 `res/values/strings.xml`(与 `app_name` 同文件),
+放在 `android/app/src/main/res/values/strings.xml`（与 `app_name` 同文件）,
 便于一次 review / 一次改一处全部生效。
 
 ## 铁律 2:`appwidget-provider` 必须配齐 `description` + `previewLayout`
@@ -298,7 +298,7 @@ Future<dynamic> _handleRootMethodCall(MethodCall call) async {
 ### Step 1: strings.xml 加 label + description
 
 ```xml
-<!-- res/values/strings.xml -->
+<!-- android/app/src/main/res/values/strings.xml -->
 <string name="widget_label_xxx">小豆子 · XXX</string>
 <string name="widget_description_xxx">XXX 简介</string>
 ```
