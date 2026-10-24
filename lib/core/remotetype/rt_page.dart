@@ -16,7 +16,8 @@
 //             点开即布局抽屉——方格网格（竖屏组在上、横屏组在下）快速切换，
 //             右上角「更多设置」入口（编排等设置全在设置页）。点另一朝向的
 //             分组直接转屏过去（竖屏点横屏组 → 转横屏），不用自己拧手机；转完
-//             落在那侧原本激活的布局，横竖两套布置互不覆盖。
+//             落在那侧原本激活的布局，抽屉不关、勾跟到新朝向（面板驱动方向），
+//             横竖两套布置互不覆盖。
 //             写字页与其它布局平级，没有单独的「返回写字」旁门。
 //
 // 板块拆分（本文件只留装配/状态/连接，其余见各自文件头）：
@@ -387,7 +388,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   /// 切布局（切换抽屉回调，[groupOrient] = 所点格子的分组朝向）：
   ///   · 点当前朝向组 → 就地激活，方向不动（原有行为）；
   ///   · 点另一朝向组 → **只把屏幕转过去，不改对侧激活**——转完落点是那侧
-  ///     原本激活的布局（「切换改为原本的布局」）。横竖两套布置互不覆盖，
+  ///     原本激活的布局（「切换改为原本的布局」）；抽屉不关，转完勾跟到
+  ///     新朝向，想定哪张再点哪张。横竖两套布置互不覆盖，
   ///     要动对侧布置走设置页「在画布上编辑」（编辑本来就是要改那一侧）。
   void _switchLayout(String id, String groupOrient) {
     RtCanvasNamedLayout? entry;
@@ -511,14 +513,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     );
   }
 
-  /// 打开布局切换抽屉（竖屏页头 / 横屏左上角共用）：方格网格两组，
-  /// 右上角附「更多设置」入口。
+  /// 打开布局切换抽屉（竖屏页头 / 横屏左上角共用）：方格网格两组，右上角
+  /// 附「更多设置」入口。朝向由抽屉自读 MediaQuery——点另一朝向组只转屏
+  /// 不关面板，转完勾落到该侧激活布局（面板驱动方向）。
   Future<void> _openLayoutPicker() async {
     await showRtLayoutPicker(
       context,
       layouts: _layouts,
-      orientation: _canvasOrientation,
-      activeId: _activeEntry?.id ?? '',
       onPick: _switchLayout,
       onOpenSettings: _openSettings,
     );

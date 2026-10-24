@@ -92,7 +92,7 @@ void main() {
     expect(await RtPrefs.loadEnterMode(), 'shift_enter');
   });
 
-  testWidgets('布局切换面板：第一层是所有布局的列表，底下附设置入口', (
+  testWidgets('布局切换抽屉：两段方格网格，激活勾只有一个，右上角更多设置', (
     tester,
   ) async {
     final layouts = const RtCanvasLayouts(
@@ -111,8 +111,6 @@ void main() {
                 onPressed: () => showRtLayoutPicker(
                   context,
                   layouts: layouts,
-                  orientation: kRtCanvasOrientPortrait,
-                  activeId: kRtCanvasPresetWriter,
                   onPick: (id, groupOrient) {},
                   onOpenSettings: () => settingsOpened = true,
                 ),
@@ -128,21 +126,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('切换布局'), findsOneWidget);
-    // 第一层 = 所有布局的列表（按朝向分组，两组都列出、都可点）
+    // 两段方格网格：竖屏组在上、横屏组在下（触控屏双朝向 → 两组各有格子）
+    expect(find.text('竖屏布局'), findsOneWidget);
+    expect(find.text('横屏布局'), findsOneWidget);
     expect(find.text('写字'), findsOneWidget);
     expect(find.text('触控屏布局'), findsWidgets);
     expect(find.text('方向键布局'), findsOneWidget);
     expect(find.text('轮盘布局'), findsOneWidget);
     expect(find.text('键盘布局'), findsOneWidget);
-    expect(find.text('竖屏布局'), findsOneWidget);
-    expect(find.text('横屏布局'), findsOneWidget);
-    // 固定死的布局标注不可编辑
-    expect(find.text('固定布局'), findsOneWidget);
-    // 设置入口附在列表下面
-    expect(find.text('远程输入设置'), findsOneWidget);
+    // 激活勾全表只此一个（测试面板 800×600 = 横屏 → 勾在横屏组触控屏格）
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    // 右上角「更多设置」入口
+    expect(find.text('更多设置'), findsOneWidget);
 
-    // 点设置入口 → 回调触发（面板先关）
-    await tester.tap(find.text('远程输入设置'));
+    // 点更多设置 → 回调触发（抽屉先关）
+    await tester.tap(find.text('更多设置'));
     await tester.pumpAndSettle();
     expect(settingsOpened, isTrue);
   });

@@ -5,8 +5,10 @@
 //
 // 竖屏页头与横屏左上角共用这一份：
 //   · 主体 = 方格网格，按朝向分两段——竖屏布局在上、横屏布局在下。两组
-//     都可点：当前朝向组点了就地切换，另一朝向组点了**只自动转屏过去**，
-//     落点是那侧原本激活的布局——横竖两套布置互不覆盖；
+//     都可点：当前朝向组点了就地切换并收起；另一朝向组点了**只驱动转屏、
+//     面板不收**——设备转过去后面板就地刷新，勾落到那侧原本激活的布局
+//     （横竖两套布置互不覆盖），想定哪张再点哪张。激活勾全表只有一个，
+//     永远标当前朝向组里激活的那格（双朝向布局两组各有格子，也只勾当前组）；
 //   · 右上角 = 「更多设置」入口——设置与配置相关的功能尽量收进那里
 //     （布局改名/删除/新建、模块编排、发送换行、灵敏度、快捷键），
 //     让抽屉只留「切布局」这一件事。
@@ -37,15 +39,15 @@ const double _kCellLabelSize = 10.0;
 
 /// 打开布局切换抽屉。
 ///
-/// [layouts] 当前布局集，[orientation] 当前朝向（该组格子高亮；另一组格子
-/// 点击后由页面侧自动转屏过去），[activeId] 当前激活项（头部「当前」显示用），
-/// [onPick] 选中回调（参数 = 布局 id 与所在分组朝向；抽屉先自行关闭），
+/// [layouts] 当前布局集；当前朝向由抽屉自己从 MediaQuery 现读（转屏实时
+/// 跟随，与页面侧切布局的分流同一口径——设备真实朝向）。
+/// [onPick] 选中回调（参数 = 布局 id 与所在分组朝向）：同朝向选中先关抽屉
+/// 再回调；另一朝向点选只驱动转屏、抽屉不关——转完勾随新朝向落到该侧原本
+/// 激活的布局。
 /// [onOpenSettings] 右上角「更多设置」入口（可为 null → 不渲染该按钮）。
 Future<void> showRtLayoutPicker(
   BuildContext context, {
   required RtCanvasLayouts layouts,
-  required String orientation,
-  required String activeId,
   required void Function(String id, String groupOrient) onPick,
   VoidCallback? onOpenSettings,
 }) {
@@ -56,8 +58,6 @@ Future<void> showRtLayoutPicker(
     barrierColor: Colors.black.withValues(alpha: _kSheetBarrierAlpha),
     builder: (_) => _LayoutPickerSheet(
       layouts: layouts,
-      orientation: orientation,
-      activeId: activeId,
       onPick: onPick,
       onOpenSettings: onOpenSettings,
     ),
@@ -67,21 +67,17 @@ Future<void> showRtLayoutPicker(
 class _LayoutPickerSheet extends StatelessWidget {
   const _LayoutPickerSheet({
     required this.layouts,
-    required this.orientation,
-    required this.activeId,
     required this.onPick,
     this.onOpenSettings,
   });
 
   final RtCanvasLayouts layouts;
-  final String orientation;
-  final String activeId;
   final void Function(String id, String groupOrient) onPick;
   final VoidCallback? onOpenSettings;
 
-  // 两组都列出来、都可点：当前朝向组点了就地切换；另一朝向组点了只自动
-  // 转屏过去，仍用那侧原本激活的布局（不改激活记录，页面侧 _switchLayout
-  // 分流）。
+  // 两组都列出来、都可点：当前朝向组点了就地切换；另一朝向组点了只驱动
+  // 转屏、面板不收，仍用那侧原本激活的布局（不改激活记录，页面侧
+  // _switchLayout 分流）。
   List<(String, List<RtCanvasNamedLayout>)> get _groups => [
     (
       kRtCanvasOrientPortrait,
@@ -101,6 +97,12 @@ class _LayoutPickerSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final mq = MediaQuery.of(context);
+    // 当前朝向从 MediaQuery 现读：转屏会重建本路由，勾与「当前」跟着设备
+    // 走——面板得以驱动方向（点另一朝向组只转屏不关）。
+    final orientation =
+        MediaQuery.orientationOf(context) == Orientation.landscape
+        ? kRtCanvasOrientLandscape
+        : kRtCanvasOrientPortrait;
     // 高度公式同 pin_editor：目标占屏比 + 底部 inset 兜底（本抽屉无输入框，
     // 但写字页 composer 可能正拉着键盘，防极端横屏时被顶出屏幕）。
     final height = math.max(
@@ -173,7 +175,7 @@ class _LayoutPickerSheet extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '当前：${_nameOf(layouts, orientation, activeId) ?? '—'}',
+                        '当前：${layouts.activeFor(orientation)?.name ?? '—'}',
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurfaceVariant,
@@ -199,8 +201,9 @@ class _LayoutPickerSheet extends StatelessWidget {
                                 ),
                                 _GroupGrid(
                                   groupOrient: groupOrient,
-                                  entries: entries,
+                                  orientation: orientation,
                                   layouts: layouts,
+                                  entries: entries,
                                   onPick: onPick,
                                 ),
                               ],
@@ -256,14 +259,18 @@ class _GroupHeader extends StatelessWidget {
 class _GroupGrid extends StatelessWidget {
   const _GroupGrid({
     required this.groupOrient,
-    required this.entries,
+    required this.orientation,
     required this.layouts,
+    required this.entries,
     required this.onPick,
   });
 
   final String groupOrient;
-  final List<RtCanvasNamedLayout> entries;
+
+  /// 设备当前朝向（build 时现读，转屏即变）。
+  final String orientation;
   final RtCanvasLayouts layouts;
+  final List<RtCanvasNamedLayout> entries;
   final void Function(String id, String groupOrient) onPick;
 
   @override
@@ -281,15 +288,21 @@ class _GroupGrid extends StatelessWidget {
       itemCount: entries.length,
       itemBuilder: (context, i) {
         final p = entries[i];
+        // 勾全表只此一个：当前朝向组里该侧激活的那格。双朝向布局两组各有
+        // 格子，groupOrient 判定保证只勾当前组这一格。
+        final isActive =
+            groupOrient == orientation &&
+            p.id == (layouts.activeFor(orientation)?.id ?? '');
+        // 跨朝向点选 = 面板驱动方向：只转屏不收起，转完勾就地挪到该侧
+        // 激活布局（activeFor + MediaQuery 重建接管）；同朝向选中才收起。
+        final cross = groupOrient != orientation;
         return _LayoutCell(
           key: ValueKey(p.id),
           entry: p,
-          // 打勾 = 该朝向当前激活的布局（两组各标各的；另一组打勾的那格
-          // 就是转屏过去会落到的布局）。
-          isActive: p.id == (layouts.activeFor(groupOrient)?.id ?? ''),
+          isActive: isActive,
           onTap: () {
             HapticFeedback.selectionClick();
-            Navigator.of(context).pop();
+            if (!cross) Navigator.of(context).pop();
             onPick(p.id, groupOrient);
           },
         );
@@ -441,14 +454,4 @@ class _MoreSettingsPill extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 当前激活布局的名字（查不到回 null）。
-String? _nameOf(RtCanvasLayouts layouts, String orientation, String activeId) {
-  for (final p in layouts.list) {
-    if (p.id == activeId && rtCanvasLayoutUsableIn(orientation, p)) {
-      return p.name;
-    }
-  }
-  return null;
 }
