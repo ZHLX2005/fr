@@ -3,9 +3,9 @@
 // 布局切换面板：**第一层是布局列表**，设置入口附在列表下面。
 //
 // 竖屏页头与横屏左上角共用这一份：
-//   · 主体 = 所有布局的列表（按朝向分组，**全部可点**）——切布局是高频
-//     动作，占第一层；点另一朝向那组的行直接切过去并自动转屏，不用自己
-//     拧手机；
+//   · 主体 = 所有布局的列表（按朝向分组，两组都可点）——切布局是高频
+//     动作，占第一层；当前朝向组点了就地切换，另一朝向组点了**只自动转屏
+//     过去**，落点是那侧原本激活的布局——横竖两套布置互不覆盖；
 //   · 尾巴 = 「远程输入设置」入口——设置与配置相关的功能尽量收进那里
 //     （布局改名/删除/新建、模块编排、发送换行、灵敏度、快捷键），
 //     让常用路径只留「切布局」这一件事。
@@ -20,20 +20,21 @@ import '../data/rt_prefs.dart';
 
 /// 打开布局切换面板。
 ///
-/// [layouts] 当前布局集，[orientation] 当前朝向（该组行打勾；另一组行点击
-/// 后由页面侧自动转屏），[activeId] 当前激活项（打勾），[onPick] 选中回调
-/// （面板先自行关闭），[onOpenSettings] 附在列表下的设置入口（可为 null →
-/// 不渲染该行）。
+/// [layouts] 当前布局集，[orientation] 当前朝向（该组行高亮；另一组行点击
+/// 后由页面侧自动转屏过去），[activeId] 当前激活项（头部「当前」显示用），
+/// [onPick] 选中回调（参数 = 布局 id 与所在分组朝向；面板先自行关闭），
+/// [onOpenSettings] 附在列表下的设置入口（可为 null → 不渲染该行）。
 Future<void> showRtLayoutPicker(
   BuildContext context, {
   required RtCanvasLayouts layouts,
   required String orientation,
   required String activeId,
-  required ValueChanged<String> onPick,
+  required void Function(String id, String groupOrient) onPick,
   VoidCallback? onOpenSettings,
 }) {
-  // 两组都列出来，全部可点：点另一朝向那组 = 切过去并自动转屏（页面侧
-  // _switchLayout 负责激活到目标侧 + 转屏）。
+  // 两组都列出来、都可点：当前朝向组点了就地切换；另一朝向组点了只自动
+  // 转屏过去，仍用那侧原本激活的布局（不改激活记录，页面侧 _switchLayout
+  // 分流）。
   final groups = <(String, List<RtCanvasNamedLayout>)>[
     (
       kRtCanvasOrientPortrait,
@@ -57,9 +58,9 @@ Future<void> showRtLayoutPicker(
       final c = ctx.colors;
       final cs = c.scheme;
       // 选中即关面板再回调（列表项的公共动作）。
-      void pick(String id) {
+      void pick(String id, String groupOrient) {
         Navigator.of(ctx).pop();
-        onPick(id);
+        onPick(id, groupOrient);
       }
       return SafeArea(
         child: ConstrainedBox(
@@ -129,9 +130,11 @@ Future<void> showRtLayoutPicker(
                         for (final p in entries)
                           _LayoutRow(
                             entry: p,
-                            isActive: groupOrient == orientation &&
-                                p.id == activeId,
-                            onTap: () => pick(p.id),
+                            // 打勾 = 该朝向当前激活的布局（两组各标各的；
+                            // 另一组打勾的那条就是转屏过去会落到的布局）。
+                            isActive: p.id ==
+                                (layouts.activeFor(groupOrient)?.id ?? ''),
+                            onTap: () => pick(p.id, groupOrient),
                           ),
                       ],
                     ],
@@ -158,7 +161,7 @@ Future<void> showRtLayoutPicker(
   );
 }
 
-/// 列表里的一条布局（两个朝向组通用：点另一组的行 = 切过去并自动转屏）。
+/// 列表里的一条布局（两组样式一致；另一组的行点击后由页面侧自动转屏）。
 class _LayoutRow extends StatelessWidget {
   const _LayoutRow({
     required this.entry,

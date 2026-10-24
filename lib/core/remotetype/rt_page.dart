@@ -14,8 +14,9 @@
 //             边界明显，见 rt_canvas_view.dart）。
 //             每种布局左上角都有同一颗胶囊（见 ui/rt_layout_capsule.dart）：
 //             点开即布局面板——第一层是全部布局的列表（快速切换），最下面是
-//             「远程输入设置」入口（编排等设置全在设置页）。切到只属另一朝向的
-//             布局时直接转屏（竖屏选游戏 → 转横屏），不用自己拧手机。
+//             「远程输入设置」入口（编排等设置全在设置页）。点另一朝向的分组
+//             直接转屏过去（竖屏点横屏组 → 转横屏），不用自己拧手机；转完
+//             落在那侧原本激活的布局，横竖两套布置互不覆盖。
 //             写字页与其它布局平级，没有单独的「返回写字」旁门。
 //
 // 板块拆分（本文件只留装配/状态/连接，其余见各自文件头）：
@@ -45,7 +46,6 @@ import '../../core/line/io/line_orientation.dart';
 import '../../core/nav/nav_entry.dart' show demoNavId;
 import '../../services/remotetype/remotetype_providers.dart';
 import '../../services/remotetype/remotetype_service.dart';
-import '../../core/ui/shell/app_nav_bar.dart';
 import '../../core/ui/shell/app_notification.dart';
 import '../../core/theme/context/colors.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart'
@@ -384,12 +384,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(RtPrefs.saveCanvasLayouts(next));
   }
 
-  /// 切布局：按目标布局的朝向激活，并**同步屏幕方向**——用户不必自己转屏，
-  /// 选完即到位：
-  ///   · 目标布局在当前朝向可用 → 就地激活，方向不动（触控屏这类双朝向的）；
-  ///   · 目标布局只属另一朝向 → 激活到那一侧，并把屏幕转过去（竖屏选游戏 →
-  ///     直接转横屏；横屏选写字 → 直接转竖屏）。
-  void _switchLayout(String id) {
+  /// 切布局（切换面板回调，[groupOrient] = 所点行的分组朝向）：
+  ///   · 点当前朝向组 → 就地激活，方向不动（原有行为）；
+  ///   · 点另一朝向组 → **只把屏幕转过去，不改对侧激活**——转完落点是那侧
+  ///     原本激活的布局（「切换改为原本的布局」）。横竖两套布置互不覆盖，
+  ///     要动对侧布置走设置页「在画布上编辑」（编辑本来就是要改那一侧）。
+  void _switchLayout(String id, String groupOrient) {
     RtCanvasNamedLayout? entry;
     for (final p in _layouts.list) {
       if (p.id == id) {
@@ -398,11 +398,22 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       }
     }
     if (entry == null) return;
-    // 用设备朝向判断「就地可用」，避免编辑钉住朝向干扰普通切换。
-    final current = _deviceOrientation;
-    final usableHere = rtCanvasLayoutUsableIn(current, entry);
-    final targetOrient = usableHere ? current : entry.orientation;
-    final next = _layouts.withActiveFor(targetOrient, id);
+    // 按设备朝向分流（不用编辑钉住朝向，避免干扰普通切换）。
+    if (groupOrient != _deviceOrientation) {
+      // 跨朝向：只转屏。激活记录分毫不动，落点由对侧 activeFor 决定。
+      if (groupOrient == kRtCanvasOrientPortrait) {
+        unawaited(LineOrientation.portraitOnly());
+      } else {
+        unawaited(
+          SystemChrome.setPreferredOrientations(const [
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]),
+        );
+      }
+      return;
+    }
+    final next = _layouts.withActiveFor(_deviceOrientation, id);
     if (!identical(next, _layouts)) {
       setState(() => _layouts = next);
       unawaited(RtPrefs.saveCanvasLayouts(next));
@@ -437,9 +448,9 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   /// 屏幕方向跟随布局：竖屏专属布局（写字页 / 竖屏画布）→ 锁竖屏；锁横屏
   /// 的布局（轮盘 / 手柄 / 键盘）→ 直接转横屏；双朝向布局（触控屏）→ 放开
-  /// 旋转，保持当前朝向。切换面板放开跨朝向直选后，竖屏画布条目也可能从
-  /// 横屏被点到——按条目自身朝向转屏，别让它落在「方向自由」上（否则激活
-  /// 落在竖屏侧、屏幕还横着，渲染回退到横屏兜底，表现为「切了没反应」）。
+  /// 旋转，保持当前朝向。竖屏画布条目从横屏「在画布上编辑」时也走这里——
+  /// 按条目自身朝向转屏，别让它落在「方向自由」上（否则激活落在竖屏侧、
+  /// 屏幕还横着，渲染回退到横屏兜底，表现为「切了没反应」）。
   void _applyLayoutOrientation(RtCanvasNamedLayout entry) {
     if (entry.orientation == kRtCanvasOrientPortrait) {
       unawaited(LineOrientation.portraitOnly());
@@ -470,27 +481,32 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       top: 0,
       left: 0,
       right: 0,
-      // 浮层导航：AppNavBar.floating（返回玻璃钮 + 布局胶囊 + 重连圆钮）。
-      child: AppNavBar.floating(
-        onBack: _exitDetail,
-        backTooltip: '返回连接列表',
-        leading: RtRoundIconButton(
-          icon: Icons.arrow_back_ios_new,
-          tooltip: '返回连接列表',
-          onTap: _exitDetail,
-        ),
-        title: RtLayoutCapsule(
-          connected: _connected,
-          layoutName: _activeEntry?.name ?? '写字',
-          onOpen: _openLayoutPicker,
-        ),
-        floatingActions: [
-          RtRoundIconButton(
-            icon: Icons.refresh_rounded,
-            tooltip: '重连',
-            onTap: _connecting ? () {} : _reconnect,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+          child: Row(
+            children: [
+              RtRoundIconButton(
+                icon: Icons.arrow_back_ios_new,
+                tooltip: '返回连接列表',
+                onTap: _exitDetail,
+              ),
+              const SizedBox(width: 8),
+              RtLayoutCapsule(
+                connected: _connected,
+                layoutName: _activeEntry?.name ?? '写字',
+                onOpen: _openLayoutPicker,
+              ),
+              const Spacer(),
+              RtRoundIconButton(
+                icon: Icons.refresh_rounded,
+                tooltip: '重连',
+                onTap: _connecting ? () {} : _reconnect,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

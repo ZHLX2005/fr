@@ -113,7 +113,7 @@ void main() {
                   layouts: layouts,
                   orientation: kRtCanvasOrientPortrait,
                   activeId: kRtCanvasPresetWriter,
-                  onPick: (_) {},
+                  onPick: (id, groupOrient) {},
                   onOpenSettings: () => settingsOpened = true,
                 ),
                 child: const Text('打开面板'),
@@ -128,7 +128,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('切换布局'), findsOneWidget);
-    // 第一层 = 所有布局的列表（按朝向分组，另一组灰显但仍列出）
+    // 第一层 = 所有布局的列表（按朝向分组，两组都列出、都可点）
     expect(find.text('写字'), findsOneWidget);
     expect(find.text('触控屏布局'), findsWidgets);
     expect(find.text('方向键布局'), findsOneWidget);
