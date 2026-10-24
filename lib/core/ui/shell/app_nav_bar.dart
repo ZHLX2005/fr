@@ -177,7 +177,7 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
             children: [
               Row(
                 children: [
-                  ?back,
+                  if (back != null) back,
                   const Spacer(),
                   ...floatingActions,
                 ],
@@ -197,7 +197,7 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
         padding: floatingPadding,
         child: Row(
           children: [
-            ?back,
+            if (back != null) back,
             if (hasTitle) ...[
               const SizedBox(width: 8),
               Expanded(child: titleSlot!),
@@ -266,7 +266,7 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
                   child: titleSlot!,
                 ),
               ),
-              ?trailing,
+              if (trailing != null) trailing,
             ],
           ),
         ),
