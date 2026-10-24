@@ -23,7 +23,7 @@ Scaffold(
   body: SafeArea(
     top: false,                                              // 让 SliverAppBar 消化顶部安全区
     child: CustomScrollView(
-      physics: const BoundedBouncingScrollPhysics(          // 项目自带，限幅 80 px
+      physics: const BoundedBouncingScrollPhysics(          // 项目自带，overscroll 衰减目标 80 px
         parent: AlwaysScrollableScrollPhysics(),
         maxOverscroll: 80,
       ),
@@ -42,6 +42,8 @@ Scaffold(
   ),
 );
 ```
+
+> **`maxOverscroll: 80` 是衰减目标，不是硬限幅**。`lib/core/ui/renderers/bounded_bouncing_scroll_physics.dart:43-50` 的做法是渐近衰减：`factor = (1 - ratio) * 0.55 + 0.02`（`ratio = overscrollPast / maxOverscroll`），越拉越远每像素 user offset 转化的实际位移越小，但**系数永不为 0**。所以实际拉伸量是**趋近** 80 而不是被截断在 80；`maxOverscroll` 改大只影响收敛速度，不改"永不触顶"的性质。写「限幅 80 px」会误导后续调参——真要硬截断得改 `applyPhysicsToUserOffset` 里的 clamp。
 
 ### Step 2 · flexibleSpace 改用 Stack，外层塞 FlexibleSpaceBar + 圆角盖
 
@@ -111,7 +113,7 @@ SliverToBoxAdapter(
 
 ### Step 4 · 验收
 
-- [ ] 下拉 stretch：banner 渐变被拉伸，松手有 iOS 弹性回弹（80 px 限幅）
+- [ ] 下拉 stretch：banner 渐变被拉伸，松手有 iOS 弹性回弹（拉伸量趋近 80 px 衰减目标）
 - [ ] 静态接缝无发丝线（Scaffold surface + mask 覆盖生效）
 - [ ] 下拉过程中接缝无发丝线（mask 下探 12 px 生效）
 - [ ] 上滑到顶再上滑：接缝无发丝线（body 上探 12 px + Container surface 生效）
@@ -206,7 +208,7 @@ SliverToBoxAdapter(
 
 ```text
 [ ] 静止时弧顶可见（即使弧度比 24 略扁也 OK）
-[ ] 下拉 stretch：banner 渐变被拉伸，回弹有 80 px 限幅
+[ ] 下拉 stretch：banner 渐变被拉伸，回弹有 80 px 衰减目标
 [ ] 下拉过程中接缝无发丝线
 [ ] 上滑到列表顶再上滑：接缝无发丝线
 [ ] 点击 banner 触发回调

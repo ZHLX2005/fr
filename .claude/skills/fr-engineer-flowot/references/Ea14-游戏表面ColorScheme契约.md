@@ -1,10 +1,17 @@
+---
+name: game-surface-colorscheme-contract
+description: 什么时候改游戏中心 / 房间就绪 / 大厅入口的配色时读——游戏表面只用 ColorScheme 角色的契约、各消费通道的现状（含无入口的 torchProtect）。
+---
+
 # Ea14 · 游戏表面 ColorScheme 契约
 
 > 何时读：改游戏中心 / 房间就绪 / 大厅入口，且要跟 `AppThemeMode`（zen/purple/ink/rose/lemon/cobalt/dark 七主题）切换；或对照 `docs/prototypes/game-surfaces-palettes.html`。
 >
-> **通用消费通道**：普通/棋盘/象棋/俄罗斯方块/团队头像/护眼走 `context.colors/boardColors/chessColors/tetrisColors/teamAvatar/torchProtect`；数独走 `context.sudokuColors`（`lib/core/theme/context/sudoku_colors.dart`，注意其 ThemeExtension 尚未注入 app_theme，读数走 factory fallback）。
+> **通用消费通道**：普通/棋盘/象棋/俄罗斯方块/团队头像走 `context.colors / boardColors / chessColors / tetrisColors / teamAvatar`；数独走 `context.sudokuColors`（`lib/core/theme/context/sudoku_colors.dart`，注意其 ThemeExtension 尚未注入 app_theme，读数走 factory fallback）。
 >
-> 色值真相：`lib/design_tokens/color/palettes/{zen,purple,ink,rose,lemon,cobalt,dark}.dart`。主题机制见 `Eb01-主题架构路由`。
+> **护眼通道当前无 context 入口**：`TorchProtectColorStrategyExtension` 已在 `lib/core/theme/app_theme.dart:156` 注册进 ThemeData，但 `lib/core/theme/context/` 下**没有** torch 扩展文件（只有 board/chess/colors/sudoku/team_avatar/tetris 六个），`grep -rn "get torchProtect" lib/` **0 命中**。所以 `context.torchProtect` 现在**不可用**——要读护眼策略得走 `Theme.of(context).extension<TorchProtectColorStrategyExtension>()`，或先补一个 context 扩展。
+>
+> 色值真相：`lib/design_tokens/color/palettes/{zen,purple,ink,rose,lemon,cobalt,dark}.dart`。主题机制见 [[Eb01-主题系统简述]]。
 
 ## 一、实现思路
 
@@ -60,4 +67,4 @@
 
 - 路由 → [[Ea13-原型对齐路由]]
 - 商店布局 → [[Ea06-商店式内容页]]
-- 配色架构 → `Eb01-主题架构路由`
+- 配色架构 → [[Eb01-主题系统简述]]

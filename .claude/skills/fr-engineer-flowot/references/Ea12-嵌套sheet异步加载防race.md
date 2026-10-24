@@ -1,3 +1,8 @@
+---
+name: async-load-flag-pattern
+description: 什么时候在嵌套 ModalBottomSheet 里遇到"打开下一层 sheet 空空如也"/"没有找到任何数据库"/缓存竞态时读——_loadingXxx flag 三件套的落地写法与已知 caveat。
+---
+
 # Async Load Flag Pattern — 嵌套 sheet 异步加载防 race condition
 
 > 何时读：嵌套 ModalBottomSheet 里"打开下一层 sheet 显示空空如也"/"没有找到任何数据库"/缓存竞态/异步加载没完成用户已点进 picker。
@@ -164,5 +169,26 @@ Future<void> _load() async {
 
 ## 项目内范例
 
-- `lib/lab/demos/notion_image_host_demo.dart:550-560` — `_loadingCache` 标志 + 三件套实现
-- `lib/lab/demos/notion_image_host_demo.dart:687-720` — `_pickDatabase` 守卫实现
+- `lib/lab/demos/notion_image_host_demo.dart:1046` — `bool _loadingCache = true` 标志位声明
+- `lib/lab/demos/notion_image_host_demo.dart:1080-1104` — `_loadCachedDatabases()` 的 try/catch/finally 三件套实现
+- `lib/lab/demos/notion_image_host_demo.dart:1204-1220` — `_pickDatabase()` 的 flag 守卫（等待 + 超时 + SnackBar 反馈）
+
+## 已知 caveat（生产代码仍存在）
+
+`lib/lab/demos/notion_image_host_demo.dart:1085` 的 `await SharedPreferences.getInstance()` **落在 try 块之外**：
+
+```dart
+final prefs = await SharedPreferences.getInstance();   // :1085 ← try 之外
+final cached = prefs.getString(_kDbListPrefsKey(token));
+try {                                   // :1087
+  ...
+} catch (_) {
+  await prefs.remove(_kDbListPrefsKey(token));
+} finally {
+  if (mounted) setState(() => _loadingCache = false);   // :1102
+}
+```
+
+`getInstance()` 抛异常（首次初始化 SharedPreferences 失败、平台通道异常）时，`finally` 根本进不去 → **`_loadingCache` 永久卡在 true** → picker 一直提示"数据库列表加载中"直到超时。
+
+**正确做法**：把 `await SharedPreferences.getInstance()` 挪进 `try`，或在它之前单独包一层 try/catch 保证 flag 一定落 false。

@@ -1,4 +1,9 @@
-# A06 · Zen 浮卡少描边
+---
+name: zen-float-card
+description: 什么时候做「白卡浮在浅底、靠阴影分层、少描边」的浮卡时读——Zen 浮卡配方、token 对照、组内分隔与图标瓦规则。
+---
+
+# Zen 浮卡少描边
 
 > 何时读：做设置列表、设备/电脑 peer 列表、大厅表单卡、茶禅暖底工具页；原型 brief 写「白卡浮在浅底、靠阴影分层、少描边」时。
 >
@@ -48,6 +53,7 @@ Material(
 ```
 
 - **组内分隔**：用 hairline（`outline` @ 0.06）或竖向间距，**不要**给每行再描一圈边。
+- **`surfaceTintColor: Colors.transparent` 已被手抄多处**：全仓 12 处（`grep -rn "surfaceTintColor: Colors.transparent" lib/`），其中 10 处在 `lib/core/remotetype/`（`rt_page.dart`、`ui/rt_shortcut_bar.dart`、`ui/rt_input_view.dart`、`ui/rt_pairing_view.dart`、`ui/rt_connecting_overlay.dart`），另 2 处在 `lib/lab/demos/session_host_demo.dart` 与 `lib/screens/profile/lab/demo_detail_page.dart`。同一段浮卡配方重复这么多遍 → **建议抽一个 `ZenFloatCard` widget**（内含 `surface` 底 + `surfaceTintColor: transparent` + 圆角 18 + 阴影），新卡直接复用，别再复制粘贴。
 - **图标瓦**：`primaryContainer` 底 + `onPrimaryContainer` icon，圆角 ~14；在线态可叠 8–10px primary 圆点。
 - **整行可点**：功能列表/电脑列表不要再塞显式「连接」主按钮（见 RemoteType 统一登录路径）。
 
@@ -64,7 +70,7 @@ Material(
 | Composer `TextField` 只设 `border: none` | 焦点仍可能出 outline | `enabled/focused/errorBorder` 全 `InputBorder.none`，`filled: false` |
 | 每屏多个 clay CTA | 无重心 | clay/tertiary 每屏最多一个仪式主按钮（见 [[Ea10-胶囊与方圆角CTA]]） |
 | 导航 icon 彩虹色 | 与主文档「导航统一主题色」冲突 | 统一 `primary` / `primaryContainer` |
-| 把 A01 描边减负套到浮卡外框 | 双边框打架 | A01 管**按钮/icon 容器**；浮卡外框走本方案 |
+| 把 [[Ea03-边框强调式减负]] 套到浮卡外框 | 双边框打架 | 描边减负管**按钮/icon 容器**；浮卡外框走本方案 |
 
 ## 关联
 

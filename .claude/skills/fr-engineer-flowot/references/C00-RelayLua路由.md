@@ -399,7 +399,7 @@ await handle.applyAction(
 **场景：** 同一段 UI / 逻辑（stream 订阅 + 防双击 + 失败 snackbar）在 4+ 个 demo 各写一遍时。
 
 **做法（做对了什么）：**
-- 抽出到 `lib/core/<subsystem>/<name>.dart`（本例 `lib/core/net_engine/relay_v3/relay_connection_bar.dart`）
+- 抽出到 `lib/core/<subsystem>/<name>.dart`（本例 `lib/core/ui/game/relay_connection_bar.dart`——UI 件落全局组件目录 `lib/core/ui/game/`，2026-10-24 起）
 - 自带 stream 订阅 + 状态管理（callers 0 状态代码）
 - 在所有 demo 文件加 1 行 import + 1 行调用即接入（`<RelayConnectionBar(handle: widget.handle) />`）
 - 适用范围 ≤ 5 个 demo 时**不要**硬抽——直接 inline；≥ 4 个时**应该**抽出来

@@ -1,7 +1,12 @@
+---
+name: theme-extension-sop
+description: 什么时候要新增主题配色 / 语义角色 / 组件样式 / 把裸 hex 迁进主题通道 / 写识别色特例时读——FR 主题系统的扩展与迁移 SOP、踩坑库与豁免规则。
+---
+
 # 如何扩展主题（theme-extension）
 
-> 本文是 **FR 主题系统扩展与迁移 SOP**：新增配色/语义角色/组件样式、把硬编码迁到主题通道、判断豁免和特例策略。总路由见 [[Eb01-主题架构路由]]。
-> 系统分层/文件地图先看 [[Eb02-系统架构与数据流]]；用量现状/热点文件看 [[Eb04-颜色用量审计]]；识别色锁定业务怎么写看 [[Eb05-颜色特例策略]]。
+> 本文是 **FR 主题系统扩展与迁移 SOP**：新增配色/语义角色/组件样式、把硬编码迁到主题通道、判断豁免和特例策略。总路由见 [[Eb01-主题系统简述]]。
+> 系统分层/文件地图先看 [[Eb01-主题系统简述]]；用量现状/热点文件看 [[Eb04-颜色用量审计]]；识别色锁定业务怎么写看 [[Eb05-颜色特例策略]]。
 
 > **Sudoku 通道现状**：`SudokuColorStrategy`/context API 已存在（`lib/core/theme/context/sudoku_colors.dart`），但 `ThemeStrategyFactory` 与 `app_theme.dart` 尚未注入其 extension，context 走 factory fallback。新增 Sudoku 相关改动时按此现状处理，别误以为全链路已注册。
 
@@ -12,7 +17,7 @@
 | 新增一套主题配色 | `lib/design_tokens/color/palettes/<new>.dart` + `app_theme.dart`（+可选 `materialThemeModeProvider`） | §1 |
 | 新增强调色 / 语义角色（如在 `ColorStrategy` 加 `info`） | `colors/strategy/color_strategy/color_strategy.dart` + `colors/strategy/color_strategy/themes/default.dart`（+ 其他 strategy 如有同类需求） | §2 |
 | 新增国际象棋 / 任何"特殊棋类"的色板（两色格 + 选中/将军/升变等）| `tokens/color/<new>.dart` + `colors/strategy/<new>_color_strategy/` + `extensions/<new>_color_strategy_extension.dart` + `factory.dart` + `app_theme.dart` 注册 + `lib/core/theme/context/<new>_colors.dart` | 同 §1 流程，对照 v6.2.1 新增的 `ChessColorStrategy` |
-| 新增 / 改一个复用的组件样式 | `lib/core/ui/zen/zen_theme.dart` helper（与 `lib/core/ui/*` 对齐） | §3 |
+| 新增 / 改一个复用的组件样式 | `lib/core/ui/`（通用件）或 `lib/core/game_kit/`（域内壳层），见 [[Ec01-组件分层与复用契约]] | §3 |
 | 把既有硬编码色迁到主题通道 | 迁移 SOP | §4 |
 | 写"识别色锁定"特例（玩家靠颜色识别，跨主题不切换） | `tokens/color/<new>.dart` + strategy + extension + factory + app_theme 注册 + context_*.dart | [[Eb05-颜色特例策略]] |
 | 看历史踩过的反模式 / 找正确做法 | 踩坑经验库 | §4.5 |
@@ -66,8 +71,8 @@
 
 - **能用内置的，不建新的**：普通按钮/卡片用 `FilledButtonTheme`/`ElevatedButtonTheme`/`CardTheme`（已在 `app_theme.dart` 的 `_buildTheme` 注册，统一从 scheme 派生）。
 - **非内置复合样式**（如 hero 圆钮、状态点）：
-  - `lib/core/theme/component/` 目录已解散（2026-10 清理，零消费者）；新加样式落到 `lib/core/ui/zen/zen_theme.dart` 的 helper 或 `lib/core/ui/*` 下的 widget（纯样式函数读 `Theme.of(context).colorScheme.X`，不写裸 hex）。
-  - 需要 widget 结构 + 样式 → `lib/core/ui/zen/zen_theme.dart` 加 helper 或委托 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
+  - `lib/core/theme/component/` 目录已解散（2026-10 清理，零消费者）；新加样式落到 `lib/core/ui/` 下的通用 widget（纯样式函数读 `Theme.of(context).colorScheme.X`，不写裸 hex），或 `lib/core/game_kit/` 下的域内壳层——两者的分层判据见 [[Ec01-组件分层与复用契约]]。
+  - 需要 widget 结构 + 样式 → 在 `lib/core/ui/` 加 widget；需要复用样式常量则可在 `lib/core/ui/zen/zen_theme.dart` 加 helper 后委托给 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
 - 新增 helper 后，用色规模/热点登记进 [[Eb04-颜色用量审计]] 对应章节，保持审计 ref 新鲜。
 
 ## 4. 把既有硬编码迁到主题通道（迁移 SOP）
@@ -143,7 +148,7 @@
 
 ### 4.5.11 ❌ "看起来颜色不对"先改 token 而不是先查树
 
-**正确做法**：颜色不对先按 [[Eb02-系统架构与数据流]] §6.4 的调试步骤排查（嵌套 MaterialApp？Provider 树隔离？token 注入？组件裸 hex？），**90% 的"颜色不对"是树问题，不是 token 问题**。
+**正确做法**：颜色不对先按 [[Eb04-颜色用量审计]] §6.5「历史踩坑文件清单」排查（嵌套 MaterialApp？Provider 树隔离？token 注入？组件裸 hex？），**90% 的"颜色不对"是树问题，不是 token 问题**。
 
 ### 4.5.12 ❌ "颜色太深"先想到 `surfaceContainerHighest` → `primaryContainer` 就停
 
@@ -202,7 +207,7 @@
 3. **特例 strategy（无需豁免注释，架构决策保留）**：
    - `tokens/color/tetris.dart` 4 角色 + 7 方块色（识别色锁定，玩家靠颜色识别方块）
    - `tokens/color/team.dart` 6 头像色（识别色锁定）
-   - `lib/core/surround_game` 与 `lib/core/reversi` 的 `BoardThemeData`（86 处，见 [[Eb02-系统架构与数据流]] §5.8）
+   - `lib/core/surround_game` 与 `lib/core/reversi` 的 `BoardThemeData`（86 处，见 [[Eb04-颜色用量审计]] §7「v7 架构议题」）
 
 **红线**：`lib/` 新增代码不默认这些豁免——只有上面场景适用，任何其它裸 hex 都要先想通道。
 
