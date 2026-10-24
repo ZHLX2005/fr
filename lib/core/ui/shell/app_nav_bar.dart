@@ -266,7 +266,7 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
                   child: titleSlot!,
                 ),
               ),
-              if (trailing != null) trailing,
+              if (trailing != null) trailing!,
             ],
           ),
         ),
