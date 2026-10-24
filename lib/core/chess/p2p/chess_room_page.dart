@@ -30,7 +30,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/context/chess_colors.dart';
 import '../../game_audio/piece_sound.dart';
-import '../../game_kit/lobby/game_ready_style.dart';
+import '../../ui/game/game_ready_style.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
@@ -54,13 +54,14 @@ import '../skins/chess_skin.dart';
 import '../skins/local_chess_skin.dart';
 import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
-import '../../net_engine/relay_v3/relay_connection_status_badge.dart';
+import '../../ui/game/relay_connection_status_badge.dart';
 import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 import 'chess_net.dart';
 import 'chess_room_config_page.dart';
-import '../../game_kit/chat/board_chat_overlay.dart';
+import '../../ui/game/board_chat_overlay.dart';
 import 'widgets/player_strip.dart';
+import '../../ui/shell/app_notification.dart';
 
 /// 快照驱动的在线对弈房间页（v3 Relay + kChessScript）。
 class ChessRoomPage extends StatefulWidget {
@@ -769,24 +770,18 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       if (!mounted) return;
       if (e.statusCode == 409) {
         // CAS 版本不匹配 → 拉最新快照（服务端状态优先）。
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('状态已过期，同步中…')),
-        );
+        AppNotification.show(context, '状态已过期，同步中…', type: AppNotificationType.info);
         // 409 reconcile：fetchSnapshot 走带 UI 反馈的版本（顶部进度条）。
         await _fetchSnapshotWithFeedback();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-        );
+        AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
       }
       if (mounted) {
         setState(() => _sendLock = false);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
       if (mounted) {
         setState(() => _sendLock = false);
       }
@@ -808,15 +803,11 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
       if (e.statusCode != 409) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('终局声明失败: ${e.statusCode} ${e.body}')),
-        );
+        AppNotification.show(context, '终局声明失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('终局声明失败: $e')),
-      );
+      AppNotification.show(context, '终局声明失败: $e', type: AppNotificationType.error);
     }
   }
 
@@ -843,9 +834,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await _room?.deal();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('开局失败: $e')),
-        );
+        AppNotification.show(context, '开局失败: $e', type: AppNotificationType.error);
       }
     } finally {
       if (mounted) {
@@ -874,9 +863,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('改规则失败: $e')),
-        );
+        AppNotification.show(context, '改规则失败: $e', type: AppNotificationType.error);
       }
     } finally {
       if (mounted) setState(() => _setRulesLock = false);
@@ -911,9 +898,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('设置残局失败: $e')),
-        );
+        AppNotification.show(context, '设置残局失败: $e', type: AppNotificationType.error);
       }
     } finally {
       if (mounted) setState(() => _setRulesLock = false);
@@ -931,9 +916,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await (_room ?? ChessRoom(widget.handle)).setRules(clearEndgame: true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清除残局失败: $e')),
-        );
+        AppNotification.show(context, '清除残局失败: $e', type: AppNotificationType.error);
       }
     } finally {
       if (mounted) setState(() => _setRulesLock = false);
@@ -949,14 +932,10 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await widget.handle.applyAction(type: 'RESIGN', params: {});
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-      );
+      AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) {
         setState(() => _sendLock = false);
@@ -1045,20 +1024,14 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       );
       if (!_opponentOffered && mounted) {
         // 只发了 offer（对方尚未回）→ 提示"已发送议和请求，等待对方回应"。
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已发送议和请求，等待对方回应')),
-        );
+        AppNotification.show(context, '已发送议和请求，等待对方回应', type: AppNotificationType.success);
       }
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-      );
+      AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) {
         setState(() => _sendLock = false);
@@ -1074,14 +1047,10 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await widget.handle.applyAction(type: 'DRAW_DECLINE', params: {});
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-      );
+      AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) {
         setState(() => _sendLock = false);
@@ -1104,28 +1073,20 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       );
       if (!accepting && mounted) {
         // 只发了 offer（对方尚未回）→ 提示"已发送悔棋请求，等待对方回应"。
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已发送悔棋请求，等待对方回应')),
-        );
+        AppNotification.show(context, '已发送悔棋请求，等待对方回应', type: AppNotificationType.success);
       }
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
       if (e.statusCode == 409) {
         // CAS 版本不匹配 → 拉最新快照（服务端状态优先）。
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('状态已过期，同步中…')),
-        );
+        AppNotification.show(context, '状态已过期，同步中…', type: AppNotificationType.info);
         await _fetchSnapshotWithFeedback();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-        );
+        AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) {
         setState(() => _sendLock = false);
@@ -1141,14 +1102,10 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await widget.handle.applyAction(type: 'UNDO_DECLINE', params: {});
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-      );
+      AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) {
         setState(() => _sendLock = false);
@@ -1168,14 +1125,10 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await widget.handle.applyAction(type: 'RESET', params: {});
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('重开失败: ${e.statusCode} ${e.body}')),
-      );
+      AppNotification.show(context, '重开失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('重开失败: $e')),
-      );
+      AppNotification.show(context, '重开失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) {
         setState(() => _sendLock = false);
@@ -1409,27 +1362,19 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
           // 同一局此前由终局自动入库 → 转正为手动条目（同 id 重写）。
           await store.save(dup.copyWith(auto: false));
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已保存整局（${record.moveCount} 手）到对局回放库')),
-          );
+          AppNotification.show(context, '已保存整局（${record.moveCount} 手）到对局回放库', type: AppNotificationType.success);
         } else {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('该局已在回放库中，无需重复保存')),
-          );
+          AppNotification.show(context, '该局已在回放库中，无需重复保存', type: AppNotificationType.info);
         }
         return;
       }
       await store.save(record);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已保存整局（${record.moveCount} 手）到对局回放库')),
-      );
+      AppNotification.show(context, '已保存整局（${record.moveCount} 手）到对局回放库', type: AppNotificationType.success);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存整局失败：$e')),
-      );
+      AppNotification.show(context, '保存整局失败：$e', type: AppNotificationType.error);
     }
   }
 
@@ -1523,9 +1468,7 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       await widget.handle.fetchSnapshot();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('刷新失败: $e')),
-      );
+      AppNotification.show(context, '刷新失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _fetching = false);
     }

@@ -12,6 +12,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/context/colors.dart';
+import '../../ui/atomic/base_dialog.dart';
+import '../../ui/shell/app_notification.dart';
 import '../data/rt_constants.dart';
 import '../data/rt_prefs.dart';
 import 'rt_virtual_keyboard.dart';
@@ -433,9 +435,7 @@ class _ShortcutItemEditorSheetState extends State<_ShortcutItemEditorSheet> {
     }).toList();
     if (pickable.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('默认库里的快捷键都已添加')));
+      AppNotification.show(context, '默认库里的快捷键都已添加');
       return;
     }
     final picked = await showModalBottomSheet<RtShortcutItem>(
@@ -476,9 +476,8 @@ class _ShortcutItemEditorSheetState extends State<_ShortcutItemEditorSheet> {
   void _save() {
     final label = _labelCtrl.text.trim();
     if (label.isEmpty || _chords.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('显示名与至少一条快捷键都不能为空')));
+      AppNotification.show(context, '显示名与至少一条快捷键都不能为空',
+          type: AppNotificationType.error);
       return;
     }
     Navigator.pop(
@@ -1170,26 +1169,14 @@ class _ShortcutListEditorSheetState extends State<_ShortcutListEditorSheet> {
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
-                        final ok = await showDialog<bool>(
+                        await BaseConfirmDialog.show(
                           context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('恢复默认？'),
-                            content: const Text('当前编排将被覆盖为 10 条默认快捷键'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('取消'),
-                              ),
-                              FilledButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('恢复'),
-                              ),
-                            ],
-                          ),
+                          title: '恢复默认？',
+                          message: '当前编排将被覆盖为 10 条默认快捷键',
+                          confirmLabel: '恢复',
+                          onConfirm: () =>
+                              setState(() => _items = kDefaultRtShortcuts()),
                         );
-                        if (ok == true && mounted) {
-                          setState(() => _items = kDefaultRtShortcuts());
-                        }
                       },
                       child: const Text('恢复默认'),
                     ),
@@ -1358,25 +1345,15 @@ class _ShortcutListEditorSheetState extends State<_ShortcutListEditorSheet> {
 Future<bool> showRtLockConfirm({
   required BuildContext context,
   required RtShortcutItem item,
-}) async {
-  final ok = await showDialog<bool>(
+}) {
+  // bool 合同保留给调用方（发送动作由调用方在拿到 true 后执行）。
+  return BaseConfirmDialog.show(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('锁屏？'),
-      content: Text('将向电脑发送 ${item.label}'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('锁屏'),
-        ),
-      ],
-    ),
+    title: '锁屏？',
+    message: '将向电脑发送 ${item.label}',
+    confirmLabel: '锁屏',
+    onConfirm: () {},
   );
-  return ok == true;
 }
 
 // ============================================================

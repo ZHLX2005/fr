@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../../game_kit/chat/chat_event.dart';
 import '../../../game_kit/emoji/emoji_bundle.dart';
 import '../../../game_kit/skin/file_resolver.dart';
+import '../../../ui/shell/app_notification.dart';
 
 const List<String> kChatQuickPhrases = [
   '加油！',
@@ -151,7 +152,7 @@ class _ChatSheetState extends State<ChatSheet> {
       _appendLocal(kind: ChatKind.text, text: text);
     } catch (_) {
       if (!mounted) return;
-      _toast('发送失败');
+      _toast('发送失败', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -173,16 +174,15 @@ class _ChatSheetState extends State<ChatSheet> {
       _appendLocal(kind: ChatKind.emoji, emojiId: id);
     } catch (_) {
       if (!mounted) return;
-      _toast('表情发送失败');
+      _toast('表情发送失败', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 1)),
-    );
+  void _toast(String msg, {AppNotificationType type = AppNotificationType.warning}) {
+    AppNotification.show(context, msg,
+        type: type, duration: const Duration(milliseconds: 1000));
   }
 
   @override

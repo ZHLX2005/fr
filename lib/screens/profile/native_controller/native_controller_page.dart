@@ -5,6 +5,7 @@ import '../../../core/ui/shell/emphasis_button.dart';
 import 'native_notifications_page.dart';
 import 'native_media_page.dart';
 import 'native_system_page.dart';
+import '../../../core/ui/shell/app_notification.dart';
 
 /// 原生功能控制器主页
 /// 汇总所有原生功能测试入口
@@ -324,15 +325,11 @@ class NativeControllerPage extends StatelessWidget {
     try {
       await AppSettings.openAppSettings(type: AppSettingsType.settings);
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('已打开系统设置页面')));
+        AppNotification.show(context, '已打开系统设置页面', type: AppNotificationType.success);
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('打开设置失败: $e')));
+        AppNotification.show(context, '打开设置失败: $e', type: AppNotificationType.error);
       }
     }
   }

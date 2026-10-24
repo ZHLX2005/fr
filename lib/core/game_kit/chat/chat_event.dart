@@ -2,7 +2,7 @@
 //
 // Unified in-game chat event (text from chatRing + emoji from emojiRing).
 
-import '../emoji/emoji_overlay.dart' show SnapshotEmojiEvent, emojisFromSnapshot;
+import '../emoji/emoji_snapshot.dart' show SnapshotEmojiEvent, emojisFromSnapshot;
 
 /// Message kind for avatar-anchored bubbles / history sheet.
 enum ChatKind { text, emoji }

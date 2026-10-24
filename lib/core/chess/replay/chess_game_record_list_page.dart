@@ -14,10 +14,12 @@
 
 import 'package:flutter/material.dart';
 
+import '../../ui/atomic/base_dialog.dart';
 import '../skins/chess_skin.dart';
 import 'chess_game_record.dart';
 import 'chess_game_record_store.dart';
 import 'chess_game_replay_page.dart';
+import '../../ui/shell/app_notification.dart';
 
 /// 对局回放库列表页。
 class ChessGameRecordListPage extends StatefulWidget {
@@ -73,34 +75,22 @@ class _ChessGameRecordListPageState extends State<ChessGameRecordListPage> {
     }
   }
 
-  Future<void> _delete(ChessGameRecord r) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _delete(ChessGameRecord r) {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除对局'),
-        content: Text('确定删除「${r.title}」？此操作不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      title: '删除对局',
+      message: '确定删除「${r.title}」？此操作不可恢复。',
+      confirmLabel: '删除',
+      onConfirm: () async {
+        try {
+          await _store.delete(r.id);
+          await _reload();
+        } catch (err) {
+          if (!mounted) return;
+          AppNotification.show(context, '删除失败：$err', type: AppNotificationType.error);
+        }
+      },
     );
-    if (confirmed != true) return;
-    try {
-      await _store.delete(r.id);
-      await _reload();
-    } catch (err) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败：$err')),
-      );
-    }
   }
 
   void _openReplay(ChessGameRecord r) {

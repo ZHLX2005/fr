@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../ui/atomic/base_empty_state.dart';
 import '../ui/shell/emphasis_button.dart';
 import 'github_actions_models.dart';
 import 'github_actions_service.dart';
@@ -65,10 +66,10 @@ class _GithubActionsTabState extends State<GithubActionsTab> {
         child: ListView(
           children: [
             const SizedBox(height: 120),
-            _GithubActionsEmptyState(
+            BaseEmptyState(
               icon: Icons.account_tree_outlined,
               title: '没有 workflow runs',
-              subtitle: '仓库: ${widget.repoLabel}',
+              message: '仓库: ${widget.repoLabel}',
             ),
           ],
         ),
@@ -288,39 +289,6 @@ class _GithubActionsErrorState extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GithubActionsEmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-
-  const _GithubActionsEmptyState({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 16),
-          Text(title),
-          if (subtitle != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              subtitle!,
-              style: TextStyle(color: Theme.of(context).colorScheme.outline),
-            ),
-          ],
         ],
       ),
     );

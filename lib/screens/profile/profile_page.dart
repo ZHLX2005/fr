@@ -10,6 +10,7 @@ import '../../core/ui/renderers/springy_banner.dart';
 import '../../core/ui/renderers/bounded_bouncing_scroll_physics.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart';
 import 'character_profile_page.dart';
+import '../../core/ui/shell/app_notification.dart';
 
 /// App 级 banner 路径缓存。
 ///
@@ -157,9 +158,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _bannerPath = null;
     });
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Banner已移除')));
+      AppNotification.show(context, 'Banner已移除', type: AppNotificationType.success);
     }
   }
 

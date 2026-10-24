@@ -1,4 +1,4 @@
-// lib/core/net_engine/relay_v3/relay_connection_bar.dart
+// lib/core/ui/game/relay_connection_bar.dart
 //
 // 共享的 WS 连接状态条 — 所有基于 Lua 的互联网房间游戏通用。
 //
@@ -21,7 +21,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'relay_v3_transport.dart';
+import '../shell/app_notification.dart';
+import '../../net_engine/relay_v3/relay_v3_transport.dart';
 
 /// WS 连接状态条（圆点 + 文字 + 拉取最新快照按钮）。
 ///
@@ -74,13 +75,8 @@ class _RelayConnectionBarState extends State<RelayConnectionBar> {
       await widget.handle.fetchSnapshot();
     } catch (_) {
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('拉取快照失败（HTTP）'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppNotification.show(context, '拉取快照失败（HTTP）',
+          type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _pulling = false);
     }

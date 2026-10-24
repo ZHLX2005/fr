@@ -237,6 +237,7 @@ class RtCanvasAnchor {
     this.w,
     this.h,
     this.dir8 = false,
+    this.hit = 1.0,
   });
 
   final bool visible;
@@ -251,6 +252,11 @@ class RtCanvasAnchor {
   /// 稀疏持久化——四向不落字段，旧数据读入按缺省兜底。
   final bool dir8;
 
+  /// 四向判定区域倍率（仅轮盘模块四向模式有意义）：1.0 = 与视觉十字同形。
+  /// 稀疏持久化——默认不落字段，旧数据读入按 1.0 兜底；读写都钳在
+  /// [kRtCanvasDpadHitMin, kRtCanvasDpadHitMax]。
+  final double hit;
+
   RtCanvasAnchor copyWith({
     bool? visible,
     double? x,
@@ -258,6 +264,7 @@ class RtCanvasAnchor {
     double? w,
     double? h,
     bool? dir8,
+    double? hit,
   }) => RtCanvasAnchor(
     visible: visible ?? this.visible,
     x: x ?? this.x,
@@ -265,6 +272,7 @@ class RtCanvasAnchor {
     w: w ?? this.w,
     h: h ?? this.h,
     dir8: dir8 ?? this.dir8,
+    hit: hit ?? this.hit,
   );
 
   Map<String, dynamic> toJson() => {
@@ -274,6 +282,7 @@ class RtCanvasAnchor {
     if (w != null) 'w': w,
     if (h != null) 'h': h,
     if (dir8) 'd8': true,
+    if (hit != 1.0) 'hit': hit,
   };
 
   factory RtCanvasAnchor.fromJson(Map<String, dynamic> j) => RtCanvasAnchor(
@@ -288,6 +297,10 @@ class RtCanvasAnchor {
     w: _clampFraction(j['w']),
     h: _clampFraction(j['h']),
     dir8: j['d8'] == true,
+    hit: (j['hit'] is num ? (j['hit'] as num).toDouble() : 1.0).clamp(
+      kRtCanvasDpadHitMin,
+      kRtCanvasDpadHitMax,
+    ),
   );
 
   static double? _clampFraction(dynamic v) =>
@@ -297,6 +310,11 @@ class RtCanvasAnchor {
 /// 画布按钮尺寸倍率上下限（编辑拖动与持久化读入同一处钳制——单一事实源）。
 const double kRtCanvasBtnScaleMin = 0.6;
 const double kRtCanvasBtnScaleMax = 2.2;
+
+/// 方向模块四向判定区域倍率上下限（1.0 = 与视觉十字同形；编辑面板滑杆与
+/// 持久化读入同一处钳制——单一事实源）。
+const double kRtCanvasDpadHitMin = 0.6;
+const double kRtCanvasDpadHitMax = 1.6;
 
 /// 画布按钮位：归一化中心 + 尺寸倍率 + 画布内可见性 + 形状。
 /// （快捷键的「有哪些」归打字页编辑器，「显示哪些」归这里的 v。）

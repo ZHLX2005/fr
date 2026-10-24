@@ -46,6 +46,8 @@ import '../data/rt_prefs.dart'
         RtCanvasButtonPos,
         RtCanvasLayout,
         RtShortcutItem,
+        kRtCanvasDpadHitMax,
+        kRtCanvasDpadHitMin,
         kRtCanvasModuleComposer,
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
@@ -353,8 +355,9 @@ class _RtCanvasViewState extends State<RtCanvasView>
   /// 拷贝当前 activeLayout 并替换指定模块/按钮后返回新 RtCanvasLayout。
   /// hideShortcuts 必须原样携带——游戏/键盘布局靠它压掉快捷键按钮，丢了
   /// 等于「拖一下模块，按钮整体复活」（跨布局配置串台）。
-  /// anchor 同理走 copyWith——轮盘的方向模式（dir8）挂在 anchor 上，
-  /// 手建新对象会把它悄悄丢掉（切了八向、拖一下模块就回四向）。
+  /// anchor 同理走 copyWith——轮盘的方向模式（dir8）与四向判定倍率（hit）
+  /// 都挂在 anchor 上，手建新对象会把它悄悄丢掉（切了八向、拖一下模块就
+  /// 回四向；调了判定区、拖一下就回同形）。
   RtCanvasLayout _patchAnchor(
     String id, {
     bool? visible,
@@ -362,6 +365,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
     double? y,
     double? w,
     double? h,
+    double? hit,
   }) {
     final modules = Map<String, RtCanvasAnchor>.of(widget.activeLayout.modules);
     final cur =
@@ -372,6 +376,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
       y: y,
       w: w,
       h: h,
+      hit: hit,
     );
     return RtCanvasLayout(
       modules: modules,
@@ -646,6 +651,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
                 ),
                 for (final spec in kRtCanvasModuleSpecs)
                   _moduleSideRow(cs, spec),
+                ..._dpadHitRows(cs),
                 Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
                 ..._shortcutSectionRows(cs),
                 Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
@@ -707,6 +713,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
               // 模块显隐：右侧竖排控制列表（与模块设置页同一清单）。
               for (final spec in kRtCanvasModuleSpecs)
                 _moduleSideRow(cs, spec),
+              ..._dpadHitRows(cs),
               Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
               ..._shortcutSectionRows(cs),
               Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
@@ -906,6 +913,57 @@ class _RtCanvasViewState extends State<RtCanvasView>
       );
     }
     return rows;
+  }
+
+  // ---- 面板「方向判定区」行：四向键模式的触控判定倍率 ----
+  // 仅当轮盘模块可见且处于四向模式时出现；滑杆实时写 anchor.hit，画布上
+  // 的虚线判定框即时跟随（八向轮盘无此参数——扇区判定无死角）。
+
+  /// 判定区行（编辑工具面板共用：竖屏弹窗 / 横屏右轨）。
+  List<Widget> _dpadHitRows(ColorScheme cs) {
+    final c = context.colors;
+    final anchor = _anchorOf(kRtCanvasModuleDpad);
+    if (!anchor.visible || anchor.dir8) return const [];
+    final pct = '${(anchor.hit * 100).round()}%';
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(6, 7, 6, 0),
+        child: Row(
+          children: [
+            Icon(Icons.adjust, size: 16, color: c.textMuted),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                '方向判定区',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, color: c.text),
+              ),
+            ),
+            Text(
+              pct,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+      Slider(
+        value: anchor.hit.clamp(kRtCanvasDpadHitMin, kRtCanvasDpadHitMax)
+            .toDouble(),
+        min: kRtCanvasDpadHitMin,
+        max: kRtCanvasDpadHitMax,
+        divisions: 20,
+        label: pct,
+        onChanged: (v) => widget.onLayoutChanged(
+          _patchAnchor(kRtCanvasModuleDpad, hit: v),
+        ),
+        onChangeEnd: (_) => unawaited(HapticFeedback.selectionClick()),
+      ),
+    ];
   }
 
   // ---- 模块通用：尺寸解析与编辑态包装 ----
@@ -1112,6 +1170,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
       enabled: widget.connected,
       showLegend: !widget.editMode,
       dir8: _anchorOf(kRtCanvasModuleDpad).dir8,
+      hitRatio: _anchorOf(kRtCanvasModuleDpad).hit,
+      editMode: widget.editMode,
       onDirection: widget.onDirection,
     );
     if (widget.editMode) {

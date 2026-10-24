@@ -13,6 +13,8 @@ import 'pi_chat_message.dart';
 import 'pi_chat_settings.dart';
 import 'pi_chat_settings_page.dart';
 import 'pi_chat_ui.dart';
+import '../../ui/atomic/base_dialog.dart';
+import '../../ui/shell/app_notification.dart';
 import '../../ui/shell/quick_nav_bottom_bar.dart';
 
 /// pi 聊天页 —— 建会话 / 发消息 / SSE 流式渲染 / 历史回读。
@@ -191,13 +193,13 @@ class _PiChatPageState extends State<PiChatPage> {
     // 此前只查 sending —— 创建会话最长 180s 的窗口把同样一类数据丢失
     // 重新引进来，第 6 次复评探针实锤）。
     if (_controller.sending || _controller.creating) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_controller.creating
+      AppNotification.show(
+        context,
+        _controller.creating
             ? '正在创建会话，请稍候（输入已保留）'
-            : '正在生成回复，请稍候（输入已保留）'),
-        duration: const Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-      ));
+            : '正在生成回复，请稍候（输入已保留）',
+        duration: const Duration(milliseconds: 1000),
+      );
       return;
     }
     _input.clear();
@@ -225,60 +227,39 @@ class _PiChatPageState extends State<PiChatPage> {
     }
   }
 
-  Future<void> _confirmClearLocal() async {
-    final ok = await showDialog<bool>(
+  Future<void> _confirmClearLocal() {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('清空本地记录？'),
-        content: const Text(
-            '将删除本地 Hive 中所有气泡与历史（服务端会话不受影响）。'
-            '刷新后会从服务端重新合并。'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('清空')),
-        ],
-      ),
+      title: '清空本地记录？',
+      message: '将删除本地 Hive 中所有气泡与历史（服务端会话不受影响）。'
+          '刷新后会从服务端重新合并。',
+      confirmLabel: '清空',
+      onConfirm: () async {
+        await _controller.clearLocal();
+        if (mounted) {
+          AppNotification.show(context, '已清空本地记录',
+              type: AppNotificationType.success);
+        }
+      },
     );
-    if (ok == true) {
-      await _controller.clearLocal();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已清空本地记录')),
-        );
-      }
-    }
   }
 
   Future<void> _confirmDeleteSession() async {
-    final ok = await showDialog<bool>(
+    // 确认后的动作会 pop 页面路由，须等弹窗关闭后再执行 → 用返回值驱动；
+    // onConfirm 为 BaseConfirmDialog 必传参数，此处留空。
+    final ok = await BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除整个会话？'),
-        content: const Text(
-            '将从服务端和本地同时删除该会话（不可恢复）。'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
-          FilledButton(
-              style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(ctx).colorScheme.error),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除')),
-        ],
-      ),
+      title: '删除整个会话？',
+      message: '将从服务端和本地同时删除该会话（不可恢复）。',
+      confirmLabel: '删除',
+      onConfirm: () {},
     );
-    if (ok == true) {
+    if (ok) {
       await _controller.deleteSession();
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已删除会话')),
-        );
+        AppNotification.show(context, '已删除会话',
+            type: AppNotificationType.success);
       }
     }
   }
@@ -296,9 +277,8 @@ class _PiChatPageState extends State<PiChatPage> {
       _controller.addImage(x.name, base64Encode(bytes));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选图失败: $e')),
-        );
+        AppNotification.show(context, '选图失败: $e',
+            type: AppNotificationType.error);
       }
     }
   }
@@ -350,9 +330,8 @@ class _PiChatPageState extends State<PiChatPage> {
       }
     } on PiApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('拉取模型清单失败: ${e.message}')),
-        );
+        AppNotification.show(context, '拉取模型清单失败: ${e.message}',
+            type: AppNotificationType.error);
       }
     } finally {
       endpoint.close();

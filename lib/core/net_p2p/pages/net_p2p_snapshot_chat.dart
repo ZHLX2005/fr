@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import 'package:xiaodouzi_fr/core/ui/shell/app_notification.dart';
 
 /// 快照驱动的聊天页面（v3）
 class NetP2PSnapshotChatPage extends StatefulWidget {
@@ -100,9 +101,8 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
       );
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-      );
+      AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}',
+          type: AppNotificationType.error);
       if (e.statusCode == 409) {
         // CAS 版本不匹配 — refetch 最新 snapshot
         try {
@@ -113,9 +113,8 @@ class _NetP2PSnapshotChatPageState extends State<NetP2PSnapshotChatPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e',
+          type: AppNotificationType.error);
     }
   }
 

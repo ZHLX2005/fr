@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../ui/shell/app_notification.dart';
 import 'timetable_colors.dart';
 
 /// 周期可见性选择器
@@ -66,12 +67,9 @@ class _CycleVisibilitySelectorState extends State<CycleVisibilitySelector> {
   void _toggleCycle(int cycleIndex) {
     // 检查是否是冲突周期
     if (widget.occupiedCycles.contains(cycleIndex)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('周期${cycleIndex + 1}已被其他课程占用'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      AppNotification.show(context, '周期${cycleIndex + 1}已被其他课程占用',
+          type: AppNotificationType.warning,
+          duration: const Duration(milliseconds: 1000));
       return;
     }
 

@@ -1,4 +1,4 @@
-// lib/core/game_kit/lobby/game_lobby_page.dart
+// lib/core/ui/game/game_lobby_page.dart
 //
 // GameLobbyPage —— Lua 联机游戏入口页通用壳。
 //
@@ -25,8 +25,8 @@ import '../../../services/lua/lua_game_alias.dart';
 import '../../nav/nav_route.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '_lobby_form.dart';
-import 'game_lobby_slots.dart';
-import 'game_lobby_spec.dart';
+import '../../game_kit/lobby/game_lobby_slots.dart';
+import '../../game_kit/lobby/game_lobby_spec.dart';
 
 class GameLobbyPage extends StatefulWidget {
   final GameLobbySpec spec;

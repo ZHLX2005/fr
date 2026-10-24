@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../endgame/chess_endgame.dart';
 import '../endgame/chess_endgame_store.dart';
+import '../../ui/shell/app_notification.dart';
 
 /// 构建并持久化一个残局快照（source 固定为 [ChessEndgameSource.replay]），
 /// 成功/失败均以 SnackBar 反馈（幂等：id 已存在时提示"残局已更新"）。
@@ -68,8 +69,6 @@ Future<void> saveEndgameSnapshotWithFeedback(
     );
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('导出失败：$e')),
-    );
+    AppNotification.show(context, '导出失败：$e', type: AppNotificationType.error);
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../ui/atomic/base_empty_state.dart';
+import '../ui/shell/app_notification.dart';
 import 'share_receive_store.dart';
 
 /// 外部分享接收页 —— 展示其他 app 分享给 FR 的文本/文件。
@@ -16,7 +18,14 @@ class ShareReceivePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('收到的分享')),
-      body: data.isEmpty ? const _EmptyView() : _ShareContent(data: data),
+      body: data.isEmpty
+          ? const BaseEmptyState(
+              icon: Icons.share_outlined,
+              title: '暂无分享内容',
+              message: '在其他应用里选择「分享」并挑选「小豆子」即可收到内容',
+              iconSize: 48,
+            )
+          : _ShareContent(data: data),
     );
   }
 }
@@ -55,9 +64,8 @@ class _ShareContent extends StatelessWidget {
                   child: TextButton.icon(
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: text));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('已复制到剪贴板')),
-                      );
+                      AppNotification.show(context, '已复制到剪贴板',
+                          type: AppNotificationType.success);
                     },
                     icon: const Icon(Icons.copy, size: 16),
                     label: const Text('复制'),
@@ -114,42 +122,9 @@ class _FileTile extends StatelessWidget {
         subtitle: Text(uri, maxLines: 2, overflow: TextOverflow.ellipsis),
         onTap: () {
           Clipboard.setData(ClipboardData(text: uri));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已复制文件地址')),
-          );
+          AppNotification.show(context, '已复制文件地址',
+              type: AppNotificationType.success);
         },
-      ),
-    );
-  }
-}
-
-class _EmptyView extends StatelessWidget {
-  const _EmptyView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.share_outlined,
-            size: 48,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '暂无分享内容\n在其他应用里选择「分享」并挑选「小豆子」即可收到内容',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
       ),
     );
   }

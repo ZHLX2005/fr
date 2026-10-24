@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:xiaodouzi_fr/core/net_engine/lan/lan_discovery.dart';
+import 'package:xiaodouzi_fr/core/ui/shell/app_notification.dart';
 
 import '../net_engine_types.dart';
 
@@ -27,9 +28,9 @@ class NetEngineSettingsPage extends StatelessWidget {
         multicastPort: multicastPort,
         multicastAddress: multicastAddress,
       ).buildSettingsPage(
-        onSaved: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
-        ),
+        onSaved: () => AppNotification.show(context, '已保存',
+            type: AppNotificationType.success,
+            duration: const Duration(milliseconds: 1000)),
       ),
     );
   }

@@ -8,7 +8,9 @@ import 'timetable_import_dialog.dart';
 import 'advanced/cycle_config_strategy.dart';
 import 'advanced/shared/zen_controls.dart';
 import '../../../ui/zen/zen_theme.dart';
+import '../../../../core/ui/atomic/base_dialog.dart';
 import '../../../../core/ui/atomic/base_section.dart';
+import '../../../../core/ui/shell/app_notification.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
 ///
@@ -101,13 +103,10 @@ class _TimetableAdvancedSettingsPageState
 
     if (!mounted) return;
     if (error != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
+      AppNotification.show(context, error, type: AppNotificationType.error);
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('高级设置已保存')));
+      AppNotification.show(context, '高级设置已保存',
+          type: AppNotificationType.success);
       Navigator.pop(context);
     }
   }
@@ -118,55 +117,38 @@ class _TimetableAdvancedSettingsPageState
       builder: (_) => const TimetableImportDialog(),
     );
     if (count != null && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已导入 $count 门课程')));
+      AppNotification.show(context, '已导入 $count 门课程',
+          type: AppNotificationType.success);
     }
   }
 
   Future<void> _exportDsl() async {
     final dsl = ref.read(TimetableStore.provider.notifier).exportToDsl();
     if (dsl.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('暂无课程可导出')));
+      AppNotification.show(context, '暂无课程可导出');
       return;
     }
     await Clipboard.setData(ClipboardData(text: dsl));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('DSL 已复制到剪贴板')));
+      AppNotification.show(context, 'DSL 已复制到剪贴板',
+          type: AppNotificationType.success);
     }
   }
 
-  Future<void> _clearAll() async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _clearAll() {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('清空确认'),
-        content: Text('确定要清空所有课程吗？此操作不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: context.colors.danger),
-            child: const Text('清空'),
-          ),
-        ],
-      ),
+      title: '清空确认',
+      message: '确定要清空所有课程吗？此操作不可恢复。',
+      confirmLabel: '清空',
+      onConfirm: () async {
+        await ref.read(TimetableStore.provider.notifier).clearAllItems();
+        if (mounted) {
+          AppNotification.show(context, '已清空所有课程',
+              type: AppNotificationType.success);
+        }
+      },
     );
-    if (confirmed == true) {
-      await ref.read(TimetableStore.provider.notifier).clearAllItems();
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('已清空所有课程')));
-      }
-    }
   }
 
   @override

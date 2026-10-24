@@ -6,6 +6,8 @@ import '../../../services/ai_chat/agent_chat_provider.dart';
 import '../../../services/ai_chat/ai_chat_models.dart';
 import '../../../services/message_strategy/data/data.dart';
 import '../../../services/message_strategy/factory/factory.dart';
+import '../../ui/atomic/base_dialog.dart';
+import '../../ui/shell/app_notification.dart';
 import '../ai_chat_settings_page.dart';
 
 /// Agent 聊天页面 - 事件记录 Agent
@@ -331,26 +333,13 @@ class _AgentChatPageState extends State<AgentChatPage> {
     );
   }
 
-  void _showClearDialog() {
-    showDialog(
+  Future<void> _showClearDialog() {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('清空聊天记录'),
-        content: const Text('确定要清空所有聊天记录吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<AgentChatProvider>().clearMessages();
-              Navigator.pop(context);
-            },
-            child: const Text('清空', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      title: '清空聊天记录',
+      message: '确定要清空所有聊天记录吗？',
+      confirmLabel: '清空',
+      onConfirm: () => context.read<AgentChatProvider>().clearMessages(),
     );
   }
 
@@ -377,9 +366,8 @@ class _MessageBubble extends StatelessWidget {
     return GestureDetector(
       onLongPress: () {
         Clipboard.setData(ClipboardData(text: message.content));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已复制到剪贴板')),
-        );
+        AppNotification.show(context, '已复制到剪贴板',
+            type: AppNotificationType.success);
       },
       child: Align(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,

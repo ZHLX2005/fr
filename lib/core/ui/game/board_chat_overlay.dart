@@ -1,4 +1,4 @@
-// lib/core/game_kit/chat/board_chat_overlay.dart
+// lib/core/ui/game/board_chat_overlay.dart
 //
 // 棋盘对话浮层 —— 所有 relay v3 对弈房通用（自 chess/p2p/widgets 下沉：
 // 本组件只依赖 game_kit 的 chat_event / emoji_bundle / file_resolver，零棋种依赖）。
@@ -37,9 +37,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'chat_event.dart';
-import '../emoji/emoji_bundle.dart';
-import '../skin/file_resolver.dart';
+import '../../game_kit/chat/chat_event.dart';
+import '../../game_kit/emoji/emoji_bundle.dart';
+import '../../game_kit/skin/file_resolver.dart';
+import '../shell/app_notification.dart';
 
 /// 卡片内可用的快速表情（与 composer emoji 行一致）
 const List<String> kBoardChatQuickEmojis = [
@@ -281,7 +282,7 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
     try {
       await widget.onSendEmoji(id);
     } catch (_) {
-      if (mounted) _toast('表情发送失败');
+      if (mounted) _toast('表情发送失败', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -300,18 +301,17 @@ class _BoardChatOverlayState extends State<BoardChatOverlay> {
       // 文字发送后保留 composer（清空输入由 _Composer._doSendText 负责），便于连发
       return true;
     } catch (_) {
-      if (mounted) _toast('发送失败');
+      if (mounted) _toast('发送失败', type: AppNotificationType.error);
       return false;
     } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
 
-  void _toast(String msg) {
+  void _toast(String msg, {AppNotificationType type = AppNotificationType.warning}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 1)),
-    );
+    AppNotification.show(context, msg,
+        type: type, duration: const Duration(milliseconds: 1000));
   }
 
   @override

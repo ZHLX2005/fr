@@ -10,6 +10,7 @@ import 'http/http_endpoints.dart';
 import 'http/http_server.dart';
 import 'lan_transport.dart';
 import 'transport.dart';
+import '../../ui/shell/app_notification.dart';
 
 /// LAN 发现 — 没有抽象，直接具体 widget
 ///
@@ -747,9 +748,9 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
     await _LanPrefs.setMulticastAddress(addr);
     if (!mounted) return;
     widget.onSaved?.call();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
-    );
+    AppNotification.show(context, '已保存',
+        type: AppNotificationType.success,
+        duration: const Duration(milliseconds: 1000));
   }
 
   @override

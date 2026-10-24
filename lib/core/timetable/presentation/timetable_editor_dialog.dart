@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models.dart';
+import '../../ui/shell/app_notification.dart';
 import 'timetable_store.dart';
 import 'cycle_visibility_selector.dart';
 import 'timetable_colors.dart';
@@ -92,9 +93,8 @@ class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
 
   Future<void> _submit() async {
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请输入课程名称')));
+      AppNotification.show(context, '请输入课程名称',
+          type: AppNotificationType.error);
       return;
     }
 

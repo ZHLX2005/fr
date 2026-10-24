@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../ui/shell/app_notification.dart';
 import 'fr_router.dart';
 
 /// fr:// 路由栈跟踪器（CLEAR_TOP 语义依赖）
@@ -117,8 +118,6 @@ class FrNavigator {
   }
 
   static void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    AppNotification.show(context, message, type: AppNotificationType.error);
   }
 }

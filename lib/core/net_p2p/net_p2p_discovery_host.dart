@@ -9,6 +9,7 @@ import 'package:xiaodouzi_fr/core/net_engine/pages/net_engine_debug_page.dart';
 import 'package:xiaodouzi_fr/core/net_engine/pages/net_engine_settings_page.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_widget.dart';
+import 'package:xiaodouzi_fr/core/ui/shell/app_notification.dart';
 
 import 'pages/net_p2p_chat_page.dart';
 import 'pages/net_p2p_snapshot_chat.dart';
@@ -148,7 +149,8 @@ class _NetP2PPageState extends State<NetP2PPage> {
         onPeerSelected: _onLanConnected,
         onError: (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('LAN 错误: $e')));
+            AppNotification.show(context, 'LAN 错误: $e',
+                type: AppNotificationType.error);
           }
         },
       );

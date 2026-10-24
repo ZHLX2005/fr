@@ -7,6 +7,7 @@ import '../../../ui/zen/zen_theme.dart';
 import '../../../ui/zen/zen_date_picker.dart';
 import '../../../../core/ui/atomic/base_empty_state.dart';
 import '../../../../core/ui/atomic/base_dialog.dart';
+import '../../../../core/ui/shell/app_notification.dart';
 
 /// 供课表页复用（fr 28）：追剧模式 cell 点击 → 打开剧模型编辑对话框。
 /// 课程由剧模型自动派生，编辑课程本身会被覆盖，统一走剧编辑。
@@ -78,9 +79,7 @@ class _TimetableAnimeEditorPageState
   Future<void> _previewDsl() async {
     final series = _series;
     if (series.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('还没有剧，先添加一部吧')));
+      AppNotification.show(context, '还没有剧，先添加一部吧');
       return;
     }
     final initialResult = buildAnimeDsl(
@@ -355,9 +354,8 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
   void _backfill() {
     final ep = int.tryParse(_currentEpisodeCtrl.text.trim());
     if (ep == null || ep < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入当前期数（正整数）')),
-      );
+      AppNotification.show(context, '请输入当前期数（正整数）',
+          type: AppNotificationType.error);
       return;
     }
     setState(() {
@@ -377,21 +375,18 @@ class _AnimeEditDialogState extends State<_AnimeEditDialog> {
     final episodesRaw = _episodesCtrl.text.trim();
     final episodes = episodesRaw.isEmpty ? null : int.tryParse(episodesRaw);
     if (title.isEmpty || time == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('剧名、播出时间必填（开播日期/总集数可选）')),
-      );
+      AppNotification.show(context, '剧名、播出时间必填（开播日期/总集数可选）',
+          type: AppNotificationType.error);
       return null;
     }
     if (startDateIso.isNotEmpty && DateTime.tryParse(startDateIso) == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('开播日期无效')),
-      );
+      AppNotification.show(context, '开播日期无效',
+          type: AppNotificationType.error);
       return null;
     }
     if (episodesRaw.isNotEmpty && (episodes == null || episodes < 1)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('总集数应为正整数（留空 = 长期更新）')),
-      );
+      AppNotification.show(context, '总集数应为正整数（留空 = 长期更新）',
+          type: AppNotificationType.error);
       return null;
     }
     // 对齐结果回填输入框，让用户看到最终生效的时间

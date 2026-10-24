@@ -31,6 +31,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../core/nav/nav_route.dart';
+import '../../../core/ui/atomic/base_empty_state.dart';
 import '../../../lab/lab_container.dart';
 import '../../../core/ui/shell/quick_nav_bottom_bar.dart';
 import 'demo_detail_page.dart';
@@ -787,29 +788,11 @@ class _EmptyFeatured extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          children: [
-            Icon(
-              Icons.star_border_rounded,
-              size: 38,
-              color: theme.colorScheme.outline,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '收藏的游戏会出现在这里',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '点卡片右上角的星标即可收藏',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
-              ),
-            ),
-          ],
+        child: const BaseEmptyState(
+          icon: Icons.star_border_rounded,
+          title: '收藏的游戏会出现在这里',
+          message: '点卡片右上角的星标即可收藏',
+          iconSize: 38,
         ),
       ),
     );
@@ -827,37 +810,26 @@ class _EmptyBucket extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isFav = category == GameCategory.favorites;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 56),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            isSearch
-                ? Icons.search_off_rounded
-                : isFav
-                    ? Icons.star_border_rounded
-                    : Icons.videogame_asset_off,
-            size: 56,
-            color: theme.colorScheme.outline,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            isSearch ? '没有找到相关游戏' : isFav ? '还没有收藏的游戏' : '暂无此类游戏',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            isSearch ? '换个关键词试试，比如「棋」「联机」' : isFav ? '点卡片右上角的星标即可收藏' : '换个分类看看',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
-          ),
-        ],
+      child: BaseEmptyState(
+        icon: isSearch
+            ? Icons.search_off_rounded
+            : isFav
+                ? Icons.star_border_rounded
+                : Icons.videogame_asset_off,
+        title: isSearch
+            ? '没有找到相关游戏'
+            : isFav
+                ? '还没有收藏的游戏'
+                : '暂无此类游戏',
+        message: isSearch
+            ? '换个关键词试试，比如「棋」「联机」'
+            : isFav
+                ? '点卡片右上角的星标即可收藏'
+                : '换个分类看看',
+        iconSize: 56,
       ),
     );
   }

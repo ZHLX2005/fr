@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/atomic/base_empty_state.dart';
+import '../ui/shell/app_notification.dart';
 import '../ui/shell/emphasis_button.dart';
 import 'github_api_exception.dart';
 import 'github_issues_models.dart';
@@ -58,7 +60,7 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
   Future<void> _createIssue() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      _showMsg('标题不能为空');
+      _showMsg('标题不能为空', type: AppNotificationType.error);
       return;
     }
 
@@ -79,10 +81,10 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
       _titleController.clear();
       _bodyController.clear();
       _labelController.clear();
-      _showMsg('Issue 创建成功');
+      _showMsg('Issue 创建成功', type: AppNotificationType.success);
       await _fetchIssues();
     } on GithubApiException catch (e) {
-      _showMsg('创建失败: ${e.message}');
+      _showMsg('创建失败: ${e.message}', type: AppNotificationType.error);
     } finally {
       setState(() => _loading = false);
     }
@@ -92,10 +94,10 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
     setState(() => _loading = true);
     try {
       await widget.service.closeIssue(issue.number);
-      _showMsg('已关闭 #${issue.number}');
+      _showMsg('已关闭 #${issue.number}', type: AppNotificationType.success);
       await _fetchIssues();
     } on GithubApiException catch (e) {
-      _showMsg('关闭失败: ${e.message}');
+      _showMsg('关闭失败: ${e.message}', type: AppNotificationType.error);
     } finally {
       setState(() => _loading = false);
     }
@@ -105,10 +107,10 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
     setState(() => _loading = true);
     try {
       await widget.service.reopenIssue(issue.number);
-      _showMsg('已重新打开 #${issue.number}');
+      _showMsg('已重新打开 #${issue.number}', type: AppNotificationType.success);
       await _fetchIssues();
     } on GithubApiException catch (e) {
-      _showMsg('操作失败: ${e.message}');
+      _showMsg('操作失败: ${e.message}', type: AppNotificationType.error);
     } finally {
       setState(() => _loading = false);
     }
@@ -126,10 +128,8 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
     );
   }
 
-  void _showMsg(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
+  void _showMsg(String msg, {AppNotificationType type = AppNotificationType.info}) {
+    AppNotification.show(context, msg, type: type);
   }
 
   @override
@@ -199,7 +199,7 @@ class _GithubIssuesTabState extends State<GithubIssuesTab> {
         ),
         Expanded(
           child: _issues.isEmpty
-              ? const _GithubIssuesEmptyState(
+              ? const BaseEmptyState(
                   icon: Icons.inbox_outlined,
                   title: '没有可显示的 Issues',
                 )
@@ -391,21 +391,18 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
       setState(() => _issue = updated);
       await widget.onUpdated();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              updated.state == 'open'
-                  ? '已重新打开 #${updated.number}'
-                  : '已关闭 #${updated.number}',
-            ),
-          ),
+        AppNotification.show(
+          context,
+          updated.state == 'open'
+              ? '已重新打开 #${updated.number}'
+              : '已关闭 #${updated.number}',
+          type: AppNotificationType.success,
         );
       }
     } on GithubApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        AppNotification.show(context, e.message,
+            type: AppNotificationType.error);
       }
     } finally {
       if (mounted) {
@@ -422,16 +419,14 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
       );
       await widget.onUpdated();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('已克隆为 #${created.number}')));
+        AppNotification.show(context, '已克隆为 #${created.number}',
+            type: AppNotificationType.success);
         Navigator.pop(context);
       }
     } on GithubApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        AppNotification.show(context, e.message,
+            type: AppNotificationType.error);
       }
     } finally {
       if (mounted) {
@@ -481,9 +476,8 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
             onPressed: () {
               final title = titleController.text.trim();
               if (title.isEmpty) {
-                ScaffoldMessenger.of(
-                  dialogContext,
-                ).showSnackBar(const SnackBar(content: Text('标题不能为空')));
+                AppNotification.show(dialogContext, '标题不能为空',
+                    type: AppNotificationType.error);
                 return;
               }
               Navigator.pop(dialogContext);
@@ -558,10 +552,9 @@ class _IssueDetailSheetState extends State<_IssueDetailSheet> {
                     onPressed: _loading
                         ? null
                         : () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('GitHub URL: ${_issue.url}'),
-                              ),
+                            AppNotification.show(
+                              context,
+                              'GitHub URL: ${_issue.url}',
                             );
                           },
                     icon: Icon(Icons.open_in_new),
@@ -636,27 +629,6 @@ class _GithubIssuesErrorState extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GithubIssuesEmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-
-  const _GithubIssuesEmptyState({required this.icon, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 16),
-          Text(title),
         ],
       ),
     );

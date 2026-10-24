@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../ui/atomic/base_dialog.dart';
 import '../../service/config/timetable_anime_editor_page.dart';
 import '../timetable_store.dart';
 import 'cell_action_manager.dart';
@@ -37,26 +38,16 @@ class AnimeCellStrategy implements CellActionStrategy {
 
     // 空 cell / 匹配不到剧：不提供直接编辑（会被自动派生覆盖），引导去排期页
     ctx.onSelectionChanged(null);
-    final go = await showDialog<bool>(
+    // 确认动作是 push 新路由，须等弹窗关闭后再执行 → 用返回值驱动；
+    // onConfirm 为 BaseConfirmDialog 必传参数，此处留空。
+    final go = await BaseConfirmDialog.show(
       context: ctx.context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('追剧模式'),
-        content: const Text(
-          '课程由剧模型自动派生，直接编辑会被覆盖。\n请到追剧排期页添加或修改剧。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, true),
-            child: const Text('去排期页'),
-          ),
-        ],
-      ),
+      title: '追剧模式',
+      message: '课程由剧模型自动派生，直接编辑会被覆盖。\n请到追剧排期页添加或修改剧。',
+      confirmLabel: '去排期页',
+      onConfirm: () {},
     );
-    if (go == true && ctx.context.mounted) {
+    if (go && ctx.context.mounted) {
       await Navigator.push(
         ctx.context,
         MaterialPageRoute(

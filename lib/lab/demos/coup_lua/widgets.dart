@@ -17,8 +17,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/game_kit/lobby/game_ready_style.dart';
-import '../../../core/net_engine/relay_v3/relay_connection_bar.dart';
+import '../../../core/ui/game/game_ready_style.dart';
+import '../../../core/ui/game/relay_connection_bar.dart';
 
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart'
     show BoardTheme, BoardThemeData;

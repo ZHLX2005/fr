@@ -32,7 +32,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_connection_bar.dart';
+import 'package:xiaodouzi_fr/core/ui/game/relay_connection_bar.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 
 import 'cowrite_constants.dart';

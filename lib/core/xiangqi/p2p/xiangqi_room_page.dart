@@ -53,12 +53,13 @@ import 'package:flutter/material.dart';
 
 import '../../../api/goframe/goframe_config.dart';
 import '../../game_audio/piece_sound.dart';
-import '../../game_kit/chat/board_chat_overlay.dart';
+import '../../ui/game/board_chat_overlay.dart';
 import '../../game_kit/chat/chat_event.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
-import '../../game_kit/lobby/game_ready_style.dart';
+import '../../ui/game/game_ready_style.dart';
 import '../../game_kit/skin/file_resolver.dart';
-import '../../net_engine/relay_v3/relay_connection_status_badge.dart';
+import '../../ui/game/relay_connection_status_badge.dart';
+import '../../ui/atomic/base_dialog.dart';
 import '../constants/xiangqi_constants.dart';
 import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
@@ -72,6 +73,7 @@ import '../widgets/xiangqi_board.dart';
 import '../widgets/xiangqi_replay_bar.dart';
 import 'xiangqi_room.dart';
 import 'widgets/xiangqi_room_rules_panel.dart';
+import '../../ui/shell/app_notification.dart';
 
 class XiangqiRoomPage extends StatefulWidget {
   const XiangqiRoomPage({
@@ -385,9 +387,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     _room.declareEnd(_reasonName(st.reason)).catchError((Object e) {
       if (e is RelayV3Exception && e.statusCode == 409) return;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('终局上报失败: $e')),
-        );
+        AppNotification.show(context, '终局上报失败: $e', type: AppNotificationType.error);
       }
       return;
     });
@@ -460,20 +460,14 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
       if (!mounted) return;
       if (e.statusCode == 409) {
         // CAS 版本不匹配 → 拉最新快照（服务端状态优先，本地乐观局面被覆盖）。
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('状态已过期，同步中…')),
-        );
+        AppNotification.show(context, '状态已过期，同步中…', type: AppNotificationType.info);
         await _fetchSnapshotWithFeedback();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-        );
+        AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _sendLock = false);
     }
@@ -501,9 +495,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
       await _room.deal();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('开局失败: $e')),
-        );
+        AppNotification.show(context, '开局失败: $e', type: AppNotificationType.error);
       }
     } finally {
       if (mounted) setState(() => _dealLock = false);
@@ -531,9 +523,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
       await _room.setRules(hostColor: raw);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('改规则失败: $e')),
-        );
+        AppNotification.show(context, '改规则失败: $e', type: AppNotificationType.error);
       }
     } finally {
       if (mounted) setState(() => _setRulesLock = false);
@@ -548,57 +538,39 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
       await _room.reset();
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-      );
+      AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _sendLock = false);
     }
   }
 
-  /// 认输：AlertDialog 二次确认，确认后 sendLock + 失败 snackbar
+  /// 认输：二次确认，确认后 sendLock + 失败 snackbar
   /// （对齐 draughts _confirmResign）。
-  Future<void> _confirmResign() async {
-    final ok = await showDialog<bool>(
+  Future<void> _confirmResign() {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('认输'),
-        content: const Text('确定要认输吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('认输'),
-          ),
-        ],
-      ),
+      title: '认输',
+      message: '确定要认输吗？',
+      confirmLabel: '认输',
+      onConfirm: () async {
+        if (!mounted || _sendLock) return;
+        setState(() => _sendLock = true);
+        try {
+          await _room.resign();
+        } on RelayV3Exception catch (e) {
+          if (!mounted) return;
+          AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
+        } catch (e) {
+          if (!mounted) return;
+          AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
+        } finally {
+          if (mounted) setState(() => _sendLock = false);
+        }
+      },
     );
-    if (ok != true || !mounted) return;
-    if (_sendLock) return;
-    setState(() => _sendLock = true);
-    try {
-      await _room.resign();
-    } on RelayV3Exception catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _sendLock = false);
-    }
   }
 
   // ── 求和（DRAW offer → accept/decline，对齐 chess / draughts）──
@@ -619,9 +591,8 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   /// 点「求和」：无对方 offer → 发 DRAW_OFFER；对方已 offer → 直接接受。
   Future<void> _drawOffer() => _sendGuardedAction(
         type: _opponentOffered ? 'DRAW_ACCEPT' : 'DRAW_OFFER',
-        waitingHint: _opponentOffered
-            ? null
-            : const SnackBar(content: Text('已发送求和请求，等待对方回应')),
+        waitingHint:
+            _opponentOffered ? null : '已发送求和请求，等待对方回应',
       );
 
   /// 对方求和 offer 时点「拒绝」→ DRAW_DECLINE。
@@ -659,9 +630,8 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   /// （服务端 pop 1~2 手，快照回来自动重放回退棋盘）。409 → 调和。
   Future<void> _undoRequest() => _sendGuardedAction(
         type: _opponentUndoOffered ? 'UNDO_ACCEPT' : 'UNDO_OFFER',
-        waitingHint: _opponentUndoOffered
-            ? null
-            : const SnackBar(content: Text('已发送悔棋请求，等待对方回应')),
+        waitingHint:
+            _opponentUndoOffered ? null : '已发送悔棋请求，等待对方回应',
         reconcileOn409: true,
       );
 
@@ -674,7 +644,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   /// [reconcileOn409] 时 409 → 拉最新快照调和（悔棋/走子这类期望回退的场景）。
   Future<void> _sendGuardedAction({
     required String type,
-    SnackBar? waitingHint,
+    String? waitingHint,
     bool reconcileOn409 = false,
   }) async {
     if (_sendLock) return;
@@ -684,25 +654,20 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     try {
       await _room.handle.applyAction(type: type, params: const {});
       if (!isAccept && waitingHint != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(waitingHint);
+        AppNotification.show(context, waitingHint,
+            type: AppNotificationType.success);
       }
     } on RelayV3Exception catch (e) {
       if (!mounted) return;
       if (e.statusCode == 409 && reconcileOn409) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('状态已过期，同步中…')),
-        );
+        AppNotification.show(context, '状态已过期，同步中…', type: AppNotificationType.info);
         await _fetchSnapshotWithFeedback();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发送失败: ${e.statusCode} ${e.body}')),
-        );
+        AppNotification.show(context, '发送失败: ${e.statusCode} ${e.body}', type: AppNotificationType.error);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
-      );
+      AppNotification.show(context, '发送失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _sendLock = false);
     }
@@ -751,9 +716,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
       await widget.handle.fetchSnapshot();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('刷新失败: $e')),
-      );
+      AppNotification.show(context, '刷新失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _fetching = false);
     }

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../api/pi/pi.dart';
+import '../../ui/atomic/base_dialog.dart';
+import '../../ui/shell/app_notification.dart';
 import 'pi_chat_message_repository.dart';
 import 'pi_chat_page.dart';
 import 'pi_chat_settings.dart';
@@ -174,52 +176,42 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
   /// 改为 map：每条会话独立 4s Timer，互不干扰。
   final Map<String, _PendingDelete> _pending = {};
 
-  Future<void> _delete(_SessionRow row) async {
-    final ok = await showDialog<bool>(
+  Future<void> _delete(_SessionRow row) {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除会话'),
-        content: Text('将从服务端与本地删除「${row.shortTitle}」，不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      title: '删除会话',
+      message: '将从服务端与本地删除「${row.shortTitle}」，不可恢复。',
+      confirmLabel: '删除',
+      onConfirm: () {
+        // ★ 第 16/17 次复评 P-4/P-1：撤销窗（4s 内可从 SnackBar 点撤销）
+        // 立刻 1）UI 上移除、2）真删延后到 4s 后。撤销窗结束才落服务端 +
+        // 本地。per-sessionId Timer（map）—— 修复前单例 timer 让连删 N 条
+        // 时前 N-1 条 Timer 被 cancel 但服务端/本地都没删（ghost-zombie）。
+        final pending = _PendingDelete(
+          id: row.id,
+          row: row,
+          controller: this,
+        );
+        pending.startTimer(const Duration(seconds: 4));
+        _pending[row.id] = pending;
+        setState(() {
+          _rows = _rows.where((r) => r.id != row.id).toList();
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已删除「${row.shortTitle}」'),
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: '撤销',
+                onPressed: pending.undo,
+              ),
+            ),
+          );
+        }
+      },
     );
-    if (ok != true) return;
-    // ★ 第 16/17 次复评 P-4/P-1：撤销窗（4s 内可从 SnackBar 点撤销）
-    // 立刻 1）UI 上移除、2）真删延后到 4s 后。撤销窗结束才落服务端 +
-    // 本地。per-sessionId Timer（map）—— 修复前单例 timer 让连删 N 条
-    // 时前 N-1 条 Timer 被 cancel 但服务端/本地都没删（ghost-zombie）。
-    final pending = _PendingDelete(
-      id: row.id,
-      row: row,
-      controller: this,
-    );
-    pending.startTimer(const Duration(seconds: 4));
-    _pending[row.id] = pending;
-    setState(() {
-      _rows = _rows.where((r) => r.id != row.id).toList();
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已删除「${row.shortTitle}」'),
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '撤销',
-            onPressed: pending.undo,
-          ),
-        ),
-      );
-    }
   }
 
   /// 真删除（撤销窗口结束后才走）：服务端 + 本地。
@@ -234,9 +226,8 @@ class _PiSessionListPageState extends State<PiSessionListPage> {
       }
     } on PiApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('服务端删除失败：${e.message}')),
-        );
+        AppNotification.show(context, '服务端删除失败：${e.message}',
+            type: AppNotificationType.error);
       }
     }
     await piChatMessageRepository.clearSession(id);

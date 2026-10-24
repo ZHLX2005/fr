@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/constants.dart';
+import '../../ui/shell/app_notification.dart';
 
 /// 输入偏移校准：按 BPM 节拍点按几次，取平均误差写入 [lineInputOffsetKey]。
 class OffsetCalibratePage extends StatefulWidget {
@@ -118,9 +119,8 @@ class _OffsetCalibratePageState extends State<OffsetCalibratePage>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(lineInputOffsetKey, v);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已应用偏移 ${v >= 0 ? '+' : ''}$v ms')),
-      );
+      AppNotification.show(context, '已应用偏移 ${v >= 0 ? '+' : ''}$v ms',
+          type: AppNotificationType.success);
       Navigator.of(context).pop(v);
     }
   }

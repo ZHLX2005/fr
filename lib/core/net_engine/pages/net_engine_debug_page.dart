@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/atomic/base_empty_state.dart';
 import '../services/debug_log_service.dart';
 
 class NetEngineDebugPage extends StatelessWidget {
@@ -150,17 +151,10 @@ class _StateMachineTab extends StatelessWidget {
         final logs = snapshot.data ?? [];
 
         if (logs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.hub_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                SizedBox(height: 16),
-                Text('暂无状态转换记录'),
-                SizedBox(height: 8),
-                Text('状态转换会显示在这里', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              ],
-            ),
+          return const BaseEmptyState(
+            icon: Icons.hub_outlined,
+            title: '暂无状态转换记录',
+            message: '状态转换会显示在这里',
           );
         }
 

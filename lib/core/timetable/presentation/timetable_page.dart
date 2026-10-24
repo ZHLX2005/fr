@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../nav/nav_route.dart';
+import '../../ui/atomic/base_dialog.dart';
 import '../data/timetable_repository.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
@@ -631,28 +632,18 @@ class _SpaceSheetState extends State<_SpaceSheet> {
     await _reload();
   }
 
-  Future<void> _deleteSpace(TimetableSpaceInfo space) async {
-    final ok = await showDialog<bool>(
+  Future<void> _deleteSpace(TimetableSpaceInfo space) {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('删除空间'),
-        content: Text('确定删除「${space.name}」吗？该空间下的课表数据将一并删除，不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ),
-        ],
-      ),
+      title: '删除空间',
+      message: '确定删除「${space.name}」吗？该空间下的课表数据将一并删除，不可恢复。',
+      confirmLabel: '删除',
+      onConfirm: () async {
+        await widget.store.deleteSpace(space.id);
+        _activeId = widget.store.activeSpaceId;
+        await _reload();
+      },
     );
-    if (ok != true) return;
-    await widget.store.deleteSpace(space.id);
-    _activeId = widget.store.activeSpaceId;
-    await _reload();
   }
 
   @override

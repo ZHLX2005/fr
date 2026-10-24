@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/ui/shell/emphasis_button.dart';
+import '../../../core/ui/shell/app_notification.dart';
 
 /// 原生通知功能测试页面
 class NativeNotificationsPage extends StatefulWidget {
@@ -96,9 +97,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
         _permissionGranted = status.isGranted || status.isLimited;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('通知权限状态: ${_statusText(status)}')),
-        );
+        AppNotification.show(context, '通知权限状态: ${_statusText(status)}', type: AppNotificationType.info);
       }
     } catch (e) {
       debugPrint('查询通知权限失败: $e');
@@ -107,9 +106,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
           _permissionStatusText = '查询失败: $e';
           _permissionGranted = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('查询失败: $e')),
-        );
+        AppNotification.show(context, '查询失败: $e', type: AppNotificationType.error);
       }
     }
   }
@@ -143,9 +140,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   Future<bool> _requestPermissions() async {
     if (!Platform.isAndroid && !Platform.isIOS) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前平台不支持通知权限')),
-        );
+        AppNotification.show(context, '当前平台不支持通知权限', type: AppNotificationType.error);
       }
       return false;
     }
@@ -158,9 +153,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
       if (current.isPermanentlyDenied) {
         // 永久拒绝 → 直接引导去系统设置
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('权限已被永久拒绝, 请到系统设置开启')),
-          );
+          AppNotification.show(context, '权限已被永久拒绝, 请到系统设置开启', type: AppNotificationType.error);
           await _openSystemNotificationSettings();
         }
         return false;
@@ -177,31 +170,23 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
       });
 
       if (result.isGranted || result.isLimited) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('通知权限已开启')),
-        );
+        AppNotification.show(context, '通知权限已开启', type: AppNotificationType.success);
         return true;
       }
 
       if (result.isPermanentlyDenied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已拒绝, 请到系统设置开启')),
-        );
+        AppNotification.show(context, '已拒绝, 请到系统设置开启', type: AppNotificationType.error);
         await _openSystemNotificationSettings();
         return false;
       }
 
       // 用户点"不允许" 但还能再次询问
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('通知权限未开启 (${_statusText(result)})')),
-      );
+      AppNotification.show(context, '通知权限未开启 (${_statusText(result)})', type: AppNotificationType.warning);
       return false;
     } catch (e, st) {
       debugPrint('[通知权限] 请求异常: $e\n$st');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('请求权限异常: $e')),
-        );
+        AppNotification.show(context, '请求权限异常: $e', type: AppNotificationType.error);
       }
       return false;
     }
@@ -262,9 +247,7 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
         payload: payload,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('通知已发送')));
+        AppNotification.show(context, '通知已发送', type: AppNotificationType.success);
       }
     } catch (e) {
       _showError('发送失败: $e');
@@ -275,17 +258,13 @@ class _NativeNotificationsPageState extends State<NativeNotificationsPage> {
   Future<void> _cancelAllNotifications() async {
     await _notifications.cancelAll();
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已取消所有通知')));
+      AppNotification.show(context, '已取消所有通知', type: AppNotificationType.success);
     }
   }
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    AppNotification.show(context, message, type: AppNotificationType.error);
   }
 
   @override

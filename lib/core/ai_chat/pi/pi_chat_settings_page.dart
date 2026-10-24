@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../api/pi/pi.dart';
+import '../../ui/shell/app_notification.dart';
 import 'pi_chat_settings.dart';
 
 /// pi 聊天设置页 —— 配置完全在 App 内设置。
@@ -80,9 +81,8 @@ class _PiChatSettingsPageState extends State<PiChatSettingsPage> {
       defaultModel: _model.text,
     );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存')),
-      );
+      AppNotification.show(context, '已保存',
+          type: AppNotificationType.success);
     }
   }
 

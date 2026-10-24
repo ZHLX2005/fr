@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../services/gallery_service.dart';
+import '../ui/atomic/base_empty_state.dart';
 import '../ui/shell/emphasis_button.dart';
 import 'ios_dialog.dart';
 
@@ -214,24 +215,11 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   }
 
   Widget _buildPermissionRequired() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.photo_library_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          const SizedBox(height: 16),
-          Text('需要图库权限'),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: _initGallery,
-            style: EmphasisButton.borderEmphasis(
-              context,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            child: const Text('请求权限'),
-          ),
-        ],
-      ),
+    return BaseEmptyState(
+      icon: Icons.photo_library_outlined,
+      title: '需要图库权限',
+      actionLabel: '请求权限',
+      onAction: _initGallery,
     );
   }
 
@@ -289,15 +277,9 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.photo_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
-          const SizedBox(height: 16),
-          Text('此相册为空', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        ],
-      ),
+    return const BaseEmptyState(
+      icon: Icons.photo_outlined,
+      message: '此相册为空',
     );
   }
 

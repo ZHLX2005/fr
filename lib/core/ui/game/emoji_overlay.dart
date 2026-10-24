@@ -1,4 +1,4 @@
-// lib/core/game_kit/emoji/emoji_overlay.dart
+// lib/core/ui/game/emoji_overlay.dart
 //
 // Emoji 表情：微信风格小对话框气泡（圆角矩形 + 尖角），无飞行动画。
 // - 对方发的：贴顶部对方侧（左侧），尖角朝上偏左
@@ -9,63 +9,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../skin/file_resolver.dart';
-import 'emoji_bundle.dart';
-
-/// 快照中的单条 emoji 事件（服务端权威）。
-class SnapshotEmojiEvent {
-  final String id;
-  final String emojiId;
-  final String from;
-  final int seq;
-  final int atMs;
-
-  const SnapshotEmojiEvent({
-    required this.id,
-    required this.emojiId,
-    required this.from,
-    required this.seq,
-    required this.atMs,
-  });
-
-  factory SnapshotEmojiEvent.fromJson(Map<String, dynamic> j) =>
-      SnapshotEmojiEvent(
-        id: (j['id'] ?? j['emoji_id'] ?? j['emojiId'] ?? j['seq']).toString(),
-        emojiId: (j['emoji_id'] ?? j['emojiId'] ?? j['id'] ?? j['emoji'] ?? '')
-            .toString(),
-        from: (j['from'] ?? j['device_id'] ?? '').toString(),
-        seq: (j['seq'] as num?)?.toInt() ?? 0,
-        atMs: (j['at'] as num?)?.toInt() ??
-            (j['ts'] as num?)?.toInt() ??
-            0,
-      );
-}
-
-/// 从快照 context 读取 emojis 列表（兼容多种字段名）。
-List<SnapshotEmojiEvent> emojisFromSnapshot(Map<String, dynamic> ctx) {
-  final candidates = <String>[
-    'emojiRing',
-    'emojis',
-    'emoji_events',
-    'recent_emojis',
-  ];
-  for (final key in candidates) {
-    final raw = ctx[key];
-    if (raw is List && raw.isNotEmpty) {
-      final out = <SnapshotEmojiEvent>[];
-      for (final item in raw) {
-        if (item is! Map) continue;
-        try {
-          final e = SnapshotEmojiEvent.fromJson(Map<String, dynamic>.from(item));
-          if (e.emojiId.isEmpty) continue;
-          out.add(e);
-        } catch (_) {}
-      }
-      if (out.isNotEmpty) return out;
-    }
-  }
-  return const [];
-}
+import '../../game_kit/emoji/emoji_bundle.dart';
+import '../../game_kit/emoji/emoji_snapshot.dart';
+import '../../game_kit/skin/file_resolver.dart';
 
 class _ActiveBubble {
   final SnapshotEmojiEvent event;

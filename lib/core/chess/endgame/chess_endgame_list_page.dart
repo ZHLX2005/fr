@@ -14,6 +14,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
+import '../../ui/atomic/base_dialog.dart';
 import '../engine/fen_codec.dart';
 import '../models/board_state.dart';
 import '../skins/chess_skin.dart';
@@ -21,6 +22,7 @@ import '../widgets/chess_board.dart';
 import 'chess_endgame.dart';
 import 'chess_endgame_prompt.dart';
 import 'chess_endgame_store.dart';
+import '../../ui/shell/app_notification.dart';
 
 /// 残局列表页。
 class ChessEndgameListPage extends StatefulWidget {
@@ -91,20 +93,14 @@ class _ChessEndgameListPageState extends State<ChessEndgameListPage> {
       if (e == null) {
         // 用户取消或文件非法 —— file_picker 取消返回 null，无法区分，
         // 统一提示（解析失败的文件多半也到不了这里）。
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未导入（取消或文件格式非法）')),
-        );
+        AppNotification.show(context, '未导入（取消或文件格式非法）', type: AppNotificationType.warning);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已导入：${e.title}')),
-        );
+        AppNotification.show(context, '已导入：${e.title}', type: AppNotificationType.success);
       }
       await _reload();
     } catch (err) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导入失败：$err')),
-      );
+      AppNotification.show(context, '导入失败：$err', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -117,42 +113,28 @@ class _ChessEndgameListPageState extends State<ChessEndgameListPage> {
       await _store.exportAndShare(e);
     } catch (err) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导出失败：$err')),
-      );
+      AppNotification.show(context, '导出失败：$err', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _delete(ChessEndgame e) async {
-    final confirmed = await showDialog<bool>(
+  Future<void> _delete(ChessEndgame e) {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除残局'),
-        content: Text('确定删除「${e.title}」？此操作不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      title: '删除残局',
+      message: '确定删除「${e.title}」？此操作不可恢复。',
+      confirmLabel: '删除',
+      onConfirm: () async {
+        try {
+          await _store.delete(e.id);
+          await _reload();
+        } catch (err) {
+          if (!mounted) return;
+          AppNotification.show(context, '删除失败：$err', type: AppNotificationType.error);
+        }
+      },
     );
-    if (confirmed != true) return;
-    try {
-      await _store.delete(e.id);
-      await _reload();
-    } catch (err) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('删除失败：$err')),
-      );
-    }
   }
 
   void _showPrompt() {
@@ -175,9 +157,7 @@ class _ChessEndgameListPageState extends State<ChessEndgameListPage> {
               Clipboard.setData(
                 const ClipboardData(text: kChessEndgameGenPrompt),
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('提示词已复制')),
-              );
+              AppNotification.show(context, '提示词已复制', type: AppNotificationType.success);
             },
             icon: const Icon(Icons.copy, size: 18),
             label: const Text('复制'),

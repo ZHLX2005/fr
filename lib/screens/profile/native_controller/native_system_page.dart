@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/ui/shell/app_notification.dart';
 
 /// 原生系统功能测试页面
 /// 用于测试应用使用时长查询、震动等系统级功能
@@ -66,18 +67,11 @@ class _NativeSystemPageState extends State<NativeSystemPage> {
     try {
       await _systemChannel.invokeMethod('openUsageSettings');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('请在设置中授予"使用情况访问权限"'),
-            duration: Duration(seconds: 3),
-          ),
-        );
+        AppNotification.show(context, '请在设置中授予"使用情况访问权限"', type: AppNotificationType.warning);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('打开设置失败: $e')));
+        AppNotification.show(context, '打开设置失败: $e', type: AppNotificationType.error);
       }
     }
   }

@@ -10,7 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../theme/context/colors.dart';
-import '../../game_kit/lobby/game_ready_style.dart';
+import '../../ui/game/game_ready_style.dart';
 import '../../nav/nav_route.dart';
 import '../engine/sudoku_generator.dart';
 import '../engine/sudoku_validator.dart';
@@ -21,6 +21,7 @@ import '../widgets/sudoku_number_pad.dart';
 import '../widgets/sudoku_opponent_strip.dart';
 import 'sudoku_net.dart';
 import 'sudoku_room_config_page.dart';
+import '../../ui/shell/app_notification.dart';
 
 /// 快照驱动的数独联机房间页（v3 Relay + kSudokuScript）。
 class SudokuRoomPage extends StatefulWidget {
@@ -167,9 +168,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('生成题目失败: $e')),
-      );
+      AppNotification.show(context, '生成题目失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _setPuzzleLock = false);
     }
@@ -195,9 +194,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
       await SudokuNet.sendStart(widget.handle);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('开始对局失败: $e')),
-      );
+      AppNotification.show(context, '开始对局失败: $e', type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _startLock = false);
     }
@@ -249,9 +246,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     final board = _board;
     if (board == null || !_isPlaying) return;
     if (!board.isComplete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('棋盘未完成，无法提交')),
-      );
+      AppNotification.show(context, '棋盘未完成，无法提交', type: AppNotificationType.error);
       return;
     }
     final values = <int>[
@@ -264,9 +259,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
     if (solution != null) {
       for (int i = 0; i < 81; i++) {
         if (values[i] != solution[i]) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('答案有误，再检查一下')),
-          );
+          AppNotification.show(context, '答案有误，再检查一下', type: AppNotificationType.error);
           return;
         }
       }
@@ -279,9 +272,7 @@ class _SudokuRoomPageState extends State<SudokuRoomPage> {
         widget.handle, values: values, elapsedMs: elapsed, errors: _errors);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('提交失败: $e')),
-      );
+      AppNotification.show(context, '提交失败: $e', type: AppNotificationType.error);
     }
   }
 

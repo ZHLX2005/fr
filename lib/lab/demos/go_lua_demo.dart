@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import 'go_lua/go_engine.dart' show RoomHandle;
 import 'go_lua/widgets.dart' show OnlineGamePage;
-import '../../core/game_kit/lobby/game_lobby_page.dart';
+import '../../core/ui/game/game_lobby_page.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/go/lobby/go_lobby_spec.dart';

@@ -22,6 +22,7 @@ import 'lab_panel/lab_panel_content.dart';
 import 'lab_panel/lab_panel_gesture.dart';
 import 'lab_panel/lab_panel_state_machine.dart';
 import 'lab_perf_log.dart';
+import '../../../core/ui/shell/app_notification.dart';
 
 class LabPage extends ConsumerStatefulWidget {
   /// 是否排除游戏类 demo。默认 true：实验室语义下游戏统一由游戏中心承载。
@@ -502,9 +503,7 @@ class _LabPageState extends ConsumerState<LabPage>
               await cacheService.clearCache();
               if (context.mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('缓存已清空')));
+                AppNotification.show(context, '缓存已清空', type: AppNotificationType.success);
               }
             },
             style: OutlinedButton.styleFrom(

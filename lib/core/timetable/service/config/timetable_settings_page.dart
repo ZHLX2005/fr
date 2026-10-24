@@ -12,6 +12,7 @@ import 'timetable_week_calculator.dart';
 import '../../../../core/ui/zen/zen_theme.dart';
 import '../../../../core/ui/zen/zen_date_picker.dart';
 import '../../../../core/ui/atomic/base_section.dart';
+import '../../../../core/ui/shell/app_notification.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 起始日期 UX + 数据来源预设。
 ///
@@ -66,9 +67,8 @@ class _TimetableSettingsPageState
       isAnimeMode: _isAnimeMode,
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('设置已保存（起始日期 $startDateIso）')));
+    AppNotification.show(context, '设置已保存（起始日期 $startDateIso）',
+        type: AppNotificationType.success);
     Navigator.pop(context);
   }
 
@@ -78,9 +78,8 @@ class _TimetableSettingsPageState
       builder: (_) => const SicauImportDialog(),
     );
     if (count != null && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已从教务系统导入 $count 门课程')));
+      AppNotification.show(context, '已从教务系统导入 $count 门课程',
+          type: AppNotificationType.success);
     }
   }
 
@@ -114,12 +113,10 @@ class _TimetableSettingsPageState
           .toList(),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '已导入 ${drafts.length} 部剧（请在排期编辑中补全播出时间）',
-        ),
-      ),
+    AppNotification.show(
+      context,
+      '已导入 ${drafts.length} 部剧（请在排期编辑中补全播出时间）',
+      type: AppNotificationType.success,
     );
   }
 

@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../../ui/atomic/base_dialog.dart';
 import 'system_messages_panel.dart';
 import 'system_events_controller.dart';
 
@@ -52,29 +53,13 @@ class _SystemMessagesPageState extends State<SystemMessagesPage> {
   }
 
   Future<void> _confirmClear(
-      BuildContext context, SystemEventsController controller) async {
-    final scheme = Theme.of(context).colorScheme;
-    final ok = await showDialog<bool>(
+      BuildContext context, SystemEventsController controller) {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('清空系统消息'),
-        content: const Text('确定要清空全部系统消息吗？此操作不可撤销。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: scheme.error,
-              foregroundColor: scheme.onError,
-            ),
-            child: const Text('清空'),
-          ),
-        ],
-      ),
+      title: '清空系统消息',
+      message: '确定要清空全部系统消息吗？此操作不可撤销。',
+      confirmLabel: '清空',
+      onConfirm: controller.clear,
     );
-    if (ok == true) controller.clear();
   }
 }

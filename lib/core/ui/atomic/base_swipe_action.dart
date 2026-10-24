@@ -4,7 +4,6 @@
 // [leftRounded] 把最左按钮嵌进卡片右圆角。
 
 import 'package:flutter/material.dart';
-import 'base_swipe_action.dart';
 
 class BaseSwipeAction extends StatelessWidget {
   const BaseSwipeAction({

@@ -9,6 +9,7 @@ import 'package:flutter/physics.dart';
 import '../nav/nav_route.dart';
 import 'canvas_reader_engine.dart';
 import '../ui/shell/emphasis_button.dart';
+import '../ui/shell/app_notification.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
 import 'novel_reader_sync.dart';
@@ -193,9 +194,8 @@ class _NovelReaderBookshelfPageState extends State<NovelReaderBookshelfPage> {
     if (book == null) return;
     await _storage.clearProgress(book.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${book.title} progress cleared.')));
+    AppNotification.show(context, '${book.title} progress cleared.',
+        type: AppNotificationType.success);
   }
 
   Future<void> _removeCurrentBook() async {

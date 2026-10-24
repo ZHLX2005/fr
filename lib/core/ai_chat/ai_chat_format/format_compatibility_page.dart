@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
 import '../../../services/message_strategy/factory/factory.dart';
+import '../../ui/shell/app_notification.dart';
 import '../../../services/message_strategy/panel/panel.dart';
 
 /// 格式兼容性 / 消息策略聚合测试页。
@@ -66,11 +67,10 @@ class _FormatCompatibilityPageState extends State<FormatCompatibilityPage> {
     final t = type.trim().toLowerCase();
     if (t.isEmpty) return;
     if (!_supportedTypes.contains(t)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('不支持的 type: $t，支持: ${_supportedTypes.join(", ")}'),
-          duration: const Duration(seconds: 2),
-        ),
+      AppNotification.show(
+        context,
+        '不支持的 type: $t，支持: ${_supportedTypes.join(", ")}',
+        type: AppNotificationType.error,
       );
       return;
     }

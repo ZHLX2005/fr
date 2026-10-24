@@ -1,4 +1,4 @@
-// lib/core/game_kit/emoji/emoji_panel.dart
+// lib/core/ui/game/emoji_panel.dart
 //
 // Emoji grid picker — 从操作条按钮弹出，走 p2p 发送 EMOJI。
 // 只展示 KV 发布的上传图（无 unicode）。
@@ -7,8 +7,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../skin/file_resolver.dart';
-import 'emoji_bundle.dart';
+import '../../game_kit/skin/file_resolver.dart';
+import '../../game_kit/emoji/emoji_bundle.dart';
+import '../shell/app_notification.dart';
 
 /// 表情面板（网格选择器，BottomSheet 内使用）。
 ///
@@ -54,9 +55,8 @@ class _EmojiPanelState extends State<EmojiPanel> {
       await widget.onPick(emojiId);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('表情发送失败')),
-      );
+      AppNotification.show(context, '表情发送失败',
+          type: AppNotificationType.error);
     } finally {
       if (mounted) setState(() => _sending = false);
     }

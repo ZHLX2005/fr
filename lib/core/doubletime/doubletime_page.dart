@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/atomic/base_dialog.dart';
+import '../ui/shell/app_notification.dart';
 import '../ui/shell/emphasis_button.dart';
 import 'doubletime_mapper.dart';
 import 'doubletime_models.dart';
@@ -266,9 +268,10 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                               onPressed: () {
                                 // 校验：结束必须大于开始
                                 if (endMinutes <= startMinutes) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('结束时间必须大于开始时间')),
+                                  AppNotification.show(
+                                    context,
+                                    '结束时间必须大于开始时间',
+                                    type: AppNotificationType.error,
                                   );
                                   return;
                                 }
@@ -554,9 +557,10 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
                                   child: OutlinedButton(
                                     onPressed: () {
                                       if (endMinutes <= startMinutes) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                              content: Text('结束时间必须大于开始时间')),
+                                        AppNotification.show(
+                                          context,
+                                          '结束时间必须大于开始时间',
+                                          type: AppNotificationType.error,
                                         );
                                         return;
                                       }
@@ -634,31 +638,15 @@ class _DoubleTimePageState extends State<DoubleTimePage> {
     );
   }
 
-  void _confirmDeleteEvent(DoubleTimeEvent event) {
-    showDialog(
+  Future<void> _confirmDeleteEvent(DoubleTimeEvent event) {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('删除 "${event.title}"？'),
-        content: Text(
+      title: '删除 "${event.title}"？',
+      message:
           '${_fmtTime(event.start)} – ${_fmtTime(event.end)} 的 ${event.lane == DoubleTimeLane.plan ? "Plan" : "Actual"} 事件将被移除。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          OutlinedButton(
-            onPressed: () {
-              setState(() => _events.removeWhere((e) => e.id == event.id));
-              Navigator.pop(ctx);
-            },
-            style: EmphasisButton.dangerEmphasis(context),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      confirmLabel: '删除',
+      onConfirm: () =>
+          setState(() => _events.removeWhere((e) => e.id == event.id)),
     );
   }
 

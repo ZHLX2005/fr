@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../ui/atomic/base_dialog.dart';
 import '../../../services/ai_chat/ai_chat_provider.dart';
 import '../../../services/message_strategy/data/receipt_ocr_message_data.dart';
 import '../../../services/message_strategy/factory/factory.dart';
@@ -94,29 +95,18 @@ class _ReceiptOcrPageState extends State<ReceiptOcrPage> {
   }
 
   /// 用户主动清理：清空 prefs + 删除 docs 里的所有图片 + 重置当前列表。
-  Future<void> _clearHistory() async {
-    final ok = await showDialog<bool>(
+  Future<void> _clearHistory() {
+    return BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('清理历史记录'),
-        content: const Text('确定清空所有小票识别历史？此操作不可撤销。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('清空'),
-          ),
-        ],
-      ),
+      title: '清理历史记录',
+      message: '确定清空所有小票识别历史？此操作不可撤销。',
+      confirmLabel: '清空',
+      onConfirm: () async {
+        await ReceiptOcrHistoryStore.clear();
+        if (!mounted) return;
+        setState(() => _entries.clear());
+      },
     );
-    if (ok != true) return;
-    await ReceiptOcrHistoryStore.clear();
-    if (!mounted) return;
-    setState(() => _entries.clear());
   }
 
   void _scrollToBottom() {

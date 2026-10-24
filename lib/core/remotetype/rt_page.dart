@@ -183,9 +183,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    // 服务层推送的多为「同步失败 / 未连接」类报错，按 error 提示。
+    AppNotification.show(context, message, type: AppNotificationType.error);
   }
 
   @override
@@ -600,17 +599,15 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     var key = _keyController.text.trim();
 
     if (_selectedClient == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请先在列表中选择要连接的电脑')));
+      AppNotification.show(context, '请先在列表中选择要连接的电脑',
+          type: AppNotificationType.error);
       return;
     }
     // 统一登录路径下 key 来自服务端；走到这里还拿不到就是列表过期了，
     // 提示刷新比让用户去填一个他不知道的 key 有用得多。
     if (!unified && key.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请输入配对 key')));
+      AppNotification.show(context, '请输入配对 key',
+          type: AppNotificationType.error);
       return;
     }
 
@@ -791,9 +788,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     if (_firingShortcutId != null) return;
     final session = _session;
     if (session == null || !_connected) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('未连接电脑')));
+      AppNotification.show(context, '未连接电脑',
+          type: AppNotificationType.error);
       return;
     }
     // Win+L 等锁屏类：条上一点即发，误触代价高，先确认。
@@ -829,13 +825,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     setState(() => _firingShortcutId = null);
     // 常驻条：成功不刷 SnackBar，只报错。
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppNotification.show(context, error, type: AppNotificationType.error);
     }
   }
 
