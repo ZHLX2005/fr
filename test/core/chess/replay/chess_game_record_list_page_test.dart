@@ -117,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('确定删除「对局 game-a」？'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '删除'));
+    await tester.tap(find.widgetWithText(TextButton, '删除'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('暂无已保存的对局'), findsOneWidget,

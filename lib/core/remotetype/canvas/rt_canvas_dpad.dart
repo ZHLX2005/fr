@@ -9,9 +9,10 @@
 //     十字区域内臂归该向，中心毂与斜角空隙不触发（四向键语义，不出斜向）。
 //     判定区域可按 [hitRatio] 缩放（编辑工具面板滑杆调整，编辑态虚线框
 //     实时预览）。
-//   · true = 八向分段轮盘：8 段圆角扇环 + 段内向外箭头，45° 扇区（22.5°
-//     为界）判向，补 up_left/up_right/down_left/down_right 四个斜向；
-//     中心旋钮拖动跟手、松手弹簧回中。
+//   · true = 八向轮盘：游戏轮盘质感——圆形盘面 + 中央凹槽井 + 井缘 8 处
+//     刻度凹口（拨盘质感，无方向箭头），激活向刻度点亮 + 盘缘弧光；
+//     45° 扇区（22.5° 为界）判向，补 up_left/up_right/down_left/down_right
+//     四个斜向；中心旋钮拖动跟手、松手弹簧回中（方向读数 = 旋钮位移）。
 // 方向名与 rust input-agent vpad.rs 的 vpad_dir 白名单一致（四向 + 四斜向 +
 // none），经 rt-align normalizeVpadOp 白名单放行。斜向需 PC 端同步更新。
 
@@ -35,17 +36,17 @@ const double kRtDpadArmHalfRatio = 0.16;
 /// 判定几何钳制上限（占模块边长比例）：hitRatio 放大后仍不出模块方块。
 const double _kHitClampRatio = 0.49;
 
-/// 八向轮盘段序（-90° 起每 45° 一段，与 _dirAt 扇区一致；判定与绘制同源）。
-const List<String> _kWheelDirs = <String>[
-  'up',
-  'up_right',
-  'right',
-  'down_right',
-  'down',
-  'down_left',
-  'left',
-  'up_left',
-];
+/// 八向轮盘方向 → 盘面角度（度，屏幕系顺时针，0 = 右；与 _dirAt 扇区同源）。
+const Map<String, double> _kWheelDirAngles = <String, double>{
+  'right': 0,
+  'down_right': 45,
+  'down': 90,
+  'down_left': 135,
+  'left': 180,
+  'up_left': -135,
+  'up': -90,
+  'up_right': -45,
+};
 
 class RtCanvasDpad extends StatefulWidget {
   const RtCanvasDpad({
@@ -150,8 +151,8 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
     };
   }
 
-  /// 旋钮目标位（仅八向轮盘）：朝指针方向偏移，钳在轮盘内圈里
-  /// （0.32 半径 + 毂半径 ≈ 内圈 0.30 边长比，不出扇环）；死区回零。
+  /// 旋钮目标位（仅八向轮盘）：朝指针方向偏移，钳在凹槽井内
+  /// （0.32 半径 + 毂半径 ≈ 0.59 井缘 0.62，不出井）；死区回零。
   Offset _knobTarget(Offset local, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final v = local - center;
@@ -207,7 +208,7 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
       builder: (context, constraints) {
         final size = constraints.biggest;
         return Listener(
-          // 四向十字轮廓外与八向扇环间隙是透明区，opaque 保证整块区域
+          // 十字轮廓外与轮盘刻度/井缘都是装饰区，opaque 保证整块圆面
           // 都收到指针（滑出轮廓换向/回中的手感依赖连续移动）。
           behavior: HitTestBehavior.opaque,
           onPointerDown: (e) => _onPointerDown(e, size),
@@ -223,7 +224,7 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
                 builder: (context, inner) {
                   final side = math.min(inner.maxWidth, inner.maxHeight);
                   return widget.dir8
-                      ? _buildWheel(context, c, cs, enabled, side)
+                      ? _buildWheel(context, c, cs, side)
                       : _buildCrossPad(context, c, cs, enabled, side);
                 },
               ),
@@ -293,12 +294,12 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
     );
   }
 
-  /// 八向：分段轮盘——8 段圆角扇环 + 段内向外箭头（画笔）+ 中心旋钮。
+  /// 八向：游戏轮盘——圆形盘面 + 凹槽井 + 8 处刻度凹口（画笔）+ 中心旋钮。
+  /// 无方向箭头：激活反馈 = 刻度点亮 + 盘缘弧光，方向读数交给旋钮位移。
   Widget _buildWheel(
     BuildContext context,
     ColorStrategy c,
     ColorScheme cs,
-    bool enabled,
     double side,
   ) {
     final hubSize = (side * 0.27).clamp(34.0, 72.0);
@@ -308,9 +309,7 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
         baseColor: c.surface,
         lineColor: cs.outlineVariant,
         accentColor: cs.primary,
-        arrowIdleColor: enabled
-            ? c.textMuted
-            : c.textMuted.withValues(alpha: 0.6),
+        dishColor: cs.surfaceContainerHighest,
         shadowColor: cs.shadow,
       ),
       child: SizedBox(
@@ -515,15 +514,17 @@ class _CrossPadPainter extends CustomPainter {
       oldDelegate.shadowColor != shadowColor;
 }
 
-/// 八向分段轮盘画笔：8 段圆角扇环（45° 一段，段间留缝）+ 段内向外箭头，
-/// 激活段铺主色淡底、箭头主色并微微外推（方向即时可读）。
+/// 八向游戏轮盘画笔：圆形盘面 + 中央凹槽井（上暗下亮的凹面受光）+
+/// 井缘与轮缘之间的 8 处刻度凹口（拨盘质感，非方向箭头）。激活向 =
+/// 刻度转主色拉长 + 盘缘对应弧光点亮，方向读数交给中心旋钮位移
+/// （实体摇杆手感，盘面保持干净）。
 class _WheelPainter extends CustomPainter {
   const _WheelPainter({
     required this.activeDir,
     required this.baseColor,
     required this.lineColor,
     required this.accentColor,
-    required this.arrowIdleColor,
+    required this.dishColor,
     required this.shadowColor,
   });
 
@@ -531,121 +532,119 @@ class _WheelPainter extends CustomPainter {
   final Color baseColor;
   final Color lineColor;
   final Color accentColor;
-  final Color arrowIdleColor;
+  final Color dishColor;
   final Color shadowColor;
-
-  /// 单段扇环路径：外弧 + 两角小圆角（二次贝塞尔）+ 径向直边 + 内弧，
-  /// 保持利落扇形轮廓（只收外角，不内拉径向边）。
-  Path _sectorPath(Offset c, double r1, double r2, double a1, double a2) {
-    final span = a2 - a1;
-    final dOut = span * 0.10; // 外角沿弧向的圆角缩进
-    final e = (r2 - r1) * 0.16; // 外角沿径向的圆角缩进
-    final o1 = _polar(c, r2, a1 + dOut); // 外弧左端（圆角后）
-    final c1 = _polar(c, r2, a1); // 左外角顶点（控制点）
-    final c2 = _polar(c, r2, a2); // 右外角顶点（控制点）
-    final q1 = _polar(c, r2 - e, a1); // 左径向边圆角终点
-    final q2 = _polar(c, r2 - e, a2); // 右径向边圆角终点
-    final i2 = _polar(c, r1, a2);
-    return Path()
-      ..moveTo(o1.dx, o1.dy)
-      // 外弧：a1+dOut → a2-dOut（两端缩进留给圆角）
-      ..arcTo(
-        Rect.fromCircle(center: c, radius: r2),
-        a1 + dOut,
-        span - 2 * dOut,
-        false,
-      )
-      // 右外角圆角 → 右径向直边
-      ..quadraticBezierTo(c2.dx, c2.dy, q2.dx, q2.dy)
-      ..lineTo(i2.dx, i2.dy)
-      // 内弧：a2 → a1（直角，扇环内缘）
-      ..arcTo(Rect.fromCircle(center: c, radius: r1), a2, -span, false)
-      // 左径向直边 → 左外角圆角
-      ..lineTo(q1.dx, q1.dy)
-      ..quadraticBezierTo(c1.dx, c1.dy, o1.dx, o1.dy)
-      ..close();
-  }
-
-  /// 段内向外箭头（两笔折线），激活时外推一小段（呼吸感）。
-  void _chevron(
-    Canvas canvas,
-    Offset c,
-    double radius,
-    double angle,
-    double size,
-    Color color,
-    bool active,
-  ) {
-    final dir = Offset(math.cos(angle), math.sin(angle));
-    final perp = Offset(-dir.dy, dir.dx);
-    final push = active ? size * 0.22 : 0.0;
-    final tip = c + dir * (radius + size * 0.5 + push);
-    final base = c + dir * (radius - size * 0.30 + push);
-    final path = Path()
-      ..moveTo((base + perp * (size * 0.5)).dx, (base + perp * (size * 0.5)).dy)
-      ..lineTo(tip.dx, tip.dy)
-      ..lineTo((base - perp * (size * 0.5)).dx, (base - perp * (size * 0.5)).dy);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size * 0.22
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
 
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width;
     final c = Offset(s / 2, s / 2);
-    final r1 = s * 0.27; // 扇环内半径
-    final r2 = s * 0.48; // 扇环外半径
-    final rm = (r1 + r2) / 2;
-    final arrowSize = s * 0.09;
-    const gap = 0.06; // 段间缝（弧度，≈3.4°，分段可辨但不散）
-    const step = math.pi / 4;
+    final r = s / 2;
+    final discR = r * 0.98; // 盘面外沿
+    final wellR = r * 0.62; // 中央凹槽井（旋钮行程 0.59 不出井）
+    final rimR = r * 0.85; // 轮缘刻线环
+    final active = activeDir != null;
 
-    // 环形投影（跟扇环剪影，不糊住中心孔）。
+    // 盘面投影（托起圆盘）。
     canvas.drawCircle(
       c,
-      rm,
+      discR,
       Paint()
-        ..color = shadowColor.withValues(alpha: 0.10)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = r2 - r1
+        ..color = shadowColor.withValues(alpha: 0.14)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
+    // 盘面底 + 描边（激活时主色描边，反馈按在了盘上）。
+    canvas.drawCircle(c, discR, Paint()..color = baseColor);
+    canvas.drawCircle(
+      c,
+      discR,
+      Paint()
+        ..color = active
+            ? accentColor.withValues(alpha: 0.85)
+            : lineColor.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = active ? 2 : 1.4,
+    );
 
-    for (var i = 0; i < 8; i++) {
-      final mid = -math.pi / 2 + i * step;
-      final a1 = mid - step / 2 + gap / 2;
-      final a2 = mid + step / 2 - gap / 2;
-      final dir = _kWheelDirs[i];
-      final active = activeDir == dir;
-      final path = _sectorPath(c, r1, r2, a1, a2);
-      canvas.drawPath(
-        path,
-        Paint()..color = active ? accentColor.withValues(alpha: 0.16) : baseColor,
-      );
-      canvas.drawPath(
-        path,
+    // 中央凹槽井：上暗下亮渐变（凹面受光，浅井托旋钮）。
+    canvas.drawCircle(
+      c,
+      wellR,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            dishColor.withValues(alpha: 0.55),
+            dishColor.withValues(alpha: 0.12),
+          ],
+        ).createShader(Rect.fromCircle(center: c, radius: wellR)),
+    );
+    // 井内上缘阴影弧（凹面纵深）+ 井缘细线。
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: wellR - 1.5),
+      math.pi,
+      math.pi,
+      false,
+      Paint()
+        ..color = shadowColor.withValues(alpha: 0.14)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+    canvas.drawCircle(
+      c,
+      wellR,
+      Paint()
+        ..color = lineColor.withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    // 轮缘刻线环（wheel rim）。
+    canvas.drawCircle(
+      c,
+      rimR,
+      Paint()
+        ..color = lineColor.withValues(alpha: 0.28)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    // 8 处刻度凹口：井缘与轮缘之间的径向短线（拨盘档位质感）。
+    final tickIn = r * 0.68;
+    final tickOut = r * 0.78;
+    for (final e in _kWheelDirAngles.entries) {
+      final isActive = e.key == activeDir;
+      final a = e.value * math.pi / 180;
+      final p1 = _polar(c, tickIn, a);
+      final p2 = _polar(c, isActive ? r * 0.80 : tickOut, a);
+      canvas.drawLine(
+        p1,
+        p2,
         Paint()
-          ..color = active
-              ? accentColor.withValues(alpha: 0.9)
-              : lineColor.withValues(alpha: 0.7)
+          ..color = isActive
+              ? accentColor
+              : lineColor.withValues(alpha: 0.38)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = active ? 2 : 1.2,
+          ..strokeWidth = isActive ? 2.6 : 2
+          ..strokeCap = StrokeCap.round,
       );
-      _chevron(
-        canvas,
-        c,
-        rm,
-        mid,
-        arrowSize,
-        active ? accentColor : arrowIdleColor,
-        active,
+    }
+
+    // 激活向盘缘弧光：像拨盘咔哒进挡的位置指示。
+    if (active) {
+      final a = _kWheelDirAngles[activeDir]! * math.pi / 180;
+      const span = 32 * math.pi / 180;
+      canvas.drawArc(
+        Rect.fromCircle(center: c, radius: rimR),
+        a - span / 2,
+        span,
+        false,
+        Paint()
+          ..color = accentColor.withValues(alpha: 0.9)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round,
       );
     }
   }
@@ -656,6 +655,6 @@ class _WheelPainter extends CustomPainter {
       oldDelegate.baseColor != baseColor ||
       oldDelegate.lineColor != lineColor ||
       oldDelegate.accentColor != accentColor ||
-      oldDelegate.arrowIdleColor != arrowIdleColor ||
+      oldDelegate.dishColor != dishColor ||
       oldDelegate.shadowColor != shadowColor;
 }

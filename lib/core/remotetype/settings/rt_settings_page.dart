@@ -28,6 +28,7 @@ import '../data/rt_layout_ops.dart'
         rtLayoutsResetBuiltin;
 import '../data/rt_prefs.dart';
 import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
+import '../../../core/ui/shell/app_nav_bar.dart';
 import 'rt_layouts_card.dart';
 import 'rt_new_layout_row.dart';
 
@@ -169,7 +170,8 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
     final cs = c.scheme;
     final isEnter = _enterMode == 'enter';
     return Scaffold(
-      appBar: AppBar(title: const Text('远程输入设置'), centerTitle: false),
+      // 规范导航样板：AppNavBar.standard（返回 + 左对齐标题）。
+      appBar: const AppNavBar.standard(title: '远程输入设置'),
       // 灰底画布：与卡面 surface 靠明度分层（对齐 app 设置页配方，不用投影）。
       backgroundColor: cs.surfaceContainerHighest,
       body: ListView(

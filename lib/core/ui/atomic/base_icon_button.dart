@@ -18,6 +18,7 @@ class BaseIconButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onTap,
+    this.tooltip,
     this.color,
     this.background,
     this.size = 44,
@@ -28,6 +29,9 @@ class BaseIconButton extends StatelessWidget {
 
   final IconData icon;
   final VoidCallback? onTap;
+
+  /// 无障碍提示；非 null 时包一层 [Tooltip]。
+  final String? tooltip;
 
   /// 主色覆盖（默认 null → 走 strategy.accent）
   final Color? color;
@@ -77,7 +81,7 @@ class BaseIconButton extends StatelessWidget {
     final effectiveIconSize =
         variant == BaseIconButtonVariant.hero ? 48.0 : iconSize;
 
-    return InkWell(
+    final button = InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: Container(
@@ -88,6 +92,9 @@ class BaseIconButton extends StatelessWidget {
         child: Icon(icon, color: fg, size: effectiveIconSize),
       ),
     );
+
+    if (tooltip == null) return button;
+    return Tooltip(message: tooltip!, child: button);
   }
 
   ColorStrategy _resolve(BuildContext context) {

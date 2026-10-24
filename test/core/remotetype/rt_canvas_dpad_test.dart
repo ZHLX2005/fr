@@ -1,14 +1,17 @@
 // test/core/remotetype/rt_canvas_dpad_test.dart
 //
-// 方向轮盘交互单测（vpad 十字键语义）：
+// 方向模块交互单测（vpad 十字键语义）：
 //   - 按到某向立即回报该向一次（虚拟手柄保持状态，**不连发**）
 //   - 按住滑到另一向 = 换向（旧向停、新向回报）
 //   - 松手 / 滑回中心死区 = 回报 null（映射 vpad_dpad 'none' 回中）
 //   - 未连接（enabled: false）不响应
-//   - 两种布局：四向键（默认，十字矩形命中：臂内归该向，斜角空隙不触发）
-//     与八向轮盘（45° 扇区八分圆，补 up_left/up_right/down_left/down_right）
+//   - 两种布局：四向十字键（默认，标准手柄样式；判定=视觉同形十字：
+//     臂半长 0.46*side、臂半宽 0.16*side，中心毂与斜角空隙不触发）
+//     与八向分段轮盘（45° 扇区八分圆，补 up_left/up_right/down_left/down_right）
+//   - 四向判定区域倍率 hitRatio：>1 放大（斜角邻域归臂内）、<1 收紧
+//     （臂外不触发），判定臂长之外一律不触发
 //
-// 判定口径与 RtCanvasDpad._dirAt 一致；四向中心毂（±0.17*side 方形）无方向，
+// 判定口径与 RtCanvasDpad._dirAt 一致；四向中心毂（±0.16*side 方形）无方向，
 // 八向死区（半径 25%）无方向。
 
 import 'package:flutter/material.dart';
@@ -20,6 +23,7 @@ Future<void> pumpDpad(
   required ValueChanged<String?> onDirection,
   bool enabled = true,
   bool dir8 = false,
+  double hitRatio = 1.0,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -33,6 +37,7 @@ Future<void> pumpDpad(
               onDirection: onDirection,
               showLegend: false,
               dir8: dir8,
+              hitRatio: hitRatio,
             ),
           ),
         ),
@@ -114,12 +119,12 @@ void main() {
   });
 
   group('方向模式', () {
-    testWidgets('四向键：臂内归该向，斜角空隙不触发（不出斜向）', (tester) async {
+    testWidgets('四向十字键：臂内归该向，斜角空隙不触发（不出斜向）', (tester) async {
       final fired = <String?>[];
       await pumpDpad(tester, onDirection: fired.add);
 
       final center = tester.getCenter(find.byType(RtCanvasDpad));
-      // (70,30)：|dy|=30 ≤ 臂半厚(34) → 右臂
+      // (70,30)：|dy|=30 ≤ 臂半宽(32) → 右臂
       var gesture = await tester.startGesture(center + const Offset(70, 30));
       await tester.pump();
       expect(fired, ['right']);
@@ -127,7 +132,7 @@ void main() {
       await tester.pump();
       expect(fired, ['right', null]);
 
-      // (30,70)：|dx|=30 ≤ 臂半厚 → 下臂
+      // (30,70)：|dx|=30 ≤ 臂半宽 → 下臂
       fired.clear();
       gesture = await tester.startGesture(center + const Offset(30, 70));
       await tester.pump();
@@ -141,6 +146,55 @@ void main() {
       gesture = await tester.startGesture(center + const Offset(70, 60));
       await tester.pump(const Duration(milliseconds: 200));
       expect(fired, isEmpty, reason: '斜角空隙不触发');
+      await gesture.up();
+      await tester.pump();
+      expect(fired, isEmpty);
+    });
+
+    testWidgets('四向判定臂长之外不触发（判定区 = 视觉同形十字）', (tester) async {
+      final fired = <String?>[];
+      await pumpDpad(tester, onDirection: fired.add);
+
+      final center = tester.getCenter(find.byType(RtCanvasDpad));
+      // 臂半长 L = 0.46*200 = 92：(95,0) 已出判定臂长
+      var gesture = await tester.startGesture(center + const Offset(95, 0));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(fired, isEmpty, reason: '判定臂长之外不触发');
+      await gesture.up();
+      await tester.pump();
+
+      // (88,0) 在臂长内 → right
+      gesture = await tester.startGesture(center + const Offset(88, 0));
+      await tester.pump();
+      expect(fired, ['right']);
+      await gesture.up();
+    });
+
+    testWidgets('四向判定区域：hitRatio 放大后斜角邻域归臂内', (tester) async {
+      final fired = <String?>[];
+      // hitRatio 1.5 → 臂半宽 32*1.5 = 48
+      await pumpDpad(tester, onDirection: fired.add, hitRatio: 1.5);
+
+      final center = tester.getCenter(find.byType(RtCanvasDpad));
+      // (70,45)：默认是斜角空隙（45 > 32），放大后归右臂
+      final gesture = await tester.startGesture(center + const Offset(70, 45));
+      await tester.pump();
+      expect(fired, ['right']);
+      await gesture.up();
+      await tester.pump();
+      expect(fired, ['right', null]);
+    });
+
+    testWidgets('四向判定区域：hitRatio 收紧后臂外不触发', (tester) async {
+      final fired = <String?>[];
+      // hitRatio 0.7 → 臂半宽 32*0.7 ≈ 22.4
+      await pumpDpad(tester, onDirection: fired.add, hitRatio: 0.7);
+
+      final center = tester.getCenter(find.byType(RtCanvasDpad));
+      // (70,30)：默认归右臂（30 ≤ 32），收紧后 ay=30 > 22.4 不触发
+      final gesture = await tester.startGesture(center + const Offset(70, 30));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(fired, isEmpty, reason: '判定收紧后臂外不触发');
       await gesture.up();
       await tester.pump();
       expect(fired, isEmpty);

@@ -45,6 +45,7 @@ import '../../core/line/io/line_orientation.dart';
 import '../../core/nav/nav_entry.dart' show demoNavId;
 import '../../services/remotetype/remotetype_providers.dart';
 import '../../services/remotetype/remotetype_service.dart';
+import '../../core/ui/shell/app_nav_bar.dart';
 import '../../core/ui/shell/app_notification.dart';
 import '../../core/theme/context/colors.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart'
@@ -434,10 +435,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _applyLayoutOrientation(entry);
   }
 
-  /// 屏幕方向跟随布局：写字页只属竖屏 → 锁竖屏；锁横屏的布局（轮盘 / 手柄 /
-  /// 键盘）→ 直接转横屏；双朝向布局（触控屏）→ 放开旋转，保持当前朝向。
+  /// 屏幕方向跟随布局：竖屏专属布局（写字页 / 竖屏画布）→ 锁竖屏；锁横屏
+  /// 的布局（轮盘 / 手柄 / 键盘）→ 直接转横屏；双朝向布局（触控屏）→ 放开
+  /// 旋转，保持当前朝向。切换面板放开跨朝向直选后，竖屏画布条目也可能从
+  /// 横屏被点到——按条目自身朝向转屏，别让它落在「方向自由」上（否则激活
+  /// 落在竖屏侧、屏幕还横着，渲染回退到横屏兜底，表现为「切了没反应」）。
   void _applyLayoutOrientation(RtCanvasNamedLayout entry) {
-    if (entry.kind == RtLayoutKind.writer) {
+    if (entry.orientation == kRtCanvasOrientPortrait) {
       unawaited(LineOrientation.portraitOnly());
       return;
     }
@@ -466,32 +470,27 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       top: 0,
       left: 0,
       right: 0,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-          child: Row(
-            children: [
-              RtRoundIconButton(
-                icon: Icons.arrow_back_ios_new,
-                tooltip: '返回连接列表',
-                onTap: _exitDetail,
-              ),
-              const SizedBox(width: 8),
-              RtLayoutCapsule(
-                connected: _connected,
-                layoutName: _activeEntry?.name ?? '写字',
-                onOpen: _openLayoutPicker,
-              ),
-              const Spacer(),
-              RtRoundIconButton(
-                icon: Icons.refresh_rounded,
-                tooltip: '重连',
-                onTap: _connecting ? () {} : _reconnect,
-              ),
-            ],
-          ),
+      // 浮层导航：AppNavBar.floating（返回玻璃钮 + 布局胶囊 + 重连圆钮）。
+      child: AppNavBar.floating(
+        onBack: _exitDetail,
+        backTooltip: '返回连接列表',
+        leading: RtRoundIconButton(
+          icon: Icons.arrow_back_ios_new,
+          tooltip: '返回连接列表',
+          onTap: _exitDetail,
         ),
+        title: RtLayoutCapsule(
+          connected: _connected,
+          layoutName: _activeEntry?.name ?? '写字',
+          onOpen: _openLayoutPicker,
+        ),
+        floatingActions: [
+          RtRoundIconButton(
+            icon: Icons.refresh_rounded,
+            tooltip: '重连',
+            onTap: _connecting ? () {} : _reconnect,
+          ),
+        ],
       ),
     );
   }

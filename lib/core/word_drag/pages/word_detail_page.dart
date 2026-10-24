@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/ui/shell/app_nav_bar.dart';
 import '../../ui/shell/emphasis_button.dart';
 import '../models/word.dart';
 
@@ -14,18 +15,11 @@ class WordDetailPage extends StatelessWidget {
     return Scaffold(
       // A 方案：light mode 化 —— 整页背景 surface、AppBar 透明
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          '单词详情',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18),
-        ),
+      // 透明 AppBar 变体：AppNavBar.standard(transparent + centerTitle)。
+      appBar: const AppNavBar.standard(
+        title: '单词详情',
         centerTitle: true,
+        transparent: true,
       ),
       body: SafeArea(
         child: Padding(

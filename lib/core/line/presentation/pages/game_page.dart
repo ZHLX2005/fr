@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import '../../../ui/shell/app_nav_bar.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/constants.dart';
 import '../../domain/game_result.dart';
@@ -175,7 +176,6 @@ class _LineDemoPageState extends State<_LineDemoPage>
     ];
 
     final padTop = MediaQuery.of(context).padding.top;
-    final padLeft = MediaQuery.of(context).padding.left;
 
     return PopScope(
       canPop: false,
@@ -243,25 +243,17 @@ class _LineDemoPageState extends State<_LineDemoPage>
                 ),
               ),
 
+              // 浮层导航：返回（裸图标）+ 居中分数。
+              // SafeArea 自带系统安全区，Positioned 只留原版 8px 边距；
+              // landscape/portrait 的顶部差异量走 floatingPadding。
               Positioned(
-                top: padTop + (landscape ? 8 : 16),
-                left: padLeft + 8,
-                child: IconButton(
-                  icon: Icon(
-                    Icons.arrow_back_ios_new,
-                    color: theme.colorScheme.primary,
-                    size: landscape ? 20 : 24,
-                  ),
-                  onPressed: _handleExit,
-                ),
-              ),
-
-              Positioned(
-                top: padTop + (landscape ? 10 : 18),
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
+                top: 0,
+                left: 8,
+                right: 8,
+                child: AppNavBar.floating(
+                  onBack: _handleExit,
+                  backStyle: NavBackStyle.plain,
+                  title: Text(
                     '${c.score}/${c.highScore}',
                     style: TextStyle(
                       fontSize: landscape ? 18 : 24,
@@ -271,6 +263,8 @@ class _LineDemoPageState extends State<_LineDemoPage>
                       letterSpacing: 3,
                     ),
                   ),
+                  centerTitleSlot: true,
+                  floatingPadding: EdgeInsets.only(top: landscape ? 8 : 16),
                 ),
               ),
 

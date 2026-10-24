@@ -6,6 +6,7 @@ import '../domain/note_event.dart';
 import '../domain/particle.dart';
 import '../engine/hit_feedback.dart';
 import '../engine/judge_service.dart';
+import '../../ui/shell/app_nav_bar.dart';
 import 'offset_calibrate_page.dart';
 
 // ═══════════════════════════════════════════════════════════════
@@ -447,17 +448,14 @@ class _SpeedSettingsPageState extends State<SpeedSettingsPage>
       body: SafeArea(
         child: Stack(
           children: [
-            // 返回按钮
+            // 返回按钮：AppNavBar.floating（圆形描边钮，浅色画布）
             Positioned(
-              top: 16,
-              left: 16,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Icon(
-                  Icons.arrow_back_ios_new,
-                  size: 20,
-                  color: widget.primaryColor,
-                ),
+              top: 0,
+              left: 0,
+              child: AppNavBar.floating(
+                onBack: () => Navigator.of(context).pop(),
+                backStyle: NavBackStyle.solid,
+                floatingPadding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               ),
             ),
 

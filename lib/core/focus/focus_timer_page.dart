@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../ui/shell/app_nav_bar.dart';
 import '../ui/shell/emphasis_button.dart';
 import 'models/focus_session.dart';
 import 'providers/focus_timer_provider.dart';
@@ -260,29 +261,26 @@ class _FocusTimerPageState extends State<FocusTimerPage>
           colors: [Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1), Theme.of(context).colorScheme.surface.withValues(alpha: 0.0)],
         ),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back_ios, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            onPressed: () {
-              if (_showControls) {
-                setState(() => _showControls = false);
-                _hideTimer?.cancel();
-              }
-              Navigator.pop(context);
-            },
+      // 渐变Container自带外距，浮层行内距归零
+      child: AppNavBar.floating(
+        onBack: () {
+          if (_showControls) {
+            setState(() => _showControls = false);
+            _hideTimer?.cancel();
+          }
+          Navigator.pop(context);
+        },
+        backStyle: NavBackStyle.plain,
+        title: const Text(
+          '心流空间',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF7A9A6E), // 主题豁免：sage 家族识别色
           ),
-          const Spacer(),
-          const Text(
-            '心流空间',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF7A9A6E), // 主题豁免：sage 家族识别色
-            ),
-          ),
-          const Spacer(),
-        ],
+        ),
+        centerTitleSlot: true,
+        floatingPadding: EdgeInsets.zero,
       ),
     );
   }

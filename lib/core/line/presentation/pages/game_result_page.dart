@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../ui/shell/app_nav_bar.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/game_result.dart';
 import 'game_page.dart' show GamePage;
@@ -88,33 +89,24 @@ class _GameResultPageState extends State<GameResultPage>
             SafeArea(
               child: Column(
                 children: [
-                  // 顶栏：返回 + 重试
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
+                  // 顶栏：返回 + 重试（AppNavBar.floating 浮层行）
+                  AppNavBar.floating(
+                    onBack: _goToSongSelect,
+                    backStyle: NavBackStyle.plain,
+                    floatingPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            Icons.arrow_back_ios_new,
-                            color: theme.colorScheme.primary,
-                            size: 22,
-                          ),
-                          onPressed: _goToSongSelect,
+                    floatingActions: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.replay,
+                          color: theme.colorScheme.primary,
+                          size: 24,
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.replay,
-                            color: theme.colorScheme.primary,
-                            size: 24,
-                          ),
-                          onPressed: _retry,
-                        ),
-                      ],
-                    ),
+                        onPressed: _retry,
+                      ),
+                    ],
                   ),
 
                   const Spacer(flex: 2),

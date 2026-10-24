@@ -8,6 +8,7 @@ import 'package:flutter/physics.dart';
 
 import '../nav/nav_route.dart';
 import 'canvas_reader_engine.dart';
+import '../ui/shell/app_nav_bar.dart';
 import '../ui/shell/emphasis_button.dart';
 import '../ui/shell/app_notification.dart';
 import 'novel_reader_constants.dart';
@@ -861,9 +862,38 @@ class _NovelReaderPageState extends State<NovelReaderPage> {
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 180),
                       opacity: _chromeVisible ? 1 : 0,
-                      child: _ReaderTopBar(
-                        title: widget.book.title,
-                        pageLabel: controller.progressLabel,
+                      // 浮卡胶囊条：纸质豁免色留在调用点（组件不写死）
+                      child: AppNavBar.pill(
+                        onBack: () => Navigator.of(context).maybePop(),
+                        pillBackground: Theme.of(context)
+                            .colorScheme
+                            .surface
+                            .withValues(alpha: 0.96),
+                        pillBorder: Theme.of(context)
+                            .colorScheme
+                            .error
+                            .withValues(alpha: 0.35),
+                        title: Text(
+                          widget.book.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            // 主题豁免：阅读器纸质识别色
+                            color: Color(0xFF4B3728),
+                          ),
+                        ),
+                        trailing: Padding(
+                          padding: const EdgeInsets.only(left: 12, right: 6),
+                          child: Text(
+                            controller.progressLabel,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              // 主题豁免：阅读器纸质识别色
+                              color: Color(0xFF7A5D47),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1339,69 +1369,6 @@ class _ImportPlaceholderIcon extends StatelessWidget {
         Icons.upload_file_rounded,
         color: Theme.of(context).colorScheme.tertiary,
         size: 28,
-      ),
-    );
-  }
-}
-
-class _ReaderTopBar extends StatelessWidget {
-  const _ReaderTopBar({required this.title, required this.pageLabel});
-
-  final String title;
-  final String pageLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.35),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.10),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              if (context.navCanPop)
-                IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(Icons.arrow_back_rounded),
-                ),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF4B3728),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                pageLabel,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF7A5D47),
-                ),
-              ),
-              const SizedBox(width: 6),
-            ],
-          ),
-        ),
       ),
     );
   }

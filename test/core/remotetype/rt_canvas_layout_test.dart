@@ -29,6 +29,7 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
         RtCanvasLayouts,
         RtCanvasNamedLayout,
         kRtCanvasBtnScaleMax,
+        kRtCanvasDpadHitMax,
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleKb,
@@ -132,6 +133,38 @@ void main() {
         {'v': true, 'x': 0.1, 'y': 0.2}.cast<String, dynamic>(),
       );
       expect(legacy.dir8, isFalse);
+    });
+
+    test('判定区域 round-trip：hit 落字段并读回', () {
+      const anchor = RtCanvasAnchor(visible: true, x: 0.2, y: 0.5, hit: 1.4);
+      final json = anchor.toJson();
+      expect(json['hit'], 1.4);
+      final restored = RtCanvasAnchor.fromJson(json.cast<String, dynamic>());
+      expect(restored.hit, 1.4);
+    });
+
+    test('判定区域稀疏：默认不落字段，旧数据读入按 1.0 兜底；越界钳回限位', () {
+      const anchor = RtCanvasAnchor(visible: true, x: 0.5, y: 0.5);
+      expect(anchor.toJson().containsKey('hit'), isFalse);
+      final legacy = RtCanvasAnchor.fromJson(
+        {'v': true, 'x': 0.1, 'y': 0.2}.cast<String, dynamic>(),
+      );
+      expect(legacy.hit, 1.0);
+      final clamped = RtCanvasAnchor.fromJson(
+        {'v': true, 'x': 0.1, 'y': 0.2, 'hit': 9.0}.cast<String, dynamic>(),
+      );
+      expect(clamped.hit, kRtCanvasDpadHitMax);
+    });
+
+    test('copyWith：改几何不丢判定倍率，改倍率不动几何', () {
+      const anchor = RtCanvasAnchor(visible: true, x: 0.3, y: 0.4, hit: 1.25);
+      final moved = anchor.copyWith(x: 0.8, y: 0.9);
+      expect(moved.hit, 1.25, reason: '拖动模块不能把判定倍率丢掉');
+      expect(moved.x, 0.8);
+
+      final retuned = anchor.copyWith(hit: 0.8);
+      expect(retuned.hit, 0.8);
+      expect(retuned.x, 0.3);
     });
 
     test('copyWith：改几何不丢方向模式，改模式不动几何', () {

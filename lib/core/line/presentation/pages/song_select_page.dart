@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import '../../../ui/shell/app_nav_bar.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/song_data.dart';
 import '../../domain/song_medal.dart';
@@ -105,7 +106,6 @@ class _SongSelectPageState extends State<SongSelectPage> {
     final color = theme.colorScheme.primary;
     final size = MediaQuery.of(context).size;
     final landscape = size.width > size.height;
-    final navHeight = MediaQuery.of(context).padding.top + (landscape ? 44 : 56);
     final wheelWidth = size.width * (landscape ? 0.28 : 0.3);
 
     if (_isLoading) {
@@ -142,45 +142,24 @@ class _SongSelectPageState extends State<SongSelectPage> {
       backgroundColor: theme.colorScheme.surface,
       body: Column(
         children: [
-          // 导航栏
-          SizedBox(
-            height: navHeight,
-            child: Row(
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    top: MediaQuery.of(context).padding.top,
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.arrow_back_ios_new,
-                      color: color,
-                      size: 24,
+          // 导航栏：返回 + 设置（AppNavBar.floating 浮层行，SafeArea 自带顶部安全区）
+          AppNavBar.floating(
+            onBack: _onBack,
+            backStyle: NavBackStyle.plain,
+            floatingPadding: const EdgeInsets.symmetric(horizontal: 16),
+            floatingActions: [
+              IconButton(
+                icon: Icon(Icons.settings_outlined, color: color, size: 24),
+                onPressed: () {
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          SpeedSettingsPage(primaryColor: color),
                     ),
-                    onPressed: _onBack,
-                  ),
-                ),
-                const Spacer(),
-                Padding(
-                  padding: EdgeInsets.only(
-                    right: 16,
-                    top: MediaQuery.of(context).padding.top,
-                  ),
-                  child: IconButton(
-                    icon: Icon(Icons.settings_outlined, color: color, size: 24),
-                    onPressed: () {
-                      Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              SpeedSettingsPage(primaryColor: color),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+                  );
+                },
+              ),
+            ],
           ),
           // 选歌区域
           Expanded(
