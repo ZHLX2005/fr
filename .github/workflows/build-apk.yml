@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    # 推 v* tag → 同一条流水线构建并在最后发 GitHub Release（APK 挂附件）。
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - master
@@ -12,6 +15,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # tag 构建要用 GITHUB_TOKEN 创建 Release + 传附件（其余 job 默认只读足够）
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -77,6 +83,19 @@ jobs:
             exit 1
           fi
           echo "arm64-only 校验通过"
+
+      # ============================================================
+      # 发 GitHub Release（仅 v* tag 推送）：APK 挂到 Release 附件，正文
+      # 自动汇总自上个 tag 以来的提交。放在文件服务器上传之前——Release
+      # 是版本化主交付物，跨境链路抖动不该连累它。
+      # ============================================================
+      - name: Create GitHub Release (v* tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: build/app/outputs/flutter-apk/app-*.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
