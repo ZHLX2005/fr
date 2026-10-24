@@ -169,10 +169,9 @@ class LobbyStartedCtx {
 
 /// RoomCodeRules —— 房间号校验（共享默认实现，游戏可覆盖）。
 ///
-/// 默认排除 0/O/1/I/L 易混字符（与 chess 原 LobbyEntryPage 行为一致）。
+/// 只校验长度；**不拦截易混字符**（产品决定 2026-10-24：0/O/1/I/L 允许提交，
+/// 交由服务端响应兜底）。
 class RoomCodeRules {
-  static const String kConfusingChars = '0O1IL';
-
   /// 返回 null 表示合法，否则返回错误信息。
   static String? validate(
     String code, {
@@ -181,9 +180,6 @@ class RoomCodeRules {
   }) {
     if (code.length < minLen || code.length > maxLen) {
       return '房间号为 $minLen–$maxLen 位大写字母数字';
-    }
-    if (code.contains(RegExp('[$kConfusingChars]'))) {
-      return '房间号不能包含 0/O/1/I/L（易混淆）';
     }
     return null;
   }

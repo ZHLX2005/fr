@@ -243,7 +243,7 @@
 
 | 优先级 | 位置 | 已核实行为/问题 | 处理边界 |
 |---|---|---|---|
-| P2（等用户拍板） | `lib/core/game_kit/lobby/game_lobby_spec.dart:174`（`RoomCodeRules.kConfusingChars`，`game_lobby_page.dart:88` 调用） | 客户端在 `validate` 里拦截 0/O/1/I/L。**用户已于 2026-10-24 拍板「不要拦截易混字符」**，现行实现与该决定相悖。 | 移除 kConfusingChars 校验属行为变更：需同步调整/删除相关测试并记 CHANGELOG；服务端对易混字符的真实行为未核实（可能 400），移除后 UX 影响要在拍板时一并确认。**未经确认不改码。** |
+| P2 → **已落地（2026-10-24）** | `lib/core/game_kit/lobby/game_lobby_spec.dart`（`RoomCodeRules.validate`） | 用户确认「不拦截」后已移除 `kConfusingChars` 字段与校验分支，validate 只校验长度；原先无测试覆盖，无需调整测试。 | 服务端对易混字符的真实行为仍未核实（待服务端来源；后端仓库 dev_ctr_hello 已登记进 nx-kv fr 看板，可去那核实）；`_lobby_form.dart` 的随机生成 pool 仍避开易混字符——生成偏好，非拦截。 |
 | P3 | `lib/core/xiangqi/`（30）/ `lib/core/chess/`（35）/ `lib/core/remotetype/`（6） | 2026-10 新模块引入的裸 hex 尚未按 Eb04 的 S/E/特例口径逐项归类（本轮已测得数量并登记在 Eb04 §4「待归类」）。 | 下次颜色专项或迁移时按 Eb04 §5 命令逐文件定性回填；不阻塞功能开发。 |
 | P3（模式级） | 22 份 ref 的错误案例表 | 表头 5 种变体（症状/错误/现象/错误操作/错误想法 × 检查/后果/排查/风险…），未统一为「症状→检查→修复→验证」四列；行数 4–14 不等，未严格执行 Top5。 | 下轮按 ref 逐份统一；优先 Fa02（12 行）/Ha01（14 行）/Ga02（10 行）三份最长的。 |
 
