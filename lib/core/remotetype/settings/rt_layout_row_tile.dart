@@ -31,7 +31,7 @@ class RtLayoutRowTile extends StatelessWidget {
   /// 点行 = 切该组激活。
   final VoidCallback onSwitch;
 
-  /// ⋯ 管理入口；固定布局（写字）为 null——不可编排，标「固定」即可。
+  /// ⋯ 管理入口；固定布局（写字）为 null——不可编排（无菜单项可给）。
   final VoidCallback? onMore;
 
   @override
@@ -95,12 +95,7 @@ class RtLayoutRowTile extends StatelessWidget {
                 ),
               ),
             ),
-            if (!entry.editable)
-              const RtRowBadge(label: '固定')
-            else if (entry.builtIn)
-              const RtRowBadge(label: '内置')
-            else
-              const RtRowBadge(label: '自定义', accent: true),
+            if (!entry.builtIn) const RtRowBadge(label: '自定义'),
             if (onMore != null)
               IconButton(
                 visualDensity: VisualDensity.compact,
@@ -124,13 +119,13 @@ class RtLayoutRowTile extends StatelessWidget {
   }
 }
 
-/// 行尾小徽：固定 / 内置（中性灰）；自定义（primaryContainer + primary）。
+/// 行尾小徽：仅自定义布局有（primaryContainer + primary）；内置/固定不带标识。
 class RtRowBadge extends StatelessWidget {
   const RtRowBadge({super.key, required this.label, this.accent = false});
 
   final String label;
 
-  /// true = 主题色徽（自定义）；false = 中性徽（内置/固定）。
+  /// true = 主题色徽（自定义）。
   final bool accent;
 
   @override
