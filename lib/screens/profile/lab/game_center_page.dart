@@ -16,9 +16,10 @@
 // 分类 / 配色 / 图标登记表在 game_center/const_game_center.dart；
 // 卡片组件在 game_center/game_center_cards.dart；封面在 game_center_artwork.dart。
 //
-// 添加新游戏：demo `override type => DemoType.game` + 在 kGameCenterCatalog 与
-// kGameMeta 里各登记一条，再跑 `dart run tool/publish_game_center_index.dart`
-// 重发 KV——否则 ve 管理端「游戏封面」tab 看不到该游戏，无法分配封面。
+// 添加新游戏：demo `override type => DemoType.game` + 在 kGameMeta 登记
+// （categories/mode/icon/gradient/pattern）。游戏目录（ve 管理端「游戏封面」
+// tab 的游戏列表）由本页 initState 从注册表派生并自动同步 KV
+//（compare-then-write，见 game_center_catalog_sync.dart），无需手动登记与发布。
 // 本文件无需改动。
 
 import 'dart:async' show unawaited;
@@ -26,8 +27,10 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../api/providers/api_providers.dart';
 import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../core/nav/nav_route.dart';
@@ -40,14 +43,17 @@ import 'game_center/game_center_cards.dart';
 import 'providers/lab_card_provider.dart';
 import 'reveal_item.dart';
 
-class GameCenterPage extends StatefulWidget {
+class GameCenterPage extends ConsumerStatefulWidget {
   const GameCenterPage({super.key});
 
   @override
-  State<GameCenterPage> createState() => _GameCenterPageState();
+  ConsumerState<GameCenterPage> createState() => _GameCenterPageState();
 }
 
-class _GameCenterPageState extends State<GameCenterPage>
+/// 目录自动同步的进程级闸门：一次会话只尝试一次（失败不重试，下次冷启再说）。
+bool _catalogSyncAttempted = false;
+
+class _GameCenterPageState extends ConsumerState<GameCenterPage>
     with TickerProviderStateMixin {
   final _provider = LabCardProvider();
   final _scrollController = ScrollController();
@@ -78,36 +84,29 @@ class _GameCenterPageState extends State<GameCenterPage>
         .where(seen.add)
         .toList();
 
-    // debug 校验（双向防漂移）：
-    //   正向：catalog（KV 事实源，ve 管理端消费）每条都已注册且在 kGameMeta 里；
-    //   反向：每个注册的 game 都进了 catalog（漏登记 → 管理端无法分配封面）。
-    // 任一不一致在 debug 构建直接崩（发布前必现）。
+    // 目录派生：目录 = 注册表 + kGameMeta 的纯派生（不再手工登记，见
+    // game_center_catalog.dart），「漏登记 catalog」这类漂移已不存在。
+    // 唯一要防的剩 kGameMeta 缺登记（灰兜底封面 + 目录 categories/mode 失真），
+    // debug 构建直接崩（发布前必现）。
+    final catalog = buildGameCenterCatalog(_games);
     assert(() {
-      final slugs = _games.map((d) => d.slug).toSet();
-      for (final e in kGameCenterCatalog) {
-        assert(
-          slugs.contains(e.slug),
-          'game-center catalog slug "${e.slug}" is not registered as DemoType.game; '
-          'add it to kGameCenterCatalog / demo, or drop it from the catalog',
-        );
-        assert(
-          kGameMeta.containsKey(e.slug),
-          'game-center catalog slug "${e.slug}" missing in kGameMeta; '
-          'add a GameMeta entry in const_game_center.dart',
-        );
-      }
-      final catalogSlugs = kGameCenterCatalog.map((e) => e.slug).toSet();
       for (final d in _games) {
         assert(
-          catalogSlugs.contains(d.slug),
+          kGameMeta.containsKey(d.slug),
           'game "${d.slug}" is registered as DemoType.game but missing in '
-          'kGameCenterCatalog; add a GameCenterCatalogEntry in '
-          'game_center_catalog.dart, then republish via '
-          'tool/publish_game_center_index.dart (ve admin cannot see it otherwise)',
+          'kGameMeta; add a GameMeta entry in const_game_center.dart',
         );
       }
       return true;
     }());
+
+    // KV 目录自动同步（compare-then-write）：值相同零写；未登录/无权限时
+    // 写被拒属预期，GameCenterCatalogSync 内部静默。owner 打开一次游戏中心，
+    // ve 管理端「游戏封面」tab 即可见最新目录。
+    if (!_catalogSyncAttempted) {
+      _catalogSyncAttempted = true;
+      unawaited(ref.read(gameCenterCatalogSyncProvider).sync(catalog));
+    }
 
     _revealController = AnimationController(
       vsync: this,

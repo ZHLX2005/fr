@@ -4,7 +4,14 @@ import '../../api_response.dart';
 /// KvEndpoint 提供的最小操作集合 —— 让 CloudStorageSync 等上游能注入替身（测试/mock）。
 abstract interface class KvOps {
   Future<ApiResponse<KvItem?>> get(String key);
-  Future<ApiResponse<void>> set({required String key, required String value, int? ttl});
+  Future<ApiResponse<void>> set({
+    required String key,
+    required String value,
+    int? ttl,
+    int? groupId,
+    List<String>? tags,
+    String? visibility,
+  });
   Future<ApiResponse<void>> delete(String key);
   Future<ApiResponse<KvListResult>> list({int limit = 50, int offset = 0});
 }

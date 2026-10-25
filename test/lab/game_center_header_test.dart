@@ -1,6 +1,7 @@
 // 游戏中心 H3R-C 头部（搜索框即头）冒烟测试：
 // 功能行渲染、搜索过滤、搜索历史持久化、毛玻璃条滚动态。
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaodouzi_fr/lab/lab_bootstrap.dart';
@@ -14,17 +15,21 @@ Future<void> _pump(WidgetTester tester) async {
   // 是 push 进路由的）—— 这里同样以 push 方式挂载，home 直挂会导致
   // navCanPop = false、两个返回钮都不渲染。
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => Center(
-            child: TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const GameCenterPage(),
+    // GameCenterPage 是 ConsumerStatefulWidget（initState 读目录同步
+    // provider）—— 测试挂载必须包 ProviderScope。
+    ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const GameCenterPage(),
+                  ),
                 ),
+                child: const Text('open'),
               ),
-              child: const Text('open'),
             ),
           ),
         ),

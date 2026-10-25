@@ -1,24 +1,34 @@
-// 游戏中心目录 — 唯一事实源（fr → KV → ve 管理端）
+// 游戏中心目录 — 运行时派生（fr 注册表 → KV → ve 管理端）
 //
-// 职责：把 fr 当前的游戏中心分类「登记表」发布给 ve 的 game-skin-admin
-// 「游戏封面」tab 使用（ve 不再手维护游戏列表，新增/下线游戏只改这里 + 重发 KV）。
+// 目录不再手工登记：[buildGameCenterCatalog] 每次从 demoRegistry
+//（DemoType.game）与 `const_game_center.dart` 的 kGameMeta 现算——
+// 游戏增删只改 demo / kGameMeta 本身，目录随之而变，不存在第二份副本。
 //
-// 与 fr 其他登记表的关系：
-//   · slug      —— 必须与 `DemoPage.slug` 字符级一致（fr://lab/demo/{slug}）
-//   · categories —— 必须与 `const_game_center.dart` 的 `GameCategory.*` 常量一致
-//                    （本文件刻意不 import Flutter，保持纯 Dart 以便 tool 直接引用）
-//   · title / description —— 应与对应 demo 的 `DemoPage.title / description` 保持一致
+// 同步机制（见 game_center_catalog_sync.dart）：
+//   GameCenterPage 打开时把派生结果与 KV 当前值比对，有差异且已登录
+//  （owner/admin）才写回 —— 打开一次游戏中心即完成同步，ve game-skin-admin
+//   「游戏封面」tab 刷新可见，无需任何手动发布。
 //
-// 发布命令（登录 kvcli 后）：
-//   dart run tool/publish_game_center_index.dart
-// 发布产物：KV public `game-center_catalog:index`（groupId 190，tag game-center-catalog）
+// KV 产物：public `game-center_catalog:index`（groupId 190，
+// tag game-center-catalog），ve 端匿名读，与 `game-center_skin:index`
+//（封面索引）同构、可被任何消费方直接 parse。
 //
-// 新增游戏步骤：① demo override `type => DemoType.game`；② 在 [kGameCenterCatalog]
-// 登记一条（slug/title/description/mode/categories）；③ 到 const_game_center.dart 的
-// [kGameMeta] 补 icon/gradient/pattern；④ 重跑发布命令。
-// 防漂移：GameCenterPage.initState 在 debug 模式断言 catalog 与注册表/kGameMeta 一致。
+// 字段来源（派生规则）：
+//   slug        —— DemoPage.slug（= ve 侧 skinId，字符级稳定键）
+//   title       —— DemoPage.title
+//   description —— DemoPage.description
+//   categories  —— kGameMeta[slug].categories（GameCategory 常量）
+//   mode        —— kGameMeta[slug].mode
+//   isOnline    —— categories 含 multiplayer
+//
+// 历史：本文件曾有 17 条手工 kGameCenterCatalog 常量表 +
+// tool/publish_game_center_index.dart 手动发布；「登记」与「发布」两步都会
+// 被忘（2026-10-25 国际跳棋/中国象棋因此缺席 ve 端），已一并删除。
 
 import 'dart:convert';
+
+import '../../lab/lab_container.dart';
+import '../../screens/profile/lab/game_center/const_game_center.dart';
 
 /// 单款游戏的目录条目（JSON 序列化的形状就是 KV value 的元素）。
 class GameCenterCatalogEntry {
@@ -57,135 +67,28 @@ class GameCenterCatalogEntry {
       };
 }
 
-/// 游戏中心目录（发布顺序 = 客户端注册顺序：联机在前，本地在后）。
-/// slug 必须与 DemoPage.slug 一致；categories 必须与 GameCategory 常量一致。
-const List<GameCenterCatalogEntry> kGameCenterCatalog = [
-  // ── 联机（Relay v3 · Lua 状态机）────────────────────────────
-  GameCenterCatalogEntry(
-    slug: 'surround-game-lua',
-    title: '围追堵截（联机）',
-    description: 'Quoridor 互联网双人对战 · Lua 服务端权威棋谱',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'gomoku-lua',
-    title: '五子棋（联机）',
-    description: 'Gomoku 互联网双人对战 · Lua 服务端权威棋谱',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'go-lua',
-    title: '围棋（联机）',
-    description: 'Go 互联网双人对战 · Lua 服务端权威棋谱',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'team-card-lua',
-    title: '团建卡牌（联机）',
-    description: '谁是卧底/狼人杀 · Lua 服务端权威 + 三区大厅',
-    categories: ['multiplayer', 'party'],
-    mode: '联机多人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'tetris-lua',
-    title: '俄罗斯方块（联机）',
-    description: 'Tetris 互联网双人对战 · 共享序列 + 实时比拼',
-    categories: ['multiplayer', 'arcade'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'coup-lua',
-    title: '政变（联机）',
-    description: 'Coup 互联网多人对抗 · Lua 服务端权威 + 角色卡 + 质疑/阻断',
-    categories: ['multiplayer', 'party'],
-    mode: '联机多人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'reversi-lua',
-    title: '黑白翻转棋',
-    description: '棋游+联机 · Othello 互联网双人对战 · Lua 服务端权威棋谱',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'chess-online',
-    title: '国际象棋（联机）',
-    description: 'Chess 互联网双人对战 · v3 Lua 服务端权威',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'draughts-lua',
-    title: '国际跳棋（联机）',
-    description:
-        'International Draughts 10×10 · Lua 服务端权威棋谱 · 强制吃子 + flying king',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'xiangqi-lua',
-    title: '中国象棋（联机）',
-    description:
-        'Xiangqi 9×10 · Lua 服务端权威棋谱 · SVG 手绘棋子 · 聊天/认输/悔棋/求和',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'jungle-chess-lua',
-    title: '斗兽棋（联机）',
-    description: '斗兽棋互联网双人对战 · Lua 服务端权威棋谱 · 棋盘对称翻转',
-    categories: ['multiplayer', 'board'],
-    mode: '联机双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'sudoku-lua',
-    title: '数独（联机）',
-    description: 'Sudoku 互联网双人对战 · v3 Lua 服务端权威 · 同题竞速',
-    categories: ['multiplayer', 'puzzle'],
-    mode: '联机双人',
-  ),
-  // ── 本地 ────────────────────────────────────────────────────
-  GameCenterCatalogEntry(
-    slug: 'surround-game',
-    title: '围追堵截',
-    description: '本地双人对战',
-    categories: ['board'],
-    mode: '本地双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'jungle-chess',
-    title: '斗兽棋',
-    description: '本地双人斗兽棋',
-    categories: ['board'],
-    mode: '本地双人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'snake',
-    title: '贪吃蛇',
-    description: '经典贪吃蛇游戏',
-    categories: ['arcade'],
-    mode: '单人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'game-2048',
-    title: '2048',
-    description: '经典数字益智游戏',
-    categories: ['puzzle'],
-    mode: '单人',
-  ),
-  GameCenterCatalogEntry(
-    slug: 'line',
-    title: '线',
-    description: '线',
-    categories: ['music'],
-    mode: '单人',
-  ),
-];
+/// 从注册好的 game demo 列表派生目录（顺序 = 传入顺序 = 客户端注册顺序）。
+///
+/// [games] 通常传 GameCenterPage 已经算好的 `_games`
+///（demoRegistry.getAll().filterByType(DemoType.game) 去重后的列表）。
+/// categories/mode 取 kGameMeta；未登记 slug 走 kFallbackGameMeta 兜底
+///（debug 断言与 flutter test 会拦，见 game_center_catalog_test）。
+List<GameCenterCatalogEntry> buildGameCenterCatalog(List<DemoPage> games) =>
+    [for (final d in games) _entryOf(d)];
 
-/// KV value 形状：JSON array，与 `game-center_skin:index`（皮肤索引）同构、可被
-/// ve 管理端与未来任何消费方直接 parse。
-String gameCenterCatalogJson() =>
-    jsonEncode(kGameCenterCatalog.map((e) => e.toJson()).toList());
+GameCenterCatalogEntry _entryOf(DemoPage d) {
+  final meta = gameMetaOf(d.slug);
+  return GameCenterCatalogEntry(
+    slug: d.slug,
+    title: d.title,
+    description: d.description,
+    categories: meta.categories.toList(),
+    mode: meta.mode,
+  );
+}
+
+/// KV value 形状：JSON array，与 `game-center_skin:index`（皮肤索引）同构。
+/// 输入相同则输出逐字节相同 —— 这是 compare-then-write 幂等的前提
+///（测试 game_center_catalog_test 有确定性断言把关）。
+String gameCenterCatalogJson(List<GameCenterCatalogEntry> entries) =>
+    jsonEncode(entries.map((e) => e.toJson()).toList());

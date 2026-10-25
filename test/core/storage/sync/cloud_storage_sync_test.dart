@@ -37,6 +37,9 @@ class _FakeKv implements KvOps {
     required String key,
     required String value,
     int? ttl,
+    int? groupId,
+    List<String>? tags,
+    String? visibility,
   }) async {
     lastSet = key;
     lastSetValue = value;

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/game_kit/game_center_catalog_sync.dart';
 import '../api_config.dart';
 import '../api_client.dart';
 import '../token/token_storage.dart';
@@ -51,6 +52,16 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final kvEndpointProvider = Provider<KvEndpoint>((ref) {
   return KvEndpoint(ref.watch(apiClientProvider));
+});
+
+/// 游戏中心目录自动同步（compare-then-write，见 GameCenterCatalogSync）。
+/// 组装 composition-root 依赖：鉴权写走 KvEndpoint（同一 GoFrame 后端），
+/// 匿名比对读走 PublicKvReader（与 ve 管理端同一视角）。
+final gameCenterCatalogSyncProvider = Provider<GameCenterCatalogSync>((ref) {
+  return GameCenterCatalogSync(
+    kv: ref.watch(kvEndpointProvider),
+    baseUrl: ref.watch(apiConfigProvider).baseUrl,
+  );
 });
 
 final groupEndpointProvider = Provider<GroupEndpoint>((ref) {
