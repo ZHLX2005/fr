@@ -36,7 +36,7 @@ class NavPinsState {
     required this.pinIds,
   });
 
-  /// 底栏总格数，含末位 ⋯，仅允许 3 或 4。
+  /// 底栏总格数，含末位 ⋯，仅允许 3、4 或 5。
   final int capacity;
 
   /// 有序钉选 id（含溢出）。
@@ -81,7 +81,7 @@ class NavPinsNotifier extends Notifier<NavPinsState> {
       (pins == null || pins.isEmpty) ? kDefaultNavPins : pins,
     );
     state = NavPinsState(
-      capacity: (cap == 3 || cap == 4) ? cap! : 4,
+      capacity: (cap == 3 || cap == 4 || cap == 5) ? cap! : 4,
       pinIds: cleaned,
     );
     // 若消毒改写了列表，落盘一次
@@ -101,7 +101,7 @@ class NavPinsNotifier extends Notifier<NavPinsState> {
   }
 
   Future<void> setCapacity(int capacity) async {
-    if (capacity != 3 && capacity != 4) return;
+    if (capacity != 3 && capacity != 4 && capacity != 5) return;
     if (state.capacity == capacity) return;
     state = state.copyWith(capacity: capacity);
     final prefs = await SharedPreferences.getInstance();

@@ -173,7 +173,8 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final itemW = constraints.maxWidth / n;
-                    final capsuleW = (itemW - 8).clamp(56.0, 88.0);
+                    // 下限 48：5 槽窄屏（≤336dp）单槽不足 56，钳到 56 会渗进邻槽。
+                    final capsuleW = (itemW - 8).clamp(48.0, 88.0);
 
                     double leftOf(int idx) =>
                         idx * itemW + (itemW - capsuleW) / 2;
