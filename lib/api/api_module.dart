@@ -6,6 +6,7 @@
 /// - `minimax/` — MiniMax TTS：配置 + 模型定义
 /// - `notion/`  — Notion REST API：Database / Page / File Upload（图床）
 /// - `authhub/` — 统一认证中心（go-ah auth-hub）：OIDC 登录 + 扫码批准
+/// - `llm/`     — 直连大模型：OpenAI 兼容 + Anthropic 双协议（base64 视觉输入）
 library;
 
 export 'api_config.dart';
@@ -24,5 +25,6 @@ export 'github/github.dart';
 export 'minimax/minimax.dart';
 export 'notion/notion.dart';
 export 'authhub/authhub.dart';
+export 'llm/llm.dart';
 
 export 'providers/api_providers.dart';
