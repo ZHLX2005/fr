@@ -149,7 +149,7 @@ void main() {
     }).toList();
     print('解析后数据库条目数: ${parsed.length}');
     for (final p in parsed) {
-      print('  ${p}');
+      print('  $p');
     }
   }, tags: ['diagnose']);
 }

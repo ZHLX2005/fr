@@ -4,7 +4,6 @@
 // 防止装饰清理/结构改动引入运行时布局异常（analyze 查不出来）。
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 import 'package:xiaodouzi_fr/lab/demos/tetris_lua/board.dart';
