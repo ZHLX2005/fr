@@ -27,6 +27,7 @@ void main() {
       // 这是有意为之的「已登记但无专属 SVG」白名单，避免每次 demo 增加都强制塞图标。
       const noIconSlug = {
         'session-host', // 后增的会话托管 demo，2026-10-13 时未列入图标集
+        'ai-gallery', // 后增的 AI 图库 demo（2026-10-28 合入上游），未列入图标集
       };
       final mainSlugs = <String>{};
       for (final entry in demoRegistry.getAll()) {
