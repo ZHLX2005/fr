@@ -1,85 +1,11 @@
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import '../button/main.dart';
-
-/// 图片选择器配置
-class ImagePickerConfig {
-  /// 裁剪宽度与高度的比例
-  final double aspectRatioX;
-  final double aspectRatioY;
-
-  /// 裁剪界面标题
-  final String cropTitle;
-
-  /// 是否锁定宽高比
-  final bool lockAspectRatio;
-
-  /// 初始宽高比预设
-  final CropAspectRatioPreset aspectRatioPreset;
-
-  /// 工具栏颜色
-  final Color? toolbarColor;
-
-  /// 是否显示裁剪功能
-  final bool enableCrop;
-
-  const ImagePickerConfig({
-    this.aspectRatioX = 16,
-    this.aspectRatioY = 9,
-    this.cropTitle = '裁剪图片',
-    this.lockAspectRatio = false,
-    this.aspectRatioPreset = CropAspectRatioPreset.original,
-    this.toolbarColor,
-    this.enableCrop = true,
-  });
-
-  /// Banner 配置 (16:9)
-  factory ImagePickerConfig.banner({Color? toolbarColor}) {
-    return ImagePickerConfig(
-      aspectRatioX: 16,
-      aspectRatioY: 9,
-      cropTitle: '裁剪Banner',
-      toolbarColor: toolbarColor,
-    );
-  }
-
-  /// 正方形配置 (1:1)
-  factory ImagePickerConfig.square({Color? toolbarColor}) {
-    return ImagePickerConfig(
-      aspectRatioX: 1,
-      aspectRatioY: 1,
-      cropTitle: '裁剪图片',
-      toolbarColor: toolbarColor,
-    );
-  }
-
-  /// 自由裁剪配置
-  factory ImagePickerConfig.free({Color? toolbarColor}) {
-    return ImagePickerConfig(
-      aspectRatioX: 1,
-      aspectRatioY: 1,
-      cropTitle: '裁剪图片',
-      lockAspectRatio: false,
-      toolbarColor: toolbarColor,
-    );
-  }
-
-  /// 获取宽高比
-  double get aspectRatio => aspectRatioX / aspectRatioY;
-
-  /// 获取宽高比字符串
-  String get aspectRatioString {
-    final ratio = aspectRatio;
-    if ((ratio - 16 / 9).abs() < 0.1) return '16:9';
-    if ((ratio - 4 / 3).abs() < 0.1) return '4:3';
-    if ((ratio - 21 / 9).abs() < 0.1) return '21:9';
-    if ((ratio - 1).abs() < 0.1) return '1:1';
-    return '${ratio.toStringAsFixed(1)}:1';
-  }
-}
+import 'image_picker_config.dart';
 
 /// 图片选择器 Widget - 支持选择、裁剪、预览
 /// 可用于 Banner 设置、卡片背景等场景
@@ -492,63 +418,6 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 图片选择页面 - 完整的页面封装
-class ImagePickerPage extends StatelessWidget {
-  final ImagePickerConfig config;
-  final String? initialImagePath;
-  final String title;
-  final String? emptyStateHint;
-  final String? emptyStateSubHint;
-
-  const ImagePickerPage({
-    super.key,
-    this.config = const ImagePickerConfig(),
-    this.initialImagePath,
-    this.title = '设置图片',
-    this.emptyStateHint,
-    this.emptyStateSubHint,
-  });
-
-  /// 导航到选择器页面，返回选中的图片路径
-  static Future<String?> navigate(
-    BuildContext context, {
-    ImagePickerConfig config = const ImagePickerConfig(),
-    String? initialImagePath,
-    String title = '设置图片',
-    String? emptyStateHint,
-    String? emptyStateSubHint,
-  }) {
-    return Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ImagePickerPage(
-          config: config,
-          initialImagePath: initialImagePath,
-          title: title,
-          emptyStateHint: emptyStateHint,
-          emptyStateSubHint: emptyStateSubHint,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title), centerTitle: true),
-      body: ImagePickerWidget(
-        config: config,
-        initialImagePath: initialImagePath,
-        emptyStateHint: emptyStateHint,
-        emptyStateSubHint: emptyStateSubHint,
-        onImageSelected: (path) {
-          Navigator.pop(context, path);
-        },
       ),
     );
   }
