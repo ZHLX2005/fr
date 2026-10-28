@@ -1,7 +1,7 @@
 // 游戏中心目录 — 运行时派生（fr 注册表 → KV → ve 管理端）
 //
 // 目录不再手工登记：[buildGameCenterCatalog] 每次从 demoRegistry
-//（DemoType.game）与 `const_game_center.dart` 的 kGameMeta 现算——
+//（DemoType.game）与 `game_meta.dart` 的 kGameMeta 现算——
 // 游戏增删只改 demo / kGameMeta 本身，目录随之而变，不存在第二份副本。
 //
 // 同步机制（见 game_center_catalog_sync.dart）：
