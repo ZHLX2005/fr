@@ -9,8 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
-import '../../../core/ui/lab/lab_demo_icon.dart';
-import '../../../core/ui/lab/lab_demo_icon_lookup.dart';
+import '../../../core/ui/lab/icons/main.dart';
 
 class DemoDetailPage extends StatelessWidget {
   const DemoDetailPage({super.key, required this.demo});

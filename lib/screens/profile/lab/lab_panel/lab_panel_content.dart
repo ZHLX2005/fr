@@ -7,8 +7,7 @@ import 'package:flutter_reorderable_grid_view/entities/reorderable_animation_con
 import 'package:flutter_reorderable_grid_view/widgets/widgets.dart';
 
 import '../../../../lab/lab_container.dart';
-import '../../../../core/ui/lab/lab_demo_icon.dart';
-import '../../../../core/ui/lab/lab_demo_icon_lookup.dart';
+import '../../../../core/ui/lab/icons/main.dart';
 import '../providers/lab_card_provider.dart';
 import 'const_lab_panel.dart';
 import 'lab_panel_colors.dart';

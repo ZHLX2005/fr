@@ -3,8 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/ui/global/renderers/main.dart';
-import '../../../../core/ui/lab/lab_demo_icon.dart';
-import '../../../../core/ui/lab/lab_demo_icon_lookup.dart';
+import '../../../../core/ui/lab/icons/main.dart';
 import '../demo_cover_image.dart';
 import '../lab_panel/const_lab_panel.dart';
 import '../providers/lab_card_provider.dart';

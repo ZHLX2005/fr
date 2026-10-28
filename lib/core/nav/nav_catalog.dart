@@ -17,7 +17,7 @@ import '../../screens/profile/lab/game_center_page.dart';
 import '../../screens/profile/lab/lab_page.dart';
 import '../../screens/profile/profile_page.dart';
 import '../../screens/profile/theme/theme_page.dart';
-import '../ui/lab/lab_demo_icon_lookup.dart';
+import '../ui/lab/icons/main.dart';
 import '../focus/focus_home_page.dart';
 import 'nav_builder_registry.dart';
 import 'nav_entry.dart';

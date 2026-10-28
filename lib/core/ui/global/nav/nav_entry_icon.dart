@@ -15,7 +15,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../nav/nav_entry.dart';
-import '../../lab/lab_demo_icon.dart';
+import '../../lab/icons/main.dart';
 
 class NavEntryIcon extends StatelessWidget {
   const NavEntryIcon({

@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/nav/nav_entry.dart';
-import 'package:xiaodouzi_fr/core/ui/lab/lab_demo_icon.dart';
+import 'package:xiaodouzi_fr/core/ui/lab/icons/main.dart';
 import 'package:xiaodouzi_fr/core/ui/global/nav/main.dart';
 
 NavEntry _entry({String? labIconAsset}) => NavEntry(
