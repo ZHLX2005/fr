@@ -15,7 +15,7 @@ description: FR 主 CTA 的胶囊 / 方圆角形状决策与当前实现真值�
 
 | 场景 | 几何 | 半径 / shape | 色 | 当前实现 |
 | --- | --- | --- | --- | --- |
-| 主壳 dock 容器、搜索 pill、筛选 chip | **全胶囊** | `StadiumBorder` / 999 | glass / surface | `lib/core/ui/shell/quick_nav_bottom_bar.dart` |
+| 主壳 dock 容器、搜索 pill、筛选 chip | **全胶囊** | `StadiumBorder` / 999 | glass / surface | `lib/core/ui/global/nav/quick_nav_bottom_bar.dart` |
 | 大厅「开始匹配」等**仪式主 CTA** | **全胶囊** | 999，高度 56 | **`primary`** | `lib/core/game_kit/lobby/_lobby_form.dart:251` |
 | **房间就绪 / 发牌 CTA** | **全胶囊** | `StadiumBorder`，高度 50 | `primary` / `primary` 描边 | `lib/core/ui/game/game_ready_style.dart:190,200`（`GameReadyCtaStyle.filled/outlined`） |
 | 远程输入 chrome、工具页操作 | **方圆角** | **10–14**（mic **20** @ 64×64） | primary / tonal | 远程输入域 |

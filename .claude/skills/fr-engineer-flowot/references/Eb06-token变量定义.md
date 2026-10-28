@@ -69,7 +69,7 @@ description: FR 设计 token 的数值字典——圆角/间距/字体档位、7
 - `warning` / `onWarning` / `warningContainer` / `onWarningContainer`
 - `info` / `onInfo` / `infoContainer` / `onInfoContainer`
 
-按主题注入（`lib/core/theme/app_theme.dart:90-92`）。**暂无 context 访问器**（`lib/core/theme/context/` 缺 `app_colors.dart`）——当前唯一重度消费方是 `lib/core/ui/shell/app_notification.dart`（其 33 处 hex 的根因，见 [[Ec02-组件现状与收敛路线]] 待办）。
+按主题注入（`lib/core/theme/app_theme.dart:90-92`）。**暂无 context 访问器**（`lib/core/theme/context/` 缺 `app_colors.dart`）——当前唯一重度消费方是 `lib/core/ui/global/notification/main.dart`（其 33 处 hex 的根因，见 [[Ec02-组件现状与收敛路线]] 待办）。
 
 ### 3.4 `ColorStrategy`（应用语义角色，6 个）
 

@@ -1,3 +1,5 @@
+> ⚠ 本文是**历史审计记录**（2026-10-23 基线），其中的 `lib/core/ui/atomic|shell|zen|renderers` 路径已被 2026-10-28 职责清晰重构调整；当前目录以 `.claude/skills/fr-engineer-flowot/references/Ec03-组件内聚位置.md` 为准。
+
 # 组件复用与组件化审计
 
 > 审计范围：`lib/core/ui/**`、`lib/core/*/**`（含 p2p / lobby / ui）、`lib/lab/demos/**`、`lib/design_tokens/**`、`lib/screens/**`

@@ -72,7 +72,7 @@ description: 什么时候要新增主题配色 / 语义角色 / 组件样式 / �
 - **能用内置的，不建新的**：普通按钮/卡片用 `FilledButtonTheme`/`ElevatedButtonTheme`/`CardTheme`（已在 `app_theme.dart` 的 `_buildTheme` 注册，统一从 scheme 派生）。
 - **非内置复合样式**（如 hero 圆钮、状态点）：
   - `lib/core/theme/component/` 目录已解散（2026-10 清理，零消费者）；新加样式落到 `lib/core/ui/` 下的通用 widget（纯样式函数读 `Theme.of(context).colorScheme.X`，不写裸 hex），或 `lib/core/game_kit/` 下的域内壳层——两者的分层判据见 [[Ec01-组件分层与复用契约]]。
-  - 需要 widget 结构 + 样式 → 在 `lib/core/ui/` 加 widget；需要复用样式常量则可在 `lib/core/ui/zen/zen_theme.dart` 加 helper 后委托给 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
+  - 需要 widget 结构 + 样式 → 在 `lib/core/ui/` 加 widget；需要复用样式常量则可在 `lib/core/ui/global/zen/main.dart` 加 helper 后委托给 `lib/core/ui/*`，内部统一 `DefaultColorStrategy.of(scheme)`（与现有 `zenCardTheme` 等一致）。
 - 新增 helper 后，用色规模/热点登记进 [[Eb04-颜色用量审计]] 对应章节，保持审计 ref 新鲜。
 
 ## 4. 把既有硬编码迁到主题通道（迁移 SOP）
@@ -108,7 +108,7 @@ description: 什么时候要新增主题配色 / 语义角色 / 组件样式 / �
 
 **正确做法**：用 `surface`（页面/卡片/AppBar/BottomNavBar 的背景标准值）。
 
-**踩坑案例**：`lib/core/ui/zen/zen_theme.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
+**踩坑案例**：`lib/core/ui/global/zen/main.dart` `zenPageScaffold`、`lib/core/theme/app_theme.dart` `appBarTheme`/`bottomNavigationBarTheme`。
 
 ### 4.5.2 ❌ 用 `inversePrimary` 当 AppBar / Scaffold 背景
 

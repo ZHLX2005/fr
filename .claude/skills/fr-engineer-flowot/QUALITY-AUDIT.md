@@ -1,3 +1,5 @@
+> ⚠ 本文件是**历史审计记录**（2026-10-23 基线），其中的 `lib/core/ui/atomic|shell|zen|renderers` 路径已被 2026-10-28 职责清晰重构调整；当前目录以 [[Ec03-组件内聚位置]] 为准。
+
 # FR 工程 Skill Ref — 质检记录（2026-10-20）
 
 > 适用范围：仅 `.claude/skills/fr-engineer-flowot/` 活动 refs。旧内容如需对照只读 `.claude/skills-archive/pre-fr-engineer-flowot/`；以当前代码/测试为实现证据。归档 refs 不属于活动指导面。

@@ -43,7 +43,7 @@ Scaffold(
 );
 ```
 
-> **`maxOverscroll: 80` 是衰减目标，不是硬限幅**。`lib/core/ui/renderers/bounded_bouncing_scroll_physics.dart:43-50` 的做法是渐近衰减：`factor = (1 - ratio) * 0.55 + 0.02`（`ratio = overscrollPast / maxOverscroll`），越拉越远每像素 user offset 转化的实际位移越小，但**系数永不为 0**。所以实际拉伸量是**趋近** 80 而不是被截断在 80；`maxOverscroll` 改大只影响收敛速度，不改"永不触顶"的性质。写「限幅 80 px」会误导后续调参——真要硬截断得改 `applyPhysicsToUserOffset` 里的 clamp。
+> **`maxOverscroll: 80` 是衰减目标，不是硬限幅**。`lib/core/ui/global/renderers/bounded_bouncing_scroll_physics.dart:43-50` 的做法是渐近衰减：`factor = (1 - ratio) * 0.55 + 0.02`（`ratio = overscrollPast / maxOverscroll`），越拉越远每像素 user offset 转化的实际位移越小，但**系数永不为 0**。所以实际拉伸量是**趋近** 80 而不是被截断在 80；`maxOverscroll` 改大只影响收敛速度，不改"永不触顶"的性质。写「限幅 80 px」会误导后续调参——真要硬截断得改 `applyPhysicsToUserOffset` 里的 clamp。
 
 ### Step 2 · flexibleSpace 改用 Stack，外层塞 FlexibleSpaceBar + 圆角盖
 
