@@ -111,7 +111,7 @@ String formatFullDate(DateTime t) {
 }
 
 /// PickerSheet 用的轻量 record —— 与 PriceTopic 分离，
-/// 让 price_topic_picker_sheet.dart 不必依赖 PriceTopic / Hive。
+/// 让 ui/price_compare/topic_picker/main.dart 不必依赖 PriceTopic / Hive。
 class PriceTopicSummary {
   final String id;
   final String title;

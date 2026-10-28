@@ -1,6 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../../lab/demos/price_compare/price_compare_models.dart';
+import '../../price_compare/price_compare_models.dart';
 import 'hive_repository.dart';
 import 'hive_store.dart';
 

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/context/colors.dart';
 import 'package:flutter/services.dart';
 
-import 'price_compare_models.dart';
+import '../../../../core/price_compare/price_compare_models.dart';
 
 class PriceCompareRow extends StatelessWidget {
   PriceCompareRow({

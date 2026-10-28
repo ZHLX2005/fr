@@ -7,9 +7,9 @@ import '../../core/storage/hive/price_compare_repository.dart';
 import '../../core/storage/storage_registry.dart';
 import '../lab_container.dart';
 import 'price_compare/price_compare_chrome.dart';
-import 'price_compare/price_compare_models.dart';
+import '../../../core/price_compare/price_compare_models.dart';
 import 'price_compare/price_compare_row.dart';
-import 'price_compare/price_topic_picker_sheet.dart';
+import '../../../core/ui/price_compare/topic_picker/main.dart';
 
 // ============================================================================
 // Demo 注册

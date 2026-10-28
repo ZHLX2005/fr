@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/context/colors.dart';
 
-import 'price_compare_models.dart';
+import '../../../../core/price_compare/price_compare_models.dart';
 
 /// 顶部：图标 + 主题输入框 + 创建时间副标题 + 切换按钮
 class PriceCompareHeader extends StatelessWidget {
