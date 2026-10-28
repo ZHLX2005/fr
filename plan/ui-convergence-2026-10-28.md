@@ -211,3 +211,11 @@
 - 标记未修（语义改动）：`core/focus/focus_home_page.dart` 直接 import `screens/profile/lab/demo_detail_page.dart`（业务层向上依赖应用层），正确解是改走 fr:// 路由——留 N6 评估或独立任务。
 - 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
 - 下轮（N6）：依赖方向复核——逻辑层（game_kit/net_engine/message_net/theme）禁 import core/ui 全量扫描；业务层向上依赖清单与处置。
+
+### N6（2026-10-28，commit 936f024b）
+
+- 依赖方向复核结论：
+  - 逻辑层（game_kit / net_engine / net_p2p / message_net / theme / storage / nav / schema）→ `core/ui` 的 import：仅 net_engine/settings 与 net_p2p 两处**页面文件**消费 AppNotification（文件本身即 UI 页，非逻辑越界），保持。
+  - 业务层 → `screens/`：`core/focus/focus_home_page.dart` 反向上依赖已修（改为 `FrNavigator.handle('fr://lab/demo/<slug>')`）；`core/nav/nav_catalog|nav_bootstrap` 与 `core/schema/handlers/lab_*` 属应用装配层职责，保持；`core/game_kit/game_center_catalog → screens/.../const_game_center`（逻辑层引常量注册表）随任务 #8 game 配置抽离处理。
+- 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
+- 下轮（N7）：收编遗留——BaseButton 死代码裁决（删）、image_picker_widget 555 行拆分、game/chat/main.dart 1030 行拆分。
