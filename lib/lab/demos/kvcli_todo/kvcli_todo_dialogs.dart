@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/context/colors.dart';
 
 import '../../../core/ui/global/button/main.dart';
-import 'kvcli_todo_models.dart';
+import '../../../core/kvcli/kvcli_todo_models.dart';
 
 /// 编辑结果：open 任务可改 topic+text；done 任务可改 text+note。
 typedef KvEditResult = ({String topic, String text, String note});

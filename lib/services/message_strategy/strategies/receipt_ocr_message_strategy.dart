@@ -5,7 +5,7 @@ import '../../../core/ai_chat/receipt_ocr/receipt_ocr_models.dart';
 import '../../../core/schema/schema.dart';
 import '../../../core/storage/hive/price_compare_repository.dart';
 import '../../../../core/price_compare/price_compare_models.dart';
-import '../../../../core/ui/price_compare/topic_picker/main.dart';
+import '../../../../core/ui/lab/price_compare/topic_picker/main.dart';
 import '../interfaces/interfaces.dart';
 import '../data/receipt_ocr_message_data.dart';
 

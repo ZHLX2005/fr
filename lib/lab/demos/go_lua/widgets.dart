@@ -24,7 +24,7 @@ import 'go_constants.dart' show kGoTurnBarHeight, kGoConfirmBarHeight;
 import 'go_board.dart' show GoBoardWidget;
 import '../../../core/ui/global/dialog/main.dart';
 import '../../../core/ui/game/shell/main.dart';
-import '../../../core/ui/game/lobby/main.dart';
+import '../../../core/ui/game/ready_room/main.dart';
 import '../../../core/ui/game/playing/main.dart';
 
 // ══════════════════════════════════════════════════════════════

@@ -5,7 +5,7 @@
 // 底部 CTA 由**服务端动作权限**驱动（DEAL / ACK），故对所有联机游戏通用，
 // 归位到这里后「准备区」只有一处真相。
 //
-// 依赖方向：ui/game/lobby → ui/global/*（共享件）。
+// 依赖方向：ui/game/ready_room → ui/global/*（共享件）。
 
 import 'package:flutter/material.dart';
 

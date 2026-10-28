@@ -12,7 +12,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/lab/lab_container.dart';
-import '../../../core/ui/game/home/main.dart';
+import '../../../core/ui/game/entry/main.dart';
 import 'package:xiaodouzi_fr/core/game_kit/lobby/game_lobby_slots.dart';
 import 'package:xiaodouzi_fr/core/game_kit/lobby/game_lobby_spec.dart'
     show LobbyStartedCtx;

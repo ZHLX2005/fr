@@ -31,7 +31,7 @@ import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import '../../../core/ui/global/dialog/main.dart';
 import '../../../core/ui/game/action/main.dart';
 import '../../../core/ui/game/shell/main.dart';
-import '../../../core/ui/game/lobby/main.dart';
+import '../../../core/ui/game/ready_room/main.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page — LAN-style 单面板布局

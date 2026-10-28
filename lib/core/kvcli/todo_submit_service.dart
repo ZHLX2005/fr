@@ -17,8 +17,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../api/goframe/kv/kv_endpoint.dart';
 import '../../../api/providers/api_providers.dart';
-import 'const_kvcli_todo.dart';
-import 'kvcli_todo_models.dart';
+import './const_kvcli_todo.dart';
+import './kvcli_todo_models.dart';
 
 /// 提交计划 —— [TodoSubmitService.plan] 的纯计算结果，即两把 key 的目标值。
 class TodoSubmitPlan {

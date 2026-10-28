@@ -1,4 +1,4 @@
-// lib/core/ui/game/home/relay_v3_lobby.dart
+// lib/core/ui/game/entry/relay_v3_lobby.dart
 //
 // v3 Lua 状态机大厅 + 游戏入口。
 //

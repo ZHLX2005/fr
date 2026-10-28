@@ -18,7 +18,7 @@ import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart';
 import 'reversi_lua/engine.dart' show RoomHandle;
 import 'reversi_lua/widgets.dart' show OnlineGamePage;
-import '../../core/ui/game/home/main.dart';
+import '../../core/ui/game/entry/main.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/reversi/lobby/reversi_lobby_spec.dart';
 

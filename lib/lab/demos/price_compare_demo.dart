@@ -9,7 +9,7 @@ import '../lab_container.dart';
 import 'price_compare/price_compare_chrome.dart';
 import '../../../core/price_compare/price_compare_models.dart';
 import 'price_compare/price_compare_row.dart';
-import '../../../core/ui/price_compare/topic_picker/main.dart';
+import '../../../core/ui/lab/price_compare/topic_picker/main.dart';
 
 // ============================================================================
 // Demo 注册

@@ -26,12 +26,12 @@ import '../../api/providers/api_providers.dart';
 import '../../core/ui/global/button/main.dart';
 import '../../core/ui/global_ring/ring_enabled_provider.dart';
 import '../lab_container.dart';
-import 'kvcli_todo/active_group_provider.dart';
-import 'kvcli_todo/const_kvcli_todo.dart';
+import '../../core/kvcli/active_group_provider.dart';
+import '../../core/kvcli/const_kvcli_todo.dart';
 import 'kvcli_todo/kvcli_todo_dialogs.dart';
-import 'kvcli_todo/kvcli_todo_models.dart';
+import '../../core/kvcli/kvcli_todo_models.dart';
 import 'kvcli_todo/kvcli_todo_widgets.dart';
-import 'kvcli_todo/todo_submit_service.dart';
+import '../../core/kvcli/todo_submit_service.dart';
 
 // ── 错误处理辅助 ──────────────────────────────────────────────────────────
 

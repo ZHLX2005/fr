@@ -1,4 +1,4 @@
-// lib/core/ui/game/home/game_lobby_page.dart
+// lib/core/ui/game/entry/game_lobby_page.dart
 //
 // GameLobbyPage —— Lua 联机游戏入口页通用壳。
 //

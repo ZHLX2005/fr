@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'const_kvcli_todo.dart';
+import './const_kvcli_todo.dart';
 
 /// 激活工作空间（groupId）。0 = 服务端默认组。
 /// 独立 ref 存储：页面 watch 取当前值、notifier 负责载入/持久化。

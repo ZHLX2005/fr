@@ -22,7 +22,7 @@ import '../lab_container.dart';
 import 'gomoku_lua/engine.dart' show RoomHandle;
 import 'gomoku_lua/widgets.dart' show OnlineGamePage;
 import 'gomoku_lua/opening/gomoku_opening_player.dart';
-import '../../core/ui/game/home/main.dart';
+import '../../core/ui/game/entry/main.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/gomoku/skins/gomoku_skin.dart' show GomokuSkinBundle;

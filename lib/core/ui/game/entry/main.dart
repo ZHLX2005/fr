@@ -7,7 +7,7 @@
 // - lobby_participants.dart 大厅参与者圆环
 //
 // 家族总行数 1653 > 400，按规范用 barrel + 同目录实现文件并列。
-// 依赖方向：ui/game/home → ui/global/*（全局件）、game_kit（纯逻辑）、net_engine。
+// 依赖方向：ui/game/entry → ui/global/*（全局件）、game_kit（纯逻辑）、net_engine。
 
 export 'game_lobby_page.dart';
 export 'lobby_participants.dart';

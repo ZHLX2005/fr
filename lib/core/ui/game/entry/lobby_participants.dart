@@ -1,4 +1,4 @@
-// lib/core/ui/game/home/lobby_participants.dart
+// lib/core/ui/game/entry/lobby_participants.dart
 //
 // 通用参与者圆环卡片 — 显示房间中已就绪和等待中的玩家
 //
