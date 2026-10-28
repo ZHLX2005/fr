@@ -5,20 +5,8 @@
 // 这样 Dart/Lua 两侧无需结构体对齐，序列就是一串 int。
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-// ── 持久化 ──
 
 const String kTetrisRelayUrl = 'http://47.110.80.47:8988';
-const String kTetrisAliasKey = 'tetris_lua.alias';
-
-class TetrisAliasPrefs {
-  static Future<String> load() => SharedPreferences.getInstance().then(
-    (p) => p.getString(kTetrisAliasKey) ?? '',
-  );
-  static Future<void> save(String alias) => SharedPreferences.getInstance()
-      .then((p) => p.setString(kTetrisAliasKey, alias));
-}
 
 // ── 棋盘 ──
 

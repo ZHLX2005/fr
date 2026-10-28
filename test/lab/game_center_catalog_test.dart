@@ -8,10 +8,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/game_kit/game_center_catalog.dart';
+import 'package:xiaodouzi_fr/core/game_center/game_center_catalog.dart';
 import 'package:xiaodouzi_fr/lab/lab_bootstrap.dart';
 import 'package:xiaodouzi_fr/lab/lab_container.dart';
-import 'package:xiaodouzi_fr/screens/profile/lab/game_center/const_game_center.dart';
+import 'package:xiaodouzi_fr/core/game_center/game_meta.dart';
 
 /// 与 GameCenterPage.initState 相同的取数逻辑（按注册顺序、别名 slug 去重）。
 List<DemoPage> registeredGames() {
@@ -34,7 +34,7 @@ void main() {
           gameMetaOf(d.slug),
           isNot(same(kFallbackGameMeta)),
           reason: 'game "${d.slug}" 缺 GameMeta 登记，'
-              '请在 const_game_center.dart 的 kGameMeta 补一条',
+              '请在 lib/core/game_center/game_meta.dart 的 kGameMeta 补一条',
         );
       }
     });

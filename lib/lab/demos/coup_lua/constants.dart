@@ -1,25 +1,10 @@
 // lib/lab/demos/coup_lua/constants.dart
 // 政变（Coup）Lua 版 — 常量 + 持久化
 
-import 'package:shared_preferences/shared_preferences.dart';
 
 // ── 持久化 key ──
 
 const String kCoupRelayUrl = 'http://47.110.80.47:8988';
-const String kCoupAliasKey = 'coup_lua.alias';
-
-class CoupAliasPrefs {
-  static Future<String> load() async {
-    // 跨游戏共享 LuaGameAlias；这里只读，不重复持久化。
-    final p = await SharedPreferences.getInstance();
-    return p.getString(kCoupAliasKey) ?? '';
-  }
-
-  static Future<void> save(String alias) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setString(kCoupAliasKey, alias);
-  }
-}
 
 // ── 角色卡 ──
 

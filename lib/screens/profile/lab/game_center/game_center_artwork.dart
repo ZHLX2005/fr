@@ -8,7 +8,7 @@
 // 无图时：专属渐变兜底。
 // 2026-09-22：移除整层压暗蒙版，封面保持原色；可读性由精选卡底部信息条渐变兜底。
 //
-// 配色 / 图标 / 图案的登记表在 const_game_center.dart。
+// 配色 / 图标 / 图案的登记表在 lib/core/game_center/game_meta.dart。
 
 import 'dart:math' as math;
 
@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/ui/lab/icons/main.dart';
 import '../demo_cover_image.dart';
-import 'const_game_center.dart';
+import '../../../../core/game_center/game_meta.dart';
 
 class GameArtwork extends StatelessWidget {
   const GameArtwork({

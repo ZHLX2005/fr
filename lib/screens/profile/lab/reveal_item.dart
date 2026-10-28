@@ -4,7 +4,7 @@
 // 从「下移 translateY + 全透明」缓动到原位；delay 封顶 maxDelay，保证长列表
 // 尾部不会等太久。动画完成后直接返回 child，不再包 Opacity/Transform。
 //
-// 节奏默认取 Lab 的常量；游戏中心传入自己的节奏（见 const_game_center.dart）。
+// 节奏默认取 Lab 的常量；游戏中心传入自己的节奏（见 lib/core/game_center/game_meta.dart）。
 
 import 'package:flutter/material.dart';
 

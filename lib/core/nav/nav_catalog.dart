@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 import '../../lab/lab_container.dart';
 import '../../screens/chat/home_page.dart';
 import '../../screens/profile/lab/demo_detail_page.dart';
-import '../../screens/profile/lab/game_center/const_game_center.dart';
+import '../game_center/game_meta.dart';
 import '../../screens/profile/lab/game_center_page.dart';
 import '../../screens/profile/lab/lab_page.dart';
 import '../../screens/profile/profile_page.dart';

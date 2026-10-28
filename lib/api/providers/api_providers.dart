@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/game_kit/game_center_catalog_sync.dart';
+import '../../core/game_center/game_center_catalog_sync.dart';
 import '../api_config.dart';
 import '../api_client.dart';
 import '../token/token_storage.dart';

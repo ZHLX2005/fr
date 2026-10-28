@@ -28,7 +28,7 @@
 import 'dart:convert';
 
 import '../../lab/lab_container.dart';
-import '../../screens/profile/lab/game_center/const_game_center.dart';
+import 'game_meta.dart';
 
 /// 单款游戏的目录条目（JSON 序列化的形状就是 KV value 的元素）。
 class GameCenterCatalogEntry {

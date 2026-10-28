@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/game_audio/dealing_cards_sound.dart';
 
 import 'constants.dart';
+import 'team_card_state.dart';
 import 'engine.dart';
 import '../../../core/theme/context/team_avatar_colors.dart';
 

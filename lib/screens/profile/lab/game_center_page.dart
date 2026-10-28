@@ -13,13 +13,13 @@
 //（SharedPreferences，最新在前封顶 8 条）；占位文字取历史首条。
 // 历史入口在玻璃条 history 图标 → 底部弹层，可点词回填、可清空。
 //
-// 分类 / 配色 / 图标登记表在 game_center/const_game_center.dart；
+// 分类 / 配色 / 图标登记表在 game_center/game_meta.dart；
 // 卡片组件在 game_center/game_center_cards.dart；封面在 game_center_artwork.dart。
 //
 // 添加新游戏：demo `override type => DemoType.game` + 在 kGameMeta 登记
 // （categories/mode/icon/gradient/pattern）。游戏目录（ve 管理端「游戏封面」
 // tab 的游戏列表）由本页 initState 从注册表派生并自动同步 KV
-//（compare-then-write，见 game_center_catalog_sync.dart），无需手动登记与发布。
+//（compare-then-write，见 lib/core/game_center/game_center_catalog_sync.dart），无需手动登记与发布。
 // 本文件无需改动。
 
 import 'dart:async' show unawaited;
@@ -31,14 +31,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../api/providers/api_providers.dart';
-import '../../../core/game_kit/game_center_catalog.dart';
+import '../../../core/game_center/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../core/nav/nav_route.dart';
 import '../../../core/ui/global/empty_state/main.dart';
 import '../../../lab/lab_container.dart';
 import '../../../core/ui/global/nav/main.dart';
 import 'demo_detail_page.dart';
-import 'game_center/const_game_center.dart';
+import '../../../core/game_center/game_meta.dart';
 import 'game_center/game_center_cards.dart';
 import 'providers/lab_card_provider.dart';
 import 'reveal_item.dart';
@@ -85,7 +85,7 @@ class _GameCenterPageState extends ConsumerState<GameCenterPage>
         .toList();
 
     // 目录派生：目录 = 注册表 + kGameMeta 的纯派生（不再手工登记，见
-    // game_center_catalog.dart），「漏登记 catalog」这类漂移已不存在。
+    // lib/core/game_center/game_center_catalog.dart），「漏登记 catalog」这类漂移已不存在。
     // 唯一要防的剩 kGameMeta 缺登记（灰兜底封面 + 目录 categories/mode 失真），
     // debug 构建直接崩（发布前必现）。
     final catalog = buildGameCenterCatalog(_games);
@@ -94,7 +94,7 @@ class _GameCenterPageState extends ConsumerState<GameCenterPage>
         assert(
           kGameMeta.containsKey(d.slug),
           'game "${d.slug}" is registered as DemoType.game but missing in '
-          'kGameMeta; add a GameMeta entry in const_game_center.dart',
+          'kGameMeta; add a GameMeta entry in lib/core/game_center/game_meta.dart',
         );
       }
       return true;
@@ -835,7 +835,7 @@ class _EmptyBucket extends StatelessWidget {
 }
 
 // 入场动画使用共享 RevealItem（reveal_item.dart），节奏常量见
-// const_game_center.dart 的 kGcReveal*。
+// lib/core/game_center/game_meta.dart 的 kGcReveal*。
 
 // ══════════════════════════════════════════════════════════════
 // 头部功能行小组件

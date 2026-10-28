@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../../lab/lab_container.dart';
 import '../providers/lab_card_provider.dart';
-import 'const_game_center.dart';
+import '../../../../core/game_center/game_meta.dart';
 import 'game_center_artwork.dart';
 
 // ══════════════════════════════════════════════════════════════

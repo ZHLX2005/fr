@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaodouzi_fr/lab/lab_bootstrap.dart';
 import 'package:xiaodouzi_fr/screens/profile/lab/game_center_page.dart';
-import 'package:xiaodouzi_fr/screens/profile/lab/game_center/const_game_center.dart';
+import '../../lib/core/game_center/game_meta.dart';
 
 Future<void> _pump(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});

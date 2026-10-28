@@ -10,8 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/api/api_response.dart';
 import 'package:xiaodouzi_fr/api/goframe/kv/kv_endpoint.dart';
-import 'package:xiaodouzi_fr/core/game_kit/game_center_catalog.dart';
-import 'package:xiaodouzi_fr/core/game_kit/game_center_catalog_sync.dart';
+import 'package:xiaodouzi_fr/core/game_center/game_center_catalog.dart';
+import 'package:xiaodouzi_fr/core/game_center/game_center_catalog_sync.dart';
 import 'package:xiaodouzi_fr/core/game_kit/skin/public_kv_reader.dart';
 
 const _fakeGames = [

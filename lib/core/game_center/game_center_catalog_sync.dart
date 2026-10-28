@@ -13,7 +13,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../api/goframe/kv/kv_endpoint.dart';
 import 'game_center_catalog.dart';
-import 'skin/public_kv_reader.dart';
+import '../game_kit/skin/public_kv_reader.dart';
 
 class GameCenterCatalogSync {
   GameCenterCatalogSync({
