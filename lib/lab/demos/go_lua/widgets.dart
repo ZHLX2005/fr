@@ -23,9 +23,9 @@ import 'go_engine.dart' show
 import 'go_constants.dart' show kGoTurnBarHeight, kGoConfirmBarHeight;
 import 'go_board.dart' show GoBoardWidget;
 import '../../../core/ui/global/dialog/main.dart';
-import '../../../core/ui/game/action/main.dart';
 import '../../../core/ui/game/shell/main.dart';
 import '../../../core/ui/game/lobby/main.dart';
+import '../../../core/ui/game/playing/main.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page
@@ -232,53 +232,44 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   // ── 阶段：对战中 ──
 
   Widget _buildPlaying(BoardThemeData theme) {
-    return Scaffold(
+    return GamePlayingScaffold(
       backgroundColor: theme.boardSurface,
-      body: SafeArea(child: Column(children: [
-        _buildTurnBar(theme, context),
-        Expanded(
-          child: Center(child: LayoutBuilder(builder: (context, constraints) {
-            final side = constraints.biggest.shortestSide;
-            // atari 高亮：本回合方被打吃的对方群（当前回合方要能看出吃子机会）
-            final myColor = _imBlack ? 1 : 2;
-            final opponent = _imBlack ? 2 : 1;
-            final atari = _isMyTurn
-                ? GoRoom.groupsInAtari(_board, opponent)
-                : GoRoom.groupsInAtari(_board, myColor);
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (d) => _setPending(d.localPosition, side),
-              child: GoBoardWidget(
-                board: _board,
-                lastMove: _lastRealMove(),
-                previewPoint: (_isMyTurn && _pendingPoint != null) ? _pendingPoint : null,
-                previewIsBlack: _imBlack,
-                atariPoints: atari,
-              ),
-            );
-          })),
-        ),
-        _buildConfirmSlot(theme, context),
-        RelayConnectionBar(handle: widget.handle),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            if (_canPerform('PASS')) ...[
-              _bottomAction(Icons.skip_next, '过手', _pass, theme),
-              SizedBox(width: 16),
-            ],
-            if (_canPerform('RESIGN')) ...[
-              _bottomAction(Icons.flag_outlined, '认输', _showResignConfirm, theme),
-              SizedBox(width: 16),
-            ],
-            if (_canPerform('RESET')) ...[
-              _bottomAction(Icons.refresh, '重新开始', _reset, theme),
-              SizedBox(width: 16),
-            ],
-            _bottomAction(Icons.exit_to_app, '退出', widget.onLeave, theme),
-          ]),
-        ),
-      ])),
+      actionColor: theme.btnText,
+      turnBar: _buildTurnBar(theme, context),
+      board: (context, constraints) {
+        final side = constraints.biggest.shortestSide;
+        // atari 高亮：本回合方被打吃的对方群（当前回合方要能看出吃子机会）
+        final myColor = _imBlack ? 1 : 2;
+        final opponent = _imBlack ? 2 : 1;
+        final atari = _isMyTurn
+            ? GoRoom.groupsInAtari(_board, opponent)
+            : GoRoom.groupsInAtari(_board, myColor);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) => _setPending(d.localPosition, side),
+          child: GoBoardWidget(
+            board: _board,
+            lastMove: _lastRealMove(),
+            previewPoint: (_isMyTurn && _pendingPoint != null) ? _pendingPoint : null,
+            previewIsBlack: _imBlack,
+            atariPoints: atari,
+          ),
+        );
+      },
+      confirmSlot: _buildConfirmSlot(theme, context),
+      connectionBar: RelayConnectionBar(handle: widget.handle),
+      actions: [
+        if (_canPerform('PASS'))
+          GamePlayingAction(
+              icon: Icons.skip_next, label: '过手', onTap: _pass),
+        if (_canPerform('RESIGN'))
+          GamePlayingAction(
+              icon: Icons.flag_outlined, label: '认输', onTap: _showResignConfirm),
+        if (_canPerform('RESET'))
+          GamePlayingAction(
+              icon: Icons.refresh, label: '重新开始', onTap: _reset),
+        GamePlayingAction(icon: Icons.exit_to_app, label: '退出', onTap: widget.onLeave),
+      ],
     );
   }
 
@@ -360,9 +351,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       ),
     );
   }
-
-  Widget _bottomAction(IconData icon, String label, VoidCallback? onTap, BoardThemeData theme) =>
-      GameBottomAction(icon: icon, label: label, color: theme.btnText, onTap: onTap);
 
   // ── 阶段：终局 ──
 

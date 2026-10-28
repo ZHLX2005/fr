@@ -25,9 +25,9 @@ import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import 'package:xiaodouzi_fr/core/gomoku/skins/gomoku_skin.dart' show GomokuSkin, GomokuSkinBundle;
 import '../../../core/ui/global/dialog/main.dart';
-import '../../../core/ui/game/action/main.dart';
 import '../../../core/ui/game/shell/main.dart';
 import '../../../core/ui/game/lobby/main.dart';
+import '../../../core/ui/game/playing/main.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page
@@ -287,48 +287,36 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   // ── 阶段：对战中 ──
 
   Widget _buildPlaying(BoardThemeData theme) {
-    return Scaffold(
+    return GamePlayingScaffold(
       backgroundColor: theme.boardSurface,
-      body: SafeArea(child: Column(children: [
-        // 顶部状态条：轮到谁 / 待确认提示
-        _buildTurnBar(theme, context),
-        Expanded(
-          child: Center(child: LayoutBuilder(builder: (context, constraints) {
-            final side = constraints.biggest.shortestSide;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              // 点击空交点 → 进入待确认（不直接落子，需确认按钮）
-              onTapDown: (d) => _setPending(d.localPosition, side),
-              child: GomokuBoardWidget(
-                board: _board,
-                skin: _resolvedSkin,
-                lastMove: _moves.isEmpty ? null : (_moves.last.x, _moves.last.y),
-                previewPoint: (_isMyTurn && _pendingPoint != null) ? _pendingPoint : null,
-                previewIsBlack: _imBlack,
-              ),
-            );
-          })),
-        ),
-        // 待确认按钮条 —— 固定占位（即便不在待确认状态也保留高度），
-        // 避免其出现/消失撑动上方 Expanded，导致棋盘在回合切换时上下抖动
-        _buildConfirmSlot(theme, context),
-        RelayConnectionBar(handle: widget.handle),
-        // 底部操作栏
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            if (_canPerform('RESIGN')) ...[
-              _bottomAction(Icons.flag_outlined, '认输', _showResignConfirm, theme),
-              SizedBox(width: 16),
-            ],
-            if (_canPerform('RESET')) ...[
-              _bottomAction(Icons.refresh, '重新开始', _reset, theme),
-              SizedBox(width: 16),
-            ],
-            _bottomAction(Icons.exit_to_app, '退出', widget.onLeave, theme),
-          ]),
-        ),
-      ])),
+      actionColor: theme.btnText,
+      turnBar: _buildTurnBar(theme, context),
+      board: (context, constraints) {
+        final side = constraints.biggest.shortestSide;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          // 点击空交点 → 进入待确认（不直接落子，需确认按钮）
+          onTapDown: (d) => _setPending(d.localPosition, side),
+          child: GomokuBoardWidget(
+            board: _board,
+            skin: _resolvedSkin,
+            lastMove: _moves.isEmpty ? null : (_moves.last.x, _moves.last.y),
+            previewPoint: (_isMyTurn && _pendingPoint != null) ? _pendingPoint : null,
+            previewIsBlack: _imBlack,
+          ),
+        );
+      },
+      confirmSlot: _buildConfirmSlot(theme, context),
+      connectionBar: RelayConnectionBar(handle: widget.handle),
+      actions: [
+        if (_canPerform('RESIGN'))
+          GamePlayingAction(
+              icon: Icons.flag_outlined, label: '认输', onTap: _showResignConfirm),
+        if (_canPerform('RESET'))
+          GamePlayingAction(
+              icon: Icons.refresh, label: '重新开始', onTap: _reset),
+        GamePlayingAction(icon: Icons.exit_to_app, label: '退出', onTap: widget.onLeave),
+      ],
     );
   }
 
@@ -427,9 +415,6 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
       ),
     );
   }
-
-  Widget _bottomAction(IconData icon, String label, VoidCallback? onTap, BoardThemeData theme) =>
-      GameBottomAction(icon: icon, label: label, color: theme.btnText, onTap: onTap);
 
   // ── 阶段：终局 ──
 
