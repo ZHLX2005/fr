@@ -12,7 +12,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/ui/game/ready/main.dart';
 import '../../../core/ui/game/relay/main.dart';
 
 import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
@@ -32,6 +31,7 @@ import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import '../../../core/ui/global/dialog/main.dart';
 import '../../../core/ui/game/action/main.dart';
 import '../../../core/ui/game/shell/main.dart';
+import '../../../core/ui/game/lobby/main.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page — LAN-style 单面板布局
@@ -342,135 +342,20 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   // ── 阶段：等待对手 + 准备（合并 lobby/ready，底部按钮三态原地切换） ──
 
   Widget _buildLobby() {
-    final code = _snap?.roomCode ?? '------';
-    final players = SgRoom.players(_snap);
     final readyMap = SgRoom.readyMap(_snap);
     final myId = _room.deviceId;
-    final phase = _snap?.state;
-    final bothReady = phase == 'ready';
-    final iAmReady =
-        bothReady || _ackedLocally || (readyMap[myId] == true);
-    final canDeal = _canPerform('DEAL');
-    final title = bothReady ? '双方已就绪' : '等待对手';
-    final scheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: scheme.surfaceContainerLowest,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: GameReadyFloatCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                      )),
-                  const SizedBox(height: 8),
-                  const GameReadyTitleRule(),
-                  const SizedBox(height: 16),
-                  GameReadyRoomCodeChip(code: code),
-                  const SizedBox(height: 20),
-
-                  // 玩家头像列表（圆环 + ACK 状态）
-                  ...players.entries.map((e) {
-                    final isMe = e.key == myId;
-                    final isReady = readyMap[e.key] == true;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(children: [
-                        GameReadyAvatar(label: e.value, isReady: isReady),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            '${e.value}${isMe ? "  (我)" : ""}',
-                            style: TextStyle(
-                              color: scheme.onSurface,
-                              fontSize: 15,
-                              fontWeight:
-                                  isMe ? FontWeight.w600 : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        GameReadyStatusBadge(isReady: isReady),
-                      ]),
-                    );
-                  }),
-
-                  if (players.length < 2) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      '把房间号发给朋友',
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-
-                  if (players.length >= 2) ...[
-                    const SizedBox(height: 22),
-                    if (bothReady)
-                      canDeal
-                          ? FilledButton(
-                              onPressed: _deal,
-                              style: GameReadyCtaStyle.filled(scheme),
-                              child: const Text(
-                                '开始游戏 ▸',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 1.5,
-                                ),
-                              ),
-                            )
-                          : Text(
-                              '等待房主开始…',
-                              style: TextStyle(
-                                color: scheme.onSurfaceVariant,
-                                fontSize: 13,
-                                letterSpacing: 1,
-                              ),
-                            )
-                    else if (iAmReady)
-                      FilledButton(
-                        onPressed: null,
-                        style: GameReadyCtaStyle.filled(scheme),
-                        child: const Text(
-                          '已准备 ✓',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      )
-                    else
-                      OutlinedButton(
-                        onPressed: _canPerform('ACK') ? _ack : null,
-                        style: GameReadyCtaStyle.outlined(scheme),
-                        child: const Text(
-                          '准备好了',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    final bothReady = _snap?.state == 'ready';
+    return GameLobbyBody(
+      roomCode: _snap?.roomCode ?? '------',
+      players: SgRoom.players(_snap),
+      readyMap: readyMap,
+      myId: myId,
+      bothReady: bothReady,
+      iAmReady: bothReady || _ackedLocally || (readyMap[myId] == true),
+      canDeal: _canPerform('DEAL'),
+      canAck: _canPerform('ACK'),
+      onDeal: _deal,
+      onAck: _ack,
     );
   }
 
