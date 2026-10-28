@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/ui/renderers/html_renderer_widget.dart';
+import '../../../core/ui/global/renderers/main.dart';
 import '../interfaces/interfaces.dart';
 import '../data/html_message_data.dart';
 

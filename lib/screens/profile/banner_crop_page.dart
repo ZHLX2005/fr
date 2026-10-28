@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/ui/renderers/image_picker_widget.dart';
+import '../../core/ui/global/renderers/main.dart';
 
 /// Banner 图片设置页面
 /// 使用通用 ImagePickerWidget 组件

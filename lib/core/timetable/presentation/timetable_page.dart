@@ -10,7 +10,7 @@ import 'timetable_cell.dart';
 import 'timetable_colors.dart';
 import 'cell_actions/cell_action_manager.dart';
 import '../service/config/timetable_settings_page.dart';
-import '../../ui/renderers/image_picker_widget.dart';
+import '../../ui/global/renderers/main.dart';
 
 /// 简洁日历风格课表页面
 class TimetablePage extends ConsumerStatefulWidget {

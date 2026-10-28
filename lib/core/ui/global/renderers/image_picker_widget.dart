@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
-import '../global/button/main.dart';
+import '../button/main.dart';
 
 /// 图片选择器配置
 class ImagePickerConfig {

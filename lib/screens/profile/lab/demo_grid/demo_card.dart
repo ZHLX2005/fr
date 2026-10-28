@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/ui/renderers/image_picker_widget.dart';
+import '../../../../core/ui/global/renderers/main.dart';
 import '../../../../core/ui/lab/lab_demo_icon.dart';
 import '../../../../core/ui/lab/lab_demo_icon_lookup.dart';
 import '../demo_cover_image.dart';
