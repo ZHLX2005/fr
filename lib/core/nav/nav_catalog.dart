@@ -113,8 +113,15 @@ List<NavEntry> buildNavCatalog() {
   ];
 
   // ── 每个 demo = 一个钉选单元 ────────────────────────────────
+  // 别名去重：demoRegistry.register(demo, key: alias) 会让同一 demo 实例在
+  // getAll() 里出现多次（key 不同、value 同）。此处按**实例**去重，保留注册
+  // 时首个 slug —— 与 Lab 列表（lab_page.dart）的去重口径一致。
+  // 不去重会出现同一 demo 生成多个**同 id** 的钉选项（设置钉选区/底栏候选
+  // 里出现四张一样的 Rive 图标格子）。
+  final seenDemos = <DemoPage>{};
   for (final e in demoRegistry.getAll()) {
     final demo = e.value;
+    if (!seenDemos.add(demo)) continue;
     // timePage 已并入 Focus，仍可作为独立钉选（需要时可开）
     final group = demo.type == DemoType.game ? NavGroup.game : NavGroup.lab;
     // demo 专属 SVG（Lab 图标集）；未登记的保持 null 走 Material icon
