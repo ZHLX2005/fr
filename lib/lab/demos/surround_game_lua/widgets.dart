@@ -31,6 +31,7 @@ import 'package:xiaodouzi_fr/core/surround_game/widgets/confirm_actions.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import '../../../core/ui/global/dialog/main.dart';
 import '../../../core/ui/game/action/main.dart';
+import '../../../core/ui/game/shell/main.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page — LAN-style 单面板布局
@@ -329,14 +330,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = BoardTheme.of(context);
-    final phase = _snap?.state;
-    // lobby 与 ready 共用同一张卡片，只切换底部按钮区，避免布局跳跃
-    if (phase == null || phase == 'lobby' || phase == 'ready') {
-      return _buildLobby();
-    }
-    if (phase == 'ended') return _buildFinished(theme);
-    return _buildPlaying(theme);
+    // 阶段分派（lobby/ready → playing → ended）由共享壳承担，见 GamePhaseBody。
+    return GamePhaseBody(
+      phase: _snap?.state,
+      lobby: (_) => _buildLobby(),
+      playing: (ctx) => _buildPlaying(BoardTheme.of(ctx)),
+      finished: (ctx) => _buildFinished(BoardTheme.of(ctx)),
+    );
   }
 
   // ── 阶段：等待对手 + 准备（合并 lobby/ready，底部按钮三态原地切换） ──
