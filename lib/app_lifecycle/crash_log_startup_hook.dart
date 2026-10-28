@@ -15,10 +15,10 @@ import '../core/ai_chat/system_messages/system_events_controller.dart';
 ///
 /// 调用方约定：fire-and-forget，失败不影响 main 同步链。
 Future<void> runCrashLogIntakeOnStartup() async {
-  const _channel = MethodChannel('io.github.xiaodouzi.fr/crash');
+  const channel = MethodChannel('io.github.xiaodouzi.fr/crash');
   List<dynamic>? raw;
   try {
-    raw = await _channel.invokeMethod<List>('getCrashLogs');
+    raw = await channel.invokeMethod<List>('getCrashLogs');
   } catch (_) {
     // 原生通道未注册 / 引擎未就绪：静默退出
     return;
@@ -48,6 +48,6 @@ Future<void> runCrashLogIntakeOnStartup() async {
 
   // 通知原生侧清空日志，避免下次启动重复报告同一批崩溃
   try {
-    await _channel.invokeMethod('clearCrashLogs');
+    await channel.invokeMethod('clearCrashLogs');
   } catch (_) {}
 }

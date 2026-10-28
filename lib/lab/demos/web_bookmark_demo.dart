@@ -698,7 +698,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                       iconUrl: iconUrlToSave,
                     ),
                   );
-                  Navigator.pop(context);
+                  if (context.mounted) Navigator.pop(context);
                 },
                 child: const Text('Create'),
               ),
@@ -809,7 +809,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
-                  _IconTypeSelector(
+                  _iconTypeSelector(
                     selectedType: selectedIconType,
                     onTypeChanged: (type) =>
                         setState(() => selectedIconType = type),
@@ -1224,7 +1224,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
   }
 
   /// Icon type selector with three equal options
-  Widget _IconTypeSelector({
+  Widget _iconTypeSelector({
     required BookmarkIconType selectedType,
     required Function(BookmarkIconType) onTypeChanged,
   }) {
@@ -1547,6 +1547,7 @@ class _WebViewPageState extends State<_WebViewPage> {
       await _webViewController.goBack();
     } else {
       // 快捷根页无栈可退时 maybePop 空转，不抛异常。
+      if (!mounted) return;
       await Navigator.of(context).maybePop();
     }
   }

@@ -31,12 +31,10 @@ class HostedSession {
   HostedSession({
     required this.slug,
     required this.state,
-    required Future<void> Function() onDispose,
-    Future<void> Function()? onAppBackground,
-    Future<void> Function()? onAppForeground,
-  })  : onDispose = onDispose,
-        onAppBackground = onAppBackground,
-        onAppForeground = onAppForeground;
+    required this.onDispose,
+    this.onAppBackground,
+    this.onAppForeground,
+  });
 
   /// 稳定身份 = demo slug：一个 demo 至多一条活动会话。同 demo 的多个入口
   /// （lab 网格 / 游戏中心 / 钉选底栏 / fr:// 深链 / 时间页）共享同一条——

@@ -735,13 +735,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final coins = me.coins;
     final canCoup = coins >= 7;
     final canAssassinate = coins >= 3;
-    final canAct = (CoupAction a) {
+    bool canAct(CoupAction a) {
       if (a == CoupAction.coup) return canCoup;
       if (a == CoupAction.assassinate) return canAssassinate;
       // 金币 ≥10 必须 COUP（标准规则）
       if (coins >= 10 && a != CoupAction.coup) return false;
       return true;
-    };
+    }
 
     final actions = CoupAction.values;
     return Wrap(

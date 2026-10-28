@@ -244,7 +244,7 @@ class _BpmWheelPickerState extends State<BpmWheelPicker> {
 
 /// 拍号选择器
 class TimeSignaturePicker extends StatelessWidget {
-  TimeSignaturePicker({
+  const TimeSignaturePicker({
     super.key,
     required this.patterns,
     required this.selectedPattern,
@@ -387,7 +387,7 @@ class _PlayControlButtonState extends State<PlayControlButton>
 
 /// BPM 微调按钮
 class BpmAdjustButton extends StatelessWidget {
-  BpmAdjustButton({
+  const BpmAdjustButton({
     super.key,
     required this.icon,
     required this.onPressed,
@@ -422,7 +422,7 @@ class BpmAdjustButton extends StatelessWidget {
 
 /// Tap Tempo 按钮
 class TapTempoButton extends StatelessWidget {
-  TapTempoButton({
+  const TapTempoButton({
     super.key,
     required this.onTap,
   });

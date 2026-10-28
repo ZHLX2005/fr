@@ -263,7 +263,7 @@ class StorageImporter {
   }
 
   /// 解析文本为 sections
-  /// 返回 Map<sectionName, { 'items': List<Map<String, String>> }>
+  /// 返回 `Map<sectionName, { 'items': List<Map<String, String>> }>`
   Map<String, dynamic> _parse(String text) {
     final result = <String, dynamic>{};
     final lines = text.split('\n');

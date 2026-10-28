@@ -116,6 +116,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
       }
 
       final mediaFiles = await _scanMediaFiles();
+      if (!mounted) return;
       final noteRoot = NoteRootScope.of(context).noteRoot;
       final noteList = await noteRoot.listNotes().timeout(const Duration(seconds: 10));
       final noteSummary = await noteRoot.getNoteSummary().timeout(const Duration(seconds: 10));
@@ -1845,7 +1846,8 @@ class _PrefEditDialogState extends State<_PrefEditDialog> {
             Text('类型', style: TextStyle(fontWeight: FontWeight.w600)),
             SizedBox(height: 4),
             DropdownButtonFormField<String>(
-              value: _type,
+              key: ValueKey(_type),
+              initialValue: _type,
               decoration: InputDecoration(
                 filled: true,
                 fillColor: context.colors.scheme.surfaceContainerHighest,

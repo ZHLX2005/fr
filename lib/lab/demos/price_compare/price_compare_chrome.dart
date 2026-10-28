@@ -8,7 +8,7 @@ import '../../../../core/price_compare/price_compare_models.dart';
 
 /// 顶部：图标 + 主题输入框 + 创建时间副标题 + 切换按钮
 class PriceCompareHeader extends StatelessWidget {
-  PriceCompareHeader({
+  const PriceCompareHeader({
     super.key,
     required this.titleController,
     required this.createdAt,
@@ -86,7 +86,7 @@ class PriceCompareHeader extends StatelessWidget {
 
 /// 底部：汇总提示 + border-emphasis 风格的"新增一行"按钮
 class PriceCompareFooter extends StatelessWidget {
-  PriceCompareFooter({
+  const PriceCompareFooter({
     super.key,
     required this.validCount,
     required this.minPrice,

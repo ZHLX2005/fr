@@ -320,7 +320,8 @@ class _OverlayDemoPageState extends State<OverlayDemoPage> {
             ),
             SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _selectedModel,
+              key: ValueKey(_selectedModel),
+              initialValue: _selectedModel,
               decoration: InputDecoration(
                 labelText: '模型',
                 border: OutlineInputBorder(),

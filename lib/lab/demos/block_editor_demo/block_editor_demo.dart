@@ -212,8 +212,9 @@ class _BlockEditorDemoState extends State<BlockEditorDemo> {
                     itemCount: blocks.length + 1,
                     onReorder: (oldIndex, newIndex) {
                       if (oldIndex == blocks.length ||
-                          newIndex == blocks.length)
+                          newIndex == blocks.length) {
                         return;
+                      }
                       _editorState.moveBlock(oldIndex, newIndex);
                     },
                     proxyDecorator: _proxyDecorator,

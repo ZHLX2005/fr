@@ -217,8 +217,8 @@ class MyApp extends ConsumerWidget {
         // 全局圆环：包在 Navigator 外层 → 高于所有 route / dialog / sheet。
         // 开关在 KV 清单页控制（ringEnabledProvider）。
         builder: (context, child) => GlobalRingHost(
-          child: child ?? const SizedBox.shrink(),
           navigatorKey: rootNavigatorKey,
+          child: child ?? const SizedBox.shrink(),
         ),
         // fr:// CLEAR_TOP 防栈累加依赖的路由栈跟踪器
         navigatorObservers: [frRouteStack],

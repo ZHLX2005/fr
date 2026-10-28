@@ -13,7 +13,7 @@ class ZenSegmentButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  ZenSegmentButton({
+  const ZenSegmentButton({
     super.key,
     required this.label,
     required this.selected,
@@ -60,7 +60,7 @@ class ZenConfigSlider extends StatelessWidget {
   final int divisions;
   final ValueChanged<double> onChanged;
 
-  ZenConfigSlider({
+  const ZenConfigSlider({
     super.key,
     required this.label,
     required this.value,
@@ -123,7 +123,7 @@ class ZenFixedLabel extends StatelessWidget {
   final String label;
   final String value;
 
-  ZenFixedLabel({super.key, required this.label, required this.value});
+  const ZenFixedLabel({super.key, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +164,7 @@ class ZenActionButton extends StatelessWidget {
   final bool danger;
   final bool secondary;
 
-  ZenActionButton({
+  const ZenActionButton({
     super.key,
     required this.icon,
     required this.label,

@@ -7,7 +7,7 @@ import '../../../../core/theme/context/colors.dart';
 import '../../../price_compare/price_compare_models.dart';
 
 class PriceTopicPickerSheet extends StatelessWidget {
-  PriceTopicPickerSheet({
+  const PriceTopicPickerSheet({
     super.key,
     required this.summaries,
     required this.currentId,

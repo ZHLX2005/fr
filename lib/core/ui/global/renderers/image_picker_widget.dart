@@ -69,6 +69,9 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
 
       // 如果启用裁剪
       if (widget.config.enableCrop) {
+        // 在 await 前取主题色，避免跨异步缺口使用 context。
+        if (!mounted) return;
+        final cs = Theme.of(context).colorScheme;
         final croppedFile = await ImageCropper().cropImage(
           sourcePath: image.path,
           aspectRatio: CropAspectRatio(
@@ -78,8 +81,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: widget.config.cropTitle,
-              toolbarColor: widget.config.toolbarColor ?? Theme.of(context).colorScheme.primary,
-              toolbarWidgetColor: Theme.of(context).colorScheme.surface,
+              toolbarColor: widget.config.toolbarColor ?? cs.primary,
+              toolbarWidgetColor: cs.surface,
               initAspectRatio: widget.config.aspectRatioPreset,
               lockAspectRatio: widget.config.lockAspectRatio,
               hideBottomControls: false,
@@ -129,6 +132,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
     setState(() => _isLoading = true);
 
     try {
+      // 在 await 前取主题色，避免跨异步缺口使用 context。
+      final cs = Theme.of(context).colorScheme;
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: _selectedPath!,
         aspectRatio: CropAspectRatio(
@@ -138,8 +143,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: widget.config.cropTitle,
-            toolbarColor: widget.config.toolbarColor ?? Theme.of(context).colorScheme.primary,
-            toolbarWidgetColor: Theme.of(context).colorScheme.surface,
+            toolbarColor: widget.config.toolbarColor ?? cs.primary,
+            toolbarWidgetColor: cs.surface,
             initAspectRatio: widget.config.aspectRatioPreset,
             lockAspectRatio: widget.config.lockAspectRatio,
             hideBottomControls: false,

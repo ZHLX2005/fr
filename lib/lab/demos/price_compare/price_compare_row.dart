@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/price_compare/price_compare_models.dart';
 
 class PriceCompareRow extends StatelessWidget {
-  PriceCompareRow({
+  const PriceCompareRow({
     super.key,
     required this.index,
     required this.unitPrice,

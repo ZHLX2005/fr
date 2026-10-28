@@ -30,7 +30,7 @@ class ChessEndgameStore {
   /// 内置残局 assets 目录（pubspec 注册为目录条目）。
   static const String kBuiltinAssetDir = 'assets/data/chess_endgames';
 
-  /// 本地子目录名（<documents>/chess_endgames/）。
+  /// 本地子目录名（`<documents>`/chess_endgames/）。
   static const String kLocalDirName = 'chess_endgames';
 
   /// 应用文档目录 provider（测试注入点）。
@@ -110,7 +110,7 @@ class ChessEndgameStore {
 
   // ─────────────────────────── 保存 / 删除 ───────────────────────────
 
-  /// 保存（回放导出 / 导入落盘统一入口）→ <documents>/chess_endgames/。
+  /// 保存（回放导出 / 导入落盘统一入口）→ `<documents>`/chess_endgames/。
   Future<void> save(ChessEndgame e) async {
     final dir = await _ensureLocalDir();
     final f = File('${dir.path}/${e.id}$kChessEndgameFileExt');

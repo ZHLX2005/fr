@@ -80,7 +80,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
         setState(() {
           _selectedImagePath = path;
           _testResult =
-              '成功选择图片\n\n路径: ${path.length > 100 ? path.substring(0, 100) + '...' : path}\n\n'
+              '成功选择图片\n\n路径: ${path.length > 100 ? '${path.substring(0, 100)}...' : path}\n\n'
               '图片格式: ${kIsWeb ? "Base64 (Web)" : "文件路径"}';
         });
       } else {
@@ -111,7 +111,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
         setState(() {
           _selectedImagePath = path;
           _testResult =
-              '成功拍照\n\n路径: ${path.length > 100 ? path.substring(0, 100) + '...' : path}\n\n'
+              '成功拍照\n\n路径: ${path.length > 100 ? '${path.substring(0, 100)}...' : path}\n\n'
               '图片格式: ${kIsWeb ? "Base64 (Web)" : "文件路径"}';
         });
       } else {

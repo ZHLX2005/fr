@@ -10,7 +10,7 @@ import 'kvcli_todo_models.dart';
 
 /// 待办 / 已完成 切换 chip
 class KvTabChip extends StatelessWidget {
-  KvTabChip({
+  const KvTabChip({
     super.key,
     required this.label,
     required this.selected,
@@ -56,7 +56,7 @@ class KvTabChip extends StatelessWidget {
 /// [selected] 缺省表示非筛选态（保持原视觉）；传 bool 进入筛选态，
 /// 选中色加重、背景加深，外层可据此决定语义（回填 vs 切换筛选）。
 class KvTopicChip extends StatelessWidget {
-  KvTopicChip({
+  const KvTopicChip({
     super.key,
     required this.label,
     this.onTap,
@@ -101,7 +101,7 @@ class KvTopicChip extends StatelessWidget {
 
 /// 任务卡片：信息列 + 编辑/删除 + （待办）完成/冻结、（冻结）解冻。
 class KvTaskCard extends StatelessWidget {
-  KvTaskCard({
+  const KvTaskCard({
     super.key,
     required this.task,
     required this.isOpen,

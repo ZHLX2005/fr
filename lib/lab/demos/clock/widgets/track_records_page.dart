@@ -8,7 +8,7 @@ import '../../../../core/utils/format/main.dart';
 import '../../../../core/ui/global/dialog/main.dart';
 
 class TrackRecordsPage extends StatelessWidget {
-  TrackRecordsPage({super.key});
+  const TrackRecordsPage({super.key});
 
   @override
   Widget build(BuildContext context) {

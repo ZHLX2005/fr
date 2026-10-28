@@ -29,8 +29,10 @@ class NovelReaderStorage {
   NovelReaderSyncHook? _sync;
 
   /// Optional personal-cloud sync (set after construction to avoid cycles).
+  // 方法内存在同名 bool 参数 `sync` 会 shadow 同名字段，保留 wrapper。
   set sync(NovelReaderSyncHook? value) => _sync = value;
 
+  // ignore: unnecessary_getters_setters
   NovelReaderSyncHook? get sync => _sync;
 
   Future<Directory> _getBooksDirectory() async {

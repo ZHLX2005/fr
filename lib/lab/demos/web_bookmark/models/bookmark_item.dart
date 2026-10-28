@@ -51,7 +51,9 @@ abstract class BookmarkItem {
 
 /// Single bookmark
 class SingleBookmark implements BookmarkItem {
+  @override
   final String id;
+  @override
   final String name;
   final String url;
   final String iconName;
@@ -125,6 +127,7 @@ class SingleBookmark implements BookmarkItem {
 
 /// Bookmark folder
 class BookmarkFolder implements BookmarkItem {
+  @override
   final String id;
   @override
   final String name;

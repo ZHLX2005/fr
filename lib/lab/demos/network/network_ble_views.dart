@@ -8,7 +8,7 @@ import 'network_widgets.dart';
 /// BLE 日志列表 —— 自动根据"发送/收到/错误"染色
 class BleLogList extends StatelessWidget {
   final List<String> logs;
-  BleLogList({super.key, required this.logs});
+  const BleLogList({super.key, required this.logs});
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +67,7 @@ class BleDeviceList extends StatelessWidget {
   final bool isScanning;
   final ValueChanged<BluetoothDevice> onTap;
 
-  BleDeviceList({
+  const BleDeviceList({
     super.key,
     required this.devices,
     required this.isScanning,

@@ -116,7 +116,7 @@ class _SavedAudioFile {
 
 /// API 测试页面中的语音合成 Tab
 class ApiSpeechTabPage extends StatefulWidget {
-  const ApiSpeechTabPage();
+  const ApiSpeechTabPage({super.key});
 
   @override
   State<ApiSpeechTabPage> createState() => _ApiSpeechTabPageState();
@@ -803,7 +803,8 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: _selectedModel,
+                    key: ValueKey(_selectedModel),
+                    initialValue: _selectedModel,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       isDense: true,

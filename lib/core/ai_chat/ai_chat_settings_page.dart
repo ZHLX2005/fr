@@ -144,7 +144,8 @@ class _AIChatSettingsPageState extends State<AIChatSettingsPage> {
 
               // 模型类型
               DropdownButtonFormField<String>(
-                value: _selectedType,
+                key: ValueKey(_selectedType),
+                initialValue: _selectedType,
                 decoration: const InputDecoration(
                   labelText: '模型类型',
                   border: OutlineInputBorder(),

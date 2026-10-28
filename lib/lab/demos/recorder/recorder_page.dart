@@ -136,7 +136,7 @@ class RecorderPageScaffold extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onDiscard;
 
-  RecorderPageScaffold({
+  const RecorderPageScaffold({
     super.key,
     required this.controller,
     required this.onStart,

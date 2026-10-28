@@ -165,8 +165,8 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     }
   }
 
-  void _handleKey(RawKeyEvent event) {
-    if (event is RawKeyDownEvent) {
+  void _handleKey(KeyEvent event) {
+    if (event is KeyDownEvent) {
       switch (event.logicalKey) {
         case LogicalKeyboardKey.arrowUp:
         case LogicalKeyboardKey.keyW:
@@ -202,9 +202,9 @@ class _SnakeGamePageState extends State<_SnakeGamePage> {
     final snakeBorder = scheme.outline;
 
     return SafeArea(
-      child: RawKeyboardListener(
+      child: KeyboardListener(
         focusNode: _focusNode,
-        onKey: _handleKey,
+        onKeyEvent: _handleKey,
         autofocus: true,
         child: Column(
           children: [

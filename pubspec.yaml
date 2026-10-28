@@ -152,6 +152,8 @@ dependencies:
   # the metronome Oboe bridge in lib/lab/demos/metronome/ffi_bindings.dart).
   ffi: ^2.1.0
   characters: ^1.4.1
+  # 路径拼接（lib/services/lab_image_cache_service.dart 等运行时代码使用）
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
@@ -170,7 +172,6 @@ dev_dependencies:
   # JSON Serialization Code Generation
   build_runner: ^2.4.13
   json_serializable: ^6.8.0
-  path: ^1.9.1
 
   # Hive TypeAdapter Code Generation
   # 版本约束：镜像 pub.flutter-io.cn 最高只有 2.0.1，不能直接升 2.2.x。

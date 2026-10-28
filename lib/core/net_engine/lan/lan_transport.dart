@@ -48,7 +48,7 @@ class LanTransport implements Transport {
   final String _nodeId = '${DateTime.now().microsecondsSinceEpoch}-${DateTime.now().millisecondsSinceEpoch % 1000}';
 
   // 已知 peer：nodeId -> (ip, httpPort)
-  final Map<String, _PeerEndpoint> _peers = {};
+  final Map<String, PeerEndpoint> _peers = {};
 
   // v2 pub/sub
   final Map<String, StreamController<RemoteEvent>> _subCtrl = {};
@@ -64,7 +64,7 @@ class LanTransport implements Transport {
   String? _peerNodeId;
 
   // HTTP publish client (set by LanDiscovery widget after starting HTTP server)
-  _HttpPublishClient? _publishClient;
+  HttpPublishClient? _publishClient;
 
   @override
   String get myNodeId => _nodeId;
@@ -135,12 +135,12 @@ class LanTransport implements Transport {
     ctrl.add(event);
   }
 
-  void setPublishClient(_HttpPublishClient client) {
+  void setPublishClient(HttpPublishClient client) {
     _publishClient = client;
   }
 
   /// Currently known peer endpoints (read-only view for the widget).
-  Map<String, _PeerEndpoint> get knownPeers => Map.unmodifiable(_peers);
+  Map<String, PeerEndpoint> get knownPeers => Map.unmodifiable(_peers);
 
   // ---------------- v1 scope compat ----------------
 
@@ -292,7 +292,7 @@ class LanTransport implements Transport {
       }
       // v2 discovery 包 — 也触发 peer-joined-scope 事件
       if (env['type'] == 'discovery') {
-        _peers[from] = _PeerEndpoint(
+        _peers[from] = PeerEndpoint(
           ip: dg.senderAddress.address,
           httpPort: env['httpPort'] as int? ?? 0,
         );
@@ -340,13 +340,13 @@ class LanTransport implements Transport {
   }
 }
 
-class _PeerEndpoint {
-  _PeerEndpoint({required this.ip, required this.httpPort});
+class PeerEndpoint {
+  PeerEndpoint({required this.ip, required this.httpPort});
   final String ip;
   final int httpPort;
 }
 
-abstract class _HttpPublishClient {
+abstract class HttpPublishClient {
   Future<void> post(
       String ip, int port, String topic, Map<String, dynamic> payload);
 }
