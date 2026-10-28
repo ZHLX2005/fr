@@ -29,6 +29,8 @@ import 'package:xiaodouzi_fr/core/surround_game/widgets/touch_controller.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/player_panel.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/confirm_actions.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
+import '../../../core/ui/global/dialog/main.dart';
+import '../../../core/ui/game/action/main.dart';
 
 // ══════════════════════════════════════════════════════════════
 // Online Game Page — LAN-style 单面板布局
@@ -313,18 +315,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   }
 
   void _showResignConfirm() async {
-    final confirm = await showDialog<bool>(
+    // 认输属破坏性操作 → 用共享确认弹窗（确认按钮走 danger 红）。
+    final confirm = await BaseConfirmDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('认输'),
-        content: const Text('确认认输？此局结束。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('认输')),
-        ],
-      ),
+      title: '认输',
+      message: '确认认输？此局结束。',
+      confirmLabel: '认输',
     );
-    if (confirm == true) await _room.resign();
+    if (confirm) await _room.resign();
   }
 
   // ── Build ──
@@ -633,17 +631,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     );
   }
 
-  Widget _bottomAction(IconData icon, String label, VoidCallback? onTap, BoardThemeData theme) {
-    final color = theme.btnText.withValues(alpha: onTap != null ? 0.6 : 0.25);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque, onTap: onTap,
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 14, color: color),
-        SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: color)),
-      ]),
-    );
-  }
+  Widget _bottomAction(IconData icon, String label, VoidCallback? onTap, BoardThemeData theme) =>
+      GameBottomAction(icon: icon, label: label, color: theme.btnText, onTap: onTap);
 
   Widget _buildFinished(BoardThemeData theme) {
     final gs = _gs;
