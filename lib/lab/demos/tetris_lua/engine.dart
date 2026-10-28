@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 
 import 'constants.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import '../../../core/game_kit/snapshot/main.dart';
 
 export 'tetris_script.dart' show kTetrisScript;
 export 'constants.dart';
@@ -301,7 +302,7 @@ class TetrisRoom {
   String get deviceId => handle.transport.deviceId;
   bool get isHost => deviceId == hostId(handle.latest);
 
-  static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
+  static String? hostId(Snapshot? s) => GameSnapshot.hostId(s);
 
   Future<void> ack() => handle.applyAction(type: 'ACK', params: const {});
   Future<void> start() => handle.applyAction(type: 'START', params: const {});
@@ -340,23 +341,11 @@ class TetrisRoom {
     return raw.map((e) => (e as num).toInt()).toList();
   }
 
-  static Map<String, String> players(Snapshot? s) {
-    final raw = s?.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> players(Snapshot? s) => GameSnapshot.players(s);
 
-  static Map<String, bool> readyMap(Snapshot? s) {
-    final raw = s?.context['ready'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v == true));
-  }
+  static Map<String, bool> readyMap(Snapshot? s) => GameSnapshot.readyMap(s);
 
-  static Map<String, String> actionPermissions(Snapshot? s) {
-    final raw = s?.context['action_permissions'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> actionPermissions(Snapshot? s) => GameSnapshot.actionPermissions(s);
 
   /// 我能不能发这个 action？读服务端 action_permissions + 自己角色判定。
   /// tetris 只区分 host / any（无回合概念）。
@@ -391,7 +380,7 @@ class TetrisRoom {
   }
 
   /// 终局赢家 device_id（final_score 高的那一方）。
-  static String? winner(Snapshot? s) => s?.context['winner']?.toString();
+  static String? winner(Snapshot? s) => GameSnapshot.winner(s);
 
   /// 首个 BUST（先堆顶）的那一方，用于"先 GG"语义展示。
   static String? loserId(Snapshot? s) => s?.context['loser_id']?.toString();

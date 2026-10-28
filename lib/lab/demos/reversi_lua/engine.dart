@@ -5,6 +5,7 @@ import 'package:xiaodouzi_fr/core/reversi/models/reversi_board.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
 import 'constants.dart' show kReversiSize;
+import '../../../core/game_kit/snapshot/main.dart';
 
 export 'reversi_script.dart' show kReversiScript;
 export 'constants.dart' show kReversiSize;
@@ -78,27 +79,15 @@ class ReversiRoom {
     return raw?.toString();
   }
 
-  static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
+  static String? hostId(Snapshot? s) => GameSnapshot.hostId(s);
 
-  static Map<String, String> players(Snapshot? s) {
-    final raw = s?.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> players(Snapshot? s) => GameSnapshot.players(s);
 
-  static Map<String, bool> readyMap(Snapshot? s) {
-    final raw = s?.context['ready'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v == true));
-  }
+  static Map<String, bool> readyMap(Snapshot? s) => GameSnapshot.readyMap(s);
 
-  static String? winner(Snapshot? s) => s?.context['winner']?.toString();
+  static String? winner(Snapshot? s) => GameSnapshot.winner(s);
 
-  static Map<String, String> actionPermissions(Snapshot? s) {
-    final raw = s?.context['action_permissions'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> actionPermissions(Snapshot? s) => GameSnapshot.actionPermissions(s);
 
   /// 从 snapshot history 重建落子序列。
   static List<ReversiMove> rebuildMoves(Snapshot? s) {

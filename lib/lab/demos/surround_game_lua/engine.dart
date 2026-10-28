@@ -5,6 +5,7 @@ import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 import 'package:xiaodouzi_fr/core/surround_game/engine/game_engine.dart';
 import 'package:xiaodouzi_fr/core/surround_game/models/game_state.dart';
 import 'package:xiaodouzi_fr/core/surround_game/surround_game_constants.dart';
+import '../../../core/game_kit/snapshot/main.dart';
 
 export 'quoridor_script.dart' show kSurroundGameScript;
 export 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
@@ -62,16 +63,12 @@ class SgRoom {
   }
 
   /// 从 snapshot 取 host_id
-  static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
+  static String? hostId(Snapshot? s) => GameSnapshot.hostId(s);
 
   /// 从 snapshot 取 action_permissions（★服务端约束的单点真相）。
   /// 新增 action 类型只需在 Lua on_init 加一行规则 + handler 校验，
   /// 客户端按钮 enable 全走 canPerform(action)，零特判代码。
-  static Map<String, String> actionPermissions(Snapshot? s) {
-    final raw = s?.context['action_permissions'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> actionPermissions(Snapshot? s) => GameSnapshot.actionPermissions(s);
 
   /// 我能不能发这个 action？读服务端 action_permissions + 自己角色判定。
   /// isHost/isMyTurn/justMovedByMe 由调用方传入（保持 helper 无状态）。
@@ -106,18 +103,10 @@ class SgRoom {
   }
 
   /// 从 snapshot 取 players map
-  static Map<String, String> players(Snapshot? s) {
-    final raw = s?.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> players(Snapshot? s) => GameSnapshot.players(s);
 
   /// 从 snapshot 取 ready map（device_id → true）。用于 lobby 阶段显示双方 ACK 状态。
-  static Map<String, bool> readyMap(Snapshot? s) {
-    final raw = s?.context['ready'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v == true));
-  }
+  static Map<String, bool> readyMap(Snapshot? s) => GameSnapshot.readyMap(s);
 
   /// 未决悔棋请求：{requester: did} 或 null
   static String? undoRequester(Snapshot? s) {

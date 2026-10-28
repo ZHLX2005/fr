@@ -15,6 +15,7 @@ import 'package:xiaodouzi_fr/core/jungle_chess/models/game_state.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/models/move.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/models/piece.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import '../../../core/game_kit/snapshot/main.dart';
 
 export 'jungle_lua_script.dart' show kJungleChessScript;
 export 'jungle_constants.dart' show kJungleLuaRelayUrl;
@@ -123,21 +124,13 @@ class JungleRoom {
 
   // ── Snapshot 便捷读取 ──
 
-  static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
+  static String? hostId(Snapshot? s) => GameSnapshot.hostId(s);
   static String? topPlayerId(Snapshot? s) =>
       s?.context['top_player_id']?.toString() ?? hostId(s);
 
-  static Map<String, String> players(Snapshot? s) {
-    final raw = s?.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> players(Snapshot? s) => GameSnapshot.players(s);
 
-  static Map<String, bool> readyMap(Snapshot? s) {
-    final raw = s?.context['ready'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v == true));
-  }
+  static Map<String, bool> readyMap(Snapshot? s) => GameSnapshot.readyMap(s);
 
   /// 离线玩家表（断线但保留在 players 中的玩家）。
   /// UI 用于显示"对手掉线"标记；on_join 时若同 device_id 自动清掉。
@@ -148,13 +141,9 @@ class JungleRoom {
   }
 
   /// 终局胜方："blue" | "red" | null。
-  static String? winner(Snapshot? s) => s?.context['winner']?.toString();
+  static String? winner(Snapshot? s) => GameSnapshot.winner(s);
 
-  static Map<String, String> actionPermissions(Snapshot? s) {
-    final raw = s?.context['action_permissions'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> actionPermissions(Snapshot? s) => GameSnapshot.actionPermissions(s);
 
   /// 从 snapshot history 重建走法序列。
   static List<JungleMoveRecord> rebuildHistory(Snapshot? s) {

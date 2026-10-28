@@ -3,6 +3,7 @@
 
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 import 'go_constants.dart' show kGoSize;
+import '../../../core/game_kit/snapshot/main.dart';
 
 export 'go_script.dart' show kGoScript;
 export 'go_constants.dart' show kGoSize, kGoRelayUrl;
@@ -82,20 +83,12 @@ class GoRoom {
 
   static String? blackPlayerId(Snapshot? s) =>
       s?.context['black_player_id']?.toString();
-  static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
+  static String? hostId(Snapshot? s) => GameSnapshot.hostId(s);
 
-  static Map<String, String> players(Snapshot? s) {
-    final raw = s?.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> players(Snapshot? s) => GameSnapshot.players(s);
 
   /// 准备状态：{device_id: 是否已 ACK}（Task 5 lobby UI 依赖）。
-  static Map<String, bool> readyMap(Snapshot? s) {
-    final raw = s?.context['ready'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v == true));
-  }
+  static Map<String, bool> readyMap(Snapshot? s) => GameSnapshot.readyMap(s);
 
   static ({int black, int white}) captures(Snapshot? s) {
     final raw = s?.context['captures'];
@@ -116,13 +109,9 @@ class GoRoom {
   }
 
   static int passes(Snapshot? s) => (s?.context['passes'] as num?)?.toInt() ?? 0;
-  static String? winner(Snapshot? s) => s?.context['winner']?.toString();
+  static String? winner(Snapshot? s) => GameSnapshot.winner(s);
 
-  static Map<String, String> actionPermissions(Snapshot? s) {
-    final raw = s?.context['action_permissions'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> actionPermissions(Snapshot? s) => GameSnapshot.actionPermissions(s);
 
   /// 从 snapshot history 重建落子序列。
   static List<GoMove> rebuildMoves(Snapshot? s) {

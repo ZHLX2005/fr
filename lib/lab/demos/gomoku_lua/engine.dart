@@ -3,6 +3,7 @@
 
 import 'constants.dart' show kGomokuSize, kGomokuWinLength;
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import '../../../core/game_kit/snapshot/main.dart';
 
 export 'gomoku_script.dart' show kGomokuScript;
 export 'constants.dart' show kGomokuSize, kGomokuWinLength;
@@ -71,28 +72,16 @@ class GomokuRoom {
     return raw.toString();
   }
 
-  static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
+  static String? hostId(Snapshot? s) => GameSnapshot.hostId(s);
 
-  static Map<String, String> players(Snapshot? s) {
-    final raw = s?.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> players(Snapshot? s) => GameSnapshot.players(s);
 
-  static Map<String, bool> readyMap(Snapshot? s) {
-    final raw = s?.context['ready'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v == true));
-  }
+  static Map<String, bool> readyMap(Snapshot? s) => GameSnapshot.readyMap(s);
 
   /// 终局胜方："black" / "white" / null。
-  static String? winner(Snapshot? s) => s?.context['winner']?.toString();
+  static String? winner(Snapshot? s) => GameSnapshot.winner(s);
 
-  static Map<String, String> actionPermissions(Snapshot? s) {
-    final raw = s?.context['action_permissions'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> actionPermissions(Snapshot? s) => GameSnapshot.actionPermissions(s);
 
   /// 从 snapshot history 重建落子序列。
   static List<GomokuMove> rebuildMoves(Snapshot? s) {

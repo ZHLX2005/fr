@@ -9,6 +9,7 @@
 //   - 广播权语义：broadcaster_id == nil 表示无人占用；同一时刻最多一人持有
 
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
+import '../../../core/game_kit/snapshot/main.dart';
 
 export 'cowrite_lua_script.dart' show kCoWriteScript;
 export 'cowrite_constants.dart' show kCoWriteRelayUrl;
@@ -50,13 +51,9 @@ class CoWriteRoom {
 
   // ── Snapshot 便捷读取 ──
 
-  static String? hostId(Snapshot? s) => s?.context['host_id']?.toString();
+  static String? hostId(Snapshot? s) => GameSnapshot.hostId(s);
 
-  static Map<String, String> players(Snapshot? s) {
-    final raw = s?.context['players'];
-    if (raw is! Map) return const {};
-    return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
-  }
+  static Map<String, String> players(Snapshot? s) => GameSnapshot.players(s);
 
   /// 笔记当前内容（服务端权威）。
   static String content(Snapshot? s) {
