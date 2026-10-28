@@ -188,3 +188,10 @@
 - 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
 - 经验：①**test/ 内引用 lib 必须用 `package:` 导入**——相对路径 `../../../../lib/...` 与 package URI 形成重复库视图，`find.byType` 身份不匹配导致"widget 找不到"（3 个测试文件踩中）。②按类拆 import 时类名可能出现在**注释**里（8 个 lab demo 误加 home import），analyze 的 unused_import 会兜底，清掉即可。③合并文件时按行号切段容易把 import 行卷进正文，切完立即 grep `^import` 复核。
 - 下轮（N3）：global 其余错位项——chat（PiChat 三件，单域 ai_chat）→ `ui/ai_chat/chat/main.dart`；swipe_action（单域 clock）→ 域内 ui 目录。dot 保持 global（已标注临界）。
+
+### N3（2026-10-28，commit 2cde265a）
+
+- 完成：`ui/global/chat` → `ui/ai_chat/chat/main.dart`（3 消费方）；`ui/global/swipe_action` → `ui/lab/clock/swipe_action/main.dart`（唯一消费方 clock demo）。global 剩 9 类别，全部为跨域件（dot 为 clock+recorder 两 demo 域，标注临界维持）。
+- 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
+- 域目录约定（本轮确立）：`ui/<域>/<类别>/main.dart`；lab demo 域按 `ui/lab/<demo>/<类别>/main.dart`（如 clock）。若用户希望 demo 域平铺为 `ui/<demo>/...`，只需在终检前统一调整。
+- 下轮（N4）：game 域内类别整理——barrel 契约复核（home/emoji/ready/chat/relay），确认无跨类别暗引、入口唯一。
