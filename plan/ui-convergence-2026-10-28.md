@@ -42,6 +42,13 @@
 - 经验：**global/<cat>/main.dart 比 atomic/ 深一层——后续每轮搬完必须修内部 import 深度**；grep 旧路径时注意注释里也可能引用（spacing.dart 案例，属期望的同步）。
 - 下轮（R2）：notification（app_notification.dart，41 消费方）+ dialog（base_dialog.dart + base_ios_dialog.dart → global/dialog/）。
 
+### R2（2026-10-28，commit 167c5c6f）
+
+- 完成：app_notification → `global/notification/main.dart`（41 消费方）；base_dialog + base_ios_dialog 合并 → `global/dialog/main.dart`（366 行，24 消费方）。
+- 验证：analyze lib 152 issues 持平；flutter test 全量 +1266 ~3 -10，与基线逐项一致。
+- 经验：单类别多文件且总行数 ≤400 时可**合并**进一个 main.dart（保留原类名，调用方只需改 import 路径）；>400 才用 barrel 模式。
+- 下轮（R3）：button 族（atomic/base_button.dart + shell/emphasis_button.dart + atomic/base_icon_button.dart）+ nav 族（shell/app_nav_bar.dart + shell/nav_entry_icon.dart + shell/quick_nav_bottom_bar.dart）。
+
 
 
 ## 1. 纯搬运（零 API 变化，git mv / 文件拆分 + import 更新）
