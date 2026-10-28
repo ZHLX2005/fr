@@ -219,3 +219,11 @@
   - 业务层 → `screens/`：`core/focus/focus_home_page.dart` 反向上依赖已修（改为 `FrNavigator.handle('fr://lab/demo/<slug>')`）；`core/nav/nav_catalog|nav_bootstrap` 与 `core/schema/handlers/lab_*` 属应用装配层职责，保持；`core/game_kit/game_center_catalog → screens/.../const_game_center`（逻辑层引常量注册表）随任务 #8 game 配置抽离处理。
 - 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
 - 下轮（N7）：收编遗留——BaseButton 死代码裁决（删）、image_picker_widget 555 行拆分、game/chat/main.dart 1030 行拆分。
+
+### N7（2026-10-28，commit b8b5c64e）
+
+- BaseButton 裁决**更正**：Ec02 的「零引用死代码」已过期——`ui/global/empty_state/main.dart` 实际在用，**保留不删**（与 RtConnDot 的真死代码不同）。
+- `ui/game/chat/main.dart` 1030 行 → main 375 + chat_pill 142 + composer 419 + painters 101（`part of` 保持内部类不对外导出）。
+- `ui/global/renderers/image_picker_widget.dart` 555 行 → config 79 + widget 424 + page 63，barrel 补导出；config 补 `image_cropper` import。
+- 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
+- 下轮（N8）：Ec01/Ec02/Ec03 文档同步到新结构（global/game 拆分、hierarchical ui/<域>/<类别>、price_compare 归位、lab icons 合并等），全量校对 skill 内路径引用。
