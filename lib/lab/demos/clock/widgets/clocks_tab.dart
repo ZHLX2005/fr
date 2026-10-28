@@ -13,7 +13,7 @@ import '../../../../core/ui/atomic/base_icon_button.dart';
 import '../../../../core/ui/global/dot/main.dart';
 import '../../../../core/ui/global/empty_state/main.dart';
 import '../../../../core/ui/global/swipe_action/main.dart';
-import '../../../../core/ui/atomic/base_dialog.dart';
+import '../../../../core/ui/global/dialog/main.dart';
 
 /// Clocks tab — grid of clock cards + records list.
 /// Preserves the core clock functionality (start/pause/reset, swipe-rename,

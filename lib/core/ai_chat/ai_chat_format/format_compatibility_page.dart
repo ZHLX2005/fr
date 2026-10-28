@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../services/message_strategy/interfaces/interfaces.dart';
 import '../../../services/message_strategy/factory/factory.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 import '../../../services/message_strategy/panel/panel.dart';
 
 /// 格式兼容性 / 消息策略聚合测试页。

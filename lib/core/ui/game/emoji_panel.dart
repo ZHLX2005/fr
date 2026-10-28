@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../game_kit/skin/file_resolver.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
-import '../shell/app_notification.dart';
+import '../global/notification/main.dart';
 
 /// 表情面板（网格选择器，BottomSheet 内使用）。
 ///

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/nav/nav_route.dart';
 import '../../../core/theme/state/theme_provider.dart';
-import '../../../core/ui/shell/app_notification.dart';
+import '../../../core/ui/global/notification/main.dart';
 
 /// 主题设置页面
 ///

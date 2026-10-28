@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 import 'timetable_store.dart';
 import 'cycle_visibility_selector.dart';
 import 'timetable_colors.dart';

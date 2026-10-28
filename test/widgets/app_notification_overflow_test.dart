@@ -7,7 +7,7 @@
 // widget 测试里 RenderFlex overflow 会以 FlutterError 抛出并直接判测试失败，
 // 所以任何一条用例失败 = 复现了溢出，失败信息里带完整 widget 链。
 
-import 'package:xiaodouzi_fr/core/ui/shell/app_notification.dart';
+import 'package:xiaodouzi_fr/core/ui/global/notification/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

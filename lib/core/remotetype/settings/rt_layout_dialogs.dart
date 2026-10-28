@@ -6,7 +6,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../ui/atomic/base_dialog.dart';
+import '../../ui/global/dialog/main.dart';
 import '../data/rt_prefs.dart' show RtCanvasNamedLayout;
 
 /// 恢复出厂确认（内置）。返回 true = 用户确认。

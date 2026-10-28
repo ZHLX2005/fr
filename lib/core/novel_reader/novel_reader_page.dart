@@ -10,7 +10,7 @@ import '../nav/nav_route.dart';
 import 'canvas_reader_engine.dart';
 import '../ui/shell/app_nav_bar.dart';
 import '../ui/shell/emphasis_button.dart';
-import '../ui/shell/app_notification.dart';
+import '../ui/global/notification/main.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';
 import 'novel_reader_sync.dart';

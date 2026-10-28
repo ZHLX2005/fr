@@ -6,8 +6,8 @@ import 'anime_dsl_generator.dart';
 import '../../../ui/zen/zen_theme.dart';
 import '../../../ui/zen/zen_date_picker.dart';
 import '../../../../core/ui/global/empty_state/main.dart';
-import '../../../../core/ui/atomic/base_dialog.dart';
-import '../../../../core/ui/shell/app_notification.dart';
+import '../../../../core/ui/global/dialog/main.dart';
+import '../../../../core/ui/global/notification/main.dart';
 
 /// 供课表页复用（fr 28）：追剧模式 cell 点击 → 打开剧模型编辑对话框。
 /// 课程由剧模型自动派生，编辑课程本身会被覆盖，统一走剧编辑。

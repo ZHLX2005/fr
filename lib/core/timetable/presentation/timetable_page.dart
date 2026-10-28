@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../nav/nav_route.dart';
-import '../../ui/atomic/base_dialog.dart';
+import '../../ui/global/dialog/main.dart';
 import '../data/timetable_repository.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';

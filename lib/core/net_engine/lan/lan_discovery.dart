@@ -10,7 +10,7 @@ import 'http/http_endpoints.dart';
 import 'http/http_server.dart';
 import 'lan_transport.dart';
 import 'transport.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 
 /// LAN 发现 — 没有抽象，直接具体 widget
 ///

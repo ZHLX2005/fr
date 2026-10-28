@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ui/global/empty_state/main.dart';
-import '../ui/shell/app_notification.dart';
+import '../ui/global/notification/main.dart';
 import 'share_receive_store.dart';
 
 /// 外部分享接收页 —— 展示其他 app 分享给 FR 的文本/文件。

@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../api/pi/pi.dart';
-import '../../ui/atomic/base_dialog.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/dialog/main.dart';
+import '../../ui/global/notification/main.dart';
 import 'pi_chat_message_repository.dart';
 import 'pi_chat_page.dart';
 import 'pi_chat_settings.dart';

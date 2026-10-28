@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../ui/atomic/base_dialog.dart';
-import '../ui/shell/app_notification.dart';
+import '../ui/global/dialog/main.dart';
+import '../ui/global/notification/main.dart';
 import '../ui/shell/emphasis_button.dart';
 import 'doubletime_mapper.dart';
 import 'doubletime_models.dart';

@@ -6,7 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../ui/atomic/base_dialog.dart';
+import '../../ui/global/dialog/main.dart';
 import '../../../services/ai_chat/ai_chat_provider.dart';
 import '../../../services/message_strategy/data/receipt_ocr_message_data.dart';
 import '../../../services/message_strategy/factory/factory.dart';

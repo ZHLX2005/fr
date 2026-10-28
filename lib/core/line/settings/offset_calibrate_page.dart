@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/constants.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 
 /// 输入偏移校准：按 BPM 节拍点按几次，取平均误差写入 [lineInputOffsetKey]。
 class OffsetCalibratePage extends StatefulWidget {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../ui/atomic/base_dialog.dart';
+import '../../../ui/global/dialog/main.dart';
 import '../../service/config/timetable_anime_editor_page.dart';
 import '../timetable_store.dart';
 import 'cell_action_manager.dart';

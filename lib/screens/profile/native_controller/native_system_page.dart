@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/ui/shell/app_notification.dart';
+import '../../../core/ui/global/notification/main.dart';
 
 /// 原生系统功能测试页面
 /// 用于测试应用使用时长查询、震动等系统级功能

@@ -40,7 +40,7 @@ import 'package:flutter/material.dart';
 import '../../game_kit/chat/chat_event.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
 import '../../game_kit/skin/file_resolver.dart';
-import '../shell/app_notification.dart';
+import '../global/notification/main.dart';
 
 /// 卡片内可用的快速表情（与 composer emoji 行一致）
 const List<String> kBoardChatQuickEmojis = [

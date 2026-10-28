@@ -47,7 +47,7 @@ import '../../core/line/io/line_orientation.dart';
 import '../../core/nav/nav_entry.dart' show demoNavId;
 import '../../services/remotetype/remotetype_providers.dart';
 import '../../services/remotetype/remotetype_service.dart';
-import '../../core/ui/shell/app_notification.dart';
+import '../../core/ui/global/notification/main.dart';
 import '../../core/theme/context/colors.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart'
     show QuickNavBottomBar, bottomBarVisibilityProvider;

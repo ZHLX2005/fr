@@ -57,7 +57,7 @@ import '../../game_kit/emoji/emoji_bundle.dart';
 import '../../ui/game/game_ready_style.dart';
 import '../../game_kit/skin/file_resolver.dart';
 import '../../ui/game/relay_connection_status_badge.dart';
-import '../../ui/atomic/base_dialog.dart';
+import '../../ui/global/dialog/main.dart';
 import '../constants/draughts_constants.dart';
 import '../engine/draughts_engine.dart';
 import '../engine/make_move.dart';
@@ -70,7 +70,7 @@ import '../widgets/draughts_board.dart';
 import '../widgets/draughts_replay_bar.dart';
 import 'draughts_room.dart';
 import 'widgets/draughts_room_rules_panel.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 
 class DraughtsRoomPage extends StatefulWidget {
   const DraughtsRoomPage({

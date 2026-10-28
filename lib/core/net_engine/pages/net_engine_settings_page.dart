@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:xiaodouzi_fr/core/net_engine/lan/lan_discovery.dart';
-import 'package:xiaodouzi_fr/core/ui/shell/app_notification.dart';
+import 'package:xiaodouzi_fr/core/ui/global/notification/main.dart';
 
 import '../net_engine_types.dart';
 

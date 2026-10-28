@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../ui/shell/app_notification.dart';
+import '../ui/global/notification/main.dart';
 import 'fr_router.dart';
 
 /// fr:// 路由栈跟踪器（CLEAR_TOP 语义依赖）

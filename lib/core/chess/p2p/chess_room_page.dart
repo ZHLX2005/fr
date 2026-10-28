@@ -61,7 +61,7 @@ import 'chess_net.dart';
 import 'chess_room_config_page.dart';
 import '../../ui/game/board_chat_overlay.dart';
 import 'widgets/player_strip.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 
 /// 快照驱动的在线对弈房间页（v3 Relay + kChessScript）。
 class ChessRoomPage extends StatefulWidget {

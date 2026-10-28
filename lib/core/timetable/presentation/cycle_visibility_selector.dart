@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 import 'timetable_colors.dart';
 
 /// 周期可见性选择器

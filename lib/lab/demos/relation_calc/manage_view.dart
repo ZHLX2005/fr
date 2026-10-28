@@ -12,7 +12,7 @@ import 'const_relation_calc.dart';
 import 'relation_calc_models.dart';
 import 'relation_calc_store.dart';
 import '../../../core/ui/global/empty_state/main.dart';
-import '../../../core/ui/atomic/base_dialog.dart';
+import '../../../core/ui/global/dialog/main.dart';
 
 class ManageView extends StatefulWidget {
   const ManageView({

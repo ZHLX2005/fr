@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../api/pi/pi.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 import 'pi_chat_settings.dart';
 
 /// pi 聊天设置页 —— 配置完全在 App 内设置。

@@ -12,8 +12,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/context/colors.dart';
-import '../../ui/atomic/base_dialog.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/dialog/main.dart';
+import '../../ui/global/notification/main.dart';
 import '../data/rt_constants.dart';
 import '../data/rt_prefs.dart';
 import 'rt_virtual_keyboard.dart';

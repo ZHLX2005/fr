@@ -21,7 +21,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../shell/app_notification.dart';
+import '../global/notification/main.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 
 /// WS 连接状态条（圆点 + 文字 + 拉取最新快照按钮）。

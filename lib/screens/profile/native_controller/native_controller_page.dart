@@ -5,7 +5,7 @@ import '../../../core/ui/shell/emphasis_button.dart';
 import 'native_notifications_page.dart';
 import 'native_media_page.dart';
 import 'native_system_page.dart';
-import '../../../core/ui/shell/app_notification.dart';
+import '../../../core/ui/global/notification/main.dart';
 
 /// 原生功能控制器主页
 /// 汇总所有原生功能测试入口

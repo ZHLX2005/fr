@@ -6,7 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../../ui/atomic/base_dialog.dart';
+import '../../ui/global/dialog/main.dart';
 import 'system_messages_panel.dart';
 import 'system_events_controller.dart';
 

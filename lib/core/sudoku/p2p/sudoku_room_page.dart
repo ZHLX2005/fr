@@ -21,7 +21,7 @@ import '../widgets/sudoku_number_pad.dart';
 import '../widgets/sudoku_opponent_strip.dart';
 import 'sudoku_net.dart';
 import 'sudoku_room_config_page.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 
 /// 快照驱动的数独联机房间页（v3 Relay + kSudokuScript）。
 class SudokuRoomPage extends StatefulWidget {

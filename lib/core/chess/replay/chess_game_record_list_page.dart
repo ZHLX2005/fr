@@ -14,12 +14,12 @@
 
 import 'package:flutter/material.dart';
 
-import '../../ui/atomic/base_dialog.dart';
+import '../../ui/global/dialog/main.dart';
 import '../skins/chess_skin.dart';
 import 'chess_game_record.dart';
 import 'chess_game_record_store.dart';
 import 'chess_game_replay_page.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 
 /// 对局回放库列表页。
 class ChessGameRecordListPage extends StatefulWidget {

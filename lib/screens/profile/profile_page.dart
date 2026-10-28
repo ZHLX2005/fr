@@ -10,7 +10,7 @@ import '../../core/ui/renderers/springy_banner.dart';
 import '../../core/ui/renderers/bounded_bouncing_scroll_physics.dart';
 import '../../core/ui/shell/quick_nav_bottom_bar.dart';
 import 'character_profile_page.dart';
-import '../../core/ui/shell/app_notification.dart';
+import '../../core/ui/global/notification/main.dart';
 
 /// App 级 banner 路径缓存。
 ///

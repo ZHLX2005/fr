@@ -8,9 +8,9 @@ import 'timetable_import_dialog.dart';
 import 'advanced/cycle_config_strategy.dart';
 import 'advanced/shared/zen_controls.dart';
 import '../../../ui/zen/zen_theme.dart';
-import '../../../../core/ui/atomic/base_dialog.dart';
+import '../../../../core/ui/global/dialog/main.dart';
 import '../../../../core/ui/global/section/main.dart';
-import '../../../../core/ui/shell/app_notification.dart';
+import '../../../../core/ui/global/notification/main.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
 ///

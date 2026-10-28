@@ -14,7 +14,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
-import '../../ui/atomic/base_dialog.dart';
+import '../../ui/global/dialog/main.dart';
 import '../engine/fen_codec.dart';
 import '../models/board_state.dart';
 import '../skins/chess_skin.dart';
@@ -22,7 +22,7 @@ import '../widgets/chess_board.dart';
 import 'chess_endgame.dart';
 import 'chess_endgame_prompt.dart';
 import 'chess_endgame_store.dart';
-import '../../ui/shell/app_notification.dart';
+import '../../ui/global/notification/main.dart';
 
 /// 残局列表页。
 class ChessEndgameListPage extends StatefulWidget {

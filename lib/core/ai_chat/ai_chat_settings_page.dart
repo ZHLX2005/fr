@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/ai_chat/ai_chat_provider.dart';
 import '../../services/ai_chat/agent_chat_provider.dart';
 import '../../services/ai_chat/ai_chat_models.dart';
-import '../ui/shell/app_notification.dart';
+import '../ui/global/notification/main.dart';
 import '../ui/shell/emphasis_button.dart';
 import '../nav/nav_route.dart';
 

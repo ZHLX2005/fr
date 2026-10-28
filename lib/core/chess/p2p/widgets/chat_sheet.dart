@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import '../../../game_kit/chat/chat_event.dart';
 import '../../../game_kit/emoji/emoji_bundle.dart';
 import '../../../game_kit/skin/file_resolver.dart';
-import '../../../ui/shell/app_notification.dart';
+import '../../../ui/global/notification/main.dart';
 
 const List<String> kChatQuickPhrases = [
   '加油！',

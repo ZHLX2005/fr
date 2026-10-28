@@ -13,7 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
-import 'package:xiaodouzi_fr/core/ui/shell/app_notification.dart';
+import 'package:xiaodouzi_fr/core/ui/global/notification/main.dart';
 
 /// 快照驱动的聊天页面（v3）
 class NetP2PSnapshotChatPage extends StatefulWidget {
