@@ -42,4 +42,23 @@ class GameSnapshot {
 
   /// 胜者标识（context['winner']）。
   static String? winner(Snapshot? s) => s?.context['winner']?.toString();
+
+  /// 能否执行某动作 —— 按服务端下发的 [actionPermissions] 规则判定。
+  ///
+  /// 规则语义（服务端 Lua 脚本写入，与各游戏无关）：
+  /// - 缺省 / `any` → 任何人都能做
+  /// - `host` → 房主（各游戏里房主即先手方，故用 isBlack 传）
+  /// - `current_player` → 当前行动方
+  static bool canPerform(
+    String action,
+    Snapshot? snap, {
+    required bool isBlack,
+    required bool isMyTurn,
+  }) {
+    final rule = actionPermissions(snap)[action];
+    if (rule == null || rule == 'any') return true;
+    if (rule == 'host') return isBlack;
+    if (rule == 'current_player') return isMyTurn;
+    return false;
+  }
 }

@@ -119,13 +119,9 @@ class GomokuRoom {
     Snapshot? snap, {
     required bool isBlack,
     required bool isMyTurn,
-  }) {
-    final rule = actionPermissions(snap)[action];
-    if (rule == null || rule == 'any') return true;
-    if (rule == 'host') return isBlack;  // host = 黑方先手
-    if (rule == 'current_player') return isMyTurn;
-    return false;
-  }
+  }) =>
+      GameSnapshot.canPerform(action, snap,
+          isBlack: isBlack, isMyTurn: isMyTurn);
 
   // ── 连五判定 ──
 

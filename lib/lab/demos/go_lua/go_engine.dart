@@ -223,13 +223,9 @@ class GoRoom {
     Snapshot? snap, {
     required bool isBlack,
     required bool isMyTurn,
-  }) {
-    final rule = actionPermissions(snap)[action];
-    if (rule == null || rule == 'any') return true;
-    if (rule == 'host') return isBlack;
-    if (rule == 'current_player') return isMyTurn;
-    return false;
-  }
+  }) =>
+      GameSnapshot.canPerform(action, snap,
+          isBlack: isBlack, isMyTurn: isMyTurn);
 
   // ── 数子（中国规则 area：子 + 空，不判死/不贴目）──
 
