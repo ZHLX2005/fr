@@ -1,4 +1,4 @@
-// lib/core/ui/game/relay_connection_status_badge.dart
+// lib/core/ui/global/game/main.dart
 //
 // WS 连接状态徽标（AppBar leading 用）— 所有 relay v3 房间游戏通用。
 // 自 chess/core/ui/chess_connection_status.dart 下沉（该实现本就零棋种依赖，
@@ -28,7 +28,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../net_engine/relay_v3/relay_v3_transport.dart';
+import '../../../net_engine/relay_v3/relay_v3_transport.dart';
 
 /// WS 连接状态徽标（圆点 + 文字 + 可选 spinner）。
 ///

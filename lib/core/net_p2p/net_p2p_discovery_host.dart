@@ -8,7 +8,7 @@ import 'package:xiaodouzi_fr/core/net_engine/lan/transport.dart';
 import 'package:xiaodouzi_fr/core/net_engine/pages/net_engine_debug_page.dart';
 import 'package:xiaodouzi_fr/core/net_engine/pages/net_engine_settings_page.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
-import 'package:xiaodouzi_fr/core/ui/game/relay_v3_lobby.dart';
+import 'package:xiaodouzi_fr/core/ui/global/game/main.dart';
 import 'package:xiaodouzi_fr/core/ui/global/notification/main.dart';
 
 import 'pages/net_p2p_chat_page.dart';

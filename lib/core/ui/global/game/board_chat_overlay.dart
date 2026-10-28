@@ -1,4 +1,4 @@
-// lib/core/ui/game/board_chat_overlay.dart
+// lib/core/ui/global/game/main.dart
 //
 // 棋盘对话浮层 —— 所有 relay v3 对弈房通用（自 chess/p2p/widgets 下沉：
 // 本组件只依赖 game_kit 的 chat_event / emoji_bundle / file_resolver，零棋种依赖）。
@@ -37,10 +37,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../game_kit/chat/chat_event.dart';
-import '../../game_kit/emoji/emoji_bundle.dart';
-import '../../game_kit/skin/file_resolver.dart';
-import '../global/notification/main.dart';
+import '../../../game_kit/chat/chat_event.dart';
+import '../../../game_kit/emoji/emoji_bundle.dart';
+import '../../../game_kit/skin/file_resolver.dart';
+import '../notification/main.dart';
 
 /// 卡片内可用的快速表情（与 composer emoji 行一致）
 const List<String> kBoardChatQuickEmojis = [

@@ -1,4 +1,4 @@
-// lib/core/ui/game/_lobby_form.dart
+// lib/core/ui/global/game/_lobby_form.dart
 //
 // 入口表单的共享 widget —— smartMatch 与 dualEntry 渲染器复用同一份表单。
 //
@@ -6,8 +6,8 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../services/lua/lua_game_alias.dart';
-import '../../game_kit/lobby/game_lobby_spec.dart';
+import '../../../../services/lua/lua_game_alias.dart';
+import '../../../game_kit/lobby/game_lobby_spec.dart';
 
 /// 表单 view-model（页内 state 透传）。
 class LobbyFormState {

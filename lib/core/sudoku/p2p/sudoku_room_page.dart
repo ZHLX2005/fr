@@ -10,7 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../theme/context/colors.dart';
-import '../../ui/game/game_ready_style.dart';
+import '../../ui/global/game/main.dart';
 import '../../nav/nav_route.dart';
 import '../engine/sudoku_generator.dart';
 import '../engine/sudoku_validator.dart';

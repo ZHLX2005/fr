@@ -38,7 +38,7 @@ import '../../core/chess/skins/file_resolver.dart';
 import '../../core/chess/skins/local_chess_skin.dart';
 import '../../core/chess/widgets/board_color_prefs.dart';
 import '../../core/chess/widgets/board_palette.dart';
-import '../../core/ui/game/game_lobby_page.dart';
+import '../../core/ui/global/game/main.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 
 // ══════════════════════════════════════════════════════════════

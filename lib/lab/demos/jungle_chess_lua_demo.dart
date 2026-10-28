@@ -22,7 +22,7 @@ import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import 'jungle_chess_lua/jungle_engine.dart' show RoomHandle;
 import 'jungle_chess_lua/widgets.dart' show OnlineGamePage;
-import '../../core/ui/game/game_lobby_page.dart';
+import '../../core/ui/global/game/main.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/jungle/lobby/jungle_lobby_spec.dart';

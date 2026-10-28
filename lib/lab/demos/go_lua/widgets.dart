@@ -13,8 +13,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/ui/game/game_ready_style.dart';
-import '../../../core/ui/game/relay_connection_bar.dart';
+import '../../../core/ui/global/game/main.dart';
 import '../../../core/theme/context/board_colors.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';

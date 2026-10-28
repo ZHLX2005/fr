@@ -30,7 +30,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/context/chess_colors.dart';
 import '../../game_audio/piece_sound.dart';
-import '../../ui/game/game_ready_style.dart';
+import '../../ui/global/game/main.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;
@@ -54,12 +54,10 @@ import '../skins/chess_skin.dart';
 import '../skins/local_chess_skin.dart';
 import '../widgets/board_palette.dart';
 import '../widgets/chess_board.dart';
-import '../../ui/game/relay_connection_status_badge.dart';
 import '../widgets/chess_replay_bar.dart';
 import '../widgets/promotion_panel.dart';
 import 'chess_net.dart';
 import 'chess_room_config_page.dart';
-import '../../ui/game/board_chat_overlay.dart';
 import 'widgets/player_strip.dart';
 import '../../ui/global/notification/main.dart';
 

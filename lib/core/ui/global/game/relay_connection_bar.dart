@@ -1,4 +1,4 @@
-// lib/core/ui/game/relay_connection_bar.dart
+// lib/core/ui/global/game/main.dart
 //
 // 共享的 WS 连接状态条 — 所有基于 Lua 的互联网房间游戏通用。
 //
@@ -21,8 +21,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../global/notification/main.dart';
-import '../../net_engine/relay_v3/relay_v3_transport.dart';
+import '../notification/main.dart';
+import '../../../net_engine/relay_v3/relay_v3_transport.dart';
 
 /// WS 连接状态条（圆点 + 文字 + 拉取最新快照按钮）。
 ///

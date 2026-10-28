@@ -20,7 +20,7 @@ import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'cowrite_lua/cowrite_engine.dart' show RoomHandle;
 import 'cowrite_lua/cowrite_widgets.dart' show OnlineCoWritePage;
 import 'cowrite_lua/cowrite_save_reference.dart';
-import '../../core/ui/game/game_lobby_page.dart';
+import '../../core/ui/global/game/main.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/cowrite/lobby/cowrite_lobby_spec.dart';

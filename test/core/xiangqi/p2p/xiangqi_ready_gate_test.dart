@@ -29,7 +29,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
-import 'package:xiaodouzi_fr/core/ui/game/board_chat_overlay.dart';
+import 'package:xiaodouzi_fr/core/ui/global/game/main.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/constants/xiangqi_constants.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/p2p/xiangqi_room_page.dart';
 import 'package:xiaodouzi_fr/core/xiangqi/widgets/xiangqi_replay_bar.dart';

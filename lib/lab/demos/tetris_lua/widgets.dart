@@ -15,7 +15,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/ui/game/game_ready_style.dart';
+import '../../../core/ui/global/game/main.dart';
 import 'engine.dart';
 import 'board.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'

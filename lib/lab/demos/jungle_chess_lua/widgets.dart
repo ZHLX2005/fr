@@ -24,7 +24,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../../core/ui/game/game_ready_style.dart';
+import '../../../core/ui/global/game/main.dart';
 
 import 'package:xiaodouzi_fr/core/jungle_chess/constants/jungle_constants.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/engine/jungle_engine.dart';
@@ -36,7 +36,6 @@ import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_player_panel.dart'
 import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_touch_controller.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
-import 'package:xiaodouzi_fr/core/ui/game/relay_connection_bar.dart';
 
 import 'jungle_engine.dart';
 import 'jungle_constants.dart' show kJungleLuaTurnBarHeight;

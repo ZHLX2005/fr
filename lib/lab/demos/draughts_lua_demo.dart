@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import '../../core/draughts/lobby/draughts_lobby_spec.dart';
 import '../../core/draughts/p2p/draughts_room_page.dart';
-import '../../core/ui/game/game_lobby_page.dart';
+import '../../core/ui/global/game/main.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/net_engine/relay_v3/relay_v3_transport.dart' show RoomHandle;

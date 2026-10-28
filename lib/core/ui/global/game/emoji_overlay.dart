@@ -1,4 +1,4 @@
-// lib/core/ui/game/emoji_overlay.dart
+// lib/core/ui/global/game/main.dart
 //
 // Emoji 表情：微信风格小对话框气泡（圆角矩形 + 尖角），无飞行动画。
 // - 对方发的：贴顶部对方侧（左侧），尖角朝上偏左
@@ -9,9 +9,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../game_kit/emoji/emoji_bundle.dart';
-import '../../game_kit/emoji/emoji_snapshot.dart';
-import '../../game_kit/skin/file_resolver.dart';
+import '../../../game_kit/emoji/emoji_bundle.dart';
+import '../../../game_kit/emoji/emoji_snapshot.dart';
+import '../../../game_kit/skin/file_resolver.dart';
 
 class _ActiveBubble {
   final SnapshotEmojiEvent event;

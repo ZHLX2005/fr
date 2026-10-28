@@ -1,7 +1,7 @@
 // lib/core/game_kit/emoji/emoji_snapshot.dart
 //
 // 快照 emoji 事件模型与解析（纯逻辑，无 UI）。
-// UI 呈现在 lib/core/ui/game/emoji_overlay.dart；本文件供 chat_event /
+// UI 呈现在 lib/core/ui/global/game/main.dart；本文件供 chat_event /
 // emoji_overlay 双方消费，避免「逻辑 import UI」的反向依赖。
 
 /// 快照中的单条 emoji 事件（服务端权威）。
