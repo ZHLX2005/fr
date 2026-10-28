@@ -248,3 +248,17 @@
 **第二轮 9 轮（N1–N9）完成**。累计本轮提交：ccd48d83(N1) 92d196d7(N2) 2cde265a(N3) d0949ef5(N4) df9091ac(N5) 936f024b(N6) b8b5c64e(N7) 6ed4de7c(N8) + 各轮 plan 记录。
 
 **已知遗留（不在本轮范围）**：①任务 #8（game 代码/配置抽离）仍暂停——BoardThemeData 上收、kGameMeta 注册表、lua demo 常量/prefs 分离均归它；②Ec02 S2/S3 的组件补缺与联机对局页收敛未动；③`coup_lua/widgets.dart` 1702 行等 lab demo 超大文件未拆（非 UI 层职责）。
+
+## 干净化阶段（2026-10-28，用户指令「继续解耦直到完全干净」）
+
+| 批次 | 内容 | commit |
+|---|---|---|
+| 死代码 | 删除 16 个零引用文件（约 2100 行：page_curl_view 939、chat_sheet 582、image_picker_service、block_editor ai 工具组等），逐个核实 import 图与最近触达时间 | a5a16f5c |
+| 配置/代码分离 | 5 个 lua demo 的死 AliasPrefs + alias key 删除；team_card SetupPrefs/SetupState 外提 team_card_state.dart | 08b99b91 |
+| 领域模块化 | 新建 core/game_center/（game_meta + catalog + sync，自 screens/game_kit 归位）；BoardThemeData → core/theme/board/ | 08b99b91 / 4ed30064 |
+| 工具收编 | formatFileSize 归一（4 份私有实现 → utils/format） | a92129af |
+| 分析器清零 | 152 issues → **No issues found**：6 warning 全修；withOpacity 21、MaterialState 4、RadioGroup 3、DropDown value→key+initialValue 4、RawKeyboard→KeyboardListener、BLE platformName、Color.toARGB32、dart fix 40 处、const 18 处、async context 5 处带守卫修复；use_null_aware_elements 显式关闭（本仓禁空感知语法） | b93f0762 / f38562ef |
+| 终检 | 再删 2 个真死文件（clock_color_util 169 行、chat_tool 8 行）；旧路径零残留 | 本记录 |
+
+**终态**：`flutter analyze lib` = No issues found（0/0/0）；`flutter test` = +1266 ~3 -10（与基线一致，全为环境项）；工作树干净。
+**保留项（有意）**：零消费模块桶（reversi/surround_game/xiangqi/services/metronome/emoji 等 `main.dart` 公开入口）、`ui/game/emoji`（Phase 3 计划接线）、`reversi/board_theme.dart` 平行令牌（并轨属语义改动）。
