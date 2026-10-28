@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../board_theme.dart';
+import '../../theme/board/board_theme.dart';
 import '../models/game_state.dart';
 import '../surround_game_constants.dart';
 

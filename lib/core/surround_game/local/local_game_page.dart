@@ -7,7 +7,7 @@
 //   2. 触摸控制从 GameController 拆出独立的 TouchController。
 //   3. 组件 API 全部使用新的 props/回调形式（PlayerPanel / ConfirmActions / TouchView）。
 import 'package:flutter/material.dart';
-import '../board_theme.dart';
+import '../../theme/board/board_theme.dart';
 import '../game_ui_state.dart';
 import '../surround_game_constants.dart';
 import '../../ui/global/button/main.dart';

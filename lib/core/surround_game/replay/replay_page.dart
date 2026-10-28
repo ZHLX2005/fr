@@ -2,7 +2,7 @@
 // 无 TouchView / 无确认操作 / 无合法落子提示 —— 纯观察。
 import 'package:flutter/material.dart';
 
-import '../board_theme.dart';
+import '../../theme/board/board_theme.dart';
 import '../models/game_state.dart';
 import 'replay_controller.dart';
 import '../widgets/chess_board.dart';

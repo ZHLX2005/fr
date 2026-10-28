@@ -4,7 +4,7 @@
 
 // 常量与主题
 export 'surround_game_constants.dart';
-export 'board_theme.dart';
+export '../theme/board/board_theme.dart';
 
 // 游戏引擎
 export 'engine/bfs_pathfinder.dart';

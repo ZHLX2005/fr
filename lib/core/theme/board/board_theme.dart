@@ -1,4 +1,4 @@
-// lib/core/surround_game/board_theme.dart
+// lib/core/theme/board/board_theme.dart
 //
 // 棋盘语义色令牌系统 — 6 层视觉栈的所有颜色都从这里取。
 //

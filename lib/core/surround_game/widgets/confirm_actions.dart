@@ -6,7 +6,7 @@
 // 边界保护：底行/顶行时按钮收紧到 cell 内部，避免溢出棋盘网格。
 // 边界保护：按钮始终在棋盘内，必要时自动翻转定位。
 import 'package:flutter/material.dart';
-import '../board_theme.dart';
+import '../../theme/board/board_theme.dart';
 import '../surround_game_constants.dart';
 import 'touch_controller.dart';
 

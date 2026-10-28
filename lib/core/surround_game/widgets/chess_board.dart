@@ -10,7 +10,7 @@
 //
 // 颜色全部从 [BoardThemeData] 语义令牌读取，主题切换时绘制代码不动。
 import 'package:flutter/material.dart';
-import '../board_theme.dart';
+import '../../theme/board/board_theme.dart';
 
 /// 棋盘格子背景 — CustomPainter（简洁版）
 class ChessBoardPainter extends CustomPainter {

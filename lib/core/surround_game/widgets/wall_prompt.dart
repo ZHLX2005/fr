@@ -7,7 +7,7 @@
 ///
 /// 几何定位与 [ChessWall] 严格一致，确保预览和实际放置无视觉错位。
 import 'package:flutter/material.dart';
-import '../board_theme.dart';
+import '../../theme/board/board_theme.dart';
 import '../surround_game_constants.dart';
 
 /// 墙壁拖拽预览
