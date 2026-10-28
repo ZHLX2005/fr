@@ -227,3 +227,9 @@
 - `ui/global/renderers/image_picker_widget.dart` 555 行 → config 79 + widget 424 + page 63，barrel 补导出；config 补 `image_cropper` import。
 - 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
 - 下轮（N8）：Ec01/Ec02/Ec03 文档同步到新结构（global/game 拆分、hierarchical ui/<域>/<类别>、price_compare 归位、lab icons 合并等），全量校对 skill 内路径引用。
+
+### N8（2026-10-28，commit 6ed4de7c）
+
+- Ec03 全文重写（§0 目录规范 + §1 实况树 + §4 错位清单 + §5 速查）；Ec01 分层表/联机口径/落点规则/反模式更新；Ec02 组件表与重跑命令刷新并追加 N1–N7 记录；Ea/Eb 共 7 个文件路径映射；两份历史审计文档加「基线已过期」标注。
+- 验证：references 目录旧路径（core/ui/atomic|shell|zen）零残留；Ea03 行号校正。
+- 下轮（N9）：终检——目录树逐条比对规范、analyze/test 全闸、旧路径全仓 grep、kv 回填。
