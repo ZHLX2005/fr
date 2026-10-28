@@ -35,10 +35,12 @@
 
 ## 进度记录
 
-### R1（2026-10-28）
+### R1（2026-10-28，commit 4f3920c9）
 
-- 计划：迁移 dot / section / empty_state / swipe_action 四个单文件类别到 `ui/global/<cat>/main.dart`；time_format.dart → `utils/format/main.dart`；更新全部消费方 import。
-- 结果：待执行。
+- 完成：dot / section / empty_state / swipe_action → `lib/core/ui/global/<cat>/main.dart`；time_format → `lib/core/utils/format/main.dart`；34 消费方 import 替换；被搬文件内部相对 import 按新深度 +1 级修正（atomic 单层 vs global/<cat> 双层）。
+- 验证：analyze lib 152 issues 持平基线（新增 0）；test/core + zen_theme_test 失败 3 项与基线一致。
+- 经验：**global/<cat>/main.dart 比 atomic/ 深一层——后续每轮搬完必须修内部 import 深度**；grep 旧路径时注意注释里也可能引用（spacing.dart 案例，属期望的同步）。
+- 下轮（R2）：notification（app_notification.dart，41 消费方）+ dialog（base_dialog.dart + base_ios_dialog.dart → global/dialog/）。
 
 
 
