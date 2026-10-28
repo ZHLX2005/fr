@@ -503,45 +503,6 @@ class _LegendChip extends StatelessWidget {
   }
 }
 
-/// 连接状态点（不用看也要能瞥一眼）。触摸板页 / 横屏手柄页共用。
-class RtConnDot extends StatelessWidget {
-  const RtConnDot({super.key, required this.connected, required this.cs});
-
-  final bool connected;
-  final ColorScheme cs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: connected
-                  ? const Color(0xFF34A853)
-                  : cs.error.withValues(alpha: 0.8),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            connected ? '已连接' : '未连接',
-            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// 触摸板页的圆形小按钮（退出 / 灵敏度 / 编辑等浮层动作）。共用。
 class RtPadChipButton extends StatelessWidget {
   const RtPadChipButton({
