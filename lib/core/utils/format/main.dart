@@ -2,7 +2,7 @@
 //
 // 原位置：zen_theme.dart 把 3 个 format 函数与主题样式混在一起；
 // 实际上它们只被 clock/recorder demo 使用，与主题/UI 无关。
-// 归位：lib/lab/utils/time_format.dart（lab demos 通用工具）。
+// 归位：lib/core/utils/format/main.dart（原 lib/lab/utils/time_format.dart）。
 
 /// 把秒数格式化为紧凑时长字符串（如 "1h 2m 3s" / "2m 30s" / "45s"）。
 String formatDuration(int seconds) {

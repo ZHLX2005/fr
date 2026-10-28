@@ -1,5 +1,5 @@
 // lib/core/ui/ai_chat/chat/main.dart
-//（任务 #7 组件收敛：聊天域通用样式件集中到 lib/core/ui/chat/）。
+//（任务 #7 组件收敛：聊天域通用样式件集中到 lib/core/ui/ai_chat/chat/）。
 import 'package:flutter/material.dart';
 
 /// pi 聊天的设计 token 与自绘组件。

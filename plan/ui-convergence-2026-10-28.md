@@ -233,3 +233,18 @@
 - Ec03 全文重写（§0 目录规范 + §1 实况树 + §4 错位清单 + §5 速查）；Ec01 分层表/联机口径/落点规则/反模式更新；Ec02 组件表与重跑命令刷新并追加 N1–N7 记录；Ea/Eb 共 7 个文件路径映射；两份历史审计文档加「基线已过期」标注。
 - 验证：references 目录旧路径（core/ui/atomic|shell|zen）零残留；Ea03 行号校正。
 - 下轮（N9）：终检——目录树逐条比对规范、analyze/test 全闸、旧路径全仓 grep、kv 回填。
+
+### N9（2026-10-28，终检）
+
+| 检查项 | 结果 |
+|---|---|
+| 目录规范（global 只放跨域件 / ui/<域>/<类别>/main.dart） | ✅ 18 个类别 main.dart；global 9 类全部跨域（dot 临界已标注）；专类域 = game(5 类) / ai_chat(1) / price_compare(1) / lab(2) |
+| 类别入口与 barrel 规则 | ✅ 每类有 main.dart；≤400 合并、>400 barrel；私有 `_` 文件不导出；零绕过 main.dart 的直连 |
+| 旧路径残留（lib/test） | ✅ 零（仅历史注释保留「归位自 …」说明） |
+| references 文档旧路径 | ✅ 零（历史记录段落中的旧结构描述为审计留痕，保留） |
+| `flutter analyze lib` | ✅ 152 issues（与基线逐项一致，0 error；6 warning 均为存量） |
+| `flutter test` | ✅ +1266 ~3 -10（失败集合与基线一致，全为环境项：Notion 无 token ×7 行 / line 计时 ×2 / relay 真服务器 ×1） |
+
+**第二轮 9 轮（N1–N9）完成**。累计本轮提交：ccd48d83(N1) 92d196d7(N2) 2cde265a(N3) d0949ef5(N4) df9091ac(N5) 936f024b(N6) b8b5c64e(N7) 6ed4de7c(N8) + 各轮 plan 记录。
+
+**已知遗留（不在本轮范围）**：①任务 #8（game 代码/配置抽离）仍暂停——BoardThemeData 上收、kGameMeta 注册表、lua demo 常量/prefs 分离均归它；②Ec02 S2/S3 的组件补缺与联机对局页收敛未动；③`coup_lua/widgets.dart` 1702 行等 lab demo 超大文件未拆（非 UI 层职责）。
