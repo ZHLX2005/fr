@@ -17,7 +17,7 @@ description: FR 主 CTA 的胶囊 / 方圆角形状决策与当前实现真值�
 | --- | --- | --- | --- | --- |
 | 主壳 dock 容器、搜索 pill、筛选 chip | **全胶囊** | `StadiumBorder` / 999 | glass / surface | `lib/core/ui/global/nav/quick_nav_bottom_bar.dart` |
 | 大厅「开始匹配」等**仪式主 CTA** | **全胶囊** | 999，高度 56 | **`primary`** | `lib/core/game_kit/lobby/_lobby_form.dart:251` |
-| **房间就绪 / 发牌 CTA** | **全胶囊** | `StadiumBorder`，高度 50 | `primary` / `primary` 描边 | `lib/core/ui/game/game_ready_style.dart:190,200`（`GameReadyCtaStyle.filled/outlined`） |
+| **房间就绪 / 发牌 CTA** | **全胶囊** | `StadiumBorder`，高度 50 | `primary` / `primary` 描边 | `lib/core/ui/game/ready/main.dart:182`（`GameReadyCtaStyle.filled/outlined`） |
 | 远程输入 chrome、工具页操作 | **方圆角** | **10–14**（mic **20** @ 64×64） | primary / tonal | 远程输入域 |
 | 图标按钮、ghost 小 pill | **方圆角** | **10–12** | primaryContainer | 散落各模块 |
 
@@ -79,10 +79,10 @@ Material(
 | 大厅主 CTA 做成方圆角小按钮 | 丢失仪式重心 | 大厅主按钮用胶囊 + `primary` |
 | Mic 用 FAB 默认圆形 | 与原型 squircle 不一致 | 显式 `BorderRadius.circular(20)` |
 | CTA 字色写死 `Colors.white` | lemon/purple 主题 `onPrimary` 非白 | 始终 `onPrimary` / `onTertiary`（见 [[Ea14-游戏表面ColorScheme契约]]） |
-| 按文档给房内 CTA 改方圆角 | 与 `GameReadyCtaStyle` 的既有实现冲突 | 先改 `game_ready_style.dart` 真值，再改文档；两者不能各改一半 |
+| 按文档给房内 CTA 改方圆角 | 与 `GameReadyCtaStyle` 的既有实现冲突 | 先改 `lib/core/ui/game/ready/main.dart` 真值，再改文档；两者不能各改一半 |
 
 ## 关联
 
 - Zen 浮卡 → [[Ea08-Zen浮卡少描边]]
 - 大厅就绪页 → [[Ea11-大厅与房间就绪]]
-- 房内就绪 CTA 的共享实现 → `lib/core/ui/game/game_ready_style.dart`
+- 房内就绪 CTA 的共享实现 → `lib/core/ui/game/ready/main.dart`
