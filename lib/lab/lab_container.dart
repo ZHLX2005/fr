@@ -136,5 +136,5 @@ class LabRoutes {
 }
 
 // 游戏子分类（GameCategory）与每款游戏的展示元数据已迁至
-// lib/screens/profile/lab/game_center/const_game_center.dart —
+// lib/core/game_center/game_meta.dart —
 // 分类是游戏中心的 UI 概念，不应污染 demo 容器层。
