@@ -10,7 +10,7 @@ import 'recorder_list_page.dart';
 import 'waveform_view.dart';
 import '../../../core/ui/atomic/base_icon_button.dart';
 import '../../../core/ui/zen/zen_theme.dart';
-import '../../utils/time_format.dart';
+import '../../../core/utils/time_format.dart';
 import '../../../core/ui/atomic/base_section.dart';
 import '../../../core/ui/atomic/base_dot.dart';
 

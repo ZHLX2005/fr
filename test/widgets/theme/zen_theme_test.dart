@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/lab/utils/time_format.dart';
+import 'package:xiaodouzi_fr/core/utils/time_format.dart';
 
 void main() {
   group('formatRecordDate', () {

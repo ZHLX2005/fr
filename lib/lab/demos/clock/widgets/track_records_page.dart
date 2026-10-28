@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track_record.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/core/ui/zen/zen_theme.dart';
-import '../../../utils/time_format.dart';
+import '../../../../core/utils/time_format.dart';
 import '../../../../core/ui/atomic/base_dialog.dart';
 
 class TrackRecordsPage extends StatelessWidget {

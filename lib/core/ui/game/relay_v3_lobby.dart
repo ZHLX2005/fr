@@ -1,4 +1,4 @@
-// lib/core/net_engine/relay_v3/relay_v3_widget.dart
+// lib/core/ui/game/relay_v3_lobby.dart
 //
 // v3 Lua 状态机大厅 + 游戏入口。
 //
@@ -36,10 +36,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'relay_device_id.dart';
-import 'participants_grid.dart';
+import '../../net_engine/relay_v3/relay_device_id.dart';
+import 'lobby_participants.dart';
 
-import 'relay_v3_transport.dart';
+import '../../net_engine/relay_v3/relay_v3_transport.dart';
 
 /// 游戏开始回调 — 传入 [RoomHandle]，业务层接管
 typedef V3OnStarted = void Function(RoomHandle handle);

@@ -7,7 +7,7 @@ import 'recorder_list_utils.dart';
 import 'recording_file.dart';
 import '../../../core/ui/atomic/base_icon_button.dart';
 import '../../../core/ui/zen/zen_theme.dart';
-import '../../utils/time_format.dart';
+import '../../../core/utils/time_format.dart';
 import '../../../core/ui/atomic/base_empty_state.dart';
 
 /// 录音列表页 —— CRUD 的 Read/Update/Delete + 试听。
