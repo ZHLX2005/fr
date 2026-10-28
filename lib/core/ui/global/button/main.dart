@@ -3,7 +3,10 @@
 // OutlinedButton 风格，色由 ColorStrategy 提供（onSurface fg + outline border）。
 // 局部 fg/border/bg 颜色覆盖：通过临时策略包装实现（不破坏全局 strategy）。
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/theme/extensions/color_strategy_extension.dart';
 import '../../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
@@ -116,12 +119,13 @@ class _LocalOverrideStrategy implements ColorStrategy {
 
 // Layer 4: BaseIconButton 原子组件。
 //
-// 圆形 IconButton，3 种 variant：
+// 圆形 IconButton，4 种 variant：
 //   - tint    : color@10% bg
 //   - outline : surface bg + outline 边框
 //   - hero    : accent bg + glow
+//   - glass   : 玻璃拟态（半透明 surface + 模糊 + 轻描边 + 投影），原 RtRoundIconButton
 
-enum BaseIconButtonVariant { tint, outline, hero }
+enum BaseIconButtonVariant { tint, outline, hero, glass }
 
 class BaseIconButton extends StatelessWidget {
   const BaseIconButton({
@@ -156,6 +160,10 @@ class BaseIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (variant == BaseIconButtonVariant.glass) {
+      return _buildGlass(context);
+    }
+
     final s = _resolve(context);
     final base = color ?? s.accent;
 
@@ -163,6 +171,8 @@ class BaseIconButton extends StatelessWidget {
       BaseIconButtonVariant.tint => (base.withValues(alpha: 0.1), base),
       BaseIconButtonVariant.outline => (s.surface, base),
       BaseIconButtonVariant.hero => (base, s.text),
+      // 不可达：glass 在上面已提前返回；保留分支满足穷尽性检查。
+      BaseIconButtonVariant.glass => (s.surface, s.text),
     };
 
     final decoration = switch (variant) {
@@ -203,6 +213,52 @@ class BaseIconButton extends StatelessWidget {
       ),
     );
 
+    if (tooltip == null) return button;
+    return Tooltip(message: tooltip!, child: button);
+  }
+
+  /// 玻璃拟态圆钮（glass variant）：半透明 surface + 背景模糊 + 轻描边 + 柔和投影。
+  /// 原 `RtRoundIconButton`（remotetype 域内自造），2026-10-28 收编为通用变体。
+  Widget _buildGlass(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final button = ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap == null
+                ? null
+                : () {
+                    HapticFeedback.selectionClick();
+                    onTap!();
+                  },
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              width: size,
+              height: size,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.surface.withValues(alpha: 0.78),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.7),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.10),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: iconSize, color: cs.onSurfaceVariant),
+            ),
+          ),
+        ),
+      ),
+    );
     if (tooltip == null) return button;
     return Tooltip(message: tooltip!, child: button);
   }

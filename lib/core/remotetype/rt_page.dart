@@ -48,6 +48,7 @@ import '../../core/nav/nav_entry.dart' show demoNavId;
 import '../../services/remotetype/remotetype_providers.dart';
 import '../../services/remotetype/remotetype_service.dart';
 import '../../core/ui/global/notification/main.dart';
+import '../../core/ui/global/button/main.dart';
 import '../../core/theme/context/colors.dart';
 import '../../core/ui/global/nav/main.dart'
     show QuickNavBottomBar, bottomBarVisibilityProvider;
@@ -489,10 +490,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
           child: Row(
             children: [
-              RtRoundIconButton(
+              BaseIconButton(
                 icon: Icons.arrow_back_ios_new,
                 tooltip: '返回连接列表',
                 onTap: _exitDetail,
+                variant: BaseIconButtonVariant.glass,
+                size: kRtTopControlHeight,
+                iconSize: 18,
               ),
               const SizedBox(width: 8),
               RtLayoutCapsule(
@@ -501,10 +505,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
                 onOpen: _openLayoutPicker,
               ),
               const Spacer(),
-              RtRoundIconButton(
+              BaseIconButton(
                 icon: Icons.refresh_rounded,
                 tooltip: '重连',
                 onTap: _connecting ? () {} : _reconnect,
+                variant: BaseIconButtonVariant.glass,
+                size: kRtTopControlHeight,
+                iconSize: 18,
               ),
             ],
           ),

@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/remotetype/ui/rt_layout_capsule.dart';
+import 'package:xiaodouzi_fr/core/ui/global/button/main.dart';
 
 void main() {
   testWidgets('胶囊显示当前布局名，点开回调', (tester) async {
@@ -40,9 +41,12 @@ void main() {
         home: Scaffold(
           body: Row(
             children: [
-              RtRoundIconButton(
+              BaseIconButton(
                 icon: Icons.arrow_back_ios_new,
                 onTap: () {},
+                variant: BaseIconButtonVariant.glass,
+                size: kRtTopControlHeight,
+                iconSize: 18,
               ),
               const SizedBox(width: 8),
               RtLayoutCapsule(
@@ -58,7 +62,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final capsuleH = tester.getSize(find.byType(RtLayoutCapsule)).height;
-    final buttonH = tester.getSize(find.byType(RtRoundIconButton)).height;
+    final buttonH = tester.getSize(find.byType(BaseIconButton)).height;
     expect(capsuleH, kRtTopControlHeight);
     expect(buttonH, kRtTopControlHeight);
     expect(capsuleH, buttonH);
