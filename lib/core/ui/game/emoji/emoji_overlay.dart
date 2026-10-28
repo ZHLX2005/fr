@@ -1,4 +1,4 @@
-// lib/core/ui/global/game/main.dart
+// lib/core/ui/game/emoji/emoji_overlay.dart
 //
 // Emoji 表情：微信风格小对话框气泡（圆角矩形 + 尖角），无飞行动画。
 // - 对方发的：贴顶部对方侧（左侧），尖角朝上偏左

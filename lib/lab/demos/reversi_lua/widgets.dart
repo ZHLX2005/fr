@@ -18,7 +18,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/ui/global/game/main.dart';
+import '../../../core/ui/game/ready/main.dart';
+import '../../../core/ui/game/relay/main.dart';
 
 import 'package:xiaodouzi_fr/core/reversi/board_theme.dart';
 import 'package:xiaodouzi_fr/core/reversi/models/reversi_board.dart';

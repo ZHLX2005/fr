@@ -1,4 +1,4 @@
-// 联机房间「等待/准备」浮卡样式 —— 对齐大厅 LobbyForm / 设置页浮卡 /
+// lib/core/ui/game/ready/main.dart
 // docs/prototypes/game-surfaces-palettes.html。
 //
 // 约束：

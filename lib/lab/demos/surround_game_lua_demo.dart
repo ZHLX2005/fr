@@ -20,7 +20,7 @@ import '../lab_container.dart';
 import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
 import 'surround_game_lua/engine.dart' show RoomHandle;
 import 'surround_game_lua/widgets.dart' show OnlineGamePage;
-import '../../core/ui/global/game/main.dart';
+import '../../core/ui/game/home/main.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/surround_game/lobby/surround_lobby_spec.dart';
 

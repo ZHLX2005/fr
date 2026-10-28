@@ -28,7 +28,7 @@ import 'package:xiaodouzi_fr/core/chess/replay/chess_game_record_store.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/local_chess_skin.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
-import 'package:xiaodouzi_fr/core/ui/global/game/main.dart';
+import 'package:xiaodouzi_fr/core/ui/game/relay/main.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
 /// 记录一次 applyAction 调用。

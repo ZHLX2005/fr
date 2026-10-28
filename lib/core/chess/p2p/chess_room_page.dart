@@ -30,7 +30,9 @@ import 'package:flutter/material.dart';
 
 import '../../theme/context/chess_colors.dart';
 import '../../game_audio/piece_sound.dart';
-import '../../ui/global/game/main.dart';
+import '../../ui/game/ready/main.dart';
+import '../../ui/game/chat/main.dart';
+import '../../ui/game/relay/main.dart';
 import '../../net_engine/relay_v3/relay_v3_transport.dart';
 import '../../theme/colors/strategy/chess_color_strategy/chess_color_strategy.dart'
     show ChessColorStrategy;

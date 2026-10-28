@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import '../lab_container.dart';
 import 'tetris_lua/engine.dart' show RoomHandle;
 import 'tetris_lua/widgets.dart' show OnlineGamePage;
-import '../../core/ui/global/game/main.dart';
+import '../../core/ui/game/home/main.dart';
 import '../../core/game_kit/lobby/game_lobby_slots.dart';
 import '../../core/game_kit/lobby/game_lobby_spec.dart' show LobbyStartedCtx;
 import '../../core/tetris/lobby/tetris_lobby_spec.dart';

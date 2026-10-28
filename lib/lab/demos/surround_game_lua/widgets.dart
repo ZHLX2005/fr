@@ -12,7 +12,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../core/ui/global/game/main.dart';
+import '../../../core/ui/game/ready/main.dart';
+import '../../../core/ui/game/relay/main.dart';
 
 import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
     GameStatus, Snapshot, RoomHandle;

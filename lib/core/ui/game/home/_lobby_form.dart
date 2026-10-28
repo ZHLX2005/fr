@@ -1,4 +1,4 @@
-// lib/core/ui/global/game/_lobby_form.dart
+// lib/core/ui/game/home/_lobby_form.dart
 //
 // 入口表单的共享 widget —— smartMatch 与 dualEntry 渲染器复用同一份表单。
 //

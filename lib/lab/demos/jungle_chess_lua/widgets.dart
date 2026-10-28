@@ -24,7 +24,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../../core/ui/global/game/main.dart';
+import '../../../core/ui/game/ready/main.dart';
+import '../../../core/ui/game/relay/main.dart';
 
 import 'package:xiaodouzi_fr/core/jungle_chess/constants/jungle_constants.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/engine/jungle_engine.dart';

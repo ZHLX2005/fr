@@ -53,7 +53,9 @@ import 'package:flutter/material.dart';
 
 import '../../../api/goframe/goframe_config.dart';
 import '../../game_audio/piece_sound.dart';
-import '../../ui/global/game/main.dart';
+import '../../ui/game/ready/main.dart';
+import '../../ui/game/chat/main.dart';
+import '../../ui/game/relay/main.dart';
 import '../../game_kit/chat/chat_event.dart';
 import '../../game_kit/emoji/emoji_bundle.dart';
 import '../../game_kit/skin/file_resolver.dart';
