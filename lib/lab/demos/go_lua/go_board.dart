@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/context/board_colors.dart';
 import 'go_constants.dart' show kGoSize;
 import 'go_engine.dart' show GoBoard;
+import '../../../core/ui/game/board/main.dart';
 
 /// 围棋棋盘绘制（网格线 + 星位 + 落子 + 最后一步 + 预览 + atari 高亮）。
 ///
@@ -79,7 +80,8 @@ class GoBoardWidget extends StatelessWidget {
           // 网格线 + 星位
           CustomPaint(
             size: Size.infinite,
-            painter: _GridPainter(
+            painter: GameGridPainter(
+              size: kGoSize,
               step: step,
               padding: _padding,
               lineColor: bc.gridLine,
@@ -190,58 +192,3 @@ class GoBoardWidget extends StatelessWidget {
   }
 }
 
-/// 网格线 + 星位绘制。
-class _GridPainter extends CustomPainter {
-  const _GridPainter({
-    required this.step,
-    required this.padding,
-    required this.lineColor,
-    required this.starPoints,
-    required this.starColor,
-  });
-
-  final double step;
-  final double padding;
-  final Color lineColor;
-  final List<(int, int)> starPoints;
-  final Color starColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    final n = kGoSize;
-    for (var i = 0; i < n; i++) {
-      final y = padding + i * step;
-      canvas.drawLine(
-        Offset(padding, y),
-        Offset(padding + (n - 1) * step, y),
-        paint,
-      );
-    }
-    for (var i = 0; i < n; i++) {
-      final x = padding + i * step;
-      canvas.drawLine(
-        Offset(x, padding),
-        Offset(x, padding + (n - 1) * step),
-        paint,
-      );
-    }
-    final starPaint = Paint()..color = starColor;
-    const starRadius = 3.5;
-    for (final (x, y) in starPoints) {
-      final cx = padding + x * step;
-      final cy = padding + y * step;
-      canvas.drawCircle(Offset(cx, cy), starRadius, starPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _GridPainter oldDelegate) =>
-      step != oldDelegate.step ||
-      lineColor != oldDelegate.lineColor ||
-      starColor != oldDelegate.starColor;
-}
