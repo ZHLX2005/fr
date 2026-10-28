@@ -45,7 +45,8 @@ class OpenAiProtocol extends LlmProtocol {
           {'role': 'system', 'content': systemPrompt},
         ...messages.map(_encodeMessage),
       ],
-      'max_tokens': ?maxTokens,
+      // 空感知元素语法（'max_tokens': ?maxTokens）CI 的 analyzer 6.x 解析不了（见 pubspec hive_generator 注释）
+      if (maxTokens != null) 'max_tokens': maxTokens,
     };
   }
 
