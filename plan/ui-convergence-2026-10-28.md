@@ -72,6 +72,13 @@
 - 遗留：`image_picker_widget.dart` 555 行超 400 行阈值（Ec03 已记），待专项拆。
 - 下轮（R6）：game 族（ui/game/ 10 文件，barrel 模式）→ `global/game/`。
 
+### R6（2026-10-28，commit 1eac0191）
+
+- 完成：ui/game/ 10 文件（3679 行）→ `global/game/`，`global/game/main.dart` 作 barrel（49 消费方）；ui/ 现存 `global/`（8 类别）+ `global_ring/` + `lab/`。
+- 验证：analyze lib 152 issues 持平；flutter test +1266 ~3 -10 与基线一致；旧路径零残留。
+- 经验：①同文件**相对 import + package import 双写**同一目标时，按行去重不生效（字符串不同），需人工删其一（jungle_chess_lua 案例）。②被搬文件的头部路径注释要一并改（`_lobby_form.dart` / `relay_v3_lobby.dart` 案例）。
+- 下轮（R7）：C1 RtRoundIconButton → BaseIconButton 玻璃变体合并；C2 RtConnDot → 新建 BaseStatusPill；C3 zen_controls ↔ _Zen* 归一。
+
 
 
 ## 1. 纯搬运（零 API 变化，git mv / 文件拆分 + import 更新）
