@@ -1,4 +1,4 @@
-// Lab 通用时间格式化工具（2026-10 从 lib/core/ui/zen/zen_theme.dart 迁出）。
+// Lab 通用时间格式化工具（2026-10 从 lib/core/ui/global/zen/main.dart 迁出）。
 //
 // 原位置：zen_theme.dart 把 3 个 format 函数与主题样式混在一起；
 // 实际上它们只被 clock/recorder demo 使用，与主题/UI 无关。

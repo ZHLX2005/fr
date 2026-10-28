@@ -9,7 +9,7 @@ import 'clock/widgets/clocks_tab.dart';
 import 'clock/widgets/tracks_tab.dart';
 import 'clock/widgets/dashboard_tab.dart';
 import 'clock/widgets/track_records_page.dart';
-import 'package:xiaodouzi_fr/core/ui/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/ui/global/zen/main.dart';
 import '../../core/ui/global/dialog/main.dart';
 
 /// 桌面 widget toggle 入口 — 若当前页不是 ClockDemoPage(冷启动/正在别的页),

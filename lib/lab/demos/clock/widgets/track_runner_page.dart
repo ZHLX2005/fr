@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/models/lab_track.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
-import 'package:xiaodouzi_fr/core/ui/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/ui/global/zen/main.dart';
 import '../../../../core/utils/format/main.dart';
 import '../../../../core/ui/global/button/main.dart';
 import '../../../../core/ui/global/dot/main.dart';

@@ -6,7 +6,7 @@ import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_clock_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_editor_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_runner_page.dart';
-import 'package:xiaodouzi_fr/core/ui/zen/zen_theme.dart';
+import 'package:xiaodouzi_fr/core/ui/global/zen/main.dart';
 import '../../../../core/utils/format/main.dart';
 import '../../../../core/ui/global/empty_state/main.dart';
 import '../../../../core/ui/global/dialog/main.dart';

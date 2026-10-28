@@ -9,8 +9,7 @@ import 'timetable_advanced_settings_page.dart';
 import 'timetable_anime_editor_page.dart';
 import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
-import '../../../../core/ui/zen/zen_theme.dart';
-import '../../../../core/ui/zen/zen_date_picker.dart';
+import '../../../../core/ui/global/zen/main.dart';
 import '../../../../core/ui/global/section/main.dart';
 import '../../../../core/ui/global/notification/main.dart';
 

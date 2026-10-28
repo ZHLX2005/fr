@@ -6,7 +6,7 @@ import 'recorder_controller.dart';
 import 'recorder_list_utils.dart';
 import 'recording_file.dart';
 import '../../../core/ui/global/button/main.dart';
-import '../../../core/ui/zen/zen_theme.dart';
+import '../../../core/ui/global/zen/main.dart';
 import '../../../core/utils/format/main.dart';
 import '../../../core/ui/global/empty_state/main.dart';
 

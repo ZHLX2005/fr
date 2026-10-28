@@ -7,7 +7,7 @@ import '../../presentation/timetable_store.dart';
 import 'timetable_import_dialog.dart';
 import 'advanced/cycle_config_strategy.dart';
 import 'advanced/shared/zen_controls.dart';
-import '../../../ui/zen/zen_theme.dart';
+import '../../../ui/global/zen/main.dart';
 import '../../../../core/ui/global/dialog/main.dart';
 import '../../../../core/ui/global/section/main.dart';
 import '../../../../core/ui/global/notification/main.dart';

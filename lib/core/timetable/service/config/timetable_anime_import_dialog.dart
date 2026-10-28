@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/context/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'anime_source_adapter.dart';
-import '../../../ui/zen/zen_theme.dart';
+import '../../../ui/global/zen/main.dart';
 
 /// 番剧开放 API 来源导入对话框（全 zen 主题，fr #26）
 ///

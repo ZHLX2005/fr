@@ -108,3 +108,38 @@ class PiChatColors {
     );
   }
 }
+
+// ── PiDayDivider（聊天域分隔件）──
+
+/// 日期分隔：不做成灰胶囊（那是 Material Chip 的观感），
+/// 改用「细线 + 居中文字」，更安静。
+class PiDayDivider extends StatelessWidget {
+  final String label;
+
+  const PiDayDivider({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context);
+    final colors = PiChatColors.of(t);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: PiChatTokens.s4),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: colors.bubbleBorder, height: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: PiChatTokens.s3),
+            child: Text(
+              label,
+              style: t.textTheme.labelSmall?.copyWith(
+                color: colors.metaText.withValues(alpha: 0.8),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: colors.bubbleBorder, height: 1)),
+        ],
+      ),
+    );
+  }
+}
