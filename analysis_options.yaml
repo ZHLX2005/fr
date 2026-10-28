@@ -24,6 +24,10 @@ linter:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
+    # 本项目禁止空感知元素语法（?[] / ?{}）：hive_generator 锁 analyzer 6.x，
+    # 该语法无法解析，因此不采纳该 lint 的建议（2026-10-28）。
+    use_null_aware_elements: false
+
 analyzer:
   exclude:
     - "lib/core/surround_game/_legacy/**"

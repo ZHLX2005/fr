@@ -28,8 +28,8 @@ class _GalleryManagePageState extends State<GalleryManagePage> {
   AssetPathEntity? _selectedAlbum;
 
   // 图片列表（分页）
-  List<AssetEntity> _images = [];
-  Map<String, Uint8List> _thumbnails = {};
+  final List<AssetEntity> _images = [];
+  final Map<String, Uint8List> _thumbnails = {};
   int _currentPage = 0;
   final int _pageSize = 60;
   bool _hasMore = true;

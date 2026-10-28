@@ -4,6 +4,7 @@
 ///
 /// 视觉效果：每个目标格中央有一个圆形"光圈"，alpha 在 0.35↔0.7 之间
 /// 缓慢呼吸（~1.4s easeInOut），颜色来自 [BoardThemeData.validMoveRing]。
+library;
 import 'package:flutter/material.dart';
 import '../../theme/board/board_theme.dart';
 

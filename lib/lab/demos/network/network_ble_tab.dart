@@ -99,12 +99,12 @@ class _NetworkBleTabState extends State<NetworkBleTab>
   }
 
   Future<void> _connectToDevice(BluetoothDevice device) async {
-    _log('正在连接 ${device.name}...');
+    _log('正在连接 ${device.platformName}...');
     try {
       await device.connect(timeout: NetworkConst.bleConnectTimeout);
       _connectedDevice = device;
       if (mounted) setState(() => _isConnected = true);
-      _log('连接成功: ${device.name}');
+      _log('连接成功: ${device.platformName}');
 
       final char = await NetworkBleService.findWritableCharacteristic(device);
       if (char != null) {
@@ -151,7 +151,7 @@ class _NetworkBleTabState extends State<NetworkBleTab>
 
   List<ScanResult> get _filteredDevices {
     return _devices.where((d) {
-      final name = d.device.name;
+      final name = d.device.platformName;
       final isNamed = name.isNotEmpty;
       if (_filterNamedOnly && !isNamed) return false;
       if (d.rssi < _minRssi) return false;

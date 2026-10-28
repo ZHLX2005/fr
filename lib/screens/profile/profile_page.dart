@@ -370,7 +370,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.onSurface.withOpacity(0.4),
+                                ).colorScheme.onSurface.withValues(alpha: 0.4),
                               ),
                             ),
                           ),
@@ -398,13 +398,13 @@ class _ProfilePageState extends State<ProfilePage> {
             Icon(
               Icons.add_photo_alternate,
               size: 48,
-              color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 8),
             Text(
               '点击设置Banner',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),

@@ -58,6 +58,8 @@
 /// 1. **阈值类常量**（滑动、碰撞）在多文件间共用，修改后需两端验证
 /// 2. **动画类常量**（spring 参数）在单文件内使用，保证内部一致性
 /// 3. **尺寸类常量**（宽高、间距）在单文件内使用，方便整体缩放 UI
+library;
+
 
 import 'dart:math';
 import 'package:flutter/physics.dart';

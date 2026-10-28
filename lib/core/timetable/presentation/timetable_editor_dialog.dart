@@ -34,9 +34,9 @@ class TimetableEditorDialog extends ConsumerStatefulWidget {
 }
 
 class _TimetableEditorDialogState extends ConsumerState<TimetableEditorDialog> {
-  TextEditingController _titleController = TextEditingController();
-  TextEditingController _locationController = TextEditingController();
-  TextEditingController _teacherController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _teacherController = TextEditingController();
   List<int> _selectedCycles = [];
   // 有课程时默认选中第一个，没有课程时为-1（添加模式）
   int _selectedCourseIndex = 0;

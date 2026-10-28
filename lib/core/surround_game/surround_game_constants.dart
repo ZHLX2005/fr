@@ -7,6 +7,7 @@
 ///     17×17 墙壁网格
 ///
 /// 对齐参考：.claude/repo/Quoridor-ios/Quoridor/Classes/Models/
+library;
 
 /// 墙壁方向
 enum WallOrientation { horizontal, vertical }

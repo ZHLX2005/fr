@@ -146,7 +146,6 @@ class RecorderController extends ChangeNotifier {
       PermissionStatus.restricted ||
       PermissionStatus.provisional =>
         RecorderPermissionStatus.permanentlyDenied,
-      _ => RecorderPermissionStatus.unknown,
     };
   }
 

@@ -27,8 +27,8 @@ class NativeControllerPage extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  theme.colorScheme.primary.withOpacity(0.1),
-                  theme.colorScheme.secondary.withOpacity(0.1),
+                  theme.colorScheme.primary.withValues(alpha: 0.1),
+                  theme.colorScheme.secondary.withValues(alpha: 0.1),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
@@ -52,7 +52,7 @@ class NativeControllerPage extends StatelessWidget {
                 Text(
                   '测试移动端原生功能，如通知、相机、麦克风等',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],
@@ -133,7 +133,7 @@ class NativeControllerPage extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -157,8 +157,8 @@ class NativeControllerPage extends StatelessWidget {
                             Text(
                               '快速跳转到系统权限设置页面',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.6,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
                                 ),
                               ),
                             ),
@@ -185,7 +185,7 @@ class NativeControllerPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.tertiary.withOpacity(0.1),
+                        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -283,7 +283,7 @@ class NativeControllerPage extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 28),
@@ -303,7 +303,7 @@ class NativeControllerPage extends StatelessWidget {
                     Text(
                       description,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -311,7 +311,7 @@ class NativeControllerPage extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: theme.colorScheme.onSurface.withOpacity(0.3),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
               ),
             ],
           ),

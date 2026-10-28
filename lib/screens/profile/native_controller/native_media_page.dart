@@ -306,7 +306,7 @@ class _NativeMediaPageState extends State<NativeMediaPage> {
                     Text('运行环境', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 8),
                     Text('平台: ${kIsWeb ? 'Web' : 'Native'}'),
-                    if (kIsWeb) Text('浏览器: ${defaultTargetPlatform}'),
+                    if (kIsWeb) Text('浏览器: $defaultTargetPlatform'),
                   ],
                 ),
               ),

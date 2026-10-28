@@ -262,23 +262,26 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                   'Browser',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                RadioListTile<bool>(
-                  title: const Text('In-App Browser'),
-                  value: false,
+                RadioGroup<bool>(
                   groupValue: controller.useExternalBrowser,
                   onChanged: (value) {
                     controller.setUseExternalBrowser(value!);
                     Navigator.pop(context);
                   },
-                ),
-                RadioListTile<bool>(
-                  title: const Text('External Browser'),
-                  value: true,
-                  groupValue: controller.useExternalBrowser,
-                  onChanged: (value) {
-                    controller.setUseExternalBrowser(value!);
-                    Navigator.pop(context);
-                  },
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RadioListTile<bool>(
+                        title: Text('In-App Browser'),
+                        value: false,
+                      ),
+                      RadioListTile<bool>(
+                        title: Text('External Browser'),
+                        value: true,
+                      ),
+                    ],
+                  ),
                 ),
                 SizedBox(height: 16),
                 Text(
@@ -516,7 +519,7 @@ class _BookmarkGridViewState extends State<_BookmarkGridView> {
                             width: 52,
                             height: 52,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => Icon(
+                            errorBuilder: (_, _, _) => Icon(
                               BookmarkIcons.getIcon(selectedIconName),
                               color: selectedColor,
                               size: 28,
@@ -1410,7 +1413,7 @@ Widget _buildBookmarkIconWidget(BuildContext context, SingleBookmark bookmark) {
           width: 52,
           height: 52,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
+          errorBuilder: (_, _, _) =>
               Icon(bookmark.icon, color: Theme.of(context).colorScheme.onSurface, size: 28),
         ),
       );
@@ -1422,7 +1425,7 @@ Widget _buildBookmarkIconWidget(BuildContext context, SingleBookmark bookmark) {
           width: 52,
           height: 52,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
+          errorBuilder: (_, _, _) =>
               Icon(bookmark.icon, color: Theme.of(context).colorScheme.onSurface, size: 28),
         ),
       );

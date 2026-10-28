@@ -85,14 +85,21 @@ class _SudokuRoomConfigPanelState extends State<SudokuRoomConfigPanel> {
             ),
             const SizedBox(height: 4),
             if (widget.editable) ...[
-              ..._difficulties.map((d) => RadioListTile<String>(
-                    value: d.$1,
-                    groupValue: widget.difficulty,
-                    title: Text(d.$2),
-                    onChanged: widget.onDifficultyChanged != null
-                        ? (v) => widget.onDifficultyChanged!(v!)
-                        : null,
-                  )),
+              RadioGroup<String>(
+                groupValue: widget.difficulty,
+                onChanged: (v) {
+                  widget.onDifficultyChanged?.call(v!);
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _difficulties
+                      .map((d) => RadioListTile<String>(
+                            value: d.$1,
+                            title: Text(d.$2),
+                          ))
+                      .toList(),
+                ),
+              ),
               const SizedBox(height: 8),
               FilledButton.icon(
                 onPressed: widget.onGenerate,

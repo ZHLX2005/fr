@@ -221,7 +221,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
             Text(
               provider.isConfigured ? '记录你的事件，我会为你生成分析报告' : '请先配置 API Key',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),
@@ -233,7 +233,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
             Text(
               '例如：',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 12),
@@ -269,7 +269,7 @@ class _AgentChatPageState extends State<AgentChatPage> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),

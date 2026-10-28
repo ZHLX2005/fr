@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 /// 时钟颜色工具类
@@ -60,7 +59,7 @@ class ClockColorUtil {
       maxDarkness: maxDarkness,
     );
 
-    return mainColor.withOpacity(baseOpacity);
+    return mainColor.withValues(alpha: baseOpacity);
   }
 
   /// 获取边框颜色（比主色更透明）
@@ -80,7 +79,7 @@ class ClockColorUtil {
       maxDarkness: maxDarkness,
     );
 
-    return mainColor.withOpacity(baseOpacity);
+    return mainColor.withValues(alpha: baseOpacity);
   }
 
   /// 获取进度条颜色（用于显示超时进度）

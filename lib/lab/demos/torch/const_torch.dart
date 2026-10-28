@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 
 /// 手电筒模块常量 — 仅动画时长与亮度参数。
 ///

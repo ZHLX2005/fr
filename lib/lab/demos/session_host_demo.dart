@@ -82,7 +82,7 @@ class _SessionHostPanelPageState extends State<_SessionHostPanelPage> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: sessions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
         final hs = sessions[i];
         return _SessionCard(hs: hs, onDrop: () => _drop(hs.slug));

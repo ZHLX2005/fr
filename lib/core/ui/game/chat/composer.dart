@@ -276,7 +276,7 @@ class _ComposerState extends State<_Composer> {
         shrinkWrap: true,
         physics: const ClampingScrollPhysics(),
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 3),
+        separatorBuilder: (_, _) => const SizedBox(height: 3),
         itemBuilder: (ctx, i) {
           final e = items[i];
           final isMe = e.from == widget.myDeviceId;

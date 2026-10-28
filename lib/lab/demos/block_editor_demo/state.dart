@@ -348,7 +348,7 @@ class EditorState extends ChangeNotifier {
   /// 用户主动取消当前 AI 请求。
   /// 行为：丢弃响应、退出 loading、回到可编辑态（不显错误）。
   void cancelAiRequest() {
-    debugPrint('[AI] cancelAiRequest called, was loading: ${_aiLoadingBlockId}');
+    debugPrint('[AI] cancelAiRequest called, was loading: $_aiLoadingBlockId');
     if (_aiLoadingBlockId == null) return;
     _aiCanceled = true;
     _aiLoadingBlockId = null;

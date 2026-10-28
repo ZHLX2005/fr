@@ -24,14 +24,13 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
   final _userIdCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _semesterCtrl = TextEditingController();
-  bool _loaded = false;
   bool _loading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    // 首次 build 前预填（异步），填好就 _loaded=true
+    // 首次 build 前预填（异步）
     _loadPrefs();
   }
 
@@ -42,7 +41,6 @@ class _SicauImportDialogState extends ConsumerState<SicauImportDialog> {
       _userIdCtrl.text = c.userId;
       _passwordCtrl.text = c.password;
       _semesterCtrl.text = c.semester;
-      _loaded = true;
     });
   }
 

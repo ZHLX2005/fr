@@ -55,7 +55,7 @@ class _LocalGamePageState extends State<LocalGamePage> {
       body: SafeArea(
         child: ValueListenableBuilder<LocalMatchState>(
           valueListenable: _viewModel,
-          builder: (_, matchState, __) => switch (matchState) {
+          builder: (_, matchState, _) => switch (matchState) {
             LocalIdle() => _buildIdleScreen(context, theme),
             LocalInGame() => _buildGameScreen(matchState, theme),
             LocalFinished() => _buildGameScreen(

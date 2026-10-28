@@ -244,7 +244,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                           context,
                           color: Theme.of(context).colorScheme.primary,
                         ).copyWith(
-                          padding: const MaterialStatePropertyAll(
+                          padding: const WidgetStatePropertyAll(
                             EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
@@ -257,7 +257,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                         icon: Icon(Icons.close),
                         label: const Text('取消'),
                         style: EmphasisButton.dangerEmphasis(context).copyWith(
-                          padding: const MaterialStatePropertyAll(
+                          padding: const WidgetStatePropertyAll(
                             EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
@@ -278,7 +278,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                     context,
                     color: Theme.of(context).colorScheme.primary,
                   ).copyWith(
-                    padding: const MaterialStatePropertyAll(
+                    padding: const WidgetStatePropertyAll(
                       EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
@@ -298,7 +298,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
                       context,
                       color: Theme.of(context).colorScheme.primary,
                     ).copyWith(
-                      padding: const MaterialStatePropertyAll(
+                      padding: const WidgetStatePropertyAll(
                         EdgeInsets.symmetric(vertical: 16),
                       ),
                     ),
@@ -336,7 +336,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -400,13 +400,13 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
           Icon(
             Icons.add_photo_alternate,
             size: 80,
-            color: theme.colorScheme.primary.withOpacity(0.3),
+            color: theme.colorScheme.primary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(
             widget.emptyStateHint ?? '选择图片',
             style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 8),
@@ -414,7 +414,7 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
             widget.emptyStateSubHint ??
                 (widget.config.enableCrop ? '可自由调整裁剪区域' : ''),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.4),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
             ),
           ),
         ],

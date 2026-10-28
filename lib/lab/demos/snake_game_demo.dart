@@ -38,7 +38,7 @@ class _SnakeGamePage extends StatefulWidget {
 class _SnakeGamePageState extends State<_SnakeGamePage> {
   static const int _noOfRow = 20;
   static const int _noOfColumn = 12;
-  List<int> _borderList = [];
+  final List<int> _borderList = [];
   List<int> _snakePosition = [];
   int _snakeHead = 0;
   int _score = 0;

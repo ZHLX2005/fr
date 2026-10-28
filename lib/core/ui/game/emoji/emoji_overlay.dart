@@ -75,7 +75,7 @@ class _ChatBubble extends StatelessWidget {
             child: Image(
               image: image,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           ),
           if (fromMe)

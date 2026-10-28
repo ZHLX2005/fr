@@ -90,7 +90,7 @@ class BleDeviceList extends StatelessWidget {
       itemCount: devices.length,
       itemBuilder: (context, index) {
         final device = devices[index];
-        final name = device.device.name;
+        final name = device.device.platformName;
         final isNamed = name.isNotEmpty;
         return ListTile(
           leading: Icon(
@@ -146,7 +146,7 @@ class BleConnectedBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  device.name.isEmpty ? '已连接' : device.name,
+                  device.platformName.isEmpty ? '已连接' : device.platformName,
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 if (characteristic != null)

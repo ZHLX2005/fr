@@ -15,7 +15,6 @@
 // 页面（State）直接用自己的 `WidgetsBindingObserver` 判 `paused` 即可，
 // 不必绕这一层。
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// 全局前后台状态。默认 true —— bootstrap 之前视为前台，避免误挂起。

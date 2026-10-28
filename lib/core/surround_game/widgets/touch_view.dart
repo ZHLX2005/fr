@@ -7,6 +7,7 @@
 /// 自身不依赖 [GameController] 或任何游戏状态模型。
 ///
 /// 内部子组件为 [SizedBox.expand] 空组件，仅做事件捕获，不参与渲染。
+library;
 import 'package:flutter/material.dart';
 
 /// 触摸事件回调签名

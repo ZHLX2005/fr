@@ -58,7 +58,6 @@ class _SelfTestPanelState extends ConsumerState<SelfTestPanel> {
       _log.clear();
     });
     final qr = ref.read(authHubQrEndpointProvider);
-    final tm = ref.read(tokenManagerProvider);
     try {
       // 凭据不再由调用方传递（端点自己从登录态存储取），所以这里只做前置检查：
       // 没有登录态就明确告诉用户去哪一步，而不是让深处抛一个 401。

@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io' show HttpRequest;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -156,7 +154,7 @@ class _LanDiscoveryPageState extends State<_LanDiscoveryPage>
   String? _sessionScope;
   DiscoveredPeer? _inviteFrom;
   LocalHttpServer? _httpServer;
-  int _httpPort = 53318;
+  final int _httpPort = 53318;
   Timer? _discoveryTimer;
 
   @override

@@ -1,7 +1,6 @@
 import 'dart:io';
 import '../../core/theme/context/colors.dart';
 import 'package:flutter/material.dart' hide RichText;
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';

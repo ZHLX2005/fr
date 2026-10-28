@@ -429,7 +429,7 @@ class _NotionImageHostPageState extends ConsumerState<NotionImageHostPage> {
     final imgCount = _capturedPaths.length;
     final hasText = _textController.text.trim().isNotEmpty;
     if (imgCount > 0 && hasText) {
-      return imgCount == 1 ? '提交图+文' : '提交 ${imgCount}图+文';
+      return imgCount == 1 ? '提交图+文' : '提交 $imgCount图+文';
     }
     if (imgCount > 0) {
       return imgCount == 1 ? '上传' : '上传 $imgCount 张';

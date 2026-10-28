@@ -23,7 +23,6 @@ import '../../../core/ui/game/relay/main.dart';
 import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart'
     show BoardTheme, BoardThemeData;
 
-import 'constants.dart';
 import 'engine.dart'
     show
         CoupRoom,

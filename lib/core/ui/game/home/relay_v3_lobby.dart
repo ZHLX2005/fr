@@ -387,7 +387,7 @@ class _RelayV3LobbyState extends State<RelayV3Lobby> {
             ),
           ),
           const SizedBox(height: 20),
-          Text('最多 ${_maxPlayers} 人',
+          Text('最多 $_maxPlayers 人',
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
           Slider(
             value: _maxPlayers.toDouble(), min: 2, max: 12, divisions: 10,

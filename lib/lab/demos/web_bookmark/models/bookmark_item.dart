@@ -80,7 +80,7 @@ class SingleBookmark implements BookmarkItem {
       'name': name,
       'url': url,
       'iconName': iconName,
-      'colorValue': color.value,
+      'colorValue': color.toARGB32(),
       'iconType': iconType.name,
       'iconUrl': iconUrl,
       'type': 'bookmark',

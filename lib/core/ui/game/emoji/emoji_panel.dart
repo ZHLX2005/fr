@@ -161,7 +161,7 @@ class _EmojiCell extends StatelessWidget {
         : Image(
             image: img,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) =>
+            errorBuilder: (_, _, _) =>
                 const Icon(Icons.broken_image, size: 20),
           );
     return Material(
