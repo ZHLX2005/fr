@@ -49,6 +49,14 @@
 - 经验：单类别多文件且总行数 ≤400 时可**合并**进一个 main.dart（保留原类名，调用方只需改 import 路径）；>400 才用 barrel 模式。
 - 下轮（R3）：button 族（atomic/base_button.dart + shell/emphasis_button.dart + atomic/base_icon_button.dart）+ nav 族（shell/app_nav_bar.dart + shell/nav_entry_icon.dart + shell/quick_nav_bottom_bar.dart）。
 
+### R3（2026-10-28，commit 506acbd5）
+
+- 完成：button 族三件合并 → `global/button/main.dart`（295 行，40 消费方）；nav 族三件 → `global/nav/`（674 行，超 400 用 barrel），`global/nav/main.dart` 为唯一入口（22 消费方）。
+- 验证：analyze lib 152 issues 持平；flutter test +1266 ~3 -10 与基线一致；旧路径零残留。
+- 经验：①同一文件原本 import 家族内多个成员时，sed 后会变成**同一目标重复 import**（Dart 报 unnecessary_import）——映射到同一 main.dart 时必须去重（`awk` 按行去重即可）。②`lib/core/nav/`（路由与条目模型）不在 `ui/` 下，从 `ui/global/<cat>/` 引用需退 **3** 级，`ui/lab/` 才是 2 级——搬完逐个文件核对 import 深度。
+- 遗留待裁决：**BaseButton 仍零业务引用**（Ec02 判死代码，与 EmphasisButton 职责重叠）——本轮只搬不删，需用户裁决去留。
+- 下轮（R4）：chat（ui/chat/pi_chat_style.dart + pi_day_divider.dart）+ zen（ui/zen/zen_theme.dart + zen_date_picker.dart）。
+
 
 
 ## 1. 纯搬运（零 API 变化，git mv / 文件拆分 + import 更新）
