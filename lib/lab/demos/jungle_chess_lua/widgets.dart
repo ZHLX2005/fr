@@ -36,7 +36,7 @@ import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_board_frame.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_player_panel.dart';
 import 'package:xiaodouzi_fr/core/jungle_chess/widgets/jungle_touch_controller.dart';
 import 'package:xiaodouzi_fr/core/game_audio/piece_sound.dart';
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart';
 
 import 'jungle_engine.dart';
 import 'jungle_constants.dart' show kJungleLuaTurnBarHeight;

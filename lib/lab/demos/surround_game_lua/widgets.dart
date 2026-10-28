@@ -17,7 +17,7 @@ import '../../../core/ui/game/relay/main.dart';
 
 import 'engine.dart' show SgRoom, QuoridorEngine, GameState, MoveRecord,
     GameStatus, Snapshot, RoomHandle;
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart';
 import 'package:xiaodouzi_fr/core/surround_game/surround_game_constants.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/chess_board.dart';
 import 'package:xiaodouzi_fr/core/surround_game/widgets/chess_player.dart';

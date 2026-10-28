@@ -23,6 +23,7 @@ import 'lab_panel/lab_panel_gesture.dart';
 import 'lab_panel/lab_panel_state_machine.dart';
 import 'lab_perf_log.dart';
 import '../../../core/ui/global/notification/main.dart';
+import '../../../core/utils/format/main.dart';
 
 class LabPage extends ConsumerStatefulWidget {
   /// 是否排除游戏类 demo。默认 true：实验室语义下游戏统一由游戏中心承载。
@@ -486,7 +487,7 @@ class _LabPageState extends ConsumerState<LabPage>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('缓存大小：${_formatBytes(cacheSize)}'),
+            Text('缓存大小：${formatFileSize(cacheSize)}'),
             const SizedBox(height: 8),
             const Text('缩略图用于加速大图加载。'),
             const SizedBox(height: 12),
@@ -517,12 +518,4 @@ class _LabPageState extends ConsumerState<LabPage>
     );
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
 }

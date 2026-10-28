@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/ai_chat/system_messages/system_events_controller.dart';
 import '../../../services/api_client.dart';
 import '../../../services/apk_download_service.dart';
+import '../../../core/utils/format/main.dart';
 
 /// APK 下载状态
 class ApkDownloadState {
@@ -200,7 +201,7 @@ class ApkDownloadManager {
               eventType: 'auto_apk_download_completed',
               title: 'APK 自动下载完成',
               detail:
-                  '文件大小：${_formatFileSize(size)}\n路径：${path.split('/').last}',
+                  '文件大小：${formatFileSize(size)}\n路径：${path.split('/').last}',
             );
           }
           _bgService.stopService();
@@ -302,9 +303,9 @@ class ApkDownloadManager {
           progress: progress.clamp(0.0, 1.0),
           statusMessage: savedTotal > 0
               ? '已暂停 ${(progress * 100).toStringAsFixed(1)}% '
-                  '(${_formatFileSize(tempInfo.size)} / '
-                  '${_formatFileSize(savedTotal)})'
-              : '已暂停 (${_formatFileSize(tempInfo.size)} 已下载)',
+                  '(${formatFileSize(tempInfo.size)} / '
+                  '${formatFileSize(savedTotal)})'
+              : '已暂停 (${formatFileSize(tempInfo.size)} 已下载)',
         );
       }
     }
@@ -324,7 +325,7 @@ class ApkDownloadManager {
 
     final metadata = await ApiService.getApkMetadata();
     if (metadata != null) {
-      final sizeStr = _formatFileSize(metadata.size ?? 0);
+      final sizeStr = formatFileSize(metadata.size ?? 0);
       final updateTime = metadata.uploadTime;
       // uploadTime 是统一 UTC ISO 串（如 "2026-08-03T14:29:40.000Z"），
       // 直接截串会固定显示 UTC 时间，导致本地时区（+08:00）差 8 小时。
@@ -594,7 +595,7 @@ class ApkDownloadManager {
             _emitSystemEvent(
               eventType: 'auto_apk_download_completed',
               title: 'APK 自动下载完成',
-              detail: '文件大小：${_formatFileSize(size)}',
+              detail: '文件大小：${formatFileSize(size)}',
             );
           }
         } else {
@@ -757,15 +758,6 @@ class ApkDownloadManager {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDownloadedApkPathKey, path);
     await prefs.setInt(_kDownloadedApkSizeKey, size);
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
   /// 把统一 UTC ISO 串（"2026-08-03T14:29:40.000Z"）转为设备本地时区的

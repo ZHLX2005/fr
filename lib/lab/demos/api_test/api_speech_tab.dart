@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/ui/global/nav/main.dart';
+import '../../../core/utils/format/main.dart';
 
 /// 由 WebSocket 音频数据驱动的流式 AudioSource
 class _WebSocketAudioSource extends StreamAudioSource {
@@ -661,12 +662,6 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
     }
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
   void _selectVoice(String id, String name) {
     setState(() {
       _selectedVoiceId = id;
@@ -1278,7 +1273,7 @@ class _ApiSpeechTabPageState extends State<ApiSpeechTabPage> {
                         style: const TextStyle(fontSize: 13),
                       ),
                       subtitle: Text(
-                        '${_formatFileSize(file.size)} • ${_formatTime(file.savedAt)}',
+                        '${formatFileSize(file.size)} • ${_formatTime(file.savedAt)}',
                         style: const TextStyle(fontSize: 11),
                       ),
                       trailing: IconButton(

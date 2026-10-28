@@ -8,6 +8,7 @@ import '../../core/ui/global/nav/main.dart';
 import '../lab_container.dart';
 import 'api_test/api_download_manager.dart';
 import 'api_test/api_speech_tab.dart';
+import '../../core/utils/format/main.dart';
 
 /// API 测试 Demo
 class ApiTestDemo extends DemoPage {
@@ -168,21 +169,12 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     return s.length >= 16 ? s.substring(0, 16) : s;
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-
   /// 进度条下方的文字：百分比 + 已下载/总大小（若可知）
   String _buildProgressText(ApkDownloadState apkState) {
     final pct = (apkState.progress * 100).toStringAsFixed(1);
     if (apkState.totalBytes > 0) {
-      final received = _formatFileSize(apkState.receivedBytes);
-      final total = _formatFileSize(apkState.totalBytes);
+      final received = formatFileSize(apkState.receivedBytes);
+      final total = formatFileSize(apkState.totalBytes);
       return '$pct%  ($received / $total)';
     }
     return '$pct%';
@@ -605,7 +597,7 @@ class _ApiTestPageState extends State<_ApiTestPage> {
     final name = path.split('/').last.split('\\').last;
     final sizeStr =
         apkState.downloadedSize != null
-            ? _formatFileSize(apkState.downloadedSize!)
+            ? formatFileSize(apkState.downloadedSize!)
             : '';
 
     return Container(

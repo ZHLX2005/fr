@@ -20,7 +20,7 @@ import 'engine.dart';
 import 'board.dart';
 import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart'
     show WSCloseEvent;
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart';
 
 /// 断线重连连续失败的判定次数（join 失败按 0.5s·2^n 退避重试）
 const int kMaxRecoverAttempts = 5;

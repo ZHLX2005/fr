@@ -16,7 +16,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../lab_container.dart';
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart';
+import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart';
 import 'cowrite_lua/cowrite_engine.dart' show RoomHandle;
 import 'cowrite_lua/cowrite_widgets.dart' show OnlineCoWritePage;
 import 'cowrite_lua/cowrite_save_reference.dart';

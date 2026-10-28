@@ -23,7 +23,7 @@ import '../../../core/ui/game/relay/main.dart';
 
 import 'package:xiaodouzi_fr/core/reversi/board_theme.dart';
 import 'package:xiaodouzi_fr/core/reversi/models/reversi_board.dart';
-import 'package:xiaodouzi_fr/core/surround_game/board_theme.dart'
+import 'package:xiaodouzi_fr/core/theme/board/board_theme.dart'
     show BoardTheme, BoardThemeData;
 
 import 'board.dart' show ReversiBoardWidget;
