@@ -277,6 +277,17 @@
 | 底部动作按钮（图标+文案） | 3 demo | `ui/game/action/main.dart` → `GameBottomAction` | c007a19d |
 | 对局页阶段分派（lobby/ready/playing/ended） | 3 demo | `ui/game/shell/main.dart` → `GamePhaseBody` | bec21b04 |
 
+### 追加抽离（用户点选后继续）
+
+| 重复内容 | 份数 | 归属 | commit |
+|---|---|---|---|
+| `_GridPainter` 棋盘网格+星位绘制（go/gomoku 逐字相同，仅棋盘格数常量不同） | 2 demo | `ui/game/board/main.dart` → `GameGridPainter`（格数提为参数） | 8b76dc97 |
+| `_formatSize`（字节大小，5 处调用含 tear-off） | 1 处 | 收编共享 `utils/format.formatFileSize` | 5ee78eb6 |
+| `_formatDuration(Duration)`（sudoku 对手条 mm:ss） | 1 处 | 收编共享 `utils/format.formatTime`（等价） | 5ee78eb6 |
+| `focus` provider 的 `formatTime` | 1 处 | 委托共享实现（保留公开 API，多负数保护） | 5ee78eb6 |
+
+> 顺带修正：原 `_GridPainter.shouldRepaint` 未比较 size/padding/starPoints，星位或格数变化会画出旧内容；共享版补全比较。
+
 ### 判定为不抽（附理由）
 
 | 候选 | 理由 |
