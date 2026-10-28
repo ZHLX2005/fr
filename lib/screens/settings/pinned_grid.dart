@@ -22,7 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app_lifecycle/press_bounce_curve.dart';
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
-import '../../core/ui/shell/nav_entry_icon.dart';
+import '../../core/ui/global/nav/main.dart';
 import 'const_settings.dart';
 
 class PinnedGrid extends ConsumerStatefulWidget {

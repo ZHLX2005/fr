@@ -4,7 +4,7 @@
 //
 // 颜色全部从 [BoardThemeData] 语义令牌读取，主题切换只改令牌。
 import 'package:flutter/material.dart';
-import '../../ui/shell/emphasis_button.dart';
+import '../../ui/global/button/main.dart';
 import '../board_theme.dart';
 import '../surround_game_constants.dart';
 import 'touch_controller.dart';

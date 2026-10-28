@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../ui/global/empty_state/main.dart';
 import '../ui/global/notification/main.dart';
-import '../ui/shell/emphasis_button.dart';
+import '../ui/global/button/main.dart';
 import 'github_api_exception.dart';
 import 'github_issues_models.dart';
 import 'github_issues_service.dart';

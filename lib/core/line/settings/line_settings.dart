@@ -6,7 +6,7 @@ import '../domain/note_event.dart';
 import '../domain/particle.dart';
 import '../engine/hit_feedback.dart';
 import '../engine/judge_service.dart';
-import '../../ui/shell/app_nav_bar.dart';
+import '../../ui/global/nav/main.dart';
 import 'offset_calibrate_page.dart';
 
 // ═══════════════════════════════════════════════════════════════

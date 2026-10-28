@@ -3,7 +3,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../../core/ui/shell/emphasis_button.dart';
+import '../../../core/ui/global/button/main.dart';
 import '../../../core/ui/global/notification/main.dart';
 
 /// 原生通知功能测试页面

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../services/gallery_service.dart';
 import '../ui/global/empty_state/main.dart';
-import '../ui/shell/emphasis_button.dart';
+import '../ui/global/button/main.dart';
 import '../ui/global/dialog/main.dart';
 
 /// 图库管理页面

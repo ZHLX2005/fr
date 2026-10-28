@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ui/global/empty_state/main.dart';
-import '../ui/shell/emphasis_button.dart';
+import '../ui/global/button/main.dart';
 import 'github_actions_models.dart';
 import 'github_actions_service.dart';
 import 'github_api_exception.dart';

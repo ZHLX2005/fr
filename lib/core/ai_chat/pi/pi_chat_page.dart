@@ -17,7 +17,7 @@ import '../../ui/chat/pi_day_divider.dart';
 import 'pi_chat_ui.dart';
 import '../../ui/global/dialog/main.dart';
 import '../../ui/global/notification/main.dart';
-import '../../ui/shell/quick_nav_bottom_bar.dart';
+import '../../ui/global/nav/main.dart';
 
 /// pi 聊天页 —— 建会话 / 发消息 / SSE 流式渲染 / 历史回读。
 ///

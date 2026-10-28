@@ -1,7 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
-import '../../../ui/shell/app_nav_bar.dart';
+import '../../../ui/global/nav/main.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/constants.dart';
 import '../../domain/game_result.dart';

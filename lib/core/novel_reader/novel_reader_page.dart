@@ -8,8 +8,8 @@ import 'package:flutter/physics.dart';
 
 import '../nav/nav_route.dart';
 import 'canvas_reader_engine.dart';
-import '../ui/shell/app_nav_bar.dart';
-import '../ui/shell/emphasis_button.dart';
+import '../ui/global/nav/main.dart';
+import '../ui/global/button/main.dart';
 import '../ui/global/notification/main.dart';
 import 'novel_reader_constants.dart';
 import 'novel_reader_storage.dart';

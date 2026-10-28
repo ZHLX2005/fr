@@ -3,7 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../interfaces/interfaces.dart';
 import '../data/login_message_data.dart';
 import '../../../api/user/user_auth_service.dart';
-import '../../../core/ui/shell/emphasis_button.dart';
+import '../../../core/ui/global/button/main.dart';
 
 /// Strategy for rendering Login messages.
 ///

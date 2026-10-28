@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
-import '../../core/ui/shell/nav_entry_icon.dart';
+import '../../core/ui/global/nav/main.dart';
 import 'const_settings.dart';
 
 /// 打开钉选管理弹窗（圆角 · 分组 · 搜索 · 点选钉/拔）。

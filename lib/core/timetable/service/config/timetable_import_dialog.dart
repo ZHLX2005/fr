@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models.dart';
 import '../../presentation/timetable_store.dart';
 import 'timetable_dsl_parser.dart';
-import '../../../ui/shell/emphasis_button.dart';
+import '../../../ui/global/button/main.dart';
 import '../../presentation/timetable_colors.dart';
 
 /// 课程批量导入对话框

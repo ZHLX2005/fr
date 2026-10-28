@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/ui/shell/emphasis_button.dart';
+import '../../core/ui/global/button/main.dart';
 import '../lab_container.dart';
 
 class CrashLogDemo extends DemoPage {

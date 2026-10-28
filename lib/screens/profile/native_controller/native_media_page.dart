@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../../services/media_service.dart';
 import '../../../services/audio_recording_service.dart';
-import '../../../core/ui/atomic/base_icon_button.dart';
+import '../../../core/ui/global/button/main.dart';
 import '../../../core/ui/zen/zen_theme.dart';
 
 /// 原生媒体功能测试页面

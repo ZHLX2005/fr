@@ -4,7 +4,7 @@ import '../../services/ai_chat/ai_chat_provider.dart';
 import '../../services/ai_chat/agent_chat_provider.dart';
 import '../../services/ai_chat/ai_chat_models.dart';
 import '../ui/global/notification/main.dart';
-import '../ui/shell/emphasis_button.dart';
+import '../ui/global/button/main.dart';
 import '../nav/nav_route.dart';
 
 /// AI 聊天设置页面

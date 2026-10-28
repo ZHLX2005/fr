@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../ui/shell/app_nav_bar.dart';
-import '../ui/shell/emphasis_button.dart';
+import '../ui/global/nav/main.dart';
+import '../ui/global/button/main.dart';
 import 'models/focus_session.dart';
 import 'providers/focus_timer_provider.dart';
 import 'providers/focus_provider.dart';

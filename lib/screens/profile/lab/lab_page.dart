@@ -14,7 +14,7 @@ import '../../../core/nav/nav_entry.dart';
 import '../../../core/nav/nav_route.dart';
 import '../../../lab/lab_container.dart';
 import '../../../services/lab_image_cache_service.dart';
-import '../../../core/ui/shell/quick_nav_bottom_bar.dart';
+import '../../../core/ui/global/nav/main.dart';
 import 'demo_detail_page.dart';
 import 'demo_grid/demo_reveal_grid.dart';
 import 'lab_panel/lab_panel_colors.dart';

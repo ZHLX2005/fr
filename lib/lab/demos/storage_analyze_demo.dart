@@ -13,7 +13,7 @@ import '../../core/storage/sync/cloud_storage_sync.dart';
 import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
-import '../../core/ui/shell/emphasis_button.dart';
+import '../../core/ui/global/button/main.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {

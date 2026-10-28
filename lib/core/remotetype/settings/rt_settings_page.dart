@@ -28,7 +28,7 @@ import '../data/rt_layout_ops.dart'
         rtLayoutsResetBuiltin;
 import '../data/rt_prefs.dart';
 import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
-import '../../../core/ui/shell/app_nav_bar.dart';
+import '../../../core/ui/global/nav/main.dart';
 import 'rt_layouts_card.dart';
 import 'rt_new_layout_row.dart';
 

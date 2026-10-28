@@ -49,7 +49,7 @@ import '../../services/remotetype/remotetype_providers.dart';
 import '../../services/remotetype/remotetype_service.dart';
 import '../../core/ui/global/notification/main.dart';
 import '../../core/theme/context/colors.dart';
-import '../../core/ui/shell/quick_nav_bottom_bar.dart'
+import '../../core/ui/global/nav/main.dart'
     show QuickNavBottomBar, bottomBarVisibilityProvider;
 import '../../lab/demo_session_host.dart';
 import 'data/rt_constants.dart';

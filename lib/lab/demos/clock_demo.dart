@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/context/colors.dart';
 import 'package:provider/provider.dart';
-import '../../core/ui/shell/emphasis_button.dart';
+import '../../core/ui/global/button/main.dart';
 import '../lab_container.dart';
 import 'clock/providers/lab_clock_provider.dart';
 import 'clock/providers/lab_track_provider.dart';

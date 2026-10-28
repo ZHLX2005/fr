@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../ui/shell/app_nav_bar.dart';
+import '../../../ui/global/nav/main.dart';
 import '../../domain/chart_data.dart';
 import '../../domain/game_result.dart';
 import 'game_page.dart' show GamePage;

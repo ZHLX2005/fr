@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/ui/shell/app_nav_bar.dart';
-import '../../ui/shell/emphasis_button.dart';
+import '../../../core/ui/global/nav/main.dart';
+import '../../ui/global/button/main.dart';
 import '../models/word.dart';
 
 /// 单词详情页 - 全屏展示单词详细信息

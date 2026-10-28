@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../ui/global/dialog/main.dart';
 import '../ui/global/notification/main.dart';
-import '../ui/shell/emphasis_button.dart';
+import '../ui/global/button/main.dart';
 import 'doubletime_mapper.dart';
 import 'doubletime_models.dart';
 import 'doubletime_painter.dart';

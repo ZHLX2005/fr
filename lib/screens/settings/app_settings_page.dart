@@ -13,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
-import '../../core/ui/shell/quick_nav_bottom_bar.dart';
+import '../../core/ui/global/nav/main.dart';
 import '../profile/theme/theme_page.dart';
 import 'const_settings.dart';
 import 'pin_editor_sheet.dart';
