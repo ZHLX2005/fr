@@ -181,3 +181,10 @@
 **域定义**：game = 全部对局/联机游戏（chess/draughts/sudoku/xiangqi/reversi/jungle_chess/surround_game + 9 个 lua demo）；ui/game/ 内部再按类别分 main.dart。
 
 **N1 结论**：global 八大类别中 7 个确为跨域（button/dialog/notification/nav/empty_state/section/zen/renderers）；错位项 = global/game（整域）、global/chat（单域 ai_chat）、global/swipe_action（单域 clock）、global/dot（临界，维持）。
+
+### N2（2026-10-28，commit 92d196d7）
+
+- 完成：`ui/global/game/` 拆为 `ui/game/{home,ready,chat,emoji,relay}/`（home 4 件 barrel；ready/chat 单文件 main；emoji 2 件 barrel；relay 2 件合并 main）。24 个 lib 消费方按实际使用类拆分 import；global/game 移除。
+- 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
+- 经验：①**test/ 内引用 lib 必须用 `package:` 导入**——相对路径 `../../../../lib/...` 与 package URI 形成重复库视图，`find.byType` 身份不匹配导致"widget 找不到"（3 个测试文件踩中）。②按类拆 import 时类名可能出现在**注释**里（8 个 lab demo 误加 home import），analyze 的 unused_import 会兜底，清掉即可。③合并文件时按行号切段容易把 import 行卷进正文，切完立即 grep `^import` 复核。
+- 下轮（N3）：global 其余错位项——chat（PiChat 三件，单域 ai_chat）→ `ui/ai_chat/chat/main.dart`；swipe_action（单域 clock）→ 域内 ui 目录。dot 保持 global（已标注临界）。
