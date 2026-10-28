@@ -57,6 +57,13 @@
 - 遗留待裁决：**BaseButton 仍零业务引用**（Ec02 判死代码，与 EmphasisButton 职责重叠）——本轮只搬不删，需用户裁决去留。
 - 下轮（R4）：chat（ui/chat/pi_chat_style.dart + pi_day_divider.dart）+ zen（ui/zen/zen_theme.dart + zen_date_picker.dart）。
 
+### R4（2026-10-28，commit 9ca8fa1a）
+
+- 完成：chat 族（149 行）合并 → `global/chat/main.dart`；zen 族（393 行）合并 → `global/zen/main.dart`。
+- 验证：analyze lib 152 issues 持平；flutter test +1266 ~3 -10 与基线一致；旧路径零残留。
+- 经验：barrel 文件里若同时 export 同一家族的多个旧文件，合并后会出现 **duplicate_export 警告**——`lib/core/ai_chat/pi/pi_chat.dart` 合并后需删掉重复 export 行（analyze 会直接报）。
+- 下轮（R5）：renderers 族（6 文件，barrel 模式）→ `global/renderers/`。
+
 
 
 ## 1. 纯搬运（零 API 变化，git mv / 文件拆分 + import 更新）
