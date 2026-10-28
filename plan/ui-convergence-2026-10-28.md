@@ -64,6 +64,14 @@
 - 经验：barrel 文件里若同时 export 同一家族的多个旧文件，合并后会出现 **duplicate_export 警告**——`lib/core/ai_chat/pi/pi_chat.dart` 合并后需删掉重复 export 行（analyze 会直接报）。
 - 下轮（R5）：renderers 族（6 文件，barrel 模式）→ `global/renderers/`。
 
+### R5（2026-10-28，commit e070ca1b）
+
+- 完成：renderers 6 文件（1097 行）→ `global/renderers/`，`global/renderers/main.dart` 作 barrel（9 消费方）；旧目录 `ui/renderers/`、`ui/shell/`、`ui/atomic/` 已清空移除。
+- 验证：analyze lib 152 issues 持平；flutter test +1266 ~3 -10 与基线一致；旧路径零残留。
+- 经验：`git add -A <路径>` 里若混入**已删除的目录**，整条命令直接失败（不匹配任何文件），后续新增文件（barrel）会漏暂存——新增 barrel 后必须 `git status` 复查未跟踪项再提交。
+- 遗留：`image_picker_widget.dart` 555 行超 400 行阈值（Ec03 已记），待专项拆。
+- 下轮（R6）：game 族（ui/game/ 10 文件，barrel 模式）→ `global/game/`。
+
 
 
 ## 1. 纯搬运（零 API 变化，git mv / 文件拆分 + import 更新）
