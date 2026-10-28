@@ -195,3 +195,11 @@
 - 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
 - 域目录约定（本轮确立）：`ui/<域>/<类别>/main.dart`；lab demo 域按 `ui/lab/<demo>/<类别>/main.dart`（如 clock）。若用户希望 demo 域平铺为 `ui/<demo>/...`，只需在终检前统一调整。
 - 下轮（N4）：game 域内类别整理——barrel 契约复核（home/emoji/ready/chat/relay），确认无跨类别暗引、入口唯一。
+
+### N4（2026-10-28，commit d0949ef5）
+
+- 复核：`ui/game` 五类别 barrel 契约成立——外部零绕过（全部走 main.dart）、零跨类别暗引；导出完整（home 3 public、emoji 2、ready/chat/relay 单文件即 main）。
+- 顺手归一：lab 域件 `lab_demo_icon` + `lab_demo_icon_lookup`（335 行）合并 → `ui/lab/icons/main.dart`（13 消费方）。
+- 遗留标记（N7）：`ui/game/chat/main.dart` 单文件 1030 行、`ui/global/renderers/image_picker_widget.dart` 555 行，均超 400 行阈值。
+- 验证：analyze lib 152 持平；test 失败集合与基线一致（全为环境项）。
+- 下轮（N5）：跨域错位扫描——业务模块内被 ≥2 个域消费的 UI 件（Ec03 §4 剩余项之外的新发现），需上收 global 或域级 ui。
