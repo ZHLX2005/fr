@@ -12,7 +12,7 @@ import '../../../../core/utils/format/main.dart';
 import '../../../../core/ui/global/button/main.dart';
 import '../../../../core/ui/global/dot/main.dart';
 import '../../../../core/ui/global/empty_state/main.dart';
-import '../../../../core/ui/global/swipe_action/main.dart';
+import '../../../../core/ui/lab/clock/swipe_action/main.dart';
 import '../../../../core/ui/global/dialog/main.dart';
 
 /// Clocks tab — grid of clock cards + records list.

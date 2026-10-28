@@ -12,7 +12,7 @@ import 'pi_chat_controller.dart';
 import 'pi_chat_message.dart';
 import 'pi_chat_settings.dart';
 import 'pi_chat_settings_page.dart';
-import '../../ui/global/chat/main.dart';
+import '../../ui/ai_chat/chat/main.dart';
 import 'pi_chat_ui.dart';
 import '../../ui/global/dialog/main.dart';
 import '../../ui/global/notification/main.dart';

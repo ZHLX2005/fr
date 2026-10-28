@@ -1,4 +1,4 @@
-// Layer 4: BaseSwipeAction 原子组件。
+// lib/core/ui/lab/clock/swipe_action/main.dart
 //
 // 80px 宽的滑动操作按钮：纯色背景 + 白字 + icon。
 // [leftRounded] 把最左按钮嵌进卡片右圆角。

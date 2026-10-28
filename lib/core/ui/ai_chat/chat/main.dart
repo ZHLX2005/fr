@@ -1,4 +1,4 @@
-// pi 聊天设计 token —— 2026-10-28 自 lib/core/ai_chat/pi/pi_chat_ui.dart 拆出
+// lib/core/ui/ai_chat/chat/main.dart
 //（任务 #7 组件收敛：聊天域通用样式件集中到 lib/core/ui/chat/）。
 import 'package:flutter/material.dart';
 

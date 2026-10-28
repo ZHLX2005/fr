@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../ui/global/chat/main.dart';
+import '../../ui/ai_chat/chat/main.dart';
 
 /// 自绘输入区：一体式胶囊（无 Material 的 OutlineInputBorder 方框感）。
 ///
