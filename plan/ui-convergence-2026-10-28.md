@@ -262,3 +262,32 @@
 
 **终态**：`flutter analyze lib` = No issues found（0/0/0）；`flutter test` = +1266 ~3 -10（与基线一致，全为环境项）；工作树干净。
 **保留项（有意）**：零消费模块桶（reversi/surround_game/xiangqi/services/metronome/emoji 等 `main.dart` 公开入口）、`ui/game/emoji`（Phase 3 计划接线）、`reversi/board_theme.dart` 平行令牌（并轨属语义改动）。
+
+## Demo 遍历：可抽离组件审计（2026-10-28，用户指令「遍历所有demo依次检查有无可抽离的组件」）
+
+方法：全量扫描 55 个 demo 注册 / 39 个 demo 目录，按**归一化代码**（去注释、压空白）比对类块与方法体，不靠类名相似——类名相同（`OnlineGamePage`）不等于实现相同。
+
+### 已抽离（本轮落地）
+
+| 重复内容 | 份数 | 归属 | commit |
+|---|---|---|---|
+| snapshot context 访问器 players/readyMap/actionPermissions/hostId/winner | 7 demo × 5 = 31 | `game_kit/snapshot/main.dart`（协议契约层） | 4db96221 |
+| `canPerform` 动作权限判定（any/host/current_player） | 2 demo | `game_kit/snapshot/main.dart`（Ca03 契约） | 8f0e2f9c |
+| 认输确认弹窗（裸 AlertDialog） | 3 demo | **改用已有件** `BaseConfirmDialog`（Ec01 §2 第 2 步） | c007a19d |
+| 底部动作按钮（图标+文案） | 3 demo | `ui/game/action/main.dart` → `GameBottomAction` | c007a19d |
+| 对局页阶段分派（lobby/ready/playing/ended） | 3 demo | `ui/game/shell/main.dart` → `GamePhaseBody` | bec21b04 |
+
+### 判定为不抽（附理由）
+
+| 候选 | 理由 |
+|---|---|
+| `_GridPainter`（go/gomoku 棋盘绘制，97% 相似） | 棋盘尺寸与星位是棋种特有（kGoSize vs 五子棋 15 路），抽离须参数化视觉，收益低于改动面 |
+| `_buildLobby/_buildPlaying/_buildFinished` 正文 | 相似度 96.7%–99.9% 但含棋盘、规则、按钮等游戏特有内容 —— 属 Ec02 S3 的「对局页骨架收敛」，需参数化策略对象，是独立重构项（数千行级），非本轮解耦范围 |
+| `_deal`/`_ack`（1–4 行薄包装） | 抽离收益低于噪声（各 1–4 行），保留 |
+| `_setPending`/`_onSnapshot`（落子预览/快照处理） | 棋盘坐标与规则私有，不可跨游戏复用 |
+| `OnlineGamePage` 类壳 | 类名相同但实现逐字不同（4 份完全相同 / 3 份 86–94%），差异在 Room 类型与 build 内部，共享需抽策略对象 |
+| 其余 demo（clock/recorder/network/team_card/metronome/block_editor 等） | 方法级扫描零跨 demo 重复；模块内部件按 Ec01 口诀留在模块内 |
+
+### 扫描结论
+- demo 层**跨 demo 逐字重复**仅集中在 7 个 lua 联机游戏；本轮已把其中「协议访问器 + 权限判定 + 通用 UI 件」全部归位。
+- 余下相似部分是「结构相似但内容私有」的对局页骨架，需要策略化重构（Ec02 S3），不是复制粘贴式解耦。
