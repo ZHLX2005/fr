@@ -12,11 +12,11 @@ description: FR Lab registry、DemoPage、收藏面板和游戏中心的真实�
 | 改动目标 | 当前实现入口 | 下一步 |
 |---|---|---|
 | DemoPage/slug/type/session scope | `lib/lab/lab_container.dart` | 阅读 `DemoPage` 与 `DemoRegistry`；新增 demo 后在 `lab_bootstrap.dart` 注册 |
-| Lab 列表、收藏面板装配 | `lib/screens/profile/lab/lab_page.dart` | 找对应 builder/Provider，确认重建边界 |
+| Lab 列表、收藏面板装配 | `lib/screens/containers/lab_container.dart` | 找对应 builder/Provider，确认重建边界 |
 | 下拉收藏面板状态/metrics | `lib/screens/profile/lab/lab_panel/lab_panel_state_machine.dart` | 纯状态转移尽量在此测试，不把手势条件塞回页面 |
 | 指针/滚动/把手的输入协调 | `lib/screens/profile/lab/lab_panel/lab_panel_gesture.dart` | 修改某一路输入时核对其他路径及 cancel 收尾 |
 | Demo 网格与卡片 | `lib/screens/profile/lab/demo_grid/` | 检查 instance 去重、item builder 与重绘范围 |
-| 游戏中心 | `lib/screens/profile/lab/game_center_page.dart`、`game_center/` | 新游戏必须同步 kGameMeta、Demo 注册和 kGameCenterCatalog；发布目录流程见 [[A05-游戏中心扩展]] |
+| 游戏中心 | `lib/screens/containers/game_center_container.dart`、`game_center/` | 新游戏必须同步 kGameMeta、Demo 注册和 kGameCenterCatalog；发布目录流程见 [[A05-游戏中心扩展]] |
 | Demo 详情页/共享封面 | `demo_detail_page.dart`、`demo_cover_image.dart` | Lab/游戏中心共用外壳，先复用现有组件 |
 
 上述文件路径是当前入口导航，不表示目录下每个文件职责永不变化；修改前确认符号仍存在。

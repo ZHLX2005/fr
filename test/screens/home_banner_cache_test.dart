@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xiaodouzi_fr/screens/profile/profile_page.dart';
+import 'package:xiaodouzi_fr/screens/containers/profile_container.dart';
 
 void main() {
   setUp(() {

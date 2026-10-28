@@ -11,7 +11,7 @@
 ///
 /// API 层在 `lib/api/pi/`（按 api-module-auth 规范）。
 ///
-/// 接入方式（[PiChatEntryPage] 已挂到 `screens/chat/home_page.dart` 的
+/// 接入方式（[PiChatEntryPage] 已挂到 `lib/screens/containers/ai_container.dart` 的
 /// `_entries`，正常点列表即可进入）：
 /// ```dart
 /// final settings = await PiChatSettingsPage.loadDefault();

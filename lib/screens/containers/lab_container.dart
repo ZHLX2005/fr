@@ -10,20 +10,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/nav/nav_entry.dart';
-import '../../../core/nav/nav_route.dart';
-import '../../../lab/lab_container.dart';
-import '../../../services/lab_image_cache_service.dart';
-import '../../../core/ui/global/nav/main.dart';
-import 'demo_detail_page.dart';
-import 'demo_grid/demo_reveal_grid.dart';
-import 'lab_panel/lab_panel_colors.dart';
-import 'lab_panel/lab_panel_content.dart';
-import 'lab_panel/lab_panel_gesture.dart';
-import 'lab_panel/lab_panel_state_machine.dart';
-import 'lab_perf_log.dart';
-import '../../../core/ui/global/notification/main.dart';
-import '../../../core/utils/format/main.dart';
+import '../../core/nav/nav_entry.dart';
+import '../../core/nav/nav_route.dart';
+import '../../lab/lab_container.dart';
+import '../../services/lab_image_cache_service.dart';
+import '../../core/ui/global/nav/main.dart';
+import '../profile/lab/demo_detail_page.dart';
+import '../profile/lab/demo_grid/demo_reveal_grid.dart';
+import '../profile/lab/lab_panel/lab_panel_colors.dart';
+import '../profile/lab/lab_panel/lab_panel_content.dart';
+import '../profile/lab/lab_panel/lab_panel_gesture.dart';
+import '../profile/lab/lab_panel/lab_panel_state_machine.dart';
+import '../profile/lab/lab_perf_log.dart';
+import '../../core/ui/global/notification/main.dart';
+import '../../core/utils/format/main.dart';
 
 class LabPage extends ConsumerStatefulWidget {
   /// 是否排除游戏类 demo。默认 true：实验室语义下游戏统一由游戏中心承载。

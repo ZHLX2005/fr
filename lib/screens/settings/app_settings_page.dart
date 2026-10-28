@@ -14,7 +14,7 @@ import '../../core/nav/nav_catalog.dart';
 import '../../core/nav/nav_pins_notifier.dart';
 import '../../core/theme/state/theme_provider.dart';
 import '../../core/ui/global/nav/main.dart';
-import '../profile/theme/theme_page.dart';
+import '../containers/theme_container.dart';
 import 'const_settings.dart';
 import 'pin_editor_sheet.dart';
 import 'pinned_grid.dart';

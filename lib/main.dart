@@ -30,7 +30,7 @@ import 'app_lifecycle/fr_method_channel_translator.dart';
 import 'app_lifecycle/apk_startup_hook.dart';
 import 'app_lifecycle/crash_log_startup_hook.dart';
 import 'app_lifecycle/main_screen.dart';
-import 'screens/profile/lab/game_center_page.dart';
+import './screens/containers/game_center_container.dart';
 import 'core/ui/global_ring/global_ring_host.dart';
 import 'core/ui/global_ring/ring_enabled_provider.dart';
 import 'core/ui/lab/icons/main.dart';

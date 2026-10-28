@@ -30,18 +30,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../api/providers/api_providers.dart';
-import '../../../core/game_center/game_center_catalog.dart';
-import '../../../core/game_kit/skin/game_center_skin_spec.dart';
-import '../../../core/nav/nav_route.dart';
-import '../../../core/ui/global/empty_state/main.dart';
-import '../../../lab/lab_container.dart';
-import '../../../core/ui/global/nav/main.dart';
-import 'demo_detail_page.dart';
-import '../../../core/game_center/game_meta.dart';
-import 'game_center/game_center_cards.dart';
-import 'providers/lab_card_provider.dart';
-import 'reveal_item.dart';
+import '../../api/providers/api_providers.dart';
+import '../../core/game_center/game_center_catalog.dart';
+import '../../core/game_kit/skin/game_center_skin_spec.dart';
+import '../../core/nav/nav_route.dart';
+import '../../core/ui/global/empty_state/main.dart';
+import '../../lab/lab_container.dart';
+import '../../core/ui/global/nav/main.dart';
+import '../profile/lab/demo_detail_page.dart';
+import '../../core/game_center/game_meta.dart';
+import '../profile/lab/game_center/game_center_cards.dart';
+import '../profile/lab/providers/lab_card_provider.dart';
+import '../profile/lab/reveal_item.dart';
 
 class GameCenterPage extends ConsumerStatefulWidget {
   const GameCenterPage({super.key});

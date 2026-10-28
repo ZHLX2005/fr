@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaodouzi_fr/lab/lab_bootstrap.dart';
-import 'package:xiaodouzi_fr/screens/profile/lab/game_center_page.dart';
-import '../../lib/core/game_center/game_meta.dart';
+import 'package:xiaodouzi_fr/screens/containers/game_center_container.dart';
+import 'package:xiaodouzi_fr/core/game_center/game_meta.dart';
 
 Future<void> _pump(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});

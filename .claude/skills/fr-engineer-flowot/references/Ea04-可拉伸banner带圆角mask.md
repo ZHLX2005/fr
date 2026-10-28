@@ -9,7 +9,7 @@ description: 顶部 App Bar 样式 · 子类方案 —— 可拉伸 Banner + 圆
 
 视觉目标（一句话）：顶部一张可点击的大图/渐变 banner，下拉 overscroll 时整个 banner 区域被拉伸成弹性区域再回弹，banner 与下方列表之间是**无可见接缝的圆角过渡**，列表背景色"贴进"AppBar 下方。
 
-落地代码段参考 `lib/screens/profile/profile_page.dart`（search: `flexibleSpace`）。
+落地代码段参考 `lib/screens/containers/profile_container.dart`（search: `flexibleSpace`）。
 
 ---
 

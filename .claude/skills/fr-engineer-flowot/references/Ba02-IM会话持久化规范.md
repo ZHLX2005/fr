@@ -1,6 +1,6 @@
 # Ba02 — IM 会话持久化规范
 
-> **适用范围**：`lib/screens/chat/home_page.dart` 下登记的真实 chat 入口，以及未来新增的水平扩展入口。当前入口以代码为准（Agent、Format、小票 OCR、系统事件、pi 等）。
+> **适用范围**：`lib/screens/containers/ai_container.dart` 下登记的真实 chat 入口，以及未来新增的水平扩展入口。当前入口以代码为准（Agent、Format、小票 OCR、系统事件、pi 等）。
 >
 > 这是**新增/接入会话的规范**，不是“所有现存入口已全部达标”的现状声明。现存 gap 明确写在 §4。
 
@@ -9,7 +9,7 @@
 一个 chat 入口 = 一个会话域（session domain）。持久化单位是整个会话列表（用户消息 + AI 返回 + 确认状态），不是单条消息的临时对象。
 
 ```text
-lib/screens/chat/home_page.dart（entries = 水平扩展点）
+lib/screens/containers/ai_container.dart（entries = 水平扩展点）
   Agent    → AgentChatProvider      → prefs: agent_chat_messages
   Format   → MessagePanelController → 纯内存（已知 gap，见 §4）
   小票 OCR → ReceiptOcrHistoryStore → prefs: receipt_ocr_history + docs 图片

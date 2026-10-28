@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:xiaodouzi_fr/screens/profile/lab/lab_page.dart';
+import '../../../screens/containers/lab_container.dart';
 import '../fr_route_handler.dart';
 
 /// fr://lab → LabPage 首页

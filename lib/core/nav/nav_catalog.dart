@@ -10,15 +10,15 @@
 import 'package:flutter/material.dart';
 
 import '../../lab/lab_container.dart';
-import '../../screens/chat/home_page.dart';
+import '../../screens/containers/ai_container.dart';
 import '../../screens/profile/lab/demo_detail_page.dart';
 import '../game_center/game_meta.dart';
-import '../../screens/profile/lab/game_center_page.dart';
-import '../../screens/profile/lab/lab_page.dart';
-import '../../screens/profile/profile_page.dart';
-import '../../screens/profile/theme/theme_page.dart';
+import '../../screens/containers/game_center_container.dart';
+import '../../screens/containers/lab_container.dart';
+import '../../screens/containers/profile_container.dart';
+import '../../screens/containers/theme_container.dart';
 import '../ui/lab/icons/main.dart';
-import '../focus/focus_home_page.dart';
+import '../../screens/containers/time_container.dart';
 import 'nav_builder_registry.dart';
 import 'nav_entry.dart';
 

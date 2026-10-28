@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'providers/focus_provider.dart';
-import 'focus_timer_page.dart';
-import '../timetable/timetable.dart';
-import 'time_tools/const_time_pages.dart';
+import '../../core/focus/providers/focus_provider.dart';
+import '../../core/focus/focus_timer_page.dart';
+import '../../core/timetable/timetable.dart';
+import '../../core/focus/time_tools/const_time_pages.dart';
 import '../../lab/lab_container.dart';
 import '../../core/schema/fr_navigator.dart';
 import '../../core/ui/global/zen/main.dart';
-import '../ui/global/nav/main.dart';
+import '../../core/ui/global/nav/main.dart';
 
 /// 工具列表项：registry demo（按 slug 走 DemoDetailPage）；内部页（带 onTap）。
 /// onTap 只在内部页使用；registry 项 onTap 由父级 build 中按 slug 派生。

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'native_controller/native_controller_page.dart';
-import 'lab/lab_page.dart';
-import 'lab/game_center_page.dart';
+import '../profile/native_controller/native_controller_page.dart';
+import 'lab_container.dart';
+import 'game_center_container.dart';
 import '../../lab/lab_container.dart';
-import 'banner_crop_page.dart';
-import 'theme/theme_page.dart';
+import '../profile/banner_crop_page.dart';
+import 'theme_container.dart';
 import '../../core/ui/global/renderers/main.dart';
 import '../../core/ui/global/nav/main.dart';
-import 'character_profile_page.dart';
+import '../profile/character_profile_page.dart';
 import '../../core/ui/global/notification/main.dart';
 
 /// App 级 banner 路径缓存。

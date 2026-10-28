@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:xiaodouzi_fr/screens/profile/profile_page.dart';
-import 'package:xiaodouzi_fr/screens/chat/home_page.dart';
-import 'package:xiaodouzi_fr/core/focus/focus_home_page.dart';
+import '../../../screens/containers/profile_container.dart';
+import '../../../screens/containers/ai_container.dart';
+import '../../../screens/containers/time_container.dart';
 import 'package:xiaodouzi_fr/core/timetable/presentation/timetable_page.dart';
 import '../fr_route_handler.dart';
 

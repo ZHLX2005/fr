@@ -30,9 +30,9 @@ timePage 标记位 (DemoPage 上加一根 bool 旗)
 | `extension DemoTimePageFilter` | 同上 | `demoRegistry.getAll().filterByTimePage()`，与 `filterByType` 对称 |
 | `class TimePageMeta` + `kTimePageMeta` | `lib/core/focus/time_tools/const_time_pages.dart` | slug → 展示元数据 (label/icon/color/featured) 的 const 表，**不 import 任何 demo 实现文件** |
 | `timePageMetaOf(slug)` + `kFallbackTimePageMeta` | 同上 | 查表函数 + 占位 fallback |
-| `class _ToolItem` (`.registry` / `.internal`) | `lib/core/focus/focus_home_page.dart` | 把「demo 入口」和「内部页入口」统一渲染列表，避免分支 |
+| `class _ToolItem` (`.registry` / `.internal`) | `lib/screens/containers/time_container.dart` | 把「demo 入口」和「内部页入口」统一渲染列表，避免分支 |
 
-**当前主页骨架（2026-10 核对 `lib/core/focus/focus_home_page.dart`）**：
+**当前主页骨架（2026-10 核对 `lib/screens/containers/time_container.dart`）**：
 - 问候语 `_buildGreeting` → 今日专注卡 `_buildTodayCard`（浅色主题 sage 渐变 / 深色主题 surfaceContainerHighest+边框，可点 → `FocusTimerPage()`）
 - `GridView.builder(crossAxisCount: 2, childAspectRatio: 1.6)`：注册的 timePage demo（`filterByTimePage` + `kTimePageMeta` 查表）+ 固定「时间课表」内部项（直接 push `TimetablePage`）
 - **没有精选大卡/统计入口**；`TimePageMeta.featured` 字段仍在 metadata 中但当前主页不消费，别按旧结构补 UI
@@ -186,7 +186,7 @@ flutter analyze lib/core/focus/ lib/lab/ && echo OK
 
 ## 三、修改 Focus 主页入口面板
 
-> 入口位置：`lib/core/focus/focus_home_page.dart` 是唯一需要修改的文件。
+> 入口位置：`lib/screens/containers/time_container.dart` 是唯一需要修改的文件。
 > 改 demo 注册 / 改 kTimePageMeta 等加新 demo 操作 → 走第二章。
 > 改统计 / 心流空间 → 走第四章。
 
@@ -244,7 +244,7 @@ _ToolItem.internal(
 
 每次改布局后跑：
 ```bash
-flutter analyze lib/core/focus/focus_home_page.dart
+flutter analyze lib/screens/containers/time_container.dart
 ```
 
 进入中间 tab 手动验证 4 类 tap：今日专注卡 / 精选大卡 / 内部 grid（统计/课表）/ registry grid。
@@ -341,7 +341,7 @@ Widget _buildModeDistribution(FocusProvider fp) { ... }
 
 **重要**：timePage demo 不动 Lab 过滤的运行时路径，只动 `_demos` 初始化的过滤逻辑。删除过滤会把 timePage demo 也放进 Lab。
 
-### Lab 过滤机制（`lib/screens/profile/lab/lab_page.dart`）
+### Lab 过滤机制（`lib/screens/containers/lab_container.dart`）
 
 ```dart
 final all = demoRegistry.getAll().where((e) => !e.value.timePage);   // ← 不变量 A
@@ -394,7 +394,7 @@ class LabDemoHandler extends FrRouteHandler {
 完成后 grep 这几条：
 
 ```bash
-grep -rn "where.*timePage" lib/screens/profile/lab/lab_page.dart   # Lab 过滤还在
+grep -rn "where.*timePage" lib/screens/containers/lab_container.dart   # Lab 过滤还在
 grep -rn "filterByTimePage" lib/                                   # 还在用扩展（不要 inlined）
 grep -rn "fr://lab/demo/clock" lib/main.dart                       # 桌面 widget 链可达
 grep -rn "timePage" lib/core/schema/handlers/lab_demo_handler.dart  # 应该不命中（路由不感知）
