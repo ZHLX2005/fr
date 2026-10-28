@@ -9,6 +9,7 @@ import 'timetable_advanced_settings_page.dart';
 import 'timetable_anime_editor_page.dart';
 import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
+import 'advanced/shared/zen_controls.dart';
 import '../../../../core/ui/global/zen/main.dart';
 import '../../../../core/ui/global/section/main.dart';
 import '../../../../core/ui/global/notification/main.dart';
@@ -180,7 +181,7 @@ class _TimetableSettingsPageState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _ZenActionButton(
+                ZenActionButton(
                   icon: Icons.tune,
                   label: '打开高级设置（周期/日期/左侧指示/DSL）',
                   onPressed: _openAdvanced,
@@ -201,13 +202,13 @@ class _TimetableSettingsPageState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ZenActionButton(
+            ZenActionButton(
               icon: Icons.schedule,
               label: '打开排期编辑（剧模型 CRUD）',
               onPressed: _openAnimeEditor,
             ),
             const SizedBox(height: 8),
-            _ZenActionButton(
+            ZenActionButton(
               icon: Icons.movie_outlined,
               label: '从开放 API 导入番剧',
               onPressed: _openAnimeImport,
@@ -229,7 +230,7 @@ class _TimetableSettingsPageState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _ZenActionButton(
+            ZenActionButton(
               icon: Icons.school,
               label: 'SICAU 课表导入',
               onPressed: _openSicauImport,
@@ -249,7 +250,7 @@ class _TimetableSettingsPageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ZenActionButton(
+          ZenActionButton(
             icon: Icons.edit_note,
             label: '通用模式：在高级设置导入 DSL',
             onPressed: _openAdvanced,
@@ -346,7 +347,7 @@ class _TimetableSettingsPageState
     return Row(
       children: [
         Expanded(
-          child: _ZenSegmentButton(
+          child: ZenSegmentButton(
             label: '学校模式',
             selected: _isSchoolMode && !_isAnimeMode,
             onTap: () => setState(() {
@@ -357,7 +358,7 @@ class _TimetableSettingsPageState
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _ZenSegmentButton(
+          child: ZenSegmentButton(
             label: '通用模式',
             selected: !_isSchoolMode && !_isAnimeMode,
             onTap: () => setState(() {
@@ -368,7 +369,7 @@ class _TimetableSettingsPageState
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _ZenSegmentButton(
+          child: ZenSegmentButton(
             label: '追剧模式',
             selected: _isAnimeMode,
             onTap: () => setState(() {
@@ -383,74 +384,3 @@ class _TimetableSettingsPageState
 }
 
 // ──────────────────── Zen 风格子组件 ────────────────────
-
-class _ZenSegmentButton extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ZenSegmentButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? context.colors.accent.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-          border: Border.all(
-            color: selected ? context.colors.accent : context.colors.outline,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? context.colors.accent : context.colors.textMuted,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ZenActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-  final bool secondary;
-
-  const _ZenActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.secondary = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = secondary ? context.colors.textMuted : context.colors.accent;
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        style: zenButtonTheme(context,
-          foreground: color,
-          border: color.withValues(alpha: 0.5),
-        ),
-        icon: Icon(icon, size: 18),
-        label: Text(label, style: ZenText.button.copyWith(color: color)),
-      ),
-    );
-  }
-}
