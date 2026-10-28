@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../ui/atomic/base_empty_state.dart';
+import '../ui/global/empty_state/main.dart';
 import '../ui/shell/app_notification.dart';
 import 'share_receive_store.dart';
 

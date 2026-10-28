@@ -14,7 +14,7 @@ import '../../../core/ui/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
 import 'relation_calc_models.dart';
 import 'relation_engine.dart';
-import '../../../core/ui/atomic/base_section.dart';
+import '../../../core/ui/global/section/main.dart';
 
 class CalcView extends StatefulWidget {
   const CalcView({super.key, required this.data});

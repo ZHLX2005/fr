@@ -7,8 +7,8 @@ import 'package:xiaodouzi_fr/lab/demos/clock/providers/lab_track_provider.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_editor_page.dart';
 import 'package:xiaodouzi_fr/lab/demos/clock/widgets/track_runner_page.dart';
 import 'package:xiaodouzi_fr/core/ui/zen/zen_theme.dart';
-import '../../../../core/utils/time_format.dart';
-import '../../../../core/ui/atomic/base_empty_state.dart';
+import '../../../../core/utils/format/main.dart';
+import '../../../../core/ui/global/empty_state/main.dart';
 import '../../../../core/ui/atomic/base_dialog.dart';
 
 /// Tracks tab content. Plain widgets — the shell owns the Scaffold/FAB.

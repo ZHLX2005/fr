@@ -5,7 +5,7 @@ import '../../presentation/timetable_store.dart';
 import 'anime_dsl_generator.dart';
 import '../../../ui/zen/zen_theme.dart';
 import '../../../ui/zen/zen_date_picker.dart';
-import '../../../../core/ui/atomic/base_empty_state.dart';
+import '../../../../core/ui/global/empty_state/main.dart';
 import '../../../../core/ui/atomic/base_dialog.dart';
 import '../../../../core/ui/shell/app_notification.dart';
 

@@ -11,7 +11,7 @@ import 'package:xiaodouzi_fr/core/ui/zen/zen_theme.dart'
 import 'metronome/const_metronome.dart';
 import 'metronome/metronome_controller.dart';
 import 'metronome/metronome_widgets.dart';
-import '../../core/ui/atomic/base_section.dart';
+import '../../core/ui/global/section/main.dart';
 
 /// 节拍器 Demo
 class MetronomeDemo extends DemoPage {

@@ -3,7 +3,44 @@
 > 任务来源：fr 队列 #7「组件/工具函数收敛到 lib/core/ui/」。
 > 本轮深度：**只搬运 + 改 import，不改行为、不改调用方写法**。
 > 判定依据：Ec01（分层契约）/ Ec02（现状基线 2026-10-23）/ Ec03（位置地图）。
-> 状态：**已确认执行**（2026-10-28 用户裁决）：M2 → 新建 `lib/core/ui/chat/`；M3 → 新建 `lib/core/utils/`；C1–C3 本轮不做、另立任务；D1 本轮不动、归任务 #8。
+> 状态：**首轮（#7 主体）已完成并提交**（6eb1a29d + 17b5bd72）。2026-10-28 用户给出细粒度目录规范后，转入 /loop 9 轮迭代（见下节）。
+> 任务 #8（game 代码/配置抽离）已领取、暂停，待 loop 结束后继续。
+
+## 0. rp-loop：细粒度目录规范与 9 轮阶梯（2026-10-28 用户拍板）
+
+**目录规范**：
+- 全局类组件：`lib/core/ui/global/<类别>/main.dart` —— 一类一目录，`main.dart` 是唯一入口。
+  类别总行数 ≤ ~400 行时 main.dart 直接装下全部代码；超出时 main.dart 做 barrel、实现文件同目录并列。
+- 工具函数：`lib/core/utils/<类别>/main.dart`，同粒度。
+- 非全局件不动：`lib/core/ui/global_ring/`（特性件）、`lib/core/ui/lab/`（lab 域件）留在原位。
+
+**类别划分**：button / nav / dialog / dot / section / empty_state / swipe_action / notification / chat / zen / game / renderers。
+
+**9 轮阶梯**（每轮一个可验证批次，完成即在文末「进度记录」追加）：
+
+| 轮 | 批次 |
+|---|---|
+| R1 | 规范落档 + 单文件小类别迁移：dot / section / empty_state / swipe_action + utils/format |
+| R2 | notification（41 消费方）+ dialog（base_dialog + base_ios_dialog 合并目录） |
+| R3 | button 族（base_button + emphasis_button + base_icon_button）+ nav 族（app_nav_bar + nav_entry_icon + quick_nav_bottom_bar） |
+| R4 | chat（pi_chat_style + pi_day_divider）+ zen（zen_theme + zen_date_picker） |
+| R5 | renderers（6 文件，barrel 模式） |
+| R6 | game 族（10 文件，barrel 模式） |
+| R7 | C1 RtRoundIconButton→BaseIconButton 玻璃变体合并；C2 RtConnDot→BaseStatusPill；C3 zen_controls↔_Zen* 归一 |
+| R8 | 工具收编第一批：formatFileSize×3、formatDate、formatBytes 等私有重复 → utils 共享件（改调用点） |
+| R9 | 终检：analyze/test 全闸 + 旧路径零残留 grep + Ec01/Ec02/Ec03 文档同步 + 基线数据刷新 |
+
+**每轮验证闸**：`flutter analyze lib` 新增 error/warning = 0（存量基线 152 issues / 6 warnings）；涉及测试面则 `flutter test`（基线失败 10 项为环境项：Notion 无 token ×6、relay 真服务器 ×1、line 计时 ×2，不得新增失败）；旧路径 grep 零残留。
+**每轮提交**：Conventional Commits；显式路径 add（禁 `git add .`；test/ 白名单外已跟踪文件用 `git add -f`）。
+
+## 进度记录
+
+### R1（2026-10-28）
+
+- 计划：迁移 dot / section / empty_state / swipe_action 四个单文件类别到 `ui/global/<cat>/main.dart`；time_format.dart → `utils/format/main.dart`；更新全部消费方 import。
+- 结果：待执行。
+
+
 
 ## 1. 纯搬运（零 API 变化，git mv / 文件拆分 + import 更新）
 

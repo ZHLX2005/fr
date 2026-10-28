@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../../../core/ui/atomic/base_empty_state.dart';
+import '../../../core/ui/global/empty_state/main.dart';
 import '../../../services/message_strategy/factory/message_widget_factory.dart';
 import 'system_events_controller.dart';
 

@@ -7,7 +7,7 @@ import '../../../core/theme/context/colors.dart';
 
 import '../../../core/ui/zen/zen_theme.dart';
 import 'const_relation_calc.dart';
-import '../../../core/ui/atomic/base_section.dart';
+import '../../../core/ui/global/section/main.dart';
 import '../../../core/ui/atomic/base_dialog.dart';
 
 class PresetView extends StatelessWidget {

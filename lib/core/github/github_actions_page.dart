@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../ui/atomic/base_empty_state.dart';
+import '../ui/global/empty_state/main.dart';
 import '../ui/shell/emphasis_button.dart';
 import 'github_actions_models.dart';
 import 'github_actions_service.dart';

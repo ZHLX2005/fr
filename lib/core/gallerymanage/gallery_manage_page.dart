@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../services/gallery_service.dart';
-import '../ui/atomic/base_empty_state.dart';
+import '../ui/global/empty_state/main.dart';
 import '../ui/shell/emphasis_button.dart';
 import '../ui/atomic/base_ios_dialog.dart';
 

@@ -5,11 +5,11 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/extensions/color_strategy_extension.dart';
-import '../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
-import '../../../core/theme/colors/strategy/color_strategy/themes/default.dart';
-import '../../../design_tokens/radius.dart';
-import '../../../design_tokens/spacing.dart';
+import '../../../../core/theme/extensions/color_strategy_extension.dart';
+import '../../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../../../../core/theme/colors/strategy/color_strategy/themes/default.dart';
+import '../../../../design_tokens/radius.dart';
+import '../../../../design_tokens/spacing.dart';
 
 class BaseSection extends StatelessWidget {
   const BaseSection({

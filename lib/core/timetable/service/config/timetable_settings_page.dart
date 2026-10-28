@@ -11,7 +11,7 @@ import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
 import '../../../../core/ui/zen/zen_theme.dart';
 import '../../../../core/ui/zen/zen_date_picker.dart';
-import '../../../../core/ui/atomic/base_section.dart';
+import '../../../../core/ui/global/section/main.dart';
 import '../../../../core/ui/shell/app_notification.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 起始日期 UX + 数据来源预设。

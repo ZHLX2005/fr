@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../ui/atomic/base_empty_state.dart';
+import '../../ui/global/empty_state/main.dart';
 import '../services/debug_log_service.dart';
 
 class NetEngineDebugPage extends StatelessWidget {

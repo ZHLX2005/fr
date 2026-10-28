@@ -34,7 +34,7 @@ import '../../../api/providers/api_providers.dart';
 import '../../../core/game_kit/game_center_catalog.dart';
 import '../../../core/game_kit/skin/game_center_skin_spec.dart';
 import '../../../core/nav/nav_route.dart';
-import '../../../core/ui/atomic/base_empty_state.dart';
+import '../../../core/ui/global/empty_state/main.dart';
 import '../../../lab/lab_container.dart';
 import '../../../core/ui/shell/quick_nav_bottom_bar.dart';
 import 'demo_detail_page.dart';
