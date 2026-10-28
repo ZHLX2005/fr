@@ -203,3 +203,11 @@
 - 遗留标记（N7）：`ui/game/chat/main.dart` 单文件 1030 行、`ui/global/renderers/image_picker_widget.dart` 555 行，均超 400 行阈值。
 - 验证：analyze lib 152 持平；test 失败集合与基线一致（全为环境项）。
 - 下轮（N5）：跨域错位扫描——业务模块内被 ≥2 个域消费的 UI 件（Ec03 §4 剩余项之外的新发现），需上收 global 或域级 ui。
+
+### N5（2026-10-28，commit df9091ac）
+
+- 扫描：业务模块内无「被 ≥2 业务域消费的通用 UI 件」遗留（jungle/surround 跨消费均在游戏域内）；global 层职责已完整。
+- 反向错位修复：price_compare 领域模型（127 行，含 PriceRow/PriceTopic/PriceTopicSummary + 格式化）住在 lab demo 却被 core/storage Hive 仓库 + services 策略 + demo 三方消费 → 模型上收 `lib/core/price_compare/price_compare_models.dart`；主题选择 sheet → `lib/core/ui/price_compare/topic_picker/main.dart`。
+- 标记未修（语义改动）：`core/focus/focus_home_page.dart` 直接 import `screens/profile/lab/demo_detail_page.dart`（业务层向上依赖应用层），正确解是改走 fr:// 路由——留 N6 评估或独立任务。
+- 验证：analyze lib 152 持平；flutter test +1266 ~3 -10 与基线一致。
+- 下轮（N6）：依赖方向复核——逻辑层（game_kit/net_engine/message_net/theme）禁 import core/ui 全量扫描；业务层向上依赖清单与处置。
