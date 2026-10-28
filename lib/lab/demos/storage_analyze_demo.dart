@@ -13,6 +13,7 @@ import '../../core/storage/export/storage_importer.dart';
 import '../../core/note/note_root_scope.dart';
 import '../lab_container.dart';
 import '../../core/ui/global/button/main.dart';
+import '../../../core/utils/format/main.dart';
 
 /// 存储分析 Demo
 class StorageAnalyzeDemo extends DemoPage {
@@ -315,12 +316,6 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
     return false;
   }
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
-  }
-
   Color _getSizeColor(int size) {
     if (size < 1024) return Theme.of(context).colorScheme.primary;
     if (size < 10 * 1024) return Theme.of(context).colorScheme.tertiary;
@@ -354,7 +349,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                 ),
                 _StatItem(
                   label: '总数据量',
-                  value: _formatSize(
+                  value: formatFileSize(
                     _storageList.fold(0, (sum, info) => sum + info.size) +
                         _noteSummary.totalSize,
                   ),
@@ -442,7 +437,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                         info: info,
                         keys: keys,
                         expandedKeys: _expandedKeys,
-                        formatSize: _formatSize,
+                        formatSize: formatFileSize,
                         getSizeColor: _getSizeColor,
                         onKeyTap: (detail) =>
                             _showKeyDetail(context, info, detail),
@@ -464,7 +459,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                         notes: _noteList,
                         noteSummary: _noteSummary,
                         isExpanded: _expandedKeys.contains('__notes__'),
-                        formatSize: _formatSize,
+                        formatSize: formatFileSize,
                         onToggleExpand: () {
                           setState(() {
                             if (_expandedKeys.contains('__notes__')) {
@@ -491,7 +486,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
       backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => _NotePreviewSheet(
         note: note,
-        formatSize: _formatSize,
+        formatSize: formatFileSize,
         onDelete: () {
           Navigator.pop(context);
           _deleteNote(note);
@@ -617,7 +612,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               Text('文件数: ${_mediaFiles.length}'),
-              Text('总大小: ${_formatSize(totalSize)}'),
+              Text('总大小: ${formatFileSize(totalSize)}'),
             ],
           ),
         ),
@@ -629,7 +624,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
               final file = _mediaFiles[index];
               return _MediaFileCard(
                 file: file,
-                formatSize: _formatSize,
+                formatSize: formatFileSize,
                 getSizeColor: _getSizeColor,
                 onTap: () => _previewFile(context, file),
                 onDelete: () => _deleteFile(file),
@@ -702,7 +697,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     Text(
-                      '${file.type} · ${_formatSize(file.size)}',
+                      '${file.type} · ${formatFileSize(file.size)}',
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54)),
                     ),
                     TextButton.icon(
@@ -742,7 +737,7 @@ class _StorageAnalyzePageState extends ConsumerState<_StorageAnalyzePage>
       builder: (context) => _KeyDetailSheet(
         info: info,
         detail: detail,
-        formatSize: _formatSize,
+        formatSize: formatFileSize,
         onDelete: () {
           Navigator.pop(context);
           _deleteKey(info, detail.key);

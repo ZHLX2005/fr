@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/context/colors.dart';
 import 'sudoku_error_badge.dart';
+import '../../../core/utils/format/main.dart';
 
 /// 单方玩家信息：昵称 + 已填数 + 错误数 + 是否完成。
 class SudokuPlayerInfo {
@@ -124,7 +125,7 @@ class SudokuOpponentStrip extends StatelessWidget {
             ),
             if (info.elapsed != null)
               Text(
-                _formatDuration(info.elapsed!),
+                formatTime(info.elapsed!.inSeconds),
                 style: TextStyle(color: colors.textMuted, fontSize: 11),
               ),
           ],
@@ -133,9 +134,4 @@ class SudokuOpponentStrip extends StatelessWidget {
     );
   }
 
-  static String _formatDuration(Duration d) {
-    final m = d.inMinutes.toString().padLeft(2, '0');
-    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
 }

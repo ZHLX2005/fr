@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/focus_session.dart';
+import '../../../core/utils/format/main.dart' as fmt;
 
 enum TimerState { idle, running, paused }
 
@@ -139,15 +140,8 @@ class FocusTimerProvider extends ChangeNotifier {
     return session;
   }
 
-  String formatTime(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
+  /// 计时显示：委托共享实现（与 demo 层 utils/format 同源，且多一层负数保护）。
+  String formatTime(int seconds) => fmt.formatTime(seconds);
 
   @override
   void dispose() {
