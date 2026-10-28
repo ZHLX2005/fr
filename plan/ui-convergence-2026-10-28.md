@@ -148,3 +148,36 @@
 | N7 | 收编遗留：image_picker_widget 555 行拆分、BaseButton 死代码裁决执行 |
 | N8 | Ec01/Ec02/Ec03 文档同步到新结构；引用路径全量校对 |
 | N9 | 终检：analyze/test 全闸、旧路径零残留、目录树与规范逐条比对 |
+
+### N1（2026-10-28）职责盘点结论
+
+统计口径：import/export 图按消费方文件所在顶层域聚合（脚本见本会话；`core/__infra__` = 共享层内部消费，不计入业务域）。
+
+| 组件 | 消费文件数 | 消费域 | 结论 |
+|---|---:|---|---|
+| global/button | 42 | github / surround_game / timetable / word_drag / screens/profile / lab×2 / … | **global 保留** |
+| global/dialog | 24 | ai_chat / timetable / clock / chess / remotetype / relation_calc / doubletime / draughts | **global 保留** |
+| global/notification | 40 | ai_chat / screens/profile / chess / timetable / remotetype / doubletime / draughts / … | **global 保留** |
+| global/nav | 20 | line / screens/profile / screens/settings / focus / remotetype / app_lifecycle / ai_chat / novel_reader | **global 保留** |
+| global/empty_state | 12 | github / clock / ai_chat / gallerymanage / share_receive / timetable / recorder | **global 保留** |
+| global/section | 8 | timetable / clock / relation_calc / metronome / recorder | **global 保留** |
+| global/zen | 25 | timetable(7) / clock(7) / recorder(3) / relation_calc(3) / focus | **global 保留** |
+| global/renderers | 8（+barrel） | screens/profile(4) / services(3) / timetable(1) | **global 保留** |
+| global/dot | 3 | clock(2) / recorder(1) | 临界（2 个 demo 域）→ **暂留 global**，若用户要求严格按单域判定再移 |
+| global/swipe_action | 1 | clock | **单域** → `ui/lab/clock/swipe_action/main.dart`（N3 处理） |
+| global/chat（PiChat 三件） | 3 | ai_chat | **单域** → `ui/ai_chat/chat/main.dart`（N3 处理） |
+| **global/game（10 文件 3679 行）** | 26（barrel） | chess / draughts / sudoku / xiangqi / 各 lua demo | **单域（游戏域）** → 拆 `ui/game/<类别>/`（N2） |
+
+**ui/game 类别映射（N2 执行）**：
+
+| 现文件 | 目标 |
+|---|---|
+| game_lobby_page.dart、_lobby_form.dart、relay_v3_lobby.dart、lobby_participants.dart | `ui/game/home/main.dart`（大厅/入口 + 参与者圆环，4 件 ≤400 行则合并，否则 barrel） |
+| game_ready_style.dart | `ui/game/ready/main.dart`（就绪六件套） |
+| board_chat_overlay.dart | `ui/game/chat/main.dart` |
+| emoji_overlay.dart、emoji_panel.dart | `ui/game/emoji/main.dart`（2 件合并） |
+| relay_connection_bar.dart、relay_connection_status_badge.dart | `ui/game/relay/main.dart`（2 件合并） |
+
+**域定义**：game = 全部对局/联机游戏（chess/draughts/sudoku/xiangqi/reversi/jungle_chess/surround_game + 9 个 lua demo）；ui/game/ 内部再按类别分 main.dart。
+
+**N1 结论**：global 八大类别中 7 个确为跨域（button/dialog/notification/nav/empty_state/section/zen/renderers）；错位项 = global/game（整域）、global/chat（单域 ai_chat）、global/swipe_action（单域 clock）、global/dot（临界，维持）。
