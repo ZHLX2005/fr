@@ -5,7 +5,7 @@ import 'focus_timer_page.dart';
 import '../timetable/timetable.dart';
 import 'time_tools/const_time_pages.dart';
 import '../../lab/lab_container.dart';
-import '../../screens/profile/lab/demo_detail_page.dart';
+import '../../core/schema/fr_navigator.dart';
 import '../../core/ui/global/zen/main.dart';
 import '../ui/global/nav/main.dart';
 
@@ -134,12 +134,9 @@ class FocusHomePage extends StatelessWidget {
   }
 
   void _openDemo(BuildContext context, String slug) {
-    final demo = demoRegistry.getBySlug(slug);
-    if (demo == null) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => DemoDetailPage(demo: demo)),
-    );
+    // 走 fr:// 路由分发（原直连 import DemoDetailPage 属业务层向上依赖应用层；
+    // 2026-10-28 职责清晰重构 N6 改为路由分发，与 schema 入口行为一致）。
+    FrNavigator.handle(context, 'fr://lab/demo/$slug');
   }
 
   // 问候语 + 今日专注卡（沿用 sage 渐变 + 小时/分钟渲染）。
