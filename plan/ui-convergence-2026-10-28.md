@@ -120,3 +120,31 @@
 4. 本仓 Dart 禁空感知元素语法（`?[]`/`?{}`，hive_generator 锁 analyzer 6.x）。
 5. 验证闸：`flutter analyze lib` 0 error/0 warning + `flutter test` 全量全绿 + `dart run build_runner build --delete-conflicting-outputs`（A08 要求）。
 6. commit 用 Conventional Commits；commit 前逐条 `git status` 核对归属，禁 `git add .`。
+
+### R7（2026-10-28，commits 6dc46ae4 / 825828a4 / ace223cf）
+
+- C1（6dc46ae4）：`BaseIconButton` 新增 `glass` variant（实现自 RtRoundIconButton），rt_page 两处迁移，删除域内自造件；布局胶囊测试同步迁移。
+- C2（825828a4）：**RtConnDot 实为零引用死代码**（全仓仅定义处），按 Ec01 零引用裁决**直接删除**，不新建 BaseStatusPill（给死代码造新家没有意义）。
+- C3（ace223cf）：timetable_settings_page 的 `_ZenSegmentButton`/`_ZenActionButton` 私有重复对改用共享 `zen_controls.dart`（8 处调用点）。
+- 验证：analyze 152 持平；flutter test +1266 ~3 -10 与基线一致。
+- 经验：删类/改 API 后必须 grep **test/** 引用（`test/core/remotetype/rt_layout_capsule_test.dart` 因引用被删类导致整文件编译失败，表现为 `loading ... [E]`，不在常规失败列表里显眼）。
+
+## 第二轮 9 轮：职责清晰重构（2026-10-28 用户新裁决）
+
+**规范修正**：`ui/global/` 只放**真正的全局组件**（跨域复用）；游戏/其他专类组件按域拆出：
+`ui/<域>/<类别>/main.dart`，示例：`ui/game/button/main.dart`、`ui/game/home/main.dart`。
+判定口径：被 ≥2 个域消费 → `ui/global/`；只服务一个域 → 该域 `ui/<域>/<类别>/`。
+
+**现状问题**：`ui/global/game/` 10 文件 3679 行是联机游戏专用件，放全局层属职责错位；其余 global 类别也需逐件核验消费面。
+
+| 轮 | 批次 |
+|---|---|
+| N1 | 全量职责盘点：每个 ui 组件 → 消费域集合 → 归属结论（global / 某域），落本文件表格 |
+| N2 | 拆 `ui/global/game/` → `ui/game/<类别>/`（按消费面细分，如 button/home/lobby/chat/emoji/relay） |
+| N3 | global 其余类别逐件核验归位（chat/zen/renderers/notification 等，只服务单域的移出） |
+| N4 | 域内（game）细分类别整理与 barrel 校正 |
+| N5 | 其余业务域（remotetype/line/note/ai_chat 等）内 UI 组件的域级 ui/ 目录建立 |
+| N6 | 跨域引用清理：域间互引检查、依赖方向复核（逻辑层禁 import UI） |
+| N7 | 收编遗留：image_picker_widget 555 行拆分、BaseButton 死代码裁决执行 |
+| N8 | Ec01/Ec02/Ec03 文档同步到新结构；引用路径全量校对 |
+| N9 | 终检：analyze/test 全闸、旧路径零残留、目录树与规范逐条比对 |
