@@ -302,3 +302,15 @@
 ### 扫描结论
 - demo 层**跨 demo 逐字重复**仅集中在 7 个 lua 联机游戏；本轮已把其中「协议访问器 + 权限判定 + 通用 UI 件」全部归位。
 - 余下相似部分是「结构相似但内容私有」的对局页骨架，需要策略化重构（Ec02 S3），不是复制粘贴式解耦。
+
+## 对局页骨架收敛（2026-10-28，续）
+
+在 demo 遍历审计判定「骨架属 S3 独立重构」后，进一步逐函数比对发现三处**逐字相同**，已按解耦标准落地：
+
+| 函数 | 重复面 | 归属 | commit |
+|---|---|---|---|
+| `_buildLobby()` | go/gomoku/surround 三 demo × ~130 行，差异仅 Room 类名 | `ui/game/lobby/main.dart` → `GameLobbyBody`（组件体自原文逐字搬移） | 1eeae13e |
+| `_buildPlaying()` 外壳 | go/gomoku 逐字相同（surround 结构不同，不参与） | `ui/game/playing/main.dart` → `GamePlayingScaffold` + `GamePlayingAction` | 01f4f226 |
+| `_GridPainter` | go/gomoku（格数常量不同） | `ui/game/board/main.dart` → `GameGridPainter` | 8b76dc97 |
+
+剩余未抽：`_buildPlaying` 的棋盘/回合条/待确认槽内容（游戏私有）、`_buildFinished`（终局文案与棋盘展示差异较大）、surround 对局区（触摸层结构不同）。这些属「结构相似但内容私有」，抽离需策略对象化，收益低于风险。
