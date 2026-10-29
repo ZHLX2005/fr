@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_print
+// 本文件是诊断 / e2e 链路脚本，控制台输出即测试结果本身，
+// 不属于 avoid_print 所指的「生产代码」。
 // 验证 Notion date mention 时区修复 — 用 -08:00 后缀让显示变成本地时间。
 
 import 'package:flutter_test/flutter_test.dart';

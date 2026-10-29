@@ -63,11 +63,10 @@ class FakeTransport extends RelayV3Transport {
   Map<String, dynamic>? lastParams;
   bool failWith409 = false;
 
-  FakeTransport({required String deviceId})
+  FakeTransport({required super.deviceId})
     : super(
         relayUrl: 'http://fake',
         alias: 'me',
-        deviceId: deviceId,
         httpClient: MockClient(_handler),
       );
 
@@ -115,13 +114,11 @@ class FakeRoomHandle extends RoomHandle {
 
   FakeRoomHandle({
     required FakeTransport transport,
-    required String code,
-    Snapshot? initial,
+    required super.code,
+    super.initial,
   }) : super.testCreate(
          transport: transport,
-         code: code,
          wsUrl: 'ws://fake/ws3/$code',
-         initial: initial,
        );
 
   @override

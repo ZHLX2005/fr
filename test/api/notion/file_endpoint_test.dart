@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_print
+// 本文件是诊断 / e2e 链路脚本，控制台输出即测试结果本身，
+// 不属于 avoid_print 所指的「生产代码」。
 // NotionFileEndpoint 链路测试 — 验证 3 步上传图床的完整链路。
 //
 //   1. createFileUpload — 拿 upload_id

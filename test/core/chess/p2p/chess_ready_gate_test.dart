@@ -14,7 +14,6 @@
 // RoomHandle.testCreate 注入初始快照 —— 手动 pushSnapshot 模拟 WS 广播。
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,11 +28,10 @@ import 'package:xiaodouzi_fr/core/net_engine/relay_v3/relay_v3_transport.dart';
 
 /// 真实 RelayV3Transport + MockClient（不联网）。
 class FakeTransport extends RelayV3Transport {
-  FakeTransport({required String deviceId})
+  FakeTransport({required super.deviceId})
     : super(
         relayUrl: 'http://fake',
         alias: 'me',
-        deviceId: deviceId,
         httpClient: MockClient((req) async => http.Response('{}', 200)),
       );
 }
@@ -48,13 +46,11 @@ class FakeReadyHandle extends RoomHandle {
 
   FakeReadyHandle({
     required FakeTransport transport,
-    required String code,
-    Snapshot? initial,
+    required super.code,
+    super.initial,
   }) : super.testCreate(
          transport: transport,
-         code: code,
          wsUrl: 'ws://fake/ws3/$code',
-         initial: initial,
        );
 
   @override

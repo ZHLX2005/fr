@@ -13,7 +13,6 @@
 //   E. 吃车撤权：白兵 xa8（吃 a8 黑车）→ k 权应保留、q 权应撤销
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/core/chess/constants/chess_constants.dart';
 import 'package:xiaodouzi_fr/core/chess/engine/chess_engine.dart';
 import 'package:xiaodouzi_fr/core/chess/engine/fen_codec.dart';
 import 'package:xiaodouzi_fr/core/chess/engine/make_move.dart';

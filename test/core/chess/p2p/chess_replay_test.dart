@@ -83,13 +83,11 @@ class FakeRoomHandle extends RoomHandle {
 
   FakeRoomHandle({
     required FakeTransport transport,
-    required String code,
-    Snapshot? initial,
+    required super.code,
+    super.initial,
   }) : super.testCreate(
          transport: transport,
-         code: code,
          wsUrl: 'ws://fake/ws3/$code',
-         initial: initial,
        );
 
   @override

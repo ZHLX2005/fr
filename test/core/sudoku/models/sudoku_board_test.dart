@@ -52,21 +52,19 @@ void main() {
       final p = SudokuGenerator.generate(difficulty: 'easy', seed: 3);
       final b = SudokuBoard.fromPuzzle(p);
       // 找两个空格分别试错和对
-      int? emptyR, emptyC, emptyR2, emptyC2;
-      for (int r = 0; r < 9 && (emptyR == null || emptyR2 == null); r++) {
-        for (int c = 0; c < 9; c++) {
+      final empties = <(int, int)>[];
+      for (int r = 0; r < 9 && empties.length < 2; r++) {
+        for (int c = 0; c < 9 && empties.length < 2; c++) {
           if (b.cells[r][c].value == null) {
-            emptyR ??= r;
-            emptyC ??= c;
-            if (emptyR != null && emptyR2 == null && (r != emptyR || c != emptyC)) {
-              emptyR2 = r;
-              emptyC2 = c;
-            }
+            empties.add((r, c));
           }
         }
       }
-      b.setValue(emptyR!, emptyC!, 1, isValidMove: (r, c, v) => false); // 错的
-      b.setValue(emptyR2!, emptyC2!, p.solution[emptyR2! * 9 + emptyC2!], isValidMove: (r, c, v) => true); // 对的
+      expect(empties, hasLength(2), reason: 'easy 难度应至少留两个空格');
+      final (r1, c1) = empties[0];
+      final (r2, c2) = empties[1];
+      b.setValue(r1, c1, 1, isValidMove: (r, c, v) => false); // 错的
+      b.setValue(r2, c2, p.solution[r2 * 9 + c2], isValidMove: (r, c, v) => true); // 对的
       expect(b.errorCount, 1);
     });
   });

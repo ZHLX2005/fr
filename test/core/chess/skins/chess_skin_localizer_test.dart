@@ -385,7 +385,7 @@ void main() {
       final dir = Directory('${cacheRoot.path}/chess_skins/$skinId');
       if (!dir.existsSync()) dir.createSync(recursive: true);
       final idx = <String, String>{
-        'wK': pieces?['wK'] ?? 'wK_fid'.padRight(32, 'a'),
+        'wK': pieces?['wK'] ?? fId(),
         'wQ': pieces?['wQ'] ?? 'wQ_fid'.padRight(32, 'a'),
       };
       File('${dir.path}/.skin-meta.json').writeAsStringSync(jsonEncode(idx));
@@ -405,11 +405,11 @@ void main() {
       final skinDir =
           Directory('${cacheRoot.path}/chess_skins/t1')..createSync(recursive: true);
       File('${skinDir.path}/wK.webp').writeAsBytesSync(_tinyPng);
-      writeSkinMeta('t1', pieces: {'wK': 'wK_fid'.padRight(32, 'a')});
+      writeSkinMeta('t1', pieces: {'wK': fId()});
 
       final hit = ChessSkinLocalizer.cachedPieceFile(
         't1', 'wK.webp',
-        expectedFileId: 'wK_fid'.padRight(32, 'a'),
+        expectedFileId: fId(),
       );
       expect(hit, isNotNull, reason: '已落盘 + fileId 匹配 → 应命中');
       expect(hit!.existsSync(), isTrue);
@@ -429,7 +429,7 @@ void main() {
       expect(
         ChessSkinLocalizer.cachedPieceFile(
           'nope', 'wK.webp',
-          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+          expectedFileId: fId(),
         ),
         isNull,
         reason: '未知皮肤目录返回 null',
@@ -475,7 +475,7 @@ void main() {
 
         final hit = ChessSkinLocalizer.cachedPieceFile(
           't1', 'wK.webp',
-          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+          expectedFileId: fId(),
         );
         expect(hit, isNull, reason: '索引缺失 → 视作未命中（迁移到新机制）');
       },
@@ -493,7 +493,7 @@ void main() {
 
         final hit = ChessSkinLocalizer.cachedPieceFile(
           't1', 'wK.webp',
-          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+          expectedFileId: fId(),
         );
         expect(hit, isNull, reason: '损坏索引 → 走网络而非崩溃');
       },
@@ -504,7 +504,7 @@ void main() {
       expect(
         ChessSkinLocalizer.cachedPieceFile(
           't1', 'wK.webp',
-          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+          expectedFileId: fId(),
         ),
         isNull,
       );
@@ -525,7 +525,7 @@ void main() {
       expect(
         ChessSkinLocalizer.cachedPieceFile(
           't1', 'wK.webp',
-          expectedFileId: 'wK_fid'.padRight(32, 'a'),
+          expectedFileId: fId(),
         ),
         isNull,
       );

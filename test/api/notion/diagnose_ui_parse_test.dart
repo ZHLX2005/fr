@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_print
+// 本文件是诊断 / e2e 链路脚本，控制台输出即测试结果本身，
+// 不属于 avoid_print 所指的「生产代码」。
 // 端到端模拟：把 _SettingsSheet._fetchDatabases 完整跑一遍，
 // 模拟 UI 在 setState 之后应该看到的状态。
 //

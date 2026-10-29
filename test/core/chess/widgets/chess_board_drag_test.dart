@@ -17,7 +17,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/chess/chess.dart';
 import 'package:xiaodouzi_fr/core/chess/skins/chess_skin_meta.dart';
 import 'package:xiaodouzi_fr/core/chess/widgets/chess_board.dart';
-import 'package:xiaodouzi_fr/core/chess/widgets/chess_piece.dart';
 
 /// 记录拖动回调事件。
 class _DragLog {
@@ -32,7 +31,7 @@ class _DragLog {
 }
 
 /// 包 600x600 的 host（labelSpace=16，cell=(600-32)/8=71）。
-Widget host({
+Widget _host({
   required ChessSkin skin,
   required _DragLog log,
   BoardState? state,
@@ -120,7 +119,7 @@ void main() {
   testWidgets('pan 拖己方兵 e2 → start=e2、update 跟随悬停格、end=落点', (tester) async {
     ChessSkinBundle.registerHardcoded();
     final log = _DragLog();
-    await tester.pumpWidget(host(
+    await tester.pumpWidget(_host(
       skin: ChessSkinBundle.byId(kChessSkinsCatalog[0].id),
       log: log,
     ));
@@ -150,7 +149,7 @@ void main() {
   testWidgets('pan 拖出棋盘（8x8 外）→ end=null（调用方按非法弹回）', (tester) async {
     ChessSkinBundle.registerHardcoded();
     final log = _DragLog();
-    await tester.pumpWidget(host(
+    await tester.pumpWidget(_host(
       skin: ChessSkinBundle.byId(kChessSkinsCatalog[0].id),
       log: log,
     ));
@@ -175,7 +174,7 @@ void main() {
   testWidgets('flipped=true：pan 坐标映射回白方视角 1D index', (tester) async {
     ChessSkinBundle.registerHardcoded();
     final log = _DragLog();
-    await tester.pumpWidget(host(
+    await tester.pumpWidget(_host(
       skin: ChessSkinBundle.byId(kChessSkinsCatalog[0].id),
       log: log,
       flipped: true,
@@ -203,7 +202,7 @@ void main() {
   testWidgets('拖动回调存在时 tap 仍走 onSquareTap（选中-点击两段式不破坏）', (tester) async {
     ChessSkinBundle.registerHardcoded();
     final log = _DragLog();
-    await tester.pumpWidget(host(
+    await tester.pumpWidget(_host(
       skin: ChessSkinBundle.byId(kChessSkinsCatalog[0].id),
       log: log,
     ));
