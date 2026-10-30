@@ -32,6 +32,14 @@ git@github.com:localsend/localsend.git
 git@github.com:xigua222/photoo.git
 git@github.com:nightmare-space/speed_share.git
 git@github.com:fluttercandies/wechat_flutter.git
+<<<<<<< HEAD
 git@github.com:fluttercandies/flutter_photo_manager.git
 git@github.com:fluttercandies/flutter_wechat_assets_picker.git
 git@github.com:davidmigloz/ai_clients_dart.git
+=======
+git@github.com:sabrogden/Ditto.git
+>>>>>>> 0a0a6515 (chore(git.remote): register sabrogden/Ditto after mmx-research clone)
+git@github.com:fluttercandies/flutter_photo_manager.git
+git@github.com:fluttercandies/flutter_wechat_assets_picker.git
+git@github.com:davidmigloz/ai_clients_dart.git
+git@github.com:sabrogden/Ditto.git
