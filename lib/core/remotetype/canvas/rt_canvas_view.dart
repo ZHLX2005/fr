@@ -31,6 +31,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/context/colors.dart';
 import 'rt_canvas_button.dart' show RtCanvasButton, RtCanvasGripDot;
 import 'rt_canvas_dpad.dart' show RtCanvasDpad;
+import 'rt_canvas_files_panel.dart' show RtFilesPanel;
 import 'rt_canvas_kb.dart' show RtCanvasKb;
 import 'rt_canvas_modules.dart'
     show
@@ -50,6 +51,7 @@ import '../data/rt_prefs.dart'
         kRtCanvasDpadHitMin,
         kRtCanvasModuleComposer,
         kRtCanvasModuleDpad,
+        kRtCanvasModuleFiles,
         kRtCanvasModuleInput,
         kRtCanvasModuleKb,
         kRtCanvasModuleStickL,
@@ -437,6 +439,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
                     _stickModule(canvasSize, kRtCanvasModuleStickL, 'l'),
                   if (_anchorOf(kRtCanvasModuleStickR).visible)
                     _stickModule(canvasSize, kRtCanvasModuleStickR, 'r'),
+                  if (_anchorOf(kRtCanvasModuleFiles).visible)
+                    _filesModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleComposer).visible)
                     _composerModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleInput).visible)
@@ -1271,8 +1275,34 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 模块：触摸板 ----
+  // ---- 模块：文件（拍照直进电脑剪贴板，v0.8.0+ 文件模块第一个能力）----
 
+  Widget _filesModule(Size canvasSize) {
+    final size = _moduleSizePx(kRtCanvasModuleFiles, canvasSize);
+    final rect = _moduleRect(_anchorPos(kRtCanvasModuleFiles), size, canvasSize);
+    Widget panel = RtFilesPanel(
+      session: widget.session,
+      connected: widget.connected,
+      editMode: widget.editMode,
+      onNotify: widget.onNotify,
+    );
+    if (widget.editMode) {
+      panel = _editModuleWrapper(
+        id: kRtCanvasModuleFiles,
+        label: '文件',
+        child: SizedBox(width: size.width, height: size.height, child: panel),
+      );
+    }
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: size.width,
+      height: size.height,
+      child: panel,
+    );
+  }
+
+  // ---- 模块：触摸板 ----
   Widget _touchpadModule(Size canvasSize) {
     final size = _moduleSizePx(kRtCanvasModuleTouchpad, canvasSize);
     final rect = _moduleRect(

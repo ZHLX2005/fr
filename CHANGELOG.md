@@ -7,12 +7,22 @@
 
 ---
 
+## 2026-10-31
+
+### 远程输入（remotetype）
+
+- **feat** 新增**文件模块**（画布模块系统第 9 个成员，横竖屏均可编排），第一个能力 = **实时拍照直进电脑剪贴板**：面板里点「拍照并发送」拉起系统相机，拍完照片走 RT1 加密分片上传（48KB/块，端到端 AES-256-GCM），PC 端解码写入系统剪贴板，**Ctrl+V 即贴**。逐块 ACK 驱动进度条（「发送分片 N/M 块」）；失败/断线重试只补未确认的块（同 id 续传，PC 端半成品保留 10 分钟）；传输中可取消。支持 ≤10MB 图片。配套 mn-rt 0.8.0（`set_clipboard_image` 注入引擎 action + rt-align img 通道），服务端零改动。布局里用：画布编辑 → 模块清单勾「文件」。
+
+---
+
 ## 2026-10-27
 
 ### AI 图库（lab）
 
 - **feat** 新增 **AI 图库** Lab demo（`ai-gallery`）：自动扫描最新 X 张图片，按自定义提示词逐张请求大模型生成结构化描述；列表页 3 列网格按 **AI 分组**（截图/照片/文档/二维码/…）chips 过滤，显示标题与重要性徽标；点开详情页**完全由 AI 返回的 JSON 驱动**——标准字段（标题/描述/分组/标签/重要性）+ AI 额外产出的全部字段动态渲染。支持 OpenAI 兼容与 Anthropic 双协议（base64 传图）、扫描数 3–60 可配、最大并发 1–8 可配（1 = 串行）、进入页面自动扫描开关；结果本地持久化，重扫跳过已完成项。
 - **feat** `lib/api/llm/` 直连大模型 API 层：`LlmProtocol` 协议抽象 + OpenAI 兼容（Bearer、`image_url` data URL、自动处理 baseUrl 尾部 `/v1`）+ Anthropic（`x-api-key` + `anthropic-version`、`source.type=base64`、`max_tokens` 默认兜底）双协议实现，自持 http.Client（github/notion 模式）；协议测试 17 例。
+
+
 
 ## 2026-10-24
 

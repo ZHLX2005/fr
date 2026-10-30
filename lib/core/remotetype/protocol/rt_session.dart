@@ -96,6 +96,25 @@ Map<String, dynamic> rtVpadPlaintext(
   return {'vpad': Map<String, dynamic>.of(cmd), 'ts': ts, 'phoneId': phoneId};
 }
 
+/// RT1 P2C 图片传输明文（v0.8.0+ 文件模块·实时拍照协议）。
+///
+/// [img] 一条 img 指令（op + 字段，形状由 PC 端 rt-image.js 的
+/// normalizeImageOp 白名单把关，两端分片大小以 kRtImageChunkSize 为准）：
+///   {'op':'begin', 'id':str8hex, 'n':int, 'size':int, 'mime':'image/jpeg'}
+///   {'op':'chunk', 'id':str, 'i':int, 'd':base64}
+///   {'op':'end',   'id':str}   —— PC 端到齐并写入剪贴板后才回最后一块的 ACK
+///   {'op':'abort', 'id':str}
+/// 与 hotkey/mouse 同属「事件」语义（seq 去重之前处理、不碰全文快照状态机），
+/// 但**逐条回 ACK**：begin/chunk 的 ACK = 分片已落袋（驱动进度条与续传补缺），
+/// end 的 ACK = 整图已进剪贴板。独立成顶层纯函数以便单测。
+Map<String, dynamic> rtImagePlaintext(
+  Map<String, dynamic> img,
+  int ts,
+  String phoneId,
+) {
+  return {'img': Map<String, dynamic>.of(img), 'ts': ts, 'phoneId': phoneId};
+}
+
 class RtSessionException implements Exception {
   RtSessionException(this.kind, this.message);
 
@@ -187,6 +206,12 @@ class RtSession {
 
   final _events = StreamController<RtEvent>.broadcast();
   Stream<RtEvent> get events => _events.stream;
+
+  /// PC 累积确认流：每解开一个 ACK 信封，吐出它确认的 p2c seq（applied_seq）。
+  /// 全文快照只需最新一条（e2eConfirmed 事件已覆盖），图片分片进度条靠
+  /// 逐条监听。broadcast：无人监听时事件丢弃，不影响会话。
+  final _ackApplied = StreamController<int>.broadcast();
+  Stream<int> get ackAppliedSeqs => _ackApplied.stream;
 
   String get phoneId => _phoneId;
   bool get e2eConfirmed => _e2eConfirmed;
@@ -463,13 +488,18 @@ class RtSession {
     if (ackSeq <= _lastAckSeen) return;
     _lastAckSeen = ackSeq;
     try {
-      await rtOpen(
+      final plain = await rtOpen(
         key: derived.keyPcToPhone,
         aad: rtBuildAad(derived.room, kRtDirPcToPhone, ackSeq),
         envelope: ack,
       );
       _e2eConfirmed = true;
       _events.add(RtEvent(RtEventKind.e2eConfirmed));
+      // 图片通道靠 applied_seq 逐块对账（缺 ack 时按 seq 补发），这里必须有值
+      final applied = (plain['applied_seq'] as num?)?.toInt();
+      if (applied != null && !_ackApplied.isClosed) {
+        _ackApplied.add(applied);
+      }
     } catch (_) {
       // key 不一致：保持未确认状态，由 UI 展示
     }
@@ -584,6 +614,34 @@ class RtSession {
     return true;
   }
 
+  /// 发送一条图片传输指令（v0.8.0+ 文件模块·实时拍照协议），形状见
+  /// [rtImagePlaintext]。与事件族共用 seq 域与加密路径；与 hotkey/mouse 的
+  /// 差异：**逐条回 ACK**——begin/chunk 的 ACK = 分片落袋（续传对账依据），
+  /// end 的 ACK = 整图已进剪贴板（唯一成功信号）。分片编排与进度见
+  /// [RtImageTransfer]，本方法只管单条信封。
+  ///
+  /// 返回本条信封的 p2c seq（ACK 对账要用）；WS 未连接返回 null。
+  Future<int?> syncImageOp(Map<String, dynamic> img) async {
+    if (img.isEmpty) return null;
+    final derived = await _derivedFuture;
+    if (_ws == null) return null;
+    _seq += 1;
+    final seq = _seq;
+    final envelope = await rtSeal(
+      key: derived.keyPhoneToPc,
+      aad: rtBuildAad(derived.room, kRtDirPhoneToPc, seq),
+      plaintext: rtImagePlaintext(
+        img,
+        DateTime.now().millisecondsSinceEpoch,
+        _phoneId,
+      ),
+      sid: _sid,
+      seq: seq,
+    );
+    _sendJson({'clientId': _target, 'text': jsonEncode(envelope)});
+    return seq;
+  }
+
   void _sendJson(Map<String, dynamic> obj) {
     try {
       _ws?.sink.add(jsonEncode(obj));
@@ -600,6 +658,7 @@ class RtSession {
     await _ws?.sink.close();
     _ws = null;
     await _events.close();
+    await _ackApplied.close();
   }
 }
 
