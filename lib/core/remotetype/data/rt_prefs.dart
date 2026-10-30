@@ -63,6 +63,10 @@ const String kRtCanvasModuleStickR = 'stick-r';
 /// 虚拟手柄键区（ABXY 面键 + LB/RB 肩键 + LT/RT 扳机，固定布局的模块）。
 const String kRtCanvasModuleVpad = 'vpad';
 
+/// 文件模块（v0.8.0+：第一个能力 = 实时拍照直进电脑剪贴板；
+/// 后续文件类能力——相册图 / 任意文件传输——都挂在这一模块下扩展）。
+const String kRtCanvasModuleFiles = 'files';
+
 /// 画布按钮形状：pill = 圆角胶囊（常规快捷键）；circle = 圆形（手柄键）。
 enum RtCanvasButtonShape { pill, circle }
 

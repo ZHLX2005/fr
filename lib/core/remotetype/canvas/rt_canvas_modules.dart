@@ -20,6 +20,7 @@ import '../data/rt_prefs.dart'
         kRtCanvasInputDefW,
         kRtCanvasModuleComposer,
         kRtCanvasModuleDpad,
+        kRtCanvasModuleFiles,
         kRtCanvasModuleInput,
         kRtCanvasModuleStickL,
         kRtCanvasModuleStickR,
@@ -111,6 +112,12 @@ const List<RtCanvasModuleSpec> kRtCanvasModuleSpecs = [
     icon: Icons.sports_esports_outlined,
     locksLandscape: true,
   ),
+  RtCanvasModuleSpec(
+    id: kRtCanvasModuleFiles,
+    name: '文件',
+    desc: '实时拍照直进电脑剪贴板（拍完 Ctrl+V 即贴）',
+    icon: Icons.photo_camera_outlined,
+  ),
 ];
 
 RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
@@ -128,6 +135,8 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
   kRtCanvasModuleVpad => (0.25, 0.70, 0.35, 1.0),
   kRtCanvasModuleKb => (0.40, 1.0, 0.30, 1.0),
   kRtCanvasModuleComposer => (0.40, 1.0, 0.30, 1.0),
+  // 文件面板：按钮 + 进度 + 预览，太扁放不下操作区
+  kRtCanvasModuleFiles => (0.25, 1.0, 0.16, 0.60),
   _ => (0.20, 1.0, 0.08, 0.40),
 };
 
@@ -139,6 +148,7 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
   kRtCanvasModuleKb => (0.94, 0.82),
   kRtCanvasModuleComposer => (0.96, 0.92),
   kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
+  kRtCanvasModuleFiles => (0.42, 0.28),
   _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
 };
 
