@@ -58,15 +58,26 @@ enum RtImagePhase {
 /// PC 端旧半成品按保留期自然过期）——同 id 续传由 PC 主导，手机端跨任务
 /// 丢状态（进程被杀）后无法对账，宁可整图重发。
 class RtImageTransfer extends ChangeNotifier {
-  RtImageTransfer({required RtSession session, required Uint8List bytes})
-    : _session = session,
-      _bytes = bytes,
-      id = _randomId() {
+  RtImageTransfer({
+    required RtSession session,
+    required Uint8List bytes,
+    this.mime = 'image/jpeg',
+    this.name,
+  }) : _session = session,
+       _bytes = bytes,
+       id = _randomId() {
     totalChunks = _chunkCount(_bytes.length);
   }
 
   final RtSession _session;
   final Uint8List _bytes;
+
+  /// 载荷类型：'image/jpeg'（剪贴板图片）| 'application/octet-stream'
+  /// （文件上传，v0.9.0+：PC 端落盘到接收目录后以 CF_HDROP 复制）。
+  final String mime;
+
+  /// 原始文件名（文件上传用，PC 端落盘命名；图片为 null）。
+  final String? name;
 
   /// 传输 id（8 位 hex；PC 端按它识别续传）。
   final String id;
@@ -92,11 +103,11 @@ class RtImageTransfer extends ChangeNotifier {
   int _endSeq = 0;
   bool _cancelled = false;
 
-  /// 发送整张图片。返回 true = 已确认进剪贴板；false = 失败（原因在 error）。
+  /// 发送整个载荷。返回 true = PC 已确认（图片进剪贴板 / 文件落盘并复制）；false = 失败（原因在 error）。
   Future<bool> send() async {
     if (busy || phase == RtImagePhase.done) return false;
     if (_bytes.isEmpty || _bytes.length > kRtImageMaxBytes) {
-      return _fail('图片大小超出范围（≤10MB）');
+      return _fail('大小超出范围（≤10MB）');
     }
     _cancelled = false;
     _ackedChunks.clear();
@@ -118,13 +129,14 @@ class RtImageTransfer extends ChangeNotifier {
     _phase(RtImagePhase.sending);
     final n = totalChunks;
 
-    // begin：元数据一次到位
+    // begin：元数据一次到位（name 供文件落盘命名，图片不带）
     final beginSeq = await _sendOp({
       'op': 'begin',
       'id': id,
       'n': n,
       'size': _bytes.length,
-      'mime': 'image/jpeg',
+      'mime': mime,
+      if (name != null && name!.isNotEmpty) 'name': name,
     });
     if (beginSeq == null) return false;
 
