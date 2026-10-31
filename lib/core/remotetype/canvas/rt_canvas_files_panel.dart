@@ -32,6 +32,21 @@ enum _RtPayloadKind { photo, file }
 /// 三个取材入口（spinner 显示在正在取材的那个按钮上）。
 enum _RtSource { camera, gallery, file }
 
+/// 按魔数嗅探图片真实 mime。图库源可能拿到原始 PNG（图片 ≤2560px 时
+/// image_picker 原样返回、不重编码，手机截图全是这种），硬标 image/jpeg
+/// 曾让旧 PC 端按 JPEG 解码直接失败（Illegal start bytes:8950）。
+/// 拍照路径仍是 JPEG（picker 缩放/压质时重编码兜底）。
+String _sniffImageMime(Uint8List bytes) {
+  if (bytes.length >= 4 &&
+      bytes[0] == 0x89 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x4E &&
+      bytes[3] == 0x47) {
+    return 'image/png';
+  }
+  return 'image/jpeg';
+}
+
 /// 文件模块面板。session 为空（未配对）时整板置灰，只做占位说明。
 class RtFilesPanel extends StatefulWidget {
   const RtFilesPanel({
@@ -72,7 +87,9 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
   }
 
   /// 拍照与图库共用：系统选择器出片 → image 通道（2560px / q90 ≈ 1-2MB，
-  /// Exif 方向已由 picker 烘平，PC 端拿到的是正立 JPEG）。
+  /// Exif 方向已由 picker 烘平）。需要缩放/压质时 picker 重编码为 JPEG；
+  /// 图库小图（≤2560px，截图常见）原样返回原始字节（可能是 PNG），
+  /// mime 由 _sniffImageMime 按魔数声明（PC 端 v0.9.2+ 白名单收 image/png）。
   Future<void> _pickImage(ImageSource source, _RtSource entry) async {
     if (_pending != null || !widget.connected || widget.session == null) return;
     setState(() => _pending = entry);
@@ -148,7 +165,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
       session: widget.session!,
       bytes: bytes,
       mime: kind == _RtPayloadKind.photo
-          ? 'image/jpeg'
+          ? _sniffImageMime(bytes)
           : 'application/octet-stream',
       name: fileName,
     );
@@ -203,7 +220,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
       session: session,
       bytes: bytes,
       mime: _kind == _RtPayloadKind.photo
-          ? 'image/jpeg'
+          ? _sniffImageMime(bytes)
           : 'application/octet-stream',
       name: _fileName,
     );
