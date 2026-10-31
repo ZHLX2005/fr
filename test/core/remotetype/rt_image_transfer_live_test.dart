@@ -9,7 +9,6 @@
 // 用户报告「PC 已收到但手机无确认进度」后新增；此测试通过即证明 fr 端
 // 进度链路完好，问题应到版本/环境（PC 客户端或手机 APK 版本）去找。
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
