@@ -336,7 +336,14 @@ class _NotificationCardState extends State<_NotificationCard>
                               ),
                               child: Transform.translate(
                                 offset: Offset(0, v),
-                                child: _buildCapsule(style, v),
+                                // 浮层在 rootOverlay 上无 Material 兜底的
+                                // DefaultTextStyle，文案落到 fallback 样式
+                                // （monospace + 下划线）；包透明 Material
+                                // 拿回主题字体（同 app_settings_page _TrashFab 先例）
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: _buildCapsule(style, v),
+                                ),
                               ),
                             );
                           },
