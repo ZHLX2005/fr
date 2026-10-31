@@ -11,6 +11,7 @@ const _kShortcutsKeyV2 = 'rt_shortcuts_v2';
 const _kHistoryKey = 'rt_input_history_v1';
 const _kBarDisplayKey = 'rt_bar_display_v1';
 const _kEnterModeKey = 'rt_enter_mode_v1';
+const _kAutoPasteKey = 'rt_auto_paste_v1';
 const _kTouchpadSensitivityKey = 'rt_touchpad_sensitivity_v1';
 const _kCanvasLayoutKey = 'rt_canvas_layout_v1';
 const _kCanvasLayoutsKey = 'rt_canvas_layouts_v1';
@@ -828,6 +829,21 @@ class RtPrefs {
   static Future<void> saveEnterMode(String mode) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_kEnterModeKey, mode == 'shift_enter' ? 'shift_enter' : 'enter');
+  }
+
+  /// 文件模块发送成功后是否**自动 Ctrl+V**（v1.5.0+）。
+  ///
+  /// 开启后图片/文件送达电脑剪贴板，fr 等 [kRtAutoPasteDelayMs] 再发一条
+  /// ctrl+v hotkey——内容直接贴进 PC 当前焦点窗口，省一次手动粘贴。
+  /// 默认关：自动粘贴打进「此刻聚焦的窗口」，不是所有场景都合意。
+  static Future<bool> loadAutoPaste() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kAutoPasteKey) ?? false;
+  }
+
+  static Future<void> saveAutoPaste(bool value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kAutoPasteKey, value);
   }
 
   static Future<List<String>> loadHistory() async {

@@ -38,6 +38,11 @@ const String kRtDirPcToPhone = 'c2p';
 /// 输入同步防抖（ASR partial 高频变更）
 const Duration kRtSyncDebounce = Duration(milliseconds: 250);
 
+/// 文件模块发送成功后自动 Ctrl+V 的等待时长（v1.5.0+，设置页可开关）。
+/// 给 PC 端留出「剪贴板写入完成 → 用户看清焦点在哪」的间隙，再发 ctrl+v
+/// hotkey（复用 v0.5.4+ 的快捷键通道）。
+const Duration kRtAutoPasteDelay = Duration(milliseconds: 500);
+
 /// demo slug（fr://lab/demo/remotetype）。demo 注册与 DemoSessionHost 托管
 /// 共用一份——两处各写字面量会出现「托管挂在 slug A、注册是 slug B」的静默失联。
 const String kRemoteTypeDemoSlug = 'remotetype';
