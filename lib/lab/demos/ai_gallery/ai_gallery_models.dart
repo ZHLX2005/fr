@@ -98,15 +98,39 @@ class AiScanResult {
   }
 }
 
+/// JSON 解析失败：[detail] 是给人和模型都能看懂的「错误日志」，
+/// [rawReply] 保留模型原始回复 —— 重试提示词要靠它告诉模型错在哪。
+class AiGalleryParseException extends FormatException {
+  final String detail;
+  final String rawReply;
+
+  AiGalleryParseException(this.detail, {required this.rawReply}) : super(detail);
+
+  @override
+  String toString() => 'AiGalleryParseException: $detail';
+}
+
+/// 把异常压成一行可读文本（日志、网格错误态、重试提示词三处共用）。
+String describeAiError(Object error) {
+  if (error is AiGalleryParseException) return error.detail;
+  if (error is FormatException) return error.message;
+  return error.toString();
+}
+
 /// 把 AI 回复文本解析成 JSON [Map]。
 ///
 /// 容忍模型不听话的三种常见形态：
 /// 1. 纯 JSON；
 /// 2. 裹在 ```json ... ``` 代码块里（receipt_ocr 同款 strip 逻辑）；
 /// 3. JSON 前后有解释文字（取第一个 `{` 到最后一个 `}`）。
-/// 解析失败抛 [FormatException]。
+/// 解析失败抛 [AiGalleryParseException]（FormatException 子类），
+/// 异常里带够定位的错误描述，可直接当重试提示词里的错误回执。
 Map<String, dynamic> parseAiJson(String content) {
+  final raw = content;
   var text = content.trim();
+  if (text.isEmpty) {
+    throw AiGalleryParseException('AI 回复为空（0 字）', rawReply: raw);
+  }
   // strip ```json ... ``` 代码块
   final fence = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
   final m = fence.firstMatch(text);
@@ -115,11 +139,27 @@ Map<String, dynamic> parseAiJson(String content) {
   final start = text.indexOf('{');
   final end = text.lastIndexOf('}');
   if (start < 0 || end <= start) {
-    throw const FormatException('AI 回复中没有 JSON 对象');
+    throw AiGalleryParseException(
+      '回复里找不到完整的 JSON 对象（缺少 { 或 }，全文 ${raw.length} 字）',
+      rawReply: raw,
+    );
   }
-  final decoded = jsonDecode(text.substring(start, end + 1));
+  final slice = text.substring(start, end + 1);
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(slice);
+  } on FormatException catch (e) {
+    final at = e.offset == null ? '' : '（第 ${e.offset} 个字符附近）';
+    throw AiGalleryParseException(
+      'JSON 语法错误：${e.message}$at',
+      rawReply: raw,
+    );
+  }
   if (decoded is! Map<String, dynamic>) {
-    throw const FormatException('AI 返回的不是 JSON 对象');
+    throw AiGalleryParseException(
+      '顶层不是 JSON 对象（实际是 ${decoded.runtimeType}）',
+      rawReply: raw,
+    );
   }
   return decoded;
 }

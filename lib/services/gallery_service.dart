@@ -5,17 +5,50 @@ import 'package:photo_manager/photo_manager.dart';
 /// 图库管理服务
 /// 负责访问和管理设备图库
 class GalleryService {
-  /// 检查并请求图库权限
-  Future<bool> checkPermission() async {
-    if (kIsWeb) return false;
-
+  /// 申请 / 查询相册权限，返回原始 [PermissionState]。
+  ///
+  /// 只申请**图片**读权限：`RequestType.image` + `mediaLocation: false`，
+  /// 不借机要视频和地理位置（Android 13+ 对应 READ_MEDIA_IMAGES）。
+  /// 「有限访问」（iOS limited / Android 部分授权）也算有权限，否则
+  /// 用户只授权几张图时会看到空白页却不知道原因。
+  Future<PermissionState?> ensurePermission({bool request = true}) async {
+    if (kIsWeb) return null;
     try {
-      final PermissionState state =
-          await PhotoManager.requestPermissionExtend();
-      return state.isAuth;
+      return request
+          ? await PhotoManager.requestPermissionExtend(
+              requestOption: const PermissionRequestOption(
+                androidPermission: AndroidPermission(
+                  type: RequestType.image,
+                  mediaLocation: false,
+                ),
+              ),
+            )
+          : await PhotoManager.getPermissionState(
+              requestOption: const PermissionRequestOption(
+                androidPermission: AndroidPermission(
+                  type: RequestType.image,
+                  mediaLocation: false,
+                ),
+              ),
+            );
     } catch (e) {
       debugPrint('请求权限失败: $e');
-      return false;
+      return null;
+    }
+  }
+
+  /// 检查并请求图库权限（含有限访问）。
+  Future<bool> checkPermission() async {
+    final state = await ensurePermission();
+    return state?.hasAccess ?? false;
+  }
+
+  /// 跳到系统设置页（权限被永久拒绝时唯一的出路）。
+  Future<void> openSettings() async {
+    try {
+      await PhotoManager.openSetting();
+    } catch (e) {
+      debugPrint('打开系统设置失败: $e');
     }
   }
 
@@ -52,22 +85,63 @@ class GalleryService {
     }
   }
 
-  /// 获取所有图片（跨相册）
+  /// 取最新的 [limit] 张图片（全局相册，按创建时间倒序）。
+  ///
+  /// 之前用的是「`getAssetPathList()` 的第一个相册 + `getAssetListRange`」，
+  /// 有两个坑：
+  /// 1. 第一个相册不一定是「最近项目 / 相机胶卷」，某些机型会先返回
+  ///    Screenshots 或某个自建相册，于是"最新 X 张"拿到的是一堆旧图；
+  /// 2. 相册自身的排序取决于系统设置，不保证倒序。
+  /// 现在显式用 `onlyAll: true` 拿全局相册，并显式下发 createDate 倒序的
+  /// [FilterOptionGroup]，本地再排一次序兜底（某些 ROM 忽略 filterOption）。
+  Future<List<AssetEntity>> getLatestImages({required int limit}) async {
+    if (limit <= 0) return const [];
+    try {
+      final filter = FilterOptionGroup(
+        orders: const [OrderOption(type: OrderOptionType.createDate, asc: false)],
+      );
+      var albums = await PhotoManager.getAssetPathList(
+        type: RequestType.image,
+        onlyAll: true,
+        filterOption: filter,
+      );
+      if (albums.isEmpty) {
+        // 极少数 ROM 不支持 onlyAll，退回完整列表（依旧靠下方 sort 兜底）
+        albums = await PhotoManager.getAssetPathList(
+          type: RequestType.image,
+          filterOption: filter,
+        );
+      }
+      if (albums.isEmpty) return const [];
+
+      final latest = await albums.first.getAssetListPaged(page: 0, size: limit);
+      final sorted = [...latest]
+        ..sort((a, b) => b.createDateTime.compareTo(a.createDateTime));
+      return sorted.length > limit ? sorted.sublist(0, limit) : sorted;
+    } catch (e) {
+      debugPrint('获取最新图片失败: $e');
+      return [];
+    }
+  }
+
+  /// 获取所有图片（跨相册，最新的在前）。
+  ///
+  /// 保留旧签名给既有调用方；[page] > 0 时才走分页向后取。
   Future<List<AssetEntity>> getAllAssets({
     int page = 0,
     int pageSize = 100,
   }) async {
+    if (page == 0) return getLatestImages(limit: pageSize);
     try {
-      final assets = await PhotoManager.getAssetPathList(
+      final albums = await PhotoManager.getAssetPathList(
         type: RequestType.image,
+        onlyAll: true,
+        filterOption: FilterOptionGroup(
+          orders: const [OrderOption(type: OrderOptionType.createDate, asc: false)],
+        ),
       );
-      if (assets.isEmpty) return [];
-
-      final recentAlbum = assets.first;
-      return await recentAlbum.getAssetListRange(
-        start: page * pageSize,
-        end: (page + 1) * pageSize,
-      );
+      if (albums.isEmpty) return [];
+      return await albums.first.getAssetListPaged(page: page, size: pageSize);
     } catch (e) {
       debugPrint('获取所有图片失败: $e');
       return [];
@@ -199,12 +273,21 @@ class GalleryService {
 
   /// 删除图片
   Future<bool> deleteAsset(AssetEntity asset) async {
+    final deleted = await deleteAssets([asset.id]);
+    return deleted.contains(asset.id);
+  }
+
+  /// 批量删除图片，返回系统确认真正删掉的 id。
+  ///
+  /// Android 11+ / iOS 会先弹系统自己的删除确认框，用户点取消时返回空列表
+  /// —— 调用方必须按返回值处理，不能假定成功。
+  Future<List<String>> deleteAssets(List<String> ids) async {
+    if (ids.isEmpty) return const [];
     try {
-      await PhotoManager.editor.deleteWithIds([asset.id]);
-      return true;
+      return await PhotoManager.editor.deleteWithIds(ids);
     } catch (e) {
       debugPrint('删除图片失败: $e');
-      return false;
+      return const [];
     }
   }
 

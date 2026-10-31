@@ -43,6 +43,19 @@ class AiGalleryResultStore {
     await saveAll(all);
   }
 
+  /// 批量移除分析记录（多选删除用；对应图片是否删除由调用方决定）。
+  ///
+  /// 返回真正被移除的 id —— 传进来的可能是已经不在库里的 id。
+  Future<Set<String>> removeAll(Iterable<String> assetIds) async {
+    final all = await loadAll();
+    final removed = <String>{};
+    for (final id in assetIds) {
+      if (all.remove(id) != null) removed.add(id);
+    }
+    if (removed.isNotEmpty) await saveAll(all);
+    return removed;
+  }
+
   Future<void> clear() async {
     final sp = await SharedPreferences.getInstance();
     await sp.remove(_key);

@@ -10,6 +10,10 @@
 	<string>远程输入 demo 需要麦克风权限，用于把语音识别的文字同步到电脑</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>远程输入 demo 需要语音识别权限，用于把说的话转成文字同步到电脑</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AI 图库 demo 需要读取照片，用于按提示词在本地分析你最新的图片</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>图库管理 demo 需要写入照片权限，用于保存/整理图片</string>
 	<key>CFBundleDisplayName</key>
 	<string>小豆子</string>
 	<key>CFBundleExecutable</key>
