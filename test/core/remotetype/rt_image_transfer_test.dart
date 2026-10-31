@@ -11,7 +11,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:xiaodouzi_fr/core/remotetype/data/rt_constants.dart';
 import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart';
 import 'package:xiaodouzi_fr/core/remotetype/protocol/rt_image_transfer.dart';
 import 'package:xiaodouzi_fr/core/remotetype/protocol/rt_session.dart';
@@ -109,6 +111,20 @@ void main() {
       ];
       expect(specs.contains(kRtCanvasModuleFiles), isTrue);
       expect(kRtCanvasModuleFiles, 'files');
+    });
+
+    test('RtPrefs 自动粘贴开关：默认关，存了能读回（设置页配置项）', () async {
+      SharedPreferences.setMockInitialValues({});
+      // 默认关：自动粘贴打进电脑「当前焦点窗口」，不是所有场景都合意
+      expect(await RtPrefs.loadAutoPaste(), isFalse);
+      await RtPrefs.saveAutoPaste(true);
+      expect(await RtPrefs.loadAutoPaste(), isTrue);
+      await RtPrefs.saveAutoPaste(false);
+      expect(await RtPrefs.loadAutoPaste(), isFalse);
+    });
+
+    test('自动粘贴等待常量：0.5s（设置页文案与其联动）', () {
+      expect(kRtAutoPasteDelay, const Duration(milliseconds: 500));
     });
   });
 }

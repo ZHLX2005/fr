@@ -65,6 +65,7 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
     activeId: kRtCanvasPresetTouchpad,
   );
   String _enterMode = 'enter';
+  bool _autoPaste = false;
   double _sensitivity = kRtPadSensitivityDefault;
 
   @override
@@ -98,11 +99,13 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
       }
     }
     final enterMode = await RtPrefs.loadEnterMode();
+    final autoPaste = await RtPrefs.loadAutoPaste();
     final sensitivity = await RtPrefs.loadTouchpadSensitivity();
     if (!mounted) return;
     setState(() {
       _layouts = layouts;
       _enterMode = enterMode;
+      _autoPaste = autoPaste;
       _sensitivity = sensitivity;
     });
   }
@@ -136,6 +139,12 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
     final next = _enterMode == 'enter' ? 'shift_enter' : 'enter';
     setState(() => _enterMode = next);
     await RtPrefs.saveEnterMode(next);
+  }
+
+  Future<void> _toggleAutoPaste() async {
+    final next = !_autoPaste;
+    setState(() => _autoPaste = next);
+    await RtPrefs.saveAutoPaste(next);
   }
 
   Future<void> _openSensitivity() async {
@@ -207,6 +216,18 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
                 subtitle: Text(isEnter ? '发送（普通 Enter）' : '换行（Shift+Enter）'),
                 trailing: Icon(Icons.swap_horiz, color: cs.primary),
                 onTap: _toggleEnterMode,
+              ),
+              const _CardSeparator(),
+              ListTile(
+                leading: const Icon(Icons.content_paste_go),
+                title: const Text('发送后自动粘贴'),
+                subtitle: Text(
+                  _autoPaste
+                      ? '开——送达剪贴板 ${(kRtAutoPasteDelay.inMilliseconds / 1000).toStringAsFixed(1)}s 后'
+                          '自动发 Ctrl+V，贴进电脑当前焦点窗口'
+                      : '关——到剪贴板为止，在电脑上手动 Ctrl+V',
+                ),
+                trailing: Switch(value: _autoPaste, onChanged: (_) => _toggleAutoPaste()),
               ),
             ],
           ),

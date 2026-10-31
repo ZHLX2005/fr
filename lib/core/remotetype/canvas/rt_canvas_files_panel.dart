@@ -21,6 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/context/colors.dart';
+import '../data/rt_constants.dart' show kRtAutoPasteDelay;
+import '../data/rt_prefs.dart';
 import '../protocol/rt_image_transfer.dart';
 import '../protocol/rt_session.dart';
 
@@ -171,6 +173,18 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
             ? '图片已进电脑剪贴板，Ctrl+V 即可粘贴'
             : '文件已复制到电脑剪贴板，Ctrl+V 即可粘贴',
       );
+      // 设置页「发送后自动粘贴」：等 kRtAutoPasteDelay 再发 ctrl+v
+      // （复用 v0.5.4+ 的 hotkey 通道，PC 端注入进当前焦点窗口）。
+      // 失败静默——自动粘贴是锦上添花，内容已经在剪贴板里，不为它报错。
+      if (await RtPrefs.loadAutoPaste()) {
+        unawaited(
+          Future<void>.delayed(kRtAutoPasteDelay, () async {
+            try {
+              await widget.session?.syncHotkey(['ctrl', 'v']);
+            } catch (_) {}
+          }),
+        );
+      }
     } else if (transfer.error != null && transfer.error != '已取消') {
       widget.onNotify('传输失败：${transfer.error}');
     }
