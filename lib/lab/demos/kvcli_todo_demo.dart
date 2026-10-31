@@ -24,6 +24,7 @@ import '../../api/goframe/kv/kv_endpoint.dart';
 import '../../api/goframe/group/group_endpoint.dart';
 import '../../api/providers/api_providers.dart';
 import '../../core/ui/global/button/main.dart';
+import '../../core/ui/global/notification/main.dart';
 import '../../core/ui/global_ring/ring_enabled_provider.dart';
 import '../lab_container.dart';
 import '../../core/kvcli/active_group_provider.dart';
@@ -796,9 +797,12 @@ class _KvcliTodoDemoPageState extends ConsumerState<_KvcliTodoDemoPage> {
     );
   }
 
-  void _toast(String msg) {
+  void _toast(
+    String msg, {
+    AppNotificationType type = AppNotificationType.info,
+  }) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    AppNotification.show(context, msg, type: type);
   }
 
   // ── UI ───────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../core/ui/global/notification/main.dart';
 import '../../services/gallery_service.dart';
 import '../../screens/profile/lab/reveal_item.dart';
 import '../lab_container.dart';
@@ -475,11 +476,12 @@ class _AiGalleryPageState extends State<AiGalleryPage>
     );
   }
 
-  void _toast(String message) {
+  void _toast(
+    String message, {
+    AppNotificationType type = AppNotificationType.info,
+  }) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-    );
+    AppNotification.show(context, message, type: type);
   }
 
   // ── 派生数据 ────────────────────────────────────────────────

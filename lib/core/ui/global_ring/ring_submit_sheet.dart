@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/colors/strategy/color_strategy/color_strategy.dart';
+import '../global/notification/main.dart';
 import '../../kvcli/active_group_provider.dart';
 import '../../kvcli/todo_submit_service.dart';
 import '../../../core/theme/context/colors.dart';
@@ -102,10 +103,11 @@ class _RingSubmitSheetState extends ConsumerState<_RingSubmitSheet> {
     }
   }
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
-    );
+  void _toast(
+    String msg, {
+    AppNotificationType type = AppNotificationType.info,
+  }) {
+    AppNotification.show(context, msg, type: type);
   }
 
   @override
