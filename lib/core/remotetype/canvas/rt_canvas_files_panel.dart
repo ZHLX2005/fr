@@ -1,13 +1,16 @@
 // lib/core/remotetype/canvas/rt_canvas_files_panel.dart
 //
 // 文件模块面板（v0.8.0+）：实时拍照直进电脑剪贴板；v0.9.0+ 加**上传文件**
-// （任意文件 → PC 接收目录落盘 + CF_HDROP 复制，Ctrl+V 即粘贴文件）。
-// 拍照（image_picker 系统相机，无新增依赖）与选文件（file_picker，仓库既有
-// 依赖）都走同一条 RT1 分片加密上传通道（protocol/rt_image_transfer.dart，
-// mime 区分图片/文件）。本面板只管「取材 → 发送 → 呈现」的编排与 UI。
+// （任意文件 → PC 系统 temp 落盘 + CF_HDROP 复制，Ctrl+V 即粘贴文件）；
+// v1.4.0+ 加**图库源**（系统相册选择器，与个人页 banner 裁取同一唤醒方式
+// ——image_picker 的 ImageSource.gallery，自带图片网格搜索且免存储权限）。
+// 三个入口并行：拍照 / 图库 → 走 image 通道进剪贴板（CF_DIB）；
+// 文件 → 走 file 通道（temp 落盘 + CF_HDROP）。同一 RT1 分片加密上传
+// （protocol/rt_image_transfer.dart，mime 区分）。本面板只管「取材 →
+// 发送 → 呈现」的编排与 UI。
 //
-// 动作区是两个**纯图标按钮**（拍照 / 上传都是习惯操作，不做颜色强调、
-// 不加文字标签），色调用 onSurfaceVariant 融进画布，保持页面简洁。
+// 动作区是三个**纯图标按钮**（都是习惯操作，不做颜色强调、不加文字标签），
+// 色调用 onSurfaceVariant 融进画布，保持页面简洁。
 
 import 'dart:async';
 import 'dart:io';
@@ -21,8 +24,11 @@ import '../../../core/theme/context/colors.dart';
 import '../protocol/rt_image_transfer.dart';
 import '../protocol/rt_session.dart';
 
-/// 待发载荷的取材方式（决定完成文案与重试行为）。
+/// 待发载荷的取材方式（决定完成文案、预览形态与重试行为）。
 enum _RtPayloadKind { photo, file }
+
+/// 三个取材入口（spinner 显示在正在取材的那个按钮上）。
+enum _RtSource { camera, gallery, file }
 
 /// 文件模块面板。session 为空（未配对）时整板置灰，只做占位说明。
 class RtFilesPanel extends StatefulWidget {
@@ -50,7 +56,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
   _RtPayloadKind _kind = _RtPayloadKind.photo;
   String? _fileName;
   RtImageTransfer? _transfer;
-  bool _picking = false;
+  _RtSource? _pending; // 正在取材的入口；null = 空闲
 
   @override
   void dispose() {
@@ -63,19 +69,19 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _takePhoto() async {
-    if (_picking || !widget.connected || widget.session == null) return;
-    setState(() => _picking = true);
+  /// 拍照与图库共用：系统选择器出片 → image 通道（2560px / q90 ≈ 1-2MB，
+  /// Exif 方向已由 picker 烘平，PC 端拿到的是正立 JPEG）。
+  Future<void> _pickImage(ImageSource source, _RtSource entry) async {
+    if (_pending != null || !widget.connected || widget.session == null) return;
+    setState(() => _pending = entry);
     try {
-      // 系统相机出片：2560px / q90 ≈ 1-2MB，Exif 方向已由 picker 烘平，
-      // PC 端拿到的是正立 JPEG。10MB 上限内足够任何粘贴场景。
       final photo = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         maxWidth: 2560,
         maxHeight: 2560,
         imageQuality: 90,
       );
-      if (photo == null) return; // 用户取消拍照
+      if (photo == null) return; // 用户取消
       final bytes = await photo.readAsBytes();
       await _startSend(
         bytes: bytes,
@@ -84,15 +90,20 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
         photo: photo,
       );
     } catch (e) {
-      widget.onNotify('拍照失败：$e');
+      widget.onNotify(source == ImageSource.camera ? '拍照失败：$e' : '读取图库失败：$e');
     } finally {
-      if (mounted) setState(() => _picking = false);
+      if (mounted) setState(() => _pending = null);
     }
   }
 
+  Future<void> _takePhoto() => _pickImage(ImageSource.camera, _RtSource.camera);
+
+  Future<void> _pickGallery() =>
+      _pickImage(ImageSource.gallery, _RtSource.gallery);
+
   Future<void> _pickFile() async {
-    if (_picking || !widget.connected || widget.session == null) return;
-    setState(() => _picking = true);
+    if (_pending != null || !widget.connected || widget.session == null) return;
+    setState(() => _pending = _RtSource.file);
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
@@ -113,7 +124,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
     } catch (e) {
       widget.onNotify('选择文件失败：$e');
     } finally {
-      if (mounted) setState(() => _picking = false);
+      if (mounted) setState(() => _pending = null);
     }
   }
 
@@ -125,7 +136,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
   }) async {
     if (bytes.length > kRtImageMaxBytes) {
       widget.onNotify(
-        '超过 10MB 上限，请换小一点的${kind == _RtPayloadKind.photo ? '分辨率重拍' : '文件'}',
+        '超过 10MB 上限，请换小一点的${kind == _RtPayloadKind.photo ? '图' : '文件'}',
       );
       return;
     }
@@ -141,7 +152,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
     );
     transfer.addListener(_onTransferChanged);
     setState(() {
-      // 拍照路径带预览图；文件路径传 null（预览区改显示文件名）
+      // 拍照/图库路径带预览图；文件路径传 null（预览区改显示文件名）
       _photo = photo;
       _bytes = bytes;
       _kind = kind;
@@ -216,7 +227,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  '拍照 / 文件 → 电脑剪贴板',
+                  '拍照 / 图库 / 文件 → 电脑剪贴板',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -242,7 +253,7 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
             Expanded(
               child: Center(
                 child: Text(
-                  '拍照直进剪贴板 · 文件复制到电脑',
+                  '拍照 / 图库直进剪贴板 · 文件复制到电脑',
                   style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                 ),
               ),
@@ -292,10 +303,10 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
     );
   }
 
-  /// 空闲 / 完成：预览区 + 拍照与上传两个图标按钮。
+  /// 空闲 / 完成：预览区 + 拍照 / 图库 / 文件三个并行图标按钮。
   Widget _previewOrActions(ColorScheme cs) {
     final photo = _photo;
-    final canAct = widget.connected && !_picking && widget.session != null;
+    final canAct = widget.connected && _pending == null && widget.session != null;
     return Expanded(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -351,26 +362,26 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
             children: [
               _iconAction(
                 cs,
-                icon: _picking && _kind == _RtPayloadKind.photo
-                    ? null
-                    : Icons.photo_camera_outlined,
-                busyIcon: _picking && _kind == _RtPayloadKind.photo,
+                icon: Icons.photo_camera_outlined,
+                busy: _pending == _RtSource.camera,
                 tooltip: widget.connected ? '拍照并发送' : '未连接电脑',
-                onPressed: (_picking && _kind == _RtPayloadKind.photo) || !canAct
-                    ? null
-                    : _takePhoto,
+                onPressed: _pending != null || !canAct ? null : _takePhoto,
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 14),
               _iconAction(
                 cs,
-                icon: _picking && _kind == _RtPayloadKind.file
-                    ? null
-                    : Icons.upload_file_outlined,
-                busyIcon: _picking && _kind == _RtPayloadKind.file,
+                icon: Icons.photo_library_outlined,
+                busy: _pending == _RtSource.gallery,
+                tooltip: widget.connected ? '从图库选择并发送' : '未连接电脑',
+                onPressed: _pending != null || !canAct ? null : _pickGallery,
+              ),
+              const SizedBox(width: 14),
+              _iconAction(
+                cs,
+                icon: Icons.upload_file_outlined,
+                busy: _pending == _RtSource.file,
                 tooltip: widget.connected ? '上传文件' : '未连接电脑',
-                onPressed: (_picking && _kind == _RtPayloadKind.file) || !canAct
-                    ? null
-                    : _pickFile,
+                onPressed: _pending != null || !canAct ? null : _pickFile,
               ),
             ],
           ),
@@ -382,15 +393,15 @@ class _RtFilesPanelState extends State<RtFilesPanel> {
   /// 图标动作按钮：弱化色调（onSurfaceVariant）融进画布，禁用再降透明度。
   Widget _iconAction(
     ColorScheme cs, {
-    required IconData? icon,
-    required bool busyIcon,
+    required IconData icon,
+    required bool busy,
     required String tooltip,
     required VoidCallback? onPressed,
   }) {
     return IconButton(
       onPressed: onPressed,
       tooltip: tooltip,
-      icon: busyIcon
+      icon: busy
           ? SizedBox(
               width: 20,
               height: 20,
