@@ -299,15 +299,15 @@ class _NotificationCardState extends State<_NotificationCard>
                 scale: _scale,
                 child: FadeTransition(
                   opacity: _fade,
-                  child: ConstrainedBox(
-                    // 内容自适应宽度，至多吃满屏宽 - 32
-                    constraints: BoxConstraints(
-                      maxWidth: math.max(
-                        0,
-                        MediaQuery.of(context).size.width - 32,
+                  child: LayoutBuilder(
+                    // 宽度取实际布局约束而非 MediaQuery，防两者不一致
+                    // （陈旧 MediaQuery / 特殊窗口）时破坏布局预算
+                    builder: (context, area) => ConstrainedBox(
+                      // 内容自适应宽度，至多吃满可用宽 - 32
+                      constraints: BoxConstraints(
+                        maxWidth: math.max(0.0, area.maxWidth - 32),
                       ),
-                    ),
-                    child: Listener(
+                      child: Listener(
                       // Listener 在 GestureDetector 外层：按下即暂停，
                       // 不与 tap / pan 的手势竞技场裁决冲突
                       onPointerDown: (_) => _press(true),
@@ -342,6 +342,7 @@ class _NotificationCardState extends State<_NotificationCard>
                           },
                         ),
                       ),
+                    ),
                     ),
                   ),
                 ),
@@ -407,14 +408,18 @@ class _NotificationCardState extends State<_NotificationCard>
                 ),
                 if (widget.action != null) ...[
                   const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: _onActionTap,
-                    child: Text(
-                      widget.action!,
-                      style: TextStyle(
-                        color: style.iconColor,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: GestureDetector(
+                      onTap: _onActionTap,
+                      child: Text(
+                        widget.action!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: style.iconColor,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
