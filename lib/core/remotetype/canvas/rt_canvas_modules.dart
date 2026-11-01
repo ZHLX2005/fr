@@ -135,6 +135,9 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
   kRtCanvasModuleVpad => (0.25, 0.70, 0.35, 1.0),
   kRtCanvasModuleKb => (0.40, 1.0, 0.30, 1.0),
   kRtCanvasModuleComposer => (0.40, 1.0, 0.30, 1.0),
+  // 模拟摇杆：限位必须容得下出厂摆位（0.15×0.42）——编辑态第一次缩放
+  // 就会按限位钳一次，摇杆尺寸越界的话会在用户手指刚碰上时突然变形。
+  kRtCanvasModuleStickL || kRtCanvasModuleStickR => (0.15, 0.60, 0.15, 0.60),
   // 文件面板：按钮 + 进度 + 预览，太扁放不下操作区
   kRtCanvasModuleFiles => (0.25, 1.0, 0.16, 0.60),
   _ => (0.20, 1.0, 0.08, 0.40),
@@ -148,6 +151,9 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
   kRtCanvasModuleKb => (0.94, 0.82),
   kRtCanvasModuleComposer => (0.96, 0.92),
   kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
+  // 模拟摇杆：缺省给近方形的模块盒（绘制取 min → 正圆）。原先落到输入框
+  // 的兜底 (0.46, 0.18) 扁得离谱，纵向几乎推不满，纵轴等于废掉。
+  kRtCanvasModuleStickL || kRtCanvasModuleStickR => (0.15, 0.34),
   kRtCanvasModuleFiles => (0.42, 0.28),
   _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
 };

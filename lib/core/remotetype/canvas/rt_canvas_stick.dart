@@ -12,6 +12,9 @@
 //   · 死区：|v| < 0.12 视为 0（避免微抖漂移）。
 // 值按 1/64 量化后只在变化时上报——拖动连发不会打爆链路。
 //
+// 命中区 = 可见圆的外接方框（Listener 收在圆内）：模块盒是 w·W × h·H 的
+// 扁矩形，命中区若吃满整块矩形，四角（可见圆之外）会抢走邻近按键的点击。
+//
 // 编辑态：摇杆整体随模块拖动/缩放（模块级编排），摇杆自身的取值手势
 // 关闭（与手柄键区同规矩：编排与触发不串台）。
 
@@ -109,8 +112,12 @@ class _RtCanvasStickState extends State<RtCanvasStick> {
 
   /// 指针相对圆心的位移（**归一化** -1..1，半径 = 1）。
   Offset _offsetAt(Offset local, Size size) {
+    // 半径取**可见圆**的半径（min(宽,高)/2），不是盒宽的一半——模块盒是
+    // 扁矩形时（宽 > 高）按盒宽算，纵向几乎推不满，轴值被永久压在一半
+    // 以下（手动开启摇杆的默认尺寸就是这种形状）。
+    final side = math.min(size.width, size.height);
     final center = Offset(size.width / 2, size.height / 2);
-    final r = size.width / 2;
+    final r = side / 2;
     if (r <= 0) return Offset.zero;
     final v = (local - center) / r;
     return v.distance <= 1 ? v : v / v.distance;
@@ -137,93 +144,104 @@ class _RtCanvasStickState extends State<RtCanvasStick> {
         final side = math.min(size.width, size.height);
         final knobSize = side * 0.42;
         final radius = side / 2;
-        return Listener(
-          // opaque：内部是纯装饰（不参与命中测试），必须由 Listener 自己
-          // 吃下整块圆面，否则拖不动。
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: (e) => _onPointerDown(e, size),
-          onPointerMove: (e) => _onPointerMove(e, size),
-          onPointerUp: _onPointerUp,
-          onPointerCancel: _onPointerUp,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 150),
-            opacity: widget.enabled ? 1.0 : 0.45,
-            child: Center(
-              child: SizedBox(
-                width: side,
-                height: side,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    // 底盘：凹槽感（内阴影 + 描边）
-                    Container(
-                      width: side,
-                      height: side,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: c.surface,
-                        border: Border.all(
-                          color: cs.outlineVariant.withValues(alpha: 0.7),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: cs.shadow.withValues(alpha: 0.12),
-                            blurRadius: 12,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 方向刻度（十字虚线，弱）
-                    IgnorePointer(
-                      child: CustomPaint(
-                        size: Size(side, side),
-                        painter: _StickCrossPainter(color: cs.outlineVariant),
-                      ),
-                    ),
-                    // 摇杆头
-                    Transform.translate(
-                      offset: Offset(
-                        _knob.dx * (radius - knobSize / 2),
-                        _knob.dy * (radius - knobSize / 2),
-                      ),
-                      child: Container(
-                        width: knobSize,
-                        height: knobSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomCenter,
-                            colors: [c.surface, cs.surfaceContainerHighest],
-                          ),
-                          border: Border.all(
-                            color: _dragging
-                                ? cs.primary.withValues(alpha: 0.85)
-                                : cs.outlineVariant.withValues(alpha: 0.7),
-                            width: _dragging ? 2 : 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.shadow.withValues(
-                                alpha: _dragging ? 0.24 : 0.14,
-                              ),
-                              blurRadius: _dragging ? 14 : 8,
-                              offset: const Offset(0, 3),
+        return Center(
+          child: SizedBox(
+            width: side,
+            height: side,
+            // Listener 收进可见圆的盒内：模块盒是 w·W × h·H 的扁矩形，
+            // Listener 若吃满整块矩形，矩形四角（可见圆之外）会抢走邻近
+            // 按键的点击——右摇杆曾因此吃掉手柄键区 L3 键左下弧约 16%
+            // 的按下面积。命中区改为「圆的外接方框」，与可见控件一致。
+            child: LayoutBuilder(
+              builder: (context, inner) {
+                final hitSize = Size(inner.maxWidth, inner.maxHeight);
+                return Listener(
+                  // opaque：内部是纯装饰（不参与命中测试），必须由
+                  // Listener 自己吃下，否则拖不动。
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: (e) => _onPointerDown(e, hitSize),
+                  onPointerMove: (e) => _onPointerMove(e, hitSize),
+                  onPointerUp: _onPointerUp,
+                  onPointerCancel: _onPointerUp,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 150),
+                    opacity: widget.enabled ? 1.0 : 0.45,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        // 底盘：凹槽感（内阴影 + 描边）
+                        Container(
+                          width: side,
+                          height: side,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: c.surface,
+                            border: Border.all(
+                              color: cs.outlineVariant.withValues(alpha: 0.7),
                             ),
-                          ],
+                            boxShadow: [
+                              BoxShadow(
+                                color: cs.shadow.withValues(alpha: 0.12),
+                                blurRadius: 12,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Icon(
-                          Icons.gamepad_outlined,
-                          size: knobSize * 0.42,
-                          color: c.textMuted,
+                        // 方向刻度（十字虚线，弱）
+                        IgnorePointer(
+                          child: CustomPaint(
+                            size: Size(side, side),
+                            painter: _StickCrossPainter(
+                              color: cs.outlineVariant,
+                            ),
+                          ),
                         ),
-                      ),
+                        // 摇杆头
+                        Transform.translate(
+                          offset: Offset(
+                            _knob.dx * (radius - knobSize / 2),
+                            _knob.dy * (radius - knobSize / 2),
+                          ),
+                          child: Container(
+                            width: knobSize,
+                            height: knobSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomCenter,
+                                colors: [c.surface, cs.surfaceContainerHighest],
+                              ),
+                              border: Border.all(
+                                color: _dragging
+                                    ? cs.primary.withValues(alpha: 0.85)
+                                    : cs.outlineVariant.withValues(alpha: 0.7),
+                                width: _dragging ? 2 : 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: cs.shadow.withValues(
+                                    alpha: _dragging ? 0.24 : 0.14,
+                                  ),
+                                  blurRadius: _dragging ? 14 : 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.gamepad_outlined,
+                              size: knobSize * 0.42,
+                              color: c.textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
           ),
         );

@@ -44,8 +44,10 @@ RtCanvasNamedLayout? rtBuiltinPresetOf(String id) {
 /// 出厂锚点修订号：升高时 [rtEnsureBuiltinPresets] 强制用新工厂覆盖全部内置
 /// （自定义布局保留）。
 /// rev 5 = 输入页退役，改由固定死的「写字」接管竖屏入口；
-/// rev 6 = 游戏拆成「方向键」+「轮盘」两套内置（新增 game-wheel）。
-const int kRtCanvasBuiltinFactoryRev = 6;
+/// rev 6 = 游戏拆成「方向键」+「轮盘」两套内置（新增 game-wheel）；
+/// rev 7 = 游戏两套内置加右摇杆（stick-r）——存量用户的内置布局按出厂
+/// 覆盖后即见新摇杆（自定义布局不受影响）。
+const int kRtCanvasBuiltinFactoryRev = 7;
 
 /// 保证布局集里内置总在场（缺的补出厂版），退役内置剔除；内置按列表
 /// 顺序、自定义跟后；两个朝向的激活 id 都必须可用。
