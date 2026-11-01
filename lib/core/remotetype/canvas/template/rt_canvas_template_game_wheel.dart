@@ -10,6 +10,7 @@ import '../../data/rt_prefs.dart'
         RtCanvasLayout,
         RtCanvasNamedLayout,
         kRtCanvasModuleDpad,
+        kRtCanvasModuleStickR,
         kRtCanvasModuleVpad,
         kRtCanvasOrientLandscape,
         kRtCanvasPresetGameWheel;
@@ -37,6 +38,18 @@ const RtCanvasNamedLayout kRtCanvasTemplateGameWheel = RtCanvasNamedLayout(
         y: 0.53,
         w: 0.36,
         h: 0.70,
+      ),
+      // 右摇杆（瞄准 / 视角）：落 dpad 与手柄键区之间的中缝空区。
+      // anchor 语义 = 模块中心点，w/h 按画布归一化；摇杆实际直径取
+      // min(w·W, h·H)（≈120px @800×360 逻辑坐标），比「手动开启」时
+      // 落在画布正中、默认 0.46×0.18 的小球好用得多。
+      // 摆位已避开手柄键区的 L3 键（净距 ≈14px），右拇指可覆盖。
+      kRtCanvasModuleStickR: RtCanvasAnchor(
+        visible: true,
+        x: 0.53,
+        y: 0.62,
+        w: 0.15,
+        h: 0.42,
       ),
     },
   ),

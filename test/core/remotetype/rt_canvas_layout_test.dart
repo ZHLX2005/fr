@@ -15,10 +15,14 @@
 //
 // 持久化契约破坏一次就丢布局——改序列化形状或找位规则前先过这组用例。
 
+import 'dart:math' as math;
+import 'dart:ui' show Offset, Size;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:xiaodouzi_fr/core/remotetype/canvas/template/rt_canvas_presets.dart';
+import 'package:xiaodouzi_fr/core/remotetype/canvas/rt_canvas_vpad.dart';
 import 'package:xiaodouzi_fr/core/remotetype/canvas/rt_canvas_view.dart';
 import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
     show
@@ -33,6 +37,7 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleKb,
+        kRtCanvasModuleStickR,
         kRtCanvasModuleTouchpad,
         kRtCanvasModuleVpad,
         kRtCanvasOrientLandscape,
@@ -859,6 +864,7 @@ void main() {
       expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue);
       expect(game.data.modules[kRtCanvasModuleDpad]?.dir8, isFalse);
       expect(game.data.modules[kRtCanvasModuleVpad]?.visible, isTrue);
+      expect(game.data.modules[kRtCanvasModuleStickR]?.visible, isTrue);
       expect(game.data.hideShortcuts, isTrue);
       expect(game.data.modules.containsKey(kRtCanvasModuleTouchpad), isFalse);
       expect(game.data.modules.containsKey(kRtCanvasModuleInput), isFalse);
@@ -868,6 +874,7 @@ void main() {
       );
       expect(wheel.data.modules[kRtCanvasModuleDpad]?.dir8, isTrue);
       expect(wheel.data.modules[kRtCanvasModuleVpad]?.visible, isTrue);
+      expect(wheel.data.modules[kRtCanvasModuleStickR]?.visible, isTrue);
       expect(wheel.data.hideShortcuts, isTrue);
 
       final pad = kRtCanvasBuiltinPresets.firstWhere(
@@ -904,6 +911,43 @@ void main() {
       expect(vpad.w, 0.36);
       expect(vpad.h, 0.70);
       expect(dpad.x + dpad.w! / 2, lessThan(vpad.x - vpad.w! / 2));
+    });
+
+    test('游戏布局带右摇杆：锚点固定，且不压手柄键区的 L3', () {
+      // 逻辑画布尺寸：20:9 横屏（如 2400×1080 屏按 800×360 折算）。
+      const canvas = Size(800, 360);
+      for (final preset in [kRtCanvasPresetGame, kRtCanvasPresetGameWheel]) {
+        final layout = kRtCanvasBuiltinPresets.firstWhere((p) => p.id == preset);
+        final stick = layout.data.modules[kRtCanvasModuleStickR]!;
+        expect(stick.visible, isTrue);
+        expect(stick.x, 0.53);
+        expect(stick.y, 0.62);
+        expect(stick.w, 0.15);
+        expect(stick.h, 0.42);
+
+        // 摇杆实际直径 = min(w·W, h·H)（_stickModule / RtCanvasStick 口径）
+        final side = math.min(stick.w! * canvas.width, stick.h! * canvas.height);
+        final center = Offset(stick.x * canvas.width, stick.y * canvas.height);
+
+        // 手柄键区盒 + L3 键位（rtVpadDefaultSlots 口径）——L3 在盒左下角，
+        // 是右摇杆最近的邻居；一旦改键区布局或摇杆摆位，这里会先红。
+        final vpad = layout.data.modules[kRtCanvasModuleVpad]!;
+        final box = Size(vpad.w! * canvas.width, vpad.h! * canvas.height);
+        final slots = rtVpadDefaultSlots(box);
+        final l3 = slots['l3']!;
+        final l3Center = Offset(
+          vpad.x * canvas.width - box.width / 2 + l3.dx,
+          vpad.y * canvas.height - box.height / 2 + l3.dy,
+        );
+        final l3Radius = math.min(box.width * 0.16, box.height * 0.20) / 2;
+
+        final gap = (center - l3Center).distance - (side / 2 + l3Radius);
+        expect(
+          gap,
+          greaterThan(8.0),
+          reason: '$preset 的右摇杆压到手柄键区的 L3 键（净距 $gap px）',
+        );
+      }
     });
   });
 
