@@ -1,9 +1,10 @@
 // lib/core/remotetype/canvas/template/rt_canvas_template_game.dart
 //
-// 内置布局模板 · 方向键：左四向键十字（dir8=false）+ 右 ABXY/肩键。
-// 锚点与尺寸与 docs/prototypes/rt-canvas-layouts-manage.html 同源；
-// 信号走 vpad 通道（vpad_dpad + vpad_button/trigger）；hideShortcuts：
-// 快捷键按钮区归手柄模块，画布按钮不参与。
+// 内置布局模板 · 方向键：四向十字（dir8=false）+ 分布式 vpad + 双摇杆。
+// 锚点对齐 docs/prototypes/rt-gamepad-mode-dpad.html：
+//   左上十字 / 右上面键 · 下 L/R 摇杆同高 · 肩扳贴左右侧缘 · Back/Start 居中偏上。
+// 信号走 vpad 通道（vpad_dpad + vpad_button/trigger / vpad_axis）；
+// hideShortcuts：快捷键按钮区归手柄模块，画布按钮不参与。
 // 八向轮盘变体见 rt_canvas_template_game_wheel.dart（独立内置 id）。
 
 import '../../data/rt_prefs.dart'
@@ -12,6 +13,7 @@ import '../../data/rt_prefs.dart'
         RtCanvasLayout,
         RtCanvasNamedLayout,
         kRtCanvasModuleDpad,
+        kRtCanvasModuleStickL,
         kRtCanvasModuleStickR,
         kRtCanvasModuleVpad,
         kRtCanvasOrientLandscape,
@@ -26,33 +28,36 @@ const RtCanvasNamedLayout kRtCanvasTemplateGame = RtCanvasNamedLayout(
   data: RtCanvasLayout(
     hideShortcuts: true,
     modules: {
+      // 左上四向十字。
       kRtCanvasModuleDpad: RtCanvasAnchor(
         visible: true,
         x: 0.21,
-        y: 0.54,
-        w: 0.22,
-        h: 0.52,
+        y: 0.45,
+        w: 0.18,
+        h: 0.40,
       ),
+      // 近全幅键区：肩扳/系统键/ABXY/L3·R3 由 rtVpadDefaultSlots 按画布比例摆。
       kRtCanvasModuleVpad: RtCanvasAnchor(
         visible: true,
-        x: 0.765,
-        y: 0.53,
-        w: 0.36,
-        h: 0.70,
+        x: 0.50,
+        y: 0.50,
+        w: 0.98,
+        h: 0.92,
       ),
-      // 右摇杆（瞄准 / 视角）：落 dpad 与手柄键区之间的中缝空区。
-      // anchor 语义 = 模块中心点，w/h 按画布归一化；摇杆实际直径取
-      // min(w·W, h·H)（20:9 下 ≈120px），比「手动开启」时落在画布正中、
-      // 扁成 0.46×0.18 的小球好用得多。h 取 0.34 让模块盒在 20:9 下接近
-      // 正方——盒高与圆径齐平，命中区（圆的外接方框）不会大于可见控件。
-      // x=0.51 是各比例下的安全位：摇杆命中方框与手柄键区的 L3 键不相交
-      // （20:9 下圆与圆净距 ≈26px，命中方框右缘离 L3 键圆 ≈5px）。
+      // 下双摇同高（左移 / 右瞄）。
+      kRtCanvasModuleStickL: RtCanvasAnchor(
+        visible: true,
+        x: 0.29,
+        y: 0.82,
+        w: 0.15,
+        h: 0.28,
+      ),
       kRtCanvasModuleStickR: RtCanvasAnchor(
         visible: true,
-        x: 0.51,
-        y: 0.62,
+        x: 0.71,
+        y: 0.82,
         w: 0.15,
-        h: 0.34,
+        h: 0.28,
       ),
     },
   ),

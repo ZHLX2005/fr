@@ -38,6 +38,7 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
         kRtCanvasModuleDpad,
         kRtCanvasModuleInput,
         kRtCanvasModuleKb,
+        kRtCanvasModuleStickL,
         kRtCanvasModuleStickR,
         kRtCanvasModuleTouchpad,
         kRtCanvasModuleVpad,
@@ -886,50 +887,57 @@ void main() {
       expect(empty.hideShortcuts, isFalse);
     });
 
-    test('游戏布局锚点与原型 LAYOUTS.game 同源、两端互不相交', () {
+    test('游戏布局锚点对齐外控原型（上十字/近全幅 vpad/下双摇）', () {
       final game = kRtCanvasBuiltinPresets.firstWhere(
         (p) => p.id == kRtCanvasPresetGame,
       );
       final dpad = game.data.modules[kRtCanvasModuleDpad]!;
       final vpad = game.data.modules[kRtCanvasModuleVpad]!;
+      final stickL = game.data.modules[kRtCanvasModuleStickL]!;
+      final stickR = game.data.modules[kRtCanvasModuleStickR]!;
       expect(dpad.x, 0.21);
-      expect(dpad.y, 0.54);
-      expect(dpad.w, 0.22);
-      expect(dpad.h, 0.52);
-      expect(vpad.x, 0.765);
-      expect(vpad.y, 0.53);
-      expect(vpad.w, 0.36);
-      expect(vpad.h, 0.70);
-      expect(dpad.x + dpad.w! / 2, lessThan(vpad.x - vpad.w! / 2));
+      expect(dpad.y, 0.45);
+      expect(dpad.w, 0.18);
+      expect(dpad.h, 0.40);
+      expect(vpad.x, 0.50);
+      expect(vpad.y, 0.50);
+      expect(vpad.w, 0.98);
+      expect(vpad.h, 0.92);
+      expect(stickL.visible, isTrue);
+      expect(stickL.x, 0.29);
+      expect(stickL.y, 0.82);
+      expect(stickR.x, 0.71);
+      expect(stickR.y, 0.82);
+      expect(stickL.y, stickR.y);
     });
 
-    test('游戏布局带右摇杆：锚点固定、尺寸合规，且各比例下不压 L3', () {
-      final gameStick = kRtCanvasBuiltinPresets
+    test('游戏布局双摇杆：锚点固定、尺寸合规，且各比例下不压 L3/R3', () {
+      final gameStickR = kRtCanvasBuiltinPresets
           .firstWhere((p) => p.id == kRtCanvasPresetGame)
           .data
           .modules[kRtCanvasModuleStickR]!;
-      final wheelStick = kRtCanvasBuiltinPresets
+      final gameStickL = kRtCanvasBuiltinPresets
+          .firstWhere((p) => p.id == kRtCanvasPresetGame)
+          .data
+          .modules[kRtCanvasModuleStickL]!;
+      final wheelStickR = kRtCanvasBuiltinPresets
           .firstWhere((p) => p.id == kRtCanvasPresetGameWheel)
           .data
           .modules[kRtCanvasModuleStickR]!;
-      for (final stick in [gameStick, wheelStick]) {
+      for (final stick in [gameStickR, gameStickL, wheelStickR]) {
         expect(stick.visible, isTrue);
-        expect(stick.x, 0.51);
-        expect(stick.y, 0.62);
         expect(stick.w, 0.15);
-        expect(stick.h, 0.34);
+        expect(stick.h, 0.28);
       }
       // 出厂尺寸必须在模块限位内：编辑态第一次缩放就按限位钳一次，
       // 越界的话摇杆会在用户手指刚碰上时突然变形。
       final (wMin, wMax, hMin, hMax) = rtCanvasModuleRange(
         kRtCanvasModuleStickR,
       );
-      expect(gameStick.w, inInclusiveRange(wMin, wMax));
-      expect(gameStick.h, inInclusiveRange(hMin, hMax));
+      expect(gameStickR.w, inInclusiveRange(wMin, wMax));
+      expect(gameStickR.h, inInclusiveRange(hMin, hMax));
 
-      // 各横屏比例下：摇杆圆、摇杆命中方框（圆的外接方框）都不与手柄键区
-      // 的 L3 键相交。L3 是右摇杆最近的邻居——键区改布局 / 摇杆改摆位，
-      // 这里先红。
+      // 各横屏比例下：摇杆圆不与邻近的 L3/R3 键相交。
       const canvases = [
         Size(800, 360), // 20:9 典型手机
         Size(1000, 360), // 2.78 AR 折叠屏展开
@@ -948,45 +956,44 @@ void main() {
           final side = math.min(s.w! * canvas.width, s.h! * canvas.height);
           final center = Offset(s.x * canvas.width, s.y * canvas.height);
 
-          // 手柄键区盒 + L3 键位（rtVpadDefaultSlots 口径）
+          // 手柄键区盒 + R3 键位（rtVpadDefaultSlots 口径）
           final box = Size(vpad.w! * canvas.width, vpad.h! * canvas.height);
           final slots = rtVpadDefaultSlots(box);
-          final l3 = slots['l3']!;
-          final l3Center = Offset(
-            vpad.x * canvas.width - box.width / 2 + l3.dx,
-            vpad.y * canvas.height - box.height / 2 + l3.dy,
+          final r3 = slots['r3']!;
+          final r3Center = Offset(
+            vpad.x * canvas.width - box.width / 2 + r3.dx,
+            vpad.y * canvas.height - box.height / 2 + r3.dy,
           );
-          final l3Radius = math.min(box.width * 0.16, box.height * 0.20) / 2;
+          final r3Radius =
+              math.min(box.width * 0.055, box.height * 0.10) / 2;
 
           // 圆与圆不相交
-          final gap = (center - l3Center).distance - (side / 2 + l3Radius);
+          final gap = (center - r3Center).distance - (side / 2 + r3Radius);
           expect(
             gap,
             greaterThan(0.0),
             reason:
-                '$preset @${canvas.width}×${canvas.height}：右摇杆圆压到手柄 L3 键（净距 $gap px）',
+                '$preset @${canvas.width}×${canvas.height}：右摇杆圆压到手柄 R3 键（净距 $gap px）',
           );
 
-          // 命中方框与 L3 键圆不相交（点—矩形距离 ≥ 键半径）：
-          // 只比「右缘」会漏掉角部——旧实现（扁矩形命中区）正是从右下角
-          // 咬掉 L3 左下弧约 16% 的按下面积。
+          // 命中方框与 R3 键圆不相交（点—矩形距离 ≥ 键半径）。
           final sqLeft = center.dx - side / 2;
           final sqRight = center.dx + side / 2;
           final sqTop = center.dy - side / 2;
           final sqBottom = center.dy + side / 2;
           final dx = math.max(
             0.0,
-            math.max(sqLeft - l3Center.dx, l3Center.dx - sqRight),
+            math.max(sqLeft - r3Center.dx, r3Center.dx - sqRight),
           );
           final dy = math.max(
             0.0,
-            math.max(sqTop - l3Center.dy, l3Center.dy - sqBottom),
+            math.max(sqTop - r3Center.dy, r3Center.dy - sqBottom),
           );
           final distToSquare = math.sqrt(dx * dx + dy * dy);
           expect(
             distToSquare,
-            greaterThanOrEqualTo(l3Radius),
-            reason: '$preset @${canvas.width}×${canvas.height}：右摇杆命中方框压住 L3 键',
+            greaterThanOrEqualTo(r3Radius),
+            reason: '$preset @${canvas.width}×${canvas.height}：右摇杆命中方框压住 R3 键',
           );
         }
       }

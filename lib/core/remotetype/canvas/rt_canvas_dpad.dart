@@ -29,9 +29,9 @@ import '../../../core/theme/context/colors.dart';
 const double kRtDpadDeadZoneRatio = 0.25;
 
 /// 四向十字键几何（占模块边长比例，视觉与判定同源）：
-/// 臂半长 0.46（十字外沿）、臂半宽 0.16（单臂宽度之半，≈手柄十字键比例）。
-const double kRtDpadCrossHalfRatio = 0.46;
-const double kRtDpadArmHalfRatio = 0.16;
+/// 臂半长 0.48（十字外沿）、臂半宽 0.22（宽臂，对齐外控原型大气十字）。
+const double kRtDpadCrossHalfRatio = 0.48;
+const double kRtDpadArmHalfRatio = 0.22;
 
 /// 判定几何钳制上限（占模块边长比例）：hitRatio 放大后仍不出模块方块。
 const double _kHitClampRatio = 0.49;
@@ -87,19 +87,20 @@ class RtCanvasDpad extends StatefulWidget {
 }
 
 class _RtCanvasDpadState extends State<RtCanvasDpad> {
-  static const _dirs = <String, IconData>{
-    'up': Icons.keyboard_arrow_up,
-    'down': Icons.keyboard_arrow_down,
-    'left': Icons.keyboard_arrow_left,
-    'right': Icons.keyboard_arrow_right,
+  /// 四向箭头位置（靠臂端，对齐原型 78% 外推）。
+  static const _armAlign = <String, Alignment>{
+    'up': Alignment(0, -0.78),
+    'down': Alignment(0, 0.78),
+    'left': Alignment(-0.78, 0),
+    'right': Alignment(0.78, 0),
   };
 
-  /// 四向箭头位置（十字键臂中位，中心偏移占半边比例）。
-  static const _armAlign = <String, Alignment>{
-    'up': Alignment(0, -0.60),
-    'down': Alignment(0, 0.60),
-    'left': Alignment(-0.60, 0),
-    'right': Alignment(0.60, 0),
+  /// 箭头朝向：arrow_drop_up 经 RotatedBox 转到四向。
+  static const _arrowTurns = <String, int>{
+    'up': 0,
+    'right': 1,
+    'down': 2,
+    'left': 3,
   };
 
   String? _activeDir;
@@ -243,7 +244,7 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
     bool enabled,
     double side,
   ) {
-    final iconSize = (side * 0.17).clamp(18.0, 40.0);
+    final iconSize = (side * 0.28).clamp(28.0, 72.0);
     return CustomPaint(
       painter: _CrossPadPainter(
         activeDir: _activeDir,
@@ -260,22 +261,25 @@ class _RtCanvasDpadState extends State<RtCanvasDpad> {
         height: side,
         child: Stack(
           children: [
-            // 臂中箭头：激活向高亮 + 放大按压反馈。
-            for (final e in _dirs.entries)
+            // 臂端实心三角：激活向高亮 + 放大按压反馈。
+            for (final e in _armAlign.entries)
               Align(
-                alignment: _armAlign[e.key]!,
+                alignment: e.value,
                 child: AnimatedScale(
-                  scale: _activeDir == e.key ? 1.18 : 1.0,
+                  scale: _activeDir == e.key ? 1.08 : 1.0,
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutBack,
-                  child: Icon(
-                    e.value,
-                    size: iconSize,
-                    color: _activeDir == e.key
-                        ? cs.primary
-                        : (enabled
-                              ? c.textMuted
-                              : c.textMuted.withValues(alpha: 0.6)),
+                  child: RotatedBox(
+                    quarterTurns: _arrowTurns[e.key]!,
+                    child: Icon(
+                      Icons.arrow_drop_up,
+                      size: iconSize,
+                      color: _activeDir == e.key
+                          ? cs.primary
+                          : (enabled
+                                ? cs.onSurface.withValues(alpha: 0.92)
+                                : c.textMuted.withValues(alpha: 0.6)),
+                    ),
                   ),
                 ),
               ),

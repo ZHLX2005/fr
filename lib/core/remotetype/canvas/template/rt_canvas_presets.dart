@@ -47,7 +47,8 @@ RtCanvasNamedLayout? rtBuiltinPresetOf(String id) {
 /// rev 6 = 游戏拆成「方向键」+「轮盘」两套内置（新增 game-wheel）；
 /// rev 7 = 游戏两套内置加右摇杆（stick-r）——存量用户的内置布局按出厂
 /// 覆盖后即见新摇杆（自定义布局不受影响）。
-const int kRtCanvasBuiltinFactoryRev = 7;
+/// rev 8 = 外控参考布局：上十字/面键、下双摇、肩扳侧缘、近全幅 vpad 槽位。
+const int kRtCanvasBuiltinFactoryRev = 8;
 
 /// 保证布局集里内置总在场（缺的补出厂版），退役内置剔除；内置按列表
 /// 顺序、自定义跟后；两个朝向的激活 id 都必须可用。

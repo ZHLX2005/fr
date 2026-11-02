@@ -104,22 +104,21 @@ void main() {
   // ═══ 编辑态逐键编排 ═══
 
   group('rtVpadDefaultSlots 出厂几何', () {
-    test('八键齐全；肩键同排居上，ABXY 呈菱形（Y 上 / X 左 / B 右 / A 下）', () {
+    test('全键齐全；肩扳分侧竖排，ABXY 右上菱形，系统键居中偏上', () {
       const box = Size(300, 260);
       final slots = rtVpadDefaultSlots(box);
       expect(slots.keys.toSet(), rtVpadKeyOrder.toSet());
 
-      // 肩键：同一行、x 递增
+      // 肩扳：左右侧缘竖排（上肩下扳）
       final lb = slots['lb']!;
       final lt = slots['lt']!;
       final rt = slots['rt']!;
       final rb = slots['rb']!;
-      expect(lb.dy, lt.dy);
-      expect(lt.dy, rt.dy);
-      expect(rt.dy, rb.dy);
-      expect(lb.dx, lessThan(lt.dx));
-      expect(lt.dx, lessThan(rt.dx));
-      expect(rt.dx, lessThan(rb.dx));
+      expect(lb.dx, closeTo(lt.dx, 0.01));
+      expect(rb.dx, closeTo(rt.dx, 0.01));
+      expect(lb.dx, lessThan(rb.dx));
+      expect(lb.dy, lessThan(lt.dy));
+      expect(rb.dy, lessThan(rt.dy));
 
       // ABXY 菱形
       expect(slots['y']!.dy, lessThan(slots['a']!.dy));
@@ -127,8 +126,8 @@ void main() {
       expect(slots['y']!.dx, closeTo(slots['a']!.dx, 0.01));
       expect(slots['x']!.dy, closeTo(slots['b']!.dy, 0.01));
 
-      // 肩键行在面键之上
-      expect(lb.dy, lessThan(slots['y']!.dy));
+      // 面键在右半区
+      expect(slots['y']!.dx, greaterThan(box.width * 0.5));
     });
 
     test('所有键完整落在模块盒内', () {
@@ -253,25 +252,24 @@ void main() {
   });
 
   group('vpad 13 键（协议面键全量）', () {
-    test('系统面键行（BACK/START/GUIDE）在肩键行下方、ABXY 上方', () {
+    test('系统面键（BACK/GUIDE/START）居中偏上，在 ABXY 上方', () {
       const box = Size(300, 260);
       final slots = rtVpadDefaultSlots(box);
-      const sys = ['back', 'start', 'guide'];
-      final shoulderY = slots['lb']!.dy;
+      const sys = ['back', 'guide', 'start'];
       for (final k in sys) {
-        expect(slots[k]!.dy, greaterThan(shoulderY), reason: '$k 在肩键行下方');
         expect(slots[k]!.dy, lessThan(slots['y']!.dy), reason: '$k 在 ABXY 上方');
+        expect(slots[k]!.dy, lessThan(box.height * 0.35), reason: '$k 偏上');
       }
-      expect(slots['back']!.dx, lessThan(slots['start']!.dx));
-      expect(slots['start']!.dx, lessThan(slots['guide']!.dx));
+      expect(slots['back']!.dx, lessThan(slots['guide']!.dx));
+      expect(slots['guide']!.dx, lessThan(slots['start']!.dx));
     });
 
-    test('摇杆键 L3 / R3 落在模块盒左右下角', () {
+    test('摇杆键 L3 / R3 落在双摇之间偏下', () {
       const box = Size(300, 260);
       final slots = rtVpadDefaultSlots(box);
       expect(slots['l3']!.dx, lessThan(slots['r3']!.dx));
-      expect(slots['l3']!.dx, lessThan(box.width * 0.2));
-      expect(slots['r3']!.dx, greaterThan(box.width * 0.8));
+      expect(slots['l3']!.dx, greaterThan(box.width * 0.3));
+      expect(slots['r3']!.dx, lessThan(box.width * 0.7));
       // 摇杆键在 ABXY 下方
       expect(slots['l3']!.dy, greaterThan(slots['a']!.dy));
     });

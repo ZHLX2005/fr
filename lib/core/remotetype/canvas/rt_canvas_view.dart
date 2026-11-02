@@ -308,16 +308,16 @@ class _RtCanvasViewState extends State<RtCanvasView>
         kRtCanvasModuleDpad => const RtCanvasAnchor(
           visible: true,
           x: 0.21,
-          y: 0.54,
-          w: 0.22,
-          h: 0.52,
+          y: 0.45,
+          w: 0.18,
+          h: 0.40,
         ),
         kRtCanvasModuleVpad => const RtCanvasAnchor(
           visible: true,
-          x: 0.765,
-          y: 0.53,
-          w: 0.36,
-          h: 0.70,
+          x: 0.50,
+          y: 0.50,
+          w: 0.98,
+          h: 0.92,
         ),
         kRtCanvasModuleKb => const RtCanvasAnchor(
           visible: true,

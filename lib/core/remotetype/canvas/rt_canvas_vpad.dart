@@ -1,10 +1,11 @@
 // lib/core/remotetype/canvas/rt_canvas_vpad.dart
 //
-// 虚拟手柄键区模块（游戏布局右手区）：Xbox 形态按键，
-//   · 顶行：LB / LT / RT / RB（肩键 + 扳机）
-//   · 主区：ABXY 菱形（Y 上 / X 左 / B 右 / A 下，Xbox 摆位）
-// 几何对齐 docs/prototypes/rt-canvas-gamepad.html：肩键行高 max(36, h*0.16)、
-// 宽 82% 居中；面键直径 min(fw*0.36, fh*0.34)、臂长 0.80*d。
+// 虚拟手柄键区模块（外控分布式摆位，近全幅模块盒）：
+//   · 左缘竖排 LB / LT，右缘竖排 RB / RT
+//   · 居中偏上 BACK / START / GUIDE
+//   · 右上 ABXY 菱形（Y 上 / X 左 / B 右 / A 下）
+//   · L3 / R3 落在双摇之间偏下（摇杆模块负责轴，本键负责下压）
+// 几何对齐 docs/prototypes/rt-gamepad-mode-dpad.html。
 // 全部接 PC 端虚拟手柄（rust input-agent vpad_* 指令族）：
 //   按下 = vpad_button true / vpad_trigger 1.0；松开 = false / 0.0。
 // 按下/松开成对由本组件保证（Listener down/up/cancel + dispose 补发），
@@ -79,79 +80,62 @@ const Color _kFaceYOnColor = Color(0xFF2C2A24);
 /// 键显示名（大写，与原 vpad 键区一致）。
 String rtVpadKeyLabel(String key) => key.toUpperCase();
 
-/// 肩键行高（模块盒内像素）。
-double _rtVpadShoulderH(double boxH) => math.max(36.0, boxH * 0.16);
-
-/// 键出厂几何：键名 → 模块盒内中心（像素）。设置页 / 画布渲染 / 单测
-/// 三处同源；几何对齐原型（见文件头）。
-Map<String, Offset> rtVpadDefaultSlots(Size box) {
-  final w = box.width;
-  final h = box.height;
-  final shoulderH = _rtVpadShoulderH(h);
-  const gap = 10.0;
-  final faceH = math.max(0.0, h - shoulderH - gap - _rtVpadSystemH(h) - gap);
-  final rowW = w * 0.82;
-  final keyW = (rowW - 3 * 7) / 4;
-  final left = (w - rowW) / 2;
-  final slots = <String, Offset>{
-    for (var i = 0; i < _kShoulderKeys.length; i++)
-      rtVpadKeyOrder[i]: Offset(left + (i + 0.5) * keyW + i * 7, shoulderH / 2),
-  };
-  // 系统面键行（BACK / START / GUIDE）：肩键行下方居中一排小键。
-  final sysW = w * 0.58;
-  final sysKeyW = (sysW - 2 * 6) / 3;
-  final sysLeft = (w - sysW) / 2;
-  final sysRowY = shoulderH + gap + _rtVpadSystemH(h) / 2;
-  const sysOrder = ['back', 'start', 'guide'];
-  for (var i = 0; i < sysOrder.length; i++) {
-    slots[sysOrder[i]] = Offset(sysLeft + (i + 0.5) * sysKeyW + i * 6, sysRowY);
-  }
-  final d = _rtVpadFaceD(w, faceH);
-  final arm = d * 0.80;
-  final cy = shoulderH + gap + _rtVpadSystemH(h) + gap + faceH / 2;
-  slots['y'] = Offset(w / 2, cy - arm);
-  slots['x'] = Offset(w / 2 - arm, cy);
-  slots['b'] = Offset(w / 2 + arm, cy);
-  slots['a'] = Offset(w / 2, cy + arm);
-  // 摇杆键：模块盒左右下角（Xbox 摆位：L3 左 / R3 右）。
-  final stickD = _rtVpadStickKeyD(w, h);
-  final stickY = h - stickD / 2 - 4;
-  slots['l3'] = Offset(stickD / 2 + 4, stickY);
-  slots['r3'] = Offset(w - stickD / 2 - 4, stickY);
-  return slots;
+/// 面键出厂直径（模块盒内像素）：相对「右上菱形」参考盒。
+double _rtVpadFaceD(double boxW, double boxH) {
+  final faceSide = math.min(boxW * 0.18, boxH * 0.40);
+  return faceSide * 0.32;
 }
-
-/// 系统面键行高（BACK / START / GUIDE）。
-double _rtVpadSystemH(double boxH) => math.max(22.0, boxH * 0.09);
 
 /// 摇杆键（L3 / R3）直径。
 double _rtVpadStickKeyD(double boxW, double boxH) =>
-    math.min(boxW * 0.16, boxH * 0.20);
+    math.min(boxW * 0.055, boxH * 0.10);
 
-/// 面键出厂直径（模块盒内像素）。
-double _rtVpadFaceD(double boxW, double faceH) =>
-    math.min(boxW * 0.36, faceH * 0.34);
+/// 键出厂几何：键名 → 模块盒内中心（像素）。设置页 / 画布渲染 / 单测
+/// 三处同源；几何对齐 docs/prototypes/rt-gamepad-mode-dpad.html。
+Map<String, Offset> rtVpadDefaultSlots(Size box) {
+  final w = box.width;
+  final h = box.height;
+  final d = _rtVpadFaceD(w, h);
+  final arm = d * 0.88;
+  const faceCx = 0.79;
+  const faceCy = 0.45;
+  return {
+    // 左右侧缘竖排肩/扳。
+    'lb': Offset(w * 0.048, h * 0.38),
+    'lt': Offset(w * 0.048, h * 0.52),
+    'rb': Offset(w * 0.952, h * 0.38),
+    'rt': Offset(w * 0.952, h * 0.52),
+    // 居中偏上系统键。
+    'back': Offset(w * 0.445, h * 0.22),
+    'guide': Offset(w * 0.50, h * 0.22),
+    'start': Offset(w * 0.555, h * 0.22),
+    // 右上 ABXY 菱形。
+    'y': Offset(w * faceCx, h * faceCy - arm),
+    'x': Offset(w * faceCx - arm, h * faceCy),
+    'b': Offset(w * faceCx + arm, h * faceCy),
+    'a': Offset(w * faceCx, h * faceCy + arm),
+    // L3 / R3：双摇之间偏下，避开摇杆命中圆。
+    'l3': Offset(w * 0.40, h * 0.80),
+    'r3': Offset(w * 0.60, h * 0.80),
+  };
+}
 
-/// 键出厂尺寸（模块盒内像素）：面键 = 直径方形；肩键 = 行内等分 × 行高。
+/// 键出厂尺寸（模块盒内像素）。
 Size rtVpadDefaultKeySize(String key, Size box) {
   final w = box.width;
   final h = box.height;
-  final shoulderH = _rtVpadShoulderH(h);
-  const gap = 10.0;
-  final faceH = math.max(0.0, h - shoulderH - gap - _rtVpadSystemH(h) - gap);
   if (_kShoulderKeys.contains(key)) {
-    final keyW = (w * 0.82 - 3 * 7) / 4;
-    return Size(keyW, shoulderH);
+    return Size(w * 0.05, h * 0.085);
   }
   if (_kSystemKeys.contains(key)) {
-    final sysW = w * 0.58;
-    return Size((sysW - 2 * 6) / 3, _rtVpadSystemH(h));
+    final s = math.min(w * 0.038, h * 0.085);
+    return Size(s, s);
   }
   if (_kStickKeys.contains(key)) {
     final d = _rtVpadStickKeyD(w, h);
     return Size(d, d);
   }
-  final d = _rtVpadFaceD(w, faceH);
+  final d = _rtVpadFaceD(w, h);
   return Size(d, d);
 }
 

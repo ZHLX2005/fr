@@ -132,12 +132,12 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
 (double, double, double, double) rtCanvasModuleRange(String id) => switch (id) {
   kRtCanvasModuleTouchpad => (0.25, 1.0, 0.35, 1.0),
   kRtCanvasModuleDpad => (0.12, 0.65, 0.12, 0.85),
-  kRtCanvasModuleVpad => (0.25, 0.70, 0.35, 1.0),
+  // 外控布局：vpad 近全幅承载侧缘肩扳 + 居中系统键 + 右上面键。
+  kRtCanvasModuleVpad => (0.25, 1.0, 0.35, 1.0),
   kRtCanvasModuleKb => (0.40, 1.0, 0.30, 1.0),
   kRtCanvasModuleComposer => (0.40, 1.0, 0.30, 1.0),
-  // 模拟摇杆：限位必须容得下出厂摆位（0.15×0.42）——编辑态第一次缩放
-  // 就会按限位钳一次，摇杆尺寸越界的话会在用户手指刚碰上时突然变形。
-  kRtCanvasModuleStickL || kRtCanvasModuleStickR => (0.15, 0.60, 0.15, 0.60),
+  // 模拟摇杆：限位容得出厂 0.15×0.28。
+  kRtCanvasModuleStickL || kRtCanvasModuleStickR => (0.12, 0.60, 0.15, 0.60),
   // 文件面板：按钮 + 进度 + 预览，太扁放不下操作区
   kRtCanvasModuleFiles => (0.25, 1.0, 0.16, 0.60),
   _ => (0.20, 1.0, 0.08, 0.40),
@@ -146,14 +146,13 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
 /// 未指定宽高时的兜底规格（内置预设 / 画布渲染 / 设置页档位 / 缩略图
 /// 四处共用的单一事实源）。
 (double, double) rtCanvasModuleDefaults(String id) => switch (id) {
-  kRtCanvasModuleDpad => (0.22, 0.52),
-  kRtCanvasModuleVpad => (0.36, 0.70),
+  kRtCanvasModuleDpad => (0.18, 0.40),
+  kRtCanvasModuleVpad => (0.98, 0.92),
   kRtCanvasModuleKb => (0.94, 0.82),
   kRtCanvasModuleComposer => (0.96, 0.92),
   kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),
-  // 模拟摇杆：缺省给近方形的模块盒（绘制取 min → 正圆）。原先落到输入框
-  // 的兜底 (0.46, 0.18) 扁得离谱，纵向几乎推不满，纵轴等于废掉。
-  kRtCanvasModuleStickL || kRtCanvasModuleStickR => (0.15, 0.34),
+  // 模拟摇杆：缺省近方形模块盒（绘制取 min → 正圆）。
+  kRtCanvasModuleStickL || kRtCanvasModuleStickR => (0.15, 0.28),
   kRtCanvasModuleFiles => (0.42, 0.28),
   _ => (kRtCanvasInputDefW, kRtCanvasInputDefH),
 };
