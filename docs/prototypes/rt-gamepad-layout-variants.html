@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-layout="now">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>远控手柄 · 按键布局对照（非配色）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   焦点：按键布局 / 分区 / 拇指可达，不是颜色。
+   全版共用同一套中性控件皮，只改坐标与分组。
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --fA:#3FB950; --fB:#F0524D; --fX:#4C8DF6; --fY:#E3B341;
+  --bg:#14171b; --pad:#1c2026; --btn:#262b33; --line:#343b46;
+  --txt:#e8eaed; --muted:#8b929c; --accent:#c9ced6; --ok:#5ecf86;
+  --spring: cubic-bezier(.34,1.35,.5,1);
+  --out: cubic-bezier(.22,1,.36,1);
+  --W: 900px; --H: 420px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  background: #0a0c0f; color: #d7dbe2;
+  font: 13px/1.45 "Outfit", "PingFang SC", sans-serif;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  padding: 26px 14px 60px; -webkit-font-smoothing: antialiased;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+.top { width: min(var(--W), 96vw); }
+.top h1 { font-family: "Sora", sans-serif; font-size: 18px; letter-spacing: -.02em; }
+.top .sub { margin-top: 4px; color: #7d8591; font-size: 12.5px; max-width: 70ch; }
+
+.row { display: flex; flex-wrap: wrap; gap: 8px; width: min(var(--W), 96vw); }
+.seg {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  background: #12161c; border: 1px solid #232a33; border-radius: 14px; padding: 4px;
+}
+.seg .s {
+  border: 0; background: transparent; color: #8b939e;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer;
+  font: 600 12px/1 "Outfit", sans-serif;
+  transition: background .2s var(--out), color .2s, transform .3s var(--spring);
+}
+.seg .s:hover { color: #eef1f4; }
+.seg .s:active { transform: scale(.95); }
+.seg .s.on { background: #2a323d; color: #f3f6f9; }
+
+.grid {
+  width: min(var(--W), 96vw);
+  display: grid; grid-template-columns: 1.15fr .85fr; gap: 12px;
+}
+.card {
+  background: #11151a; border: 1px solid #222933; border-radius: 14px; padding: 14px 16px;
+}
+.card h3 {
+  font-family: "Sora", sans-serif; font-size: 12px; letter-spacing: .08em;
+  text-transform: uppercase; color: #9aa3ae; margin-bottom: 8px;
+}
+.card p { color: #c5cbd4; font-size: 13px; line-height: 1.55; }
+.card ul { list-style: none; display: grid; gap: 6px; margin-top: 8px; }
+.card li {
+  color: #8f97a2; font-size: 12px; padding-left: 12px; position: relative; line-height: 1.4;
+}
+.card li::before {
+  content: ""; position: absolute; left: 0; top: .55em;
+  width: 5px; height: 5px; border-radius: 50%; background: #6fae7a;
+}
+.card li.bad::before { background: #e06b6b; }
+.card li.good::before { background: #5ecf86; }
+.card code {
+  font-family: "IBM Plex Mono", monospace; font-size: 11px;
+  background: rgba(255,255,255,.05); padding: 1px 6px; border-radius: 4px; color: #b7c4b0;
+}
+
+.device {
+  background: linear-gradient(180deg, #151920, #07090c);
+  border: 1px solid #1c222a; border-radius: 32px; padding: 10px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.5);
+}
+.screen {
+  position: relative; width: min(var(--W), 94vw); height: var(--H);
+  border-radius: 22px; overflow: hidden; background: var(--bg); color: var(--txt);
+}
+/* 拇指可达示意（可关） */
+.thumb-guide {
+  position: absolute; inset: 0; pointer-events: none; z-index: 5; opacity: 0;
+  transition: opacity .25s;
+}
+.thumb-guide.on { opacity: 1; }
+.thumb-guide .arc {
+  position: absolute; width: 42%; height: 78%; bottom: -8%; border-radius: 50%;
+  border: 1.5px dashed rgba(94,207,134,.35);
+  background: radial-gradient(circle at 50% 80%, rgba(94,207,134,.08), transparent 60%);
+}
+.thumb-guide .arc.L { left: -6%; }
+.thumb-guide .arc.R { right: -6%; }
+.thumb-guide .label {
+  position: absolute; bottom: 10px; font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: rgba(94,207,134,.7);
+  font-family: "IBM Plex Mono", monospace;
+}
+.thumb-guide .label.L { left: 14%; }
+.thumb-guide .label.R { right: 14%; }
+
+.hud {
+  position: absolute; z-index: 30; top: 10px; left: 12px; right: 12px;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.hud .chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 10px; border-radius: 999px;
+  background: rgba(28,32,38,.85); border: 1px solid var(--line);
+  font-size: 11px; font-weight: 600;
+}
+.hud .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+  box-shadow: 0 0 0 3px rgba(94,207,134,.2); }
+.hud .meta {
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted);
+}
+
+.stage { position: absolute; inset: 0; z-index: 10; }
+
+/* 分区幽灵框（布局讲解用） */
+.zone {
+  position: absolute; border: 1px dashed transparent; border-radius: 16px;
+  pointer-events: none; z-index: 2;
+}
+.zone.on {
+  border-color: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.02);
+}
+.zone .ztag {
+  position: absolute; top: 6px; left: 8px;
+  font: 500 9px/1 "IBM Plex Mono", monospace; letter-spacing: .1em;
+  color: rgba(255,255,255,.28); text-transform: uppercase;
+}
+
+/* 控件 */
+.ctrl { position: absolute; user-select: none; touch-action: none; }
+.dpad {
+  width: 100%; height: 100%; position: relative;
+  background: var(--pad); border: 1px solid var(--line); border-radius: 50%;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.35);
+}
+.dpad.cross { border-radius: 18px; }
+.dpad .arm {
+  position: absolute; left: 50%; top: 50%; background: #2a3038; border: 1px solid var(--line);
+}
+.dpad .arm.h { width: 78%; height: 28%; transform: translate(-50%,-50%); border-radius: 8px; }
+.dpad .arm.v { width: 28%; height: 78%; transform: translate(-50%,-50%); border-radius: 8px; }
+.dpad .hub {
+  position: absolute; left: 50%; top: 50%; width: 22%; height: 22%;
+  transform: translate(-50%,-50%); border-radius: 50%;
+  background: #1a1e24; border: 1px solid var(--line);
+}
+.dpad .arr {
+  position: absolute; left: 50%; top: 50%; width: 40%; height: 40%;
+  display: grid; place-items: center; color: var(--muted);
+}
+.dpad .arr.up    { transform: translate(-50%,-50%) translateY(-70%); }
+.dpad .arr.down  { transform: translate(-50%,-50%) translateY(70%); }
+.dpad .arr.left  { transform: translate(-50%,-50%) translateX(-70%); }
+.dpad .arr.right { transform: translate(-50%,-50%) translateX(70%); }
+.dpad .arr svg { width: 40%; height: 40%; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.dpad.wheel .knob {
+  position: absolute; left: 50%; top: 50%; width: 34%; height: 34%;
+  transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a414c, #1a1e24 70%);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 10px rgba(0,0,0,.35);
+}
+
+.stick {
+  border-radius: 50%; background: var(--pad); border: 1px solid var(--line);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.35);
+}
+.stick .cap {
+  position: absolute; left: 50%; top: 50%; width: 42%; height: 42%;
+  transform: translate(-50%,-50%); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a414c, #1a1e24 70%);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 10px rgba(0,0,0,.35);
+}
+.stick .press {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  font: 700 9px/1 "IBM Plex Mono", monospace; color: rgba(255,255,255,.35); letter-spacing: .04em;
+  pointer-events: none;
+}
+.tag {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font: 500 9px/1 "IBM Plex Mono", monospace; letter-spacing: .1em;
+  color: var(--muted); white-space: nowrap; pointer-events: none;
+}
+.tag.below { top: calc(100% + 6px); }
+.tag.above { bottom: calc(100% + 6px); }
+
+.btn {
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--btn); border: 1px solid var(--line); color: var(--txt);
+  font-weight: 700; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 3px 0 #0d0f12;
+  transition: transform .3s var(--spring), background .12s, color .12s;
+}
+.btn:active, .btn.held { transform: scale(.9); }
+.btn.round { border-radius: 50%; }
+.btn.pill { border-radius: 999px; font-size: 10px; letter-spacing: .12em; }
+.btn.rect { border-radius: 8px; font-size: 9px; letter-spacing: .08em; }
+.btn.face { border-width: 2px; font-size: 14px; }
+.btn.kA { border-color: var(--fA); color: var(--fA); }
+.btn.kB { border-color: var(--fB); color: var(--fB); }
+.btn.kX { border-color: var(--fX); color: var(--fX); }
+.btn.kY { border-color: var(--fY); color: var(--fY); }
+.btn.kA.held { background: var(--fA); color: #fff; }
+.btn.kB.held { background: var(--fB); color: #fff; }
+.btn.kX.held { background: var(--fX); color: #fff; }
+.btn.kY.held { background: var(--fY); color: #2a2618; }
+.btn.held:not(.face) { background: var(--accent); color: #15171b; border-color: var(--accent); }
+
+/* 扳机：更高的竖向胶囊，真机感 */
+.btn.trigger {
+  border-radius: 10px 10px 6px 6px;
+  font-size: 10px; letter-spacing: .14em;
+  background: linear-gradient(180deg, #2e343e, #1e232a);
+}
+.btn.bumper {
+  border-radius: 8px; font-size: 10px; letter-spacing: .14em;
+}
+
+.note {
+  width: min(var(--W), 96vw); color: #6a7380; font-size: 11.5px; line-height: 1.5;
+}
+.note b { color: #aeb6c0; font-weight: 600; }
+
+.toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer;
+  background: #12161c; border: 1px solid #232a33; color: #9aa3ae;
+  font: 600 12px/1 "Outfit", sans-serif; user-select: none;
+}
+.toggle.on { color: #5ecf86; border-color: rgba(94,207,134,.35); }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>远控手柄 · 按键布局对照</h1>
+  <div class="sub">问题在排布：现网把 LB/LT/RT/RB 摊成一行、系统键挤进右手模块、L3/R3 当独立小圆钉在角落——不像手柄。下面四版只改坐标与分组，皮相同。</div>
+</div>
+
+<div class="row">
+  <div class="seg" id="layoutSeg">
+    <button class="s on" data-l="now">0 · 现网</button>
+    <button class="s" data-l="xbox">1 · Xbox 非对称</button>
+    <button class="s" data-l="dual">2 · DualSense 对称</button>
+    <button class="s" data-l="grip">3 · 横屏握把</button>
+  </div>
+  <button class="toggle" id="zoneToggle">显示分区</button>
+  <button class="toggle" id="thumbToggle">拇指可达弧</button>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3 id="title">0 · 现网</h3>
+    <p id="blurb">左轮盘 + 中缝右摇杆 + 右模块竖堆（肩键一行四等分 → 系统三键 → ABXY → L3/R3 角落）。像面板，不像手柄。</p>
+    <ul id="bullets"></ul>
+  </div>
+  <div class="card">
+    <h3>对照要点</h3>
+    <p>真机习惯：<b>肩/扳分层</b>、<b>系统键居中</b>、<b>摇杆按压缩在摇杆上</b>、<b>左右手区镜像</b>。落地时优先改默认锚点与 <code>rtVpadDefaultSlots</code>，不必先换皮。</p>
+  </div>
+</div>
+
+<div class="device">
+  <div class="screen" id="screen">
+    <div class="hud">
+      <div class="chip"><span class="dot"></span><span id="hudName">现网布局</span></div>
+      <div class="meta" id="hudMeta">LAYOUT · COMPARE</div>
+    </div>
+    <div class="thumb-guide" id="thumbs">
+      <div class="arc L"></div><div class="arc R"></div>
+      <div class="label L">L thumb</div><div class="label R">R thumb</div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </div>
+</div>
+
+<p class="note">文件：<b>docs/prototypes/rt-gamepad-layout-variants.html</b> · 选一版后可落到 Flutter 默认模板锚点。</p>
+
+<script>
+const COPY = {
+  now: {
+    title: '0 · 现网',
+    blurb: '左轮盘 + 中缝右摇杆 + 右模块竖堆（肩键一行四等分 → 系统三键 → ABXY → L3/R3 角落）。像面板，不像手柄。',
+    bullets: [
+      { t: '肩键/扳机同一行四等分，没有「上肩下扳」分层', bad: true },
+      { t: 'View/Menu/Guide 塞进右手模块，拇指要伸进键区中间', bad: true },
+      { t: 'L3/R3 是角落小钮，不是摇杆下压', bad: true },
+      { t: '只有右摇杆落在中缝，左手无摇杆位（与 Xbox 习惯相反）', bad: true },
+    ],
+    hud: '现网布局', meta: 'NOW · PANEL STACK',
+  },
+  xbox: {
+    title: '1 · Xbox 非对称',
+    blurb: '经典主机：左上摇杆 + 左下十字；右上 ABXY + 右下摇杆；顶部分左右肩/扳；系统键屏幕正中。',
+    bullets: [
+      { t: 'LT/LB 贴左上缘，RT/RB 贴右上缘——分层且分侧', good: true },
+      { t: 'View / Guide / Menu 居中，不占拇指主区', good: true },
+      { t: 'L3/R3 画在摇杆帽上（按压缩在摇杆）', good: true },
+      { t: '左右镜像：面键对十字、右摇对左摇', good: true },
+    ],
+    hud: 'Xbox 非对称', meta: 'XBOX · ASYM',
+  },
+  dual: {
+    title: '2 · DualSense 对称',
+    blurb: '双摇杆下沉同高，十字与 ABXY 抬高同高；中央留触控/系统带。横屏手机更均衡。',
+    bullets: [
+      { t: '两摇杆同基线，拇指自然下沉', good: true },
+      { t: 'D-pad / ABXY 抬到摇杆上方，避免挤在一角', good: true },
+      { t: '中央窄带放系统键，可选触控条占位', good: true },
+      { t: '肩/扳仍分侧贴顶，不进主拇指区', good: true },
+    ],
+    hud: 'DualSense 对称', meta: 'DS · SYMM',
+  },
+  grip: {
+    title: '3 · 横屏握把',
+    blurb: '按手机横握优化：左右大拇指扇区清空干扰；扳机做侧缘竖条；中上只留系统三键。',
+    bullets: [
+      { t: 'LT/RT 做左右侧缘竖扳机，握把食指位', good: true },
+      { t: 'LB/RB 仍顶部分侧，但不和扳机抢一行', good: true },
+      { t: '主控全部落在拇指弧内（开「拇指可达弧」核对）', good: true },
+      { t: '中心死区尽量空，避免误触', good: true },
+    ],
+    hud: '横屏握把', meta: 'PHONE · GRIP',
+  },
+};
+
+const ICON = {
+  up:    '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  down:  '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
+  left:  '<svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>',
+  right: '<svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>',
+};
+
+const stage = document.getElementById('stage');
+const screen = document.getElementById('screen');
+let showZones = false;
+
+function el(cls, style, html) {
+  const d = document.createElement('div');
+  d.className = cls;
+  if (style) d.style.cssText = style;
+  if (html) d.innerHTML = html;
+  return d;
+}
+function pct(x, y, w, h) {
+  const W = screen.clientWidth, H = screen.clientHeight;
+  return {
+    left: x * W - (w * W) / 2,
+    top: y * H - (h * H) / 2,
+    w: w * W,
+    h: h * H,
+    W, H,
+  };
+}
+function place(node, x, y, w, h) {
+  const p = pct(x, y, w, h);
+  node.style.left = p.left + 'px';
+  node.style.top = p.top + 'px';
+  node.style.width = p.w + 'px';
+  node.style.height = p.h + 'px';
+  return node;
+}
+function bindHold(node) {
+  const on = () => node.classList.add('held');
+  const off = () => node.classList.remove('held');
+  node.addEventListener('pointerdown', e => { node.setPointerCapture(e.pointerId); on(); });
+  node.addEventListener('pointerup', off);
+  node.addEventListener('pointercancel', off);
+  node.addEventListener('lostpointercapture', off);
+}
+function zone(x, y, w, h, label) {
+  const z = el('zone' + (showZones ? ' on' : ''), '', `<span class="ztag">${label}</span>`);
+  return place(z, x, y, w, h);
+}
+function makeDpad(kind /* cross|wheel */) {
+  const wrap = el('ctrl');
+  if (kind === 'cross') {
+    wrap.innerHTML = `<div class="dpad cross">
+      <div class="arm h"></div><div class="arm v"></div><div class="hub"></div>
+      <div class="arr up">${ICON.up}</div><div class="arr down">${ICON.down}</div>
+      <div class="arr left">${ICON.left}</div><div class="arr right">${ICON.right}</div>
+    </div>`;
+  } else {
+    wrap.innerHTML = `<div class="dpad wheel">
+      <div class="arr up">${ICON.up}</div><div class="arr down">${ICON.down}</div>
+      <div class="arr left">${ICON.left}</div><div class="arr right">${ICON.right}</div>
+      <div class="knob"></div>
+    </div>`;
+  }
+  return wrap;
+}
+function makeStick(label, withPress) {
+  const wrap = el('ctrl stick', '', `
+    <div class="cap"></div>
+    ${withPress ? `<div class="press">${label}</div>` : ''}
+    <div class="tag below">${label}</div>`);
+  return wrap;
+}
+function makeBtn(kind, label, faceClass) {
+  const b = el(`ctrl btn ${kind}${faceClass ? ' ' + faceClass : ''}`, '', label);
+  bindHold(b);
+  return b;
+}
+function faceCluster(x, y, scale) {
+  // scale: face diameter as fraction of screen min side-ish via w/h of cluster box
+  const boxW = 0.22 * scale, boxH = 0.48 * scale;
+  const cluster = el('ctrl');
+  place(cluster, x, y, boxW, boxH);
+  const keys = [
+    ['Y', 'kY', 0.5, 0.18],
+    ['X', 'kX', 0.18, 0.5],
+    ['B', 'kB', 0.82, 0.5],
+    ['A', 'kA', 0.5, 0.82],
+  ];
+  const W = screen.clientWidth, H = screen.clientHeight;
+  const cw = boxW * W, ch = boxH * H;
+  const d = Math.min(cw, ch) * 0.36;
+  keys.forEach(([lab, cls, fx, fy]) => {
+    const b = makeBtn('round face', lab, cls);
+    b.style.width = d + 'px';
+    b.style.height = d + 'px';
+    b.style.left = (fx * cw - d / 2) + 'px';
+    b.style.top = (fy * ch - d / 2) + 'px';
+    b.style.position = 'absolute';
+    cluster.appendChild(b);
+  });
+  return cluster;
+}
+
+function renderNow() {
+  // Current production-ish layout
+  stage.appendChild(zone(0.21, 0.54, 0.26, 0.56, 'dpad module'));
+  stage.appendChild(zone(0.51, 0.62, 0.18, 0.38, 'stick R'));
+  stage.appendChild(zone(0.765, 0.53, 0.38, 0.72, 'vpad module'));
+
+  const dpad = makeDpad('wheel');
+  place(dpad, 0.21, 0.54, 0.22, 0.48);
+  // square
+  const side = Math.min(dpad.style.width.replace('px','')*1, parseFloat(getComputedStyle(dpad).height) || 0);
+  stage.appendChild(dpad);
+  // fix square visually
+  const p = pct(0.21, 0.54, 0.22, 0.52);
+  const s = Math.min(p.w, p.h);
+  dpad.style.width = dpad.style.height = s + 'px';
+  dpad.style.left = (0.21 * screen.clientWidth - s / 2) + 'px';
+  dpad.style.top = (0.54 * screen.clientHeight - s / 2) + 'px';
+
+  const stick = makeStick('R-STICK', false);
+  place(stick, 0.51, 0.62, 0.14, 0.30);
+  const ss = Math.min(parseFloat(stick.style.width), parseFloat(stick.style.height));
+  stick.style.width = stick.style.height = ss + 'px';
+  stick.style.left = (0.51 * screen.clientWidth - ss / 2) + 'px';
+  stick.style.top = (0.62 * screen.clientHeight - ss / 2) + 'px';
+  stage.appendChild(stick);
+
+  // right vpad stack: 4 shoulders row + 3 sys + faces + L3/R3 corners
+  const box = pct(0.765, 0.53, 0.36, 0.70);
+  const mod = el('ctrl');
+  mod.style.left = box.left + 'px';
+  mod.style.top = box.top + 'px';
+  mod.style.width = box.w + 'px';
+  mod.style.height = box.h + 'px';
+
+  const shH = Math.max(34, box.h * 0.15);
+  const shoulders = el('', `position:absolute;left:9%;top:0;width:82%;height:${shH}px;display:flex;gap:6px`);
+  ['LB','LT','RT','RB'].forEach(lab => {
+    const b = makeBtn('pill bumper', lab);
+    b.style.flex = '1';
+    b.style.position = 'relative';
+    shoulders.appendChild(b);
+  });
+  mod.appendChild(shoulders);
+
+  const sysY = shH + 10;
+  const sysH = Math.max(22, box.h * 0.09);
+  const sys = el('', `position:absolute;left:21%;top:${sysY}px;width:58%;height:${sysH}px;display:flex;gap:6px`);
+  ['BACK','START','GUIDE'].forEach(lab => {
+    const b = makeBtn('rect', lab);
+    b.style.flex = '1';
+    b.style.position = 'relative';
+    sys.appendChild(b);
+  });
+  mod.appendChild(sys);
+
+  const faceTop = sysY + sysH + 10;
+  const faceH = box.h - faceTop - box.h * 0.22;
+  const faceBox = el('', `position:absolute;left:0;top:${faceTop}px;width:100%;height:${faceH}px`);
+  const d = Math.min(box.w * 0.36, faceH * 0.34);
+  const arm = d * 0.80;
+  const cx = box.w / 2, cy = faceH / 2;
+  [['Y','kY', cx, cy - arm],['X','kX', cx - arm, cy],['B','kB', cx + arm, cy],['A','kA', cx, cy + arm]]
+    .forEach(([lab, cls, x, y]) => {
+      const b = makeBtn('round face', lab, cls);
+      b.style.width = b.style.height = d + 'px';
+      b.style.left = (x - d / 2) + 'px';
+      b.style.top = (y - d / 2) + 'px';
+      b.style.position = 'absolute';
+      faceBox.appendChild(b);
+    });
+  mod.appendChild(faceBox);
+
+  const stickD = Math.min(box.w * 0.16, box.h * 0.20);
+  [['L3', 4 + stickD / 2], ['R3', box.w - 4 - stickD / 2]].forEach(([lab, x]) => {
+    const b = makeBtn('round', lab);
+    b.style.width = b.style.height = stickD + 'px';
+    b.style.left = (x - stickD / 2) + 'px';
+    b.style.top = (box.h - stickD - 4) + 'px';
+    b.style.position = 'absolute';
+    b.style.fontSize = '10px';
+    mod.appendChild(b);
+  });
+  stage.appendChild(mod);
+}
+
+function renderXbox() {
+  // Top bumpers / triggers split L/R
+  stage.appendChild(zone(0.18, 0.12, 0.28, 0.18, 'L shoulder'));
+  stage.appendChild(zone(0.82, 0.12, 0.28, 0.18, 'R shoulder'));
+  stage.appendChild(zone(0.22, 0.55, 0.36, 0.70, 'left hand'));
+  stage.appendChild(zone(0.78, 0.55, 0.36, 0.70, 'right hand'));
+  stage.appendChild(zone(0.50, 0.28, 0.22, 0.14, 'system'));
+
+  // LT above LB (left), RT above RB (right)
+  const mkSideShoulders = (side) => {
+    const isL = side === 'L';
+    const cx = isL ? 0.17 : 0.83;
+    const trig = makeBtn('trigger', isL ? 'LT' : 'RT');
+    place(trig, cx, 0.09, 0.13, 0.09);
+    const bump = makeBtn('bumper pill', isL ? 'LB' : 'RB');
+    place(bump, cx, 0.17, 0.14, 0.065);
+    stage.appendChild(trig);
+    stage.appendChild(bump);
+  };
+  mkSideShoulders('L');
+  mkSideShoulders('R');
+
+  // system center
+  [['VIEW', 0.42], ['GUIDE', 0.50], ['MENU', 0.58]].forEach(([lab, x]) => {
+    const b = makeBtn(lab === 'GUIDE' ? 'round' : 'rect', lab === 'GUIDE' ? '●' : lab);
+    place(b, x, 0.28, lab === 'GUIDE' ? 0.045 : 0.07, lab === 'GUIDE' ? 0.09 : 0.055);
+    if (lab === 'GUIDE') {
+      const s = Math.min(parseFloat(b.style.width), parseFloat(b.style.height));
+      b.style.width = b.style.height = s + 'px';
+      b.style.left = (x * screen.clientWidth - s / 2) + 'px';
+    }
+    stage.appendChild(b);
+  });
+
+  // left stick upper, dpad lower (Xbox One style)
+  const ls = makeStick('L3', true);
+  place(ls, 0.20, 0.42, 0.16, 0.34);
+  square(ls, 0.20, 0.42);
+  stage.appendChild(ls);
+
+  const dpad = makeDpad('cross');
+  place(dpad, 0.30, 0.70, 0.15, 0.32);
+  square(dpad, 0.30, 0.70);
+  stage.appendChild(dpad);
+
+  // ABXY upper right, RS lower right
+  stage.appendChild(faceCluster(0.78, 0.44, 1.05));
+
+  const rs = makeStick('R3', true);
+  place(rs, 0.68, 0.72, 0.15, 0.32);
+  square(rs, 0.68, 0.72);
+  stage.appendChild(rs);
+}
+
+function renderDual() {
+  stage.appendChild(zone(0.22, 0.58, 0.34, 0.62, 'left'));
+  stage.appendChild(zone(0.78, 0.58, 0.34, 0.62, 'right'));
+  stage.appendChild(zone(0.50, 0.22, 0.28, 0.16, 'center strip'));
+
+  // shoulders split
+  [['LT',0.16,0.08],['LB',0.16,0.16],['RT',0.84,0.08],['RB',0.84,0.16]].forEach(([lab,x,y], i) => {
+    const b = makeBtn(i % 2 === 0 ? 'trigger' : 'bumper pill', lab);
+    place(b, x, y, 0.12, i % 2 === 0 ? 0.08 : 0.06);
+    stage.appendChild(b);
+  });
+
+  // center create / touch / options
+  const touch = el('ctrl', '', '<div class="tag below">TOUCH</div>');
+  touch.style.background = 'rgba(255,255,255,.04)';
+  touch.style.border = '1px solid var(--line)';
+  touch.style.borderRadius = '12px';
+  place(touch, 0.50, 0.20, 0.20, 0.08);
+  stage.appendChild(touch);
+  [['CREATE', 0.36], ['OPTIONS', 0.64]].forEach(([lab, x]) => {
+    const b = makeBtn('rect', lab);
+    place(b, x, 0.20, 0.08, 0.05);
+    stage.appendChild(b);
+  });
+
+  // dpad / face high
+  const dpad = makeDpad('cross');
+  place(dpad, 0.22, 0.48, 0.15, 0.32);
+  square(dpad, 0.22, 0.48);
+  stage.appendChild(dpad);
+  stage.appendChild(faceCluster(0.78, 0.48, 1.0));
+
+  // sticks low symmetric
+  const ls = makeStick('L3', true);
+  place(ls, 0.30, 0.76, 0.15, 0.32);
+  square(ls, 0.30, 0.76);
+  stage.appendChild(ls);
+  const rs = makeStick('R3', true);
+  place(rs, 0.70, 0.76, 0.15, 0.32);
+  square(rs, 0.70, 0.76);
+  stage.appendChild(rs);
+}
+
+function renderGrip() {
+  stage.appendChild(zone(0.18, 0.58, 0.34, 0.70, 'L thumb'));
+  stage.appendChild(zone(0.82, 0.58, 0.34, 0.70, 'R thumb'));
+  stage.appendChild(zone(0.50, 0.14, 0.24, 0.12, 'system'));
+
+  // side edge triggers (index fingers when holding phone landscape)
+  const lt = makeBtn('trigger', 'LT');
+  place(lt, 0.035, 0.45, 0.045, 0.28);
+  lt.style.borderRadius = '6px 12px 12px 6px';
+  stage.appendChild(lt);
+  const rt = makeBtn('trigger', 'RT');
+  place(rt, 0.965, 0.45, 0.045, 0.28);
+  rt.style.borderRadius = '12px 6px 6px 12px';
+  stage.appendChild(rt);
+
+  // bumpers top corners only
+  const lb = makeBtn('bumper pill', 'LB');
+  place(lb, 0.16, 0.10, 0.14, 0.07);
+  stage.appendChild(lb);
+  const rb = makeBtn('bumper pill', 'RB');
+  place(rb, 0.84, 0.10, 0.14, 0.07);
+  stage.appendChild(rb);
+
+  // system center top
+  [['VIEW', 0.42], ['●', 0.50], ['MENU', 0.58]].forEach(([lab, x]) => {
+    const b = makeBtn(lab === '●' ? 'round' : 'rect', lab);
+    place(b, x, 0.14, lab === '●' ? 0.04 : 0.07, lab === '●' ? 0.085 : 0.05);
+    if (lab === '●') square(b, x, 0.14);
+    stage.appendChild(b);
+  });
+
+  // left: stick primary + small dpad satellite
+  const ls = makeStick('L3', true);
+  place(ls, 0.20, 0.55, 0.18, 0.38);
+  square(ls, 0.20, 0.55);
+  stage.appendChild(ls);
+  const dpad = makeDpad('cross');
+  place(dpad, 0.34, 0.72, 0.11, 0.24);
+  square(dpad, 0.34, 0.72);
+  stage.appendChild(dpad);
+
+  // right: ABXY primary + small RS
+  stage.appendChild(faceCluster(0.80, 0.52, 1.1));
+  const rs = makeStick('R3', true);
+  place(rs, 0.66, 0.74, 0.12, 0.26);
+  square(rs, 0.66, 0.74);
+  stage.appendChild(rs);
+}
+
+function square(node, cx, cy) {
+  const w = parseFloat(node.style.width);
+  const h = parseFloat(node.style.height);
+  const s = Math.min(w, h);
+  node.style.width = node.style.height = s + 'px';
+  node.style.left = (cx * screen.clientWidth - s / 2) + 'px';
+  node.style.top = (cy * screen.clientHeight - s / 2) + 'px';
+}
+
+function render(layout) {
+  stage.innerHTML = '';
+  if (layout === 'now') renderNow();
+  else if (layout === 'xbox') renderXbox();
+  else if (layout === 'dual') renderDual();
+  else renderGrip();
+}
+
+function setLayout(l) {
+  document.documentElement.setAttribute('data-layout', l);
+  document.querySelectorAll('#layoutSeg .s').forEach(s => s.classList.toggle('on', s.dataset.l === l));
+  const c = COPY[l];
+  document.getElementById('title').textContent = c.title;
+  document.getElementById('blurb').textContent = c.blurb;
+  document.getElementById('bullets').innerHTML = c.bullets.map(b =>
+    `<li class="${b.bad ? 'bad' : b.good ? 'good' : ''}">${b.t}</li>`).join('');
+  document.getElementById('hudName').textContent = c.hud;
+  document.getElementById('hudMeta').textContent = c.meta;
+  render(l);
+}
+
+document.querySelectorAll('#layoutSeg .s').forEach(btn => {
+  btn.addEventListener('click', () => setLayout(btn.dataset.l));
+});
+document.getElementById('zoneToggle').addEventListener('click', e => {
+  showZones = !showZones;
+  e.currentTarget.classList.toggle('on', showZones);
+  setLayout(document.documentElement.getAttribute('data-layout'));
+});
+document.getElementById('thumbToggle').addEventListener('click', e => {
+  const on = document.getElementById('thumbs').classList.toggle('on');
+  e.currentTarget.classList.toggle('on', on);
+});
+
+setLayout('now');
+addEventListener('resize', () => setLayout(document.documentElement.getAttribute('data-layout')));
+</script>
+</body>
+</html>

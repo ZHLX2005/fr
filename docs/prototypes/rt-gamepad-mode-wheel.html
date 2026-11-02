@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>远控手柄 · 轮盘模式（参考外控布局）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* 与方向键模式同一参考图骨架；左上十字 → 八向轮盘 */
+:root {
+  --bg: #0c0e12;
+  --line: rgba(255,255,255,.88);
+  --ok: #3ddc84;
+  --accent: #5ec8ff;
+  --spring: cubic-bezier(.34,1.35,.5,1);
+  --W: 900px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  background: #06070a; color: #d8dde4;
+  font: 13px/1.45 "Outfit", "PingFang SC", sans-serif;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 20px 12px 48px; -webkit-font-smoothing: antialiased;
+}
+.top { width: min(var(--W), 96vw); }
+.top .mode {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  font: 600 11px/1 "IBM Plex Mono", monospace; letter-spacing: .12em;
+  color: #5ec8ff; text-transform: uppercase;
+}
+.top .mode i { width: 8px; height: 8px; border-radius: 50%; background: #5ec8ff; }
+.top h1 { font-family: "Sora", sans-serif; font-size: 18px; letter-spacing: -.02em; }
+.top .sub { margin-top: 5px; color: #7d8591; font-size: 12.5px; max-width: 70ch; }
+.links { display: flex; gap: 8px; flex-wrap: wrap; width: min(var(--W), 96vw); }
+.links a {
+  color: #9aa3ae; text-decoration: none; font-size: 12px; font-weight: 600;
+  padding: 8px 12px; border-radius: 10px; border: 1px solid #232a33; background: #12161c;
+}
+.links a.here { color: #5ec8ff; border-color: rgba(94,200,255,.35); }
+
+.grid { width: min(var(--W), 96vw); display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card {
+  background: #11151a; border: 1px solid #222933; border-radius: 12px; padding: 12px 14px;
+}
+.card h3 {
+  font-family: "Sora", sans-serif; font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: #9aa3ae; margin-bottom: 6px;
+}
+.card p, .card li { color: #9aa3ae; font-size: 12px; line-height: 1.45; }
+.card ul { list-style: none; display: grid; gap: 5px; margin-top: 8px; }
+.card li { padding-left: 11px; position: relative; }
+.card li::before {
+  content: ""; position: absolute; left: 0; top: .55em;
+  width: 5px; height: 5px; border-radius: 50%; background: #5ec8ff;
+}
+.card code {
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+  background: rgba(255,255,255,.05); padding: 1px 5px; border-radius: 4px; color: #b7c4b0;
+}
+
+.device {
+  background: #0a0c10; border: 1px solid #1a1f27; border-radius: 36px; padding: 10px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.55);
+}
+.screen {
+  position: relative; width: min(var(--W), 94vw); aspect-ratio: 19.5 / 9;
+  border-radius: 26px; overflow: hidden; background: var(--bg); color: #fff;
+}
+.bar {
+  position: absolute; z-index: 30; top: 0; left: 0; right: 0;
+  display: grid; grid-template-columns: 1fr 1.2fr auto; gap: 8px;
+  align-items: start; padding: 10px 14px 0;
+  font: 500 10px/1.35 "Outfit", "PingFang SC", sans-serif;
+  color: rgba(255,255,255,.78); pointer-events: none;
+}
+.bar .stats { text-align: center; }
+.bar .stats div { display: flex; align-items: center; justify-content: center; gap: 5px; }
+.bar .ok {
+  width: 11px; height: 11px; border-radius: 2px; background: var(--ok);
+  display: inline-grid; place-items: center; color: #062; font-size: 8px; font-weight: 800;
+}
+.bar .set {
+  pointer-events: auto; justify-self: end; display: flex; flex-direction: column; align-items: center;
+  gap: 2px; color: rgba(255,255,255,.85); cursor: pointer; background: none; border: 0; font: inherit;
+}
+.bar .set svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+
+.stage { position: absolute; inset: 0; z-index: 10; }
+.ctrl { position: absolute; user-select: none; touch-action: none; }
+
+.wheel {
+  width: 100%; height: 100%; border-radius: 50%;
+  border: 2px solid var(--line); position: relative;
+}
+.wheel .ring {
+  position: absolute; inset: 14%; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.28); pointer-events: none;
+}
+.wheel .tick {
+  position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px;
+  border-radius: 50%; background: rgba(255,255,255,.35);
+  transform: rotate(var(--a)) translateY(-112%) rotate(calc(var(--a) * -1));
+}
+.wheel .tick.on { background: var(--accent); box-shadow: 0 0 8px rgba(94,200,255,.55); }
+.wheel .knob {
+  position: absolute; left: 50%; top: 50%; width: 34%; height: 34%;
+  transform: translate(-50%,-50%); border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.45);
+  background: rgba(255,255,255,.06);
+  transition: transform .45s var(--spring);
+}
+.wheel.dragging .knob { transition: transform .05s linear; }
+
+.stick {
+  border-radius: 50%; border: 2px solid var(--line);
+  display: grid; place-items: center;
+  font: 700 22px/1 "Outfit", sans-serif; color: #fff; background: transparent;
+}
+.stick .cap {
+  position: absolute; inset: 18%; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.35);
+  background: rgba(255,255,255,.04);
+  transition: transform .05s linear;
+}
+.stick .lab { position: relative; z-index: 2; pointer-events: none; }
+.stick.held { background: rgba(255,255,255,.1); }
+
+.btn {
+  display: grid; place-items: center; cursor: pointer;
+  border: 2px solid var(--line); background: transparent; color: #fff;
+  font: 700 15px/1 "Outfit", sans-serif;
+  transition: transform .25s var(--spring), background .12s;
+}
+.btn:active, .btn.held { transform: scale(.9); background: rgba(255,255,255,.14); }
+.btn.round { border-radius: 50%; }
+.btn.sys {
+  width: 100%; height: 100%; border-radius: 50%; border-width: 1.5px;
+}
+.btn.sys svg { width: 42%; height: 42%; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.btn.shoulder {
+  border-radius: 10px; font-size: 13px; letter-spacing: .06em; font-weight: 600;
+}
+
+.note { width: min(var(--W), 96vw); color: #6a7380; font-size: 11.5px; }
+.note b { color: #aeb6c0; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="mode"><i></i>Mode · Wheel · 参考外控</div>
+  <h1>轮盘模式 · 按参考图布局</h1>
+  <div class="sub">与方向键模式同一骨架：左上换成八向轮盘，其余（下双摇、侧缘肩扳、居中 Back/Start、右上面键）不变。</div>
+</div>
+
+<div class="links">
+  <a href="./rt-gamepad-mode-dpad.html">方向键模式</a>
+  <a class="here" href="./rt-gamepad-mode-wheel.html">轮盘模式</a>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>与方向键模式的唯一差</h3>
+    <ul>
+      <li>左上：十字 → <strong>八向轮盘</strong>（含斜向）</li>
+      <li>其余锚点、侧缘肩扳、系统键、双摇同高 — 全部共用</li>
+      <li>落地时只改 <code>dir8=true</code> + 左上模块视觉</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>建议锚点（已避让）</h3>
+    <p>
+      wheel <code>0.21, 0.46</code> · stickL <code>0.28, 0.80</code><br>
+      face <code>0.79, 0.46</code> · stickR <code>0.72, 0.80</code><br>
+      肩扳 / Back·Start 同方向键模式
+    </p>
+  </div>
+</div>
+
+<div class="device">
+  <div class="screen" id="screen">
+    <div class="bar">
+      <div class="host">目标主机设备: Android/Linux</div>
+      <div class="stats">
+        <div>hid协议已连接 <span class="ok">✓</span></div>
+        <div>hid协议已注册 <span class="ok">✓</span></div>
+        <div>已选择hid设备 <span class="ok">✓</span></div>
+      </div>
+      <button class="set" type="button">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        设置
+      </button>
+    </div>
+    <div class="stage" id="stage"></div>
+  </div>
+</div>
+
+<p class="note">配对：<b>rt-gamepad-mode-dpad.html</b>。参考图骨架 + 左上轮盘。</p>
+
+<script>
+const ICON = {
+  back:  '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
+  start: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
+};
+const L = {
+  wheel: { x: 0.21, y: 0.46, w: 0.15, h: 0.34 },
+  stickL:{ x: 0.28, y: 0.80, w: 0.11, h: 0.24 },
+  face:  { x: 0.79, y: 0.46, w: 0.15, h: 0.34 },
+  stickR:{ x: 0.72, y: 0.80, w: 0.11, h: 0.24 },
+  lb:    { x: 0.048, y: 0.38, w: 0.05, h: 0.085 },
+  lt:    { x: 0.048, y: 0.52, w: 0.05, h: 0.085 },
+  rb:    { x: 0.952, y: 0.38, w: 0.05, h: 0.085 },
+  rt:    { x: 0.952, y: 0.52, w: 0.05, h: 0.085 },
+  back:  { x: 0.445, y: 0.22, w: 0.038, h: 0.085 },
+  start: { x: 0.555, y: 0.22, w: 0.038, h: 0.085 },
+};
+
+const stage = document.getElementById('stage');
+const screen = document.getElementById('screen');
+
+function el(cls, html) {
+  const d = document.createElement('div');
+  d.className = cls; if (html != null) d.innerHTML = html; return d;
+}
+function place(node, r) {
+  const W = screen.clientWidth, H = screen.clientHeight;
+  node.style.left = (r.x * W - r.w * W / 2) + 'px';
+  node.style.top = (r.y * H - r.h * H / 2) + 'px';
+  node.style.width = (r.w * W) + 'px';
+  node.style.height = (r.h * H) + 'px';
+  return node;
+}
+function square(node, r) {
+  const W = screen.clientWidth, H = screen.clientHeight;
+  const s = Math.min(r.w * W, r.h * H);
+  node.style.width = node.style.height = s + 'px';
+  node.style.left = (r.x * W - s / 2) + 'px';
+  node.style.top = (r.y * H - s / 2) + 'px';
+}
+function bindHold(node) {
+  const on = () => node.classList.add('held');
+  const off = () => node.classList.remove('held');
+  node.addEventListener('pointerdown', e => { node.setPointerCapture(e.pointerId); on(); });
+  node.addEventListener('pointerup', off);
+  node.addEventListener('pointercancel', off);
+  node.addEventListener('lostpointercapture', off);
+}
+function bindStick(node) {
+  const cap = node.querySelector('.cap');
+  const max = () => node.clientWidth * 0.22;
+  node.addEventListener('pointerdown', e => {
+    node.setPointerCapture(e.pointerId);
+    node.classList.add('held');
+    const move = ev => {
+      const r = node.getBoundingClientRect();
+      let dx = ev.clientX - (r.left + r.width / 2);
+      let dy = ev.clientY - (r.top + r.height / 2);
+      const m = max(), len = Math.hypot(dx, dy) || 1;
+      if (len > m) { dx *= m / len; dy *= m / len; }
+      cap.style.transform = `translate(${dx}px, ${dy}px)`;
+    };
+    const up = () => {
+      node.classList.remove('held');
+      cap.style.transform = '';
+      node.removeEventListener('pointermove', move);
+      node.removeEventListener('pointerup', up);
+      node.removeEventListener('pointercancel', up);
+    };
+    node.addEventListener('pointermove', move);
+    node.addEventListener('pointerup', up);
+    node.addEventListener('pointercancel', up);
+    move(e);
+  });
+}
+function bindWheel(node) {
+  const knob = node.querySelector('.knob');
+  const ticks = [...node.querySelectorAll('.tick')];
+  const max = () => node.clientWidth * 0.28;
+  const dirs = [0,45,90,135,180,-135,-90,-45];
+  node.addEventListener('pointerdown', e => {
+    node.setPointerCapture(e.pointerId);
+    node.classList.add('dragging');
+    const move = ev => {
+      const r = node.getBoundingClientRect();
+      let dx = ev.clientX - (r.left + r.width / 2);
+      let dy = ev.clientY - (r.top + r.height / 2);
+      const m = max(), len = Math.hypot(dx, dy) || 1;
+      if (len > m) { dx *= m / len; dy *= m / len; }
+      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      ticks.forEach(t => t.classList.remove('on'));
+      if (len < 8) return;
+      const deg = Math.atan2(dy, dx) * 180 / Math.PI;
+      let best = 0, bestD = 999;
+      dirs.forEach((a, i) => {
+        const d = Math.abs(((deg - a + 540) % 360) - 180);
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      ticks[best]?.classList.add('on');
+    };
+    const up = () => {
+      node.classList.remove('dragging');
+      knob.style.transform = 'translate(-50%,-50%)';
+      ticks.forEach(t => t.classList.remove('on'));
+      node.removeEventListener('pointermove', move);
+      node.removeEventListener('pointerup', up);
+      node.removeEventListener('pointercancel', up);
+    };
+    node.addEventListener('pointermove', move);
+    node.addEventListener('pointerup', up);
+    node.addEventListener('pointercancel', up);
+    move(e);
+  });
+}
+
+function render() {
+  stage.innerHTML = '';
+
+  [['lb','LB'],['lt','LT'],['rb','RB'],['rt','RT']].forEach(([k, lab]) => {
+    const b = el('ctrl btn shoulder', lab);
+    place(b, L[k]); bindHold(b); stage.appendChild(b);
+  });
+
+  [['back', ICON.back],['start', ICON.start]].forEach(([k, svg]) => {
+    const b = el('ctrl btn sys', svg);
+    place(b, L[k]); square(b, L[k]); bindHold(b); stage.appendChild(b);
+  });
+
+  const ticks = [0,45,90,135,180,225,270,315].map(a =>
+    `<div class="tick" style="--a:${a}deg"></div>`).join('');
+  const wheel = el('ctrl', `<div class="wheel">
+    <div class="ring"></div>${ticks}<div class="knob"></div>
+  </div>`);
+  place(wheel, L.wheel); square(wheel, L.wheel);
+  bindWheel(wheel.querySelector('.wheel')); stage.appendChild(wheel);
+
+  const face = el('ctrl');
+  place(face, L.face);
+  const fw = parseFloat(face.style.width), fh = parseFloat(face.style.height);
+  const d = Math.min(fw, fh) * 0.32, arm = d * 0.88;
+  const cx = fw / 2, cy = fh / 2;
+  [['Y', cx, cy - arm],['X', cx - arm, cy],['B', cx + arm, cy],['A', cx, cy + arm]]
+    .forEach(([lab, x, y]) => {
+      const b = el('ctrl btn round', lab);
+      b.style.position = 'absolute';
+      b.style.width = b.style.height = d + 'px';
+      b.style.left = (x - d / 2) + 'px';
+      b.style.top = (y - d / 2) + 'px';
+      bindHold(b); face.appendChild(b);
+    });
+  stage.appendChild(face);
+
+  [['stickL','L'],['stickR','R']].forEach(([k, lab]) => {
+    const s = el('ctrl stick', `<div class="cap"></div><span class="lab">${lab}</span>`);
+    place(s, L[k]); square(s, L[k]); bindStick(s); stage.appendChild(s);
+  });
+}
+
+render();
+addEventListener('resize', render);
+</script>
+</body>
+</html>

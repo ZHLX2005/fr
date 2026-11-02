@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-variant="pro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>远控手柄 UI · 四版原型对照</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   远控手柄键区视觉方案对照（横屏游戏布局）
+   结构同源：左 dpad/轮盘 · 中右摇杆 · 右肩键+ABXY+系统键
+   四版只换材质语言，不改交互几何。
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --fA:#3FB950; --fB:#F0524D; --fX:#4C8DF6; --fY:#E3B341;
+  --spring: cubic-bezier(.34,1.4,.5,1);
+  --out: cubic-bezier(.22,1,.36,1);
+  --phone-w: 860px;
+  --phone-h: 390px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { min-height: 100%; }
+body {
+  background: #090b0e;
+  color: #d8dde4;
+  font: 13px/1.45 "Outfit", "PingFang SC", sans-serif;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  padding: 28px 16px 64px;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ── 页头 ── */
+.top { width: min(var(--phone-w), 96vw); }
+.top h1 {
+  font-family: "Sora", sans-serif;
+  font-size: 18px; font-weight: 700; letter-spacing: -.02em;
+}
+.top .sub { margin-top: 4px; color: #7c8490; font-size: 12px; max-width: 62ch; }
+
+.row { display: flex; flex-wrap: wrap; gap: 8px; width: min(var(--phone-w), 96vw); }
+.seg {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  background: #12161c; border: 1px solid #232a33; border-radius: 14px; padding: 4px;
+}
+.seg .s {
+  border: 0; background: transparent; color: #8b939e;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer;
+  font: 600 12px/1 "Outfit", sans-serif; letter-spacing: .02em;
+  transition: background .2s var(--out), color .2s, transform .3s var(--spring);
+}
+.seg .s:hover { color: #e8ecef; }
+.seg .s:active { transform: scale(.95); }
+.seg .s.on {
+  background: #2a323d; color: #f2f5f8;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.pitch {
+  width: min(var(--phone-w), 96vw);
+  display: grid; grid-template-columns: 1.1fr .9fr; gap: 12px;
+}
+.pitch .card {
+  background: #11151a; border: 1px solid #222933; border-radius: 14px; padding: 14px 16px;
+}
+.pitch h3 {
+  font-family: "Sora", sans-serif; font-size: 12px; letter-spacing: .08em;
+  text-transform: uppercase; color: #9aa3ae; margin-bottom: 8px;
+}
+.pitch p { color: #c4cad3; font-size: 13px; line-height: 1.55; }
+.pitch ul { list-style: none; display: grid; gap: 6px; margin-top: 8px; }
+.pitch li {
+  color: #8f97a2; font-size: 12px; padding-left: 12px; position: relative;
+}
+.pitch li::before {
+  content: ""; position: absolute; left: 0; top: .55em;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent, #6fae7a);
+}
+.pitch code {
+  font-family: "IBM Plex Mono", monospace; font-size: 11px;
+  background: rgba(255,255,255,.05); padding: 1px 6px; border-radius: 4px; color: #b7c4b0;
+}
+
+/* ── 设备框 ── */
+.device {
+  background: linear-gradient(180deg, #14181e, #07090c);
+  border: 1px solid #1c222a; border-radius: 34px; padding: 11px;
+  box-shadow: 0 28px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.screen {
+  position: relative; width: min(var(--phone-w), 92vw); height: var(--phone-h);
+  border-radius: 24px; overflow: hidden;
+  background: var(--bg);
+  color: var(--txt);
+}
+.screen::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: var(--grain, none); opacity: .55; mix-blend-mode: soft-light;
+}
+.hud {
+  position: absolute; z-index: 20; top: 12px; left: 14px; right: 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  pointer-events: none;
+}
+.hud .chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 11px; border-radius: 999px;
+  background: var(--chrome); color: var(--txt); border: 1px solid var(--line);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.hud .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent);
+}
+.hud .meta {
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted);
+  letter-spacing: .04em;
+}
+
+.stage { position: absolute; inset: 0; z-index: 10; }
+
+/* ── 通用控件骨架 ── */
+.wheel {
+  position: absolute; border-radius: 50%; touch-action: none; user-select: none;
+  background: var(--pad); border: 1px solid var(--line);
+  box-shadow: var(--pad-shadow);
+}
+.wheel .ring {
+  position: absolute; inset: 10%; border-radius: 50%;
+  border: 1px solid var(--ring); pointer-events: none;
+}
+.wheel .arr {
+  position: absolute; left: 50%; top: 50%; width: 46%; height: 46%;
+  display: grid; place-items: center; color: var(--muted);
+  transition: color .15s, transform .35s var(--spring);
+}
+.wheel .arr.up    { transform: translate(-50%,-50%) translateY(-76%); }
+.wheel .arr.down  { transform: translate(-50%,-50%) translateY(76%); }
+.wheel .arr.left  { transform: translate(-50%,-50%) translateX(-76%); }
+.wheel .arr.right { transform: translate(-50%,-50%) translateX(76%); }
+.wheel .arr.on { color: var(--accent); transform: translate(-50%,-50%) translateY(var(--ty,0)) translateX(var(--tx,0)) scale(1.18); }
+.wheel .arr.up.on { --ty: -76%; }
+.wheel .arr.down.on { --ty: 76%; }
+.wheel .arr.left.on { --tx: -76%; }
+.wheel .arr.right.on { --tx: 76%; }
+.wheel .arr svg { width: 42%; height: 42%; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.wheel .knob {
+  position: absolute; left: 50%; top: 50%; width: 34%; height: 34%;
+  transform: translate(-50%,-50%); border-radius: 50%;
+  background: var(--knob); border: 1px solid var(--line);
+  box-shadow: var(--knob-shadow); pointer-events: none;
+  transition: transform .45s var(--spring);
+}
+.wheel.dragging .knob { transition: transform .05s linear; }
+
+.stick {
+  position: absolute; border-radius: 50%;
+  background: var(--pad); border: 1px solid var(--line);
+  box-shadow: var(--pad-shadow);
+}
+.stick .cap {
+  position: absolute; left: 50%; top: 50%; width: 42%; height: 42%;
+  transform: translate(-50%,-50%); border-radius: 50%;
+  background: var(--knob); border: 1px solid var(--line);
+  box-shadow: var(--knob-shadow);
+}
+.stick .hint {
+  position: absolute; left: 50%; bottom: -18px; transform: translateX(-50%);
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  white-space: nowrap; font-family: "IBM Plex Mono", monospace;
+}
+
+.vpad { position: absolute; display: flex; flex-direction: column; gap: 8px; }
+.shoulders { display: flex; gap: 6px; width: 86%; margin: 0 auto; }
+.sysrow {
+  display: flex; justify-content: center; gap: 10px; width: 70%; margin: 0 auto;
+}
+.facearea { position: relative; flex: 1 1 0; min-height: 0; }
+
+.vbtn {
+  position: relative; display: grid; place-items: center;
+  cursor: pointer; user-select: none; touch-action: none;
+  font-weight: 700; color: var(--txt);
+  border: 1px solid var(--line); background: var(--btn);
+  box-shadow: var(--btn-shadow);
+  transition: transform .35s var(--spring), background .12s, color .12s, border-color .12s, box-shadow .2s;
+}
+.vbtn:active, .vbtn.held { transform: scale(.88); }
+.vbtn.pill {
+  border-radius: 999px; font-size: 10px; letter-spacing: .14em;
+  font-family: "Barlow Condensed", "Outfit", sans-serif;
+}
+.vbtn.round { border-radius: 50%; font-size: 15px; }
+.vbtn.sys {
+  width: 28px; height: 18px; border-radius: 6px; font-size: 8px;
+  letter-spacing: .08em; color: var(--muted); font-family: "IBM Plex Mono", monospace;
+}
+.vbtn.face { position: absolute; border-width: 2px; }
+.vbtn .lbl { line-height: 1; font-weight: 750; }
+.vbtn.kA { border-color: var(--fA); color: var(--fA); }
+.vbtn.kB { border-color: var(--fB); color: var(--fB); }
+.vbtn.kX { border-color: var(--fX); color: var(--fX); }
+.vbtn.kY { border-color: var(--fY); color: var(--fY); }
+.vbtn.kA.held { background: var(--fA); color: #fff; border-color: var(--fA); box-shadow: 0 6px 18px color-mix(in srgb, var(--fA) 45%, transparent); }
+.vbtn.kB.held { background: var(--fB); color: #fff; border-color: var(--fB); box-shadow: 0 6px 18px color-mix(in srgb, var(--fB) 45%, transparent); }
+.vbtn.kX.held { background: var(--fX); color: #fff; border-color: var(--fX); box-shadow: 0 6px 18px color-mix(in srgb, var(--fX) 45%, transparent); }
+.vbtn.kY.held { background: var(--fY); color: #2a2618; border-color: var(--fY); box-shadow: 0 6px 18px color-mix(in srgb, var(--fY) 45%, transparent); }
+.vbtn.pill.held, .vbtn.sys.held {
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* ════════════ Variant A · Pro Console ════════════
+   OLED 主机皮：石墨壳体、橡胶键帽、弱高光，像 DualSense / Elite */
+[data-variant="pro"] {
+  --bg: #121417;
+  --txt: #e8eaed;
+  --muted: #8a9098;
+  --line: #2a2f36;
+  --chrome: rgba(24,27,32,.78);
+  --pad: linear-gradient(160deg, #1c1f24 0%, #14171b 70%);
+  --pad-shadow: inset 0 2px 10px rgba(0,0,0,.55), inset 0 -1px 0 rgba(255,255,255,.04), 0 8px 18px rgba(0,0,0,.35);
+  --ring: rgba(255,255,255,.06);
+  --knob: radial-gradient(circle at 35% 30%, #3a3f47, #1a1d22 72%);
+  --knob-shadow: inset 0 2px 4px rgba(255,255,255,.08), inset 0 -4px 10px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.4);
+  --btn: linear-gradient(180deg, #24282f, #181b20);
+  --btn-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 3px 0 #0b0c0e, 0 8px 14px rgba(0,0,0,.35);
+  --accent: #cfd3d8;
+  --on-accent: #16181c;
+  --ok: #5ecf86;
+  --grain: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,.012) 3px);
+}
+[data-variant="pro"] .screen {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1c2229 0%, transparent 55%),
+    var(--bg);
+}
+[data-variant="pro"] .vbtn.pill { letter-spacing: .18em; }
+[data-variant="pro"] .vbtn.face {
+  background: linear-gradient(160deg, #262a31, #15181d);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 4px 0 #0a0b0d, 0 10px 18px rgba(0,0,0,.4);
+}
+[data-variant="pro"] .hud .chip { font-family: "IBM Plex Mono", monospace; }
+
+/* ════════════ Variant B · Arcade Cockpit ════════════
+   机台座舱：深蓝壳 + 琥珀/青指示，刻线面板，发光环克制 */
+[data-variant="arcade"] {
+  --bg: #071018;
+  --txt: #e6f2ff;
+  --muted: #6f879c;
+  --line: #1d3a4d;
+  --chrome: rgba(8,22,34,.78);
+  --pad: radial-gradient(circle at 50% 40%, #0e2433, #07131d 75%);
+  --pad-shadow: inset 0 0 0 1px rgba(84,196,255,.18), inset 0 8px 24px rgba(0,0,0,.55), 0 0 24px rgba(40,140,200,.12);
+  --ring: rgba(84,196,255,.28);
+  --knob: radial-gradient(circle at 32% 28%, #1d4d66, #0a1c28 70%);
+  --knob-shadow: 0 0 0 2px rgba(84,196,255,.2), inset 0 2px 0 rgba(255,255,255,.12), 0 6px 16px rgba(0,0,0,.45);
+  --btn: linear-gradient(180deg, #123247, #0a1d2a);
+  --btn-shadow: inset 0 1px 0 rgba(120,210,255,.15), 0 0 0 1px rgba(20,70,100,.5), 0 6px 14px rgba(0,0,0,.4);
+  --accent: #ffb454;
+  --on-accent: #1a1206;
+  --ok: #54c4ff;
+  --grain: radial-gradient(circle at 20% 20%, rgba(84,196,255,.05), transparent 40%),
+           radial-gradient(circle at 80% 80%, rgba(255,180,84,.05), transparent 35%);
+}
+[data-variant="arcade"] .screen {
+  background:
+    linear-gradient(90deg, rgba(84,196,255,.04) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(0deg, rgba(84,196,255,.04) 1px, transparent 1px) 0 0 / 28px 28px,
+    radial-gradient(90% 70% at 80% 20%, rgba(255,180,84,.08), transparent 50%),
+    var(--bg);
+}
+[data-variant="arcade"] .vbtn.face {
+  background: radial-gradient(circle at 35% 30%, #16384c, #0a1c28);
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent),
+              0 0 16px color-mix(in srgb, currentColor 18%, transparent),
+              inset 0 2px 0 rgba(255,255,255,.08);
+}
+[data-variant="arcade"] .hud .chip { border-color: rgba(84,196,255,.25); }
+[data-variant="arcade"] .stick .hint { color: #54c4ff; }
+
+/* ════════════ Variant C · Studio Overlay ════════════
+   直播/远控叠层：冷灰玻璃、细描边、半透明键，不抢画面 */
+[data-variant="studio"] {
+  --bg: #0e1218;
+  --txt: #eef2f7;
+  --muted: #8d97a5;
+  --line: rgba(255,255,255,.14);
+  --chrome: rgba(255,255,255,.08);
+  --pad: rgba(255,255,255,.06);
+  --pad-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 10px 30px rgba(0,0,0,.25);
+  --ring: rgba(255,255,255,.12);
+  --knob: rgba(255,255,255,.16);
+  --knob-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 4px 12px rgba(0,0,0,.25);
+  --btn: rgba(255,255,255,.08);
+  --btn-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 14px rgba(0,0,0,.2);
+  --accent: #9ec4ff;
+  --on-accent: #0c1522;
+  --ok: #7ddea2;
+  --grain: none;
+}
+[data-variant="studio"] .screen {
+  background:
+    linear-gradient(160deg, rgba(40,60,90,.35), rgba(10,14,20,.92)),
+    repeating-linear-gradient(-18deg, transparent, transparent 18px, rgba(255,255,255,.015) 19px),
+    #0c1016;
+}
+[data-variant="studio"] .vbtn,
+[data-variant="studio"] .wheel,
+[data-variant="studio"] .stick {
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+[data-variant="studio"] .vbtn.face {
+  background: rgba(255,255,255,.07);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 55%, transparent);
+}
+[data-variant="studio"] .vbtn.pill { font-weight: 600; letter-spacing: .16em; }
+[data-variant="studio"] .hud .chip {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.14);
+}
+
+/* ════════════ Variant D · Tactile Matte ════════════
+   哑光器物感：暖深橄榄壳体、软泥键帽、深按压井 */
+[data-variant="matte"] {
+  --bg: #1c1a16;
+  --txt: #efe8db;
+  --muted: #9a917f;
+  --line: #3a352c;
+  --chrome: rgba(36,32,26,.82);
+  --pad: #26221c;
+  --pad-shadow: inset 0 3px 10px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,240,210,.04), 0 8px 16px rgba(0,0,0,.3);
+  --ring: #4a4337;
+  --knob: #3a342b;
+  --knob-shadow: inset 0 2px 3px rgba(255,236,200,.08), inset 0 -5px 12px rgba(0,0,0,.4), 0 3px 8px rgba(0,0,0,.35);
+  --btn: #2c2821;
+  --btn-shadow: inset 0 1px 0 rgba(255,236,200,.06), 0 2px 0 #15130f, 0 7px 12px rgba(0,0,0,.28);
+  --accent: #c4a574;
+  --on-accent: #1c160e;
+  --ok: #8fbf7a;
+  --grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+}
+[data-variant="matte"] .screen {
+  background:
+    radial-gradient(80% 60% at 50% 100%, rgba(196,165,116,.08), transparent 50%),
+    var(--bg);
+}
+[data-variant="matte"] .vbtn.face {
+  background: #2a261f;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.35), 0 3px 0 #14110d, 0 8px 14px rgba(0,0,0,.28);
+}
+[data-variant="matte"] .vbtn.pill {
+  font-family: "Sora", sans-serif; letter-spacing: .1em; font-weight: 600;
+}
+[data-variant="matte"] .hud .chip { border-color: #4a4337; }
+
+.note {
+  width: min(var(--phone-w), 96vw); color: #6d7580; font-size: 11.5px; line-height: 1.5;
+}
+.note b { color: #aeb6c0; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>远控手柄界面 · 四版原型</h1>
+  <div class="sub">针对「当前手柄区不够专业」：同一布局几何，四套材质语言。切换下方版本对照，点按键可看按下态。</div>
+</div>
+
+<div class="row">
+  <div class="seg" id="variantSeg">
+    <button class="s on" data-v="pro">A · Pro Console</button>
+    <button class="s" data-v="arcade">B · Arcade Cockpit</button>
+    <button class="s" data-v="studio">C · Studio Overlay</button>
+    <button class="s" data-v="matte">D · Tactile Matte</button>
+  </div>
+</div>
+
+<div class="pitch">
+  <div class="card">
+    <h3 id="title">A · Pro Console</h3>
+    <p id="blurb">石墨 OLED 主机皮：橡胶键帽、分层投影、弱高光。最接近实体手柄，适合默认游戏布局。</p>
+    <ul id="bullets">
+      <li>面键保留 Xbox 记忆色，壳体不抢色</li>
+      <li>肩键 condensed 字标，像真机丝印</li>
+      <li>轮盘/摇杆用 inset 井感，避免扁平描边</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>落地建议</h3>
+    <p>Flutter 侧可先定一版作为 <code>vpad</code> 皮肤 token，再按主题映射。ABXY 色仍走现有 <code>fA/fB/fX/fY</code>。</p>
+    <ul>
+      <li>不改锚点/命中区，只换 Paint + 阴影</li>
+      <li>Studio 适合「画面优先」的串流叠层</li>
+      <li>Arcade / Matte 作可选皮肤更合适</li>
+    </ul>
+  </div>
+</div>
+
+<div class="device">
+  <div class="screen" id="screen">
+    <div class="hud">
+      <div class="chip"><span class="dot"></span><span id="hudName">方向键布局</span></div>
+      <div class="meta" id="hudMeta">VPAD · LANDSCAPE · 60Hz</div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </div>
+</div>
+
+<p class="note">几何对齐现网模板：左轮盘 <b>x0.21</b> · 右键区 <b>x0.765</b> · 右摇杆中缝 <b>x0.51</b>。文件：<b>docs/prototypes/rt-gamepad-ui-variants.html</b></p>
+
+<script>
+const COPY = {
+  pro: {
+    title: 'A · Pro Console',
+    blurb: '石墨 OLED 主机皮：橡胶键帽、分层投影、弱高光。最接近实体手柄，适合默认游戏布局。',
+    bullets: [
+      '面键保留 Xbox 记忆色，壳体不抢色',
+      '肩键 condensed 字标，像真机丝印',
+      '轮盘/摇杆用 inset 井感，避免扁平描边',
+    ],
+    hud: '方向键布局',
+    meta: 'PRO · LANDSCAPE · OLED',
+  },
+  arcade: {
+    title: 'B · Arcade Cockpit',
+    blurb: '深蓝座舱 + 琥珀/青指示：网格底板、发光环克制。偏街机/赛车远控氛围。',
+    bullets: [
+      '肩键与系统键走冷金属蓝',
+      '面键外环用自身色微光，不铺满霓虹',
+      '适合「游戏中心」入口的差异化皮肤',
+    ],
+    hud: 'COCKPIT LINK',
+    meta: 'ARCADE · LOCK 16:9',
+  },
+  studio: {
+    title: 'C · Studio Overlay',
+    blurb: '冷灰玻璃叠层：半透明键、细描边、毛玻璃。远控时不遮画面，偏专业串流工具。',
+    bullets: [
+      '整体降饱和，强调可读与留白',
+      '按下态才填色，静息几乎隐形',
+      '若主场景是桌面串流，优先考虑这版',
+    ],
+    hud: 'Overlay · Connected',
+    meta: 'STUDIO · ALPHA 08',
+  },
+  matte: {
+    title: 'D · Tactile Matte',
+    blurb: '暖深橄榄哑光：软泥键帽、深按压井、微噪点。器物感强，和茶禅主题也能搭。',
+    bullets: [
+      '投影短而实，像注塑件而非 UI 卡片',
+      '强调「按下去」的物理反馈错觉',
+      '若产品要统一暖色家族，可作默认暗色',
+    ],
+    hud: '哑光手柄',
+    meta: 'MATTE · WARM DARK',
+  },
+};
+
+const ICON = {
+  up:    '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>',
+  down:  '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
+  left:  '<svg viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>',
+  right: '<svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>',
+};
+
+const stage = document.getElementById('stage');
+const screen = document.getElementById('screen');
+
+function bindHold(el) {
+  const on = () => el.classList.add('held');
+  const off = () => el.classList.remove('held');
+  el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); on(); });
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointercancel', off);
+  el.addEventListener('lostpointercapture', off);
+}
+
+function bindWheel(el) {
+  const knob = el.querySelector('.knob');
+  const arrs = [...el.querySelectorAll('.arr')];
+  const max = () => el.clientWidth * 0.28;
+  const set = (dx, dy, dragging) => {
+    el.classList.toggle('dragging', dragging);
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    const ang = Math.atan2(dy, dx);
+    const r = Math.hypot(dx, dy);
+    arrs.forEach(a => a.classList.remove('on'));
+    if (r < 8) return;
+    const deg = ang * 180 / Math.PI;
+    const dir = deg > -45 && deg <= 45 ? 'right'
+      : deg > 45 && deg <= 135 ? 'down'
+      : deg > 135 || deg <= -135 ? 'left' : 'up';
+    el.querySelector(`.arr.${dir}`)?.classList.add('on');
+  };
+  el.addEventListener('pointerdown', e => {
+    el.setPointerCapture(e.pointerId);
+    const move = ev => {
+      const r = el.getBoundingClientRect();
+      let dx = ev.clientX - (r.left + r.width / 2);
+      let dy = ev.clientY - (r.top + r.height / 2);
+      const m = max(), len = Math.hypot(dx, dy) || 1;
+      if (len > m) { dx *= m / len; dy *= m / len; }
+      set(dx, dy, true);
+    };
+    const up = () => {
+      set(0, 0, false);
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    move(e);
+  });
+}
+
+function render() {
+  const W = screen.clientWidth, H = screen.clientHeight;
+  stage.innerHTML = '';
+
+  // dpad / wheel
+  {
+    const mx = 0.21 * W, my = 0.54 * H, side = Math.min(0.22 * W, 0.52 * H);
+    const el = document.createElement('div');
+    el.className = 'wheel';
+    el.style.cssText = `width:${side}px;height:${side}px;left:${mx - side / 2}px;top:${my - side / 2}px`;
+    el.innerHTML = `
+      <div class="ring"></div>
+      <div class="arr up" data-dir="up">${ICON.up}</div>
+      <div class="arr down" data-dir="down">${ICON.down}</div>
+      <div class="arr left" data-dir="left">${ICON.left}</div>
+      <div class="arr right" data-dir="right">${ICON.right}</div>
+      <div class="knob"></div>`;
+    stage.appendChild(el);
+    bindWheel(el);
+  }
+
+  // right stick
+  {
+    const mx = 0.51 * W, my = 0.62 * H;
+    const side = Math.min(0.15 * W, 0.34 * H);
+    const el = document.createElement('div');
+    el.className = 'stick';
+    el.style.cssText = `width:${side}px;height:${side}px;left:${mx - side / 2}px;top:${my - side / 2}px`;
+    el.innerHTML = `<div class="cap"></div><div class="hint">R-STICK</div>`;
+    stage.appendChild(el);
+  }
+
+  // vpad
+  {
+    const mw = 0.36 * W, mh = 0.70 * H;
+    const left = 0.765 * W - mw / 2, top = 0.53 * H - mh / 2;
+    const shH = Math.max(36, mh * 0.15);
+    const el = document.createElement('div');
+    el.className = 'vpad';
+    el.style.cssText = `width:${mw}px;height:${mh}px;left:${left}px;top:${top}px`;
+    el.innerHTML = `
+      <div class="shoulders" style="flex:0 0 ${shH}px;height:${shH}px">
+        <div class="vbtn pill" data-k="lb" style="flex:1"><span class="lbl">LB</span></div>
+        <div class="vbtn pill" data-k="lt" style="flex:1"><span class="lbl">LT</span></div>
+        <div class="vbtn pill" data-k="rt" style="flex:1"><span class="lbl">RT</span></div>
+        <div class="vbtn pill" data-k="rb" style="flex:1"><span class="lbl">RB</span></div>
+      </div>
+      <div class="sysrow">
+        <div class="vbtn sys" data-k="back"><span class="lbl">⌫</span></div>
+        <div class="vbtn sys" data-k="guide"><span class="lbl">●</span></div>
+        <div class="vbtn sys" data-k="start"><span class="lbl">☰</span></div>
+      </div>
+      <div class="facearea"></div>`;
+    stage.appendChild(el);
+    el.querySelectorAll('.shoulders .vbtn, .sysrow .vbtn').forEach(bindHold);
+
+    const fa = el.querySelector('.facearea');
+    const fw = fa.clientWidth, fh = fa.clientHeight;
+    const d = Math.min(fw * 0.36, fh * 0.34);
+    const arm = d * 0.80;
+    const spots = {
+      Y: [fw / 2, fh / 2 - arm],
+      X: [fw / 2 - arm, fh / 2],
+      B: [fw / 2 + arm, fh / 2],
+      A: [fw / 2, fh / 2 + arm],
+    };
+    fa.innerHTML = ['Y', 'X', 'B', 'A'].map(k => {
+      const [bx, by] = spots[k];
+      return `<div class="vbtn round face f k${k}" data-k="${k.toLowerCase()}"
+        style="width:${d}px;height:${d}px;left:${bx - d / 2}px;top:${by - d / 2}px">
+        <span class="lbl">${k}</span></div>`;
+    }).join('');
+    fa.querySelectorAll('.vbtn').forEach(bindHold);
+  }
+}
+
+function setVariant(v) {
+  document.documentElement.setAttribute('data-variant', v);
+  document.querySelectorAll('#variantSeg .s').forEach(s => s.classList.toggle('on', s.dataset.v === v));
+  const c = COPY[v];
+  document.getElementById('title').textContent = c.title;
+  document.getElementById('blurb').textContent = c.blurb;
+  document.getElementById('bullets').innerHTML = c.bullets.map(t => `<li>${t}</li>`).join('');
+  document.getElementById('hudName').textContent = c.hud;
+  document.getElementById('hudMeta').textContent = c.meta;
+  document.querySelector('.pitch').style.setProperty('--accent',
+    getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#6fae7a');
+}
+
+document.querySelectorAll('#variantSeg .s').forEach(btn => {
+  btn.addEventListener('click', () => setVariant(btn.dataset.v));
+});
+
+render();
+setVariant('pro');
+addEventListener('resize', () => { render(); });
+</script>
+</body>
+</html>
