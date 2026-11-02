@@ -1,9 +1,11 @@
 ---
-name: banner-stretch-rounded-mask
+name: Ed02-可拉伸banner带圆角mask
 description: 顶部 App Bar 样式 · 子类方案 —— 可拉伸 Banner + 圆角 mask 衔接列表。一节"实现思路"给落地流水线；二节"踩坑总结"记本方案踩过的所有真坑与最终结论。
 ---
 
 # Banner Stretch with Rounded Mask
+
+> **E 序列索引**：[[E00-UI骨架地图]] —— 案例层（兜底配方：骨架答不了「这界面该长什么样」时才翻）。
 
 > 分类：样式大类 = **Top App Bar / Banner Header**，子类 = **Banner Stretch with Rounded Mask**。
 

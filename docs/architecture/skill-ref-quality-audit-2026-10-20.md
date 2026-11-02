@@ -1,4 +1,7 @@
-> ⚠ 本文件是**历史审计记录**（2026-10-23 基线），其中的 `lib/core/ui/atomic|shell|zen|renderers` 路径已被 2026-10-28 职责清晰重构调整；当前目录以 [[Ec03-组件内聚位置]] 为准。
+> 本文件是从 fr-engineer skill 抽出的**历史审计记录**（2026-10-20 全量 ref 质检）。
+> 当前 skill 结构与索引见 `.claude/skills/fr-engineer-flowot/SKILL.md` 与 `references/E00-UI骨架地图.md`。
+
+> ⚠ 本文件是**历史审计记录**（2026-10-23 基线），其中的 `lib/core/ui/atomic|shell|zen|renderers` 路径已被 2026-10-28 职责清晰重构调整；当前目录以 《Eb01 组件能力目录》 为准。
 
 # FR 工程 Skill Ref — 质检记录（2026-10-20）
 
@@ -124,14 +127,14 @@
 | Ea04 | 「80px 硬限幅」改「衰减目标」语义（`bounded_bouncing_scroll_physics.dart:45-48` 渐近 factor，永不触到 80） |
 | Ea05 | 底栏参数全部改为 `quick_nav_bottom_bar.dart` 真值（外壳高 64 / barBottomGap 16 / 胶囊高 48 / 380ms / 内边距 28 / 胶囊宽 clamp(56,88) / primary@0.14 / 未选中 0.42 / 曲线 `1-exp(-5.2t)cos(7.5t)`）；「禁止用 LayoutBuilder 取实际宽度」反转；删除全仓不存在的 `XiaoDouZiBottomBar` 与 k/ω 描述；legacy 段改为现状（`Cubic(0.65,0,0.35,1)`、几何 52/68）；曲线类名 `_QQCurve` → `_IosSpringCurve` |
 | Ea06 | Step 4 重写为「搜索框即头（H3R-C）+ 滚动后毛玻璃细条」；Step 3「顶部横向精选」改「我的收藏」；四层封面改三层（压暗蒙版整层 2026-09-22 已移除）；坑 1–4 按新设计重写 |
-| Ea08 | 去旧编号「A06」；「A01 描边减负」改 `[[Ea03-边框强调式减负]]`；补 `surfaceTintColor: Colors.transparent` 12 处手抄（10 处在 remotetype）与 `ZenFloatCard` 建议；补 frontmatter |
+| Ea08 | 去旧编号「A06」；「A01 描边减负」改 `《Ed01 边框强调式减负》`；补 `surfaceTintColor: Colors.transparent` 12 处手抄（10 处在 remotetype）与 `ZenFloatCard` 建议；补 frontmatter |
 | Ea09 | 去旧编号「A07」；「实心滑动分段」标注**无生产落点**（remotetype 下 `AnimatedPositioned` 0 命中）；补托盘配方落地位置 `rt_shortcut_bar.dart:51-56` 与 `RecessedTray` 建议；坑表 A01 → Ea03；补 frontmatter |
 | Ea10 | 去旧编号「A08」；判决表新增「当前实现」列（房内就绪 CTA = `StadiumBorder` 全胶囊，`game_ready_style.dart:190,200`）；原「房内方圆角 12」降为未落地建议并加更正提示；大厅主 CTA 色改 `primary`（`_lobby_form.dart:245` 注释「禁止 tertiary 反色抢戏」）；补圆角 token 错位告警（10/11/14/18/20/22/28 均不在 `AppRadius` 档位）与抽 `AppShapeExtension` 的前置条件 |
 | Ea11 | 去旧编号「A09」；新增「已有共享实现」段（`GameReady*` 六件套行号、core 4 页全用 vs 7 个 demo 手写、房间号胶囊实测分叉：core 走 `primaryContainer`/字号 22/字距 6/无边框，demo 走 `theme.btnText`/字号 24/字距 8/带边框）；房间就绪卡规格改为代码真值；匹配笔刷转场标注**已下线**（`GameEnterTransition` 已移除，commit `bb3e94dc`）；踩坑表补「demo 侧用皮肤色」「按文档改房内 CTA」两条 |
 | Ea12 | 行号改正（`:1046` `_loadingCache` / `:1080-1104` try-catch-finally / `:1204-1220` `_pickDatabase`）；新增 caveat：`SharedPreferences.getInstance()` 的 await 在 try 之外（`:1085`），异常时 `_loadingCache` 卡死 true；补 frontmatter |
 | Ea14 | `context.torchProtect` 改「扩展已注册（`app_theme.dart:156`）但无 context 入口」（`lib/core/theme/context/` 无该文件、`get torchProtect` 0 命中）；补 frontmatter |
 | Eb02 | 源码地图与消费链移除 `torchProtect` 通道并补 caveat；文末新增「本文章节结构」节，标注 `Eb02 §5.8 / §6 / §6.2 / §6.3 / §6.4` 是过期断链及其正确去处（Eb04 §7 / §6.5）；补 frontmatter |
-| Eb03 | §0/§3 的组件样式落点由 `lib/core/ui/zen/zen_theme.dart` 改为 `lib/core/ui/`（通用件）/ `lib/core/game_kit/`（域内壳层），指向 `[[Ec01-组件分层与复用契约]]`；修正指向不存在 Eb02 章节的引用（→ Eb04 §6.5 / §7）；补 frontmatter |
+| Eb03 | §0/§3 的组件样式落点由 `lib/core/ui/zen/zen_theme.dart` 改为 `lib/core/ui/`（通用件）/ `lib/core/game_kit/`（域内壳层），指向 `《Eb02 分层契约与放置》`；修正指向不存在 Eb02 章节的引用（→ Eb04 §6.5 / §7）；补 frontmatter |
 | Eb04 | 文件头加「本文数字为快照，以 §5 命令为准」；§1 目录表按实跑重写；§2 使用点数改正（chessColors 0→**9 个文件**、boardColors 2→4 个文件、tetrisColors 4→3 处）；§3 Top20 按实跑重排；§4 残留 `Color(0xFF` 224→**664**（排除 `lib/core/theme/`）、tetris 改单文件并按目录重写归属表；§5 补可复跑命令；§6.5 三处断链改正；§8 路径改 `lib/design_tokens/radius.dart`；补 frontmatter |
 | Eb05 | §1.2 tetris token 代码块按 `lib/design_tokens/color/tetris.dart:12-34` 重写（真实是 **3 个颜色角色 + 1 个 7 色 Map**，旧文写的「4 角色 / slate-900 / cyan-400」全错）；「4 角色」表述全改；补 frontmatter |
 

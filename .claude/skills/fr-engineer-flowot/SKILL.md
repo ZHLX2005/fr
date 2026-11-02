@@ -1,11 +1,11 @@
 ---
 name: fr-engineer-flowot
-description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、组件复用与组件分层决策、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 序列路由到对应 SOP。仅适用于 D:\code\a_dart\prj\fr。
+description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、组件复用与组件分层决策、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 序列路由到对应 SOP。仅适用于 D:\DevProjects\my\github\fr。
 ---
 
 # FR Engineer Flow — 工程总入口
 
-> **适用范围**：仅适用于 `D:\code\a_dart\prj\fr`。本文档只做工程原则和 A–H 路由；操作细节在 `references/`。
+> **适用范围**：仅适用于 `D:\DevProjects\my\github\fr`。本文档只做工程原则和 A–H 路由；操作细节在 `references/`。
 >
 > 每项内容以 FR 当前实现为准，不能仅凭旧 skill 或历史示例推断。遇到文档和代码冲突时先核实真实实现，再更新文档。
 
@@ -17,7 +17,7 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 | **B** | 简单业务场景参考模块 | [[B00-业务场景路由]] | 实现较小、可复用的业务功能时；当前收录消息策略与 IM 会话持久化 |
 | **C** | RelayLua 多人业务与联机协议 | [[C00-RelayLua路由]] | 编写 Relay-v3 Lua 房间、联机游戏、大厅或 action/snapshot 协议时 |
 | **D** | Hive 存储架构与模块接入 SOP | [[D00-Hive存储路由]] | 新增/修改本地持久化、Hive Box、仓库 API、StorageRegistry 或存储面板时 |
-| **E** | UI 样式、设计系统与统一色彩 | [[E00-UI与色彩路由]] | 设计/实现 UI、主题配色、评审颜色使用，或做组件复用/组件化决策时 |
+| **E** | UI 样式、设计系统与统一色彩 | [[E00-UI骨架地图]] | 设计/实现 UI、主题配色、评审颜色使用，或做组件复用/组件化决策时。**E 序列按优先级分四层**：Ea 主题与 token 骨架 → Eb 组件骨架 → Ec 骨架变更动作 → Ed 视觉配方（兜底）。动线表与 pre-flight 六步见 E00 |
 | **F** | 外部资产管理、皮肤与公开资源管线 | [[F00-外部资产管理路由]] | 导入/发布皮肤、封面、曲库、表情包或排查客户端资源加载/缓存时 |
 | **G** | Android 特殊组件与 Flutter/native 桥接 | [[G00-Android与Native路由]] | 改桌面 widget、MediaProjection/悬浮窗、图标、Manifest、Kotlin/C++/JNI/FFI 时 |
 | **H** | 音频、Oboe 与节拍器生命周期 | [[H00-音频路由]] | 低延迟音频、Oboe、C++ 音频回调、WAV 采样或跨页面音频 service 时 |
@@ -32,11 +32,14 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 6. **原生改动验证**：修改 `android/`、Kotlin、C++、Manifest 或资源配置时，`flutter analyze` 不足以验证原生链路；按相关 SOP 执行 `flutter build apk`。
 7. **质量与交付**：遵循仓库当前测试、codegen、CHANGELOG、Git 及提交约定；执行提交操作前逐项核对工作区，只处理本次任务文件。不得把现有其他工作区改动混入任务。
 8. **文档审查**：存在前置条件、身份/权限、数据流或生命周期不明时，先标注待核验事实；不把“登录功能 demo”写成全局登录守卫，也不把 Lab、游戏中心、Chat 断言为需登录容器，除非真实代码证明如此。
-9. **组件复用**：新增 UI 前先查已有组件层（`lib/core/ui/`、`lib/core/game_kit/`）；已有件漏用优先改用，确无同形态件才新建；通用件不得定义在业务模块内。判定规则按 E 序列 Ec 子序列。
+9. **组件复用**：新增 UI 前先查已有组件层（`lib/core/ui/`、`lib/core/game_kit/`）；已有件漏用优先改用，确无同形态件才新建；通用件不得定义在业务模块内。判定规则按 E 序列 Eb 层（能力目录 + 分层契约）。
 
 ## 维护规则
 
 - `SKILL.md` 只保留原则和 A–H 大序列入口；每份 `references/` 文档直接平铺在同一目录，文件名以其序列编号开头（如 `A01-...md`、`Ca01-...md`、`Ec01-...md`、`Ga01-...md`）。
-- **只有大序列使用 `00` 总路由**：A00–H00 各自维护所辖全部子序列与成员路由；子序列不创建 `00` 文件，成员从 `01` 开始。Ec 为扁平子序列，成员 Ec01–EcNN 由 E00 直接登记。
-- 编号范围：A00 维护业务 A01–A09；B00 维护 Ba 子序列；C00 维护 RelayLua 的 Ca/Cb/Cc；E00 维护 Ea/Eb/Ec；F00 维护 Fa；G00 维护 Ga/Gb/Gc；H00 维护 Ha。D 是单一 Hive 子域，由 D00 维护 D01–D03。
+- **只有大序列使用 `00` 总路由**：A00–H00 各自维护所辖全部子序列与成员路由；子序列不创建 `00` 文件，成员从 `01` 开始。E 序列的 Ea/Eb/Ec/Ed 四层成员统一由 E00 登记。
+- 编号范围：A00 维护业务 A01–A09；B00 维护 Ba 子序列；C00 维护 RelayLua 的 Ca/Cb/Cc；E00 维护 Ea/Eb/Ec/Ed 四层；F00 维护 Fa；G00 维护 Ga/Gb/Gc；H00 维护 Ha。D 是单一 Hive 子域，由 D00 维护 D01–D03。
 - 同名 A/B/C 在大序列之间不能相互替代：用有命名空间的子序列前缀（如 `Ca01`、`Ea03`、`Fa02`）避免平铺目录时冲突。
+- **E 序列的字母表示层级与查阅优先级**（2026-11-02 重构）：Ea 主题与 token 骨架 / Eb 组件骨架 / Ec 骨架变更动作 / Ed 视觉配方（兜底）。案例沉底，骨架在前。
+- **单层路由 + 星型拓扑**：成员登记只在大序列的 `00` 路由；册与册之间不建 wikilink，需要引用时写纯文本《册名 §章节》；每册只在页首回指 `00` 一次。
+- **治理史不进 skill**：落地记录、审计快照、阶段史归档到 `docs/architecture/` 与 `plan/`，册内只留指针与活清单。

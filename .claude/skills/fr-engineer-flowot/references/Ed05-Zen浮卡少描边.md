@@ -1,9 +1,11 @@
 ---
-name: zen-float-card
+name: Ed05-Zen浮卡少描边
 description: 什么时候做「白卡浮在浅底、靠阴影分层、少描边」的浮卡时读——Zen 浮卡配方、token 对照、组内分隔与图标瓦规则。
 ---
 
 # Zen 浮卡少描边
+
+> **E 序列索引**：[[E00-UI骨架地图]] —— 案例层（兜底配方：骨架答不了「这界面该长什么样」时才翻）。
 
 > 何时读：做设置列表、设备/电脑 peer 列表、大厅表单卡、茶禅暖底工具页；原型 brief 写「白卡浮在浅底、靠阴影分层、少描边」时。
 >
@@ -68,11 +70,11 @@ Material(
 | 卡片再用 `Border.all(outline)` 加厚 | 茶禅「少描边」失效，变 demo 网格 | 阴影分层；边框只留给选中态或就绪态 |
 | Scaffold / 浮卡都用 `surface`，且 Material 带 elevation tint | 卡与页同色或发绿/发紫，不像奶油浮卡 | 页底 `surfaceContainerHighest`；浮卡 `surface` + `surfaceTintColor: transparent` |
 | Composer `TextField` 只设 `border: none` | 焦点仍可能出 outline | `enabled/focused/errorBorder` 全 `InputBorder.none`，`filled: false` |
-| 每屏多个 clay CTA | 无重心 | clay/tertiary 每屏最多一个仪式主按钮（见 [[Ea10-胶囊与方圆角CTA]]） |
+| 每屏多个 clay CTA | 无重心 | clay/tertiary 每屏最多一个仪式主按钮（见 《Ed07 胶囊与方圆角CTA》） |
 | 导航 icon 彩虹色 | 与主文档「导航统一主题色」冲突 | 统一 `primary` / `primaryContainer` |
-| 把 [[Ea03-边框强调式减负]] 套到浮卡外框 | 双边框打架 | 描边减负管**按钮/icon 容器**；浮卡外框走本方案 |
+| 把 《Ed01 边框强调式减负》 套到浮卡外框 | 双边框打架 | 描边减负管**按钮/icon 容器**；浮卡外框走本方案 |
 
 ## 关联
 
-- 功能型减负按钮 → [[Ea03-边框强调式减负]]
-- 全主题契约 → [[Ea14-游戏表面ColorScheme契约]]
+- 功能型减负按钮 → 《Ed01 边框强调式减负》
+- 全主题契约 → Ea03《视觉决策基线》

@@ -1,13 +1,15 @@
 ---
-name: async-load-flag-pattern
+name: Ed09-嵌套sheet异步加载防race
 description: 什么时候在嵌套 ModalBottomSheet 里遇到"打开下一层 sheet 空空如也"/"没有找到任何数据库"/缓存竞态时读——_loadingXxx flag 三件套的落地写法与已知 caveat。
 ---
 
 # Async Load Flag Pattern — 嵌套 sheet 异步加载防 race condition
 
+> **E 序列索引**：[[E00-UI骨架地图]] —— 案例层（兜底配方：骨架答不了「这界面该长什么样」时才翻）。
+
 > 何时读：嵌套 ModalBottomSheet 里"打开下一层 sheet 显示空空如也"/"没有找到任何数据库"/缓存竞态/异步加载没完成用户已点进 picker。
 >
-> 本文档原为 `uiux` skill 的 ref，本次合并入 `Ea01-样式原则与路由`。
+> 本文档原为 `uiux` skill 的 ref，本次合并入《Ea03 视觉决策基线》。
 
 ---
 
