@@ -1000,8 +1000,7 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
 
   /// 画布键盘模块一次按键（修饰键已粘滞合成进 chord）→ hotkey 通道。
   /// 与快捷键条同一 syncHotkey 路径；Win+L 之类锁屏组合与条上同规，先确认。
-  Future<void> _onKbChord(List<String> keys) async {
-    final session = _session;
+  Future<void> _onKbChord(List<String> keys) async {    final session = _session;
     if (session == null || !_connected) {
       _showSnack('未连接电脑');
       return;
@@ -1025,6 +1024,26 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       setState(() => _syncSent += 1);
     } else {
       _showSnack('发送失败（连接已断开？）');
+    }
+  }
+
+  /// 画布键盘可按住键（⌫/Del）长按：按下发 press、松手发 release（v1.6.0+
+  /// 按住原语，PC 端 OS 自动重复接管连发）。与点按 [_onKbChord] 的差异：
+  ///   * 静默失败——按住路径的手指动作是连续的，弹 snack 反而打断手感；
+  ///     press 失败（未连接）时 release 也不会有键可松，PC 端无副作用；
+  ///   * 松手 release 发送失败不重试（可能已生效），PC 端引擎 20s 超时兜底。
+  Future<void> _onKbChordHold(
+    List<String> keys, {
+    required bool pressed,
+  }) async {
+    final session = _session;
+    if (session == null || !_connected) return;
+    final sent = await session.syncHotkey(
+      keys,
+      kind: pressed ? 'press' : 'release',
+    );
+    if (sent && mounted) {
+      setState(() => _syncSent += 1);
     }
   }
 
@@ -1098,6 +1117,8 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
           }),
         ),
         onKbChord: (keys) => unawaited(_onKbChord(keys)),
+        onKbChordHold: (keys, {required pressed}) =>
+            unawaited(_onKbChordHold(keys, pressed: pressed)),
         onEditModeChanged: _setCanvasEdit,
         onFire: (item) => unawaited(_fireShortcut(item)),
         onEditShortcuts: _editShortcuts,

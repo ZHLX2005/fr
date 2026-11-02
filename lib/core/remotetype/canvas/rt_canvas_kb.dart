@@ -6,6 +6,10 @@
 //   · 修饰键（win/ctrl/alt/shift）→ 本模块持有粘滞态，高亮反馈；
 //   · caps → PC 端 parse_key_name 白名单外（mn-rt 已知缺口），直接吞掉
 //     不发，避免每次点按都收到 PC 侧拒绝。
+//   · 可按住键（⌫/Del，v1.6.0+）→ press/release 两段式回报（onChordHold）：
+//     按下发 press、松手发 release，按住期间 PC 端 OS 自动重复接管连发
+//     （长按退格持续删除）。chord 在按下时定格存进 _heldChord——粘滞修饰
+//     键随按下「消耗」清空，release 必须复用按下时的集合，不能重新合成。
 // 键序即 chord 键序（修饰在前、主键在后），与快捷键条 syncHotkey 同一形状。
 
 import 'package:flutter/material.dart';
@@ -19,13 +23,23 @@ const List<String> _kModifierOrder = ['win', 'ctrl', 'alt', 'shift'];
 const Set<String> _kUnsupportedKeys = {'caps'};
 
 class RtCanvasKb extends StatefulWidget {
-  const RtCanvasKb({super.key, required this.enabled, required this.onChord});
+  const RtCanvasKb({
+    super.key,
+    required this.enabled,
+    required this.onChord,
+    this.onChordHold,
+  });
 
   /// false（未连接）：置灰且不响应。
   final bool enabled;
 
   /// 一次按键（修饰键 + 主键合成完毕）→ chord 键名列表，调用方发 hotkey。
   final ValueChanged<List<String>> onChord;
+
+  /// 可按住键（⌫/Del）的按下/松开回调（v1.6.0+ 长按持续删除）。
+  /// [pressed] = true 按下（发 press）、false 松开（发 release）。
+  /// 为 null 时 ⌫/Del 退回普通点按（快捷键编辑器场景）。
+  final void Function(List<String> keys, {required bool pressed})? onChordHold;
 
   @override
   State<RtCanvasKb> createState() => _RtCanvasKbState();
@@ -34,6 +48,11 @@ class RtCanvasKb extends StatefulWidget {
 class _RtCanvasKbState extends State<RtCanvasKb> {
   final Set<String> _mods = <String>{};
   bool _showFn = false;
+
+  /// 当前按住中的 chord（按下时定格）。release 复用它——粘滞修饰键在
+  /// 按下时已清空，松手时重新合成会漏掉修饰键，导致 PC 端修饰键卡住
+  /// （只能靠引擎超时兜底松开）。
+  List<String>? _heldChord;
 
   void _onKey(String keyId, {required bool isModifier}) {
     if (!widget.enabled) return;
@@ -52,6 +71,28 @@ class _RtCanvasKbState extends State<RtCanvasKb> {
     ];
     if (_mods.isNotEmpty) setState(_mods.clear);
     widget.onChord(keys);
+  }
+
+  void _onKeyHold(String keyId, {required bool pressed}) {
+    if (!widget.enabled) return;
+    if (_kUnsupportedKeys.contains(keyId)) return;
+    if (widget.onChordHold == null) return;
+    if (pressed) {
+      // chord 在按下时定格：粘滞修饰随本次消耗清空
+      final keys = [
+        for (final m in _kModifierOrder)
+          if (_mods.contains(m)) m,
+        keyId,
+      ];
+      if (_mods.isNotEmpty) setState(_mods.clear);
+      _heldChord = keys;
+      widget.onChordHold!(keys, pressed: true);
+    } else {
+      final keys = _heldChord;
+      _heldChord = null;
+      if (keys == null) return; // 无进行中的按住（如热重启后松手），忽略
+      widget.onChordHold!(keys, pressed: false);
+    }
   }
 
   @override
@@ -103,6 +144,7 @@ class _RtCanvasKbState extends State<RtCanvasKb> {
               onKey: _onKey,
               activeModifiers: _mods,
               showFnRow: _showFn,
+              onKeyHold: widget.onChordHold != null ? _onKeyHold : null,
             ),
           ],
         ),

@@ -50,6 +50,21 @@ void main() {
       keys.clear();
       expect(plain['hotkey'], const ['win', 'r']);
     });
+
+    test('kind=press/release 透传（v1.6.0+ 按住原语）', () {
+      final press = rtHotkeyPlaintext(const ['backspace'], 1, 'p', kind: 'press');
+      expect(press['kind'], 'press');
+      expect(press['hotkey'], const ['backspace']);
+
+      final release = rtHotkeyPlaintext(const ['backspace'], 2, 'p', kind: 'release');
+      expect(release['kind'], 'release');
+    });
+
+    test('缺省 kind 不携带字段（旧 PC 端 JSON 视角完全兼容）', () {
+      final plain = rtHotkeyPlaintext(const ['win', 'r'], 1, 'p');
+      expect(plain.containsKey('kind'), isFalse,
+          reason: '不带 kind 字段 = 老 PC 端 map 访问拿到的就是 null，行为与旧版一致');
+    });
   });
 
   group('快捷键信封端到端（seal → open 往返，模拟 PC 端解密视角）', () {

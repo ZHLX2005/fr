@@ -11,6 +11,11 @@
 //   - 主键（其余任意 key）→ 调用方一次性得到 RtChord（modifiers+thisKey），之后
 //     自己清空 modifierState
 // 这是「先按住修饰、再单点主键完成」的最自然手势。
+//
+// 按住回调契约（可选，v1.6.0+ 长按持续删除）：调用方提供 onKeyHold 时，
+// 可按住键（⌫/Del）切换为 press/release 两段式——pointer down 发 press、
+// up/cancel 发 release，按住期间由 PC 端 OS 键盘自动重复接管连发；
+// 此时这些键不再走 onTap（按下即已触发，松手是结束不是再击）。
 
 import 'package:flutter/material.dart';
 
@@ -20,6 +25,9 @@ import '../../../core/theme/context/colors.dart';
 ///   - [keyId] = `RtChord.keys` 入参形态（'win' / 'r' / 'f5' / 'enter' …）
 ///   - [isModifier] 告诉调用方是否需要切换修饰键状态。
 typedef RtKeyCallback = void Function(String keyId, {required bool isModifier});
+
+/// 可按住键（⌫/Del）的按下/松开回调。[pressed] = true 按下、false 松开。
+typedef RtKeyHoldCallback = void Function(String keyId, {required bool pressed});
 
 /// 全键盘展示：5 行主键区 + 折叠的 Esc/F1-F12 行。
 ///
@@ -31,9 +39,13 @@ class RtVirtualKeyboard extends StatefulWidget {
     required this.activeModifiers,
     this.showFnRow = false,
     this.onToggleFnRow,
+    this.onKeyHold,
   });
 
   final RtKeyCallback onKey;
+
+  /// 可按住键（⌫/Del）的按下/松开回调。为 null 时这些键退回普通 onTap。
+  final RtKeyHoldCallback? onKeyHold;
 
   /// 当前激活的修饰键集合（小写：'win'/'ctrl'/'alt'/'shift'）。用于把 modifier
   /// 键高亮（避免按了 Win 却看不到反馈）。
@@ -50,6 +62,10 @@ class RtVirtualKeyboard extends StatefulWidget {
 class _RtVirtualKeyboardState extends State<RtVirtualKeyboard> {
   // —— 修饰键定义 ——
   static const _mods = {'win', 'ctrl', 'alt', 'shift'};
+
+  // —— 可按住键（长按连发）：⌫ 退格 / Del 前删。仅当调用方提供 onKeyHold
+  // —— 时启用（快捷键编辑器面板不提供，保持纯点按）。
+  static const _holdableKeys = {'backspace', 'del'};
 
   // —— 第 1 行：数字 + Backspace ——
   static const List<_KeyDef> _rowDigits = [
@@ -212,7 +228,18 @@ class _RtVirtualKeyboardState extends State<RtVirtualKeyboard> {
             label: k.label,
             active:
                 _mods.contains(k.id) && widget.activeModifiers.contains(k.id),
-            onTap: () => widget.onKey(k.id, isModifier: _mods.contains(k.id)),
+            // 可按住键切 press/release 两段式：pointer down 即触发（旧 PC
+            // 端把 press 当单击，点按手感不变）；onTap 关掉防松手再击。
+            onTap: (widget.onKeyHold != null && _holdableKeys.contains(k.id))
+                ? null
+                : () => widget.onKey(k.id, isModifier: _mods.contains(k.id)),
+            onHoldChanged:
+                (widget.onKeyHold != null && _holdableKeys.contains(k.id))
+                    ? (pressed) => widget.onKeyHold!(
+                        k.id,
+                        pressed: pressed,
+                      )
+                    : null,
           ),
         ),
       );
@@ -239,12 +266,17 @@ class _KeyTile extends StatefulWidget {
     required this.label,
     required this.active,
     required this.onTap,
+    this.onHoldChanged,
   });
 
   final String keyId;
   final String label;
   final bool active;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+
+  /// 非 null = 可按住键：pointer down/up/cancel 各回报一次 pressed 状态，
+  /// onTap 此时为 null（按下即触发，松手只是结束）。
+  final ValueChanged<bool>? onHoldChanged;
 
   @override
   State<_KeyTile> createState() => _KeyTileState();
@@ -261,11 +293,21 @@ class _KeyTileState extends State<_KeyTile> {
     final bg = active ? cs.primaryContainer : cs.surfaceContainerHighest;
     final fg = active ? cs.onPrimaryContainer : c.text;
     return Listener(
-      // 按压缩放回弹（Q 弹键帽）：pointer down/up 驱动，onTap 语义不变
-      // ——快捷键编辑器与画布键盘共用本件，两边手感一致。
-      onPointerDown: (_) => setState(() => _pressed = true),
-      onPointerUp: (_) => setState(() => _pressed = false),
-      onPointerCancel: (_) => setState(() => _pressed = false),
+      // 按压缩放回弹（Q 弹键帽）：pointer down/up 驱动；可按住键在同样的
+      // 时机回报 press/release（快捷键编辑器与画布键盘共用本件，两边手感
+      // 一致；可按住键只在画布键盘启用，编辑器仍走 onTap）。
+      onPointerDown: (_) {
+        setState(() => _pressed = true);
+        widget.onHoldChanged?.call(true);
+      },
+      onPointerUp: (_) {
+        setState(() => _pressed = false);
+        widget.onHoldChanged?.call(false);
+      },
+      onPointerCancel: (_) {
+        setState(() => _pressed = false);
+        widget.onHoldChanged?.call(false);
+      },
       child: AnimatedScale(
         scale: _pressed ? 0.88 : 1.0,
         duration: const Duration(milliseconds: 160),
@@ -274,6 +316,7 @@ class _KeyTileState extends State<_KeyTile> {
           color: bg,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
+            // 可按住键 onTap 为 null：无涟漪，但按压缩放反馈仍在
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(8),
             splashColor: cs.primary.withValues(alpha: 0.10),

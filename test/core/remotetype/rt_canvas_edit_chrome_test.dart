@@ -41,6 +41,7 @@ Widget _canvas({
               }) {},
               onStickAxis: (_, _) {},
               onKbChord: (_) {},
+              onKbChordHold: (_, {required pressed}) {},
               onEditModeChanged: (_) {},
               onFire: (_) async {},
               onEditShortcuts: () {},

@@ -48,12 +48,24 @@ Map<String, dynamic> rtSyncPlaintext(
 /// [keys] 末位是主键、其余是修饰键（['win','r'] = Win+R）。PC 端把它当
 /// 「事件」处理（不进全文快照 diff）。独立成顶层纯函数以便单测，
 /// 与 [rtSyncPlaintext] 同款理由。
+///
+/// [kind]（v1.6.0+ 按住原语）：'press' / 'release' / 缺省 null = 单击。
+/// press + release 两段式组成「按住」：PC 端引擎按下后由 OS 键盘自动重复
+/// 接管连发（长按退格持续删除），松手发 release 结束；引擎侧有超时兜底。
+/// 旧 PC 端不认识该字段，会把 press/release 都当单击处理——tap 手感退化为
+/// 双击删除，所以 PC 端引擎须先升级（npm 发版纪律：PC 先于 fr）。
 Map<String, dynamic> rtHotkeyPlaintext(
   List<String> keys,
   int ts,
-  String phoneId,
-) {
-  return {'hotkey': List<String>.of(keys), 'ts': ts, 'phoneId': phoneId};
+  String phoneId, {
+  String? kind,
+}) {
+  return {
+    'hotkey': List<String>.of(keys),
+    'ts': ts,
+    'phoneId': phoneId,
+    if (kind != null) 'kind': kind,
+  };
 }
 
 /// RT1 P2C 鼠标事件明文（v0.6.0+ 触摸板协议）。
@@ -533,15 +545,21 @@ class RtSession {
     return true;
   }
 
-  /// 发送一条快捷键指令（v0.5.4+ 两端协议）。
+  /// 发送一条快捷键指令（v0.5.4+ 两端协议），明文形状见 [rtHotkeyPlaintext]。
   ///
   /// [keys] 末位是主键、其余是修饰键（['win','r'] = Win+R），合法名字见
   /// `rt_constants.dart` 的 kShortcutPresets 注释。与 [syncText] 共用 seq 域
   /// 与加密路径；PC 端把它当「事件」处理（不进全文快照 diff，无 mirror
   /// 推进），重复发送会重复触发——调用方不需要也不应该做去重。
   ///
+  /// [kind]（v1.6.0+）：'press' / 'release' 组成「按住」原语（长按退格持续
+  /// 删除等），缺省 null = 单击，旧 PC 端完全兼容。press/release 各占一个
+  /// seq、同一 WS 连接 FIFO 保序，不会乱序；发送失败不重试（按下/松开
+  /// 可能已实际生效，重发有双发风险）——松手 release 丢失时由 PC 端引擎
+  /// 超时兜底松键。调用方（画布键盘 ⌫/Del 长按）保证 press 与 release 成对。
+  ///
   /// 返回 true = 信封已实际发出（WS 未连接返回 false）。
-  Future<bool> syncHotkey(List<String> keys) async {
+  Future<bool> syncHotkey(List<String> keys, {String? kind}) async {
     if (keys.isEmpty) return false;
     final derived = await _derivedFuture;
     if (_ws == null) return false;
@@ -553,6 +571,7 @@ class RtSession {
         keys,
         DateTime.now().millisecondsSinceEpoch,
         _phoneId,
+        kind: kind,
       ),
       sid: _sid,
       seq: _seq,

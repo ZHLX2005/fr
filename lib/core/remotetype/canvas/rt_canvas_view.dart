@@ -103,6 +103,7 @@ class RtCanvasView extends StatefulWidget {
     required this.onVpadKey,
     required this.onStickAxis,
     required this.onKbChord,
+    required this.onKbChordHold,
     required this.onEditModeChanged,
     required this.onFire,
     required this.onEditShortcuts,
@@ -146,6 +147,10 @@ class RtCanvasView extends StatefulWidget {
 
   /// 虚拟键盘一次按键（修饰键已由键盘模块粘滞合成进 chord）→ 发 hotkey。
   final ValueChanged<List<String>> onKbChord;
+
+  /// 虚拟键盘可按住键（⌫/Del，v1.6.0+）的按下/松开（chord 已合成定格）。
+  /// [pressed] = true 按下（发 press）、false 松开（发 release）。
+  final void Function(List<String> keys, {required bool pressed}) onKbChordHold;
 
   final ValueChanged<bool> onEditModeChanged;
   final ValueChanged<RtShortcutItem> onFire;
@@ -1462,6 +1467,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
     Widget kb = RtCanvasKb(
       enabled: widget.connected,
       onChord: widget.onKbChord,
+      onChordHold: widget.onKbChordHold,
     );
     if (widget.editMode) {
       kb = _editModuleWrapper(
