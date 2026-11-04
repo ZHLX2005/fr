@@ -222,6 +222,10 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     _eventSub = hosted.events.listen(_onEvent);
     _connected = hosted.isConnected;
     _e2eOk = hosted.e2eConfirmed;
+    // 接管的是**别人可能已经动过**的会话：托管会话期间另一个页面实例退出
+    // 画布会 release 掉 pad1（同一台 PC 只有一份虚拟手柄）。重置初始化链，
+    // 让接管后的第一条 vpad 指令重新 release_all + init。
+    _vpadReady = null;
     if (!hosted.isConnected) unawaited(hosted.reconnect());
   }
 
@@ -722,6 +726,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       _connected = true;
       _e2eOk = false;
     });
+    // 新会话 = 新 sid，PC 端那边的手柄句柄可能已被释放（上一段会话退出画布
+    // 时 release 过，或 PC 端 agent 重启后句柄表已空）。重置初始化链：下一
+    // 条 vpad 指令重新 release_all + init。
+    // 不能只依赖 connected 事件——它在 `await session.connect()` 期间就发
+    // 出去了，而事件订阅在其后才建立（rt_session 的 events 是无 replay 的
+    // 广播流），事件先于订阅 = 事件丢失 = 初始化链不会重置。
+    _vpadReady = null;
     _syncBottomBar(); // 大厅 → 详情，底栏隐匿随 `_session` 翻转
   }
 
@@ -949,7 +960,12 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
   Future<void> _sendVpad(Map<String, dynamic> cmd) async {
     if (_session == null || !_connected) return;
     _vpadReady ??= _bootstrapVpad();
-    await _vpadReady;
+    // 初始化链失败（引擎未起 / WS 抖动 / 断线瞬间）**不能**缓存成「已完成」：
+    // 否则之后每条指令都裸发、撞 PC 端 "unknown handle: pad1"（PC 端 0.9.4
+    // 起会自愈重建句柄，但手机端也不该把一条失败的链一直带着走）。失败即
+    // 清链——下一条指令重新 release_all + init。
+    final ready = await _vpadReady;
+    if (ready == false) _vpadReady = null;
     await _vpadRaw(cmd);
   }
 
