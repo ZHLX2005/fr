@@ -102,7 +102,12 @@ on_action_SET_RULES = function(c, p)
     --   留着 FEN 原轮次字段，会让服务端 side_to_move 与客户端"FEN 轮次方"
     --   判反 → 服务端静默拒绝 MOVE → 双端互锁死局。故按 first_mover
     --   **改写 FEN 的轮次字段**。
-    c.initial_fen = fen_set_side(c.initial_fen, side)
+    -- ⚠ 改写对象必须是 **p.initial_fen（本次传入的残局 FEN）**，不是
+    --   c.initial_fen（房间当前值 = 标准开局）。写成 c.initial_fen 时残局
+    --   局面永远落不了地：只有 endgame_label / initial_side 生效，客户端
+    --   isEndgameRoom 判 false → 准备页看不到残局、开局仍是标准棋盘
+    --   （fr #11 回归：200 OK 但 c.initial_fen 仍是标准起点）。
+    c.initial_fen = fen_set_side(p.initial_fen, side)
     c.initial_side = side
     if type(p.endgame_label) == "string" and p.endgame_label ~= "" then
       c.endgame_label = p.endgame_label

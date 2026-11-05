@@ -197,4 +197,26 @@ void main() {
       }
     });
   });
+
+  group('ChessEndgame.normalizeFen（服务端要求 6 字段）', () {
+    test('6 字段 → 原样保持', () {
+      const fen = '8/8/8/4k3/8/8/4Q3/4K3 b - - 0 1';
+      expect(ChessEndgame.normalizeFen(fen), fen);
+    });
+
+    test('4 字段（本地 codec 可解析）→ 补成 6 字段', () {
+      // 本地 FenCodec 接受 4 字段，服务端 is_valid_fen_structure 要求恰好
+      // 6 字段 —— 不补的话 SET_RULES 会被静默忽略（fr #11 同款症状）。
+      const fen = '8/8/8/4k3/8/8/4Q3/4K3 w - -';
+      final out = ChessEndgame.normalizeFen(fen);
+      expect(out.split(RegExp(r'\s+')).length, 6);
+      expect(out, '8/8/8/4k3/8/8/4Q3/4K3 w - - 0 1');
+      // 先手方不受补字段影响。
+      expect(ChessEndgame.sideFromFen(out), 'w');
+    });
+
+    test('畸形 FEN → 原样返回（不抛异常）', () {
+      expect(ChessEndgame.normalizeFen('garbage'), 'garbage');
+    });
+  });
 }

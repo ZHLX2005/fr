@@ -286,6 +286,20 @@ class ChessEndgame {
     }
   }
 
+  /// 归一化为 6 字段标准 FEN（board/side/castling/ep/halfmove/fullmove）。
+  ///
+  /// 为什么要归一：本地 [FenCodec.fromFen] 允许 4/5 字段（缺的补 '0' / '1'），
+  /// 而服务端 `is_valid_fen_structure` **要求恰好 6 字段** —— 把 4 字段 FEN
+  /// 直接交给 SET_RULES 会被静默忽略（200 OK 但不生效，症状与 fr #11 同款：
+  /// 选了残局却仍是标准开局）。解析失败原样返回（调用方另有校验）。
+  static String normalizeFen(String fen) {
+    try {
+      return FenCodec.toFen(FenCodec.fromFen(fen));
+    } on Object {
+      return fen;
+    }
+  }
+
   /// 测试专用：构造一个合法残局（供 store / list 测试）。
   @visibleForTesting
   static ChessEndgame fixture({

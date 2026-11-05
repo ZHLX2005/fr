@@ -886,14 +886,13 @@ class _ChessRoomPageState extends State<ChessRoomPage> {
       _ackedLocally = false;
     });
     try {
-      // FEN 第 2 字段推默认先手；房主可再在面板改 first_mover。
-      final side = snap.fen.split(RegExp(r'\s+')).length > 1 &&
-              snap.fen.split(RegExp(r'\s+'))[1] == 'b'
-          ? 'b'
-          : 'w';
+      // 归一化成 6 字段 FEN 再发：服务端 is_valid_fen_structure 要求恰好 6
+      // 字段，4/5 字段（本地 codec 能解析）会被静默忽略 → 残局看起来没选中
+      // （fr #11 同款症状）。先手方仍由 FEN 第 2 字段推，房主可再改。
+      final fen = ChessEndgame.normalizeFen(snap.fen);
       await (_room ?? ChessRoom(widget.handle)).setRules(
-        initialFen: snap.fen,
-        firstMover: side,
+        initialFen: fen,
+        firstMover: ChessEndgame.sideFromFen(fen),
         endgameLabel: snap.label ?? '快照',
       );
     } catch (e) {

@@ -354,6 +354,25 @@ void _v7SetRulesGuards() {
       expect(block, contains('state = "lobby"'));
     });
 
+    test('残局 FEN 取自 p.initial_fen，不得用 c.initial_fen 改写（fr #11）', () {
+      final block = _functionBlock('on_action_SET_RULES = function');
+      // 残局分支必须把**本次传入的** FEN 写进 c.initial_fen。
+      expect(
+        block,
+        contains('c.initial_fen = fen_set_side(p.initial_fen, side)'),
+        reason: '残局开局必须落地 p.initial_fen',
+      );
+      // 回归守卫：曾写成 fen_set_side(c.initial_fen, side) —— 改写的是房间
+      // 当前值（标准开局），于是残局永远不生效：200 OK，c.initial_fen 仍是
+      // 标准起点，只有 endgame_label / initial_side 变了 → 客户端
+      // isEndgameRoom 判 false，准备页看不到残局、开局仍是标准棋盘。
+      expect(
+        block,
+        isNot(contains('fen_set_side(c.initial_fen, side)')),
+        reason: 'c.initial_fen 是房间当前值，拿它改写会吞掉残局局面',
+      );
+    });
+
     test('on_init action_permissions 含 SET_RULES=host', () {
       final onInit = _functionBlock('on_init = function');
       expect(onInit, contains('SET_RULES  = "host"'));
@@ -423,8 +442,13 @@ void _firstMoverFenConsistencyGuards() {
 
     test('SET_RULES 残局分支：initial_fen 走 fen_set_side，initial_side 同源', () {
       final block = _functionBlock('on_action_SET_RULES = function');
-      expect(block, contains('c.initial_fen = fen_set_side(c.initial_fen, side)'),
-          reason: '残局 FEN 必须按 first_mover 改写轮次字段');
+      // 改写对象是**本次传入的** p.initial_fen —— 旧写法拿 c.initial_fen
+      // （房间当前值 = 标准开局）去改写，残局局面永远落不了地（fr #11）。
+      expect(
+        block,
+        contains('c.initial_fen = fen_set_side(p.initial_fen, side)'),
+        reason: '残局 FEN 必须取自 p.initial_fen，并按 first_mover 改写轮次字段',
+      );
       expect(block, contains('c.initial_side = side'),
           reason: 'initial_side 必须与改写后的 FEN 同源（同一个 side 变量）');
       expect(
