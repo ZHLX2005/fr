@@ -28,7 +28,7 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 2. **模块形态**：`lib/lab/demos/` 的 demo 默认保持单文件；超过 400 行才按项目约定拆到 `lib/lab/demos/<模块名>/`。高扩展模块放 `lib/core/<模块>/`，由 Lab 页面导入；除非用户明确指定，不擅自选择另一种结构。
 3. **路由集中**：新增页面或可被外部入口调用的页面按 A 序列使用 `fr://` 路由注册规范；避免 widget 自行解析 URL 或绕过项目路由中心。
 4. **存储封装**：业务 UI 不直接使用 Hive 全局 API。通过 feature repository/项目标准存储 API 暴露需要的操作；初始化、adapter、BoxDescriptor 注册与全局面板按 D 序列统一。
-5. **视觉统一**：`lib/` 新增 UI 禁止裸写颜色 hex；使用项目 ColorScheme、ColorStrategy 或明确的颜色特例策略，详见 E 序列。
+5. **视觉统一**：`lib/` 新增 UI 禁止裸写颜色 hex；使用项目 ColorScheme、ColorStrategy 或明确的颜色特例策略，详见 E 序列。**边框强调只由描边承载**——容器底透明或等于父级表面色，禁止 accent 派生浅底（内外有色差就不是边框强调了），见 [[Ed01-边框强调式减负]]。
 6. **原生改动验证**：修改 `android/`、Kotlin、C++、Manifest 或资源配置时，`flutter analyze` 不足以验证原生链路；按相关 SOP 执行 `flutter build apk`。
 7. **质量与交付**：遵循仓库当前测试、codegen、CHANGELOG、Git 及提交约定；执行提交操作前逐项核对工作区，只处理本次任务文件。不得把现有其他工作区改动混入任务。
 8. **文档审查**：存在前置条件、身份/权限、数据流或生命周期不明时，先标注待核验事实；不把“登录功能 demo”写成全局登录守卫，也不把 Lab、游戏中心、Chat 断言为需登录容器，除非真实代码证明如此。

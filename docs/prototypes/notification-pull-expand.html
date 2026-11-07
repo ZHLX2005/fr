@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>通知中心 · 连续下拉展开</title>
+<style>
+  :root{
+    --e-std:  cubic-bezier(.2,0,0,1);
+    --e-dec:  cubic-bezier(.05,.7,.1,1);
+    --e-acc:  cubic-bezier(.3,0,.8,.15);
+    --txt:   #f4f2f7;
+    --txt-2: rgba(242,240,248,.70);
+    --txt-3: rgba(242,240,248,.44);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:#0c0a11;
+    display:grid;place-items:center;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  }
+
+  /* ───────────────── 手机外壳 ───────────────── */
+  .phone{
+    position:relative;width:390px;height:844px;border-radius:46px;overflow:hidden;
+    background:#1a1720;isolation:isolate;
+    box-shadow:0 40px 120px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);
+    user-select:none;
+  }
+  .wall{
+    position:absolute;inset:-14%;z-index:0;
+    background:
+      radial-gradient(46% 34% at 16% 6%,  #ab98c4 0%, transparent 62%),
+      radial-gradient(42% 30% at 82% 9%,  #7ea0b8 0%, transparent 60%),
+      radial-gradient(58% 40% at 46% 40%, #ded5e6 0%, transparent 64%),
+      radial-gradient(46% 34% at 14% 68%, #a3b598 0%, transparent 60%),
+      radial-gradient(52% 40% at 88% 74%, #cb9a90 0%, transparent 62%),
+      linear-gradient(158deg,#948aab 0%,#bab0c6 38%,#b3a1a0 72%,#948aa4 100%);
+    filter:blur(34px) saturate(112%);
+    transform:scale(1.18);
+  }
+  .scrim{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(16,13,22,.36) 0%,rgba(16,13,22,.24) 28%,rgba(14,11,20,.44) 100%)}
+
+  /* ───────────────── 状态栏 ───────────────── */
+  .statusbar{
+    position:absolute;top:16px;left:0;right:0;z-index:5;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 26px;color:#fff;font-size:12.5px;letter-spacing:.3px;
+  }
+  .carrier{font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .sb-icons{display:flex;align-items:center;gap:6px;opacity:.95}
+  .sb-icons svg{display:block}
+  .batt{display:flex;align-items:center;gap:3px;font-size:11.5px;font-weight:500}
+
+  /* ───────────────── 时钟 ───────────────── */
+  .clockblock{position:absolute;top:48px;left:26px;right:26px;z-index:5;color:#fff}
+  .clockrow{display:flex;align-items:flex-end;gap:10px}
+  .clock{
+    font-size:52px;line-height:1;font-weight:250;letter-spacing:-1.5px;
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 2px 18px rgba(0,0,0,.28);
+  }
+  .date{font-size:14.5px;font-weight:400;padding-bottom:7px;opacity:.94;white-space:nowrap}
+  .storage{
+    margin-top:7px;font-size:11.5px;letter-spacing:.2px;
+    color:rgba(255,255,255,.82);font-variant-numeric:tabular-nums;
+  }
+  .storage b{font-weight:500;color:rgba(255,255,255,.92)}
+
+  .bell{
+    position:absolute;top:58px;right:24px;z-index:6;
+    width:44px;height:44px;border-radius:50%;border:0;padding:0;
+    background:rgba(255,255,255,.14);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 14px rgba(0,0,0,.18);
+    display:grid;place-items:center;cursor:pointer;
+    transition:transform .16s var(--e-std),background .16s var(--e-std);
+  }
+  .bell:active{transform:scale(.92);background:rgba(255,255,255,.2)}
+
+  /* ───────────────── 通知区 ───────────────── */
+  .cards{
+    position:absolute;top:146px;left:14px;right:14px;z-index:4;
+    display:flex;flex-direction:column;gap:10px;
+    touch-action:none;
+  }
+
+  /* 外层 clip：只负责"露出多少"；内层按内容自然布局，永不被压扁 */
+  .clip{
+    position:relative;overflow:hidden;border-radius:26px;
+    box-shadow:0 10px 34px rgba(0,0,0,.34);
+    will-change:height;
+  }
+  .card{
+    position:relative;
+    border-radius:26px;
+    padding:14px 16px;
+    background:linear-gradient(180deg,rgba(66,61,76,.66) 0%,rgba(45,42,54,.74) 46%,rgba(36,34,45,.79) 100%);
+    backdrop-filter:blur(26px) saturate(170%);
+    -webkit-backdrop-filter:blur(26px) saturate(170%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.11),
+      inset 0 -1px 0 rgba(255,255,255,.03);
+    color:var(--txt);
+    transform:translateZ(0);
+  }
+  .card.static{box-shadow:0 8px 26px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.09);overflow:hidden}
+
+  /* ───────────────── 图标：折叠时"左侧大字牌"，展开时"头部小图标" ─────────────────
+     一个元素贯穿全程，位置/尺寸随 --a 插值 —— 不做两个图标叠化（会像重影） */
+  .icon{
+    position:absolute;left:16px;z-index:2;
+    /* 位置/尺寸都走 --ai（快通道），文字缩进走 --a（慢通道）——
+       图标必须在小到一定程度之前，文字才开始让位，否则会被压住 */
+    top:calc((var(--ift,38) + (14 - var(--ift,38)) * var(--ai,0)) * 1px);
+    width:calc((40 - 18 * var(--ai,0)) * 1px);
+    height:calc((40 - 18 * var(--ai,0)) * 1px);
+    border-radius:calc((12 - 5 * var(--ai,0)) * 1px);
+    overflow:hidden;
+    box-shadow:0 2px 8px rgba(0,0,0,.28);
+  }
+  .icon svg{display:block;width:100%;height:100%}
+
+  /* ── 应用名行：折叠态高度归零（截图里折叠时没有这一行），对齐后才长出来 ── */
+  .head{
+    display:flex;align-items:center;
+    /* 行高走 --ah（线性跟随高度）：头部每长 1px，卡片也长 1px，第三条目始终贴底 */
+    height:calc(22 * var(--ah,0) * 1px);
+    padding-left:30px;padding-right:24px;
+    overflow:hidden;
+    /* 行高 22px 需要占满高度才不裁字 —— 高度长够之前不给它显形 */
+    opacity:clamp(0, calc((var(--ah,0) - .72) / .28), 1);
+  }
+  .name{
+    flex:1 1 auto;min-width:0;
+    font-size:13px;line-height:22px;font-weight:500;letter-spacing:.2px;
+    color:rgba(255,255,255,.66);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .time{
+    flex:0 0 auto;font-size:12px;line-height:22px;color:var(--txt-3);
+    font-variant-numeric:tabular-nums;
+  }
+  .chev{
+    position:absolute;top:15px;right:14px;z-index:3;
+    width:18px;height:18px;display:grid;place-items:center;
+    color:rgba(255,255,255,.55);
+    /* 箭头跟下拉进度连续翻转，而不是结束时才切换 */
+    transform:rotate(calc(180deg * var(--ch,0)));
+  }
+  .chev svg{display:block}
+
+  /* ───────────────── 条目列表 ─────────────────
+     折叠态：整块右移让位给左侧图标；展开态收回左边缘 */
+  .rows{
+    display:flex;flex-direction:column;gap:0;
+    margin-top:calc(13 * var(--ah,0) * 1px);
+    /* 头部阶段文字保持缩进（不抢先移动）；进入行阶段后随拖拽进度左移到位 */
+    padding-left:calc(52 * (1 - var(--s,0)) * 1px);
+    --cw:330;--gap:14px;--gap0:3px;
+  }
+  /* 折叠态的三条是**并列**的：行距压到 3px，整体像一整块三行文字。
+     拉开分两拍：先 --gp 把间距拉满（第三条目贴底），到阈值后 --rh 三条同时展开行高 */
+  .row{
+    position:relative;overflow:hidden;
+    /* 行高/间距都线性跟随高度：内容底边 == 卡片底边，第三条目全程贴底不裁切 */
+    height:calc((20 + (var(--fh,60) - 20) * var(--rh,0)) * 1px);
+    margin-bottom:calc((var(--gap0) + (var(--gap) - var(--gap0)) * var(--gp,0)));
+  }
+  .row:last-child{margin-bottom:0}
+  /* 第 4、5 条：未轮到之前高度与间距一起归零（否则会顶进可视区），
+     轮到时整体升起，文字不做渐变，靠行高从底边长出来 */
+  .row.extra{
+    height:calc(var(--fh,42) * var(--rh,0) * 1px);
+    margin-bottom:calc(var(--gap) * var(--gp,0));
+  }
+  .r-head{position:relative;height:20px}
+  .r-title{
+    font-size:13.5px;font-weight:500;line-height:20px;
+    color:rgba(255,255,255,.93);
+    display:inline-block;max-width:calc(100% - 62px);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:top;
+  }
+  .r-time{
+    position:absolute;right:var(--trt,0px);top:0;
+    font-size:11.5px;line-height:20px;color:var(--txt-3);
+    font-variant-numeric:tabular-nums;
+  }
+  /* 首行时间要让开右上角的箭头；第三行要让开 +N */
+  .row:first-child,.row:nth-child(3){--trt:21px}
+  /* 折叠态不显示时间的条目，展开态才浮出来 */
+  .r-time.lazy{opacity:clamp(0, calc((var(--s,0) - .35) / .45), 1)}
+  /* 折叠态右下角的 +N，展开态让位给真实时间（错开时间，避免两个字重叠） */
+  .r-plus{
+    position:absolute;right:21px;top:0;
+    font-size:12px;line-height:20px;color:var(--txt-3);
+    font-variant-numeric:tabular-nums;
+    opacity:clamp(0, calc(1 - var(--s,0) * 2.2), 1);
+  }
+
+  /* 紧凑摘要：贴在标题右侧同一行，**位置全程不动**，只负责淡出 */
+  .r-inline{
+    position:absolute;left:0;right:0;top:0;
+    padding-left:calc((var(--tw,60) + 7) * 1px);
+    padding-right:calc((var(--tmw,40) + 9) * 1px + var(--trt,0px));
+    font-size:13px;line-height:20px;color:var(--txt-2);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    opacity:var(--o1,1);
+    pointer-events:none;
+  }
+
+  /* 正文：**从头到尾钉在最终位置**（标题下方、左对齐），只做淡入，
+     配合行高增长形成"从底部被揭出来"的观感 */
+  .r-body{
+    position:absolute;left:0;right:0;top:23px;
+    font-size:13px;line-height:19px;color:var(--txt-2);
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    overflow:hidden;
+    opacity:var(--o2,0);
+  }
+
+  /* ── 测量用：还原成正常流，量真实完整高度 ── */
+  .card.measuring .rows{padding-left:0;margin-top:0}
+  .card.measuring .row{height:auto!important;margin-bottom:var(--gap)!important;overflow:visible}
+  .card.measuring .r-inline{display:none}
+  .card.measuring .r-body{position:static;left:auto;right:auto;top:auto;margin-top:3px;opacity:1}
+  .card.measuring .icon{display:none}
+  .card.measuring .head{height:auto;opacity:1;padding-left:0}
+
+  /* ── 静态卡：固定"头部 + 完整条目"的经典形态，不参与手势 ── */
+  .card.compact .icon{position:static;width:22px;height:22px;border-radius:7px}
+  .card.compact .head{height:auto;opacity:1;padding-left:0;gap:9px}
+  .card.compact .name{font-size:12.5px;line-height:17px;color:rgba(246,244,251,.74)}
+  .card.compact .time{opacity:.46;line-height:17px}
+  .card.compact .chev{top:12px}
+  .card.compact .rows{display:flex;opacity:1;margin-top:13px;padding-left:0}
+  .card.compact .row{--rh:1;--gp:1;--o2:1;margin-bottom:var(--gap)}
+  .card.compact .r-inline{display:none}
+  .card.compact .r-body{opacity:1}
+
+  /* ───────────────── 底部垃圾桶 ───────────────── */
+  .trash{
+    position:absolute;left:50%;bottom:58px;transform:translateX(-50%);z-index:6;
+    width:54px;height:54px;border-radius:50%;border:0;padding:0;
+    background:rgba(255,255,255,.17);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.26),0 6px 18px rgba(0,0,0,.22);
+    display:grid;place-items:center;cursor:pointer;
+    transition:transform .18s var(--e-std),background .18s var(--e-std);
+  }
+  .trash:active{transform:translateX(-50%) scale(.9);background:rgba(255,255,255,.24)}
+
+  /* ───────────────── 提示 ───────────────── */
+  .hint{
+    position:absolute;left:0;right:0;bottom:130px;z-index:6;
+    text-align:center;font-size:11.5px;letter-spacing:1.2px;
+    color:rgba(255,255,255,.55);
+    transition:opacity .3s var(--e-std);
+    pointer-events:none;
+  }
+  .hint .arw{display:block;margin:0 auto 6px;width:14px;height:14px;opacity:.7;animation:bob 1.9s var(--e-std) infinite}
+  @keyframes bob{0%,100%{transform:translateY(-2px)}50%{transform:translateY(3px)}}
+  .hint.off{opacity:0}
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <div class="wall"></div>
+  <div class="scrim"></div>
+
+  <div class="statusbar">
+    <span class="carrier">中国移动</span>
+    <div class="sb-icons">
+      <svg width="15" height="12" viewBox="0 0 15 12" fill="none">
+        <rect x="0" y="7.5" width="2.6" height="4" rx=".8" fill="#fff" opacity=".55"/>
+        <rect x="4" y="5.2" width="2.6" height="6.3" rx=".8" fill="#fff" opacity=".75"/>
+        <rect x="8" y="2.8" width="2.6" height="8.7" rx=".8" fill="#fff" opacity=".9"/>
+        <rect x="12" y="0" width="2.6" height="11.5" rx=".8" fill="#fff" opacity=".45"/>
+      </svg>
+      <svg width="19" height="11" viewBox="0 0 19 11" fill="none">
+        <rect x=".5" y=".5" width="16" height="10" rx="3" stroke="#fff" stroke-opacity=".55"/>
+        <rect x="2.2" y="2.2" width="10.5" height="6.6" rx="1.8" fill="#fff" opacity=".9"/>
+        <path d="M18 4v3" stroke="#fff" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <span class="batt">82%</span>
+    </div>
+  </div>
+
+  <div class="clockblock">
+    <div class="clockrow">
+      <span class="clock">16:43</span>
+      <span class="date">11月6日星期五</span>
+    </div>
+    <div class="storage">今日 <b>786 MB</b> ｜ 剩余 <b>361 GB</b> ｜ 总量 <b>373 GB</b></div>
+  </div>
+
+  <button class="bell" aria-label="通知设置">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3.2a5.6 5.6 0 0 0-5.6 5.6v3.1c0 .9-.34 1.76-.95 2.42l-.86.94c-.62.68-.14 1.78.78 1.78h13.26c.92 0 1.4-1.1.78-1.78l-.86-.94a3.6 3.6 0 0 1-.95-2.42V8.8A5.6 5.6 0 0 0 12 3.2Z" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M10 19.2a2.2 2.2 0 0 0 4 0" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="cards" id="cards">
+
+    <!-- 静态卡：Android 系统 -->
+    <div class="card static compact">
+      <div class="head">
+        <div class="icon">
+          <svg viewBox="0 0 48 48">
+            <rect width="48" height="48" rx="12" fill="#4a4753"/>
+            <rect x="11" y="15" width="26" height="18" rx="4" fill="none" stroke="#e8e6ee" stroke-width="2"/>
+            <path d="M16 21h2M21 21h2M26 21h2M31 21h2M17 26h14" stroke="#e8e6ee" stroke-width="1.8" stroke-linecap="round" opacity=".85"/>
+          </svg>
+        </div>
+        <div class="name">Android 系统</div>
+        <div class="time">刚刚</div>
+        <div class="chev" style="transform:rotate(180deg)">
+          <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 6.5 6 1.5l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+      <div class="rows" style="--cw:330">
+        <div class="row" style="--p:1;--fh:42;--tw:60;--tmw:34">
+          <div class="r-head"><span class="r-title">选择输入法</span><span class="r-time">刚刚</span></div>
+          <div class="r-body">- 搜狗输入法</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主卡 -->
+    <div class="clip" id="clip">
+    <div class="card" id="card">
+      <!-- 图标：绝对定位，折叠态是左侧大字牌，展开态缩进头部 -->
+      <div class="icon">
+        <svg viewBox="0 0 48 48">
+          <defs>
+            <linearGradient id="ncm" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ef2a2a"/><stop offset="1" stop-color="#c21018"/>
+            </linearGradient>
+          </defs>
+          <rect width="48" height="48" rx="12" fill="url(#ncm)"/>
+          <circle cx="24" cy="24" r="13.4" fill="none" stroke="#fff" stroke-width="2.3" opacity=".95"/>
+          <path d="M27.4 15.6v12.1a4.1 4.1 0 1 1-2.7-3.86" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <div class="chev">
+        <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1.5 6 6.5l5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <!-- 应用名行：折叠态高度为 0，对齐后才长出来 -->
+      <div class="head">
+        <div class="name">网易云音乐</div>
+      </div>
+
+      <!-- 条目：紧凑态 = 标题 + 摘要同行；展开态 = 摘要淡出、正文在下方淡入 -->
+      <div class="rows" id="rows">
+        <div class="row">
+          <div class="r-head"><span class="r-title">回忆坐标</span><span class="r-time">13:41</span></div>
+          <div class="r-inline">3 年前的今天，你与《以后不会了》相遇，点击查看回忆坐标&gt;</div>
+          <div class="r-body">3 年前的今天，你与《以后不会了》相遇，点击查看回忆坐标&gt;</div>
+        </div>
+        <div class="row">
+          <div class="r-head"><span class="r-title">黄霄雲</span><span class="r-time lazy">12:20</span></div>
+          <div class="r-inline">快来听《留不住的夏天》</div>
+          <div class="r-body">快来听《留不住的夏天》</div>
+        </div>
+        <div class="row">
+          <div class="r-head"><span class="r-title">🥺 真挚的感情最珍贵</span><span class="r-time lazy">昨天</span><span class="r-plus">+ 2</span></div>
+          <div class="r-inline">综艺「后会友期」主题曲上线🇨🇳在这个瞬息万变的时代…</div>
+          <div class="r-body">综艺「后会友期」主题曲上线🇨🇳在这个瞬息万变的时代，那些曾经无话不谈的朋友，依然让人牵挂&gt;&gt;</div>
+        </div>
+        <div class="row extra">
+          <div class="r-head"><span class="r-title">@假日的栈桥 速听→</span><span class="r-time lazy">昨天</span></div>
+          <div class="r-inline">王赫野热歌榜TOP1已送达！</div>
+          <div class="r-body">王赫野热歌榜TOP1已送达！</div>
+        </div>
+        <div class="row extra">
+          <div class="r-head"><span class="r-title">陈卓璇 [可能喜欢]</span><span class="r-time lazy">2026/11/4</span></div>
+          <div class="r-inline">快来听《杨花落尽子规啼》</div>
+          <div class="r-body">快来听《杨花落尽子规啼》</div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /clip -->
+  </div>
+
+  <div class="hint" id="hint">
+    <svg class="arw" viewBox="0 0 14 14" fill="none"><path d="M7 1.5v11M2.3 8.2 7 12.5l4.7-4.3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    下拉展开 · 上推收起
+  </div>
+
+  <button class="trash" aria-label="清除全部通知">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M4.5 6.5h15M9.5 6.5V4.6c0-.6.5-1.1 1.1-1.1h2.8c.6 0 1.1.5 1.1 1.1v1.9M6.6 6.5l.8 12.1c0 .8.7 1.4 1.5 1.4h6.2c.8 0 1.5-.6 1.5-1.4l.8-12.1" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 10.5v5.6M14 10.5v5.6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".8"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const cards = document.getElementById('cards');
+  const clip  = document.getElementById('clip');
+  const card  = document.getElementById('card');
+  const rowsEl = document.getElementById('rows');
+  const rowEls = Array.from(rowsEl.querySelectorAll('.row'));
+  const hint  = document.getElementById('hint');
+
+  /* ── 关键高度：全部实测 ── */
+  let H0 = 0;   // 折叠：左图标 + 三行紧凑摘要
+  let H1 = 0;   // 头部对齐完成（应用名行撑开，正文尚未上桌）
+  let HB = 0;   // 三条紧凑但间距拉满：第三条目贴住卡片底部的阶段点
+  let H2 = 0;   // 三条完整（标题行 + 正文行）
+  let H3 = 0;   // 四条
+  let H4 = 0;   // 五条
+
+  function measure() {
+    const prevCls = card.className;
+    const cs   = getComputedStyle(card);
+    const padT = parseFloat(cs.paddingTop) || 14;
+    const padB = parseFloat(cs.paddingBottom) || 14;
+    const padL = parseFloat(cs.paddingLeft) || 16;
+    const padR = parseFloat(cs.paddingRight) || 16;
+    const rs   = getComputedStyle(rowsEl);
+    const gap  = parseFloat(rs.getPropertyValue('--gap'))  || 14;
+    const gap0 = parseFloat(rs.getPropertyValue('--gap0')) || 3;
+
+    // 内容宽度 → 供紧凑摘要让位用
+    rowsEl.style.setProperty('--cw', card.clientWidth - padL - padR);
+
+    // 完整态：量每条真实高度 + 标题/时间宽度（在正常流里量，绝对定位量不准）
+    card.classList.add('measuring');
+    const fh = rowEls.map(r => {
+      const tt = r.querySelector('.r-title');
+      const tm = r.querySelector('.r-time');
+      r.style.setProperty('--tw', Math.round(tt.getBoundingClientRect().width * 10) / 10);
+      if (tm) r.style.setProperty('--tmw', Math.round(tm.getBoundingClientRect().width * 10) / 10);
+      return r.getBoundingClientRect().height;
+    });
+    rowEls.forEach((r, i) => r.style.setProperty('--fh', Math.round(fh[i] * 10) / 10));
+    card.className = prevCls;
+
+    const compact3 = 20 * 3 + gap0 * 2;  // 三行并列紧凑摘要的总高（行距 3px）
+    H0 = padT + compact3 + padB;
+    H1 = padT + 22 + 13 + compact3 + padB;
+    // 三条保持紧凑、只把行距从 gap0 拉到 gap 的阶段点
+    HB = H1 + (gap - gap0) * 2;
+    H2 = padT + 22 + 13 + fh[0] + gap + fh[1] + gap + fh[2] + padB;
+    H3 = H2 + gap + fh[3];
+    H4 = H3 + gap + fh[4];
+
+    // 折叠态图标垂直居中于三行摘要
+    card.style.setProperty('--ift', Math.round(padT + compact3 / 2 - 20));
+  }
+
+  /* ── 高度动画 ── */
+  let h = 0;
+  let spring = null;
+  let pinned = null;   // 调试/直达时锁定的高度，避免 resize 把它重置掉
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const smoothstep = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+  const smootherstep = t => { t = clamp(t, 0, 1); return t * t * t * (t * (t * 6 - 15) + 10); };
+
+  function setH(v) {
+    h = v;
+    clip.style.height = v + 'px';
+    render(v);
+  }
+
+  /* ── 核心：把高度翻译成每一层的连续进度 ──
+     H0→H1  头部先"咬合"：图标 40→22 上移到头部、应用名长出来（文字暂不移动）
+     H1→HB  只拉行距：前三条仍紧凑、第三条目始终贴住卡片底部，文字随拖拽左移到位
+     HB→H2  达到阈值后，三条同时展开行高：旧摘要褪去、正文渐入
+     H2→H3  第四条升起（仍与卡片底边同步，不裁切）
+     H3→H4  第五条升起                                        */
+  function render(v) {
+    // 所有影响布局的量都**线性**跟随高度，保证内容底边 == 卡片底边
+    const ah = clamp((v - H0) / Math.max(1, H1 - H0), 0, 1);    // 头部行高（线性，不抢跑）
+    const ai = smoothstep(ah / 0.45);                           // 图标/尺寸快速对齐
+    const sp = clamp((v - H1) / Math.max(1, HB - H1), 0, 1);     // 行距拉开
+    const s  = smoothstep(sp);                                  // 文字随行距阶段左移到位
+    const ex = clamp((v - HB) / Math.max(1, H2 - HB), 0, 1);    // 三条同时展开正文
+    const o1 = 1 - smoothstep((ex - 0.12) / 0.50);              // 旧摘要褪去
+    const o2 = smoothstep(ex / 0.70);                           // 正文渐入
+
+    const r4 = clamp((v - H2) / Math.max(1, H3 - H2), 0, 1);    // 第四条
+    const r5 = clamp((v - H3) / Math.max(1, H4 - H3), 0, 1);    // 第五条
+
+    card.style.setProperty('--ah', ah.toFixed(4));
+    card.style.setProperty('--ai', ai.toFixed(4));
+    card.style.setProperty('--s', s.toFixed(4));
+    card.style.setProperty('--ch', clamp((v - H0) / Math.max(1, H2 - H0), 0, 1).toFixed(4));
+
+    rowEls.forEach((el, i) => {
+      // 第 4、5 条：整体升起，文字不做渐变，被行高从底边"长"出来
+      if (i >= 3) {
+        const pe = i === 3 ? r4 : r5;
+        el.style.setProperty('--p',  pe.toFixed(4));
+        el.style.setProperty('--rh', pe.toFixed(4));
+        el.style.setProperty('--gp', pe.toFixed(4));
+        el.style.setProperty('--o1', '0');
+        el.style.setProperty('--o2', '1');
+        return;
+      }
+
+      el.style.setProperty('--p',  ex.toFixed(4));
+      el.style.setProperty('--rh', ex.toFixed(4));
+      el.style.setProperty('--gp', sp.toFixed(4));
+      el.style.setProperty('--o1', o1.toFixed(4));
+      el.style.setProperty('--o2', o2.toFixed(4));
+    });
+
+    card.classList.toggle('allopen', v >= H4 - 6);
+    hint.classList.toggle('off', v > H0 + 20);
+  }
+
+  /* ── 释放：带初速度的阻尼弹簧（近临界阻尼，收尾自然、不弹回原点） ── */
+  const SPRING_K = 205, SPRING_C = 29;
+  function springTo(target, v0) {
+    spring = { x: h, v: v0 || 0, target: target, t: performance.now() };
+    requestAnimationFrame(springTick);
+  }
+  function springTick(now) {
+    if (!spring) return;
+    const dt = clamp((now - spring.t) / 1000, 0.001, 0.033);
+    spring.t = now;
+    spring.v += (-SPRING_K * (spring.x - spring.target) - SPRING_C * spring.v) * dt;
+    spring.x += spring.v * dt;
+    setH(spring.x);
+    if (Math.abs(spring.v) > 2 || Math.abs(spring.x - spring.target) > 0.6) {
+      requestAnimationFrame(springTick);
+    } else {
+      setH(spring.target);
+      spring = null;
+    }
+  }
+
+  /* ── 手势 ── */
+  let dragging = false, startY = 0, moved = false, h0AtDown = 0;
+  const DEAD = 4;
+  const rubber = x => 62 * (1 - Math.exp(-x / 130));
+  const samples = [];   // 最近几次指针采样，用来估算松手速度
+
+  function addSample(y) {
+    samples.push({ t: performance.now(), y: y });
+    while (samples.length > 8) samples.shift();
+  }
+  // 采样窗口内的平均速度（px/ms），正值 = 下拉
+  function dragVelocity() {
+    if (samples.length < 2) return 0;
+    const a = samples[0], b = samples[samples.length - 1];
+    const dt = b.t - a.t;
+    if (dt < 10) return 0;
+    return (b.y - a.y) / dt;
+  }
+
+  function onDown(e) {
+    if (e.target.closest('.trash') || e.target.closest('.bell')) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    dragging = true; moved = false;
+    startY = e.clientY;
+    spring = null;
+    samples.length = 0;
+    addSample(e.clientY);
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    addSample(e.clientY);
+    const dy = e.clientY - startY;
+    if (Math.abs(dy) <= DEAD) return;
+    moved = true;
+    const drive = dy > 0 ? dy - DEAD : dy + DEAD;
+    // 永远按手指 1:1 走，内容自己随高度展开 —— 中间态就是"内容被裁掉一截"的自然结果
+    let target = h0AtDown + drive;
+    if (target < H0) target = H0 + rubber(H0 - target) * -1;   // 上拉越界
+    if (target > H4) target = H4 + rubber(target - H4);        // 下拉越界
+    spring = null;
+    setH(target);
+  }
+
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    if (!moved) return;
+    // 动量投射：按松手速度往前看 130ms，再吸附到最近的停顿档
+    const vel = dragVelocity();
+    const proj = h + vel * 130;
+    const stops = [H0, H2, H3, H4];
+    let best = stops[0], bd = Infinity;
+    stops.forEach(s => { const d = Math.abs(proj - s); if (d < bd) { bd = d; best = s; } });
+    springTo(best, vel * 1000);   // 初速度直接交给弹簧，衔接不顿挫
+  }
+
+  document.addEventListener('pointerdown', e => {
+    h0AtDown = h;
+    onDown(e);
+  }, { passive: true });
+  window.addEventListener('pointermove', onMove, { passive: true });
+  window.addEventListener('pointerup', onUp, { passive: true });
+  window.addEventListener('pointercancel', onUp, { passive: true });
+
+  // 点击箭头：展开到三条 / 收起
+  card.addEventListener('click', e => {
+    if (moved) { moved = false; return; }
+    if (h < H1 - 4) springTo(H2, 0);
+    else if (h > H2 + 8) springTo(H2, 0);
+    else springTo(H0, 0);
+  });
+
+  // 桌面预览：滚轮逐档
+  let wheelLock = 0;
+  cards.addEventListener('wheel', e => {
+    e.preventDefault();
+    const now = performance.now();
+    if (now - wheelLock < 220) return;
+    const stops = [H0, H2, H3, H4];
+    let idx = 0, bd = Infinity;
+    stops.forEach((s, i) => { const d = Math.abs(h - s); if (d < bd) { bd = d; idx = i; } });
+    const next = clamp(idx + (e.deltaY > 0 ? 1 : -1), 0, stops.length - 1);
+    if (next !== idx) { wheelLock = now; springTo(stops[next], 0); }
+  }, { passive: false });
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const stops = [H0, H2, H3, H4];
+      let idx = 0, bd = Infinity;
+      stops.forEach((s, i) => { const d = Math.abs(h - s); if (d < bd) { bd = d; idx = i; } });
+      const next = clamp(idx + (e.key === 'ArrowDown' ? 1 : -1), 0, stops.length - 1);
+      springTo(stops[next], 0);
+    }
+  });
+
+  /* ── 启动 ── */
+  function boot() {
+    measure();
+    setH(H0);
+    card.dataset.metrics = [H0, H1, HB, H2, H3, H4].map(v => Math.round(v)).join('/');
+
+    const st = (location.hash || '').replace('#', '');
+    const map = { three: H2, four: H3, five: H4 };
+    if (map[st]) { pinned = map[st]; setH(map[st]); }
+    // 调试中间态：#h180 直接把高度定在 180px
+    const mh = st.match(/^h(\d+)$/);
+    if (mh) { pinned = parseInt(mh[1], 10); setH(pinned); }
+  }
+
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(boot);
+  else window.addEventListener('load', boot);
+
+  window.addEventListener('resize', () => {
+    const old = [H0, H2, H3, H4];
+    let idx = 0, bd = Infinity;
+    old.forEach((s, i) => { const d = Math.abs(h - s); if (d < bd) { bd = d; idx = i; } });
+    measure();
+    setH(pinned != null ? pinned : [H0, H2, H3, H4][idx]);
+  });
+})();
+</script>
+</body>
+</html>
