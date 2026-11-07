@@ -318,6 +318,7 @@ const Map<String, String> _slugToAsset = {
   'surround-game-lua': '48-blockade-online',
   'draughts-lua': '50-draughts',
   'xiangqi-lua': '49-xiangqi',
+  'notification-pull': '51-notification-pull',
 };
 
 /// 测试与 lint 用：覆盖率提示。所有 48 个 asset 都应至少被一个 demo slug 引用。

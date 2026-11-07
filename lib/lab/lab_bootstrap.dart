@@ -54,6 +54,7 @@ import 'demos/sudoku_lua/sudoku_demo.dart' show registerSudokuLuaDemo;
 import 'demos/remotetype_demo.dart' show registerRemoteTypeDemo;
 import 'demos/auth_login_demo.dart';
 import 'demos/ai_gallery_demo.dart';
+import 'demos/notification_pull/notification_pull_demo.dart';
 
 // 注册所有 Demo 页面
 void registerAllDemos() {
@@ -109,6 +110,7 @@ void registerAllDemos() {
   registerSudokuLuaDemo();
   registerRemoteTypeDemo();
   registerAiGalleryDemo();
+  registerNotificationPullDemo();
 }
 
 // 初始化 Lab 模块
