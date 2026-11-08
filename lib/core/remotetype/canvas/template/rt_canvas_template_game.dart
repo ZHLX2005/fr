@@ -1,10 +1,12 @@
 // lib/core/remotetype/canvas/template/rt_canvas_template_game.dart
 //
-// 内置布局模板 · 方向键：四向十字（dir8=false）+ 分布式 vpad + 双摇杆。
+// 内置布局模板 · 方向键：四向十字（dir8=false）+ 键级直编排 vpad + 双摇杆。
 // 锚点对齐 docs/prototypes/rt-gamepad-mode-dpad.html：
 //   左上十字 / 右上面键 · 下 L/R 摇杆同高 · 肩扳贴左右侧缘 · Back/Start 居中偏上。
 // 信号走 vpad 通道（vpad_dpad + vpad_button/trigger / vpad_axis）；
-// hideShortcuts：快捷键按钮区归手柄模块，画布按钮不参与。
+// hideShortcuts：快捷键按钮区归手柄键区，画布按钮不参与。
+// 手柄 13 键无条目 = 出厂几何（rtVpadDefaultSlots 按画布尺寸实时算，
+// 菱形间距不随宽高比变形）；显隐/摆位在编辑面板「手柄键区」区配置。
 // 八向轮盘变体见 rt_canvas_template_game_wheel.dart（独立内置 id）。
 
 import '../../data/rt_prefs.dart'
@@ -15,7 +17,6 @@ import '../../data/rt_prefs.dart'
         kRtCanvasModuleDpad,
         kRtCanvasModuleStickL,
         kRtCanvasModuleStickR,
-        kRtCanvasModuleVpad,
         kRtCanvasOrientLandscape,
         kRtCanvasPresetGame;
 
@@ -27,6 +28,8 @@ const RtCanvasNamedLayout kRtCanvasTemplateGame = RtCanvasNamedLayout(
   orientation: kRtCanvasOrientLandscape,
   data: RtCanvasLayout(
     hideShortcuts: true,
+    // 手柄键区区块在场：13 键无条目 = 出厂几何渲染 + 可见。
+    vpadOn: true,
     modules: {
       // 左上四向十字。
       kRtCanvasModuleDpad: RtCanvasAnchor(
@@ -35,14 +38,6 @@ const RtCanvasNamedLayout kRtCanvasTemplateGame = RtCanvasNamedLayout(
         y: 0.45,
         w: 0.18,
         h: 0.40,
-      ),
-      // 近全幅键区：肩扳/系统键/ABXY/L3·R3 由 rtVpadDefaultSlots 按画布比例摆。
-      kRtCanvasModuleVpad: RtCanvasAnchor(
-        visible: true,
-        x: 0.50,
-        y: 0.50,
-        w: 0.98,
-        h: 0.92,
       ),
       // 下双摇同高（左移 / 右瞄）。
       kRtCanvasModuleStickL: RtCanvasAnchor(

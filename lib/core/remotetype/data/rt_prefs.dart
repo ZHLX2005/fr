@@ -61,8 +61,30 @@ const String kRtCanvasModuleDpad = 'dpad';
 const String kRtCanvasModuleStickL = 'stick-l';
 const String kRtCanvasModuleStickR = 'stick-r';
 
-/// 虚拟手柄键区（ABXY 面键 + LB/RB 肩键 + LT/RT 扳机，固定布局的模块）。
+/// 虚拟手柄键区（ABXY 面键 + LB/RB 肩键 + LT/RT 扳机）。
+/// 1.7.0 起退役模块盒形态——不再作为画布模块登记（无锚点/无整搬/无缩放盒），
+/// 13 键直接以画布为参考系逐键编排；本常量仅剩持久化兼容职责
+/// （旧布局 modules['vpad'] 条目在 fromJson 里翻译成键级显隐后剔除）。
 const String kRtCanvasModuleVpad = 'vpad';
+
+/// 手柄键名清单（vpad 持久化键 = 'vpad:<名>'，与键区渲染顺序同源）。
+/// 13 键 = 协议面键全量：ABXY + LB/RB + BACK/START/GUIDE + L3/R3，
+/// 外加 LT/RT 扳机（trigger 通道）。
+const List<String> rtVpadKeyOrder = [
+  'lb',
+  'lt',
+  'rt',
+  'rb',
+  'back',
+  'start',
+  'guide',
+  'y',
+  'x',
+  'b',
+  'a',
+  'l3',
+  'r3',
+];
 
 /// 文件模块（v0.8.0+：第一个能力 = 实时拍照直进电脑剪贴板；
 /// 后续文件类能力——相册图 / 任意文件传输——都挂在这一模块下扩展）。
@@ -91,6 +113,10 @@ enum RtLayoutKind {
   static RtLayoutKind fromId(String? raw) =>
       raw == 'writer' ? RtLayoutKind.writer : RtLayoutKind.canvas;
 }
+
+/// 比例值钳回 0.05..1.0（宽高/坐标类持久化字段共用；异常/缺型回 null）。
+double? _clampFraction(dynamic v) =>
+    v is num ? v.toDouble().clamp(0.05, 1.0).toDouble() : null;
 
 /// 模块「未指定宽高时」的兜底规格（内置预设 / 画布渲染 / sheet 缩略图
 /// 三处共用的单一事实源；与原画布默认值一致）。
@@ -307,9 +333,6 @@ class RtCanvasAnchor {
       kRtCanvasDpadHitMax,
     ),
   );
-
-  static double? _clampFraction(dynamic v) =>
-      v is num ? v.toDouble().clamp(0.05, 1.0).toDouble() : null;
 }
 
 /// 画布按钮尺寸倍率上下限（编辑拖动与持久化读入同一处钳制——单一事实源）。
@@ -387,6 +410,60 @@ class RtCanvasButtonPos {
             ? RtCanvasButtonShape.circle
             : RtCanvasButtonShape.pill,
       );
+}
+
+/// 手柄键编排态（键级直编排，1.7.0 起——不再有「手柄」模块盒）。
+///
+/// v = 键显隐（缺省 true）。x/y/s 全可空：null = 出厂几何（像素级按画布
+/// 尺寸实时重算，菱形间距不随宽高比变形）；键被拖动/缩放落定后写画布
+/// 归一化比例（此后位置恒定，不再随尺寸重排）。序列化稀疏——全缺省落 {}，
+/// 旧版本读到未知 'vk' 字段会忽略（降级丢键级编排，可接受）。
+class RtVpadKeyState {
+  const RtVpadKeyState({this.v = true, this.x, this.y, this.s});
+
+  /// 键显隐。false = 使用态不渲染、编辑态幽灵轮廓（点击开）。
+  final bool v;
+
+  /// 键中心画布归一化坐标（0..1）；null = 出厂位。
+  final double? x;
+  final double? y;
+
+  /// 尺寸倍率（乘在出厂尺寸上）；null = 1.0。
+  final double? s;
+
+  bool get hasPosition => x != null && y != null;
+
+  RtVpadKeyState copyWith({
+    bool? v,
+    Object? x = _kSentinel,
+    Object? y = _kSentinel,
+    double? s,
+  }) => RtVpadKeyState(
+    v: v ?? this.v,
+    // x/y 三态：不给 = 保留原值；给 null = 清回出厂位（拖回不出厂，仅迁移用）。
+    x: identical(x, _kSentinel) ? this.x : x as double?,
+    y: identical(y, _kSentinel) ? this.y : y as double?,
+    s: s ?? this.s,
+  );
+
+  Map<String, dynamic> toJson() => {
+    if (!v) 'v': false,
+    if (x != null) 'x': x,
+    if (y != null) 'y': y,
+    if (s != null) 's': s,
+  };
+
+  factory RtVpadKeyState.fromJson(Map<String, dynamic> j) => RtVpadKeyState(
+    v: j['v'] != false,
+    x: _clampFraction(j['x']),
+    y: _clampFraction(j['y']),
+    s: (j['s'] is num ? (j['s'] as num).toDouble() : null)?.clamp(
+      kRtCanvasBtnScaleMin,
+      kRtCanvasBtnScaleMax,
+    ),
+  );
+
+  static const Object _kSentinel = Object();
 }
 
 /// 横屏画布命名布局。[orientation] 把布局钉在某一朝向：横竖屏是两个隔离
@@ -665,36 +742,77 @@ class RtCanvasLayouts {
   }
 }
 
-/// 横屏画布布局：模块（触摸板 / 输入框 / 键盘 / 轮盘 / 手柄键区）锚点 + 按钮位。
-/// 空表 = 首跑，画布用内置默认布局。删掉的按钮残位无害（同 id 回归原位）。
+/// 横屏画布布局：模块（触摸板 / 输入框 / 键盘 / 轮盘）锚点 + 按钮位 +
+/// 手柄键区键级编排（vpad）。空表 = 首跑，画布用内置默认布局。
+/// 删掉的按钮残位无害（同 id 回归原位）。
 class RtCanvasLayout {
   const RtCanvasLayout({
     this.modules = const {},
     this.buttons = const {},
+    this.vpad = const {},
+    this.vpadOn = false,
     this.hideShortcuts = false,
   });
 
   final Map<String, RtCanvasAnchor> modules;
   final Map<String, RtCanvasButtonPos> buttons;
 
-  /// true = 此布局不渲染快捷键按钮（游戏布局 = 纯手柄，按钮区归 vpad 模块）。
+  /// 手柄键区键级编排（键名 → 态；缺条目 = 出厂几何 + 可见）。
+  /// 1.7.0 起接替退役的 vpad 模块盒（旧 buttons 'vpad:' 前缀条目与
+  /// modules['vpad'] 锚点在 [fromJson] 自动翻译到这里）。
+  final Map<String, RtVpadKeyState> vpad;
+
+  /// 手柄键区区块开关（「这个布局带不带手柄」的显式边界）。false = 整区
+  /// 不渲染、不参与锁横屏判定（触控屏/键盘布局没有手柄）；true = 键区
+  /// 在场，各键按 vpad 的 v 渲染（缺条目 = 出厂几何 + 可见）。
+  /// 与键级 v 分两层：vpadOn 管区块在不在，v 管单键显隐（组开关批量翻 v）。
+  final bool vpadOn;
+
+  /// true = 此布局不渲染快捷键按钮（游戏布局 = 纯手柄，按钮区归手柄键区）。
   final bool hideShortcuts;
 
   RtCanvasLayout withModule(String id, RtCanvasAnchor anchor) => RtCanvasLayout(
     modules: Map.of(modules)..[id] = anchor,
     buttons: buttons,
+    vpad: vpad,
+    vpadOn: vpadOn,
     hideShortcuts: hideShortcuts,
   );
 
   RtCanvasLayout withButton(String id, RtCanvasButtonPos pos) => RtCanvasLayout(
     modules: modules,
     buttons: Map.of(buttons)..[id] = pos,
+    vpad: vpad,
+    vpadOn: vpadOn,
+    hideShortcuts: hideShortcuts,
+  );
+
+  /// 手柄单键编排回写（整条替换该键的态，调用方带全量字段）。
+  /// 写键即视为手柄区在场（vpadOn = true）——面板键行/画布幽灵点开等
+  /// 入口不必各自记得开区块。
+  RtCanvasLayout withVpadKey(String key, RtVpadKeyState state) => RtCanvasLayout(
+    modules: modules,
+    buttons: buttons,
+    vpad: Map.of(vpad)..[key] = state,
+    vpadOn: true,
+    hideShortcuts: hideShortcuts,
+  );
+
+  /// 手柄键区区块开关回写（只翻开关，不动键级 v——重开区块恢复各键原显隐）。
+  RtCanvasLayout withVpadOn(bool on) => RtCanvasLayout(
+    modules: modules,
+    buttons: buttons,
+    vpad: vpad,
+    vpadOn: on,
     hideShortcuts: hideShortcuts,
   );
 
   Map<String, dynamic> toJson() => {
     'modules': {for (final e in modules.entries) e.key: e.value.toJson()},
     'buttons': {for (final e in buttons.entries) e.key: e.value.toJson()},
+    if (vpad.isNotEmpty)
+      'vk': {for (final e in vpad.entries) e.key: e.value.toJson()},
+    if (vpadOn) 'vo': true,
     if (hideShortcuts) 'hs': true,
   };
 
@@ -721,26 +839,77 @@ class RtCanvasLayout {
         buttons[e.key.toString()] = RtCanvasButtonPos.fromJson(jb);
       }
     }
+    // ---- 手柄键区迁移（模块盒 → 键级直编排，一次性读侧翻译）----
+    // ① 旧 buttons 的 'vpad:<key>' 条目（盒内比例位，盒≈全画布，比例
+    //    直接当画布比例解释，视觉偏差 2~8%）搬进 vpad map。
+    final vpad = <String, RtVpadKeyState>{};
+    var vpadOn = j['vo'] == true;
+    final rawVk = j['vk'];
+    if (rawVk is Map) {
+      vpadOn = true;
+      for (final e in rawVk.entries) {
+        if (e.value is! Map) continue;
+        vpad[e.key.toString()] = RtVpadKeyState.fromJson(
+          (e.value as Map).cast<String, dynamic>(),
+        );
+      }
+    }
+    final staleButtons = <String>[];
+    for (final e in buttons.entries) {
+      if (!e.key.startsWith('vpad:')) continue;
+      final key = e.key.substring('vpad:'.length);
+      if (!rtVpadKeyOrder.contains(key)) continue;
+      final pos = e.value;
+      vpad[key] = RtVpadKeyState(
+        v: pos.v,
+        x: pos.x,
+        y: pos.y,
+        s: pos.s,
+      );
+      staleButtons.add(e.key);
+      vpadOn = true;
+    }
+    for (final k in staleButtons) {
+      buttons.remove(k);
+    }
+    // ② 旧 modules['vpad'] 锚点：带过手柄模块的布局区块置开；visible=false
+    //    = 用户关过手柄区 → 13 键全部翻 v=false。锚点条目一律剔除
+    //    （模块盒已退役，渲染不再认它）。
+    final legacyVpad = modules.remove(kRtCanvasModuleVpad);
+    if (legacyVpad != null) {
+      vpadOn = true;
+      if (!legacyVpad.visible) {
+        for (final key in rtVpadKeyOrder) {
+          vpad[key] = (vpad[key] ?? const RtVpadKeyState()).copyWith(v: false);
+        }
+      }
+    }
     return RtCanvasLayout(
       modules: modules,
       buttons: buttons,
+      vpad: vpad,
+      vpadOn: vpadOn,
       hideShortcuts: j['hs'] == true,
     );
   }
 }
 
 /// 该布局是否「锁定横屏」（竖屏下不可用，旋转过去要弹提示层而不是静默
-/// 切换）：判定 = 含任何可见的横屏专用操作模块（轮盘 / 手柄键区 / 虚拟
-/// 键盘——这些模块的键位排布以横屏双手拇指位为前提）。触摸板 / 输入框 /
-/// 快捷按钮布局旋转时静默切对侧激活。纯函数，规则改动须同步单测。
+/// 切换）：判定 = 含任何可见的横屏专用操作模块（轮盘 / 虚拟键盘——这些
+/// 模块的键位排布以横屏双手拇指位为前提），或手柄键区区块在场且有任一键
+/// 处于渲染可见态。触摸板 / 输入框 / 快捷按钮布局旋转时静默切对侧激活。
+/// 纯函数，规则改动须同步单测。
 bool rtCanvasLayoutLocksLandscape(RtCanvasLayout data) {
-  const lockedModules = {
-    kRtCanvasModuleDpad,
-    kRtCanvasModuleVpad,
-    kRtCanvasModuleKb,
-  };
+  const lockedModules = {kRtCanvasModuleDpad, kRtCanvasModuleKb};
   for (final e in data.modules.entries) {
     if (lockedModules.contains(e.key) && e.value.visible) return true;
+  }
+  // 手柄键区（键级直编排，无模块盒）：区块在场且任一键渲染可见即锁横屏。
+  // 缺条目 = 缺省可见（出厂几何渲染）；只有显式 v=false（组开关关掉）才
+  // 算无键。vpadOn=false 的布局（触控屏/键盘）整区不在场，不锁。
+  if (!data.vpadOn) return false;
+  for (final key in rtVpadKeyOrder) {
+    if ((data.vpad[key] ?? const RtVpadKeyState()).v) return true;
   }
   return false;
 }

@@ -11,11 +11,13 @@
 //                   的「编辑布局」）；胶囊收起时只露「状态点 + 布局名」。
 //   edit（编辑态）—— 画布主色描边框 + 可拖「编辑工具」chip（竖屏展开=
 //                   右上圆角弹窗；横屏展开=右侧竖轨），所有使用类手势停用。
-//                   拖动模块=移位、右下角拉手=缩放、点按按钮=显隐。
-//   竖屏提示层 —— 激活布局锁定横屏（含轮盘/手柄/键盘模块）时旋转到竖屏，
-//                   毛玻璃提示层盖住画布：旋转手机动画 + 请横屏使用 +
-//                   一键锁横屏 / 切换布局逃生（用户主动选定竖屏布局后
-//                   本轮不再提示）。
+//                   拖动模块=移位、右下角拉手=缩放、点按按钮=显隐；
+//                   手柄键区（1.7.0 起）键级直编排：无模块盒，逐键拖/缩，
+//                   显隐按组在编辑面板「手柄键区」区控制。
+//   竖屏提示层 —— 激活布局锁定横屏（含轮盘/键盘模块或任一手柄键可见）时
+//                   旋转到竖屏，毛玻璃提示层盖住画布：旋转手机动画 +
+//                   请横屏使用 + 一键锁横屏 / 切换布局逃生（用户主动选定
+//                   竖屏布局后本轮不再提示）。
 //
 // 职责切分：快捷键「有哪些」归打字页编辑器；画布「显示哪几个」= 布局
 // buttons 显式收录且 v=true（opt-in，未收录使用态不出现）。布局集合
@@ -40,13 +42,15 @@ import 'rt_canvas_modules.dart'
         rtCanvasModuleDefaults,
         rtCanvasModuleRange;
 import 'rt_canvas_stick.dart' show RtCanvasStick;
-import 'rt_canvas_vpad.dart' show RtCanvasVpad, rtVpadKeyOrder;
+import 'rt_canvas_vpad.dart'
+    show RtCanvasVpad, rtVpadKeyGroups, rtVpadKeyLabel;
 import '../data/rt_prefs.dart'
     show
         RtCanvasAnchor,
         RtCanvasButtonPos,
         RtCanvasLayout,
         RtShortcutItem,
+        RtVpadKeyState,
         kRtCanvasDpadHitMax,
         kRtCanvasDpadHitMin,
         kRtCanvasModuleComposer,
@@ -56,8 +60,7 @@ import '../data/rt_prefs.dart'
         kRtCanvasModuleKb,
         kRtCanvasModuleStickL,
         kRtCanvasModuleStickR,
-        kRtCanvasModuleTouchpad,
-        kRtCanvasModuleVpad;
+        kRtCanvasModuleTouchpad;
 import '../protocol/rt_session.dart';
 import 'rt_touch_surface.dart' show RtTouchSurface;
 
@@ -179,9 +182,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
   String? _dragId;
   Offset? _dragPos;
 
-  /// 手柄逐键拖/缩进行中 → 模块整搬让路（见 [RtCanvasVpad.onKeyEditActive]）。
-  bool _vpadKeyEditActive = false;
-
   // 模块缩放预览：id + 实时宽高（归一化）。
   String? _resizeModuleId;
   double _liveW = 0;
@@ -233,7 +233,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
       _editToolFrac = null; // 每次进编辑回到朝向默认位
     }
     if (!widget.editMode && oldWidget.editMode) {
-      _vpadKeyEditActive = false;
       _editToolFrac = null;
     }
   }
@@ -307,7 +306,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
   void _toggleModuleVisible(String id) {
     final cur = _anchorOf(id);
     // 首次加回（无锚点条目）：非锁定模块落登记表缺省规格 + 画布中心；
-    // 轮盘/手柄/键盘给出厂语义位（对齐原型 LAYOUTS），避免压住其它模块。
+    // 轮盘/键盘给出厂语义位（对齐原型 LAYOUTS），避免压住其它模块。
+    // （手柄键区不在此列——键级显隐走编辑面板「手柄键区」区。）
     if (widget.activeLayout.modules[id] == null) {
       final seed = switch (id) {
         kRtCanvasModuleDpad => const RtCanvasAnchor(
@@ -316,13 +316,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
           y: 0.45,
           w: 0.18,
           h: 0.40,
-        ),
-        kRtCanvasModuleVpad => const RtCanvasAnchor(
-          visible: true,
-          x: 0.50,
-          y: 0.50,
-          w: 0.98,
-          h: 0.92,
         ),
         kRtCanvasModuleKb => const RtCanvasAnchor(
           visible: true,
@@ -365,6 +358,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
   /// anchor 同理走 copyWith——轮盘的方向模式（dir8）与四向判定倍率（hit）
   /// 都挂在 anchor 上，手建新对象会把它悄悄丢掉（切了八向、拖一下模块就
   /// 回四向；调了判定区、拖一下就回同形）。
+  /// vpad 同理必须原样携带——手柄键编排（键级显隐/摆位）丢了等于
+  /// 「拖一下模块，手柄键回出厂」。
   RtCanvasLayout _patchAnchor(
     String id, {
     bool? visible,
@@ -388,6 +383,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
     return RtCanvasLayout(
       modules: modules,
       buttons: widget.activeLayout.buttons,
+      vpad: widget.activeLayout.vpad,
+      vpadOn: widget.activeLayout.vpadOn,
       hideShortcuts: widget.activeLayout.hideShortcuts,
     );
   }
@@ -400,6 +397,43 @@ class _RtCanvasViewState extends State<RtCanvasView>
     return RtCanvasLayout(
       modules: widget.activeLayout.modules,
       buttons: buttons,
+      vpad: widget.activeLayout.vpad,
+      vpadOn: widget.activeLayout.vpadOn,
+      hideShortcuts: widget.activeLayout.hideShortcuts,
+    );
+  }
+
+  /// 手柄单键编排回写：在当前键态上叠加变更后整条写回（null 字段语义由
+  /// [RtVpadKeyState.copyWith] 决定——不给 = 保留）。
+  RtCanvasLayout _patchVpadKey(
+    String key, {
+    bool? v,
+    Offset? centerFraction,
+    double? scale,
+  }) {
+    final cur =
+        widget.activeLayout.vpad[key] ?? const RtVpadKeyState();
+    final next = cur.copyWith(
+      v: v,
+      x: centerFraction?.dx,
+      y: centerFraction?.dy,
+      s: scale,
+    );
+    return widget.activeLayout.withVpadKey(key, next);
+  }
+
+  /// 手柄键批量显隐回写（组开关 = 批量翻组内键 v；摆位不动——组开关
+  /// 只管显示，不重排位置）。
+  RtCanvasLayout _patchAllVpadKeys(List<String> keys, bool v) {
+    final vpad = Map<String, RtVpadKeyState>.of(widget.activeLayout.vpad);
+    for (final key in keys) {
+      vpad[key] = (vpad[key] ?? const RtVpadKeyState()).copyWith(v: v);
+    }
+    return RtCanvasLayout(
+      modules: widget.activeLayout.modules,
+      buttons: widget.activeLayout.buttons,
+      vpad: vpad,
+      vpadOn: true,
       hideShortcuts: widget.activeLayout.hideShortcuts,
     );
   }
@@ -408,6 +442,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
   RtCanvasLayout _patchHideShortcuts(bool hidden) => RtCanvasLayout(
     modules: widget.activeLayout.modules,
     buttons: widget.activeLayout.buttons,
+    vpad: widget.activeLayout.vpad,
+    vpadOn: widget.activeLayout.vpadOn,
     hideShortcuts: hidden,
   );
 
@@ -434,8 +470,9 @@ class _RtCanvasViewState extends State<RtCanvasView>
                 children: [
                   if (_anchorOf(kRtCanvasModuleDpad).visible)
                     _dpadModule(canvasSize),
-                  if (_anchorOf(kRtCanvasModuleVpad).visible)
-                    _vpadModule(canvasSize),
+                  // 手柄键区（键级直编排）：区块在场即渲染——使用态按
+                  // 各键 v 过滤，编辑态 v=false 键出幽灵可点开。
+                  if (widget.activeLayout.vpadOn) _vpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleTouchpad).visible)
                     _touchpadModule(canvasSize),
                   if (_anchorOf(kRtCanvasModuleKb).visible)
@@ -664,6 +701,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
                 Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
                 ..._shortcutSectionRows(cs),
                 Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                ..._vpadSectionRows(cs),
+                Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
                 _sideRow(
                   cs: cs,
                   icon: Icons.playlist_add,
@@ -725,6 +764,8 @@ class _RtCanvasViewState extends State<RtCanvasView>
               ..._dpadHitRows(cs),
               Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
               ..._shortcutSectionRows(cs),
+              Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
+              ..._vpadSectionRows(cs),
               Divider(color: cs.outlineVariant.withValues(alpha: 0.5)),
               _sideRow(
                 cs: cs,
@@ -924,6 +965,125 @@ class _RtCanvasViewState extends State<RtCanvasView>
     return rows;
   }
 
+  // ---- 面板「手柄键区」区：区块总开关 + 组开关 + 逐键 opt-out ----
+  // 与快捷键按钮区同构的「组」概念：区块（手柄键区）→ 组（XYAB / 肩键扳机 /
+  // 系统键 / 摇杆键）→ 键。开关只翻 v（显隐），摆位/尺寸在画布上逐键拖/缩；
+  // v=false 的键编辑态在画布上出幽灵轮廓，点击即开。键缺条目 = 可见 +
+  // 出厂几何，所以「全关 → 全开」恢复出厂摆放（无条目的键）。
+
+  /// 手柄键区行（编辑工具面板共用：竖屏弹窗 / 横屏右轨）。
+  /// 区块总开关 = vpadOn（「这个布局带不带手柄」）；开着才展开组行/键行。
+  List<Widget> _vpadSectionRows(ColorScheme cs) {
+    final c = context.colors;
+    final vpadOn = widget.activeLayout.vpadOn;
+    bool keyOn(String key) => widget.activeLayout.vpad[key]?.v ?? true;
+    final rows = <Widget>[
+      // 区块总开关行：开 = 键区按出厂位铺开（键缺条目 = 出厂几何 + 可见）；
+      // 关 = 整区收起（键级 v 保留，重开恢复原显隐）。
+      InkWell(
+        onTap: () {
+          widget.onLayoutChanged(widget.activeLayout.withVpadOn(!vpadOn));
+          unawaited(HapticFeedback.selectionClick());
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+          child: Row(
+            children: [
+              Icon(Icons.sports_esports_outlined, size: 16, color: c.textMuted),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  '手柄键区',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: c.text),
+                ),
+              ),
+              Icon(
+                vpadOn ? Icons.visibility : Icons.visibility_off,
+                size: 16,
+                color: vpadOn ? cs.primary : c.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+    if (!vpadOn) return rows;
+    for (final group in rtVpadKeyGroups) {
+      final groupOn = group.keys.any(keyOn);
+      rows.add(
+        InkWell(
+          onTap: () {
+            widget.onLayoutChanged(_patchAllVpadKeys(group.keys, !groupOn));
+            unawaited(HapticFeedback.selectionClick());
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            // 组行缩进对齐快捷键键行（挂在区块行下）。
+            padding: const EdgeInsets.fromLTRB(31, 5, 6, 5),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    group.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: c.text,
+                    ),
+                  ),
+                ),
+                Icon(
+                  groupOn ? Icons.visibility : Icons.visibility_off,
+                  size: 15,
+                  color: groupOn ? cs.primary : c.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      // 组内逐键行：再缩进一层（组行下挂最小 btn 开关）。
+      for (final key in group.keys) {
+        final on = keyOn(key);
+        rows.add(
+          InkWell(
+            onTap: () {
+              widget.onLayoutChanged(_patchVpadKey(key, v: !on));
+              unawaited(HapticFeedback.selectionClick());
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(56, 3, 6, 3),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      rtVpadKeyLabel(key),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: c.text),
+                    ),
+                  ),
+                  Icon(
+                    on ? Icons.visibility : Icons.visibility_off,
+                    size: 14,
+                    color: on ? cs.primary : c.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return rows;
+  }
+
   // ---- 面板「方向判定区」行：四向键模式的触控判定倍率 ----
   // 仅当轮盘模块可见且处于四向模式时出现；滑杆实时写 anchor.hit，画布上
   // 的虚线判定框即时跟随（八向轮盘无此参数——扇区判定无死角）。
@@ -991,7 +1151,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
     required String id,
     required String label,
     required Widget child,
-    bool innerInteractive = false,
   }) {
     return Stack(
       clipBehavior: Clip.none,
@@ -999,8 +1158,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onPanStart: (_) {
-            // 逐键拖/缩已占指针：不抢模块整搬，否则键相对画布「拖不动」。
-            if (innerInteractive && _vpadKeyEditActive) return;
             HapticFeedback.mediumImpact();
             setState(() {
               _dragId = id;
@@ -1008,7 +1165,6 @@ class _RtCanvasViewState extends State<RtCanvasView>
             });
           },
           onPanUpdate: (d) {
-            if (innerInteractive && _vpadKeyEditActive) return;
             if (_dragId != id || _dragPos == null) return;
             final box =
                 _canvasKey.currentContext?.findRenderObject() as RenderBox?;
@@ -1031,11 +1187,7 @@ class _RtCanvasViewState extends State<RtCanvasView>
               });
             }
           },
-          // innerInteractive：模块内容要自己接管手势（手柄逐键拖动）时
-          // 不挡指针——键区手势优先，空白处仍由本层整搬。
-          child: innerInteractive
-              ? _editFrame(child, label)
-              : IgnorePointer(child: _editFrame(child, label)),
+          child: IgnorePointer(child: _editFrame(child, label)),
         ),
         Positioned(
           right: 2,
@@ -1199,58 +1351,37 @@ class _RtCanvasViewState extends State<RtCanvasView>
     );
   }
 
-  // ---- 模块：手柄键区（ABXY + LB/RB + LT/RT，接 PC 虚拟手柄）----
+  // ---- 键区：手柄（键级直编排，铺满画布——无模块盒/无整搬/无缩放拉手）----
+  // 13 键以画布为参考系逐键摆放；显隐按组控制在编辑面板「手柄键区」区。
+  // 1.6.x 的近全幅「手柄」模块盒已退役：编辑态盒子 opaque 手势曾把下层
+  // 轮盘/摇杆模块整个罩死（点不到 = 拖不动），键级直编排后键只占小块，
+  // 与其它模块编辑互不遮挡。
 
   Widget _vpadModule(Size canvasSize) {
-    final (wf, hf) = _moduleFractions(kRtCanvasModuleVpad);
-    final size = Size(wf * canvasSize.width, hf * canvasSize.height);
-    final rect = _moduleRect(_anchorPos(kRtCanvasModuleVpad), size, canvasSize);
-    // 逐键编排数据：布局 buttons 里的 vpad:<key> 条目（盒内比例位 + 倍率）。
-    final offsets = <String, Offset>{};
-    final scales = <String, double>{};
-    for (final key in rtVpadKeyOrder) {
-      final pos = widget.activeLayout.buttons['vpad:$key'];
-      if (pos == null) continue;
-      offsets[key] = Offset(pos.x * size.width, pos.y * size.height);
-      scales[key] = pos.s;
-    }
     Widget pad = RtCanvasVpad(
       enabled: widget.connected,
       editMode: widget.editMode,
-      keyOffsets: offsets,
-      keyScales: scales,
-      onKeyEditActive: (active) => _vpadKeyEditActive = active,
-      onKeyTransform: (key, center, scale) {
+      keyStates: widget.activeLayout.vpad,
+      onKeyTransform: (key, centerFraction, scale) {
         widget.onLayoutChanged(
-          _patchButton(
-            'vpad:$key',
-            RtCanvasButtonPos(
-              x: center.dx.clamp(0.0, 1.0).toDouble(),
-              y: center.dy.clamp(0.0, 1.0).toDouble(),
-              s: scale,
-            ),
+          _patchVpadKey(
+            key,
+            centerFraction: centerFraction,
+            scale: scale,
           ),
         );
+      },
+      onKeyToggleVisible: (key) {
+        final cur =
+            widget.activeLayout.vpad[key] ?? const RtVpadKeyState();
+        widget.onLayoutChanged(_patchVpadKey(key, v: !cur.v));
       },
       onKey: ({String? button, String? trigger, required bool pressed}) =>
           widget.onVpadKey(button: button, trigger: trigger, pressed: pressed),
     );
-    if (widget.editMode) {
-      pad = _editModuleWrapper(
-        id: kRtCanvasModuleVpad,
-        label: '手柄',
-        // 键位要能各自拖动 → 不用 IgnorePointer 挡内容（键区自身接管手势）。
-        innerInteractive: true,
-        child: SizedBox(width: size.width, height: size.height, child: pad),
-      );
-    }
-    return Positioned(
-      left: rect.left,
-      top: rect.top,
-      width: size.width,
-      height: size.height,
-      child: pad,
-    );
+    // 编辑态不加 IgnorePointer（键要拖/缩、幽灵要点开）；容器 Stack 不吃
+    // 指针，键只占小块——与其它模块的编辑框互不遮挡。
+    return Positioned.fill(child: pad);
   }
 
   // ---- 模块：模拟摇杆（左 / 右）----

@@ -26,7 +26,6 @@ import '../data/rt_prefs.dart'
         kRtCanvasModuleStickR,
         kRtCanvasModuleKb,
         kRtCanvasModuleTouchpad,
-        kRtCanvasModuleVpad,
         kRtCanvasPadDefH,
         kRtCanvasPadDefW;
 
@@ -105,13 +104,8 @@ const List<RtCanvasModuleSpec> kRtCanvasModuleSpecs = [
     icon: Icons.gamepad_outlined,
     locksLandscape: true,
   ),
-  RtCanvasModuleSpec(
-    id: kRtCanvasModuleVpad,
-    name: '手柄',
-    desc: 'ABXY + 肩键扳机，接电脑虚拟手柄',
-    icon: Icons.sports_esports_outlined,
-    locksLandscape: true,
-  ),
+  // 手柄键区（vpad）1.7.0 起退役模块盒：13 键键级直编排，显隐开关在
+  // 编辑工具面板「手柄键区」区（组级），不进模块清单。
   RtCanvasModuleSpec(
     id: kRtCanvasModuleFiles,
     name: '文件',
@@ -132,8 +126,6 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
 (double, double, double, double) rtCanvasModuleRange(String id) => switch (id) {
   kRtCanvasModuleTouchpad => (0.25, 1.0, 0.35, 1.0),
   kRtCanvasModuleDpad => (0.12, 0.65, 0.12, 0.85),
-  // 外控布局：vpad 近全幅承载侧缘肩扳 + 居中系统键 + 右上面键。
-  kRtCanvasModuleVpad => (0.25, 1.0, 0.35, 1.0),
   kRtCanvasModuleKb => (0.40, 1.0, 0.30, 1.0),
   kRtCanvasModuleComposer => (0.40, 1.0, 0.30, 1.0),
   // 模拟摇杆：限位容得出厂 0.15×0.28。
@@ -147,7 +139,6 @@ RtCanvasModuleSpec? rtCanvasModuleSpec(String id) {
 /// 四处共用的单一事实源）。
 (double, double) rtCanvasModuleDefaults(String id) => switch (id) {
   kRtCanvasModuleDpad => (0.18, 0.40),
-  kRtCanvasModuleVpad => (0.98, 0.92),
   kRtCanvasModuleKb => (0.94, 0.82),
   kRtCanvasModuleComposer => (0.96, 0.92),
   kRtCanvasModuleTouchpad => (kRtCanvasPadDefW, kRtCanvasPadDefH),

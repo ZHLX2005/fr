@@ -4,10 +4,13 @@
 //   - 按住期间模块被卸载（旋转 / 切布局 / 退画布）→ dispose 补发松开，
 //     防 PC 端虚拟手柄该键卡死在按下态（Listener 收不到 pointer cancel）。
 //   - 松开事件在正常 up 路径只发一次（dispose 不重复补发）。
+//   - 出厂几何（画布参考系）与编辑态逐键编排 / 幽灵键显隐。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/remotetype/canvas/rt_canvas_vpad.dart';
+import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
+    show RtVpadKeyState, rtVpadKeyOrder;
 
 void main() {
   testWidgets('按住期间模块被卸载 → dispose 补发松开', (tester) async {
@@ -160,10 +163,11 @@ void main() {
   });
 
   group('编辑态逐键编排', () {
-    Future<List<({String key, Offset center, double scale})>> pumpEditVpad(
-      WidgetTester tester,
-    ) async {
-      final calls = <({String key, Offset center, double scale})>[];
+    Future<List<({String key, Offset? center, double scale})>> pumpEditVpad(
+      WidgetTester tester, {
+      Map<String, RtVpadKeyState> keyStates = const {},
+    }) async {
+      final calls = <({String key, Offset? center, double scale})>[];
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -174,6 +178,7 @@ void main() {
                 child: RtCanvasVpad(
                   enabled: true,
                   editMode: true,
+                  keyStates: keyStates,
                   onKey: ({button, trigger, required pressed}) {},
                   onKeyTransform: (key, center, scale) =>
                       calls.add((key: key, center: center, scale: scale)),
@@ -201,15 +206,36 @@ void main() {
       expect(calls.length, 1, reason: '拖动落定回写一次');
       expect(calls.first.key, 'a');
       expect(
-        calls.first.center.dx,
+        calls.first.center!.dx,
         greaterThan(before.dx / 300),
         reason: '向右拖 → 比例位右移',
       );
       expect(
-        calls.first.center.dy,
+        calls.first.center!.dy,
         closeTo(before.dy / 260, 0.02),
         reason: '水平拖动不改纵向',
       );
+    });
+
+    testWidgets('缩放落定（键无显式位）→ centerFraction 传 null 位置保持出厂', (
+      tester,
+    ) async {
+      final calls = await pumpEditVpad(tester);
+      final aCenter = tester.getCenter(find.text('A'));
+      // 选中（点一下）→ 拉手出现在选中键右下角 → 从拉手中心拖拉手缩放。
+      await tester.tapAt(aCenter);
+      await tester.pump();
+      final grip = tester.getCenter(find.byIcon(Icons.open_in_full));
+      final gesture = await tester.startGesture(grip);
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(calls.length, 1, reason: '缩放落定回写一次');
+      expect(calls.first.key, 'a');
+      expect(calls.first.center, isNull, reason: '出厂位键缩放不固化位置');
+      expect(calls.first.scale, greaterThan(1.0), reason: '右拖拉手 = 放大');
     });
 
     testWidgets('轻点无位移 → 只选中不落盘', (tester) async {
@@ -217,7 +243,7 @@ void main() {
       final aCenter = tester.getCenter(find.text('A'));
       await tester.tapAt(aCenter);
       await tester.pump();
-      expect(calls, isEmpty, reason: '纯点选不写 buttons');
+      expect(calls, isEmpty, reason: '纯点选不写 vpad');
     });
 
     testWidgets('编辑态按压不发手柄事件（编排与触发不串台）', (tester) async {
@@ -248,6 +274,96 @@ void main() {
       await gesture.up();
       await tester.pump();
       expect(events, isEmpty, reason: '编辑态按压不触发 vpad 事件');
+    });
+  });
+
+  group('键级显隐（vpad 键编排态）', () {
+    testWidgets('编辑态幽灵键点击开启（v=false → 回调 onKeyToggleVisible）', (
+      tester,
+    ) async {
+      final toggled = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                height: 260,
+                child: RtCanvasVpad(
+                  enabled: true,
+                  editMode: true,
+                  keyStates: const {'a': RtVpadKeyState(v: false)},
+                  onKey: ({button, trigger, required pressed}) {},
+                  onKeyToggleVisible: (key) => toggled.add(key),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final ghost = find.byKey(const ValueKey('vpad-ghost:a'));
+      expect(ghost, findsOneWidget, reason: '编辑态幽灵轮廓在场');
+      expect(
+        tester.getCenter(find.text('A')),
+        equals(tester.getCenter(ghost)),
+        reason: '幽灵键名照常显示',
+      );
+      await tester.tap(ghost);
+      await tester.pump();
+      expect(toggled, ['a'], reason: '点击幽灵 = 开键');
+    });
+
+    testWidgets('使用态幽灵不渲染（v=false 键使用态消失）', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                height: 260,
+                child: RtCanvasVpad(
+                  enabled: true,
+                  keyStates: const {'a': RtVpadKeyState(v: false)},
+                  onKey: ({button, trigger, required pressed}) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('A'), findsNothing);
+    });
+
+    testWidgets('键态带比例位 → 位置按画布比例渲染（出厂位键按出厂几何）', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                height: 260,
+                child: RtCanvasVpad(
+                  enabled: true,
+                  keyStates: const {
+                    'a': RtVpadKeyState(x: 0.10, y: 0.10, s: 1.5),
+                  },
+                  onKey: ({button, trigger, required pressed}) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      // getCenter 是全局坐标：减去键区左上角（SizedBox 在窗口里居中）。
+      final origin = tester.getTopLeft(find.byType(RtCanvasVpad));
+      final center = tester.getCenter(find.text('A')) - origin;
+      expect(center.dx, closeTo(300 * 0.10, 1.0), reason: 'x 比例位直接生效');
+      expect(center.dy, closeTo(260 * 0.10, 1.0), reason: 'y 比例位直接生效');
     });
   });
 

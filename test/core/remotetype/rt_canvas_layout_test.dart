@@ -33,6 +33,7 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
         RtCanvasLayout,
         RtCanvasLayouts,
         RtCanvasNamedLayout,
+        RtVpadKeyState,
         kRtCanvasBtnScaleMax,
         kRtCanvasDpadHitMax,
         kRtCanvasModuleDpad,
@@ -54,7 +55,8 @@ import 'package:xiaodouzi_fr/core/remotetype/data/rt_prefs.dart'
         kRtCanvasPresetWriter,
         RtPrefs,
         rtCanvasLayoutLocksLandscape,
-        rtCanvasLayoutUsableIn;
+        rtCanvasLayoutUsableIn,
+        rtVpadKeyOrder;
 
 void main() {
   group('rtFirstFreeCanvasSlot 按钮自动找位', () {
@@ -804,6 +806,30 @@ void main() {
       );
       expect(rtCanvasLayoutLocksLandscape(hidden), isFalse);
     });
+
+    test('手柄键区（键级）：vpadOn 门控 + 缺省可见；全关才因手柄解锁', () {
+      // vpadOn=false（缺省）= 布局不带手柄 → 不锁（触控屏/键盘布局如此）。
+      const noVpad = RtCanvasLayout();
+      expect(rtCanvasLayoutLocksLandscape(noVpad), isFalse);
+
+      // vpadOn=true 且键缺省（出厂渲染）→ 锁横屏（游戏模板如此）。
+      const factoryKeys = RtCanvasLayout(vpadOn: true);
+      expect(rtCanvasLayoutLocksLandscape(factoryKeys), isTrue);
+
+      // vpadOn=true + 显式 v=true 同样锁。
+      const openOne = RtCanvasLayout(
+        vpadOn: true,
+        vpad: {'a': RtVpadKeyState(v: true)},
+      );
+      expect(rtCanvasLayoutLocksLandscape(openOne), isTrue);
+
+      // vpadOn=true 但 13 键全部显式关（组开关全关）→ 不锁（可竖屏用）。
+      final allOff = RtCanvasLayout(
+        vpadOn: true,
+        vpad: {for (final k in rtVpadKeyOrder) k: const RtVpadKeyState(v: false)},
+      );
+      expect(rtCanvasLayoutLocksLandscape(allOff), isFalse);
+    });
   });
 
   group('kRtCanvasBuiltinPresets 5 套内置（写字/方向键/轮盘/键盘/触控屏）', () {
@@ -854,7 +880,11 @@ void main() {
       );
       expect(game.data.modules[kRtCanvasModuleDpad]?.visible, isTrue);
       expect(game.data.modules[kRtCanvasModuleDpad]?.dir8, isFalse);
-      expect(game.data.modules[kRtCanvasModuleVpad]?.visible, isTrue);
+      // vpad 模块盒退役（1.7.0 键级直编排）：模板无 vpad 锚点、无键条目
+      // （键全缺省 = 出厂几何渲染 + 可见），区块总开关在场。
+      expect(game.data.modules.containsKey(kRtCanvasModuleVpad), isFalse);
+      expect(game.data.vpad, isEmpty);
+      expect(game.data.vpadOn, isTrue);
       expect(game.data.modules[kRtCanvasModuleStickR]?.visible, isTrue);
       expect(game.data.hideShortcuts, isTrue);
       expect(game.data.modules.containsKey(kRtCanvasModuleTouchpad), isFalse);
@@ -864,7 +894,9 @@ void main() {
         (p) => p.id == kRtCanvasPresetGameWheel,
       );
       expect(wheel.data.modules[kRtCanvasModuleDpad]?.dir8, isTrue);
-      expect(wheel.data.modules[kRtCanvasModuleVpad]?.visible, isTrue);
+      expect(wheel.data.modules.containsKey(kRtCanvasModuleVpad), isFalse);
+      expect(wheel.data.vpad, isEmpty);
+      expect(wheel.data.vpadOn, isTrue);
       expect(wheel.data.modules[kRtCanvasModuleStickR]?.visible, isTrue);
       expect(wheel.data.hideShortcuts, isTrue);
 
@@ -887,22 +919,21 @@ void main() {
       expect(empty.hideShortcuts, isFalse);
     });
 
-    test('游戏布局锚点对齐外控原型（上十字/近全幅 vpad/下双摇）', () {
+    test('游戏布局锚点对齐外控原型（上十字/键级 vpad 出厂/下双摇）', () {
       final game = kRtCanvasBuiltinPresets.firstWhere(
         (p) => p.id == kRtCanvasPresetGame,
       );
       final dpad = game.data.modules[kRtCanvasModuleDpad]!;
-      final vpad = game.data.modules[kRtCanvasModuleVpad]!;
       final stickL = game.data.modules[kRtCanvasModuleStickL]!;
       final stickR = game.data.modules[kRtCanvasModuleStickR]!;
       expect(dpad.x, 0.21);
       expect(dpad.y, 0.45);
       expect(dpad.w, 0.18);
       expect(dpad.h, 0.40);
-      expect(vpad.x, 0.50);
-      expect(vpad.y, 0.50);
-      expect(vpad.w, 0.98);
-      expect(vpad.h, 0.92);
+      // vpad 无模块盒亦无键条目：13 键出厂几何由 rtVpadDefaultSlots
+      // （画布参考系）实时算，模板不落盘。
+      expect(game.data.modules.containsKey(kRtCanvasModuleVpad), isFalse);
+      expect(game.data.vpad, isEmpty);
       expect(stickL.visible, isTrue);
       expect(stickL.x, 0.29);
       expect(stickL.y, 0.82);
@@ -950,22 +981,17 @@ void main() {
             (p) => p.id == preset,
           );
           final s = layout.data.modules[kRtCanvasModuleStickR]!;
-          final vpad = layout.data.modules[kRtCanvasModuleVpad]!;
 
           // 摇杆：绘制直径 = min(w·W, h·H)；命中方框 = 圆的外接方框
           final side = math.min(s.w! * canvas.width, s.h! * canvas.height);
           final center = Offset(s.x * canvas.width, s.y * canvas.height);
 
-          // 手柄键区盒 + R3 键位（rtVpadDefaultSlots 口径）
-          final box = Size(vpad.w! * canvas.width, vpad.h! * canvas.height);
-          final slots = rtVpadDefaultSlots(box);
-          final r3 = slots['r3']!;
-          final r3Center = Offset(
-            vpad.x * canvas.width - box.width / 2 + r3.dx,
-            vpad.y * canvas.height - box.height / 2 + r3.dy,
-          );
+          // 手柄键区（键级直编排，画布参考系）：R3 出厂位（rtVpadDefaultSlots
+          // 以画布为盒）
+          final slots = rtVpadDefaultSlots(canvas);
+          final r3Center = slots['r3']!;
           final r3Radius =
-              math.min(box.width * 0.055, box.height * 0.10) / 2;
+              math.min(canvas.width * 0.055, canvas.height * 0.10) / 2;
 
           // 圆与圆不相交
           final gap = (center - r3Center).distance - (side / 2 + r3Radius);
@@ -1112,6 +1138,111 @@ void main() {
       expect(loaded.activeId, 'imported');
       final p = await SharedPreferences.getInstance();
       expect(p.getString('rt_canvas_layout_v1'), isNotNull);
+    });
+  });
+
+  group('手柄键区迁移（模块盒 → 键级直编排，fromJson 读侧翻译）', () {
+    test('旧 buttons vpad:<key> 条目搬进 vpad map，原条目剔除，区块置开', () {
+      final layout = RtCanvasLayout.fromJson(const {
+        'modules': {},
+        'buttons': {
+          'vpad:a': {'x': 0.80, 'y': 0.50, 's': 1.4, 'v': true},
+          'other-btn': {'x': 0.1, 'y': 0.1, 'v': true},
+        },
+      });
+      expect(layout.vpadOn, isTrue, reason: '带过手柄键条目的布局区块置开');
+      expect(layout.vpad['a']?.x, 0.80);
+      expect(layout.vpad['a']?.y, 0.50);
+      expect(layout.vpad['a']?.s, 1.4);
+      expect(layout.vpad['a']?.v, isTrue);
+      expect(layout.buttons.containsKey('vpad:a'), isFalse);
+      expect(layout.buttons.containsKey('other-btn'), isTrue);
+    });
+
+    test('旧 modules vpad 盒 visible=false → 区块开 + 13 键全部翻 v=false', () {
+      final layout = RtCanvasLayout.fromJson(const {
+        'modules': {
+          'vpad': {'v': false, 'x': 0.5, 'y': 0.5, 'w': 0.98, 'h': 0.92},
+        },
+        'buttons': {},
+      });
+      expect(layout.vpadOn, isTrue);
+      expect(layout.modules.containsKey('vpad'), isFalse,
+          reason: '退役模块锚点一律剔除');
+      expect(layout.vpad.length, rtVpadKeyOrder.length);
+      for (final key in rtVpadKeyOrder) {
+        expect(layout.vpad[key]?.v, isFalse, reason: '$key 随旧模块盒关闭');
+      }
+      // 关掉的布局不锁横屏（竖屏可用）。
+      expect(rtCanvasLayoutLocksLandscape(layout), isFalse);
+    });
+
+    test('旧 modules vpad 盒 visible=true → 区块开 + 键级缺省（全可见），锚点剔除', () {
+      final layout = RtCanvasLayout.fromJson(const {
+        'modules': {
+          'vpad': {'v': true, 'x': 0.5, 'y': 0.5, 'w': 0.98, 'h': 0.92},
+        },
+      });
+      expect(layout.vpadOn, isTrue);
+      expect(layout.modules.containsKey('vpad'), isFalse);
+      expect(layout.vpad, isEmpty, reason: '开着的盒无需翻译——键缺省即可见');
+      expect(rtCanvasLayoutLocksLandscape(layout), isTrue);
+    });
+
+    test('无手柄痕迹的布局迁移后 vpadOn=false（触控屏不误判锁横屏）', () {
+      final layout = RtCanvasLayout.fromJson(const {
+        'modules': {
+          'touchpad': {'v': true, 'x': 0.5, 'y': 0.5},
+        },
+        'buttons': {
+          'quick-1': {'x': 0.8, 'y': 0.3},
+        },
+      });
+      expect(layout.vpadOn, isFalse);
+      expect(layout.vpad, isEmpty);
+      expect(layout.buttons.containsKey('quick-1'), isTrue);
+      expect(rtCanvasLayoutLocksLandscape(layout), isFalse);
+    });
+
+    test('vpad JSON 往返：vk/vo 字段稀疏落盘，v=false/比例位/开关保真', () {
+      const layout = RtCanvasLayout(
+        vpadOn: true,
+        vpad: {
+          'a': RtVpadKeyState(x: 0.80, y: 0.50, s: 1.4),
+          'lb': RtVpadKeyState(v: false),
+        },
+      );
+      final json = layout.toJson();
+      expect((json['vk'] as Map)['a'], isNotNull);
+      expect((json['vk'] as Map)['lb'], isNotNull);
+      expect(json['vo'], isTrue);
+      final restored = RtCanvasLayout.fromJson(json);
+      expect(restored.vpadOn, isTrue);
+      expect(restored.vpad['a']?.x, 0.80);
+      expect(restored.vpad['a']?.s, 1.4);
+      expect(restored.vpad['a']?.v, isTrue);
+      expect(restored.vpad['lb']?.v, isFalse);
+      // 无手柄布局不落 vk/vo 字段。
+      const plain = RtCanvasLayout();
+      expect(plain.toJson().containsKey('vk'), isFalse);
+      expect(plain.toJson().containsKey('vo'), isFalse);
+      expect(RtCanvasLayout.fromJson(plain.toJson()).vpadOn, isFalse);
+    });
+
+    test('copyWith 三态语义：不给 = 保留，显式给 null = 清位（仅迁移用）', () {
+      const s = RtVpadKeyState(x: 0.8, y: 0.5, s: 1.4);
+      expect(s.copyWith(v: false).x, 0.8, reason: '不给 x = 保留');
+      expect(s.copyWith(x: null).hasPosition, isFalse, reason: '给 null = 清位');
+    });
+
+    test('withVpadKey 自动置 vpadOn（写键即区块在场）；withVpadOn 只翻开关', () {
+      const base = RtCanvasLayout();
+      expect(base.vpadOn, isFalse);
+      final keyed = base.withVpadKey('a', const RtVpadKeyState(v: true));
+      expect(keyed.vpadOn, isTrue, reason: '写键即开区块');
+      final toggled = keyed.withVpadOn(false);
+      expect(toggled.vpadOn, isFalse);
+      expect(toggled.vpad['a']?.v, isTrue, reason: '开关不动键级 v');
     });
   });
 }
