@@ -39,6 +39,20 @@ class _NotificationPullCardState extends State<NotificationPullCard>
   int? _activePointer;
   double _startY = 0;
   bool _moved = false;
+
+  /// 是否正在拖动（指针按下后越过死区）。
+  ///
+  /// 拖动一开始，布局就整体切到展开排布，图标透明后渐入 ——
+  /// 否则会看到左边大字牌和左上角小图标的重影。
+  bool _dragging = false;
+
+  /// 是否已切换到「展开排布」。
+  ///
+  /// 切换是**离散**的：触发拖动的那一帧完成，不做逐像素过渡
+  /// （逐帧连贯反而显得拖不动）。松手后保持切换态，直到卡片收回
+  /// 折叠态才复位。
+  bool _switched = false;
+
   final List<_Sample> _samples = <_Sample>[];
   double _wheelLock = 0;
 
@@ -47,7 +61,15 @@ class _NotificationPullCardState extends State<NotificationPullCard>
     super.initState();
     _spring = AnimationController.unbounded(vsync: this)
       ..addListener(() {
-        setState(() => _h = _spring.value);
+        setState(() {
+          _h = _spring.value;
+          // 回弹到折叠态时把布局复位（否则停在「展开排布 + 折叠高度」，
+          // 三条小正文放不下 —— 就是那个只剩两条的负状态）。
+          if (_switched && _h <= _h0 + 0.5) {
+            _switched = false;
+            _h = _h0;
+          }
+        });
       });
     _measure();
     _h = _stageHeight(widget.initialStage);
@@ -115,6 +137,15 @@ class _NotificationPullCardState extends State<NotificationPullCard>
     return x * x * (3 - 2 * x);
   }
 
+  /// C2 连续的平滑曲线（smootherstep）。
+  ///
+  /// 比 [_smoothstep] 的一阶导在两端都为 0，二阶导也连续 —— 渐入时
+  /// 起手和收尾都没有「顿一下」的加速度突变，视觉上更像一次呼吸。
+  static double _smootherstep(double t) {
+    final double x = _clamp01(t);
+    return x * x * x * (x * (x * 6 - 15) + 10);
+  }
+
   static double _rubber(double x) => 62 * (1 - math.exp(-x / 130));
 
   // ── 指针手势（1:1 跟手 + 4px 死区 + 动量投射 + 弹簧吸附）──
@@ -140,9 +171,23 @@ class _NotificationPullCardState extends State<NotificationPullCard>
 
     final double dy = y - _startY;
     if (dy.abs() <= kDead) return;
+    if (!_dragging) {
+      // 越过死区 = 正式进入拖动：
+      //   ① 布局整体切到展开排布（离散切换），图标 / 应用名此刻透明，
+      //      随后随拖动渐入；
+      //   ② 卡片高度**同时**跳到 H1 —— 切过去后头部占了 22+13px，
+      //      三条小正文需要 66px；不一起长过去，第三条会被卡片底边裁掉
+      //      （只剩两条的「负状态」）。
+      _dragging = true;
+      _switched = true;
+      _h = math.max(_h, _h1);
+    }
     _moved = true;
     final double drive = dy > 0 ? dy - kDead : dy + kDead;
-    double target = _hAtDown + drive;
+    // 切换后高度从 H1 起算（切换那一帧已经垫到 H1），继续往下拖就在此
+    // 基础上加 —— 不能再用 _hAtDown + drive，那会把高度拉回折叠区。
+    final double base = _switched ? _h1 : _hAtDown;
+    double target = base + drive;
     if (target < _h0) target = _h0 - _rubber(_h0 - target);
     if (target > _h4) target = _h4 + _rubber(target - _h4);
     setState(() => _h = target);
@@ -165,6 +210,15 @@ class _NotificationPullCardState extends State<NotificationPullCard>
       if (allowTap) _toggle();
       return;
     }
+    // 拖动结束：图标回到「静态可见」的状态（松手后卡片已展开到位）。
+    // 若最终吸附回折叠态，布局也复位到静态排布。
+    setState(() {
+      _dragging = false;
+      if (_h <= _h0 + 1) {
+        _switched = false;
+        _h = _h0;
+      }
+    });
     // 动量投射：按松手前的平均速度往前看 130ms，再吸附最近档
     final double vel = _dragVelocity(); // px/ms
     final double proj = _h + vel * 130;
@@ -257,23 +311,72 @@ class _NotificationPullCardState extends State<NotificationPullCard>
   @override
   Widget build(BuildContext context) {
     final double ah = _clamp01((_h - _h0) / math.max(1, _h1 - _h0));
-    final double ai = _smoothstep(ah / 0.45);
     final double sp = _clamp01((_h - _h1) / math.max(1, _hb - _h1));
     final double s = _smoothstep(sp);
     final double ex = _clamp01((_h - _hb) / math.max(1, _h2 - _hb));
     final double o1 = 1 - _smoothstep((ex - 0.12) / 0.50);
-    final double o2 = _smoothstep(ex / 0.70);
+    // 正文渐入：改用 smootherstep —— 一阶导两端为 0，起手/收尾无加速度突变，
+    // 比 smoothstep 多一层「渐入渐出」的呼吸感；再把整段前移，让正文更早
+    // 开始变深（真机参考图实测：展开中途正文有效不透明度已到 ~0.90）。
+    final double o2 = _smootherstep((ex - 0.04) / 0.62);
     final double r4 = _clamp01((_h - _h2) / math.max(1, _h3 - _h2));
     final double r5 = _clamp01((_h - _h3) / math.max(1, _h4 - _h3));
     final double ch = _clamp01((_h - _h0) / math.max(1, _h2 - _h0));
 
-    final double headH = 22 * ah;
-    final double rowsTop = kPadT + headH + 13 * ah;
-    final double rowsLeft = kPadL + 52 * (1 - s);
-    final double rowsW = kContentW - 52 * (1 - s);
-    final double iconSize = 40 - 18 * ai;
-    final double iconTop = _ift + (14 - _ift) * ai;
-    final double nameOpacity = _clamp01((ah - 0.72) / 0.28);
+    // ── 拖动起始 = 一次「布局切换」，不是渐变 morph ──
+    //
+    // 触发拖动的那一帧，整个布局直接切到展开态的排布：
+    //   · 图标从左侧大字牌 → 第一行左上角小图标
+    //   · 应用名出现在图标右侧
+    //   · 三行正文整体下移，给头部让出位置
+    //
+    // 这一步是**离散的**：_switched 从 false 翻到 true 的瞬间完成。
+    // 逐帧连贯反而显得「拖不动」—— 要的是「一触发就换排布」。
+    //
+    // 切过去之后，图标 / 应用名是**透明**的（depth 从 0 起），随拖动渐入；
+    // 三行条目的「小标题 → 正文」切换仍按原有的 o1/o2 走。
+    final bool snapped = _switched;
+
+    // 布局用「展开态」的几何量算（ah=1 那一组），保证拖到位的效果
+    // 与「渐进拖到位」完全一致 —— 切换只是把它提前发生。
+    final double layoutAh = snapped ? 1.0 : ah;
+
+    final double headH = 22 * layoutAh;
+    final double rowsTop = kPadT + headH + 13 * layoutAh;
+
+    // 切换后额外拖过的距离 —— 图标渐入、缩进回收都以此为进度。
+    final double dragPastSwitch = math.max(0, _h - _h1);
+
+    // 文字缩进（左侧那块让位空间）：**第一帧不变**，随拖动连贯地收回。
+    //
+    // ⚠️ 不能用 s（= 行距阶段的进度）驱动：那一段区间只有 H1→HB = 22px，
+    // 切换后拖 11px 缩进就从 52 掉到 26 —— 视觉上就是「左边消失了」。
+    //
+    // 这里按**切换后额外拖过的像素**推进（kIndentSpan = 60px）：
+    // 切换瞬间缩进仍是 52（一动不动），之后随拖动平滑收完到 0。
+    final double indent = 52.0 * (1 - _smootherstep(dragPastSwitch / kIndentSpan));
+    final double rowsLeft = kPadL + indent;
+    final double rowsW = kContentW - indent;
+
+    // 图标几何：静态时是左侧 40px 大字牌；切换后是第一行左上角的小图标。
+    final double iconSize = 40 - 22 * layoutAh;
+    final double iconTop = _ift + (14 - _ift) * layoutAh;
+
+    // 图标 / 应用名的「由浅变深」进度：**切换那一帧是 0（透明）**，
+    // 随拖动逐渐变实。
+    //
+    // ⚠️ 不能用 ah 派生：切换时卡片高度已经跳到 H1（ah=1），ah 恒为 1，
+    // 图标会一上来就完全显形 —— 就没有「透明后渐入」了。
+    // 这里用**切换后额外拖过的距离**：切换瞬间为 0，继续往下拖才渐入。
+    final double depth = _smootherstep(dragPastSwitch / kFadeInSpan);
+
+    // 应用名：随头部浮起渐入（ah=0 时行高为 0，本来就无处可显）。
+    final double nameOpacity = depth;
+
+    // 图标可见度：静态时**完全可见**（图标就在左侧原位，是卡片的主体）。
+    // 一旦开始拖动：图标已「极快」移到第一行左上角，此时先归零再渐入 ——
+    // 避免大图标变身成头部小图标时出现两个图标的重影。
+    final double iconAlpha = _dragging ? depth : 1.0;
 
     return Listener(
       onPointerDown: _onPointerDown,
@@ -321,12 +424,18 @@ class _NotificationPullCardState extends State<NotificationPullCard>
                   ),
                   // 应用名行（折叠态高度 0）
                   Positioned(
-                    left: kPadL + 30,
+                    // 切换到展开排布后，应用名排到图标右侧（同一行）；
+                    // 静态态则在头部行内（图标还在左侧大字牌位置）。
+                    left: snapped
+                        ? kIconLeft + iconSize + kIconNameGap
+                        : kPadL + 30,
                     right: kPadR + 24,
-                    top: kPadT,
-                    height: headH,
+                    top: snapped ? iconTop - 2 : kPadT,
+                    height: snapped ? 22.0 : headH,
                     child: ClipRect(
                       child: Opacity(
+                        // 应用名与正文同深浅（共享 depth），
+                        // 但比正文略晚显形 —— 头部先对齐，名字才浮出来。
                         opacity: nameOpacity,
                         child: Align(
                           alignment: Alignment.centerLeft,
@@ -379,26 +488,31 @@ class _NotificationPullCardState extends State<NotificationPullCard>
                       }),
                     ),
                   ),
-                  // 图标：折叠态左侧大字牌 → 展开态头部小图标
+                  // 图标：静态时是左侧大字牌 → 拖动时极快移到第一行左上角 → 展开态是头部小图标
                   Positioned(
-                    left: 16,
+                    left: kIconLeft,
                     top: iconTop,
                     width: iconSize,
                     height: iconSize,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12 - 5 * ai),
-                        boxShadow: const <BoxShadow>[
-                          BoxShadow(
-                            color: Color(0x47000000),
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12 - 5 * ai),
-                        child: CustomPaint(painter: _MusicIconPainter()),
+                    child: Opacity(
+                      // 触发拖动时从 0 开始渐入（静态时完全可见）。
+                      opacity: iconAlpha,
+                      child: Container(
+                        key: const ValueKey<String>('notification-pull-icon'),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12 - 5 * (snapped ? 0.62 : 0)),
+                          boxShadow: const <BoxShadow>[
+                            BoxShadow(
+                              color: Color(0x47000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12 - 5 * (snapped ? 0.62 : 0)),
+                          child: CustomPaint(painter: _MusicIconPainter()),
+                        ),
                       ),
                     ),
                   ),

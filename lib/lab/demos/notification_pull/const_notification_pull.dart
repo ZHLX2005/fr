@@ -38,6 +38,22 @@ const double kTitleLine = 20;
 /// 拖动死区（4px 内不响应）
 const double kDead = 4;
 
+/// 图标在折叠态的左偏移
+const double kIconLeft = 16;
+
+/// 图标与应用名之间的间距（展开排布下两者同一行）
+const double kIconNameGap = 18;
+
+/// 图标 / 应用名从透明渐入到完全显形所需的拖动距离（px）。
+///
+/// 从**布局切换那一刻**起算 —— 切换瞬间可见度为 0，继续往下拖才渐入。
+const double kFadeInSpan = 30;
+
+/// 文字左侧让位空间（52px）收完所需的拖动距离（px）。
+///
+/// 从**布局切换那一刻**起算 —— 切换瞬间缩进不动，之后随拖动平滑收完。
+const double kIndentSpan = 60;
+
 /// 字体回退链（Flutter 只认单个 fontFamily，OS 回退走 fontFamilyFallback）
 const List<String> kFontFallback = <String>[
   'PingFang SC',
@@ -66,7 +82,8 @@ const TextStyle kNameStyle = TextStyle(
   fontWeight: FontWeight.w500,
   height: 1.6923076923076923, // 22 / 13
   letterSpacing: .2,
-  color: Color(0xA8FFFFFF),
+  // 真机参考图实测展开态应用名有效不透明度 ≈ 0.82（原型写 .66，偏暗）
+  color: Color(0xD1FFFFFF),
   fontFamily: AppFontFamily.sans,
   fontFamilyFallback: kFontFallback,
 );
@@ -85,7 +102,8 @@ const TextStyle kInlineStyle = TextStyle(
   fontSize: 13,
   height: 1.5384615384615385, // 20 / 13
   letterSpacing: 0,
-  color: Color(0xB3F2F0F8),
+  // 真机参考图实测展开态摘要有效不透明度 ≈ 0.91（原型 .70，偏暗）
+  color: Color(0xE8F2F0F8),
   fontFamily: AppFontFamily.sans,
   fontFamilyFallback: kFontFallback,
 );
@@ -94,7 +112,10 @@ const TextStyle kBodyStyle = TextStyle(
   fontSize: 13,
   height: 1.4615384615384617, // 19 / 13
   letterSpacing: 0,
-  color: Color(0xB3F2F0F8),
+  // 真机参考图实测展开态正文有效不透明度 ≈ 0.90（原型 .70，偏暗）。
+  // 正文是渐入深的承载者 —— 底色太浅时，opacity 渐入到 1 也只到 0.70，
+  // 视觉上「渐深」就没有跨度，看起来像没有动画。
+  color: Color(0xE6F2F0F8),
   fontFamily: AppFontFamily.sans,
   fontFamilyFallback: kFontFallback,
 );
