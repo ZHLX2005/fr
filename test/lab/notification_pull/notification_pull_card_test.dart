@@ -322,6 +322,113 @@ void main() {
     });
   });
 
+  group('连续拖动', () {
+    /// 关键回归：**第二次拖动不能从最开始重新触发**。
+    ///
+    /// 早先拖动的基准高度写死成 `_h1`（布局切换时的高度），于是卡片已经
+    /// 展开到 255px 时再拖，高度会突然从 129 重新起算 —— 肉眼看到的是
+    /// 「卡片缩回去一下」。基准必须锚在**切换那一刻**的高度上，后续是纯增量。
+    testWidgets('已展开后再次拖动：高度连续递增，不缩回', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: Center(child: NotificationPullCard())),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      double cardH(WidgetTester t) =>
+          t.getSize(find.byType(NotificationPullCard)).height;
+
+      // 第一次拖动 → 展开
+      TestGesture g = await tester.startGesture(const Offset(195, 300));
+      await g.moveBy(const Offset(0, 60));
+      await tester.pump();
+      await g.up();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      final double settled = cardH(tester);
+      expect(settled, greaterThan(150));
+
+      // 第二次拖动：高度必须连续往上走
+      g = await tester.startGesture(const Offset(195, 300));
+      final List<double> hs = <double>[];
+      for (int i = 0; i < 4; i++) {
+        await g.moveBy(const Offset(0, 20));
+        await tester.pump();
+        hs.add(cardH(tester));
+      }
+      for (int i = 0; i < hs.length; i++) {
+        expect(hs[i], greaterThan(settled - 0.5),
+            reason: '第二次拖动不该缩回（起始 $settled，实测 $hs）');
+        if (i > 0) {
+          expect(hs[i], greaterThan(hs[i - 1]),
+              reason: '第二次拖动应持续递增：$hs');
+        }
+      }
+      await g.up();
+      await tester.pump();
+    });
+
+    /// 三条 → 五条：继续往下拖只扩展下边界，行数逐条增加。
+    testWidgets('三条继续拖动：行数逐条增加到五条', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: Center(child: NotificationPullCard())),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final Rect cardRect = tester.getRect(find.byType(NotificationPullCard));
+      int visibleRows(WidgetTester t) {
+        final Rect card = t.getRect(find.byType(NotificationPullCard));
+        return <String>[
+          '回忆坐标',
+          '黄霄雲',
+          '🥺 真挚的感情最珍贵',
+          '@假日的栈桥 速听→',
+          '陈卓璇 [可能喜欢]',
+        ].where((s) {
+          final Finder f = find.text(s);
+          if (f.evaluate().isEmpty) return false;
+          final RenderParagraph rp = t.renderObject<RenderParagraph>(f.first);
+          final Offset tl = rp.localToGlobal(Offset.zero);
+          return tl.dy + rp.size.height <= card.bottom + 0.5;
+        }).length;
+      }
+      expect(cardRect, isNotNull);
+
+      // 拖到三条并松手
+      TestGesture g = await tester.startGesture(const Offset(195, 300));
+      await g.moveBy(const Offset(0, 60));
+      await tester.pump();
+      await g.up();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(visibleRows(tester), 3, reason: '此时应可见三条');
+
+      // 继续拖：行数应逐条增加
+      g = await tester.startGesture(const Offset(195, 300));
+      final List<int> counts = <int>[];
+      for (int i = 0; i < 8; i++) {
+        await g.moveBy(const Offset(0, 20));
+        await tester.pump();
+        counts.add(visibleRows(tester));
+      }
+      await g.up();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      for (int i = 1; i < counts.length; i++) {
+        expect(counts[i], greaterThanOrEqualTo(counts[i - 1]),
+            reason: '行数不应回退：$counts');
+      }
+      expect(counts.last, 5, reason: '拖到底应可见五条：$counts');
+    });
+  });
+
   group('高度档位与原型一致', () {
     // 与原型的 measure() 公式逐项对应
     const double padT = 14, padB = 14, gap = 14, gap0 = 3;

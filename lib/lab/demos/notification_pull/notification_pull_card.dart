@@ -53,6 +53,14 @@ class _NotificationPullCardState extends State<NotificationPullCard>
   /// 折叠态才复位。
   bool _switched = false;
 
+  /// 布局切换**那一刻**的卡片高度。
+  ///
+  /// 拖动的基准高度必须是它 —— 每次都拿 _h1 当基准的话，第二次拖动
+  /// （卡片已经展开到 255px 时）会突然从 129 重新起算，高度暴跌一截
+  /// （「从最开始开始触发」的 bug）。锚在切换瞬间的高度上，后续拖动
+  /// 就是纯增量，连续拖动不会跳。
+  double _switchBase = 0;
+
   final List<_Sample> _samples = <_Sample>[];
   double _wheelLock = 0;
 
@@ -181,12 +189,15 @@ class _NotificationPullCardState extends State<NotificationPullCard>
       _dragging = true;
       _switched = true;
       _h = math.max(_h, _h1);
+      // 锚住切换瞬间的高度 —— 后续拖动都以此为基准（纯增量）。
+      _switchBase = _h;
     }
     _moved = true;
     final double drive = dy > 0 ? dy - kDead : dy + kDead;
-    // 切换后高度从 H1 起算（切换那一帧已经垫到 H1），继续往下拖就在此
-    // 基础上加 —— 不能再用 _hAtDown + drive，那会把高度拉回折叠区。
-    final double base = _switched ? _h1 : _hAtDown;
+    // 高度基准：切换后用「切换瞬间的高度」继续加 —— 纯增量，连续拖动
+    // 不会跳。不能用 _hAtDown + drive（会把高度拉回折叠区），也不能
+    // 每次都用 _h1（第二次拖动会从 129 重新起算 → 高度暴跌）。
+    final double base = _switched ? _switchBase : _hAtDown;
     double target = base + drive;
     if (target < _h0) target = _h0 - _rubber(_h0 - target);
     if (target > _h4) target = _h4 + _rubber(target - _h4);
