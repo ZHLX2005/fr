@@ -140,3 +140,26 @@ const int kRtShortcutIntervalDivisions = 40; // 25ms/档
 /// 是否被 UI 当作「单组紧凑外观」（隐藏计数与间隔 badge）。
 /// chords.length==1 且 intervalMs==0 → 走旧 chip 形态。
 const int kRtShortcutCompactChordCap = 1;
+
+// ── BLE 鼠标（手机端中继物理鼠标 → PC）─────────────────────────────────
+// 走的是**物理鼠标**这一路：位移是鼠标的原始计数（counts），不是手指的
+// 逻辑像素。所以这里的灵敏度是**线性系数**，不是触摸板那套加速度曲线。
+
+/// 鼠标灵敏度系数缺省（1.0 = 原始计数 1:1 变像素）。
+///
+/// 常见鼠标 800~1600 DPI，1 计数 ≈ 1 像素时手感接近真鼠标；
+/// 高 DPI 鼠标（4000+）会觉得飞快，把这个系数调小即可。
+const double kRtBleMouseSensitivityDefault = 1.0;
+
+/// 鼠标灵敏度系数下限。
+const double kRtBleMouseSensitivityMin = 0.2;
+
+/// 鼠标灵敏度系数上限。
+const double kRtBleMouseSensitivityMax = 3.0;
+
+/// BLE 扫描时长（毫秒）。给得比一般蓝牙设置页长：鼠标进入配对模式后
+/// 广播窗口通常只有几十秒，扫太短容易错过。
+const int kRtBleMouseScanTimeoutMs = 15000;
+
+/// BLE 连接超时（毫秒）。
+const int kRtBleMouseConnectTimeoutMs = 15000;

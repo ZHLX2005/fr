@@ -29,6 +29,7 @@ import '../data/rt_layout_ops.dart'
 import '../data/rt_prefs.dart';
 import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
 import '../../../core/ui/global/nav/main.dart';
+import '../ble/rt_ble_mouse_page.dart';
 import 'rt_layouts_card.dart';
 import 'rt_new_layout_row.dart';
 
@@ -228,6 +229,18 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
                       : '关——到剪贴板为止，在电脑上手动 Ctrl+V',
                 ),
                 trailing: Switch(value: _autoPaste, onChanged: (_) => _toggleAutoPaste()),
+              ),
+            ],
+          ),
+          const _SectionHeader('蓝牙鼠标'),
+          _PrefCard(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.mouse),
+                title: const Text('蓝牙鼠标'),
+                subtitle: const Text('连上物理鼠标，用它远程操作这台电脑'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showRtBleMousePage(context),
               ),
             ],
           ),

@@ -16,6 +16,8 @@ const _kTouchpadSensitivityKey = 'rt_touchpad_sensitivity_v1';
 const _kCanvasLayoutKey = 'rt_canvas_layout_v1';
 const _kCanvasLayoutsKey = 'rt_canvas_layouts_v1';
 const _kCanvasBuiltinFactoryRevKey = 'rt_canvas_builtin_factory_rev';
+const _kBleMouseDeviceIdKey = 'rt_ble_mouse_device_id_v1';
+const _kBleMouseSensitivityKey = 'rt_ble_mouse_sensitivity_v1';
 
 /// 内置预设 id（持久化键，禁止改动——改了等于丢用户当前布局）。
 const String kRtCanvasPresetGame = 'game';
@@ -1109,5 +1111,39 @@ class RtPrefs {
   static Future<void> saveCanvasBuiltinFactoryRev(int rev) async {
     final p = await SharedPreferences.getInstance();
     await p.setInt(_kCanvasBuiltinFactoryRevKey, rev);
+  }
+
+  /// 上次选定的 BLE 鼠标设备 id（Android 上是 MAC）。
+  ///
+  /// 只是「上次用哪只」的提示，**不是连接状态** —— 蓝牙鼠标是临时用，
+  /// 关掉页面就断开，不留任何后台连接。
+  static Future<String> loadBleMouseDeviceId() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kBleMouseDeviceIdKey) ?? '';
+  }
+
+  static Future<void> saveBleMouseDeviceId(String? value) async {
+    final p = await SharedPreferences.getInstance();
+    if (value == null || value.isEmpty) {
+      await p.remove(_kBleMouseDeviceIdKey);
+    } else {
+      await p.setString(_kBleMouseDeviceIdKey, value);
+    }
+  }
+
+  /// 蓝牙鼠标灵敏度（线性系数）。落盘值异常一律回缺省。
+  static Future<double> loadBleMouseSensitivity() async {
+    final p = await SharedPreferences.getInstance();
+    final v = p.getDouble(_kBleMouseSensitivityKey);
+    if (v == null) return kRtBleMouseSensitivityDefault;
+    return v.clamp(kRtBleMouseSensitivityMin, kRtBleMouseSensitivityMax).toDouble();
+  }
+
+  static Future<void> saveBleMouseSensitivity(double value) async {
+    final p = await SharedPreferences.getInstance();
+    final v = value
+        .clamp(kRtBleMouseSensitivityMin, kRtBleMouseSensitivityMax)
+        .toDouble();
+    await p.setDouble(_kBleMouseSensitivityKey, v);
   }
 }
