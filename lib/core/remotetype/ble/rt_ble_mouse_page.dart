@@ -59,13 +59,16 @@ class _RtBleMousePageState extends State<RtBleMousePage> {
 
   StreamSubscription<RtBleMouseStatus>? _statusSub;
   StreamSubscription<List<int>>? _rawSub;
+  StreamSubscription<String>? _logSub;
 
   final List<List<int>> _samples = <List<int>>[];
   final List<String> _rawLines = <String>[];
+  final List<String> _logs = <String>[];
   bool _diagnosticsOpen = false;
 
   static const int _maxSamples = 64;
   static const int _maxRawLines = 24;
+  static const int _maxLogLines = 60;
 
   @override
   void initState() {
@@ -88,12 +91,24 @@ class _RtBleMousePageState extends State<RtBleMousePage> {
         }
       });
     });
+    // 连接过程的每一步都记着 —— 排障全靠它（尤其「订阅被系统拒绝」这类
+    // 平台级封锁，只有日志能说清）。
+    _logSub = _ctl.mouse.log.listen((line) {
+      if (!mounted) return;
+      setState(() {
+        _logs.add(line);
+        if (_logs.length > _maxLogLines) {
+          _logs.removeRange(0, _logs.length - _maxLogLines);
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
     _statusSub?.cancel();
     _rawSub?.cancel();
+    _logSub?.cancel();
     // 页面关掉 = 鼠标断开（蓝牙主机位还给电脑）。
     unawaited(_ctl.dispose());
     super.dispose();
@@ -181,6 +196,11 @@ class _RtBleMousePageState extends State<RtBleMousePage> {
                 '分支：${_status.branchLabel}'
                 '${_status.layoutLabel.isEmpty ? '' : ' · ${_status.layoutLabel}'}',
                 style: const TextStyle(fontSize: 12),
+              ),
+            if (_ctl.mouse.pollMode)
+              Text(
+                '传输：read 轮询（通知订阅被 Android 拒绝后的降级通路）',
+                style: TextStyle(fontSize: 12, color: cs.tertiary),
               ),
           ],
         ),
@@ -314,6 +334,18 @@ class _RtBleMousePageState extends State<RtBleMousePage> {
             const SizedBox(height: 10),
             const Text('最近报文', style: TextStyle(fontSize: 12)),
             ..._rawLines.reversed.take(8).map((l) => Text(
+                  l,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: cs.onSurfaceVariant,
+                  ),
+                )),
+          ],
+          if (_logs.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 10),
+            const Text('连接日志', style: TextStyle(fontSize: 12)),
+            ..._logs.reversed.take(20).map((l) => Text(
                   l,
                   style: TextStyle(
                     fontSize: 11,

@@ -169,6 +169,11 @@ class RtBleMouse {
   static const String _hogpReportMapChar = '2a4b';
   static const String _hogpReportChar = '2a4d';
 
+  /// Boot Mouse Input Report（0x2A33）：HID boot 协议下的输入报告，
+  /// 布局固定为 [buttons, x(int8), y(int8), wheel(int8)] —— 不需要 Report Map。
+  /// 主路径走不通时的备胎。
+  static const String _hogpBootMouseChar = '2a33';
+
   final StreamController<List<RtBleMouseCandidate>> _candidates =
       StreamController<List<RtBleMouseCandidate>>.broadcast();
   final StreamController<List<int>> _rawReports =
@@ -181,6 +186,11 @@ class RtBleMouse {
 
   StreamSubscription<List<ScanResult>>? _scanSub;
   StreamSubscription<List<int>>? _valueSub;
+
+  /// 轮询模式：通知订阅被系统拒绝时启用的降级通路。
+  Timer? _pollTimer;
+  List<int>? _lastPollBytes;
+  bool _pollBusy = false;
 
   final Map<String, RtBleMouseCandidate> _candidateMap =
       <String, RtBleMouseCandidate>{};
@@ -214,6 +224,9 @@ class RtBleMouse {
   Stream<RtBleMousePhase> get phase => _phase.stream;
 
   RtBleMousePhase get currentPhase => _currentPhase;
+
+  /// 当前是否跑在**轮询模式**（通知订阅被系统拒绝后的降级通路）。
+  bool get pollMode => _pollTimer != null;
 
   RtBleMouseGatt? get gatt => _gatt;
 
@@ -338,21 +351,88 @@ class RtBleMouse {
 
       _setPhase(RtBleMousePhase.subscribing);
       _log('订阅报告特征 ${gatt.reportCharacteristicUuid}…');
-      await reportChar.setNotifyValue(true);
-
-      _valueSub?.cancel();
-      _valueSub = reportChar.onValueReceived.listen(_onRawReport);
-
-      _setPhase(RtBleMousePhase.ready);
-      _log('已就绪，等待鼠标报告');
+      try {
+        await reportChar.setNotifyValue(true);
+        _valueSub?.cancel();
+        _valueSub = reportChar.onValueReceived.listen(_onRawReport);
+        _setPhase(RtBleMousePhase.ready);
+        _log('已就绪，等待鼠标报告（通知模式）');
+      } catch (e) {
+        // Android 平台级封锁：第三方 App 不能订阅 HID 服务（0x1812）下的
+        // Input Report 通知 —— 那需要 signature|privileged 的
+        // BLUETOOTH_PRIVILEGED，普通 App 拿不到、adb 也授不了。
+        // 不当作致命错误：改用 read 轮询把同一份报告拉回来。
+        _log('通知订阅被系统拒绝（$e）');
+        _log('降级为 read 轮询拉取报告…');
+        final ok = await _startPolling(reportChar);
+        if (ok) {
+          _setPhase(RtBleMousePhase.ready);
+        } else {
+          _setPhase(RtBleMousePhase.error);
+        }
+      }
     } catch (e) {
       _setPhase(RtBleMousePhase.error);
       _log('连接失败：$e');
     }
   }
 
+  /// 轮询模式：周期性 read 报告特征，把缓存的最新报告取回来。
+  ///
+  /// 为什么可行：Android 封的是「**订阅**通知」（被动推送，等于窃听实时
+  /// 按键流），**read**（主动拉取）走的是普通 GATT 读，只查 BLUETOOTH_CONNECT。
+  ///
+  /// 代价：读回来的是 peripheral 缓存的「最近一份报告」，两次轮询之间的
+  /// 中间报告会丢 —— 位移会偏慢。所以这里做了**去重**（同一份报文不重复
+  /// 应用，否则光标会原地狂飞），并把轮询间隔压到 16ms 尽量少丢。
+  Future<bool> _startPolling(BluetoothCharacteristic ch) async {
+    // 先试读一次：连读都读不到，这条路也断了，直接告诉用户。
+    try {
+      final probe = await ch.read(timeout: 5);
+      _log('轮询首读 ${probe.length} 字节：${rtHidHex(probe)}');
+    } catch (e) {
+      _log('轮询首读也失败：$e');
+      _log('结论：该设备拒绝第三方读取 HID 报告数据。');
+      return false;
+    }
+
+    _lastPollBytes = null;
+    _pollBusy = false;
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 16), (_) async {
+      if (_pollBusy || _disposed) return;
+      _pollBusy = true;
+      try {
+        final v = await ch.read(timeout: 3);
+        if (v.isEmpty) return;
+        // 去重：同一份报文重复应用会让位移翻倍
+        final last = _lastPollBytes;
+        if (last != null && _sameBytes(last, v)) return;
+        _lastPollBytes = List<int>.of(v);
+        _onRawReport(v);
+      } catch (e) {
+        _log('轮询读取失败：$e');
+        _pollTimer?.cancel();
+        _pollTimer = null;
+      } finally {
+        _pollBusy = false;
+      }
+    });
+    return true;
+  }
+
+  static bool _sameBytes(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   /// 断开并清理。
   Future<void> disconnect() async {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _lastPollBytes = null;
     await _valueSub?.cancel();
     _valueSub = null;
     _reportChar = null;
@@ -376,6 +456,8 @@ class RtBleMouse {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _pollTimer?.cancel();
+    _pollTimer = null;
     await _scanSub?.cancel();
     await _valueSub?.cancel();
     await _candidates.close();
@@ -405,6 +487,8 @@ class RtBleMouse {
     BluetoothCharacteristic? reportChar;
     BluetoothCharacteristic? reportMapChar;
     BluetoothCharacteristic? controlPointChar;
+    BluetoothCharacteristic? bootReportChar;
+    final List<BluetoothCharacteristic> reportCandidates = <BluetoothCharacteristic>[];
     RtBleMouseBranch branch = RtBleMouseBranch.unknown;
 
     for (final svc in services) {
@@ -431,11 +515,11 @@ class RtBleMouse {
         if (svcUuid == _isscService) {
           branch = RtBleMouseBranch.issc;
           if (chUuid == _isscReportChar) {
-            reportChar = ch;
+            reportCandidates.insert(0, ch);
           } else if (chUuid == _isscControlPointChar) {
             controlPointChar = ch;
-          } else if (ch.properties.notify && reportChar == null) {
-            reportChar = ch;
+          } else if (ch.properties.notify) {
+            reportCandidates.add(ch);
           }
         } else if (svcUuid == _hogpService) {
           if (branch != RtBleMouseBranch.issc) {
@@ -443,14 +527,17 @@ class RtBleMouse {
           }
           if (chUuid == _hogpReportMapChar) {
             reportMapChar = ch;
-          } else if (chUuid == _hogpReportChar && ch.properties.notify) {
-            reportChar = ch;
+          } else if (chUuid == _hogpBootMouseChar) {
+            bootReportChar = ch;
+          } else if (chUuid == _hogpReportChar) {
+            // 0x1812 下 0x2A4D 会出现**多次**（按报告 ID 拆成输入 / 输出 /
+            // 特征报告）。光看 UUID 和属性分不出来，得读 Report Reference
+            // 描述符（0x2908）才知道哪个是输入报告 —— 先全收着，后面挑。
+            reportCandidates.add(ch);
           }
         }
       }
     }
-
-    _reportChar = reportChar;
 
     // 标准 HOGP：读 Report Map，精确推导布局
     List<int> mapBytes = const <int>[];
@@ -459,25 +546,34 @@ class RtBleMouse {
 
     if (branch == RtBleMouseBranch.hogp && reportMapChar != null) {
       try {
-        mapBytes = await reportMapChar.read();
+        mapBytes = await reportMapChar.read(timeout: 8);
+        _log('Report Map 读到 ${mapBytes.length} 字节');
         layout = parseRtHidReportMap(mapBytes);
         if (layout != null) {
           _layout = layout;
           _layoutLocked = true;
           _log('布局由 Report Map 推导：${layout.label}');
         } else {
-          _log('Report Map 里没有成对的 X/Y，按未知处理');
+          _log('Report Map 里没有成对的 X/Y，改从样本反推');
         }
       } catch (e) {
         _log('读 Report Map 失败：$e');
       }
     }
 
-    // ISSC 分支：Report Map 读不到也没关系，后面从样本反推
-    if (branch == RtBleMouseBranch.issc && layout == null) {
+    // 布局拿不到（ISSC 无 Report Map，或 HOGP 的 Report Map 读不了）：
+    // 都交给样本反推 —— 这条路不依赖任何特权操作。
+    if (layout == null) {
       inferred = true;
-      _log('ISSC 分支无 Report Map，将从样本反推布局（攒 $inferenceSampleCount 份）');
+      _log('布局未知，将从样本反推（攒 $inferenceSampleCount 份）');
     }
+
+    // 挑出真正的输入报告特征
+    final chosen = await _pickInputReport(reportCandidates, layout, bootReportChar);
+    reportChar = chosen;
+    _reportChar = reportChar;
+
+    await _probeVendorChannels(services);
 
     return RtBleMouseGatt(
       branch: branch,
@@ -489,6 +585,108 @@ class RtBleMouse {
       layout: layout,
       layoutInferred: inferred,
     );
+  }
+
+  /// 在多个同名 0x2A4D 里挑出真正的**输入报告**特征。
+  ///
+  /// HID 服务下 0x2A4D 会按「报告 ID」拆成多个特征（输入 / 输出 / 特征），
+  /// 光看 UUID 和属性分不出来 —— 必须读 **Report Reference 描述符（0x2908）**：
+  /// 值是 2 字节 [reportId, reportType]，reportType 0x01=Input / 0x02=Output /
+  /// 0x03=Feature。
+  ///
+  /// 选错的后果很具体：输出报告里装的是「鼠标回给主机的数据」，拿来当输入
+  /// 报告会解出乱七八糟的位移。
+  Future<BluetoothCharacteristic?> _pickInputReport(
+    List<BluetoothCharacteristic> candidates,
+    RtHidMouseLayout? layout,
+    BluetoothCharacteristic? bootChar,
+  ) async {
+    if (candidates.isEmpty) {
+      if (bootChar != null) _log('无 0x2A4D 候选，退回 Boot Mouse Input Report');
+      return bootChar;
+    }
+
+    final refs = <BluetoothCharacteristic, _RtReportRef?>{};
+    final inputs = <BluetoothCharacteristic>[];
+
+    for (final ch in candidates) {
+      final ref = await _readReportReference(ch);
+      refs[ch] = ref;
+      if (ref == null) {
+        _log('  0x2A4D：读不到 Report Reference 描述符（0x2908）');
+        continue;
+      }
+      _log('  0x2A4D：reportId=${ref.reportId} type=${ref.typeLabel}');
+      if (ref.reportType == 0x01) inputs.add(ch);
+    }
+
+    if (inputs.isNotEmpty) {
+      // 有 Report Map 的话，优先选 reportId 与描述符对得上的那个
+      if (layout != null && layout.reportId >= 0) {
+        for (final ch in inputs) {
+          final ref = refs[ch];
+          if (ref != null && ref.reportId == layout.reportId) {
+            _log('选中输入报告特征：reportId=${layout.reportId}（与 Report Map 匹配）');
+            return ch;
+          }
+        }
+      }
+      _log('选中输入报告特征：reportType=Input');
+      return inputs.first;
+    }
+
+    // 没有 reportType=Input 的：只有输入报告才会带 CCCD（0x2902），用它兜底
+    final withCccd = candidates
+        .where((c) =>
+            c.descriptors.any((d) => d.uuid.str.toLowerCase() == '2902'))
+        .toList(growable: false);
+    if (withCccd.isNotEmpty) {
+      _log('按「带 CCCD」选中输入报告特征');
+      return withCccd.first;
+    }
+
+    _log('没有可辨认的输入报告特征，退回第一个候选');
+    return candidates.first;
+  }
+
+  /// 读 Report Reference 描述符（0x2908）→ [reportId, reportType]。
+  Future<_RtReportRef?> _readReportReference(BluetoothCharacteristic ch) async {
+    for (final d in ch.descriptors) {
+      if (d.uuid.str.toLowerCase() != '2908') continue;
+      try {
+        final v = await d.read(timeout: 5);
+        if (v.length < 2) return null;
+        return _RtReportRef(v[0], v[1]);
+      } catch (e) {
+        _log('读 Report Reference 描述符失败：$e');
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// 探测厂商私有服务里的可读特征（fff0 之类）。
+  ///
+  /// 为什么值得探：Android 封的是 **HID 服务（0x1812）下的输入报告**；
+  /// 厂商若把运动数据额外挂在**非 HID** 的服务上，那条路不受封锁。
+  /// 探一次就知道有没有这种后门通道。
+  Future<void> _probeVendorChannels(List<BluetoothService> services) async {
+    const known = <String>{'1800', '180a', '180f', _hogpService, _isscService};
+    for (final svc in services) {
+      final svcUuid = svc.uuid.str.toLowerCase();
+      if (known.contains(svcUuid)) continue;
+      for (final ch in svc.characteristics) {
+        if (!ch.properties.read) continue;
+        final chUuid = ch.uuid.str.toLowerCase();
+        try {
+          final v = await ch.read(timeout: 5);
+          if (v.isEmpty) continue;
+          _log('厂商特征 $svcUuid/$chUuid → ${rtHidHex(v)}');
+        } catch (e) {
+          _log('厂商特征 $svcUuid/$chUuid 读取失败：$e');
+        }
+      }
+    }
   }
 
   /// 收到一份原始报告。
@@ -522,4 +720,22 @@ class RtBleMouse {
       _inferenceSamples.clear();
     }
   }
+}
+
+/// Report Reference 描述符（0x2908）的值：2 字节 [reportId, reportType]。
+///
+/// reportType：0x01 = Input（设备→主机的输入报告）、0x02 = Output、
+/// 0x03 = Feature。
+class _RtReportRef {
+  const _RtReportRef(this.reportId, this.reportType);
+
+  final int reportId;
+  final int reportType;
+
+  String get typeLabel => switch (reportType) {
+        0x01 => 'Input',
+        0x02 => 'Output',
+        0x03 => 'Feature',
+        _ => 'unknown($reportType)',
+      };
 }
