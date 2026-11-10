@@ -35,6 +35,7 @@ class RtBleMouseStatus {
     this.branchLabel = '',
     this.layoutLabel = '',
     this.forwarding = false,
+    this.transportLabel = '',
     this.message = '',
   });
 
@@ -58,6 +59,9 @@ class RtBleMouseStatus {
 
   /// 是否正在把鼠标事件转发给 PC。
   final bool forwarding;
+
+  /// 当前实际使用的传输通路（如「Boot 协议 0x2A33 通知」）。
+  final String transportLabel;
 
   /// 最近一条状态说明。
   final String message;
@@ -174,6 +178,7 @@ class RtBleMouseController {
       branchLabel: gatt?.branchLabel ?? '',
       layoutLabel: mouse.layout?.label ?? '',
       forwarding: _source != null,
+      transportLabel: mouse.transportLabel,
       message: _message,
     );
   }

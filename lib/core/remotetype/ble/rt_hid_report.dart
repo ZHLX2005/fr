@@ -170,6 +170,22 @@ class RtHidMouseLayout {
     hWheelBitOffset: 32,
   );
 
+  /// Boot Mouse Input Report（0x2A33）固定布局：
+  /// [buttons(1B), x(int8), y(int8), wheel(int8)]。
+  ///
+  /// 为什么重要：HID **boot 协议**的报告布局是规范写死的，不需要 Report Map。
+  /// 而 Android 对 0x1812 服务下的 2A4A/2A4B/2A4C/2A4D 全封锁
+  /// （含 read），唯独 2A33 不在受限清单里 —— 所以「切 boot 协议 +
+  /// 订阅 0x2A33」是唯一一条既合规又全速率的读鼠标数据通路。
+  static const RtHidMouseLayout bootMouse = RtHidMouseLayout(
+    label: 'Boot Mouse [buttons,x,y,wheel]',
+    buttonsBitOffset: 0,
+    buttonsBitCount: 8,
+    xBitOffset: 8,
+    yBitOffset: 16,
+    wheelBitOffset: 24,
+  );
+
   /// ISSC 5B，首字节是 Report ID（值 0）：[rid, buttons, x, y, wheel]
   static const RtHidMouseLayout issc4ReportId0 = RtHidMouseLayout(
     label: 'ISSC 5B rid=0 [rid,buttons,x,y,wheel]',

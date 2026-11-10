@@ -143,6 +143,27 @@ void main() {
     });
   });
 
+  group('Boot Mouse Input Report（0x2A33）固定布局', () {
+    test('4 字节 [buttons, x, y, wheel] 解出正确', () {
+      final r = decodeRtHidMouseReport(
+        <int>[0x01, 0x0C, 0xF4, 0x02],
+        RtHidMouseLayout.bootMouse,
+      );
+      expect(r, isNotNull);
+      expect(r!.buttons & RtHidButtons.left, RtHidButtons.left);
+      expect(r.dx, 12);
+      expect(r.dy, -12); // 0xF4 = -12
+      expect(r.wheel, 2);
+    });
+
+    test('空报文返回 null（不足 4 字节不猜）', () {
+      expect(
+        decodeRtHidMouseReport(<int>[0x00, 0x01], RtHidMouseLayout.bootMouse),
+        isNull,
+      );
+    });
+  });
+
   group('RtHidWheel 单位归一化', () {
     test('WHEEL_DELTA(120) 折算成 1 格', () {
       expect(RtHidWheel.normalize(120), 1);

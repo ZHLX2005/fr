@@ -113,6 +113,8 @@ class RtBleMouseGatt {
     required this.characteristics,
     required this.reportCharacteristicUuid,
     this.reportMapCharacteristicUuid,
+    this.bootReportCharacteristicUuid,
+    this.protocolModeCharacteristicUuid,
     this.controlPointCharacteristicUuid,
     this.reportMapBytes = const <int>[],
     this.layout,
@@ -129,6 +131,12 @@ class RtBleMouseGatt {
 
   /// 标准 HOGP 的 Report Map 特征（ISSC 分支为 null）。
   final String? reportMapCharacteristicUuid;
+
+  /// Boot Mouse Input Report（0x2A33）—— Android 唯一放行的 HID 报告通道。
+  final String? bootReportCharacteristicUuid;
+
+  /// Protocol Mode（0x2A4E）—— 写 0 切 Boot 协议。
+  final String? protocolModeCharacteristicUuid;
 
   /// ISSC 分支的 Control Point 特征（HOGP 分支为 null）。
   final String? controlPointCharacteristicUuid;
@@ -171,8 +179,14 @@ class RtBleMouse {
 
   /// Boot Mouse Input Report（0x2A33）：HID boot 协议下的输入报告，
   /// 布局固定为 [buttons, x(int8), y(int8), wheel(int8)] —— 不需要 Report Map。
-  /// 主路径走不通时的备胎。
+  ///
+  /// **它是 Android 唯一没封锁的 HID 报告通道**：
+  /// 受限清单只含 2A4A/2A4B/2A4C/2A4D，2A33 不在内，所以订阅与读都放行。
   static const String _hogpBootMouseChar = '2a33';
+
+  /// Protocol Mode（0x2A4E）：写 0 = Boot 协议，1 = Report 协议。
+  /// 同样不在受限清单里 —— 所以「切 boot 协议」这一步是允许的。
+  static const String _hogpProtocolModeChar = '2a4e';
 
   final StreamController<List<RtBleMouseCandidate>> _candidates =
       StreamController<List<RtBleMouseCandidate>>.broadcast();
@@ -191,6 +205,13 @@ class RtBleMouse {
   Timer? _pollTimer;
   List<int>? _lastPollBytes;
   bool _pollBusy = false;
+
+  /// Boot 协议的两个关键特征（Android 唯一放行的 HID 报告通道）。
+  BluetoothCharacteristic? _bootChar;
+  BluetoothCharacteristic? _protocolModeChar;
+
+  /// 当前实际用的传输通路（UI 展示用）。
+  String _transport = '';
 
   final Map<String, RtBleMouseCandidate> _candidateMap =
       <String, RtBleMouseCandidate>{};
@@ -227,6 +248,9 @@ class RtBleMouse {
 
   /// 当前是否跑在**轮询模式**（通知订阅被系统拒绝后的降级通路）。
   bool get pollMode => _pollTimer != null;
+
+  /// 当前实际使用的传输通路（空 = 尚未连上）。
+  String get transportLabel => _transport;
 
   RtBleMouseGatt? get gatt => _gatt;
 
@@ -342,6 +366,51 @@ class RtBleMouse {
         _log('Report Map (${gatt.reportMapBytes.length} B): ${rtHidHex(gatt.reportMapBytes)}');
       }
 
+      // ── 优先走 Boot 协议 ────────────────────────────────────────
+      // Android 把 HID 服务（0x1812）下的 2A4A/2A4B/2A4C/2A4D 全封锁
+      // （read / write / notify / descriptor 都算），但 **2A33（Boot Mouse
+      // Input Report）与 2A4E（Protocol Mode）不在受限清单里**。
+      // 所以：写 2A4E=0 让鼠标切到 boot 协议 → 订阅 2A33 → 拿固定 4 字节
+      // 布局的报告。这一条既合规、又全速率（通知不丢帧），是唯一正解。
+      if (gatt.branch == RtBleMouseBranch.hogp &&
+          gatt.bootReportCharacteristicUuid != null &&
+          gatt.protocolModeCharacteristicUuid != null) {
+        final bootOk = await _enterBootProtocol();
+        if (bootOk) {
+          _layout = RtHidMouseLayout.bootMouse;
+          _layoutLocked = true;
+          final bootChar = _bootChar;
+          if (bootChar != null) {
+            _setPhase(RtBleMousePhase.subscribing);
+            _log('订阅 Boot 报告特征 0x2A33…');
+            try {
+              await bootChar.setNotifyValue(true);
+              _valueSub?.cancel();
+              _valueSub = bootChar.onValueReceived.listen(_onRawReport);
+              // 补一次读，确认这个特征真的有数据在动（有些设备留着 0x2A33
+              // 却不更新它 —— 那就得看这行日志）
+              try {
+                final probe = await bootChar.read(timeout: 5);
+                _log('Boot 报告首读 ${probe.length} 字节：${rtHidHex(probe)}');
+              } catch (e) {
+                _log('Boot 报告首读失败：$e');
+              }
+              _setPhase(RtBleMousePhase.ready);
+              _transport = 'Boot 协议 0x2A33 通知';
+              _log('已就绪（Boot 协议 / 0x2A33 通知，全速率）');
+              return;
+            } catch (e) {
+              _log('Boot 报告订阅被拒（$e）—— 改用 read 轮询');
+              if (await _startPolling(bootChar)) {
+                _setPhase(RtBleMousePhase.ready);
+                _transport = 'Boot 协议 0x2A33 read 轮询';
+                return;
+              }
+            }
+          }
+        }
+      }
+
       final reportChar = _reportChar;
       if (reportChar == null) {
         _setPhase(RtBleMousePhase.error);
@@ -356,6 +425,7 @@ class RtBleMouse {
         _valueSub?.cancel();
         _valueSub = reportChar.onValueReceived.listen(_onRawReport);
         _setPhase(RtBleMousePhase.ready);
+        _transport = '0x2A4D 通知';
         _log('已就绪，等待鼠标报告（通知模式）');
       } catch (e) {
         // Android 平台级封锁：第三方 App 不能订阅 HID 服务（0x1812）下的
@@ -367,13 +437,46 @@ class RtBleMouse {
         final ok = await _startPolling(reportChar);
         if (ok) {
           _setPhase(RtBleMousePhase.ready);
+          _transport = '0x2A4D read 轮询';
         } else {
           _setPhase(RtBleMousePhase.error);
+          _log('结论：该设备拒绝第三方读取 HID 报告数据。');
+          _log('可改用手机系统蓝牙接管鼠标 + 无障碍服务方案。');
         }
       }
     } catch (e) {
       _setPhase(RtBleMousePhase.error);
       _log('连接失败：$e');
+    }
+  }
+
+  /// 写 Protocol Mode = 0，让鼠标切到 **boot 协议**。
+  ///
+  /// boot 协议下鼠标改用 0x2A33（Boot Mouse Input Report）上报，
+  /// 布局固定 4 字节，且该特征不在 Android 的受限清单里。
+  /// 写 0x2A4E 同样不受限（它的 handle 也不在 restrictedIds 里）。
+  Future<bool> _enterBootProtocol() async {
+    final ch = _protocolModeChar;
+    if (ch == null) return false;
+    // 先读一次当前模式（读 0x2A4E 也不受限），失败不致命
+    try {
+      if (ch.properties.read) {
+        final cur = await ch.read(timeout: 5);
+        _log('当前 Protocol Mode = ${cur.isEmpty ? '?' : cur.first}'
+            '${cur.isEmpty ? '' : '（0=Boot / 1=Report）'}');
+      }
+    } catch (e) {
+      _log('读 Protocol Mode 失败（可忽略）：$e');
+    }
+    try {
+      await ch.write(<int>[0x00], withoutResponse: true);
+      _log('已写入 Protocol Mode = 0（切 Boot 协议）');
+      // 给设备一点时间切换协议栈
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      return true;
+    } catch (e) {
+      _log('切 Boot 协议失败：$e');
+      return false;
     }
   }
 
@@ -488,6 +591,7 @@ class RtBleMouse {
     BluetoothCharacteristic? reportMapChar;
     BluetoothCharacteristic? controlPointChar;
     BluetoothCharacteristic? bootReportChar;
+    BluetoothCharacteristic? protocolModeChar;
     final List<BluetoothCharacteristic> reportCandidates = <BluetoothCharacteristic>[];
     RtBleMouseBranch branch = RtBleMouseBranch.unknown;
 
@@ -529,6 +633,8 @@ class RtBleMouse {
             reportMapChar = ch;
           } else if (chUuid == _hogpBootMouseChar) {
             bootReportChar = ch;
+          } else if (chUuid == _hogpProtocolModeChar) {
+            protocolModeChar = ch;
           } else if (chUuid == _hogpReportChar) {
             // 0x1812 下 0x2A4D 会出现**多次**（按报告 ID 拆成输入 / 输出 /
             // 特征报告）。光看 UUID 和属性分不出来，得读 Report Reference
@@ -572,6 +678,12 @@ class RtBleMouse {
     final chosen = await _pickInputReport(reportCandidates, layout, bootReportChar);
     reportChar = chosen;
     _reportChar = reportChar;
+    _bootChar = bootReportChar;
+    _protocolModeChar = protocolModeChar;
+
+    if (bootReportChar != null && protocolModeChar != null) {
+      _log('设备支持 Boot 协议（0x2A4E + 0x2A33）—— 走这条不受 Android 封锁');
+    }
 
     await _probeVendorChannels(services);
 
@@ -580,6 +692,8 @@ class RtBleMouse {
       characteristics: infos,
       reportCharacteristicUuid: reportChar?.uuid.str.toLowerCase() ?? '-',
       reportMapCharacteristicUuid: reportMapChar?.uuid.str.toLowerCase(),
+      bootReportCharacteristicUuid: bootReportChar?.uuid.str.toLowerCase(),
+      protocolModeCharacteristicUuid: protocolModeChar?.uuid.str.toLowerCase(),
       controlPointCharacteristicUuid: controlPointChar?.uuid.str.toLowerCase(),
       reportMapBytes: mapBytes,
       layout: layout,

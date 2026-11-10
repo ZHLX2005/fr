@@ -197,9 +197,9 @@ class _RtBleMousePageState extends State<RtBleMousePage> {
                 '${_status.layoutLabel.isEmpty ? '' : ' · ${_status.layoutLabel}'}',
                 style: const TextStyle(fontSize: 12),
               ),
-            if (_ctl.mouse.pollMode)
+            if (_status.transportLabel.isNotEmpty)
               Text(
-                '传输：read 轮询（通知订阅被 Android 拒绝后的降级通路）',
+                '传输：${_status.transportLabel}',
                 style: TextStyle(fontSize: 12, color: cs.tertiary),
               ),
           ],

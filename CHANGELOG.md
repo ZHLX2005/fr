@@ -11,11 +11,12 @@
 
 ### 远程输入（remotetype）
 
-- **fix** 蓝牙鼠标连不上（**Android 平台级封锁，不是手机或鼠标的问题**）：Android 禁止第三方 App **订阅** HID 服务（0x1812）下的输入报告通知 —— 那需要 `signature|privileged` 的 `BLUETOOTH_PRIVILEGED`，普通 App 拿不到，`adb shell pm grant` 也授不了。同一次连接里非 HID 的特征（如电池服务 0x180F）订阅却是允许的，封锁范围精确指向 HID 输入报告。
-  - **降级通路**：订阅被拒后自动改用 **read 轮询**把同一份报告拉回来（read 走普通 GATT 读，只需 `BLUETOOTH_CONNECT`），并对相同报文去重，避免位移被重复累加。
-  - **修正输入报告特征的选择**：0x1812 下 0x2A4D 会出现多次（输入 / 输出 / 特征报告），此前按「第一个带 notify 的」挑，可能挑到输出报告；现读 **Report Reference 描述符（0x2908）** 按 reportType=Input 精确挑选，并与 Report Map 的 reportId 交叉校验。
-  - Report Map 读不到时不再卡住：HOGP 分支同样降级到「样本反推布局」（此前只有 ISSC 分支会）。
-  - 诊断区新增**连接日志**与**厂商私有特征探测**（fff0 一类：若厂商把运动数据挂在非 HID 服务上，那条路不受封锁）。
+- **fix** 蓝牙鼠标连不上（**Android 平台级封锁，不是手机或鼠标的问题**）：Android 把 HID 服务（0x1812）下的 **2A4A / 2A4B / 2A4C / 2A4D** 列进 AOSP `GattService.HID_UUIDS`，对这几个 UUID 做 **read / write / readDescriptor / writeDescriptor / registerForNotification** 一律要求 `signature|privileged` 的 `BLUETOOTH_PRIVILEGED` —— 普通 App 拿不到，`adb shell pm grant` 也授不了。同一次连接里非 HID 特征（如电池服务 0x180F）读写订阅都正常，封锁范围精确指向这四个 UUID。
+  - **正解：走 HID boot 协议**。`0x2A4E`（Protocol Mode）与 `0x2A33`（Boot Mouse Input Report）**不在受限清单里** —— 所以「写 2A4E=0 让鼠标切到 boot 协议 → 订阅 0x2A33」全程合规，且是**通知全速率**（轮询会丢中间帧）。
+  - Boot 报告布局由规范写死为 4 字节 `[buttons, x(int8), y(int8), wheel(int8)]`，**不需要 Report Map**（本来也读不了）。
+  - 降级链：boot 通知 → boot read 轮询 → 0x2A4D 通知 → 0x2A4D read 轮询 → 厂商私有特征探测（fff0 一类：厂商若把运动数据挂在非 HID 服务上，那条路也不受封锁）。
+  - 修正输入报告特征的选择：0x1812 下 0x2A4D 会出现多次（输入 / 输出 / 特征报告），此前按「第一个带 notify 的」挑，可能挑到输出报告；现读 **Report Reference 描述符（0x2908）** 按 reportType=Input 精确挑，并与 Report Map 的 reportId 交叉校验。
+  - 诊断区新增**连接日志**与**厂商私有特征探测**。
 
 ## 2026-11-10
 
