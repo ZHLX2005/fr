@@ -28,6 +28,7 @@ void main() {
       const noIconSlug = {
         'session-host', // 后增的会话托管 demo，2026-10-13 时未列入图标集
         'ai-gallery', // 后增的 AI 图库 demo（2026-10-28 合入上游），未列入图标集
+        'mn-ws', // 后增的 HTTP⇄WS 桥 demo，51 张图标集里没有对应的桥/websocket 图标
       };
       final mainSlugs = <String>{};
       for (final entry in demoRegistry.getAll()) {

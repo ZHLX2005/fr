@@ -52,6 +52,7 @@ import 'demos/draughts_lua_demo.dart';
 import 'demos/xiangqi_lua_demo.dart';
 import 'demos/sudoku_lua/sudoku_demo.dart' show registerSudokuLuaDemo;
 import 'demos/remotetype_demo.dart' show registerRemoteTypeDemo;
+import 'demos/mn_ws_demo.dart' show registerMnWsDemo;
 import 'demos/auth_login_demo.dart';
 import 'demos/ai_gallery_demo.dart';
 import 'demos/notification_pull/notification_pull_demo.dart';
@@ -109,6 +110,7 @@ void registerAllDemos() {
   registerXiangqiLuaDemo();
   registerSudokuLuaDemo();
   registerRemoteTypeDemo();
+  registerMnWsDemo();
   registerAiGalleryDemo();
   registerNotificationPullDemo();
 }
