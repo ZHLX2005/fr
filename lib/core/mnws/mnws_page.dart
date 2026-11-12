@@ -14,7 +14,7 @@ import 'nxkv_models.dart';
 /// mn-ws 的 lab demo 页面。
 ///
 /// 三块：
-///   ① **连接** —— 统一登录态 → mn-ws 设备令牌 → 拉目录（服务端支持哪些端口、应用名是什么）
+///   ① **连接** —— 统一登录态 → mn-ws 业务令牌 → 拉目录（服务端支持哪些端口、应用名是什么）
 ///   ② **仓库** —— 经桥访问 nx-kv 的仓库管理（当前只实现这一块）
 ///   ③ **请求** —— 内置请求台：任意方法/路径/头/体，发出去看响应
 ///
@@ -111,7 +111,7 @@ class _MnWsPageState extends ConsumerState<MnWsPage>
     }
   }
 
-  /// 显式重新授权（换一枚设备令牌）。
+  /// 显式重新授权（换一枚业务令牌）。
   Future<void> _reauthorize() async {
     setState(() {
       _authorizing = true;
@@ -515,7 +515,7 @@ class _MnWsPageState extends ConsumerState<MnWsPage>
                   const SizedBox(height: 4),
                   Text(
                     _selectedApp == _repoApp
-                        ? '请求头 X-Nx-App: $_repoApp —— 由 server 半转到本机 7877'
+                        ? '请求头 X-Mn-Ws-App: $_repoApp —— 由 server 半转到本机 7877'
                         : '当前选中的应用不是 $_repoApp，先到「连接」页选它',
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
@@ -683,7 +683,7 @@ class _MnWsPageState extends ConsumerState<MnWsPage>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '走 X-Nx-App: ${_selectedApp ?? '（未选）'} —— '
+                    '走 X-Mn-Ws-App: ${_selectedApp ?? '（未选）'} —— '
                     'server 半据此决定转到本机哪个端口',
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),

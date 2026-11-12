@@ -15,7 +15,7 @@ import 'mnws_models.dart';
 ///
 /// ── 四类调用 ──────────────────────────────────────────────────────────────
 ///   ① authConfig   问 server 半「你连的是哪个认证中心、用哪个 client 登录」
-///   ② verify       拿认证中心的 access_token 换一枚 mn-ws 设备令牌
+///   ② exchangeCode 授权码 → **mn-ws 自己**的令牌（换码在服务端做）
 ///   ③ catalog      拉元信息目录（服务端支持哪些端口、应用名是什么）
 ///   ④ request      任意路径请求（自动带上门禁头与应用标识头）
 class MnWsEndpoint {
@@ -49,86 +49,60 @@ class MnWsEndpoint {
     return MnWsAuthConfig.fromJson(json);
   }
 
-  // ── ② 用认证中心的 access_token 换 mn-ws 设备令牌 ────────────────────────
+  // ── ② 授权码 → mn-ws 自己的令牌（业务令牌端点）─────────────────────────
 
-  /// 用授权码 + verifier 换认证中心的 **access_token**。
+  /// 用授权码 + PKCE verifier 换**本服务**的令牌。
   ///
-  /// ── 为什么这一步在客户端而不在服务端 ───────────────────────────────────
-  /// mn-ws 的 `/auth/verify` 收的是**认证中心的 access_token**（不是授权码）：
-  /// 它自己拿这枚令牌去问认证中心「这是谁」（userinfo），再签一枚自己的
-  /// 设备令牌。所以换码这一步发生在这个 App 里。
-  /// mn-rt 恰好相反 —— 它的服务端收 code，换码在服务端做。两边不能混。
+  /// ── 为什么换码在服务端，不在客户端 ───────────────────────────────────
+  /// mn-ws 的服务端提供了 `/auth/oidc/callback`：它拿 **client 半的身份**
+  /// （`mn-ws-client`）去认证中心换码，再签一枚**mn-ws 自己**的令牌回来。
+  /// 认证中心那张 access_token / refresh_token **一次都不出服务端** ——
+  /// 那两枚凭据指向的是整个平台的身份，一旦流经手机，截获即等于账号接管。
+  ///
+  /// 这与 mn-rt 是同一套形状：「统一登录的登录态 → 铸码 → 业务服务自己的
+  /// 令牌端点 → 业务服务的令牌」。业务令牌天然归属业务方，客户端只认业务方。
   ///
   /// public client 没有 client_secret，PKCE 就是全部保护：verifier
   /// 只存在于本 App 内存里，从没经过浏览器。
-  Future<String> exchangeIdpToken({
+  Future<MnWsGrant> exchangeCode({
     required String code,
     required String codeVerifier,
     required String redirectUri,
-    required String clientId,
-    required String tokenEndpoint,
+    String deviceName = '',
   }) async {
     final res = await _send(() => _client
         .post(
-          Uri.parse(tokenEndpoint),
+          Uri.parse('$_base${MnWsConfig.callbackPath}'),
           headers: const {
             'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          // 用 `.query` 而不是 `.toString()`：后者会带上一个前导 "?"，
-          // 请求体就成了 "?grant_type=..." —— 认证中心解不出参数，
-          // 症状是「换 token 失败」但看不出是哪一步坏了。
-          body: Uri(queryParameters: {
-            'grant_type': 'authorization_code',
-            'code': code,
-            'client_id': clientId,
-            'redirect_uri': redirectUri,
-            'code_verifier': codeVerifier,
-          }).query,
-        )
-        .timeout(MnWsConfig.tokenTimeout));
-    final json = _asJson(res);
-    final token = json?['access_token'];
-    if (res.statusCode >= 400 || token is! String || token.isEmpty) {
-      throw MnWsException(
-        MnWsErrorKind.rejected,
-        '换 access_token 失败：${(json?['error'] ?? 'HTTP ${res.statusCode}')}',
-        status: res.statusCode,
-      );
-    }
-    return token;
-  }
-
-  /// 拿 access_token 去 server 半换设备令牌。
-  ///
-  /// 注意这里传的是**认证中心的 access_token**（Bearer），不是授权码 ——
-  /// mn-ws 的 `/auth/verify` 只认令牌：它自己用这枚令牌去问认证中心
-  /// 「这是谁」（userinfo），再签一枚自己的设备令牌给本机。
-  Future<MnWsGrant> verify({
-    required String accessToken,
-    required String clientId,
-    required String deviceName,
-  }) async {
-    final res = await _send(() => _client
-        .post(
-          Uri.parse('$_base/auth/verify'),
-          headers: {
-            'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer $accessToken',
           },
-          body: jsonEncode({'clientId': clientId, 'deviceName': deviceName}),
+          body: jsonEncode({
+            'code': code,
+            'codeVerifier': codeVerifier,
+            'redirectUri': redirectUri,
+            // 手机端不登记成「一台桥」：不带 clientId，服务端因此签一枚
+            // 不绑定设备的用户令牌 —— 它代表身份，不代表某台机器。
+            if (deviceName.isNotEmpty) 'deviceName': deviceName,
+          }),
         )
         .timeout(MnWsConfig.httpTimeout));
     final json = _asJson(res);
     if (res.statusCode >= 400 || json == null || json['ok'] != true) {
       throw MnWsException(
         MnWsErrorKind.rejected,
-        '换设备令牌失败：${(json?['error'] ?? 'HTTP ${res.statusCode}')}',
+        '换业务令牌失败：${(json?['error'] ?? 'HTTP ${res.statusCode}')}',
         status: res.statusCode,
       );
     }
-    return MnWsGrant.fromJson(json);
+    final grant = MnWsGrant.fromJson(json);
+    if (grant.token.isEmpty) {
+      throw const MnWsException(
+        MnWsErrorKind.rejected,
+        '服务端未返回可用凭据',
+      );
+    }
+    return grant;
   }
 
   // ── ③ 元信息目录 ───────────────────────────────────────────────────────
@@ -170,7 +144,7 @@ class MnWsEndpoint {
 
   /// 经桥发一个请求。
   ///
-  /// [app] 非空时带 `X-Nx-App` 头 —— server 半据此决定「这个请求该去哪个
+  /// [app] 非空时带 `X-Mn-Ws-App` 头 —— server 半据此决定「这个请求该去哪个
   /// 本地端口」。**不带这个头且路径里也没有应用前缀 → 400 app_required**。
   ///
   /// [path] 是**应用内部**的路径（如 `/api/repos`）。走应用前缀形式时，

@@ -6,22 +6,23 @@ import '../mnws/mnws_endpoint.dart';
 import '../mnws/mnws_grant_store.dart';
 import '../mnws/mnws_models.dart';
 
-/// mn-ws 的编排：统一登录态 → 静默换来 mn-ws 设备令牌 → 拉目录 → 发请求。
+/// mn-ws 的编排：统一登录态 → 静默换来 mn-ws 业务令牌 → 拉目录 → 发请求。
 ///
 /// ── 与 mn-rt 的 RemoteTypeService 同一套模式 ───────────────────────────────
 /// 用户在 App 里登录一次统一登录平台，之后每个接入的服务都在背后静默拿凭据：
 ///   ① 问目标服务「你连的是哪个认证中心、用哪个 client、回调地址是什么」
 ///   ② 用已有的登录态在认证中心为那个 client 铸一枚授权码（PKCE 由本 App 生成并保管）
-///   ③ 换出目标服务自己认的凭据
+///   ③ 把授权码交给**目标服务自己的令牌端点**，换出**目标服务自己**的令牌
 /// 没有一步需要用户操作，也没有一处需要人复制粘贴。
 ///
-/// ── 与 mn-rt 唯一的一处结构差异 ───────────────────────────────────────────
-/// 第 ③ 步的位置不同：
-///   · mn-rt 的服务端收**授权码**，换码在服务端做 → fr 只把 code 递过去
-///   · mn-ws 的服务端收**认证中心的 access_token**，换码在客户端做
-///     （服务端拿它去问认证中心「这是谁」，再签一枚自己的设备令牌）
-/// 所以 mn-ws 这条链路上，App 自己会短暂持有一次 access_token ——
-/// 它 10 分钟就过期、换到设备令牌即丢弃，**不落盘**。
+/// ── 第 ③ 步为什么必须由目标服务自己做 ────────────────────────────────────
+/// 认证中心签出的 access_token / refresh_token 指向的是**整个平台的身份**。
+/// 它们一旦流经手机，截获即等于账号接管。所以目标服务拿**自己**的 client_id
+/// 去认证中心换码，换出来的令牌归属目标服务，认证中心那张票一次都不出服务端。
+///
+/// 这与 mn-rt 完全同构：那边是「铸码 → mn-rt 的 /auth/oidc/callback → mn-rt
+/// 的令牌」，这边是「铸码 → mn-ws 的 /auth/oidc/callback → mn-ws 的令牌」。
+/// 统一登录的**登录态**是长期凭据，业务令牌失效时用它静默重铸，用户无感。
 ///
 /// ── 为什么这里要单飞（single-flight）──────────────────────────────────────
 /// 授权码一次性：并发跑两次 ensureGrant 会有两次铸码，其中一次必然在 ③ 失败，
@@ -147,22 +148,12 @@ class MnWsService {
       rethrow;
     }
 
-    // ② 换认证中心的 access_token（mn-ws 的服务端收的是它，不是码）
-    final accessToken = await _endpoint.exchangeIdpToken(
+    // ② 把授权码交给 mn-ws 自己的令牌端点，换一枚 mn-ws 的令牌。
+    //    换码在服务端做 —— 认证中心的 access_token / refresh_token 不出服务端。
+    final grant = await _endpoint.exchangeCode(
       code: issued.code,
       codeVerifier: pkce.codeVerifier,
       redirectUri: MnWsConfig.redirectUri,
-      clientId: cfg.loginClientId,
-      tokenEndpoint: cfg.tokenEndpoint.isNotEmpty
-          ? cfg.tokenEndpoint
-          : '${cfg.issuer}${MnWsConfig.tokenPath}',
-    );
-
-    // ③ 换 mn-ws 自己的设备令牌
-    final grant = await _endpoint.verify(
-      accessToken: accessToken,
-      clientId: MnWsConfig.deviceId,
-      deviceName: MnWsConfig.deviceName,
     );
     await _store.save(grant);
     return grant;

@@ -7,6 +7,8 @@ import '../../../api/authhub/authhub_exception.dart';
 import '../../../api/providers/api_providers.dart';
 import '../../../api/remotetype/remotetype_models.dart';
 import '../../../api/user/user_auth_service.dart';
+import '../../../core/mnws/mnws_models.dart';
+import '../../../core/mnws/mnws_providers.dart';
 import '../../../services/auth/auth_providers.dart';
 import '../../../services/auth/unified_auth_service.dart';
 import 'const_auth_login.dart';
@@ -35,6 +37,9 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
   /// （进「远程输入」页才铸），缺它不代表登录失败，只代表还没用到那个服务。
   RtGrant? _rtGrant;
 
+  /// HTTP 桥（mn-ws）的业务令牌。同 mn-rt：懒式获取，缺它不是异常。
+  MnWsGrant? _mnWsGrant;
+
   bool _busy = false;
   String? _error;
 
@@ -60,10 +65,12 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
     final state = await _svc.restore();
     // 只读本地磁盘（SharedPreferences），不发任何网络请求，失败就当没拿到
     final rt = await ref.read(remoteTypeGrantStoreProvider).read();
+    final mnWs = await ref.read(mnWsGrantStoreProvider).read();
     if (!mounted) return;
     setState(() {
       _state = state;
       _rtGrant = rt;
+      _mnWsGrant = mnWs;
       _busy = false;
     });
   }
@@ -125,10 +132,13 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
     // 远程输入令牌也是这次登录的产物，退出时一起清：
     // 换账号登录后留着一枚旧账号的令牌，列表会串到别人（旧自己）的电脑。
     await ref.read(remoteTypeGrantStoreProvider).clear();
+    // mn-ws 的业务令牌同理：它也是用这次登录态换来的，留着就还是旧账号的身份。
+    await ref.read(mnWsGrantStoreProvider).clear();
     if (!mounted) return;
     setState(() {
       _state = null;
       _rtGrant = null;
+      _mnWsGrant = null;
       _busy = false;
       _error = null;
     });
@@ -146,7 +156,7 @@ class _UnifiedLoginPanelState extends ConsumerState<UnifiedLoginPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (signedIn)
-            _CredentialCard(state: s, rtGrant: _rtGrant)
+            _CredentialCard(state: s, rtGrant: _rtGrant, mnWsGrant: _mnWsGrant)
           else
             _LoginForm(
               username: _username,
@@ -199,7 +209,10 @@ class _CredentialCard extends StatelessWidget {
   /// 远程输入桥（mn-rt）的凭据；null = 还没获得（懒式获取，不算异常）。
   final RtGrant? rtGrant;
 
-  const _CredentialCard({required this.state, this.rtGrant});
+  /// HTTP 桥（mn-ws）的业务令牌；null = 还没获得（同样是懒式获取）。
+  final MnWsGrant? mnWsGrant;
+
+  const _CredentialCard({required this.state, this.rtGrant, this.mnWsGrant});
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +245,7 @@ class _CredentialCard extends StatelessWidget {
                   : '业务接口暂不可用，可点「重试换令牌」',
             ),
             ..._remoteTypeRow(context),
+            ..._mnWsRow(context),
             if (s.idp != null) ...[
               const Divider(height: 24),
               _kv(context, '认证中心', AuthHubConfig.issuer),
@@ -293,6 +307,35 @@ class _CredentialCard extends StatelessWidget {
         hint: expired
             ? '进入「远程输入」页时会自动重取'
             : '用于「远程输入」连接我的电脑；失效时会自动用登录态重铸',
+      ),
+    ];
+  }
+
+  /// HTTP 桥令牌那一行。与 mn-rt 同款：懒式获取，「未获得」是正常态，
+  /// 提示语要说清去哪一步会拿到，别让人以为出了故障。
+  List<Widget> _mnWsRow(BuildContext context) {
+    final g = mnWsGrant;
+    if (g == null) {
+      return [
+        _row(
+          context,
+          label: 'HTTP 桥令牌（mn-ws）',
+          value: '未获得',
+          ok: false,
+          hint: '进入「mn-ws」页时会用登录态自动获取',
+        ),
+      ];
+    }
+    final expired = g.isExpired;
+    return [
+      _row(
+        context,
+        label: 'HTTP 桥令牌（mn-ws）',
+        value: expired ? '已过期' : '已获得${_expirySuffix(g.tokenExpiresAt ?? 0)}',
+        ok: !expired,
+        hint: expired
+            ? '进入「mn-ws」页时会自动重取'
+            : '用于经桥调本机服务；失效时会自动用登录态重铸',
       ),
     ];
   }

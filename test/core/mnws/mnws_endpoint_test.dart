@@ -10,8 +10,13 @@ import 'package:xiaodouzi_fr/core/mnws/mnws.dart';
 /// ── 为什么每条都断言"请求头" ──────────────────────────────────────────────
 /// mn-ws 有两层凭据，混淆的后果都是"看起来能连、实际上 401"：
 ///   · L1 通道层：X-Mn-Ws-Token（mn-ws 自己的领域令牌）
-///   · L3 应用层：Authorization（被代理的 nx 服务自己的会话）
+///   · L3 应用层：Authorization（被代理的服务自己的会话）
 /// 所以「哪个头带在哪、什么时候带」必须逐条钉住。
+///
+/// ── 另一条钉死的线：认证中心的凭据不流经手机 ────────────────────────────
+/// 换码在 mn-ws 服务端做（服务端拿 client 半的身份去认证中心换），
+/// 手机只把**授权码**交过去。所以请求里不该出现 Bearer，
+/// 更不该出现 access_token / refresh_token —— 那两张票指向整个平台的身份。
 void main() {
   group('mn-ws 端点', () {
     test('catalog 用 X-Mn-Ws-Token 头带凭据（不用 Authorization）', () async {
@@ -53,7 +58,7 @@ void main() {
       expect(apps.first.port, 7877);
     });
 
-    test('request 带 X-Nx-App 头（应用标识）', () async {
+    test('request 带 X-Mn-Ws-App 头（应用标识）', () async {
       String? appHeader;
       String? gate;
       String? method;
@@ -62,7 +67,7 @@ void main() {
       final client = MockClient((req) async {
         method = req.method;
         path = req.url.path;
-        appHeader = req.headers['X-Nx-App'];
+        appHeader = req.headers['X-Mn-Ws-App'];
         gate = req.headers['X-Mn-Ws-Token'];
         return http.Response('{"ok":true,"data":[]}', 200);
       });
@@ -89,19 +94,23 @@ void main() {
       expect(res.json, isA<Map<String, dynamic>>());
     });
 
-    test('verify 用 Bearer 带认证中心的 access_token', () async {
+    test('exchangeCode 把授权码交给 mn-ws 自己的端点换业务令牌', () async {
       String? auth;
+      String? contentType;
+      String? path;
       String? body;
 
       final client = MockClient((req) async {
         auth = req.headers['Authorization'];
+        contentType = req.headers['Content-Type'];
+        path = req.url.path;
         body = req.body;
         return http.Response(
           jsonEncode({
             'ok': true,
             'userId': '5',
             'nickname': '管理员',
-            'token': 'mn-ws-device-token',
+            'token': 'mn-ws-business-token',
             'tokenExpiresAt': 99999999999999,
           }),
           200,
@@ -115,28 +124,39 @@ void main() {
         grantReader: () async => null,
       );
 
-      final grant = await endpoint.verify(
-        accessToken: 'idp-access-token',
-        clientId: 'fr-mn-ws',
-        deviceName: 'FR',
+      final grant = await endpoint.exchangeCode(
+        code: 'the-code',
+        codeVerifier: 'the-verifier',
+        redirectUri: 'http://127.0.0.1:39471/callback',
       );
 
-      expect(auth, 'Bearer idp-access-token');
-      expect(jsonDecode(body!)['clientId'], 'fr-mn-ws');
-      expect(grant.token, 'mn-ws-device-token');
+      expect(path, '/auth/oidc/callback');
+      expect(contentType, contains('application/json'));
+      final sent = jsonDecode(body!) as Map<String, dynamic>;
+      expect(sent['code'], 'the-code');
+      expect(sent['codeVerifier'], 'the-verifier');
+      expect(sent['redirectUri'], 'http://127.0.0.1:39471/callback');
+
+      // 关键隐私断言：认证中心的令牌**不流经手机**。
+      // 换码在 mn-ws 服务端做，所以这里既没有 Bearer，也不该有 access_token。
+      expect(auth, isNull, reason: '认证中心的凭据不该出现在手机的请求里');
+      expect(body, isNot(contains('access_token')));
+      expect(body, isNot(contains('refresh_token')));
+
+      expect(grant.token, 'mn-ws-business-token');
       expect(grant.userId, '5');
       expect(grant.isExpired, isFalse);
     });
 
-    test('exchangeIdpToken 用 form 编码换 access_token', () async {
-      String? contentType;
+    test('exchangeCode 不带 clientId —— 手机端不登记成一台桥', () async {
       String? body;
-
       final client = MockClient((req) async {
-        contentType = req.headers['Content-Type'];
         body = req.body;
-        // ignore: avoid_print
-        return http.Response(jsonEncode({'access_token': 'at-1'}), 200);
+        return http.Response(
+          jsonEncode({'ok': true, 'userId': '5', 'token': 't'}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
       });
 
       final endpoint = MnWsEndpoint(
@@ -145,22 +165,14 @@ void main() {
         grantReader: () async => null,
       );
 
-      final token = await endpoint.exchangeIdpToken(
-        code: 'the-code',
-        codeVerifier: 'the-verifier',
+      await endpoint.exchangeCode(
+        code: 'c',
+        codeVerifier: 'v',
         redirectUri: 'http://127.0.0.1:39471/callback',
-        clientId: 'mn-ws-client',
-        tokenEndpoint: 'http://idp.test/oauth2/token',
       );
 
-      expect(token, 'at-1');
-      expect(contentType, contains('application/x-www-form-urlencoded'));
-      final form = Uri.splitQueryString(body!);
-      expect(form['grant_type'], 'authorization_code');
-      expect(form['code'], 'the-code');
-      expect(form['client_id'], 'mn-ws-client');
-      expect(form['code_verifier'], 'the-verifier');
-      expect(form['redirect_uri'], 'http://127.0.0.1:39471/callback');
+      final sent = jsonDecode(body!) as Map<String, dynamic>;
+      expect(sent.containsKey('clientId'), isFalse);
     });
 
     test('服务端拒了 → 归类成 rejected 而不是 unreachable', () async {

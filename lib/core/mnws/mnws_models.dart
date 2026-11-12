@@ -4,9 +4,9 @@ import 'dart:convert';
 ///
 /// ── 为什么这里自己解析而不用生成的 api client ────────────────────────────────
 /// mn-ws 有两类响应，形状完全不同：
-///   · **它自己的端点**（/auth/oidc/config、/auth/verify、/api/catalog）：
+///   · **它自己的端点**（/auth/oidc/config、/auth/oidc/callback、/api/catalog）：
 ///     字段平铺在顶层（`{ok:true, apps:[...]}`）
-///   · **被代理的 nx 服务**（/api/repos 等）：`{ok:true, data:...}` 信封
+///   · **被代理的服务**（如 nx-kv 的 /api/repos）：`{ok:true, data:...}` 信封
 /// 混在一套生成代码里会让「哪一层信封」这件事说不清，所以这里手写解析，
 /// 并且**两种形状都如实呈现**（请求 UI 显示原始 body，不替用户猜结构）。
 
@@ -81,9 +81,11 @@ class MnWsAuthConfig {
   }
 }
 
-/// mn-ws 设备令牌（server 半自签的 HS256 JWT）。
+/// mn-ws 的业务令牌（server 半自签的 HS256 JWT）。
 ///
 /// 它是 mn-ws 自己的领域凭据：90 天有效、可被服务端按 jti 单独吊销。
+/// 由 `POST /auth/oidc/callback` 换得 —— 换码在服务端做，认证中心的
+/// access_token / refresh_token 不出服务端。
 class MnWsGrant {
   final String token;
   final String userId;
@@ -138,7 +140,7 @@ class MnWsGrant {
 /// 这就是「服务端支持哪些端口、应用名是什么」的答案：
 /// server 半把它收到的所有桥的 app 表汇总成一份目录，远端客户端拉它就知道能打谁。
 class MnWsApp {
-  /// 路由标识：`X-Nx-App` 的值 / 路径前缀
+  /// 路由标识：`X-Mn-Ws-App` 的值 / 路径前缀
   final String app;
   /// 显示名（动态注册的应用由用户起，server 半不替它猜）
   final String title;
