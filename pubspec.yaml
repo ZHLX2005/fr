@@ -157,8 +157,10 @@ dependencies:
 
   # nx-kv 契约客户端 —— **生成物**，来自 nx-kv 仓库的 contract/dart（零依赖）。
   # 不手写接口：服务端自述出参类型，生成为强类型 Dart 方法，指纹见 contractHash。
-  # 锁 ref（40 位 sha，当前 = nx-kv v0.52.0）：nx-kv 改了 output 必须点名 fr bump 这个 ref；
-  # 兜底靠运行期 GET /api/contract 对账（见 lib/api/nxkv/nxkv_client.dart）。
+  # 锁 ref（40 位 sha，当前 = nx-kv v0.52.0）：**不用手改** ——
+  # .github/workflows/sync-nxkv-contract.yml 每夜解析 nx-kv 最新 tag，不同就改 ref +
+  # 更新 lock 并开 PR（scripts/nxkv-sync.mjs）。兜底靠运行期 GET /api/contract 对账
+  # （见 lib/api/nxkv/nxkv_client.dart）。
   nx_kv_client:
     git:
       url: https://github.com/On-DevPlan/nx-kv.git
