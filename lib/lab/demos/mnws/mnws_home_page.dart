@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../api/mnws/mnws.dart';
 import '../../../core/ui/global/button/main.dart';
 import '../../../core/ui/global/nav/main.dart';
 import 'mnws_app_views.dart';
+import 'mnws_blocks.dart';
 import 'mnws_request_page.dart';
 import 'mnws_settings_page.dart';
 
@@ -155,7 +156,7 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
 
   Widget _statusCard() {
     if (_loading) {
-      return const Card(
+      return const MnWsBlock(
         child: Padding(
           padding: EdgeInsets.all(20),
           child: Center(child: CircularProgressIndicator()),
@@ -164,7 +165,7 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
     }
     final ready = _readiness;
     if (ready != null && !ready.available) {
-      return Card(
+      return MnWsBlock(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -185,7 +186,7 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
       );
     }
     if (_error != null) {
-      return Card(
+      return MnWsBlock(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -207,7 +208,7 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
     }
     final pcCount = _catalog.pcs.length;
     final appCount = _catalog.count;
-    return Card(
+    return MnWsBlock(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -235,7 +236,7 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
   List<Widget> _pcCards() {
     if (_catalog.pcs.isEmpty) {
       return [
-        Card(
+        MnWsBlock(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
@@ -250,7 +251,7 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
       ];
     }
     return _catalog.pcs.map((pc) {
-      return Card(
+      return MnWsBlock(
         margin: const EdgeInsets.only(bottom: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,7 +300,10 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
                       if (!a.active)
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
-                          child: _tag('路由在别的 PC 上', _cs.error),
+                          child: MnWsTag(
+                            text: '路由在别的 PC 上',
+                            color: _cs.error,
+                          ),
                         ),
                     ],
                   ),
@@ -318,16 +322,4 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
       );
     }).toList();
   }
-
-  Widget _tag(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(fontSize: 10, color: color),
-        ),
-      );
 }

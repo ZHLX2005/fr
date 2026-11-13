@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../api/mnws/mnws.dart';
 import '../../../core/ui/global/button/main.dart';
 import '../../../core/ui/global/nav/main.dart';
+import 'mnws_blocks.dart';
 
 /// mn-ws 模块的**设置页**。
 ///
@@ -125,13 +126,13 @@ class _MnWsSettingsPageState extends ConsumerState<MnWsSettingsPage> {
           ]),
           const SizedBox(height: 12),
           if (_error != null)
-            Card(
+            MnWsBlock(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Text(_error!, style: TextStyle(color: _cs.error)),
               ),
             ),
-          Card(
+          MnWsBlock(
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -175,7 +176,7 @@ class _MnWsSettingsPageState extends ConsumerState<MnWsSettingsPage> {
   }
 
   Widget _section(String title, List<Widget> children) {
-    return Card(
+    return MnWsBlock(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

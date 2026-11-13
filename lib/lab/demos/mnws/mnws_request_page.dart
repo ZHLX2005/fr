@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +7,7 @@ import '../../../api/mnws/mnws.dart';
 import '../../../core/ui/global/button/main.dart';
 import '../../../core/ui/global/nav/main.dart';
 import 'mnws_app_views.dart';
+import 'mnws_blocks.dart';
 
 /// 通用**请求台**：任意方法 / 路径 / 头 / 体，发出去看响应。
 ///
@@ -111,7 +112,7 @@ class _MnWsRequestPageState extends ConsumerState<MnWsRequestPage> {
         padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
         children: [
           if (t != null)
-            Card(
+            MnWsBlock(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
@@ -132,7 +133,7 @@ class _MnWsRequestPageState extends ConsumerState<MnWsRequestPage> {
               ),
             ),
           if (t != null) const SizedBox(height: 12),
-          Card(
+          MnWsBlock(
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -196,7 +197,7 @@ class _MnWsRequestPageState extends ConsumerState<MnWsRequestPage> {
           ),
           const SizedBox(height: 12),
           if (_error != null)
-            Card(
+            MnWsBlock(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Text(_error!, style: TextStyle(color: _cs.error)),
@@ -209,7 +210,7 @@ class _MnWsRequestPageState extends ConsumerState<MnWsRequestPage> {
   }
 
   Widget _responseCard(MnWsResponse res) {
-    return Card(
+    return MnWsBlock(
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
