@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -125,6 +127,42 @@ class _NxNxPageState extends ConsumerState<NxNxPage> {
     );
   }
 
+  /// 看某个模板的说明与可选项（`GET /api/templates/:id`）。
+  Future<void> _showDetail(NxNxTemplate t) async {
+    final api = NxNxApi(pc: widget.target.bridgeId);
+    Map<String, dynamic>? detail;
+    String? err;
+    try {
+      detail = await api.describe(_svc, t.id);
+    } on MnWsException catch (e) {
+      err = e.message;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.name),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: err != null
+                ? Text(err, style: TextStyle(color: _cs.error))
+                : Text(
+                    const JsonEncoder.withIndent('  ').convert(detail),
+                    style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                  ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _templateCards(NxNxTemplateList list) {
     final cards = <Widget>[];
     if (list.errors.isNotEmpty) {
@@ -164,6 +202,9 @@ class _NxNxPageState extends ConsumerState<NxNxPage> {
                     t.description.isEmpty ? t.id : '${t.id} · ${t.description}',
                     style: const TextStyle(fontSize: 11),
                   ),
+                  trailing: const Icon(Icons.info_outline, size: 18),
+                  // 点开看这个模板的说明与可选项 —— 走的是另一个数据接口
+                  onTap: () => _showDetail(t),
                 ))
             .toList(),
       ),
