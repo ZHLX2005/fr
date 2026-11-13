@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxnx/nxnx_models.dart';
+import 'package:xiaodouzi_fr/lab/demos/mnws/mnws_app_views.dart';
 /// 钉住 mn-ws 端点的**请求路径、凭据来源与错误分类**。
 ///
 /// ── 为什么每条都断言"请求头" ──────────────────────────────────────────────
@@ -428,6 +429,17 @@ void main() {
       expect(b.templateErrors, hasLength(1));
       expect(b.templateErrors.first.id, 'bad');
       expect(b.templateErrors.first.message, contains('meta.json'));
+    });
+    test('应用识别表：认得的给专属整页，不认得的走通用请求台', () {
+      // 认得的 → 有页面
+      expect(appViewOf('nx-nx'), isNotNull);
+      expect(appViewOf('nx-nx')!.title, contains('nx-nx'));
+
+      // 不认得的 → 返回 null（界面据此走通用请求台，而不是假装认得）
+      expect(appViewOf('some-unknown-app'), isNull);
+
+      // 认得的也得真的登记了页面工厂
+      expect(kMnWsAppViews.every((v) => v.builder is Function), isTrue);
     });
   });
 }
