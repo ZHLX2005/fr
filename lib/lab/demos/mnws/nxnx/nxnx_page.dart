@@ -1,23 +1,30 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../api/mnws/mnws.dart';
 import '../../../../api/mnws/nxnx/nxnx_api.dart';
 import '../../../../api/mnws/nxnx/nxnx_models.dart';
-import '../../../../core/ui/global/button/main.dart';
 import '../../../../core/ui/global/nav/main.dart';
 import '../mnws_app_views.dart';
+import 'nxnx_create_view.dart';
+import 'nxnx_scripts_view.dart';
+import 'nxnx_templates_view.dart';
 
-/// nx-nx（项目生成器）的整页。
+/// nx-nx 的**原生面板**（在 fr 里）。
 ///
-/// 这个页面是「**只代理 API、界面原生**」的样板：
-/// 数据从桥那头过来，界面是 App 自己的 Widget —— 不用在手机上再开个
-/// WebView 去渲染 nx-nx 自己的前端。
+/// ## 与 nx-nx 自己的面板等价
 ///
-/// 选它做第一个是因为它最简单：一个列表接口（`GET /api/templates`）就能
-/// 把整条链（多 PC → 分组 → 应用识别 → 经桥取数 → 原生渲染）跑通。
+/// 三个视图对它的三个视图，一个不少：
+///
+///   | nx-nx 自己的面板 | 这里 |
+///   |---|---|
+///   | 新建项目 `create` | [NxNxCreateView] |
+///   | 模板 `templates` | [NxNxTemplatesView] |
+///   | 脚本 `scripts` | [NxNxScriptsView] |
+///
+/// 底下是同一套 API（21 条路由全在 [NxNxApi] 里），
+/// 区别只在于**界面是 App 自己的 Widget** —— 不在手机上再开个 WebView
+/// 去渲染对端的前端。
 class NxNxPage extends ConsumerStatefulWidget {
   final MnWsAppTarget target;
 
@@ -27,188 +34,103 @@ class NxNxPage extends ConsumerStatefulWidget {
   ConsumerState<NxNxPage> createState() => _NxNxPageState();
 }
 
-class _NxNxPageState extends ConsumerState<NxNxPage> {
-  NxNxTemplateList? _list;
-  bool _loading = true;
-  String? _error;
+class _NxNxPageState extends ConsumerState<NxNxPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 3, vsync: this);
 
-  MnWsService get _svc => ref.read(mnWsServiceProvider);
+  /// **命令表**（bootstrap 下发的）。
+  ///
+  /// 底下每个视图的「这个按钮的 CLI 等价是什么」都由它派生 ——
+  /// 不手写字符串，命令一改提示不会悄悄过期。
+  List<NxNxCommand> _commands = const [];
 
-  ColorScheme get _cs => Theme.of(context).colorScheme;
+  /// 连接信息：走的是哪台 PC 的哪个应用。
+  String get _where => '${widget.target.pcName} · ${widget.target.app}';
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadCommands();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _loadCommands() async {
     try {
-      // 目标 PC 带上：两台机器都跑 nx-nx 时，看的是你点的这一台
-      final api = NxNxApi(pc: widget.target.bridgeId);
-      final list = await api.templates(_svc);
+      final api = nxNxApiOf(widget.target);
+      final b = await api.bootstrap(ref.read(mnWsEndpointProvider));
       if (!mounted) return;
-      setState(() {
-        _list = list;
-        _loading = false;
-      });
-    } on MnWsException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.message;
-        _loading = false;
-      });
+      setState(() => _commands = b.commands);
+    } on MnWsException {
+      // 拉不到命令表不影响主流程 —— 只是底下少一行提示
     }
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomPad = QuickNavBottomBar.bodyBottomReserve(context);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('nx-nx 项目生成器'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(22),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '经 ${widget.target.pcName}（${widget.target.bridgeId}）· '
-                '应用 ${widget.target.app}',
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
-          children: [
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            if (_error != null)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('拉模板失败', style: TextStyle(color: _cs.error)),
-                      const SizedBox(height: 6),
-                      Text(_error!, style: const TextStyle(fontSize: 12)),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        style: EmphasisButton.borderEmphasis(
-                          context,
-                          color: _cs.primary,
-                        ),
-                        onPressed: () => _load(),
-                        child: const Text('重试'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            if (_list != null) ..._templateCards(_list!),
+        bottom: TabBar(
+          controller: _tabs,
+          labelColor: cs.primary,
+          unselectedLabelColor: cs.outline,
+          indicatorColor: cs.primary,
+          tabs: const [
+            Tab(text: '新建项目'),
+            Tab(text: '模板'),
+            Tab(text: '脚本'),
           ],
         ),
       ),
-    );
-  }
-
-  /// 看某个模板的说明与可选项（`GET /api/templates/:id`）。
-  Future<void> _showDetail(NxNxTemplate t) async {
-    final api = NxNxApi(pc: widget.target.bridgeId);
-    Map<String, dynamic>? detail;
-    String? err;
-    try {
-      detail = await api.describe(_svc, t.id);
-    } on MnWsException catch (e) {
-      err = e.message;
-    }
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(t.name),
-        content: SizedBox(
-          width: 420,
-          child: SingleChildScrollView(
-            child: err != null
-                ? Text(err, style: TextStyle(color: _cs.error))
-                : Text(
-                    const JsonEncoder.withIndent('  ').convert(detail),
-                    style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+      body: Column(
+        children: [
+          // 层次的第一层：这页连的是哪台机器
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: cs.outlineVariant)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.computer_outlined, size: 14, color: cs.outline),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '经 $_where  ·  ${widget.target.bridgeId}',
+                    style: TextStyle(fontSize: 11, color: cs.outline),
                   ),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('关闭'),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                NxNxCreateView(target: widget.target, commands: _commands),
+                NxNxTemplatesView(target: widget.target, commands: _commands),
+                NxNxScriptsView(target: widget.target, commands: _commands),
+              ],
+            ),
           ),
+          SizedBox(height: bottomPad),
         ],
       ),
     );
   }
-
-  List<Widget> _templateCards(NxNxTemplateList list) {
-    final cards = <Widget>[];
-    if (list.errors.isNotEmpty) {
-      cards.add(Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('有模板不合法', style: TextStyle(color: _cs.error)),
-              const SizedBox(height: 6),
-              ...list.errors.map(
-                (e) => Text('· $e', style: const TextStyle(fontSize: 11)),
-              ),
-            ],
-          ),
-        ),
-      ));
-      cards.add(const SizedBox(height: 12));
-    }
-    if (list.templates.isEmpty) {
-      cards.add(const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('这台机器上没有可用模板', style: TextStyle(fontSize: 12)),
-        ),
-      ));
-      return cards;
-    }
-    cards.add(Card(
-      child: Column(
-        children: list.templates
-            .map((t) => ListTile(
-                  dense: true,
-                  title: Text(t.name),
-                  subtitle: Text(
-                    t.description.isEmpty ? t.id : '${t.id} · ${t.description}',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  trailing: const Icon(Icons.info_outline, size: 18),
-                  // 点开看这个模板的说明与可选项 —— 走的是另一个数据接口
-                  onTap: () => _showDetail(t),
-                ))
-            .toList(),
-      ),
-    ));
-    return cards;
-  }
 }
+
+/// 视图共用的「取接口客户端」helper。
+///
+/// 目标 PC 的 bridgeId 一定要带上 —— 两台机器都跑 nx-nx 时，
+/// 不带就打到路由表当前指向的那台去了。
+NxNxApi nxNxApiOf(MnWsAppTarget target) => NxNxApi(pc: target.bridgeId);

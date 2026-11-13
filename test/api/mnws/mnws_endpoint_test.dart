@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxnx/nxnx_models.dart';
-
 /// 钉住 mn-ws 端点的**请求路径、凭据来源与错误分类**。
 ///
 /// ── 为什么每条都断言"请求头" ──────────────────────────────────────────────
@@ -389,23 +388,46 @@ void main() {
       expect(alive.isExpired, isFalse);
     });
 
-    test('nx-nx 模板：连同不合法模板一起解析', () {
-      final list = NxNxTemplateList.fromJson({
-        'templates': [
-          {'id': 't1', 'name': '单仓模板', 'description': 'GoFrame 单仓'},
+    test('nx-nx 模板：连同选项一起解析', () {
+      final list = NxNxTemplate.fromJson({
+        'id': 't1',
+        'name': '单仓模板',
+        'description': 'GoFrame 单仓',
+        'nextSteps': ['cd x'],
+        'options': [
+          {'name': 'name', 'type': 'string', 'label': '项目名', 'required': true},
+          {'name': 'lang', 'type': 'enum', 'label': '语言', 'required': false,
+           'values': ['ts', 'go']},
         ],
-        'errors': [
+      });
+      expect(list.id, 't1');
+      expect(list.name, '单仓模板');
+      expect(list.nextSteps, ['cd x']);
+      expect(list.options, hasLength(2));
+      expect(list.options.first.required, isTrue);
+      expect(list.options.first.label, '项目名');
+      expect(list.options.last.values, ['ts', 'go']);
+    });
+
+    test('nx-nx bootstrap：应用信息 + 模板 + 不合法模板', () {
+      final b = NxNxBootstrap.fromJson({
+        'app': {'name': 'nx-nx', 'title': 'nx-nx', 'version': '0.8.6'},
+        'storePath': 'C:/store.json',
+        'templatesDir': 'D:/templates',
+        'templates': [
+          {'id': 't1', 'name': '单仓模板'},
+        ],
+        'templateErrors': [
           {'id': 'bad', 'message': '缺少 meta.json'},
         ],
       });
-      expect(list.templates, hasLength(1));
-      expect(list.templates.first.id, 't1');
-      expect(list.templates.first.name, '单仓模板');
-      expect(list.templates.first.description, 'GoFrame 单仓');
+      expect(b.app.name, 'nx-nx');
+      expect(b.app.version, '0.8.6');
+      expect(b.templates, hasLength(1));
       // 不合法的模板也要说出来 —— 静默吞掉会让人以为「没有模板」
-      expect(list.errors, hasLength(1));
-      expect(list.errors.first, contains('bad'));
-      expect(list.errors.first, contains('缺少 meta.json'));
+      expect(b.templateErrors, hasLength(1));
+      expect(b.templateErrors.first.id, 'bad');
+      expect(b.templateErrors.first.message, contains('meta.json'));
     });
   });
 }

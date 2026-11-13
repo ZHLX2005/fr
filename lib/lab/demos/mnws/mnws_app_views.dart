@@ -60,7 +60,7 @@ const List<MnWsAppView> kMnWsAppViews = <MnWsAppView>[
   MnWsAppView(
     app: 'nx-nx',
     title: 'nx-nx 项目生成器',
-    description: '按模板生成项目：列模板、看说明、预览要生成的文件',
+    description: '按模板生成项目：新建项目 / 模板 / 脚本（原生界面）',
     builder: _nxNxBuilder,
   ),
 ];
