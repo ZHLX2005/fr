@@ -92,3 +92,6 @@ web_deploy/build-web/
 .gstack/
 .playwright-mcp
 temp/
+
+# 本机联调覆盖（nx-kv 契约包指本地工作副本）——机器相关，不入库
+pubspec_overrides.yaml

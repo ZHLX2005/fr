@@ -1040,6 +1040,15 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.5.0"
+  nx_kv_client:
+    dependency: "direct main"
+    description:
+      path: "contract/dart"
+      ref: "4800d6e088b1e221c244953aeb5f3cf635b3407f"
+      resolved-ref: "4800d6e088b1e221c244953aeb5f3cf635b3407f"
+      url: "https://github.com/On-DevPlan/nx-kv.git"
+    source: git
+    version: "0.51.0"
   objective_c:
     dependency: transitive
     description:

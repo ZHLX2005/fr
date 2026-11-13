@@ -155,6 +155,16 @@ dependencies:
   # 路径拼接（lib/services/lab_image_cache_service.dart 等运行时代码使用）
   path: ^1.9.1
 
+  # nx-kv 契约客户端 —— **生成物**，来自 nx-kv 仓库的 contract/dart（零依赖）。
+  # 不手写接口：服务端自述出参类型，生成为强类型 Dart 方法，指纹见 contractHash。
+  # 锁 ref（40 位 sha）：nx-kv 改了 output 必须点名 fr bump 这个 ref；
+  # 兜底靠运行期 GET /api/contract 对账（见 lib/api/nxkv/nxkv_client.dart）。
+  nx_kv_client:
+    git:
+      url: https://github.com/On-DevPlan/nx-kv.git
+      ref: 4800d6e088b1e221c244953aeb5f3cf635b3407f
+      path: contract/dart
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
