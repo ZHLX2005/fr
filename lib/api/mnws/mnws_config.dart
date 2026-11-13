@@ -16,6 +16,22 @@ class MnWsConfig {
   /// 与 mn-ws 自己的 `MN_WS_*` 配置逐字一致；换部署就改这里一处。
   static const String baseUrl = 'http://1.94.101.189:7777';
 
+  /// 认证中心地址。与 auth-hub 的 IDP_ISSUER 逐字一致。
+  ///
+  /// 刻意**不从 mn-ws 的 /auth/oidc/config 反推**：那个接口是给"没有认证中心
+  /// 概念的调用方"用的兜底，而这里已知认证中心是谁 —— 两处各写一份的坏处是
+  /// 改了一处忘了另一处，好处是断网时也不必先问一次服务器才知道该连哪。
+  static const String issuer = 'http://47.110.80.47:8082';
+
+  /// 本 App 在 mn-ws 侧的**设备标识**。
+  ///
+  /// 它决定「这台设备属于谁」：服务端把标识绑到用户，一个标识只能属一个用户。
+  /// 所以它必须**稳定** —— 每次启动都换一台「设备」，等于每次都换属主。
+  static const String deviceId = 'fr-mn-ws';
+
+  /// 设备显示名（server 侧的设备清单里显示）。
+  static const String deviceName = 'FR（小豆子）';
+
   /// mn-ws 自己的**业务令牌端点**：拿授权码换一枚 mn-ws 的令牌。
   ///
   /// 与 mn-rt 的同名端点同一形状 —— 换码在**服务端**做，认证中心的
@@ -47,6 +63,11 @@ class MnWsConfig {
 
   /// 应用标识的头名 —— 告诉 server 半「这个请求该去哪个本地端口」。
   static const String appHeader = 'X-Mn-Ws-App';
+
+  /// 目标 PC 的头名 —— 多台 PC 都跑同名应用时，用它指定打哪一台。
+  ///
+  /// 值是那台 PC 的 bridgeId（server 半的目录里能看到）。
+  static const String pcHeader = 'X-Mn-Ws-Pc';
 
   /// 超时。
   ///

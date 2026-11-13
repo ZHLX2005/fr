@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:xiaodouzi_fr/core/mnws/mnws.dart';
+import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxnx/nxnx_models.dart';
 
 /// 钉住 mn-ws 端点的**请求路径、凭据来源与错误分类**。
 ///
@@ -47,15 +48,117 @@ void main() {
         grantReader: () async => _grant('device-token'),
       );
 
-      final apps = await endpoint.catalog();
+      final cat = await endpoint.catalog();
 
       expect(requested, ['GET /api/catalog']);
       expect(gate, 'device-token');
       expect(auth, isNull, reason: 'Authorization 整个留给被代理的 nx 服务');
-      expect(apps, hasLength(1));
-      expect(apps.first.app, 'nx-kv');
-      expect(apps.first.title, 'KV 清单中枢');
-      expect(apps.first.port, 7877);
+      expect(cat.apps, hasLength(1));
+      expect(cat.apps.first.app, 'nx-kv');
+      expect(cat.apps.first.title, 'KV 清单中枢');
+      expect(cat.apps.first.port, 7877);
+    });
+
+    test('catalog 按 PC 分组：每台电脑一组，组里是它的应用', () async {
+      final client = MockClient((req) async => http.Response(
+            jsonEncode({
+              'ok': true,
+              'count': 3,
+              'pcCount': 2,
+              'apps': [
+                {
+                  'app': 'nx-kv',
+                  'title': 'KV 清单中枢',
+                  'port': 7877,
+                  'bridgeId': 'pc-a',
+                  'pcName': '办公室台式机',
+                  'pcNameMissing': true,
+                },
+                {
+                  'app': 'nx-kv',
+                  'title': 'KV 清单中枢',
+                  'port': 7877,
+                  'bridgeId': 'pc-b',
+                  'pcName': '家里笔记本',
+                },
+                {
+                  'app': 'other-api',
+                  'title': '另一个服务',
+                  'port': 9999,
+                  'bridgeId': 'pc-b',
+                  'pcName': '家里笔记本',
+                },
+              ],
+              'pcs': [
+                {
+                  'bridgeId': 'pc-a',
+                  'name': '办公室台式机',
+                  'userId': '5',
+                  'connectedAt': '2026-11-13T00:00:00.000Z',
+                  'apps': [
+                    {
+                      'app': 'nx-kv',
+                      'title': 'KV 清单中枢',
+                      'port': 7877,
+                      'base': 'http://127.0.0.1:7877',
+                      'bridgeId': 'pc-a',
+                      'active': false,
+                    },
+                  ],
+                },
+                {
+                  'bridgeId': 'pc-b',
+                  'name': '家里笔记本',
+                  'userId': '5',
+                  'connectedAt': '2026-11-13T00:00:01.000Z',
+                  'apps': [
+                    {
+                      'app': 'nx-kv',
+                      'title': 'KV 清单中枢',
+                      'port': 7877,
+                      'base': 'http://127.0.0.1:7877',
+                      'bridgeId': 'pc-b',
+                      'active': true,
+                    },
+                    {
+                      'app': 'other-api',
+                      'title': '另一个服务',
+                      'port': 9999,
+                      'base': 'http://127.0.0.1:9999',
+                      'bridgeId': 'pc-b',
+                      'active': true,
+                    },
+                  ],
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ));
+
+      final endpoint = MnWsEndpoint(
+        client: client,
+        baseUrl: 'http://mws.test',
+        grantReader: () async => _grant('device-token'),
+      );
+
+      final cat = await endpoint.catalog();
+
+      expect(cat.pcs, hasLength(2));
+      expect(cat.pcs.map((g) => g.name), ['办公室台式机', '家里笔记本']);
+
+      // 组里是这台电脑自己的应用
+      expect(cat.pcs.first.apps.map((a) => a.app), ['nx-kv']);
+      expect(cat.pcs.last.apps.map((a) => a.app), ['nx-kv', 'other-api']);
+
+      // 撞名的那个：路由归后来者，另一台要标出来
+      expect(cat.pcs.first.apps.first.active, isFalse);
+      expect(cat.pcs.last.apps.first.active, isTrue);
+
+      // 扁平列表里也带得上电脑名
+      expect(cat.apps, hasLength(3));
+      expect(cat.apps.where((a) => a.pcNameMissing), hasLength(1));
+      expect(cat.count, 3);
     });
 
     test('request 带 X-Mn-Ws-App 头（应用标识）', () async {
@@ -92,6 +195,34 @@ void main() {
       expect(gate, 'device-token');
       expect(res.status, 200);
       expect(res.json, isA<Map<String, dynamic>>());
+    });
+
+    test('request 带 X-Mn-Ws-Pc 头时打指定的那台 PC', () async {
+      String? pcHeader;
+      String? appHeader;
+
+      final client = MockClient((req) async {
+        pcHeader = req.headers['X-Mn-Ws-Pc'];
+        appHeader = req.headers['X-Mn-Ws-App'];
+        return http.Response('{"ok":true}', 200);
+      });
+
+      final endpoint = MnWsEndpoint(
+        client: client,
+        baseUrl: 'http://mws.test',
+        grantReader: () async => _grant('device-token'),
+      );
+
+      await endpoint.request(
+        method: 'GET',
+        path: '/api/templates',
+        app: 'nx-nx',
+        pc: 'pc-a',
+      );
+
+      // 两台 PC 都跑 nx-nx 时，必须说清打的是哪一台
+      expect(appHeader, 'nx-nx');
+      expect(pcHeader, 'pc-a');
     });
 
     test('exchangeCode 把授权码交给 mn-ws 自己的端点换业务令牌', () async {
@@ -258,21 +389,23 @@ void main() {
       expect(alive.isExpired, isFalse);
     });
 
-    test('nx-kv 仓库：连同所属看板一起解析', () {
-      final repo = NxKvRepo.fromJson({
-        'id': 'r_1',
-        'name': 'demo',
-        'path': '/tmp/demo',
-        'desc': '描述',
-        'boards': [
-          {'id': 'b1', 'name': '求职', 'desc': '', 'note': ''},
+    test('nx-nx 模板：连同不合法模板一起解析', () {
+      final list = NxNxTemplateList.fromJson({
+        'templates': [
+          {'id': 't1', 'name': '单仓模板', 'description': 'GoFrame 单仓'},
+        ],
+        'errors': [
+          {'id': 'bad', 'message': '缺少 meta.json'},
         ],
       });
-      expect(repo.id, 'r_1');
-      expect(repo.name, 'demo');
-      expect(repo.path, '/tmp/demo');
-      expect(repo.boards, hasLength(1));
-      expect(repo.boards.first.name, '求职');
+      expect(list.templates, hasLength(1));
+      expect(list.templates.first.id, 't1');
+      expect(list.templates.first.name, '单仓模板');
+      expect(list.templates.first.description, 'GoFrame 单仓');
+      // 不合法的模板也要说出来 —— 静默吞掉会让人以为「没有模板」
+      expect(list.errors, hasLength(1));
+      expect(list.errors.first, contains('bad'));
+      expect(list.errors.first, contains('缺少 meta.json'));
     });
   });
 }

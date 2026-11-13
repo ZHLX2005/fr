@@ -1,10 +1,10 @@
-import '../../api/authhub/authhub_exception.dart';
-import '../../api/authhub/authhub_pkce.dart';
-import '../../api/authhub/authhub_session_client.dart';
-import '../mnws/mnws_config.dart';
-import '../mnws/mnws_endpoint.dart';
-import '../mnws/mnws_grant_store.dart';
-import '../mnws/mnws_models.dart';
+import '../authhub/authhub_exception.dart';
+import '../authhub/authhub_pkce.dart';
+import '../authhub/authhub_session_client.dart';
+import 'mnws_config.dart';
+import 'mnws_endpoint.dart';
+import 'mnws_grant_store.dart';
+import 'mnws_models.dart';
 
 /// mn-ws 的编排：统一登录态 → 静默换来 mn-ws 业务令牌 → 拉目录 → 发请求。
 ///
@@ -159,10 +159,10 @@ class MnWsService {
     return grant;
   }
 
-  /// 服务端支持哪些端口、应用名是什么。
-  Future<List<MnWsApp>> catalog() async {
+  /// 服务端支持哪些端口、应用名是什么 —— **按 PC 分组**。
+  Future<MnWsCatalog> catalog() async {
     final grant = await ensureGrant();
-    if (grant == null) return const [];
+    if (grant == null) return const MnWsCatalog();
     try {
       return await _endpoint.catalog();
     } on MnWsException catch (e) {
@@ -174,10 +174,13 @@ class MnWsService {
   }
 
   /// 经桥发一个请求（凭据失效时自动重铸一次再试，用户无感）。
+  ///
+  /// [pc] 指定**目标 PC**（多台 PC 都跑同名应用时用；值是 bridgeId）。
   Future<MnWsResponse> request({
     required String method,
     required String path,
     String? app,
+    String? pc,
     Map<String, String> headers = const {},
     String? body,
   }) async {
@@ -193,6 +196,7 @@ class MnWsService {
         method: method,
         path: path,
         app: app,
+        pc: pc,
         headers: headers,
         body: body,
       );
@@ -204,6 +208,7 @@ class MnWsService {
         method: method,
         path: path,
         app: app,
+        pc: pc,
         headers: headers,
         body: body,
       );

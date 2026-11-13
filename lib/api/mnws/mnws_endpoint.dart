@@ -107,8 +107,11 @@ class MnWsEndpoint {
 
   // ── ③ 元信息目录 ───────────────────────────────────────────────────────
 
-  /// 服务端支持哪些端口、应用名是什么。
-  Future<List<MnWsApp>> catalog() async {
+  /// 服务端支持哪些端口、应用名是什么 —— **按 PC 分组**。
+  ///
+  /// 多台 PC 同时接入时，`pcs[]` 给出「每台电脑 + 它上面的应用」；
+  /// `apps[]` 是同一份内容的扁平形态（老服务端没有 pcs 时的回落）。
+  Future<MnWsCatalog> catalog() async {
     final grant = await grantReader();
     if (grant == null) {
       throw const MnWsException(
@@ -131,13 +134,7 @@ class MnWsEndpoint {
         status: res.statusCode,
       );
     }
-    final raw = json['apps'];
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map<String, dynamic>>()
-        .map(MnWsApp.fromJson)
-        .where((a) => a.app.isNotEmpty)
-        .toList();
+    return MnWsCatalog.fromJson(json);
   }
 
   // ── ④ 任意请求 ─────────────────────────────────────────────────────────
@@ -147,12 +144,16 @@ class MnWsEndpoint {
   /// [app] 非空时带 `X-Mn-Ws-App` 头 —— server 半据此决定「这个请求该去哪个
   /// 本地端口」。**不带这个头且路径里也没有应用前缀 → 400 app_required**。
   ///
+  /// [pc] 是**目标 PC 的 bridgeId**（多台 PC 都跑同名应用时用）。
+  /// 不带就按路由表走（撞名时后来者接管）。
+  ///
   /// [path] 是**应用内部**的路径（如 `/api/repos`）。走应用前缀形式时，
   /// server 半会把前缀剥掉再转发，所以这里传的就是目标服务看到的路径。
   Future<MnWsResponse> request({
     required String method,
     required String path,
     String? app,
+    String? pc,
     Map<String, String> headers = const {},
     String? body,
   }) async {
@@ -168,6 +169,7 @@ class MnWsEndpoint {
       'Accept': 'application/json',
       MnWsConfig.gateHeader: grant.token,
       if (app != null && app.isNotEmpty) MnWsConfig.appHeader: app,
+      if (pc != null && pc.isNotEmpty) MnWsConfig.pcHeader: pc,
       ...headers,
     };
 

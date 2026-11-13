@@ -149,6 +149,14 @@ class MnWsApp {
   final String bridgeId;
   final String connectedAt;
 
+  /// 这台 PC 的**电脑名**（注册时 client 自报）。
+  final String pcName;
+
+  /// 这个 app 名当前**路由不到**这台 PC（被别的 PC 顶替了）。
+  ///
+  /// 说清楚比不说好：否则用户会以为「目录里有就能打」。
+  final bool pcNameMissing;
+
   const MnWsApp({
     required this.app,
     required this.title,
@@ -156,6 +164,8 @@ class MnWsApp {
     required this.base,
     required this.bridgeId,
     required this.connectedAt,
+    this.pcName = '',
+    this.pcNameMissing = false,
   });
 
   factory MnWsApp.fromJson(Map<String, dynamic> json) {
@@ -167,13 +177,142 @@ class MnWsApp {
       base: json['base'] == null ? null : '${json['base']}',
       bridgeId: '${json['bridgeId'] ?? ''}',
       connectedAt: '${json['connectedAt'] ?? ''}',
+      pcName: '${json['pcName'] ?? ''}',
+      pcNameMissing: json['pcNameMissing'] == true,
     );
   }
 }
 
+/// 目录里的一个 **PC 分组**（`GET /api/catalog` 的 `pcs[]`）。
+///
+/// 多台 PC 同时接入时，用户想看的不是一长串应用，而是
+/// 「我有哪几台电脑，每台上跑着什么」—— 所以目录按 PC 分组。
+class MnWsPcGroup {
+  /// 这台 PC 的标识（bridgeId）。
+  final String bridgeId;
+
+  /// **电脑名**（client 注册时自报；多台 PC 同时接入时靠它区分）。
+  final String name;
+
+  /// 属主（userId；门禁是 `@gate`）。
+  final String userId;
+
+  final String connectedAt;
+
+  /// 这台 PC 上登记的应用。
+  final List<MnWsPcApp> apps;
+
+  const MnWsPcGroup({
+    required this.bridgeId,
+    required this.name,
+    required this.userId,
+    required this.connectedAt,
+    required this.apps,
+  });
+
+  factory MnWsPcGroup.fromJson(Map<String, dynamic> json) {
+    final rawApps = json['apps'];
+    final apps = <MnWsPcApp>[];
+    if (rawApps is List) {
+      for (final e in rawApps) {
+        if (e is Map<String, dynamic>) apps.add(MnWsPcApp.fromJson(e));
+      }
+    }
+    return MnWsPcGroup(
+      bridgeId: '${json['bridgeId'] ?? ''}',
+      name: '${json['name'] ?? json['bridgeId'] ?? ''}',
+      userId: '${json['userId'] ?? ''}',
+      connectedAt: '${json['connectedAt'] ?? ''}',
+      apps: apps,
+    );
+  }
+}
+
+/// PC 分组里的一个应用。
+class MnWsPcApp {
+  final String app;
+  final String title;
+  final int? port;
+  final String? base;
+  final String bridgeId;
+
+  /// 这个 app 名当前**路由到**这台 PC 吗？
+  ///
+  /// 两台 PC 跑同名 app 时，路由归后来者 —— 另一台就「看得见、打不到」。
+  /// 这个标记让界面能如实说出来。
+  final bool active;
+
+  const MnWsPcApp({
+    required this.app,
+    required this.title,
+    required this.port,
+    required this.base,
+    required this.bridgeId,
+    required this.active,
+  });
+
+  factory MnWsPcApp.fromJson(Map<String, dynamic> json) {
+    final port = json['port'];
+    return MnWsPcApp(
+      app: '${json['app'] ?? ''}',
+      title: '${json['title'] ?? json['app'] ?? ''}',
+      port: port is num ? port.toInt() : null,
+      base: json['base'] == null ? null : '${json['base']}',
+      bridgeId: '${json['bridgeId'] ?? ''}',
+      active: json['active'] != false,
+    );
+  }
+
+  /// 转成扁平目录里的那条应用（`MnWsApp`）。
+  MnWsApp toApp({String pcName = '', String connectedAt = ''}) => MnWsApp(
+        app: app,
+        title: title,
+        port: port,
+        base: base,
+        bridgeId: bridgeId,
+        connectedAt: connectedAt,
+        pcName: pcName,
+        pcNameMissing: !active,
+      );
+}
+
+/// 远端目录（`GET /api/catalog`）。
+///
+/// 两份视图：
+///   · [pcs] —— 按 PC 分组（多台 PC 同时接入时的主要视图）
+///   · [apps] —— 扁平列表（老服务端没有 pcs 时的回落）
+class MnWsCatalog {
+  final List<MnWsApp> apps;
+  final List<MnWsPcGroup> pcs;
+
+  const MnWsCatalog({this.apps = const [], this.pcs = const []});
+
+  factory MnWsCatalog.fromJson(Map<String, dynamic> json) {
+    final rawApps = json['apps'];
+    final apps = <MnWsApp>[];
+    if (rawApps is List) {
+      for (final e in rawApps) {
+        if (e is Map<String, dynamic>) apps.add(MnWsApp.fromJson(e));
+      }
+    }
+    final rawPcs = json['pcs'];
+    final pcs = <MnWsPcGroup>[];
+    if (rawPcs is List) {
+      for (final e in rawPcs) {
+        if (e is Map<String, dynamic>) pcs.add(MnWsPcGroup.fromJson(e));
+      }
+    }
+    return MnWsCatalog(apps: apps, pcs: pcs);
+  }
+
+  /// 目录里一共有几个应用（分组视图优先）。
+  int get count => pcs.isNotEmpty
+      ? pcs.fold(0, (n, g) => n + g.apps.length)
+      : apps.length;
+}
+
 /// 一次请求的结果。
-class MnWsResponse {
-  final int status;
+class MnWsResponse {  final int status;
   final String body;
   final Map<String, String> headers;
   final Duration elapsed;
