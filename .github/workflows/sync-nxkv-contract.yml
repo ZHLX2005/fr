@@ -1,23 +1,21 @@
 name: Sync nx-kv contract
 
-# `nx_kv_client` 在 pubspec.yaml 里以 git 依赖锁 40 位 sha（锁提交而非 tag：annotated
-# tag 的 rev-parse 给的是 tag 对象，pub 的 resolved-ref 要提交；锁 sha 也让 pubspec 与
-# pubspec.lock 写的是同一个值）。代价是 nx-kv 每发一次版，fr 都得有人手改那个 sha。
+# `nx_kv_client` 跟的是 nx-kv 的 main（不锁 sha）：pubspec.yaml 永远不用改，真正钉住版本
+# 的是 pubspec.lock 里的 resolved-ref。实测行为是这条流水线成立的前提：
 #
-# 这个工作流把人肉那一步换成机器人开 PR：解析 nx-kv 最新 tag → 与 pubspec 的 ref 比对
-# → 不同则改写 ref + 更新 pubspec.lock + 开 PR。两个仓库都公开，**不需要任何凭据**，
-# 用的就是自带的 GITHUB_TOKEN（这就是当初三形态里的「P：fr 拉」，与「Q：nx-kv 推」二选一）。
+#   flutter pub get                  → 不动 resolved-ref（构建可重现，CI 不会自己漂）
+#   flutter pub upgrade nx_kv_client → 才跟到 main 的尖
 #
-# 三个已知边界：
-#   0. 需要一次性打开仓库开关：Settings → Actions → General → Workflow permissions →
-#      「Allow GitHub Actions to create and approve pull requests」。默认是关的，
-#      关着的时候 `gh pr create` 会报 "GitHub Actions is not permitted to create or
-#      approve pull requests"（分支照推，人可以直接用它手开 PR）。
-#   1. GITHUB_TOKEN 建的 PR 不会触发其它 workflow（GitHub 的防递归），所以 PR 上不会
-#      自动跑 Build Android APK。补偿：本工作流自己先跑一遍 flutter analyze，结果写进
-#      PR 正文。要真跑 CI 就得换成 PAT（见 nx-kv 侧方案 Q）。
-#   2. pub 解析要用国内镜像（仓库里的 pubspec.lock 全部是 pub.flutter-io.cn）；换成
-#      pub.dev 会重写 240 行 url，制造无意义 diff。镜像不通 job 会红——这是真信号。
+# 于是「跟新」这件事需要有人定期做。这个 workflow 就是那个人：判定（一条 git
+# ls-remote，0.3 秒）→ 落后才装 Flutter 并 upgrade → 开 PR 让 lock 的 diff 被看一眼。
+#
+# 两个已知边界：
+#   0. 需要一次性仓库开关：Settings → Actions → General → Workflow permissions →
+#      「Allow GitHub Actions to create and approve pull requests」。默认关着，关着的时候
+#      `gh pr create` 会报 "GitHub Actions is not permitted to create or approve pull
+#      requests"（分支照推，人可以直接用它手开 PR）。
+#   1. GITHUB_TOKEN 建的 PR 不会触发其它 workflow（GitHub 防递归），所以 PR 上不会自动跑
+#      Build Android APK。补偿：本 workflow 自己跑 flutter analyze，结果写进 PR 正文。
 
 on:
   schedule:
@@ -25,14 +23,15 @@ on:
     - cron: '23 2 * * *'
   workflow_dispatch:
     inputs:
-      sha:
-        description: '指定 nx-kv 提交（留空 = 最新 tag）'
-        required: false
       mode:
-        description: 'any = 任何新版本都开 PR；hash-only = 仅契约指纹变了才开'
+        description: 'any = main 一动就开 PR；hash-only = 仅契约指纹变了才开'
         type: choice
         options: [any, hash-only]
         default: any
+      ref:
+        description: '跟哪个 ref（分支或 tag 名）'
+        required: false
+        default: main
 
 permissions:
   contents: write
@@ -57,15 +56,13 @@ jobs:
         with:
           node-version: '20'
 
-      # 脚本只做「解析 + 改写 pubspec 的 ref」，不碰网络以外的东西，本地可单跑：
-      #   node scripts/nxkv-sync.mjs --check --repo D:/.../nx-kv
-      - name: Resolve and rewrite ref
+      # 只判定，不写文件。没变化时整个 job 二十来秒就结束（不装 Flutter）。
+      - name: Check whether lock is behind
         id: plan
         run: |
           MODE="${{ inputs.mode || vars.NXKV_SYNC_MODE || 'any' }}"
-          ARGS=(--mode "$MODE")
-          if [ -n "${{ inputs.sha }}" ]; then ARGS+=(--sha "${{ inputs.sha }}"); fi
-          node scripts/nxkv-sync.mjs "${ARGS[@]}"
+          REF="${{ inputs.ref || vars.NXKV_SYNC_REF || 'main' }}"
+          node scripts/nxkv-contract.mjs --mode "$MODE" --ref "$REF"
 
       - name: Set up Flutter
         if: steps.plan.outputs.changed == 'true'
@@ -75,42 +72,51 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # 只跑 pub get 是为了让 pubspec.lock 记下新的 resolved-ref —— 光改 pubspec 不改锁，
-      # 下一个人 checkout 出来的还是旧提交。
-      - name: Update pubspec.lock
+      # 只动这一个包 —— `pub upgrade <pkg>` 会保持其余依赖不变，所以 lock 的 diff
+      # 只有 nx_kv_client 那一块（hosted 依赖的 242 行 url 不会被重写）。
+      - name: Upgrade nx_kv_client
+        id: bump
         if: steps.plan.outputs.changed == 'true'
         run: |
-          flutter pub get
-          # 取出锁里 nx_kv_client 那一块的 resolved-ref（只在这 6 行里找，避免误伤别处）
-          LOCKED=$(grep -A6 '^  nx_kv_client:' pubspec.lock | grep 'resolved-ref:' | head -1 | sed 's/.*"\([0-9a-f]\{40\}\)".*/\1/')
-          TARGET="${{ steps.plan.outputs.sha }}"
-          if [ "$LOCKED" != "$TARGET" ]; then
-            echo "::error::pubspec.lock 的 resolved-ref ($LOCKED) 与目标提交 ($TARGET) 不一致"
+          flutter pub upgrade nx_kv_client
+          NEW=$(grep -A6 '^  nx_kv_client:' pubspec.lock | grep 'resolved-ref:' | head -1 | sed 's/.*"\([0-9a-f]\{40\}\)".*/\1/')
+          if [ -z "$NEW" ]; then
+            echo "::error::upgrade 之后 lock 里没有 resolved-ref"
             exit 1
           fi
-          echo "lock 已锁到 $TARGET"
+          if [ "$NEW" = "${{ steps.plan.outputs.from_sha }}" ]; then
+            echo "::warning::upgrade 跑完 lock 还钉在 $NEW（可能分支尖又动过了），本轮不推"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "sha=$NEW" >> "$GITHUB_OUTPUT"
+          echo "lock 已从 ${{ steps.plan.outputs.from_sha }} 走到 $NEW"
 
       # 生成物是强类型 Dart：nx-kv 改了字段类型，这里会红。不阻断 PR（否则人看不到
-      # 坏消息），但结论会写进 PR 正文。
+      # 坏消息），结论写进 PR 正文。
       - name: Analyze generated package usage
         id: analyze
-        if: steps.plan.outputs.changed == 'true'
+        if: steps.bump.outputs.sha != ''
         continue-on-error: true
         run: flutter analyze lib/api/nxkv tool/nxkv_smoke.dart
 
       - name: Commit and push branch
         id: push
-        if: steps.plan.outputs.changed == 'true'
+        if: steps.bump.outputs.sha != ''
         env:
-          SHA7: ${{ steps.plan.outputs.sha }}
+          NEW: ${{ steps.bump.outputs.sha }}
         run: |
-          BRANCH="chore/nxkv-contract-${SHA7:0:7}"
+          BRANCH="chore/nxkv-lock-${NEW:0:7}"
           git config user.name  'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add pubspec.yaml pubspec.lock
-          git commit -m "chore(dep): nx_kv_client 对齐 nx-kv ${SHA7:0:7}"
-          # 上一轮可能留下了同名分支（比如开 PR 那步被设置拦下后重跑）：
-          # 这个前缀是机器人专用，且此刻还没有 PR，直接删掉重建，避免非快进报错。
+          git add pubspec.lock
+          if git diff --cached --quiet; then
+            echo "::warning::lock 没有实际变化，跳过"
+            exit 0
+          fi
+          git commit -m "chore(dep): nx_kv_client 跟随 nx-kv main（${NEW:0:7}）"
+          # 上一轮可能留下同名分支（比如开 PR 那步被设置拦下后重跑）：这个前缀是机器人
+          # 专用，且此刻还没有 PR，直接删掉重建，避免非快进报错。
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
             echo "同名分支已存在，先删：$BRANCH"
             git push origin --delete "$BRANCH"
@@ -119,11 +125,13 @@ jobs:
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Open (or reuse) pull request
-        if: steps.plan.outputs.changed == 'true'
+        if: steps.push.outputs.branch != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ steps.push.outputs.branch }}
         run: |
+          NEW="${{ steps.bump.outputs.sha }}"
+          SHORT="${NEW:0:7}"
           EXISTS=$(gh pr list --head "$BRANCH" --state all --json number -q '.[0].number // empty')
           if [ -n "$EXISTS" ]; then
             echo "::notice::已有 PR #$EXISTS 覆盖 $BRANCH，不再新建"
@@ -131,47 +139,49 @@ jobs:
           fi
 
           if [ "${{ steps.plan.outputs.hash_changed }}" = "true" ]; then
-            HASHNOTE="**变了** —— 端侧接口有增删改，必须看 \`contract/…\` 的 diff 再合"
+            HASHNOTE="**变了** —— 端侧接口有增删改，先看 nx-kv 侧 contract/dart 的 diff 再合"
           else
-            HASHNOTE="没变 —— 只是版本号对齐，\`contractDrift\` 不会报，可快速合"
+            HASHNOTE="没变 —— 只是往前跟了提交，\`contractDrift\` 不会报，可快速合"
           fi
           if [ "${{ steps.analyze.outcome }}" = "success" ]; then
             ANALYZE="通过（\`flutter analyze lib/api/nxkv tool/nxkv_smoke.dart\`）"
           else
-            ANALYZE="**失败** —— 生成物的类型改动与 fr 现有调用冲突，见本工作流日志"
+            ANALYZE="**失败** —— 生成物的类型改动与 fr 现有调用冲突，见本 workflow 日志"
           fi
 
           cat > /tmp/pr-body.md <<MD
-          nx-kv 发了新版本，把 \`nx_kv_client\` 的 ref 对齐。**自动开 PR，无人值守**。
+          nx-kv 的 main 往前走了，把 \`pubspec.lock\` 跟上去。**自动开 PR，无人值守**。
 
           | | |
           |---|---|
-          | 版本 | ${{ steps.plan.outputs.from_version }} → **${{ steps.plan.outputs.tag }}** |
-          | 提交 | \`${{ steps.plan.outputs.from_sha }}\` → \`${{ steps.plan.outputs.sha }}\` |
+          | 版本 | ${{ steps.plan.outputs.from_version }} → **${{ steps.plan.outputs.version }}** |
+          | 提交 | \`${{ steps.plan.outputs.from_sha }}\` → \`${{ steps.bump.outputs.sha }}\` |
           | 契约指纹 | \`${{ steps.plan.outputs.from_hash }}\` → \`${{ steps.plan.outputs.hash }}\` |
           | 指纹是否变化 | $HASHNOTE |
           | fr 侧静态检查 | $ANALYZE |
 
-          改动只有两处：\`pubspec.yaml\` 的 ref（连带那句「当前 = nx-kv vX.Y.Z」注释）、
-          \`pubspec.lock\` 的 \`ref\` / \`resolved-ref\` / \`version\`。要重跑就再触发一次
-          \`Sync nx-kv contract\`（\`workflow_dispatch\`）。
+          diff 只有一行：\`pubspec.lock\` 里 \`nx_kv_client\` 的 \`resolved-ref\`（外加随版本号
+          走的 \`version\`）。\`pubspec.yaml\` 里写的是 \`ref: main\`，**永远不用改** ——
+          版本钉在 lock 上，所以「跟新」是一次普通的 lock 变更，可审、可回滚。
 
-          > 本 PR 由 \`GITHUB_TOKEN\` 创建，GitHub 不会因此触发其它 workflow，
-          > 所以这里看不到 \`Build Android APK\` 的检查结果 —— 上面那一行静态检查
-          > 是本工作流自己跑的。
+          要重跑就再触发一次 \`Sync nx-kv contract\`（\`workflow_dispatch\`）。
+
+          > 本 PR 由 \`GITHUB_TOKEN\` 创建，GitHub 不会因此触发其它 workflow，所以这里
+          > 看不到 \`Build Android APK\` 的检查结果 —— 上面那一行静态检查是本 workflow
+          > 自己跑的。
           MD
 
           OUT=$(gh pr create \
             --base "${{ github.event.repository.default_branch }}" \
             --head "$BRANCH" \
-            --title "chore(dep): nx_kv_client 对齐 nx-kv ${{ steps.plan.outputs.tag }}" \
+            --title "chore(dep): nx_kv_client 跟随 nx-kv main（$SHORT）" \
             --body-file /tmp/pr-body.md 2>&1) && { echo "$OUT"; exit 0; }
           echo "$OUT"
           case "$OUT" in
             *"not permitted to create"*)
               echo "::error::仓库设置拦下了「用 GITHUB_TOKEN 开 PR」。一次性开关："
               echo "::error::Settings → Actions → General → Workflow permissions →"
-              echo "::error::勾上「Allow GitHub Actions to create and approve pull requests」，再重跑本工作流。"
+              echo "::error::勾上「Allow GitHub Actions to create and approve pull requests」，再重跑本 workflow。"
               echo "::notice::分支已经推好了（$BRANCH），勾开关前也可以直接用它手开 PR。"
               ;;
           esac
