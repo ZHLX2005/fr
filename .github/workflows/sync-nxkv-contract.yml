@@ -8,7 +8,11 @@ name: Sync nx-kv contract
 # → 不同则改写 ref + 更新 pubspec.lock + 开 PR。两个仓库都公开，**不需要任何凭据**，
 # 用的就是自带的 GITHUB_TOKEN（这就是当初三形态里的「P：fr 拉」，与「Q：nx-kv 推」二选一）。
 #
-# 两个已知边界：
+# 三个已知边界：
+#   0. 需要一次性打开仓库开关：Settings → Actions → General → Workflow permissions →
+#      「Allow GitHub Actions to create and approve pull requests」。默认是关的，
+#      关着的时候 `gh pr create` 会报 "GitHub Actions is not permitted to create or
+#      approve pull requests"（分支照推，人可以直接用它手开 PR）。
 #   1. GITHUB_TOKEN 建的 PR 不会触发其它 workflow（GitHub 的防递归），所以 PR 上不会
 #      自动跑 Build Android APK。补偿：本工作流自己先跑一遍 flutter analyze，结果写进
 #      PR 正文。要真跑 CI 就得换成 PAT（见 nx-kv 侧方案 Q）。
@@ -105,6 +109,12 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add pubspec.yaml pubspec.lock
           git commit -m "chore(dep): nx_kv_client 对齐 nx-kv ${SHA7:0:7}"
+          # 上一轮可能留下了同名分支（比如开 PR 那步被设置拦下后重跑）：
+          # 这个前缀是机器人专用，且此刻还没有 PR，直接删掉重建，避免非快进报错。
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "同名分支已存在，先删：$BRANCH"
+            git push origin --delete "$BRANCH"
+          fi
           git push -u origin "HEAD:refs/heads/$BRANCH"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
@@ -151,8 +161,18 @@ jobs:
           > 是本工作流自己跑的。
           MD
 
-          gh pr create \
+          OUT=$(gh pr create \
             --base "${{ github.event.repository.default_branch }}" \
             --head "$BRANCH" \
             --title "chore(dep): nx_kv_client 对齐 nx-kv ${{ steps.plan.outputs.tag }}" \
-            --body-file /tmp/pr-body.md
+            --body-file /tmp/pr-body.md 2>&1) && { echo "$OUT"; exit 0; }
+          echo "$OUT"
+          case "$OUT" in
+            *"not permitted to create"*)
+              echo "::error::仓库设置拦下了「用 GITHUB_TOKEN 开 PR」。一次性开关："
+              echo "::error::Settings → Actions → General → Workflow permissions →"
+              echo "::error::勾上「Allow GitHub Actions to create and approve pull requests」，再重跑本工作流。"
+              echo "::notice::分支已经推好了（$BRANCH），勾开关前也可以直接用它手开 PR。"
+              ;;
+          esac
+          exit 1
