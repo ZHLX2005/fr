@@ -26,11 +26,17 @@ class SharedPrefsTokenStorage implements TokenStorage {
   /// 装过旧版本的设备若用户从不主动登出，磁盘上那枚 refresh_token
   /// 就会一直留着。"它不该存在于客户端"是个结论，
   /// 不该依赖用户去做某个动作才成立。
+  ///
+  /// ⚠️ 这里**不能**包含登录态的键名。登录态曾经被存成 'idp_session'
+  /// （与 Cookie 同名），而本列表原本是要清掉旧架构的遗留凭据 ——
+  /// 两者撞在一起的后果是：**每铸一次业务 token，就顺手删掉登录态**。
+  /// 症状是"登录态莫名过期"，而服务端那边明明还是 30 天有效期。
+  /// 登录态现在有独立的键（见 authhub/idp_session_store.dart），
+  /// 由它自己负责迁移与清理；本层不再认识它。
   static const _legacyKeys = [
     'api_refresh_token',
     'api_token_expires',
     'api_token_kind',
-    'idp_session', // 登录态有自己的存储，别留两份
   ];
 
   @override

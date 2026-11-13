@@ -150,9 +150,14 @@ class AuthHubQrEndpoint {
     if ((sess ?? '').isNotEmpty) {
       request.headers['Cookie'] = '${AuthHubConfig.sessionCookieName}=$sess';
     }
+    // 同 [_call]：只能追加，不能覆盖 —— 覆盖会把 idp_session 挤掉，
+    // 服务端就认不出身份了。
     if (_cookies.isNotEmpty) {
-      request.headers['Cookie'] =
-          _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+      final existing = request.headers['Cookie'];
+      final extra = _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+      request.headers['Cookie'] = existing == null || existing.isEmpty
+          ? extra
+          : '$existing; $extra';
     }
 
     late final http.Response resp;
@@ -228,8 +233,19 @@ class AuthHubQrEndpoint {
     // POST 一律带空对象：认证中心这些端点不读 body，但某些中间层会把
     // 完全没有 body 也没有 Content-Type 的 POST 判成畸形请求。
     if (method == 'POST') headers['Content-Type'] = 'application/json';
+    // ⚠️ 这里**只能追加**，不能整体覆盖 headers['Cookie']。
+    //
+    // 之前写成 `headers['Cookie'] = _cookies...`，于是只要本地 Cookie 容器非空
+    // （PC 侧 create() 拿到 qr_ctx 之后就会非空），发出去的 Cookie 头里
+    // 就**只剩 qr_ctx、没有 idp_session**。
+    // 服务端那边手机侧四条端点靠 idp_session 认身份，于是它们一律 401。
+    // 症状是"扫码自测跑到第三步就断了"，而报错完全指不到"Cookie 头被覆盖"。
     if (_cookies.isNotEmpty) {
-      headers['Cookie'] = _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+      final existing = headers['Cookie'];
+      final extra = _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+      headers['Cookie'] = existing == null || existing.isEmpty
+          ? extra
+          : '$existing; $extra';
     }
 
     late final http.Response resp;
