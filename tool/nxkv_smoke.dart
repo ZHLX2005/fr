@@ -48,4 +48,25 @@ Future<void> main(List<String> args) async {
     print('  · ${t.key}  pending=${t.pending} claimed=${t.claimed} done=${t.done}');
   }
   if (tasks.topics.length > 5) print('  …还有 ${tasks.topics.length - 5} 个');
+
+  // 写操作的契约（0.54.0 起）：清单 + 详情。
+  // 冒烟只读 —— 领取/完成会动真实任务队列，那得有真任务才做，脚本不替用户决定。
+  final withWork = tasks.topics.where((t) => t.total > 0).toList();
+  if (withWork.isEmpty) {
+    print('清单      跳过（没有带任务的主题）');
+    return;
+  }
+  final topic = withWork.first;
+  final list = await kv.localtaskTasks(topic.key, null, null);
+  print('清单      ${list.name} · ${list.tasks.length}/${list.total} 条');
+  final row = list.tasks.isEmpty ? null : list.tasks.last;
+  if (row == null) {
+    print('详情      跳过（清单是空的）');
+    return;
+  }
+  final task = await kv.localtaskGet(row.id, null, topic.key);
+  print('详情      #${task.id} ${task.status} · 第 ${task.round} 轮 · '
+      '正文 ${task.text.length} 字 · 附件 ${task.attachments?.length ?? 0} 个');
+  final contract = await kv.systemContract();
+  print('契约      ${contract.actions.length} 条 action（本机 ${contract.version}）');
 }

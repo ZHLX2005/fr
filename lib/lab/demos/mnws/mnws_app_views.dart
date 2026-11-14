@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../api/mnws/mnws.dart';
+import 'nxkv/nxkv_page.dart';
 import 'nxnx/nxnx_page.dart';
 
 /// 一次「点某个应用」的上下文。
@@ -63,10 +64,19 @@ const List<MnWsAppView> kMnWsAppViews = <MnWsAppView>[
     description: '按模板生成项目：新建项目 / 模板 / 脚本（原生界面）',
     builder: _nxNxBuilder,
   ),
+  MnWsAppView(
+    app: 'nx-kv',
+    title: 'nx-kv 任务队列',
+    description: '本机任务队列：领活 / 看正文 / 交反馈（原生界面，协议由契约生成）',
+    builder: _nxKvBuilder,
+  ),
 ];
 
 Widget _nxNxBuilder(BuildContext context, MnWsAppTarget target) =>
     NxNxPage(target: target);
+
+Widget _nxKvBuilder(BuildContext context, MnWsAppTarget target) =>
+    NxKvPage(target: target);
 
 /// 按路由标识找应用；**找不到返回 null** —— 那说明 fr 不认得它，
 /// 得走通用请求台，而不是假装认得。
