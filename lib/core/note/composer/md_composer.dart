@@ -236,53 +236,74 @@ class _MdComposerPageState extends State<MdComposerPage> {
     final canSave = _controller.text.trim().isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontSize: 15)),
-        actions: [
-          if (widget.showPreview)
-            IconButton(
-              tooltip: _preview ? '回到编辑' : '预览（与块编辑器同一套渲染）',
-              icon: Icon(_preview ? Icons.edit_outlined : Icons.visibility_outlined),
-              onPressed: () => setState(() => _preview = !_preview),
+      // 编辑页的 chrome 只留三条：44（标题栏）+ 40（工具条）+ 48（提交条）。
+      // 剩下的全是输入区 —— 验收反馈要的「编辑区 80%」，在这里是硬指标：
+      // 800dp 的屏上输入区 670dp ≈ 84%。原来那条 AppBar（56）+ 模板横条（44）
+      // 白吃掉 100dp，写三行就要滚动。
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _topBar(cs),
+            if (widget.quote != null && widget.quote!.trim().isNotEmpty) _QuoteAnchor(text: widget.quote!),
+            Expanded(
+              child: _preview ? _Preview(text: _controller.text) : _editor(cs),
             ),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (widget.quote != null && widget.quote!.trim().isNotEmpty) _QuoteAnchor(text: widget.quote!),
-          if (widget.templates.isNotEmpty)
-            SizedBox(
-              height: 44,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                itemCount: widget.templates.length,
-                separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.xs),
-                itemBuilder: (_, i) => Center(
-                  child: ActionChip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(widget.templates[i], style: const TextStyle(fontSize: 11)),
-                    onPressed: () => _append(_templateOf(widget.templates[i])),
-                  ),
-                ),
-              ),
-            ),
-          Expanded(
-            child: _preview ? _Preview(text: _controller.text) : _editor(cs),
-          ),
-          _toolbar(cs),
-        ],
+            _toolbar(cs),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.sm),
-          child: FilledButton(
-            onPressed: canSave
-                ? () => Navigator.of(context).pop(_controller.text.trim())
-                : null,
-            child: Text(widget.submitLabel),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 4, AppSpacing.md, AppSpacing.sm),
+          child: SizedBox(
+            height: 40,
+            child: FilledButton(
+              onPressed: canSave
+                  ? () => Navigator.of(context).pop(_controller.text.trim())
+                  : null,
+              child: Text(widget.submitLabel),
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// 44dp 标题栏：关掉 / 标题 / 预览。
+  ///
+  /// 不用 AppBar：它在手机上固定 56dp，还要为返回箭头留 56 ——
+  /// 一个「写两段 md 就要提交」的页面，标题栏不该比工具条还高。
+  Widget _topBar(ColorScheme cs) {
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () => Navigator.of(context).pop(),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              widget.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+          if (widget.showPreview)
+            IconButton(
+              tooltip: _preview ? '回到编辑' : '预览（与块编辑器同一套渲染）',
+              iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(_preview ? Icons.edit_outlined : Icons.visibility_outlined, color: cs.outline),
+              onPressed: () => setState(() => _preview = !_preview),
+            ),
+        ],
       ),
     );
   }
@@ -320,6 +341,8 @@ class _MdComposerPageState extends State<MdComposerPage> {
           tooltip: tip,
           iconSize: 18,
           visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+          padding: EdgeInsets.zero,
           icon: Icon(icon, color: cs.outline),
           onPressed: onTap,
         );
@@ -327,24 +350,60 @@ class _MdComposerPageState extends State<MdComposerPage> {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: cs.outlineVariant)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xxs),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
       child: Row(
         children: [
-          btn(Icons.format_bold, '粗体', () => _wrap('**', '**')),
-          btn(Icons.format_italic, '斜体', () => _wrap('*', '*')),
-          btn(Icons.strikethrough_s, '删除线', () => _wrap('~~', '~~')),
-          btn(Icons.code, '行内代码', () => _wrap('`', '`')),
-          btn(Icons.title, '标题', () => _prefixLine('## ')),
-          btn(Icons.format_list_bulleted, '列表', () => _prefixLine('- ')),
-          btn(Icons.format_quote, '引用', () => _prefixLine('> ')),
-          const Spacer(),
+          // 格式化按钮横向可滚：小屏放不下时不该挤成两个手指大小
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  btn(Icons.format_bold, '粗体', () => _wrap('**', '**')),
+                  btn(Icons.format_italic, '斜体', () => _wrap('*', '*')),
+                  btn(Icons.strikethrough_s, '删除线', () => _wrap('~~', '~~')),
+                  btn(Icons.code, '行内代码', () => _wrap('`', '`')),
+                  btn(Icons.title, '标题', () => _prefixLine('## ')),
+                  btn(Icons.format_list_bulleted, '列表', () => _prefixLine('- ')),
+                  btn(Icons.format_quote, '引用', () => _prefixLine('> ')),
+                ],
+              ),
+            ),
+          ),
+          // 模板从「一整行 chip」收进菜单：那一行白占 44dp，而模板一次只用得上一个
+          if (widget.templates.isNotEmpty) _templateMenu(cs),
           if (widget.showInsertBlock)
             TextButton.icon(
               onPressed: _insertBlock,
-              icon: const Icon(Icons.add_box_outlined, size: 16),
+              icon: const Icon(Icons.add_box_outlined, size: 15),
               label: const Text('/', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
+              ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _templateMenu(ColorScheme cs) {
+    return PopupMenuButton<String>(
+      tooltip: '插入模板',
+      onSelected: (name) => _append(_templateOf(name)),
+      itemBuilder: (_) => [
+        for (final name in widget.templates)
+          PopupMenuItem<String>(value: name, height: 38, child: Text(name, style: const TextStyle(fontSize: 12))),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        child: Row(
+          children: [
+            Icon(Icons.article_outlined, size: 15, color: cs.outline),
+            const SizedBox(width: 2),
+            Text('模板', style: TextStyle(fontSize: 11, color: cs.outline)),
+          ],
+        ),
       ),
     );
   }
@@ -361,8 +420,8 @@ class _QuoteAnchor extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 0),
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      margin: const EdgeInsets.fromLTRB(AppSpacing.md, 4, AppSpacing.md, 0),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 4, AppSpacing.xs, 4),
       decoration: BoxDecoration(
         border: Border(left: BorderSide(color: cs.primary, width: 2)),
         borderRadius: AppBorderRadius.allXs,
@@ -371,10 +430,13 @@ class _QuoteAnchor extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('锚定原文', style: TextStyle(fontSize: 10, color: cs.outline)),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
+          // 锚定只用来提醒「挂在哪段上」，不是拿来读的：两行封顶，别把输入区往下挤
           Text(
             text.length > 200 ? '${text.substring(0, 200)}…' : text,
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.5),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, height: 1.4),
           ),
         ],
       ),

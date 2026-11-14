@@ -45,6 +45,50 @@ class NxKvController extends ChangeNotifier {
     return null;
   }
 
+  // ── 当前主题的任务清单 ────────────────────────────────────
+  //
+  // 清单放在 controller 而不是某个视图里：抽屉（切任务）与主页（看队列）
+  // 看的是**同一份**数据。各自拉一份的话，抽屉里刚领的活主页还不知道 ——
+  // 这类「两处状态」的病，最后都要靠到处 refresh 来缝。
+
+  List<kv.LocaltaskTasksTask> tasks = const [];
+  bool tasksLoading = false;
+  String? tasksError;
+
+  /// 状态过滤：null = 全部（与 `localtask.tasks --status` 同口径）。
+  String? statusFilter;
+
+  /// 拉当前主题的清单。`status` 省略时沿用 [statusFilter]。
+  Future<void> loadTasks({String? status}) async {
+    final key = selectedKey;
+    if (key == null) {
+      tasks = const [];
+      notifyListeners();
+      return;
+    }
+    tasksLoading = true;
+    tasksError = null;
+    notifyListeners();
+    try {
+      final out = await _client.localtaskTasks(key, null, status ?? statusFilter);
+      // 期间切了主题：这份结果已经过时，别把别人的清单贴到当前主题上
+      if (selectedKey != key) return;
+      tasks = out.tasks;
+    } catch (e) {
+      if (selectedKey == key) tasksError = humanize(e);
+    } finally {
+      tasksLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 换状态过滤并重拉（抽屉与队列页共用）。
+  void filterTasks(String? status) {
+    if (statusFilter == status) return;
+    statusFilter = status;
+    loadTasks();
+  }
+
   /// 有活可领的主题优先（进页面时默认停在最该看的那个上）。
   String? get defaultKey {
     for (final t in topics) {
@@ -90,6 +134,8 @@ class NxKvController extends ChangeNotifier {
       loading = false;
       notifyListeners();
     }
+    // 主题清单变了，当前主题的活也可能变了（领走一条、被 prune 掉）—— 一起刷
+    await loadTasks();
   }
 
   Future<void> checkContract() async {
@@ -119,7 +165,9 @@ class NxKvController extends ChangeNotifier {
   void select(String? key) {
     if (selectedKey == key) return;
     selectedKey = key;
+    tasks = const []; // 旧主题的清单立刻下线，别让抽屉先显示上一个主题的活
     notifyListeners();
+    loadTasks();
   }
 
   // ── 动作（全部走生成客户端）────────────────────────────────
