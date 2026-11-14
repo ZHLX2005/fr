@@ -29,7 +29,7 @@ void main() {
       port: null,
       base: null,
       bridgeId: 'laptop-test',
-      active: true,
+      alive: true,
     ),
   );
 
@@ -183,7 +183,7 @@ class _StubController extends NxKvController {
               port: null,
               base: null,
               bridgeId: 'laptop-test',
-              active: true,
+              alive: true,
             ),
           ),
           endpoint: MnWsEndpoint(

@@ -88,7 +88,7 @@ class _StubController extends NxKvController {
               port: null,
               base: null,
               bridgeId: 'laptop-test',
-              active: true,
+              alive: true,
             ),
           ),
           // 指向一个没人听的端口：真发请求也不会成功，而下面的覆写让它压根不发

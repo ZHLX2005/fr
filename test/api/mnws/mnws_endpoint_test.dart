@@ -72,7 +72,6 @@ void main() {
                   'port': 7877,
                   'bridgeId': 'pc-a',
                   'pcName': '办公室台式机',
-                  'pcNameMissing': true,
                 },
                 {
                   'app': 'nx-kv',
@@ -102,7 +101,6 @@ void main() {
                       'port': 7877,
                       'base': 'http://127.0.0.1:7877',
                       'bridgeId': 'pc-a',
-                      'active': false,
                     },
                   ],
                 },
@@ -118,7 +116,6 @@ void main() {
                       'port': 7877,
                       'base': 'http://127.0.0.1:7877',
                       'bridgeId': 'pc-b',
-                      'active': true,
                     },
                     {
                       'app': 'other-api',
@@ -126,7 +123,6 @@ void main() {
                       'port': 9999,
                       'base': 'http://127.0.0.1:9999',
                       'bridgeId': 'pc-b',
-                      'active': true,
                     },
                   ],
                 },
@@ -151,13 +147,13 @@ void main() {
       expect(cat.pcs.first.apps.map((a) => a.app), ['nx-kv']);
       expect(cat.pcs.last.apps.map((a) => a.app), ['nx-kv', 'other-api']);
 
-      // 撞名的那个：路由归后来者，另一台要标出来
-      expect(cat.pcs.first.apps.first.active, isFalse);
-      expect(cat.pcs.last.apps.first.active, isTrue);
+      // 路由键是 (PC, app)：两台机器上的同名应用各自可路由，没有「被顶替」这回事
+      expect(cat.pcs.first.apps.first.bridgeId, 'pc-a');
+      expect(cat.pcs.last.apps.first.bridgeId, 'pc-b');
 
-      // 扁平列表里也带得上电脑名
+      // 扁平列表里也带得上电脑名（缺名时是空串，`pcNameMissing` 已随旧路由概念删除）
       expect(cat.apps, hasLength(3));
-      expect(cat.apps.where((a) => a.pcNameMissing), hasLength(1));
+      expect(cat.apps.map((a) => a.pcName).every((n) => n.isNotEmpty), isTrue);
       expect(cat.count, 3);
     });
 
