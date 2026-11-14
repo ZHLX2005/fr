@@ -111,6 +111,58 @@ void main() {
     expect(find.text('任务 #14'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  /// 真机状态栏高度不是 0 —— 上面三条用的是测试默认环境（padding=0），
+  /// 所以它们证明不了「36dp 的上下文条会不会被状态栏吞掉」。
+  ///
+  /// 第 3 轮反馈「侧边栏无法显示，太上面了」就是这一层：`SafeArea(top: false)`
+  /// 让上下文条贴着屏幕最顶，36dp 全落在状态栏区间里。状态栏不接收触摸，
+  /// ☰ 那一下根本到不了 InkWell。这条用例把状态栏设成 44dp 复现硬件环境。
+  group('真机安全区（状态栏 44dp / 手势条 34dp）', () {
+    void fakeSafeArea(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1179, 2556);
+      tester.view.devicePixelRatio = 3.0;
+      tester.view.padding = const FakeViewPadding(top: 132, bottom: 102);
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('☰ 落在状态栏下沿之下，点得开', (tester) async {
+      fakeSafeArea(tester);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
+      ));
+
+      // 语境：MediaQuery 认到的状态栏确实是 44dp
+      expect(MediaQuery.of(tester.element(find.byType(NxKvPage))).padding.top, 44);
+
+      final menu = tester.getRect(find.byIcon(Icons.menu));
+      expect(menu.top, greaterThanOrEqualTo(44),
+          reason: '☰ 压在状态栏里就点不到 —— 侧边栏等于打不开');
+      // 整条上下文条也应在状态栏之下（36dp 高，落在 44 ~ 80）
+      expect(menu.bottom, lessThanOrEqualTo(80));
+
+      // 真的能点开（touch 走 UI 树，不只是几何位置对）
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+      expect(find.text('搜任务：标题或编号'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('抽屉自己的内容也从状态栏下沿开始', (tester) async {
+      fakeSafeArea(tester);
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
+      ));
+
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+
+      // 抽屉顶部的「nx-kv + 机器名」不能被挖孔/状态栏盖住
+      final head = tester.getRect(find.text('nx-kv'));
+      expect(head.top, greaterThanOrEqualTo(44));
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
 
 /// 网络入口全部悬空：这一层只测渲染与交互，不该为跑一个用例去连桥。

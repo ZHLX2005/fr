@@ -207,6 +207,9 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
 
     return Scaffold(
       key: _scaffold,
+      // 左缘右滑也能拉出侧边栏。默认只有 20dp，贴着屏幕边缘那一条在手势导航的
+      // 返回手势区里，经常滑不动 —— 多给一点宽度，菜单按钮之外多一条路。
+      drawerEdgeDragWidth: 48,
       drawer: NxKvDrawer(
         controller: c,
         currentId: _taskId,
@@ -222,8 +225,15 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
       // 主壳的 Stack 里、被这条路由整块盖住 —— 那 104dp（64+16+safe）是**纯空白**。
       // 证据：编辑页是 `fullscreenDialog`，它从没留过这块占位也没被底栏盖住。
       // 去掉它，正文多出整整 104dp，这才是「可视空间最大化」里最大的一笔。
+      //
+      // **但顶部安全区不能省**（第 3 轮反馈「侧边栏无法显示，太上面了」）：
+      // 这里写过 `top: false`，理由是「push 出来的路由顶上没有主壳 chrome」。
+      // 主壳确实没有，但**状态栏有**：36dp 的上下文条紧贴屏幕最顶，
+      // 而状态栏一般 24~48dp（挖孔机更高）——整条上下文条连同 ☰ 都压在状态栏底下。
+      // 系统状态栏区域不接收触摸，所以那一下点击根本到不了 InkWell：
+      // 用户看到的就是「侧边栏打不开」，位置也就是「太上面」。
+      // 边界拖拽也救不了 —— 拖拽区从 y=0 起算，同样在状态栏里。
       body: SafeArea(
-        top: false,
         child: PopScope(
           // 任务开着时，系统返回先回队列，而不是直接退出这个 App 视图
           canPop: _taskId == null,
@@ -266,13 +276,16 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
       ),
       child: Row(
         children: [
-          InkWell(
-            onTap: () => _scaffold.currentState?.openDrawer(),
-            child: SizedBox(
-              width: 40,
-              height: 36,
-              child: Icon(Icons.menu, size: 18, color: cs.onSurfaceVariant),
-            ),
+          // 侧边栏唯一的显式入口。44×36 —— 纵向受条高限制，横向给足；
+          // 原来 40 宽的裸 InkWell 没有 tooltip、没有语义标签，读屏也读不出它是啥。
+          IconButton(
+            tooltip: '打开侧边栏',
+            iconSize: 18,
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 36),
+            icon: Icon(Icons.menu, color: cs.onSurfaceVariant),
+            onPressed: () => _scaffold.currentState?.openDrawer(),
           ),
           Expanded(
             child: AnimatedBuilder(
