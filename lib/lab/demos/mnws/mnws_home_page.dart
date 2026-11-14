@@ -305,14 +305,6 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
                             color: Colors.orange,
                           ),
                         ),
-                      if (!a.active)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: MnWsTag(
-                            text: '路由在别的 PC 上',
-                            color: _cs.error,
-                          ),
-                        ),
                     ],
                   ),
                   subtitle: Text(

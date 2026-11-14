@@ -152,11 +152,6 @@ class MnWsApp {
   /// 这台 PC 的**电脑名**（注册时 client 自报）。
   final String pcName;
 
-  /// 这个 app 名当前**路由不到**这台 PC（被别的 PC 顶替了）。
-  ///
-  /// 说清楚比不说好：否则用户会以为「目录里有就能打」。
-  final bool pcNameMissing;
-
   const MnWsApp({
     required this.app,
     required this.title,
@@ -165,7 +160,6 @@ class MnWsApp {
     required this.bridgeId,
     required this.connectedAt,
     this.pcName = '',
-    this.pcNameMissing = false,
   });
 
   factory MnWsApp.fromJson(Map<String, dynamic> json) {
@@ -178,7 +172,6 @@ class MnWsApp {
       bridgeId: '${json['bridgeId'] ?? ''}',
       connectedAt: '${json['connectedAt'] ?? ''}',
       pcName: '${json['pcName'] ?? ''}',
-      pcNameMissing: json['pcNameMissing'] == true,
     );
   }
 }
@@ -236,15 +229,10 @@ class MnWsPcApp {
   final String? base;
   final String bridgeId;
 
-  /// 这个 app 名当前**路由到**这台 PC 吗？
-  ///
-  /// 两台 PC 跑同名 app 时，路由归后来者 —— 另一台就「看得见、打不到」。
-  /// 这个标记让界面能如实说出来。
-  final bool active;
-
   /// 本机服务是否在监听（client 探测上报；老服务端没有这个字段 → 按 true 算）。
   ///
   /// 「注册了」与「跑着」是两回事：注册了就该显示，没跑如实标出来。
+  /// 路由键就是 (PC, app) —— 分组里的每一条都各自可路由，没有「被顶替」。
   final bool alive;
 
   const MnWsPcApp({
@@ -253,7 +241,6 @@ class MnWsPcApp {
     required this.port,
     required this.base,
     required this.bridgeId,
-    required this.active,
     this.alive = true,
   });
 
@@ -265,7 +252,6 @@ class MnWsPcApp {
       port: port is num ? port.toInt() : null,
       base: json['base'] == null ? null : '${json['base']}',
       bridgeId: '${json['bridgeId'] ?? ''}',
-      active: json['active'] != false,
       alive: json['alive'] != false,
     );
   }
@@ -279,7 +265,6 @@ class MnWsPcApp {
         bridgeId: bridgeId,
         connectedAt: connectedAt,
         pcName: pcName,
-        pcNameMissing: !active,
       );
 }
 
