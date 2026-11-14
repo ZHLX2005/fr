@@ -25,10 +25,9 @@ void main() {
       // 例外清单：设计稿（assets/lab-demo-icons/index.html）共 48 个图标，
       // 但 lab 后增了几款 demo，本批注册时无对应图标 —— 留 fallback 显示通用图标。
       // 这是有意为之的「已登记但无专属 SVG」白名单，避免每次 demo 增加都强制塞图标。
+      // （52/53 补绘后 ai-gallery、mn-ws 已转正，从本清单移除。）
       const noIconSlug = {
         'session-host', // 后增的会话托管 demo，2026-10-13 时未列入图标集
-        'ai-gallery', // 后增的 AI 图库 demo（2026-10-28 合入上游），未列入图标集
-        'mn-ws', // 后增的 HTTP⇄WS 桥 demo，51 张图标集里没有对应的桥/websocket 图标
       };
       final mainSlugs = <String>{};
       for (final entry in demoRegistry.getAll()) {
