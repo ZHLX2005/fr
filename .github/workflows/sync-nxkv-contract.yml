@@ -79,9 +79,17 @@ jobs:
         if: steps.plan.outputs.changed == 'true'
         run: |
           flutter pub upgrade nx_kv_client
-          NEW=$(grep -A6 '^  nx_kv_client:' pubspec.lock | grep 'resolved-ref:' | head -1 | sed 's/.*"\([0-9a-f]\{40\}\)".*/\1/')
-          if [ -z "$NEW" ]; then
-            echo "::error::upgrade 之后 lock 里没有 resolved-ref"
+          # 取 resolved-ref：**带不带引号都要取得到**。
+          # 本机 3.41.6 的 lock 写 `resolved-ref: "ae74…"`，而 runner 上 3.41.4
+          # 写的是不带引号的 `resolved-ref: ae74…` —— 原来那条只匹配带引号的形式，
+          # 于是把**整行**当成了 sha：分支名变成 `chore/nxkv-lock-      r`
+          # （整行前 7 个字符是 6 个空格 + 'r'），push 报 invalid refspec，
+          # 每夜的同步就这么静默红掉。现在按行首锚定，再可选地剥引号。
+          NEW=$(grep -A6 '^  nx_kv_client:' pubspec.lock \
+                 | grep -m1 'resolved-ref:' \
+                 | sed -E 's/^[[:space:]]*resolved-ref:[[:space:]]*"?([0-9a-f]{40})"?[[:space:]]*$/\1/') || true
+          if ! printf '%s' "$NEW" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::lock 里取不到 40 位 sha（拿到的是「$NEW」）"
             exit 1
           fi
           if [ "$NEW" = "${{ steps.plan.outputs.from_sha }}" ]; then
