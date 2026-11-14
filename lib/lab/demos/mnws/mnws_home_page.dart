@@ -297,6 +297,14 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
                             style: const TextStyle(fontSize: 11, color: Colors.grey),
                           ),
                         ),
+                      if (!a.alive)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: MnWsTag(
+                            text: '未启动',
+                            color: Colors.orange,
+                          ),
+                        ),
                       if (!a.active)
                         Padding(
                           padding: const EdgeInsets.only(left: 6),

@@ -242,6 +242,11 @@ class MnWsPcApp {
   /// 这个标记让界面能如实说出来。
   final bool active;
 
+  /// 本机服务是否在监听（client 探测上报；老服务端没有这个字段 → 按 true 算）。
+  ///
+  /// 「注册了」与「跑着」是两回事：注册了就该显示，没跑如实标出来。
+  final bool alive;
+
   const MnWsPcApp({
     required this.app,
     required this.title,
@@ -249,6 +254,7 @@ class MnWsPcApp {
     required this.base,
     required this.bridgeId,
     required this.active,
+    this.alive = true,
   });
 
   factory MnWsPcApp.fromJson(Map<String, dynamic> json) {
@@ -260,6 +266,7 @@ class MnWsPcApp {
       base: json['base'] == null ? null : '${json['base']}',
       bridgeId: '${json['bridgeId'] ?? ''}',
       active: json['active'] != false,
+      alive: json['alive'] != false,
     );
   }
 
