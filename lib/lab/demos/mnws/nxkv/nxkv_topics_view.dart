@@ -19,7 +19,10 @@ class NxKvTopicsView extends StatelessWidget {
   final ValueChanged<String> onOpen;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      NxKvScope(controller: controller, builder: _body);
+
+  Widget _body(BuildContext context) {
     final c = controller;
     if (c.loading && c.topics.isEmpty) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));

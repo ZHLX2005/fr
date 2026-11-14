@@ -23,10 +23,28 @@ class NxKvQueueView extends StatelessWidget {
   final void Function(int id) onOpen;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      NxKvScope(controller: controller, builder: _body);
+
+  Widget _body(BuildContext context) {
     final c = controller;
     if (c.loading && c.topics.isEmpty) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      final cs = Theme.of(context).colorScheme;
+      // 请求有 15s 超时窗口，这段别只给一圈转：说清在等谁，
+      // 不然「转圈」和「卡死」在用户眼里是同一件事。
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '连 ${c.target.pcName} 上的 nx-kv…',
+              style: TextStyle(fontSize: 11, color: cs.outline),
+            ),
+          ],
+        ),
+      );
     }
     if (c.error != null && c.topics.isEmpty) {
       return NxKvNotice(

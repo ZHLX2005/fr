@@ -39,6 +39,13 @@ final RegExp _kCallout = RegExp(
   r'^>\s*\[!(WARNING|NOTE|TIP|IMPORTANT)\]\s*第\s*(\d+)\s*轮\s*[·:：]\s*(.+)$',
 );
 
+/// 这一行是不是**另一轮** callout 的标题行。
+///
+/// 必须单独判一次：服务端两轮之间隔着一个空行（`feedback-text.ts` 用 `\n\n` 拼接），
+/// 而续行规则里「空行 + 下一行以 > 开头」= 同一轮内部的空段 —— 不把标题行排除掉，
+/// 第 2 轮起就整块被吞进第 1 轮的正文里，详情页的轮次时间线只剩一条。
+bool _isCalloutTitle(String line) => _kCallout.hasMatch(line.trim());
+
 /// 拆 frontmatter：返回 (元数据行, 正文)。
 ///
 /// 只做「切掉第一段被 `---` 包起来的部分」，不做 YAML 解析 —— 端侧目前只用到
@@ -66,8 +73,9 @@ List<NxKvRound> extractRounds(String source) {
       final line = lines[j];
       final t = line.trimLeft();
       // callout 的续行必须以 '>' 开头；遇到空行（或 '>') 也继续吃掉，
-      // 直到出现第一行不是 '>' 的正文为止
+      // 直到出现第一行不是 '>' 的正文为止 —— 但**下一个 callout 的标题行不算续行**
       if (t.startsWith('>')) {
+        if (_isCalloutTitle(t)) break;
         buf.add(t.replaceFirst(RegExp(r'^>\s?'), ''));
         j++;
         continue;
@@ -85,19 +93,37 @@ List<NxKvRound> extractRounds(String source) {
       kind: (m.group(1) ?? 'note').toLowerCase(),
       body: buf.join('\n').trim(),
     ));
-    i = j;
+    // -1：循环头还会 ++。j 停下的那一行**还没被读过**（可能是下一轮的标题行），
+    // 少减这一下就会把每两轮中的第二轮整条跳过。
+    i = j - 1;
   }
   return rounds;
 }
 
 /// 正文里**去掉**轮次 callout 之后的部分（详情页的「正文」不该把反馈再复述一遍）。
+///
+/// 除了 callout 本身，还要去掉服务端在末尾追加的「—— 历史轮次 ——」摘要段：
+/// 那是把旧轮次压成一行行的列表（`feedback-text.ts` 的 `reorderRoundsForDelivery`），
+/// 端侧的轮次时间线已经把它们逐轮画过一遍了。
 String bodyWithoutRounds(String source) {
   final (fm, body) = splitFrontmatter(source);
-  if (fm.isEmpty && !body.contains('[!')) return source.replaceAll('\r\n', '\n');
+  if (fm.isEmpty && !body.contains('[!') && !body.contains('—— 历史轮次')) {
+    return source.replaceAll('\r\n', '\n');
+  }
   final out = <String>[];
   var skipping = false;
+  var inHistory = false;
   for (final line in body.split('\n')) {
     final t = line.trimLeft();
+    if (t.startsWith('—— 历史轮次')) {
+      inHistory = true;
+      continue;
+    }
+    if (inHistory) {
+      // 摘要段就是紧跟其后的一串「· 第 N 轮 …」行
+      if (t.startsWith('·') || t.isEmpty) continue;
+      inHistory = false;
+    }
     if (_kCallout.hasMatch(t)) {
       skipping = true;
       continue;

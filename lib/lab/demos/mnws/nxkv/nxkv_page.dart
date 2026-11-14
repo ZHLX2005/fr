@@ -45,9 +45,18 @@ import 'nxkv_topics_view.dart';
 /// 手机上打开这个页面的人，八成是「想知道现在有什么活」。所以没有「当前任务」
 /// 时它就是一个队列；点一条才进正文 —— 抽屉负责在两者之间横跳。
 class NxKvPage extends ConsumerStatefulWidget {
-  const NxKvPage({super.key, required this.target});
+  const NxKvPage({super.key, required this.target, this.controller});
 
   final MnWsAppTarget target;
+
+  /// 从外面塞一个 controller 进来（**测试用的口子**）。
+  ///
+  /// 平时是 null，页面自己按 [target] 建一个。留这个口子的理由很实在：
+  /// 第 1 轮的「主页面一直 loading」是**整页从没被渲染过一次**就发出去了
+  /// （作者当时跑不起 flutter test，也没有真机）。有了它，
+  /// `test/lab/demos/mnws/nxkv_page_smoke_test.dart` 才能把首页 + 抽屉
+  /// 整页渲一遍 —— 订阅漏了、首帧崩了、布局溢出了，都是这一步能抓住的。
+  final NxKvController? controller;
 
   @override
   ConsumerState<NxKvPage> createState() => _NxKvPageState();
@@ -57,6 +66,9 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
   final _scaffold = GlobalKey<ScaffoldState>();
   NxKvController? _controller;
 
+  /// 这个 controller 是不是本页自己建的（只 dispose 自己建的那个）。
+  bool _ownsController = false;
+
   /// 主区正在看哪条任务；null = 停在队列。
   int? _taskId;
 
@@ -65,17 +77,23 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
     super.didChangeDependencies();
     // 端点要从 riverpod 拿，所以不能在 initState 里建
     if (_controller != null) return;
+    final injected = widget.controller;
+    if (injected != null) {
+      _controller = injected;
+      return;
+    }
     final c = NxKvController(
       target: widget.target,
       endpoint: ref.read(mnWsEndpointProvider),
     );
     _controller = c;
+    _ownsController = true;
     c.bootstrap();
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    if (_ownsController) _controller?.dispose();
     super.dispose();
   }
 

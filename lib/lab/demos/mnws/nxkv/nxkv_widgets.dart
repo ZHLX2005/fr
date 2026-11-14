@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_tokens/spacing.dart';
 import '../mnws_blocks.dart';
+import 'nxkv_controller.dart';
 
 /// nx-kv 界面里的状态徽标：**颜色只表达状态，不做底色块**。
 ///
@@ -96,6 +97,29 @@ class NxKvNotice extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 让一个视图**跟着 controller 重建**。
+///
+/// [NxKvController] 是 ChangeNotifier，但它不会替谁重建界面：视图自己不订阅，
+/// 数据到了界面也还停在第 1 帧。第 2 轮验收反馈「主页面一直 loading」就是漏了
+/// 这一层 —— `bootstrap()` 跑完 `notifyListeners()` 发出去了，主区没人接，
+/// 于是 `loading` 早在 controller 里变成了 false，转圈还一直转。
+/// （证据：同时刻拉开抽屉是能看到主题和任务的，抽屉自己 `addListener` 了。）
+///
+/// 做成一个壳而不是每个视图各写一遍 `AnimatedBuilder`：这类「忘了订阅」的病
+/// 复发点全在视图根上，把它固化成一个必须包的东西，新视图照着写就不会漏。
+class NxKvScope extends StatelessWidget {
+  const NxKvScope({super.key, required this.controller, required this.builder});
+
+  final NxKvController controller;
+
+  /// 真正的界面（每次通知都重跑）。
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) =>
+      AnimatedBuilder(animation: controller, builder: (ctx, _) => builder(ctx));
 }
 
 /// 一行「键 · 值」，详情页的元信息用。

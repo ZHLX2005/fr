@@ -37,7 +37,10 @@ class NxKvContractView extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      NxKvScope(controller: controller, builder: _body);
+
+  Widget _body(BuildContext context) {
     final c = controller;
     final cs = Theme.of(context).colorScheme;
     final remote = c.remoteContract;
