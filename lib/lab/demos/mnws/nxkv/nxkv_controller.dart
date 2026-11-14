@@ -195,8 +195,14 @@ class NxKvController extends ChangeNotifier {
   }) =>
       _client.localtaskReopen(id, null, key, null, kind, quote, md, heading, null);
 
+  /// 派一条任务。
+  ///
+  /// 契约 0.55.x 起 `localtaskAdd` 多了第二个参数 `file`（正文可以走文件，
+  /// 长文本/多行不必再靠引号硬拼，见 nx-kv `feat(localtask): 提交任务支持 --file`）。
+  /// 这里正文一直是从编辑页读出来的字符串，`file` 传 null —— 但**位置不能漏**，
+  /// 少了它后面每个参数都会左移一格（CI 上就是这么炸的：13 required, 12 given）。
   Future<kv.LocaltaskAddOutput> add(String text, String cwd) =>
-      _client.localtaskAdd(text, cwd, null, null, null, null, null, null, null, null, null, null);
+      _client.localtaskAdd(text, null, cwd, null, null, null, null, null, null, null, null, null, null);
 
   // ── 错误人话 ──────────────────────────────────────────────
 
