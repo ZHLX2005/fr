@@ -49,14 +49,17 @@ class NxKvController extends ChangeNotifier {
   bool loading = true;
   String? error;
 
-  /// 项目组（看板）清单 —— 侧边栏树的第一层。
+  /// 项目组（看板）清单 —— 侧边栏的组行。
   ///
-  /// 它是**装饰**：拉不到就是空列表，界面把项目全挂到「未分组」下，
-  /// 任务队列照样能用。所以这里没有 `boardsError`，也不参与 loading 判定。
+  /// 它是**导航装饰**：拉不到就是空列表，项目照常平铺，任务队列照样能用。
+  /// 所以这里没有 `boardsError`，也不参与 loading 判定。
   List<NxKvBoard> boards = const [];
 
-  /// 侧边栏要画的那棵树（组 → 项目 → 主题）。搜索词非空时只留命中的分支。
-  List<NxKvTreeNode> tree({String query = ''}) => buildTopicTree(
+  /// 侧边栏要画的行（组行在前、项目平铺在后）。搜索词非空时只留命中的行。
+  ///
+  /// 语义与 nx-kv 面板一致（见 `nxkv_tree.dart` 文件头）：**组是入口，项目是模块**，
+  /// 组不装项目、项目不因为被组链接而消失。
+  NxKvSideList sideList({String query = ''}) => buildSideList(
         topics: topics,
         boards: boards,
         query: query,

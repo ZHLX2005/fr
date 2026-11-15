@@ -50,21 +50,25 @@ Future<void> main(List<String> args) async {
   }
   if (tasks.topics.length > 5) print('  …还有 ${tasks.topics.length - 5} 个');
 
-  // 侧边栏的树：组（GET /api/boards）→ 项目 → 主题。
-  // 这一行同时也验证了「契约外那一次读」在本机服务上确实拿得到数据。
+  // 侧边栏的行模型：组（GET /api/boards，入口） + 项目（平铺，可展开队列）。
+  // 这一段同时也验证了「契约外那一次读」在本机服务上确实拿得到数据。
   try {
     final boards = await api.boards(endpoint);
-    final tree = buildTopicTree(topics: tasks.topics, boards: boards);
-    print('项目组    ${boards.length} 个 · 树 ${tree.length} 组');
-    for (final g in tree.take(4)) {
-      print('  ${g.label}（待领 ${g.pending}）');
-      for (final p in g.children.take(4)) {
-        print('    · ${p.label}  → ${p.topicKey ?? '(容器，${p.children.length} 条队列)'}  ${p.pending}/${p.total}');
-      }
-      if (g.children.length > 4) print('    …还有 ${g.children.length - 4} 个项目');
+    final side = buildSideList(topics: tasks.topics, boards: boards);
+    print('项目组    ${boards.length} 个 · 行 ${side.rows.length} 行'
+        '（组 ${side.groups.length} / 项目 ${side.repos.length}）');
+    for (final g in side.groups.take(4)) {
+      final members = side.membersOf(g).map((r) => r.label).join('、');
+      print('  ${g.label}（${g.memberCount} 个项目 · 待领 ${g.pending}）→ ${members.isEmpty ? '(本机无队列)' : members}');
     }
+    if (side.groups.length > 4) print('  …还有 ${side.groups.length - 4} 个组');
+    for (final r in side.repos.take(6)) {
+      final q = r.queues.length == 1 ? '单队列' : '${r.queues.length} 条队列';
+      print('  · ${r.label}  $q  待领 ${r.pending}/${r.total}  → ${r.topicKey ?? '-'}');
+    }
+    if (side.repos.length > 6) print('  …还有 ${side.repos.length - 6} 个项目');
   } catch (e) {
-    print('项目组    读不到（$e）—— 树会退化成「未分组」，不影响任务');
+    print('项目组    读不到（$e）—— 项目照常平铺，不影响任务');
   }
 
   // 写操作的契约（0.54.0 起）：清单 + 详情。

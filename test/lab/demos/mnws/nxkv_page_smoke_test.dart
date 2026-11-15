@@ -105,7 +105,7 @@ void main() {
     expect(find.text('没有匹配「99」的任务'), findsOneWidget);
   });
 
-  testWidgets('抽屉第一层是项目组，不是一排滚动 tab', (tester) async {
+  testWidgets('抽屉：组是入口（叶子），项目平铺', (tester) async {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
     ));
@@ -113,12 +113,38 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu));
     await tester.pumpAndSettle();
 
-    // 组行 + 组下的项目（单队列项目直接可选，所以 'fr' 在这里是叶子）
+    // 两段标题说清「上面是组、下面是项目」；组行不铺成员（nx-kv 的现行逻辑）
+    expect(find.text('项目组'), findsOneWidget);
+    expect(find.text('项目'), findsOneWidget);
     expect(find.text('mobile'), findsOneWidget);
+    expect(find.text('fr'), findsWidgets, reason: '项目行平铺，与组行并列');
     expect(tester.takeException(), isNull);
 
     // 第 4 轮反馈第二条：不要「领任务的 btn」
     expect(find.textContaining('领一条'), findsNothing);
+  });
+
+  testWidgets('点组行 → 组视图（成员项目）→ 返回', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
+    ));
+
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('mobile'));
+    await tester.pumpAndSettle();
+
+    // 组视图：返回行 + 组名 + 成员项目；平铺清单的段标题不再出现
+    expect(find.text('返回'), findsOneWidget);
+    expect(find.text('1 个项目'), findsOneWidget);
+    expect(find.text('项目组'), findsNothing);
+    expect(find.text('fr'), findsWidgets);
+
+    await tester.tap(find.text('返回'));
+    await tester.pumpAndSettle();
+    expect(find.text('项目组'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('抽屉点一条 → 主区切到任务', (tester) async {
