@@ -106,7 +106,7 @@ jobs:
         id: analyze
         if: steps.bump.outputs.sha != ''
         continue-on-error: true
-        run: flutter analyze lib/api/nxkv tool/nxkv_smoke.dart
+        run: flutter analyze lib/api/mnws/nxkv tool/nxkv_smoke.dart
 
       - name: Commit and push branch
         id: push
@@ -152,7 +152,7 @@ jobs:
             HASHNOTE="没变 —— 只是往前跟了提交，\`contractDrift\` 不会报，可快速合"
           fi
           if [ "${{ steps.analyze.outcome }}" = "success" ]; then
-            ANALYZE="通过（\`flutter analyze lib/api/nxkv tool/nxkv_smoke.dart\`）"
+            ANALYZE="通过（\`flutter analyze lib/api/mnws/nxkv tool/nxkv_smoke.dart\`）"
           else
             ANALYZE="**失败** —— 生成物的类型改动与 fr 现有调用冲突，见本 workflow 日志"
           fi

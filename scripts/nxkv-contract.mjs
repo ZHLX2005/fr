@@ -75,9 +75,23 @@ const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
 //     source: git
 //     version: "0.52.0"
 function readLock(root) {
-  const text = readFileSync(join(root, 'pubspec.lock'), 'utf8');
+  // 换行符先归一。pubspec.lock 是 pub 在**提交者所在的系统**上写出来的：这仓库里
+  // 有一版是 Windows 上 `pub get` 后提交的，整份是 CRLF（bdbd97a3）。原来的正则按
+  // `:\n` 找块，在 CRLF 上永远匹配不上 → 夜跑报「没有 nx_kv_client 块」，看着像
+  // 「fr 没加依赖」，实际只是换行符不同。
+  const text = readFileSync(join(root, 'pubspec.lock'), 'utf8').replace(/\r\n/g, '\n');
   const block = /^ {2}nx_kv_client:\n([\s\S]*?)(?=\n {2}\S)/m.exec(text);
-  if (!block) throw new Error('pubspec.lock 里没有 nx_kv_client 块（先跑一次 flutter pub get）');
+  if (!block) {
+    // 最常见的两种成因，直接说清楚，别让人去猜「是不是没加依赖」：
+    //   1) 本地有 pubspec_overrides.yaml（指向 ../nx-kv/contract/dart）时跑了
+    //      pub get —— lock 会被改写成 `source: path`，git 的 ref 整个消失（bdbd97a3 就这样）；
+    //   2) 换行符是 CRLF（老版本这里按 `:\n` 匹配，永远匹配不上）。
+    throw new Error(
+      'pubspec.lock 里没有 nx_kv_client 块。若本地存在 pubspec_overrides.yaml（path 覆盖），' +
+        'pub get 会把 lock 改写成 source: path 并丢掉 resolved-ref —— 请先移开该文件，' +
+        '用 git 依赖重新 pub get，再把 lock 提交回来。'
+    );
+  }
   const body = block[1];
   const sha = /resolved-ref:\s*"([0-9a-f]{40})"/.exec(body)?.[1];
   const version = /\n\s+version:\s*"([^"]+)"/.exec(body)?.[1] || '';

@@ -161,7 +161,7 @@ dependencies:
   # （实测：`pub get` 不会把它往分支新提交挪，只有 `pub upgrade nx_kv_client` 才会），
   # 所以这个文件永远不用改、构建仍然可重现。跟新的动作交给
   # .github/workflows/sync-nxkv-contract.yml 每夜判定 + 开 PR（scripts/nxkv-contract.mjs）；
-  # 兜底靠运行期 GET /api/contract 对账（见 lib/api/nxkv/nxkv_client.dart）。
+  # 兜底靠运行期 GET /api/contract 对账（见 lib/api/mnws/nxkv/nxkv_api.dart）。
   nx_kv_client:
     git:
       url: https://github.com/On-DevPlan/nx-kv.git

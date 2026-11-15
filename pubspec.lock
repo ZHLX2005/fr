@@ -1040,6 +1040,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.5.0"
+  nx_kv_client:
+    dependency: "direct main"
+    description:
+      path: "contract/dart"
+      ref: main
+      resolved-ref: "404b5691e77411e6e692a5af0faebf5e321ed09d"
+      url: "https://github.com/On-DevPlan/nx-kv.git"
+    source: git
+    version: "0.56.1"
   objective_c:
     dependency: transitive
     description:
