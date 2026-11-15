@@ -49,9 +49,35 @@ void main() {
   /// 侧边栏第一层（组）的数据源：`GET /api/boards`。
   /// 没有它，树也要能用（全落在「未分组」下）——这里给上，才能验「组行画得出来」。
   const mobileBoard = NxKvBoard(
+    id: 'b_mobile',
     key: 'group/mobile',
     name: 'mobile',
     repoKeys: ['github.com/zhlx2005/fr'],
+  );
+
+  /// 组任务（`localtask.boardtasks`）：mobile 组里的一条，物理落在 fr 的队列。
+  const groupTask = kv.LocaltaskBoardTasksBoardTask(
+    id: 18,
+    status: 'pending',
+    title: '第2轮 fr',
+    round: 2,
+    ready: true,
+    project: 'fr',
+    topicKey: 'board/kv_fr',
+    createdAt: '2026-11-15T12:00:00Z',
+    consumedAt: '',
+    completedAt: '',
+    claimedByName: '',
+    roundSummary: '',
+  );
+
+  const mobileStats = kv.LocaltaskBoardTasksBoard(
+    id: 'b_mobile',
+    key: 'group/mobile',
+    name: 'mobile',
+    pending: 1,
+    total: 1,
+    tasks: [groupTask],
   );
 
   const task = kv.LocaltaskTasksTask(
@@ -59,6 +85,7 @@ void main() {
     status: 'pending',
     title: '修一下 fr nx-kv 的样式',
     round: 2,
+    board: '',
     ready: true,
     reopenCount: 0,
     createdAt: '2026-11-14T13:00:00Z',
@@ -73,6 +100,8 @@ void main() {
     ..selectedKey = topic.key
     ..tasks = const [task]
     ..boards = const [mobileBoard]
+    ..boardTasks = const [mobileStats]
+    ..boardTasksKnown = true
     ..loading = false;
 
   testWidgets('首帧渲得出来：上下文条 + 队列行', (tester) async {
@@ -124,7 +153,7 @@ void main() {
     expect(find.textContaining('领一条'), findsNothing);
   });
 
-  testWidgets('点组行 → 组视图（成员项目）→ 返回', (tester) async {
+  testWidgets('点组行 → 组队列（本组任务），不跳项目', (tester) async {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
     ));
@@ -135,15 +164,36 @@ void main() {
     await tester.tap(find.text('mobile'));
     await tester.pumpAndSettle();
 
-    // 组视图：返回行 + 组名 + 成员项目；平铺清单的段标题不再出现
-    expect(find.text('返回'), findsOneWidget);
-    expect(find.text('1 个项目'), findsOneWidget);
-    expect(find.text('项目组'), findsNothing);
+    // 上下文条说的是「我在这个组里」，且报的是**组任务**口径（不是成员队列之和）
+    expect(find.text('mobile · 组任务 1/1'), findsOneWidget);
+    // 组里列的是组任务本身，带归属项目 tag
+    expect(find.text('第2轮 fr'), findsWidgets);
     expect(find.text('fr'), findsWidgets);
 
-    await tester.tap(find.text('返回'));
-    await tester.pumpAndSettle();
+    // 组不是「装着项目的文件夹」：不再有返回行 / 「N 个项目」那种成员清单
+    expect(find.text('返回'), findsNothing);
+    expect(find.textContaining('1 个项目'), findsNothing);
+    // 两个分段标题还在 —— 组行与项目行是并列的两段
     expect(find.text('项目组'), findsOneWidget);
+    expect(find.text('项目'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('组里也能直接打开一条组任务（带物理落点队列）', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
+    ));
+
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('mobile'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('第2轮 fr').last);
+    await tester.pumpAndSettle();
+
+    // 主区切到正文态；topicKey 用的是组任务自己的落点（board/kv_fr），不是「当前选中项」
+    expect(find.text('任务 #18'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

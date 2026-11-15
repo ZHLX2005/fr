@@ -1045,10 +1045,10 @@ packages:
     description:
       path: "contract/dart"
       ref: main
-      resolved-ref: "404b5691e77411e6e692a5af0faebf5e321ed09d"
+      resolved-ref: "737424f1cde04f067ab6cc04e3c4be0dea4084de"
       url: "https://github.com/On-DevPlan/nx-kv.git"
     source: git
-    version: "0.56.1"
+    version: "0.56.2"
   objective_c:
     dependency: transitive
     description:

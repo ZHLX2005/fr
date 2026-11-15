@@ -32,7 +32,7 @@ void main() {
     final c = _StubController();
 
     await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: NxKvQueueView(controller: c, onOpen: (_) {})),
+      home: Scaffold(body: NxKvQueueView(controller: c, onOpen: (_, _) {})),
     ));
 
     // 第 1 帧：还没有主题 → 整屏转圈（这正是用户看到的画面）
@@ -54,7 +54,7 @@ void main() {
   testWidgets('拉不到主题时报错可重试，而不是永远转圈', (tester) async {
     final c = _StubController();
     await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: NxKvQueueView(controller: c, onOpen: (_) {})),
+      home: Scaffold(body: NxKvQueueView(controller: c, onOpen: (_, _) {})),
     ));
 
     c.loading = false;

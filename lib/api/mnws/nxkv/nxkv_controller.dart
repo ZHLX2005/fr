@@ -55,22 +55,54 @@ class NxKvController extends ChangeNotifier {
   /// 所以这里没有 `boardsError`，也不参与 loading 判定。
   List<NxKvBoard> boards = const [];
 
+  /// 各组的**组任务**（`localtask.boardtasks`，一次拿全）。
+  ///
+  /// 组任务物理上落在成员项目的队列里，归属只看正文 frontmatter 的 board ——
+  /// 服务端已经按这个口径聚合好了，这里只按 topicKey / boardKey 用：
+  ///   · 侧栏组行徽标 = 本组任务待领；
+  ///   · 项目行徽标要**减掉**落在自己队列里的组任务（两种走向，见 nxkv_tree.dart）；
+  ///   · 组页（选中一个组）列的就是这些任务，每条带归属项目。
+  ///
+  /// 拉不到不算错：`boardTasksKnown` 转 false，界面说「数暂时没有」，不报 0。
+  List<kv.LocaltaskBoardTasksBoard> boardTasks = const [];
+  bool boardTasksKnown = false;
+
   /// 侧边栏要画的行（组行在前、项目平铺在后）。搜索词非空时只留命中的行。
   ///
-  /// 语义与 nx-kv 面板一致（见 `nxkv_tree.dart` 文件头）：**组是入口，项目是模块**，
-  /// 组不装项目、项目不因为被组链接而消失。
+  /// 语义与 nx-kv 面板一致（见 `nxkv_tree.dart` 文件头）：**组是组、项目是项目**，
+  /// 两者都是队列；组任务从项目侧剔除，组不跳到项目去。
   NxKvSideList sideList({String query = ''}) => buildSideList(
         topics: topics,
         boards: boards,
+        boardTasks: boardTasks,
+        boardTasksKnown: boardTasksKnown,
         query: query,
       );
 
   /// 当前选中的主题键（三个视图共享：「队列」页选的、「主题」页点的，是同一个）。
   String? selectedKey;
 
+  /// 当前选中的**组**（看板键 `group/xxx`）。非空时主区看的是组队列，
+  /// [selectedKey] 为空 —— 两者互斥，和面板的 `#/group/<id>` 与 `#/dir/<key>` 一样。
+  String? selectedBoardKey;
+
+  /// 当前选中组的那一行（徽标/名称/成员都从这里取）。
+  NxKvSideRow? get selectedGroup =>
+      selectedBoardKey == null ? null : sideList().groupByKey(selectedBoardKey);
+
   kv.LocaltaskListTopic? get selected {
     for (final t in topics) {
       if (t.key == selectedKey) return t;
+    }
+    return null;
+  }
+
+  /// 当前组的数据（`boardtasks` 里的那一条）；null = 没选组 / 服务端没这个组。
+  kv.LocaltaskBoardTasksBoard? get selectedBoard {
+    final key = selectedBoardKey;
+    if (key == null) return null;
+    for (final b in boardTasks) {
+      if (b.key == key || b.id == key) return b;
     }
     return null;
   }
@@ -81,6 +113,11 @@ class NxKvController extends ChangeNotifier {
   // 看的是**同一份**数据。各自拉一份的话，抽屉里刚领的活主页还不知道 ——
   // 这类「两处状态」的病，最后都要靠到处 refresh 来缝。
 
+  /// 当前主题的**项目走向**任务清单（已剔除组任务）。
+  ///
+  /// 面板里项目侧与组侧是两种走向（`projectTasks` / `taskInBoard`）：组任务物理上
+  /// 躺在项目队列里，但它的「归属」是组 —— 项目列表再列一遍就成了两份数据。
+  /// 端侧同理：这里只留 `board` 为空的任务，组任务在组页里看。
   List<kv.LocaltaskTasksTask> tasks = const [];
   bool tasksLoading = false;
   String? tasksError;
@@ -103,7 +140,7 @@ class NxKvController extends ChangeNotifier {
       final out = await _client.localtaskTasks(key, null, status ?? statusFilter);
       // 期间切了主题：这份结果已经过时，别把别人的清单贴到当前主题上
       if (selectedKey != key) return;
-      tasks = out.tasks;
+      tasks = out.tasks.where((t) => t.board.isEmpty).toList();
     } catch (e) {
       if (selectedKey == key) tasksError = humanize(e);
     } finally {
@@ -112,10 +149,25 @@ class NxKvController extends ChangeNotifier {
     }
   }
 
-  /// 换状态过滤并重拉（抽屉与队列页共用）。
+  /// 当前组的任务清单（按 [statusFilter] 过滤）。
+  ///
+  /// 数据来自 [boardTasks]（一次拿全的组任务），**不再逐成员队列去问** ——
+  /// 那在手机上就是 28 次请求，每次服务端还要重读一遍 store。
+  List<kv.LocaltaskBoardTasksBoardTask> get groupTasks {
+    final list = selectedBoard?.tasks ?? const <kv.LocaltaskBoardTasksBoardTask>[];
+    final f = statusFilter;
+    if (f == null) return list;
+    return list.where((t) => t.status == f).toList();
+  }
+
+  /// 换状态过滤并重拉（抽屉与队列页共用）。组页只筛本地缓存，不发请求。
   void filterTasks(String? status) {
     if (statusFilter == status) return;
     statusFilter = status;
+    if (selectedBoardKey != null) {
+      notifyListeners();
+      return;
+    }
     loadTasks();
   }
 
@@ -164,9 +216,10 @@ class NxKvController extends ChangeNotifier {
       loading = false;
       notifyListeners();
     }
-    // 组清单与主题清单是两个来源：一个失败不该让另一个也空着，
-    // 所以分两次 await（不是 Future.wait 里一起失败）。
+    // 组清单 / 组任务 / 主题清单是三个来源：一个失败不该让另一个也空着，
+    // 所以分开 await（不是 Future.wait 里一起失败）。
     await loadBoards();
+    await loadBoardTasks();
     // 主题清单变了，当前主题的活也可能变了（领走一条、被 prune 掉）—— 一起刷
     await loadTasks();
   }
@@ -179,6 +232,22 @@ class NxKvController extends ChangeNotifier {
       boards = out;
     } catch (_) {
       boards = const [];
+    }
+    notifyListeners();
+  }
+
+  /// 拉「各组的组任务」（`localtask.boardtasks`，一次请求拿全）。
+  ///
+  /// 失败不是空：`boardTasksKnown` 转 false，界面上组的徽标就不再假装 0，
+  /// 而是说明「组任务数暂时拿不到」—— 让人知道这是没数，不是没活。
+  Future<void> loadBoardTasks() async {
+    try {
+      final out = await _client.localtaskBoardtasks(null);
+      boardTasks = out.boards;
+      boardTasksKnown = true;
+    } catch (_) {
+      boardTasks = const [];
+      boardTasksKnown = false;
     }
     notifyListeners();
   }
@@ -208,11 +277,25 @@ class NxKvController extends ChangeNotifier {
   }
 
   void select(String? key) {
-    if (selectedKey == key) return;
+    if (selectedKey == key && selectedBoardKey == null) return;
     selectedKey = key;
+    selectedBoardKey = null; // 项目与组是互斥的两个落点（面板上也是两条路由）
     tasks = const []; // 旧主题的清单立刻下线，别让抽屉先显示上一个主题的活
     notifyListeners();
     loadTasks();
+  }
+
+  /// 选一个**组**：主区看组队列（本组任务，带归属项目 tag）。
+  ///
+  /// 组有自己的任务，不是「装着项目的文件夹」—— 选中组不碰任何项目队列。
+  void selectBoard(String? key) {
+    if (selectedBoardKey == key) return;
+    selectedBoardKey = key;
+    if (key != null) {
+      selectedKey = null;
+      tasks = const [];
+    }
+    notifyListeners();
   }
 
   // ── 动作（全部走生成客户端）────────────────────────────────
@@ -248,6 +331,21 @@ class NxKvController extends ChangeNotifier {
   /// 少了它后面每个参数都会左移一格（CI 上就是这么炸的：13 required, 12 given）。
   Future<kv.LocaltaskAddOutput> add(String text, String cwd) =>
       _client.localtaskAdd(text, null, cwd, null, null, null, null, null, null, null, null, null, null);
+
+  /// 在**组里**派一条：落点选一个成员仓库，归属写进正文 frontmatter。
+  ///
+  /// 这正是面板组页「＋ 新增任务 → 工具区选归属项目（限本组成员）」那条路：
+  ///   · `board`   = 看板 id —— 任务出现在组页（`boardtasks` 按它认领）；
+  ///   · `project` = 成员仓库 key —— 任务物理落进那个项目的队列（agent 按目录领活）；
+  ///   · `cwd`     = 不给 —— 由 `project` 推导落点，免得队列目录与仓库路径不一致时报错。
+  ///
+  /// 服务端会校验「该项目是不是本组成员」，不是就直接拒绝（不在端侧重复这条规则）。
+  Future<kv.LocaltaskAddOutput> addToBoard(
+    String text, {
+    required String boardId,
+    required String projectKey,
+  }) =>
+      _client.localtaskAdd(text, null, null, null, null, boardId, projectKey, null, null, null, null, null, null);
 
   // ── 附件本体（手机端要真的画出来）──────────────────────────
   //

@@ -12,6 +12,7 @@
 //
 // 这个脚本故意**不碰 flutter** —— 它证明的是「契约包能在纯 Dart 环境里跑」，
 // 顺带也证明 fr 的适配层没有偷偷依赖 UI 层。
+import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import 'package:xiaodouzi_fr/api/mnws/mnws_endpoint.dart';
 import 'package:xiaodouzi_fr/api/mnws/mnws_models.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_api.dart';
@@ -39,9 +40,9 @@ Future<void> main(List<String> args) async {
   final drift = await api.contractDrift(endpoint);
   print('契约对账  ${drift ?? '一致'}');
 
-  final kv = api.bind(endpoint);
-  final tasks = await kv.localtaskList();
-  final boot = await kv.systemBootstrap();
+  final client = api.bind(endpoint);
+  final tasks = await client.localtaskList();
+  final boot = await client.systemBootstrap();
 
   print('主题      ${tasks.topics.length} 个 · 等待中 ${tasks.waiting}');
   print('命令表    ${boot.commands.length} 条 · nx-kv ${boot.version} · 端口 ${boot.defaultPort}');
@@ -50,16 +51,31 @@ Future<void> main(List<String> args) async {
   }
   if (tasks.topics.length > 5) print('  …还有 ${tasks.topics.length - 5} 个');
 
-  // 侧边栏的行模型：组（GET /api/boards，入口） + 项目（平铺，可展开队列）。
-  // 这一段同时也验证了「契约外那一次读」在本机服务上确实拿得到数据。
+  // 侧边栏的行模型：组（GET /api/boards，契约外，只有组名与成员）
+  //   + 组任务（localtask.boardtasks，契约内，按 frontmatter 的 board 聚合）
+  //   + 项目（平铺，可展开队列；计数已剔除落在自己队列里的组任务）。
   try {
     final boards = await api.boards(endpoint);
-    final side = buildSideList(topics: tasks.topics, boards: boards);
+    var boardTasks = const <kv.LocaltaskBoardTasksBoard>[];
+    var known = true;
+    try {
+      boardTasks = (await client.localtaskBoardtasks(null)).boards;
+    } catch (e) {
+      known = false;
+      print('组任务    读不到（$e）—— 组徽标标「数暂时没有」，项目队列不受影响');
+    }
+    final side = buildSideList(
+      topics: tasks.topics,
+      boards: boards,
+      boardTasks: boardTasks,
+      boardTasksKnown: known,
+    );
     print('项目组    ${boards.length} 个 · 行 ${side.rows.length} 行'
         '（组 ${side.groups.length} / 项目 ${side.repos.length}）');
     for (final g in side.groups.take(4)) {
       final members = side.membersOf(g).map((r) => r.label).join('、');
-      print('  ${g.label}（${g.memberCount} 个项目 · 待领 ${g.pending}）→ ${members.isEmpty ? '(本机无队列)' : members}');
+      final badge = g.statsKnown ? '组任务待领 ${g.pending}/${g.total}' : '组任务数未知';
+      print('  ${g.label}（${g.memberCount} 个绑定仓库 · $badge）→ ${members.isEmpty ? '(本机无队列)' : members}');
     }
     if (side.groups.length > 4) print('  …还有 ${side.groups.length - 4} 个组');
     for (final r in side.repos.take(6)) {
@@ -79,16 +95,16 @@ Future<void> main(List<String> args) async {
     return;
   }
   final topic = withWork.first;
-  final list = await kv.localtaskTasks(topic.key, null, null);
+  final list = await client.localtaskTasks(topic.key, null, null);
   print('清单      ${list.name} · ${list.tasks.length}/${list.total} 条');
   final row = list.tasks.isEmpty ? null : list.tasks.last;
   if (row == null) {
     print('详情      跳过（清单是空的）');
     return;
   }
-  final task = await kv.localtaskGet(row.id, null, topic.key);
+  final task = await client.localtaskGet(row.id, null, topic.key);
   print('详情      #${task.id} ${task.status} · 第 ${task.round} 轮 · '
       '正文 ${task.text.length} 字 · 附件 ${task.attachments?.length ?? 0} 个');
-  final contract = await kv.systemContract();
+  final contract = await client.systemContract();
   print('契约      ${contract.actions.length} 条 action（本机 ${contract.version}）');
 }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
 import '../../../../api/mnws/mnws.dart';
 import '../../../../core/note/composer/md_composer.dart';
 import '../../../../design_tokens/spacing.dart';
 import 'nxkv_contract_view.dart';
 import '../../../../api/mnws/nxkv/nxkv_controller.dart';
+import '../../../../api/mnws/nxkv/nxkv_tree.dart';
 import 'nxkv_drawer.dart';
 import 'nxkv_queue_view.dart';
 import 'nxkv_task_view.dart';
@@ -90,6 +92,9 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
   /// 主区正在看哪条任务；null = 停在队列。
   int? _taskId;
 
+  /// 那条任务物理落在哪条队列（组任务跨成员队列，不能拿当前选中项顶替）。
+  String? _taskTopicKey;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -117,15 +122,30 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
 
   // ── 主区切换 ──────────────────────────────────────────────
 
-  void _open(int? id) {
-    setState(() => _taskId = id);
+  void _open(int? id, {String? topicKey}) {
+    setState(() {
+      _taskId = id;
+      _taskTopicKey = id == null ? null : (topicKey ?? _controller!.selectedKey);
+    });
     _closeDrawer();
   }
 
-  /// 换主题：主区回到该主题的队列，抽屉留着（人还要在里面挑活）。
+  /// 换项目队列：主区回到该队列，抽屉留着（人还要在里面挑活）。
   void _switchTopic(String key) {
     _controller!.select(key);
-    setState(() => _taskId = null);
+    setState(() {
+      _taskId = null;
+      _taskTopicKey = null;
+    });
+  }
+
+  /// 换组队列：组有自己的任务，**不跳到成员项目去**（面板 `#/group/<id>` 同款）。
+  void _switchBoard(String boardKey) {
+    _controller!.selectBoard(boardKey);
+    setState(() {
+      _taskId = null;
+      _taskTopicKey = null;
+    });
   }
 
   void _closeDrawer() {
@@ -135,28 +155,112 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
 
   // ── 动作（抽屉里点的那个）──────────────────────────────────
 
+  /// 派一条任务：项目里直接落进本项目队列；组里先**选落点项目**再派。
+  ///
+  /// 反馈原话「新建可以选择项目组下的绑定仓库」说的就是组这一路：组任务要落到
+  /// 某个成员仓库的队列（agent 按目录领活），归属（frontmatter 的 board）才写本组。
+  /// 选择器只列**本组绑定且本机真有队列**的仓库 —— 选一个没队列的等于派不出去。
   Future<void> _create() async {
     final c = _controller!;
+    final board = c.selectedGroup;
     final topic = c.selected;
-    if (topic == null) return;
+    if (board == null && topic == null) return;
     _closeDrawer();
+
+    // 组里派活：先选落点（成员仓库 → 它的队列），归属写本组
+    NxKvSideRow? member;
+    kv.LocaltaskListTopic? landing;
+    var composerTitle = '新建任务 · ${topic?.name ?? ''}';
+    if (board != null) {
+      final members = c.sideList().membersOf(board);
+      if (members.isEmpty) {
+        _toast('这个组在本机没有可落点的项目队列 —— 成员项目要先在 PC 上登记并建队列');
+        return;
+      }
+      member = await _pickMember(board, members);
+      if (member == null) return;
+      landing = member.queues.isEmpty ? null : member.queues.first;
+      if (landing == null) {
+        _toast('「${member.label}」在本机还没有任务队列');
+        return;
+      }
+      composerTitle = '新建任务 · ${board.label} → ${member.label}';
+    } else {
+      landing = topic;
+    }
+    if (landing == null) return;
+    // 选完落点是异步的（弹窗）：页面可能已经关了，别拿着旧 context 开编辑页
+    if (!mounted) return;
+
     final md = await openMdComposer(
       context,
-      title: '新建任务 · ${topic.name}',
+      title: composerTitle,
       hint: '第一行写标题（# 开头），下面写背景/验收/约束。',
       initialText: '# \n\n## 背景\n\n\n## 验收\n\n- [ ] \n\n## 约束\n\n- \n',
       submitLabel: '派发任务',
       templates: const ['背景', '验收', '约束'],
     );
     if (md == null || md.trim().isEmpty) return;
+    final target = landing;
+    final picked = member;
     try {
-      final r = await c.add(md, topic.cwd);
+      final r = (board != null && picked != null)
+          ? await c.addToBoard(
+              md,
+              boardId: board.groupId.isEmpty ? board.groupKey : board.groupId,
+              projectKey: picked.repoKey.isNotEmpty ? picked.repoKey : picked.label,
+            )
+          : await c.add(md, target.cwd);
       await c.refresh();
       if (!mounted) return;
-      _open(r.id);
+      // 组任务跨成员队列：物理落点从刷新后的组任务里找回来（找不到就用刚才选的队列）
+      var key = target.key;
+      if (board != null) {
+        for (final b in c.boardTasks) {
+          for (final t in b.tasks) {
+            if (t.id == r.id) key = t.topicKey;
+          }
+        }
+      }
+      _open(r.id, topicKey: key);
     } catch (e) {
       _toast('派发失败：${NxKvController.humanize(e)}');
     }
+  }
+
+  /// 选落点项目（组任务的「归属项目」）：只列本组绑定、且本机真有队列的仓库。
+  Future<NxKvSideRow?> _pickMember(NxKvSideRow board, List<NxKvSideRow> members) {
+    final cs = Theme.of(context).colorScheme;
+    return showDialog<NxKvSideRow>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('派到「${board.label}」下的哪个项目？', style: const TextStyle(fontSize: 15)),
+        contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final m in members)
+                ListTile(
+                  dense: true,
+                  title: Text(m.label, style: const TextStyle(fontSize: 13)),
+                  subtitle: Text(
+                    m.hint,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, color: cs.outline),
+                  ),
+                  onTap: () => Navigator.of(ctx).pop(m),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('取消')),
+        ],
+      ),
+    );
   }
 
   void _toast(String text) {
@@ -210,8 +314,9 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
       drawer: NxKvDrawer(
         controller: c,
         currentId: _taskId,
-        onPick: _open,
+        onPick: (id, topicKey) => _open(id, topicKey: topicKey),
         onTopic: _switchTopic,
+        onBoard: _switchBoard,
         onCreate: _create,
         onOpenTopics: _openTopics,
         onOpenContract: _openContract,
@@ -241,13 +346,17 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
               _contextBar(c),
               Expanded(
                 child: _taskId == null
-                    ? NxKvQueueView(controller: c, onOpen: _open)
+                    ? NxKvQueueView(
+                        controller: c,
+                        onOpen: (id, topicKey) => _open(id, topicKey: topicKey),
+                      )
                     : NxKvTaskView(
                         key: ValueKey(_taskId),
                         controller: c,
                         id: _taskId!,
-                        topicKey: c.selectedKey,
-                        onSwitch: _open,
+                        // 组任务跨成员队列：用打开时记下的落点，不用「当前选中项」
+                        topicKey: _taskTopicKey,
+                        onSwitch: (id) => _open(id, topicKey: _taskTopicKey),
                       ),
               ),
             ],
@@ -287,11 +396,16 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
             child: AnimatedBuilder(
               animation: c,
               builder: (_, _) {
+                // 「在哪」有三态：一条任务 / 一个组 / 一个项目队列
+                final g = c.selectedGroup;
                 final t = c.selected;
+                final where = taskMode
+                    ? '任务 #$_taskId'
+                    : g != null
+                        ? '${g.label} · 组任务 ${g.statsKnown ? '${g.pending}/${g.total}' : '数暂时没有'}'
+                        : '${t?.name ?? '（无主题）'}${t == null ? '' : ' · 待领 ${t.pending}/${t.total}'}';
                 return Text(
-                  taskMode
-                      ? '任务 #$_taskId'
-                      : '${t?.name ?? '（无主题）'}${t == null ? '' : ' · 待领 ${t.pending}/${t.total}'}',
+                  where,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),

@@ -5,9 +5,13 @@ import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_tree.dart';
 
 /// 侧边栏行模型的**纯函数**用例。
 ///
-/// 第 5 轮反馈「侧边栏的逻辑仍然不对，参考当前的 nx-kv 的侧边栏」之后，这里钉的是
-/// nx-kv 面板的三条语义：**组是入口（叶子）**、**项目平铺（一个仓库一行）**、
-/// **顺序稳定（名字序，不按待领数抖）**。UI 只照着这份行清单画。
+/// 第 6 轮反馈：「当前和 nx-kv web 侧的语义完全不同 / 项目组就是项目组 /
+/// 新建可以选择项目组下的绑定仓库 / 项目就是项目 / 项目组的不要跳到项目去」。
+///
+/// 于是这里钉的是**两条走向**（面板 `taskInBoard` / `projectPending` 同口径）：
+///   · 组行 = 本组任务（frontmatter 的 board 归属）的计数，不是成员队列之和；
+///   · 项目行 = 本项目队列里**剔除组任务**之后剩下的部分；
+///   · 组成员表只用于「新建时选落点」，不是导航。
 void main() {
   kv.LocaltaskListTopic topic({
     required String key,
@@ -33,17 +37,58 @@ void main() {
             : kv.LocaltaskListTopicRepo(name: repoName ?? name, key: repoKey),
       );
 
-  NxKvBoard board(String name, List<String> repos, {String desc = ''}) =>
-      NxKvBoard(key: 'group/$name', name: name, desc: desc, repoKeys: repos);
+  NxKvBoard board(String name, List<String> repos, {String desc = '', String id = ''}) =>
+      NxKvBoard(
+        id: id.isEmpty ? 'b_$name' : id,
+        key: 'group/$name',
+        name: name,
+        desc: desc,
+        repoKeys: repos,
+      );
+
+  /// 组任务：物理落在 [topicKey] 的队列，归属 [boardKey] 那个组。
+  kv.LocaltaskBoardTasksBoardTask groupTask({
+    required int id,
+    required String topicKey,
+    String project = 'fr',
+    String status = 'pending',
+  }) =>
+      kv.LocaltaskBoardTasksBoardTask(
+        id: id,
+        status: status,
+        title: '#$id',
+        round: 1,
+        ready: status == 'pending',
+        project: project,
+        topicKey: topicKey,
+        createdAt: '',
+        consumedAt: '',
+        completedAt: '',
+        claimedByName: '',
+        roundSummary: '',
+      );
+
+  kv.LocaltaskBoardTasksBoard stats(
+    NxKvBoard b,
+    List<kv.LocaltaskBoardTasksBoardTask> tasks,
+  ) =>
+      kv.LocaltaskBoardTasksBoard(
+        id: b.id,
+        key: b.key,
+        name: b.name,
+        pending: tasks.where((t) => t.status == 'pending').length,
+        total: tasks.length,
+        tasks: tasks,
+      );
 
   group('NxKvBoard.parse', () {
-    test('认 {ok,data:{boards}} 这种被代理服务的信封', () {
+    test('认 {ok,data:{boards}} 这种被代理服务的信封，带上看板 id', () {
       final boards = NxKvBoard.parse({
         'ok': true,
         'data': {
           'boards': [
             {
-              'id': 'b1',
+              'id': 'b_mobile',
               'name': 'mobile',
               'key': 'group/mobile',
               'desc': '移动端',
@@ -56,6 +101,7 @@ void main() {
         },
       });
       expect(boards, hasLength(1));
+      expect(boards.single.id, 'b_mobile', reason: '新建组任务写进 frontmatter 的就是它');
       expect(boards.single.name, 'mobile');
       expect(boards.single.key, 'group/mobile');
       expect(boards.single.desc, '移动端');
@@ -70,50 +116,133 @@ void main() {
     });
   });
 
-  group('buildSideList — 结构（组是入口，项目平铺）', () {
-    test('组行是叶子：不装项目，项目自己一行', () {
+  group('buildSideList — 组是组（组任务口径）', () {
+    test('组行报本组任务数，不是成员队列之和', () {
+      final mobile = board('mobile', ['r/fr', 'r/rt']);
       final side = buildSideList(
         topics: [
-          topic(key: 'k-fr', name: 'fr', repoKey: 'r/fr', pending: 1, total: 4),
-          topic(key: 'k-rt', name: 'mn-rt', repoKey: 'r/rt', total: 2),
+          // 两个成员队列：fr 的 4 条里 1 条是组任务，mn-rt 的 2 条全是项目任务
+          topic(key: 'k-fr', name: 'fr', repoKey: 'r/fr', pending: 4, total: 4),
+          topic(key: 'k-rt', name: 'mn-rt', repoKey: 'r/rt', pending: 2, total: 2),
         ],
-        boards: [board('mobile', ['r/fr', 'r/rt'])],
+        boards: [mobile],
+        boardTasks: [
+          stats(mobile, [
+            groupTask(id: 18, topicKey: 'k-fr'),
+            groupTask(id: 16, topicKey: 'k-fr', status: 'done'),
+          ]),
+        ],
+        boardTasksKnown: true,
       );
 
-      // 渲染序：组在前，项目在后 —— 项目不是组的子行
-      expect(side.rows.map((r) => r.kind), [
-        NxKvRowKind.group,
-        NxKvRowKind.repo,
-        NxKvRowKind.repo,
-      ]);
-      expect(side.groups.single.label, 'mobile');
-      // 组行没有队列可进：点它只会打开组视图
-      expect(side.groups.single.topicKey, isNull);
-      expect(side.groups.single.expandable, isFalse);
-      expect(side.groups.single.memberCount, 2);
-      // 待领从成员冒泡上来（手机拿不到「组任务」口径，这是成员队列之和）
-      expect(side.groups.single.pending, 1);
-      expect(side.repos.map((r) => r.label), ['fr', 'mn-rt']);
+      final g = side.groups.single;
+      expect(g.pending, 1, reason: '组行只数**指向本组**的待领任务');
+      expect(g.total, 2);
+      expect(g.statsKnown, isTrue);
+      // 组行不是可直达的队列（点它是换到组队列，不是进某个项目）
+      expect(g.topicKey, isNull);
+      expect(g.expandable, isFalse);
+      expect(g.memberCount, 2);
+      expect(g.groupId, 'b_mobile');
     });
 
-    test('一个仓库挂两个组：项目仍只有一行，两个组都指得到它', () {
+    test('两种走向：组任务从项目侧剔除（待领与总数都剔）', () {
+      final mobile = board('mobile', ['r/fr']);
       final side = buildSideList(
-        topics: [topic(key: 'k', name: 'fr', repoKey: 'r/fr', pending: 2)],
-        boards: [
-          board('mobile', ['r/fr']),
-          board('kv_fr', ['r/fr']),
+        topics: [topic(key: 'k-fr', name: 'fr', repoKey: 'r/fr', pending: 3, total: 5)],
+        boards: [mobile],
+        boardTasks: [
+          stats(mobile, [
+            groupTask(id: 1, topicKey: 'k-fr'),
+            groupTask(id: 2, topicKey: 'k-fr', status: 'done'),
+          ]),
         ],
+        boardTasksKnown: true,
+      );
+
+      final fr = side.repos.single;
+      expect(fr.pending, 2, reason: '3 条待领里 1 条是组任务 → 项目侧 2 条');
+      expect(fr.total, 3, reason: '5 条里 2 条是组任务 → 项目侧 3 条');
+      expect(side.groups.single.pending, 1);
+    });
+
+    test('组任务落在别的队列：不影响本队列的项目计数（按 topicKey 归位）', () {
+      final mobile = board('mobile', ['r/fr', 'r/rt']);
+      final side = buildSideList(
+        topics: [
+          topic(key: 'k-fr', name: 'fr', repoKey: 'r/fr', pending: 2, total: 2),
+          topic(key: 'k-rt', name: 'mn-rt', repoKey: 'r/rt', pending: 2, total: 2),
+        ],
+        boards: [mobile],
+        boardTasks: [
+          stats(mobile, [groupTask(id: 9, topicKey: 'k-rt', project: 'mn-rt')]),
+        ],
+        boardTasksKnown: true,
+      );
+
+      // 只有 mn-rt 的队列里那条是组任务
+      expect(side.repos.firstWhere((r) => r.label == 'fr').pending, 2);
+      expect(side.repos.firstWhere((r) => r.label == 'mn-rt').pending, 1);
+    });
+
+    test('一个仓库挂两个组：项目仍只一行，两个组各数各的组任务', () {
+      final mobile = board('mobile', ['r/fr']);
+      final kvfr = board('kv_fr', ['r/fr']);
+      final side = buildSideList(
+        topics: [topic(key: 'k', name: 'fr', repoKey: 'r/fr', pending: 3, total: 3)],
+        boards: [mobile, kvfr],
+        boardTasks: [
+          stats(mobile, [groupTask(id: 1, topicKey: 'k')]),
+          stats(kvfr, [groupTask(id: 2, topicKey: 'k'), groupTask(id: 3, topicKey: 'k')]),
+        ],
+        boardTasksKnown: true,
       );
 
       expect(side.repos, hasLength(1), reason: '项目是模块，不是组里的文件');
       expect(side.groups.map((g) => g.label), ['mobile', 'kv_fr']);
-      // 两条组行都把它算进成员与待领（组只是指针）
-      expect(side.groups.every((g) => g.memberCount == 1), isTrue);
-      expect(side.groups.every((g) => g.pending == 2), isTrue);
+      expect(side.groups.map((g) => g.pending), [1, 2]);
+      // 项目侧把两个组的组任务都剔掉
+      expect(side.repos.single.pending, 0);
+      // 成员表仍然只用于「新建时选落点」
       expect(side.membersOf(side.groups.first).single.label, 'fr');
       expect(side.membersOf(side.groups.last).single.label, 'fr');
     });
 
+    test('组任务数拿不到：不假装 0，标 statsKnown=false', () {
+      final mobile = board('mobile', ['r/fr']);
+      final side = buildSideList(
+        topics: [topic(key: 'k', name: 'fr', repoKey: 'r/fr', pending: 2, total: 2)],
+        boards: [mobile],
+      );
+      final g = side.groups.single;
+      expect(g.statsKnown, isFalse);
+      expect(g.pending, 0, reason: '没数就是 0，但界面靠 statsKnown 区分「没数」与「没有活」');
+      // 项目侧也拿不到组任务可减：此时按队列原样报（宁可多算，不能把项目任务抹掉）
+      expect(side.repos.single.pending, 2);
+    });
+
+    test('服务端回了组任务但看板表里没有这个组：只按看板出行（不凭空造行）', () {
+      final mobile = board('mobile', ['r/fr']);
+      final ghost = const kv.LocaltaskBoardTasksBoard(
+        id: 'b_ghost',
+        key: 'group/ghost',
+        name: 'ghost',
+        pending: 5,
+        total: 5,
+        tasks: [],
+      );
+      final side = buildSideList(
+        topics: [topic(key: 'k', name: 'fr', repoKey: 'r/fr')],
+        boards: [mobile],
+        boardTasks: [ghost],
+        boardTasksKnown: true,
+      );
+      expect(side.groups.map((g) => g.label), ['mobile']);
+      expect(side.groups.single.statsKnown, isFalse, reason: '这个组没有统计行');
+    });
+  });
+
+  group('buildSideList — 结构（项目平铺）', () {
     test('单队列项目可直接进；多队列项目展开、队列保持服务端顺序', () {
       final side = buildSideList(
         topics: [
@@ -151,7 +280,7 @@ void main() {
       expect(local.repoKey, isEmpty);
       expect(local.topicKey, 'a');
       expect(local.hint, 'C:/tmp/proj-alpha');
-      // 它不属于任何组，组视图里不会出现
+      // 它不属于任何组，也不该出现在「新建落点」候选里
       expect(side.membersOf(side.groups.single).map((r) => r.label), ['fr']);
     });
 
@@ -171,7 +300,7 @@ void main() {
       expect(after.repos.map((r) => r.label), ['alpha', 'zeta']);
     });
 
-    test('组里没有本机队列的成员：组行照出，只是点进去没东西', () {
+    test('组里没有本机队列的成员：组行照出，落点候选里没有它', () {
       final side = buildSideList(
         topics: [topic(key: 'k', name: 'fr', repoKey: 'r/fr')],
         boards: [board('mobile', ['r/fr', 'r/not-on-this-pc'])],
@@ -195,18 +324,12 @@ void main() {
     ];
     final boards = [board('mobile', ['r/fr', 'r/rt'], desc: '手机与平板这一侧')];
 
-    test('命中项目只留那一行（组按「成员命中」跟着留下）', () {
+    test('命中项目只留那一行（成员命中，组也跟着留下）', () {
       final side = buildSideList(topics: topics, boards: boards, query: 'rt');
       expect(side.repos.map((r) => r.label), ['mn-rt']);
       expect(side.groups.map((g) => g.label), ['mobile'],
-          reason: '组是成员的指针：成员命中，组就该在');
+          reason: '组代表它的成员：成员命中，组就该在');
       expect(side.matched, 2);
-    });
-
-    test('命中组成员项目，组行也算命中（组代表成员）', () {
-      final side = buildSideList(topics: topics, boards: boards, query: 'fr');
-      expect(side.groups.map((g) => g.label), ['mobile']);
-      expect(side.repos.map((r) => r.label), ['fr']);
     });
 
     test('命中组名 / 组介绍：组行留下，项目不跟着铺开', () {
@@ -239,8 +362,9 @@ void main() {
       expect(side.hostOf(null), isNull);
     });
 
-    test('groupByKey 找到组行；空键返回 null', () {
+    test('groupByKey 按组键或看板 id 都能找到组行', () {
       expect(side.groupByKey('group/mobile')?.label, 'mobile');
+      expect(side.groupByKey('b_mobile')?.label, 'mobile');
       expect(side.groupByKey('group/nope'), isNull);
       expect(side.groupByKey(null), isNull);
     });

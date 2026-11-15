@@ -7,23 +7,27 @@ import '../../../../api/mnws/nxkv/nxkv_md.dart';
 import '../../../../api/mnws/nxkv/nxkv_tree.dart';
 import 'nxkv_widgets.dart';
 
-/// 抽屉：**换任务的地方**。
+/// 抽屉：**换队列 / 换任务的地方**。
 ///
 /// 装四件事：
 ///
-///   1. **行清单** —— 项目组（入口）+ 项目（平铺），与 nx-kv 面板同构；
+///   1. **行清单** —— 项目组 + 项目，两段平铺；两者**都是队列**，点了就换主区；
 ///   2. **搜索框** —— 同时过滤行与任务（组名 / 项目名 / 任务标题或编号）；
-///   3. **新建** —— 往当前队列派一条；
+///   3. **新建** —— 往当前队列派一条（在组里要先选落点项目）；
 ///   4. **任务清单** —— 点一条就把主区切过去，不再「返回队列再点」。
 ///
-/// ## 为什么组不是「装着项目的文件夹」
+/// ## 组是组、项目是项目（第 6 轮验收反馈）
 ///
-/// 第 5 轮验收反馈：「侧边栏的逻辑仍然不对，参考当前的 nx-kv 的侧边栏」。
-/// 第 4 轮那版是 组 → 项目 → 主题 的三级树，恰好是 nx-kv 在 11-03 明确改掉的形态：
+/// 反馈原文：「当前和 nx-kv web 侧的语义完全不同 / 项目组就是项目组 / 新建可以选择
+/// 项目组下的绑定仓库 / 项目就是项目 / 项目组的不要跳到项目去」。
 ///
-///   - **组是操作单元**，点它是进组（看本组有哪些项目），不是展开一堆缩进的项目；
-///   - **项目是模块**，永远平铺、永远在同一个位置 —— 一个项目挂在两个组里，
-///     也不会变成两条数据、更不会因为「挂在第一个组里」就从别处消失；
+/// 上一版把组做成了「指向成员的指针」，点进去列成员、再点成员进队列 —— 那还是
+/// 跳项目。现在按面板的现行语义来：
+///
+///   - **组有组自己的任务**（正文 frontmatter 的 board 归属），组行打开的是
+///     「本组任务」清单，每条带归属项目 tag；
+///   - **组的成员表只用于新建时选落点**，不是导航（`NxKvPage` 里那个选项目的弹窗）；
+///   - **项目行是纯项目队列**：组任务从项目侧剔除（面板 `projectTasks` 同口径）；
 ///   - 顺序按名字，**不按待领数抖**：屏幕小，行一换位置人就找不到刚才那条。
 ///
 /// ## 为什么没有「领一条」
@@ -37,6 +41,7 @@ class NxKvDrawer extends StatefulWidget {
     required this.currentId,
     required this.onPick,
     required this.onTopic,
+    required this.onBoard,
     required this.onCreate,
     required this.onOpenTopics,
     required this.onOpenContract,
@@ -47,11 +52,15 @@ class NxKvDrawer extends StatefulWidget {
   /// 当前主区打开的任务（高亮用）；null = 停在队列。
   final int? currentId;
 
-  /// 选一条任务（null = 回到队列，不带任务）。
-  final void Function(int? id) onPick;
+  /// 选一条任务：带上它物理落在哪条队列（组任务跨成员队列，不能拿当前选中项顶替）。
+  final void Function(int id, String topicKey) onPick;
 
-  /// 换主题：抽屉**不关**，好让人接着在这个主题里挑活。
+  /// 换主题队列：抽屉**不关**，好让人接着在这个主题里挑活。
   final void Function(String key) onTopic;
+
+  /// 换到某个组（组队列）：组有组自己的任务，不跳到成员项目去。
+  final void Function(String boardKey) onBoard;
+
   final VoidCallback onCreate;
   final VoidCallback onOpenTopics;
   final VoidCallback onOpenContract;
@@ -69,9 +78,6 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
   /// 展开了队列的项目行 id。**按 id 记而不是按对象**：刷新后行是重建的，
   /// 记对象会让「刚展开的项目」在下一帧又折回去。
   final Set<String> _expanded = {};
-
-  /// 正在看的组（组视图）；null = 平铺清单。
-  String? _groupKey;
 
   /// 上一次「自动展开了哪一行」。只在**选中项变了**的时候自动展开 ——
   /// 否则每次数据刷新都会把用户刚收起的那一行重新撑开，折叠键等于失灵。
@@ -105,16 +111,48 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
     if (host != null && host.expandable) _expanded.add(host.id);
   }
 
-  /// 选中一条队列：退出组视图，回到平铺清单（那里能看到它被高亮）。
+  /// 选中一条队列：抽屉留在原地（组视图那种「返回上一层」的路径已经没有了 ——
+  /// 组和项目是并列的两个队列，不是父子）。
   void _go(String key) {
-    setState(() => _groupKey = null);
     widget.onTopic(key);
   }
 
-  List<kv.LocaltaskTasksTask> get _filtered {
-    final list = widget.controller.tasks;
-    if (_q.isEmpty) return list;
-    return list.where((t) {
+  /// 抽屉里那一列任务：组 → 组任务（带项目 tag），项目 → 项目走向的任务。
+  ///
+  /// 两种行共用一个轻量视图类型，是为了让「点开」这件事只有一份实现 ——
+  /// 组任务的物理落点（topicKey）必须跟着它走，否则标完成/反馈会打错队列。
+  List<_TaskItem> get _items {
+    final c = widget.controller;
+    final List<_TaskItem> all;
+    if (c.selectedBoardKey != null) {
+      all = [
+        for (final t in c.groupTasks)
+          _TaskItem(
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            round: t.round,
+            createdAt: t.createdAt,
+            topicKey: t.topicKey,
+            project: t.project,
+          ),
+      ];
+    } else {
+      final key = c.selectedKey ?? '';
+      all = [
+        for (final t in c.tasks)
+          _TaskItem(
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            round: t.round,
+            createdAt: t.createdAt,
+            topicKey: key,
+          ),
+      ];
+    }
+    if (_q.isEmpty) return all;
+    return all.where((t) {
       if ('${t.id}' == _q) return true;
       return t.title.toLowerCase().contains(_q) || '${t.id}'.contains(_q);
     }).toList();
@@ -226,25 +264,13 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
     );
   }
 
-  /// 导航区：平铺清单，或（点了组之后）本组视图。
+  /// 导航区：组 + 项目两段平铺。
   ///
   /// 高度封顶（抽屉纵向还有任务清单要留位置），里面自己滚。搜索时不留折叠：
   /// 结果只有几条，折叠着等于藏起来。
   Widget _nav(ColorScheme cs, NxKvController c) {
     final list = c.sideList(query: _q);
-    final group = list.groupByKey(_groupKey);
     final maxHeight = (MediaQuery.sizeOf(context).height * 0.34).clamp(96.0, 280.0);
-
-    if (group != null) {
-      return ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-          children: _groupView(cs, c, list, group),
-        ),
-      );
-    }
 
     final rows = <Widget>[];
     final groups = list.groups;
@@ -252,7 +278,7 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
     if (groups.isNotEmpty) {
       rows.add(_section(cs, '项目组', groups.length));
       for (final g in groups) {
-        rows.add(_groupRow(cs, g));
+        rows.add(_groupRow(cs, c, g));
       }
     }
     if (repos.isNotEmpty) {
@@ -308,99 +334,58 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
 
   /// 组行：**叶子**。点一下进组视图（看本组有哪些项目、各多少待领）。
   ///
-  /// 徽标口径：有待领就报成员队列之和，没有就报成员数 —— 与 nx-kv 面板同一取舍
-  /// （那里 `pending > 0 ? pending : count`）。手机拿不到「组任务」口径
-  /// （契约没 board 字段），所以长按说清这个数是**成员队列之和**。
-  Widget _groupRow(ColorScheme cs, NxKvSideRow g) {
+  /// 徽标口径：**本组任务**的待领数（不是成员队列之和 —— 那是上一版的错）。
+  /// `boardtasks` 拉不到时报不出数，就退回成员数并说清「数暂时没有」，
+  /// 绝不把「拿不到」画成「0 条」。
+  Widget _groupRow(ColorScheme cs, NxKvController c, NxKvSideRow g) {
+    final on = c.selectedBoardKey == g.groupKey;
+    final hint = g.statsKnown
+        ? '${g.label} · ${g.memberCount} 个绑定仓库｜组任务待领 ${g.pending}/${g.total}'
+        : '${g.label} · ${g.memberCount} 个绑定仓库｜组任务数暂时拿不到（刷新试试）';
     return Tooltip(
-      message: '${g.label} · ${g.memberCount} 个项目｜成员队列待领 ${g.pending}',
+      message: hint,
       waitDuration: const Duration(milliseconds: 500),
       child: InkWell(
-        onTap: () => setState(() => _groupKey = g.groupKey),
+        onTap: () => widget.onBoard(g.groupKey),
         child: Container(
           height: 32,
           padding: const EdgeInsets.only(left: AppSpacing.xxs, right: AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: on ? cs.primary.withValues(alpha: 0.06) : null,
+            border: Border(left: BorderSide(color: on ? cs.primary : Colors.transparent, width: 2)),
+          ),
           child: Row(
             children: [
               const SizedBox(width: 14),
-              Icon(Icons.folder_shared_outlined, size: 14, color: cs.onSurfaceVariant),
+              Icon(
+                on ? Icons.folder_shared : Icons.folder_shared_outlined,
+                size: 14,
+                color: on ? cs.primary : cs.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   g.label.isEmpty ? '(未命名)' : g.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, height: 1.3, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.3,
+                    fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+                    color: on ? cs.primary : cs.onSurfaceVariant,
+                  ),
                 ),
               ),
-              _badge(cs, pending: g.pending, total: g.memberCount, isCount: g.pending == 0),
+              if (g.statsKnown)
+                _badge(cs, pending: g.pending, total: g.total)
+              else
+                Text('—', style: TextStyle(fontSize: 9, color: cs.outline)),
               Icon(Icons.chevron_right, size: 14, color: cs.outline.withValues(alpha: 0.7)),
             ],
           ),
         ),
       ),
     );
-  }
-
-  /// 组视图：返回行 + 本组信息 + 成员项目（多队列的成员直接铺出队列）。
-  List<Widget> _groupView(ColorScheme cs, NxKvController c, NxKvSideList list, NxKvSideRow g) {
-    final members = list.membersOf(g);
-    return [
-      InkWell(
-        onTap: () => setState(() => _groupKey = null),
-        child: Container(
-          height: 32,
-          padding: const EdgeInsets.only(left: AppSpacing.xxs, right: AppSpacing.sm),
-          child: Row(
-            children: [
-              Icon(Icons.arrow_back, size: 14, color: cs.primary),
-              const SizedBox(width: 6),
-              Text('返回', style: TextStyle(fontSize: 11, color: cs.primary)),
-            ],
-          ),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, 2, AppSpacing.sm, 0),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                g.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface),
-              ),
-            ),
-            Text('${g.memberCount} 个项目', style: TextStyle(fontSize: 10, color: cs.outline)),
-          ],
-        ),
-      ),
-      if (g.desc.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 2, AppSpacing.sm, 4),
-          child: Text(
-            g.desc,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10, height: 1.4, color: cs.outline),
-          ),
-        ),
-      if (members.isEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 6, AppSpacing.sm, 6),
-          child: Text(
-            '这个组在本机还没有任务队列 —— 成员项目要到 PC 上登记并建队列',
-            style: TextStyle(fontSize: 10, height: 1.4, color: cs.outline),
-          ),
-        )
-      else
-        for (final r in members) ...[
-          _repoRow(cs, c, r, r.queues.length > 1),
-          if (r.queues.length > 1)
-            for (final t in r.queues) _queueRow(cs, c, r, t),
-        ],
-    ];
   }
 
   /// 项目行：点一下（单队列）进队列，（多队列）展开；右侧箭头总是能开合。
@@ -499,11 +484,8 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
     );
   }
 
-  /// 徽标：待领数（有就强调），否则总数；[isCount] 时是「成员数」那种纯数字。
-  Widget _badge(ColorScheme cs, {required int pending, required int total, bool isCount = false}) {
-    if (isCount) {
-      return Text('$total', style: TextStyle(fontSize: 9, color: cs.outline));
-    }
+  /// 徽标：待领数（有就强调），否则总数 —— 项目侧与组侧口径都由行模型算好。
+  Widget _badge(ColorScheme cs, {required int pending, required int total}) {
     if (pending > 0) {
       return Container(
         margin: const EdgeInsets.only(left: 4),
@@ -582,10 +564,15 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
         isError: true,
       );
     }
-    final rows = _filtered;
+    final inGroup = c.selectedBoardKey != null;
+    final rows = _items;
     if (rows.isEmpty) {
       return NxKvNotice(
-        text: _q.isNotEmpty ? '没有匹配「$_q」的任务' : '这个主题还没有任务',
+        text: _q.isNotEmpty
+            ? '没有匹配「$_q」的任务'
+            : inGroup
+                ? '这个组还没有任务'
+                : '这个主题还没有任务',
         detail: _q.isNotEmpty ? '清空搜索换个词' : '点上面的「新建」派一条',
       );
     }
@@ -596,10 +583,10 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
     );
   }
 
-  Widget _taskRow(ColorScheme cs, NxKvController c, kv.LocaltaskTasksTask t) {
+  Widget _taskRow(ColorScheme cs, NxKvController c, _TaskItem t) {
     final on = t.id == widget.currentId;
     return InkWell(
-      onTap: () => widget.onPick(t.id),
+      onTap: () => widget.onPick(t.id, t.topicKey),
       child: Container(
         padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 6, AppSpacing.sm, 6),
         decoration: BoxDecoration(
@@ -629,6 +616,18 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
                 if (t.round > 1) ...[
                   const SizedBox(width: 4),
                   Text('第${t.round}轮', style: TextStyle(fontSize: 9, color: cs.outline)),
+                ],
+                // 组任务：标出它物理上落在哪个项目（组页的「项目 tag」，与面板同取舍）
+                if (t.project != null) ...[
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      t.project!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 9, color: cs.primary.withValues(alpha: 0.8)),
+                    ),
+                  ),
                 ],
                 const Spacer(),
                 Text(humanTime(t.createdAt), style: TextStyle(fontSize: 9, color: cs.outline)),
@@ -669,4 +668,30 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
       ),
     );
   }
+}
+
+/// 抽屉任务列的**统一行**：项目任务与组任务长得很像，但组任务多两样东西 ——
+/// 物理落点（topicKey，标完成/反馈要用）与归属项目（组页的 tag）。
+class _TaskItem {
+  const _TaskItem({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.round,
+    required this.createdAt,
+    required this.topicKey,
+    this.project,
+  });
+
+  final int id;
+  final String title;
+  final String status;
+  final int round;
+  final String createdAt;
+
+  /// 这条任务物理落在哪个队列（组任务跨成员队列，不能拿当前选中项顶替）。
+  final String topicKey;
+
+  /// 组任务的归属项目名；项目任务为 null（不画 tag）。
+  final String? project;
 }
