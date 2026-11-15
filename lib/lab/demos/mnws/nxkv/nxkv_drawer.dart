@@ -68,6 +68,12 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
   /// 记对象会让「刚展开的组」在下一帧又折回去。
   final Set<String> _expanded = {};
 
+  /// 上一次「自动展开到哪条队列」。
+  ///
+  /// 只在**选中项变了**的时候自动展开 —— 否则每次数据刷新（拉任务、换筛选）
+  /// 都会把用户刚折叠起来的那一组重新撑开，等于折叠键失灵。
+  String? _expandedFor;
+
   @override
   void initState() {
     super.initState();
@@ -84,14 +90,16 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
 
   void _onController() {
     if (!mounted) return;
-    _expandToSelection();
+    if (widget.controller.selectedKey != _expandedFor) _expandToSelection();
     setState(() {});
   }
 
   /// 展开到当前选中的队列（外加「一个都没展开时」把组都打开一层）。
   void _expandToSelection() {
     final c = widget.controller;
-    final path = pathToKey(c.tree(), c.selectedKey ?? '');
+    final key = c.selectedKey;
+    _expandedFor = key;
+    final path = pathToKey(c.tree(), key ?? '');
     _expanded.addAll(path);
     if (_expanded.isEmpty) {
       for (final g in c.tree()) {
