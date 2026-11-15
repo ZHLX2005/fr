@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
-import '../../../../api/mnws/mnws.dart';
-import '../../../../api/nxkv/nxkv_client.dart';
-import '../mnws_app_views.dart';
+import '../mnws.dart';
+import 'nxkv_api.dart';
 
 /// nx-kv 界面的**唯一数据入口**。
 ///
@@ -11,6 +10,15 @@ import '../mnws_app_views.dart';
 /// 端点、应用标识、设备令牌由 [MnWsEndpoint] 负责带上 —— 这就是「fr 只维护 UI」的
 /// 字面意思。nx-kv 加一条 action，这里 `flutter pub upgrade nx_kv_client` 之后
 /// 就能调用，界面代码不用改协议。
+///
+/// ## 为什么它在 `api/` 而不在 `lab/`
+///
+/// 它没有一行 widget 代码，只把契约客户端编排成「界面能直接用的状态」——
+/// 那不是界面。放在 `lab/demos/mnws/nxkv/` 时，它要用 `MnWsAppTarget`，
+/// 而那个类型当时长在 UI 文件 `mnws_app_views.dart` 里，于是数据层反向依赖了
+/// UI 层：命令行脚本想复用这份编排，就得把整个 material 拖进来。
+/// 现在 `lab/demos/mnws/nxkv/` 只剩 widget，这个文件和 [NxKvApi] 一起留在
+/// `api/mnws/nxkv/`。
 ///
 /// 为什么是 ChangeNotifier 而不是几个 Riverpod provider：
 /// 这页的状态是**一处活的会话**（连的是哪台机器、当前选的是哪个主题、契约对不对得上），

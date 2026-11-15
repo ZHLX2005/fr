@@ -5,8 +5,8 @@ import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import '../../../../core/note/composer/md_composer.dart';
 import '../../../../core/note/note_root_scope.dart';
 import '../../../../design_tokens/spacing.dart';
-import 'nxkv_controller.dart';
-import 'nxkv_md.dart';
+import '../../../../api/mnws/nxkv/nxkv_controller.dart';
+import '../../../../api/mnws/nxkv/nxkv_md.dart';
 import 'nxkv_widgets.dart';
 
 /// 一条任务的**正文视图**（不是一整页：外壳由 `NxKvPage` 提供）。

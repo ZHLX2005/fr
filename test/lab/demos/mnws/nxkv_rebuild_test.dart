@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
-import 'package:xiaodouzi_fr/lab/demos/mnws/mnws_app_views.dart';
-import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_controller.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_controller.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_queue_view.dart';
 
 /// 「主页面一直 loading」的回归用例（第 2 轮验收反馈）。

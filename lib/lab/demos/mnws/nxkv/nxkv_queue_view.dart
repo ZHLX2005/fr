@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
 import '../../../../design_tokens/spacing.dart';
-import 'nxkv_controller.dart';
-import 'nxkv_md.dart';
+import '../../../../api/mnws/nxkv/nxkv_controller.dart';
+import '../../../../api/mnws/nxkv/nxkv_md.dart';
 import 'nxkv_widgets.dart';
 
 /// 队列：当前主题的任务清单（没有打开任何任务时的主区）。

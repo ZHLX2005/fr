@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
-import '../mnws/mnws_app_client.dart';
-import '../mnws/mnws_endpoint.dart';
-import '../mnws/mnws_models.dart';
+import '../mnws_app_client.dart';
+import '../mnws_endpoint.dart';
+import '../mnws_models.dart';
 
 /// nx-kv 的端侧客户端 —— 接口**不是手写的**，是服务端契约生成出来的。
 ///

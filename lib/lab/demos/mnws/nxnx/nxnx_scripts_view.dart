@@ -8,7 +8,6 @@ import '../../../../core/ui/global/button/main.dart';
 import '../../../../core/ui/global/nav/main.dart';
 import '../../../../design_tokens/radius.dart';
 import '../../../../design_tokens/spacing.dart';
-import '../mnws_app_views.dart';
 import 'nxnx_cli_hints.dart';
 import 'nxnx_page.dart';
 import 'nxnx_widgets.dart';

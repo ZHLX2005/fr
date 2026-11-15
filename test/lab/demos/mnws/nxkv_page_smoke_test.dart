@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
-import 'package:xiaodouzi_fr/lab/demos/mnws/mnws_app_views.dart';
-import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_controller.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_controller.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_page.dart';
 
 /// 整页冒烟：**这一页得真被渲染过一次**。

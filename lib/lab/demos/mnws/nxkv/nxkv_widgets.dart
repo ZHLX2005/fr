@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_tokens/spacing.dart';
 import '../mnws_blocks.dart';
-import 'nxkv_controller.dart';
+import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 
 /// nx-kv 界面里的状态徽标：**颜色只表达状态，不做底色块**。
 ///

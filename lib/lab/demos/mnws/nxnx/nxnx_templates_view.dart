@@ -5,7 +5,6 @@ import '../../../../api/mnws/mnws.dart';
 import '../../../../api/mnws/nxnx/nxnx_models.dart';
 import '../../../../core/ui/global/nav/main.dart';
 import '../../../../design_tokens/spacing.dart';
-import '../mnws_app_views.dart';
 import 'nxnx_option_form.dart';
 import 'nxnx_cli_hints.dart';
 import 'nxnx_page.dart';

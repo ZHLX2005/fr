@@ -8,7 +8,7 @@
 // 所以这些用例里的样例都是**真任务的正文**（#200 那条），而不是手编的理想输入：
 // 认错格式的后果是详情页把反馈当正文显示、或者轮次时间线少一轮。
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_md.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_md.dart';
 
 const _realTask = '''---
 board: b_mwezoy8qnl3p7

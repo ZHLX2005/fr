@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
 import '../../../../design_tokens/spacing.dart';
-import 'nxkv_controller.dart';
+import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import 'nxkv_widgets.dart';
 
 /// 「契约」视图：端侧与服务端**是不是还说着同一种话**。

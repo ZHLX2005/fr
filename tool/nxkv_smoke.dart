@@ -14,7 +14,7 @@
 // 顺带也证明 fr 的适配层没有偷偷依赖 UI 层。
 import 'package:xiaodouzi_fr/api/mnws/mnws_endpoint.dart';
 import 'package:xiaodouzi_fr/api/mnws/mnws_models.dart';
-import 'package:xiaodouzi_fr/api/nxkv/nxkv_client.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_api.dart';
 
 Future<void> main(List<String> args) async {
   final base = args.isNotEmpty ? args.first : 'http://127.0.0.1:7877';

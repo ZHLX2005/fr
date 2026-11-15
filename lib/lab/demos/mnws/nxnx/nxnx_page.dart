@@ -5,7 +5,6 @@ import '../../../../api/mnws/mnws.dart';
 import '../../../../api/mnws/nxnx/nxnx_api.dart';
 import '../../../../api/mnws/nxnx/nxnx_models.dart';
 import '../../../../core/ui/global/nav/main.dart';
-import '../mnws_app_views.dart';
 import 'nxnx_create_view.dart';
 import 'nxnx_scripts_view.dart';
 import 'nxnx_templates_view.dart';

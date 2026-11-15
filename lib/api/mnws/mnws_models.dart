@@ -325,3 +325,31 @@ class MnWsResponse {  final int status;
     }
   }
 }
+
+/// 一次「点某个应用」的上下文：**哪台 PC 上的哪个应用**。
+///
+/// 路由键就是 (PC, app) —— 多台机器同时接入时同一个应用会出现好几条
+/// （两台都跑 nx-kv），点开时必须知道点的是哪台上的那一个：请求要带那台的
+/// `bridgeId`，否则会打到路由表指向的那台去。
+///
+/// 位置说明：它原本长在 `lab/demos/mnws/mnws_app_views.dart`（UI 层）里，
+/// 而 `api/` 下的应用客户端要用它 —— 那是 api → UI 的反向依赖。
+/// 它不带任何 widget 知识，只是两个目录条目的组合，所以归这里。
+class MnWsAppTarget {
+  /// 这台 PC 在目录里的分组。
+  final MnWsPcGroup pc;
+
+  /// 这台 PC 上的这个应用。
+  final MnWsPcApp pcApp;
+
+  const MnWsAppTarget({required this.pc, required this.pcApp});
+
+  /// 路由标识。
+  String get app => pcApp.app;
+
+  /// 电脑名。
+  String get pcName => pc.name;
+
+  /// 目标 PC 的 bridgeId（请求时带上）。
+  String get bridgeId => pc.bridgeId;
+}

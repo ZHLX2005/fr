@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
 import '../../../../design_tokens/spacing.dart';
-import 'nxkv_controller.dart';
+import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import 'nxkv_widgets.dart';
 
 /// 「主题」视图：nx-kv 的队列容器本身（不是「看板」意义上的主题）。
