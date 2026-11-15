@@ -112,74 +112,36 @@ jobs:
           path: debug_symbols
           retention-days: 90
 
-      # 只在 master push / 手动触发时上传。PR 构建绝不触碰线上 key：
-      # 未合并的代码一旦覆盖 fr_latest_apk，等于把没审查过的包发给了所有用户。
-      - name: Upload APK to file server
-        if: github.event_name != 'pull_request'
+      # 上传分发不在这里做 —— 见文件末尾的 `publish` job。
+      # 理由：上传跟构建成败无关（构建 12 分钟全绿，红的只会是上传），放同一个 job
+      # 里就意味着一次上传失败要重跑 12 分钟。拆开后重跑那个 job 只要 1 分钟。
+
+  # ============================================================
+  # 分发：把 APK 推到文件服务器的 fr_latest_apk
+  # ============================================================
+  # 只在 master push / tag / 手动触发时跑。PR 构建绝不触碰线上 key：未合并的代码一旦
+  # 覆盖 fr_latest_apk，等于把没审查过的包发给了所有用户。
+  #
+  # `needs: build` + `download-artifact`：这里拿到的和构建产物是同一份字节，
+  # 不重新构建，所以单独重跑这个 job 是廉价的（下载 40MB ≈ 2 秒 + 上传)。
+  #
+  # 跨境链路那点事（哪些机器必挂、为什么降 MTU 也没用）写在 scripts/publish-apk.sh
+  # 的头部注释里，那里才是真正干活的地方。
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: flutter-app-arm64-${{ github.sha }}
+          path: apk
+
+      - name: Publish to file server
         run: |
-          APK_FILE=$(find build/app/outputs/flutter-apk -name "*.apk" | head -1)
-          if [ -z "$APK_FILE" ]; then
-            echo "::error::未找到 APK，无法上传"
-            exit 1
-          fi
-
-          LOCAL_SHA=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
-          echo "Uploading $APK_FILE to file server..."
-          echo "Local sha256: $LOCAL_SHA"
-          # 新 file 接口：POST /api/v1/files + key=fr_latest_apk（共享 key，组内覆盖更新，
-          # 服务端软删旧行，/files/by-key/fr_latest_apk 永远指向最新）。匿名上传落匿名组、强制 public。
-          # 注意：不要在这里吞错误。2026-09-22 起runner(Azure 出口)→阿里云跨境链路会
-          # 偶发劣化，触发服务端 60s 读超时；上传失败必须让 job 变红，否则线上包
-          # 会悄悄停在旧版本（09-22 就发生过：job success 但线上还是 #97 的包）。
-          #
-          # 2026-11-15 实测（临时探针跑在同一批 runner 上）：这条链路本身并不慢 ——
-          # 5MB 1.8MB/s、15MB 1.7MB/s、40MB 6.5MB/s（6.2 秒传完）。失败的那几次是
-          # **连接整个卡死**（零字节推进），服务端 60s 读超时一到就报
-          # `ParseMultipartForm failed: read tcp ... i/o timeout`。
-          # 所以策略是「快失败 + 多试」：--speed-limit/--speed-time 让 20 秒零进度的
-          # 连接立刻掐断，而不是陪服务端一起等满 60 秒；次数从 3 提到 5。
-          ATTEMPTS=5
-          UPLOADED=false
-          RESPONSE=""
-          for attempt in $(seq 1 $ATTEMPTS); do
-            echo "--- upload attempt $attempt/$ATTEMPTS ---"
-            RC=0
-            RESPONSE=$(curl -sS --connect-timeout 15 --max-time 300 \
-              --speed-limit 100000 --speed-time 20 \
-              -X POST "http://47.110.80.47:8988/api/v1/files" \
-              -F "file=@$APK_FILE" \
-              -F "key=fr_latest_apk" \
-              -F "accessLevel=public" \
-              -F "expireSeconds=0") || RC=$?
-            echo "curl exit=$RC · upload response: $RESPONSE"
-            # 双重校验：code=0 且服务端回算的 sha256 与本地一致（防半截/被改写的包上线）
-            if echo "$RESPONSE" | grep -Eq '"code":[[:space:]]*0' \
-               && echo "$RESPONSE" | grep -q "$LOCAL_SHA"; then
-              UPLOADED=true
-              echo "APK uploaded successfully (attempt $attempt)"
-              break
-            fi
-            echo "attempt $attempt 失败（curl exit=$RC），10 秒后重试..."
-            sleep 10
-          done
-
-          {
-            echo "### APK 分发上传结果"
-            if [ "$UPLOADED" = "true" ]; then
-              echo "- 状态: ✅ 成功"
-              echo "- sha256: \`$LOCAL_SHA\`"
-              echo "- 分发地址: http://47.110.80.47:8988/files/by-key/fr_latest_apk"
-            else
-              echo "- 状态: ❌ 失败（已重试 $ATTEMPTS 次）"
-              echo "- 本地 sha256: \`$LOCAL_SHA\`"
-              echo "- 最后响应: \`$RESPONSE\`"
-              echo "- 常见原因: runner→阿里云跨境链路偶发卡死（零进度），触达服务端 60s 读超时"
-              echo "- 补救: 本机 \`gh run download <run> -n flutter-app-arm64-\$GITHUB_SHA\` 后直传；或链路恢复后 rerun"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "$UPLOADED" != "true" ]; then
-            echo "::error::APK 上传失败（重试 $ATTEMPTS 次仍失败），本次构建未发布到分发渠道"
-            exit 1
-          fi
-          echo "download_url=http://47.110.80.47:8988/files/by-key/fr_latest_apk" >> $GITHUB_ENV
+          APK_FILE=$(find apk -name "*.apk" | head -1)
+          bash scripts/publish-apk.sh "$APK_FILE"
