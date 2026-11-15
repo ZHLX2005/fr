@@ -8,6 +8,9 @@ import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 ///
 /// 沿用 mn-ws 那套口径（`mnws_blocks.dart`：无色块、只用浅描边），
 /// 状态用描边 + 文字色区分，页面才不会糊成一片。
+///
+/// 第 2 轮 UI/UX 反馈后改成**胶囊**（圆角给满）+ 8% 同色底：方形小标签在圆角
+/// 卡片旁边像贴上去的，胶囊才跟行、卡片是同一套圆角语言。
 class NxKvStatusTag extends StatelessWidget {
   const NxKvStatusTag(this.status, {super.key});
 
@@ -42,12 +45,16 @@ class NxKvStatusTag extends StatelessWidget {
     final text = _labels[status] ?? _alias[status] ?? status;
     final c = _color(cs);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: c.withValues(alpha: 0.7)),
-        borderRadius: BorderRadius.circular(4),
+        color: c.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: c.withValues(alpha: 0.35)),
       ),
-      child: Text(text, style: TextStyle(fontSize: 10, color: c)),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 10, height: 1.25, fontWeight: FontWeight.w500, color: c),
+      ),
     );
   }
 }
@@ -78,7 +85,7 @@ class NxKvNotice extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(isError ? Icons.error_outline : Icons.inbox_outlined, size: 22, color: c),
+          Icon(isError ? Icons.error_outline_rounded : Icons.inbox_rounded, size: 22, color: c),
           const SizedBox(height: AppSpacing.xs),
           Text(text, style: TextStyle(fontSize: 13, color: c), textAlign: TextAlign.center),
           if (detail != null && detail!.trim().isNotEmpty) ...[

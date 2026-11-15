@@ -26,6 +26,17 @@
 ///
 /// 减法比加法可靠：组任务被漏算时最多是「项目侧多算」，不会把项目任务凭空抹掉。
 ///
+/// ## 第 7 轮的补齐（反馈：「侧边栏的逻辑仍然不对 / 参考当前的 nx-kv 的侧边栏」）
+///
+/// 面板侧栏还有两处语义上一版没抄对，这轮收进行模型（UI 不再自己判）：
+///
+///   · **徽标口径**（[NxKvSideRow.badgeText]）：组行 = `pending > 0 ? pending : 成员数`
+///     （面板 `.cnt` 同款）；项目行 = 有待领才画。上一版恒报 `pending/total`，
+///     「0 条待领」被画成了和「没数」一样吵的东西；
+///   · **谁是叶子**（[NxKvSideRow.hasChevron]）：组没有下一层，不画展开箭头；
+///     项目行箭头只在多队列时出现。上一版给组行画了 `chevron_right` ——
+///     「项目组的不要跳到项目去」的视觉残留，箭头本身就在暗示「还能钻进去」。
+///
 /// ## 进不来的队列
 ///
 /// 没登记仓库的队列（纯本机目录）在 PC 侧栏里没有行 —— 它不属于任何仓库。
@@ -114,6 +125,46 @@ class NxKvSideRow {
   bool get expandable => queues.length > 1;
 
   int get memberCount => members.length;
+
+  /// 行尾徽标写什么；null = 什么都不画。
+  ///
+  /// 口径与 nx-kv 面板 `.cnt` **逐字对齐**（`components/sidebar/index.tsx`）：
+  ///
+  ///   · 组行 = `pending > 0 ? pending : count` —— 组里有待领的活就报活，
+  ///     一条都没有才报**成员数**（「这个组挂着几个仓库」）。组任务数是 0 时
+  ///     报 0 没有信息量，这点与上一版「恒报 pending/total」不同。
+  ///   · 项目行 = `pending > 0 ? pending : 不画` —— 项目侧的 0 更是噪音，
+  ///     面板也是 `{row.pending > 0 && <span className="cnt">}`。
+  ///
+  /// 组行的数**拿不到**时（[statsKnown]=false）返回 `—`：说不清，比说 0 诚实。
+  String? get badgeText {
+    if (isGroup) {
+      if (!statsKnown) return '—';
+      return pending > 0 ? '$pending' : '$memberCount';
+    }
+    return pending > 0 ? '$pending' : null;
+  }
+
+  /// 徽标要不要用强调语气（主色底）：只有「有活待领」才配。
+  bool get badgeEmphasized => pending > 0;
+
+  /// 徽标的完整口径（长按 / hover 时说明「这个数字是什么」）。
+  String get badgeHint {
+    if (isGroup) {
+      return statsKnown
+          ? '组任务待领 $pending/$total · 成员 $memberCount 个'
+          : '成员 $memberCount 个 · 组任务数暂时拿不到';
+    }
+    return '项目待领 $pending/$total';
+  }
+
+  /// 要不要画展开箭头。
+  ///
+  /// 面板里箭头是「就地展开子内容」；端侧能就地展开的只有**多队列项目**
+  /// （队列是手机唯一的多队列入口，单队列点行就进去了）。组行是**叶子** ——
+  /// 面板给它的 `tw` 是个空占位，不画假箭头（第 6 轮反馈「项目组的不要跳到
+  /// 项目去」的视觉残留就是那颗箭头）。
+  bool get hasChevron => !isGroup && queues.length > 1;
 
   /// 这一行（本项目）是否包含某条队列。
   bool contains(String topicKey) => queues.any((t) => t.key == topicKey);

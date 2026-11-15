@@ -369,4 +369,80 @@ void main() {
       expect(side.groupByKey(null), isNull);
     });
   });
+
+  // 第 3 轮反馈「侧边栏的逻辑仍然不对 / 参考当前的 nx-kv 的侧边栏」：
+  // 徽标口径与「谁是叶子、谁能展开」是面板侧栏里最容易被看出来的两处语义，
+  // 全部收在行模型上，界面不再自己判一遍（否则两个端迟早分叉）。
+  group('行尾徽标与展开箭头（对齐面板 .cnt / 组是叶子）', () {
+    test('组行徽标：有组任务待领报待领数，一条都没有报成员数', () {
+      final mobile = board('mobile', ['r/fr', 'r/rt']);
+      final withTasks = buildSideList(
+        topics: [topic(key: 'k1', name: 'fr', repoKey: 'r/fr', pending: 3, total: 5)],
+        boards: [mobile],
+        boardTasks: [
+          stats(mobile, [
+            groupTask(id: 1, topicKey: 'k1'),
+            groupTask(id: 2, topicKey: 'k1'),
+          ]),
+        ],
+        boardTasksKnown: true,
+      );
+      final g1 = withTasks.groups.single;
+      expect(g1.badgeText, '2', reason: '组任务待领 2 条：报活，不报成员数');
+      expect(g1.badgeEmphasized, isTrue);
+      expect(g1.badgeHint, contains('组任务待领 2/2'));
+
+      // 组里一条待领的活都没有 → 报成员数（「这个组挂着几个仓库」才是有效信息）
+      final empty = buildSideList(
+        topics: [topic(key: 'k1', name: 'fr', repoKey: 'r/fr', pending: 0, total: 0)],
+        boards: [mobile],
+        boardTasks: [stats(mobile, const [])],
+        boardTasksKnown: true,
+      );
+      final g2 = empty.groups.single;
+      expect(g2.badgeText, '2', reason: '没活时报成员数（面板 row.pending > 0 ? pending : count）');
+      expect(g2.badgeEmphasized, isFalse);
+    });
+
+    test('组任务数拿不到：画 —，不画 0', () {
+      final side = buildSideList(
+        topics: [topic(key: 'k1', name: 'fr', repoKey: 'r/fr')],
+        boards: [board('mobile', ['r/fr'])],
+        boardTasksKnown: false,
+      );
+      final g = side.groups.single;
+      expect(g.badgeText, '—');
+      expect(g.badgeEmphasized, isFalse, reason: '「没数」不该被强调成「有活」');
+      expect(g.badgeHint, contains('暂时拿不到'));
+    });
+
+    test('项目行徽标：0 待领不画（面板只在 pending > 0 时给 cnt）', () {
+      final side = buildSideList(
+        topics: [
+          topic(key: 'k1', name: 'fr', repoKey: 'r/fr', pending: 0, total: 7),
+          topic(key: 'k2', name: 'mn-rt', repoKey: 'r/rt', pending: 3, total: 4),
+        ],
+      );
+      final fr = side.repos.firstWhere((r) => r.label == 'fr');
+      final rt = side.repos.firstWhere((r) => r.label == 'mn-rt');
+      expect(fr.badgeText, isNull, reason: '0 条待领时报 0 只是噪音');
+      expect(rt.badgeText, '3');
+      expect(rt.badgeEmphasized, isTrue);
+      expect(rt.badgeHint, contains('项目待领 3/4'));
+    });
+
+    test('箭头只给多队列项目：组是叶子，单队列项目点行就进去了', () {
+      final side = buildSideList(
+        topics: [
+          topic(key: 'k1', name: 'fr', repoKey: 'r/fr'),
+          topic(key: 'k2', name: 'fr-docs', repoKey: 'r/fr'),
+          topic(key: 'k3', name: 'mn-rt', repoKey: 'r/rt'),
+        ],
+        boards: [board('mobile', ['r/fr', 'r/rt'])],
+      );
+      expect(side.groups.single.hasChevron, isFalse, reason: '组没有下一层，画箭头就是在暗示「还能钻进去」');
+      expect(side.repos.firstWhere((r) => r.label == 'fr').hasChevron, isTrue);
+      expect(side.repos.firstWhere((r) => r.label == 'mn-rt').hasChevron, isFalse);
+    });
+  });
 }

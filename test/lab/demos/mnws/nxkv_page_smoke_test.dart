@@ -5,6 +5,7 @@ import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_boards.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_controller.dart';
+import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_motion.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_page.dart';
 
 /// 整页冒烟：**这一页得真被渲染过一次**。
@@ -121,7 +122,7 @@ void main() {
       child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
     ));
 
-    await tester.tap(find.byIcon(Icons.menu));
+    await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -134,23 +135,36 @@ void main() {
     expect(find.text('没有匹配「99」的任务'), findsOneWidget);
   });
 
-  testWidgets('抽屉：组是入口（叶子），项目平铺', (tester) async {
+  testWidgets('抽屉：一棵树（组行 + 项目行同层），组是叶子', (tester) async {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
     ));
 
-    await tester.tap(find.byIcon(Icons.menu));
+    await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
-    // 两段标题说清「上面是组、下面是项目」；组行不铺成员（nx-kv 的现行逻辑）
-    expect(find.text('项目组'), findsOneWidget);
-    expect(find.text('项目'), findsOneWidget);
+    // 与面板侧栏同一形态：没有「项目组 / 项目」两段标题，组行与项目行同一层平铺
+    expect(find.text('项目组'), findsNothing);
+    expect(find.text('项目'), findsNothing);
+    expect(find.byIcon(Icons.workspaces_rounded), findsOneWidget, reason: '组行的图标底座');
+    expect(find.byIcon(Icons.folder_rounded), findsWidgets, reason: '项目行');
     expect(find.text('mobile'), findsOneWidget);
     expect(find.text('fr'), findsWidgets, reason: '项目行平铺，与组行并列');
     expect(tester.takeException(), isNull);
 
     // 第 4 轮反馈第二条：不要「领任务的 btn」
     expect(find.textContaining('领一条'), findsNothing);
+
+    // 组是叶子：组行尾不画展开箭头（那会暗示「点进去还有下一层」）。
+    // 断言按「组行这一棵子树里有没有 NxKvChevron」来写 —— 主区的任务行也有箭头，
+    // 按图标全局找会把它算进来。
+    expect(
+      find.descendant(
+        of: find.ancestor(of: find.text('mobile'), matching: find.byType(NxKvPress)).first,
+        matching: find.byType(NxKvChevron),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('点组行 → 组队列（本组任务），不跳项目', (tester) async {
@@ -158,7 +172,7 @@ void main() {
       child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
     ));
 
-    await tester.tap(find.byIcon(Icons.menu));
+    await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('mobile'));
@@ -173,9 +187,14 @@ void main() {
     // 组不是「装着项目的文件夹」：不再有返回行 / 「N 个项目」那种成员清单
     expect(find.text('返回'), findsNothing);
     expect(find.textContaining('1 个项目'), findsNothing);
-    // 两个分段标题还在 —— 组行与项目行是并列的两段
-    expect(find.text('项目组'), findsOneWidget);
-    expect(find.text('项目'), findsOneWidget);
+    // 组行仍是叶子：选中它之后也不会长出箭头
+    expect(
+      find.descendant(
+        of: find.ancestor(of: find.text('mobile'), matching: find.byType(NxKvPress)).first,
+        matching: find.byType(NxKvChevron),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -184,7 +203,7 @@ void main() {
       child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
     ));
 
-    await tester.tap(find.byIcon(Icons.menu));
+    await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
     await tester.tap(find.text('mobile'));
     await tester.pumpAndSettle();
@@ -202,7 +221,7 @@ void main() {
       child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
     ));
 
-    await tester.tap(find.byIcon(Icons.menu));
+    await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle();
 
     // 抽屉里的任务行（正文那一行标题在抽屉与队列各出现一次，点抽屉里的那条）
@@ -211,6 +230,58 @@ void main() {
 
     // 主区换成正文态：上下文条改口「任务 #14」，抽屉自动收起
     expect(find.text('任务 #14'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  /// 一个仓库挂两条队列：面板里「项目行 = 进目录，箭头 = 展开子内容」，
+  /// 端侧照抄 —— 点行进队列、点箭头才展开。上一版是「多队列时点行只展开、
+  /// 进不去」，那是第 3 轮反馈里「逻辑仍然不对」最扎眼的一处。
+  const topic2 = kv.LocaltaskListTopic(
+    key: 'board/kv_fr_docs',
+    name: 'fr-docs',
+    cwd: 'D:/DevProjects/my/github/fr/docs',
+    summary: '',
+    waiting: false,
+    pending: 0,
+    claimed: 0,
+    done: 0,
+    total: 0,
+    repo: kv.LocaltaskListTopicRepo(name: 'fr', key: 'github.com/zhlx2005/fr'),
+  );
+
+  testWidgets('多队列项目：点行就进队列，箭头才展开队列', (tester) async {
+    final c = _StubController()
+      ..topics = const [topic, topic2]
+      ..selectedKey = topic2.key
+      ..tasks = const [task]
+      ..loading = false;
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(home: NxKvPage(target: target, controller: c)),
+    ));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+
+    // 多队列才有箭头（面板的 chevron 只在有子内容时给）
+    expect(find.byType(NxKvChevron), findsOneWidget);
+    // 选中项所在的项目行自动展开，两条队列都在
+    expect(find.text('fr-docs'), findsOneWidget);
+
+    // 点「项目行」本身 → 进它的默认队列（第一条），不是展开/收起
+    final row = find.ancestor(of: find.byIcon(Icons.folder_rounded), matching: find.byType(NxKvPress)).first;
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(c.selectedKey, topic.key, reason: '点行 = 进队列（默认第一条），与面板 openRow 一致');
+
+    // 点箭头 → 收起；再点 → 展开（q 弹展开）。
+    // 按语义标签找（箭头本身是 Transform 代理，按渲染盒点会报「没打中」的假警告）
+    await tester.tap(find.bySemanticsLabel('收起队列'));
+    await tester.pumpAndSettle();
+    expect(find.text('fr-docs'), findsNothing, reason: '箭头负责展开/收起');
+
+    await tester.tap(find.bySemanticsLabel('展开队列'));
+    await tester.pumpAndSettle();
+    expect(find.text('fr-docs'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -237,14 +308,14 @@ void main() {
       // 语境：MediaQuery 认到的状态栏确实是 44dp
       expect(MediaQuery.of(tester.element(find.byType(NxKvPage))).padding.top, 44);
 
-      final menu = tester.getRect(find.byIcon(Icons.menu));
+      final menu = tester.getRect(find.byIcon(Icons.menu_rounded));
       expect(menu.top, greaterThanOrEqualTo(44),
           reason: '☰ 压在状态栏里就点不到 —— 侧边栏等于打不开');
       // 整条上下文条也应在状态栏之下（36dp 高，落在 44 ~ 80）
       expect(menu.bottom, lessThanOrEqualTo(80));
 
       // 真的能点开（touch 走 UI 树，不只是几何位置对）
-      await tester.tap(find.byIcon(Icons.menu));
+      await tester.tap(find.byIcon(Icons.menu_rounded));
       await tester.pumpAndSettle();
       expect(find.text('搜组 / 项目 / 任务'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -256,7 +327,7 @@ void main() {
         child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
       ));
 
-      await tester.tap(find.byIcon(Icons.menu));
+      await tester.tap(find.byIcon(Icons.menu_rounded));
       await tester.pumpAndSettle();
 
       // 抽屉顶部的「nx-kv + 机器名」不能被挖孔/状态栏盖住

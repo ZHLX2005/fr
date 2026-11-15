@@ -9,6 +9,7 @@ import 'nxkv_contract_view.dart';
 import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import '../../../../api/mnws/nxkv/nxkv_tree.dart';
 import 'nxkv_drawer.dart';
+import 'nxkv_motion.dart';
 import 'nxkv_queue_view.dart';
 import 'nxkv_task_view.dart';
 import 'nxkv_topics_view.dart';
@@ -62,6 +63,19 @@ import 'nxkv_topics_view.dart';
 ///   · 点项目 → 主区是本项目的**项目走向**任务（组任务剔除）；
 ///   · 组里「新建」先选落点（本组绑定的仓库），归属写 frontmatter；
 ///   · 组成员表只用于选落点，不再是导航。
+///
+/// ## 第 7 轮的落点（侧栏逻辑收尾 + UI/UX）
+///
+/// 反馈两条：「侧边栏的逻辑仍然不对，参考当前的 nx-kv 的侧边栏」+「优化一下
+/// uiux，从视觉和 icon 标识上优化，用一些更加圆滑的 icon 提升质感，同时希望
+/// 动效足够 ios，足够 q 弹，比如使用贝塞尔曲线之类的方式」。
+///
+///   · 逻辑：徽标与「谁是叶子」收进 `NxKvSideRow`（`badgeText` / `hasChevron`，
+///     面板 `.cnt` 同口径）；抽屉从「两段标题」改回面板的**一棵树**；
+///     项目行点一下就是进队列，箭头只管展开多队列（上一版多队列时点行进不去）；
+///   · 手感：`nxkv_motion.dart` —— 圆润 icon（`*_rounded`）+ 图标底座 +
+///     按压回弹（[NxKvPress]）+ 过冲曲线（[NxKvMotion.snap]，easeOutBack 的
+///     贝塞尔常数，测试里采样钉住「确实过冲」）。
 ///
 /// 规则全在 `nxkv_tree.dart`（纯函数，可单测），数据全在 `NxKvController`。
 ///
@@ -394,7 +408,7 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
             padding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 44, height: 36),
-            icon: Icon(Icons.menu, color: cs.onSurfaceVariant),
+            icon: Icon(Icons.menu_rounded, color: cs.onSurfaceVariant),
             onPressed: () => _scaffold.currentState?.openDrawer(),
           ),
           Expanded(
@@ -409,11 +423,25 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
                     : g != null
                         ? '${g.label} · 组任务 ${g.statsKnown ? '${g.pending}/${g.total}' : '数暂时没有'}'
                         : '${t?.name ?? '（无主题）'}${t == null ? '' : ' · 待领 ${t.pending}/${t.total}'}';
-                return Text(
-                  where,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                // 换队列时这句话要「滑进来」而不是硬换：36dp 的条上，硬换会像闪屏
+                return AnimatedSwitcher(
+                  duration: NxKvMotion.base,
+                  switchInCurve: NxKvMotion.glide,
+                  switchOutCurve: NxKvMotion.soft,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(begin: const Offset(0.06, 0), end: Offset.zero).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: Text(
+                    where,
+                    key: ValueKey<String>(where),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
                 );
               },
             ),
@@ -421,9 +449,9 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
           // 任务开着时这颗是「回队列」，否则是「刷新」——同一个位置，两种用途
           IconButton(
             tooltip: taskMode ? '回到队列' : '刷新',
-            iconSize: 16,
+            iconSize: 17,
             visualDensity: VisualDensity.compact,
-            icon: Icon(taskMode ? Icons.close : Icons.refresh, color: cs.outline),
+            icon: Icon(taskMode ? Icons.close_rounded : Icons.refresh_rounded, color: cs.outline),
             onPressed: taskMode ? () => _open(null) : c.bootstrap,
           ),
         ],

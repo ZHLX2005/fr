@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../design_tokens/radius.dart';
 import '../../../../design_tokens/spacing.dart';
 import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import '../../../../api/mnws/nxkv/nxkv_md.dart';
+import 'nxkv_motion.dart';
 import 'nxkv_widgets.dart';
 
 /// 队列：当前主题 / 当前项目的任务清单（没有打开任何任务时的主区）。
@@ -73,7 +75,7 @@ class NxKvQueueView extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.md),
         children: [
-          _filters(c),
+          _filters(context, c),
           if (c.tasksError != null)
             NxKvNotice(
               text: '这个主题的清单拉不到',
@@ -131,7 +133,7 @@ class NxKvQueueView extends StatelessWidget {
                 style: TextStyle(fontSize: 11, height: 1.45, color: cs.outline),
               ),
             ),
-          _filters(c),
+          _filters(context, c),
           if (!c.boardTasksKnown)
             NxKvNotice(
               text: '组任务数暂时拿不到',
@@ -161,37 +163,85 @@ class NxKvQueueView extends StatelessWidget {
     );
   }
 
-  /// 状态筛选：四个 chip 一行。抽屉里也有一个紧凑版菜单，两边写的是同一份状态。
-  Widget _filters(NxKvController c) {
+  /// 状态筛选：胶囊分段（选中浮起、未选中贴着底）。
+  ///
+  /// 不用 `ChoiceChip`：Material 的 chip 自带描边 + 勾选位，四个并排像一排标签；
+  /// iOS 的分段控件是**一块底 + 一个滑块**，这里用同样的语言（背景块跟随选中项
+  /// 做透明度过渡），切换时只动颜色不动布局，眼睛不会被跳动的边框吸引。
+  Widget _filters(BuildContext context, NxKvController c) {
     const items = <(String?, String)>[
       (null, '全部'),
       ('pending', '待领'),
       ('claimed', '进行中'),
       ('done', '已完成'),
     ];
+    final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
-          for (final (value, label) in items)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.xxs),
-              child: ChoiceChip(
-                label: Text(label, style: const TextStyle(fontSize: 11)),
-                selected: c.statusFilter == value,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onSelected: (_) => c.filterTasks(value),
+          Expanded(
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: [
+                  for (final (value, label) in items)
+                    Expanded(
+                      child: NxKvPress(
+                        onTap: () => c.filterTasks(value),
+                        scale: 0.94,
+                        semanticLabel: label,
+                        child: AnimatedContainer(
+                          duration: NxKvMotion.base,
+                          curve: NxKvMotion.snap,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: c.statusFilter == value ? cs.surface : Colors.transparent,
+                            borderRadius: BorderRadius.circular(999),
+                            boxShadow: c.statusFilter == value
+                                ? [
+                                    BoxShadow(
+                                      color: cs.shadow.withValues(alpha: 0.10),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: c.statusFilter == value ? FontWeight.w600 : FontWeight.w400,
+                              color: c.statusFilter == value ? cs.onSurface : cs.outline,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-          const Spacer(),
-          if (c.tasksLoading)
-            const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          AnimatedSize(
+            duration: NxKvMotion.base,
+            curve: NxKvMotion.glide,
+            child: c.tasksLoading
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );
   }
 
+  /// 一条任务 = 一张卡：圆角 + 极轻底色，按下去整块弹一下。
   Widget _row(
     BuildContext context, {
     required VoidCallback onTap,
@@ -203,57 +253,79 @@ class NxKvQueueView extends StatelessWidget {
     String? project,
   }) {
     final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs, horizontal: AppSpacing.xxs),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6))),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 34,
-              child: Text('#$id', style: TextStyle(fontSize: 11, color: cs.outline)),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title.isEmpty ? '(无标题)' : title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, height: 1.4),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: NxKvPress(
+        onTap: onTap,
+        semanticLabel: '任务 $id，$title',
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
+          decoration: BoxDecoration(
+            color: cs.onSurfaceVariant.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 编号块：等宽数字，位数变了也不左右抖
+              Container(
+                width: 38,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Text(
+                  '#$id',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: cs.primary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      NxKvStatusTag(status),
-                      const SizedBox(width: AppSpacing.xxs),
-                      if (round > 1)
-                        Text('第$round轮', style: TextStyle(fontSize: 10, color: cs.outline)),
-                      if (project != null && project.isNotEmpty) ...[
-                        const SizedBox(width: AppSpacing.xxs),
-                        Flexible(
-                          child: Text(
-                            project,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 10, color: cs.primary.withValues(alpha: 0.8)),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(width: AppSpacing.xxs),
-                      Text(humanTime(createdAt), style: TextStyle(fontSize: 10, color: cs.outline)),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right, size: 16, color: cs.outline),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title.isEmpty ? '(无标题)' : title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, height: 1.4),
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        NxKvStatusTag(status),
+                        const SizedBox(width: AppSpacing.xxs),
+                        if (round > 1)
+                          Text('第$round轮', style: TextStyle(fontSize: 10, color: cs.outline)),
+                        if (project != null && project.isNotEmpty) ...[
+                          const SizedBox(width: AppSpacing.xxs),
+                          Flexible(
+                            child: Text(
+                              project,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 10, color: cs.primary.withValues(alpha: 0.8)),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: AppSpacing.xxs),
+                        Text(humanTime(createdAt), style: TextStyle(fontSize: 10, color: cs.outline)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 18, color: cs.outline.withValues(alpha: 0.7)),
+            ],
+          ),
         ),
       ),
     );

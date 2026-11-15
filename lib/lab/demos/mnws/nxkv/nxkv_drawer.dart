@@ -1,39 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
+import '../../../../design_tokens/radius.dart';
 import '../../../../design_tokens/spacing.dart';
 import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import '../../../../api/mnws/nxkv/nxkv_md.dart';
 import '../../../../api/mnws/nxkv/nxkv_tree.dart';
+import 'nxkv_motion.dart';
 import 'nxkv_widgets.dart';
 
 /// 抽屉：**换队列 / 换任务的地方**。
 ///
 /// 装四件事：
 ///
-///   1. **行清单** —— 项目组 + 项目，两段平铺；两者**都是队列**，点了就换主区；
+///   1. **一棵树** —— 项目组行与项目行在**同一层**平铺（组在前、项目按名序），
+///      没有「项目组 / 项目」两段标题：面板的侧栏就是一串行，组是行、项目也是行；
 ///   2. **搜索框** —— 同时过滤行与任务（组名 / 项目名 / 任务标题或编号）；
-///   3. **新建** —— 往当前队列派一条（在组里要先选落点项目）；
-///   4. **任务清单** —— 点一条就把主区切过去，不再「返回队列再点」。
+///   3. **动作** —— 新建（组里先选落点项目）+ 状态筛选；
+///   4. **任务清单** —— 点一条就把主区切过去。
 ///
-/// ## 组是组、项目是项目（第 6 轮验收反馈）
+/// ## 组是叶子、项目是队列（对齐面板 `components/sidebar`）
 ///
-/// 反馈原文：「当前和 nx-kv web 侧的语义完全不同 / 项目组就是项目组 / 新建可以选择
-/// 项目组下的绑定仓库 / 项目就是项目 / 项目组的不要跳到项目去」。
-///
-/// 上一版把组做成了「指向成员的指针」，点进去列成员、再点成员进队列 —— 那还是
-/// 跳项目。现在按面板的现行语义来：
-///
-///   - **组有组自己的任务**（正文 frontmatter 的 board 归属），组行打开的是
-///     「本组任务」清单，每条带归属项目 tag；
-///   - **组的成员表只用于新建时选落点**，不是导航（`NxKvPage` 里那个选项目的弹窗）；
-///   - **项目行是纯项目队列**：组任务从项目侧剔除（面板 `projectTasks` 同口径）；
-///   - 顺序按名字，**不按待领数抖**：屏幕小，行一换位置人就找不到刚才那条。
+///   - **组行不画展开箭头**：面板给组的 `tw` 是个空占位（`<span className="tw" />`），
+///     因为它没有「下一层」。上一版在组行尾放了 `chevron_right`，看起来还能往下钻
+///     ——那正是第 6 轮反馈「项目组的不要跳到项目去」留下的视觉残影；
+///   - **项目行点一下就是进队列**（面板 `openRow` → `#/dir/<topicKey>`）；箭头只负责
+///     **就地展开队列列表**，且只在多队列时出现（手机没有别的入口切队列）；
+///   - **徽标口径照抄面板 `.cnt`**：组行 = 有活报活、没活报成员数；项目行 = 有活才画。
+///     判定收在 `NxKvSideRow.badgeText` 里，界面不再自己算一遍。
 ///
 /// ## 为什么没有「领一条」
 ///
 /// 第 4 轮反馈第二条：「对于任务只标记完成，不要领任务的 btn」。手机是**验收端**：
 /// 活由 PC 上的 agent 领走，人在这里看正文、标完成、提反馈。
+///
+/// ## 手感（第 2 轮 UI/UX 反馈）
+///
+/// 圆润图标（`*_rounded`）+ 图标底座（[NxKvIconTile]）+ 按压回弹（[NxKvPress]）
+/// + 展开的 q 弹曲线（[NxKvMotion.snap]）。曲线与时长的道理写在 `nxkv_motion.dart`。
 class NxKvDrawer extends StatefulWidget {
   const NxKvDrawer({
     super.key,
@@ -71,9 +75,13 @@ class NxKvDrawer extends StatefulWidget {
 
 class _NxKvDrawerState extends State<NxKvDrawer> {
   final _search = TextEditingController();
+  final _searchFocus = FocusNode();
 
   /// 关键词（小写，比组名 / 项目名 / 队列名 / 任务标题与编号）。
   String _q = '';
+
+  /// 搜索框有没有焦点（描边动画用）。
+  bool _searchOn = false;
 
   /// 展开了队列的项目行 id。**按 id 记而不是按对象**：刷新后行是重建的，
   /// 记对象会让「刚展开的项目」在下一帧又折回去。
@@ -83,16 +91,21 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
   /// 否则每次数据刷新都会把用户刚收起的那一行重新撑开，折叠键等于失灵。
   String? _expandedFor;
 
+  /// 行高：44dp 是 iOS 列表的最小可点高度，比上一版的 32 好按得多。
+  static const double _rowH = 44;
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onController);
+    _searchFocus.addListener(() => setState(() => _searchOn = _searchFocus.hasFocus));
     _expandToSelection();
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onController);
+    _searchFocus.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -108,11 +121,10 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
     final key = widget.controller.selectedKey;
     _expandedFor = key;
     final host = widget.controller.sideList().hostOf(key);
-    if (host != null && host.expandable) _expanded.add(host.id);
+    if (host != null && host.hasChevron) _expanded.add(host.id);
   }
 
-  /// 选中一条队列：抽屉留在原地（组视图那种「返回上一层」的路径已经没有了 ——
-  /// 组和项目是并列的两个队列，不是父子）。
+  /// 选中一条队列：抽屉留在原地（组和项目是并列的两个队列，不是父子）。
   void _go(String key) {
     widget.onTopic(key);
   }
@@ -167,18 +179,25 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
 
     return Drawer(
       width: drawerW,
+      // 右缘圆角 + 不铺满屏的白：抽屉是「一张浮起来的纸」，不是第五面墙
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(AppRadius.xxl)),
+      ),
+      backgroundColor: cs.surface,
       child: SafeArea(
-        child: Column(
-          children: [
-            _head(cs, c),
-            _searchRow(cs),
-            _nav(cs, c),
-            _row(cs, c),
-            Divider(height: 1, color: cs.outlineVariant),
-            Expanded(child: _list(cs, c)),
-            Divider(height: 1, color: cs.outlineVariant),
-            _foot(cs, c),
-          ],
+        child: NxKvEnter(
+          child: Column(
+            children: [
+              _head(cs, c),
+              _searchRow(cs),
+              _nav(cs, c),
+              _actions(cs, c),
+              Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.6)),
+              Expanded(child: _list(cs, c)),
+              Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.6)),
+              _foot(cs, c),
+            ],
+          ),
         ),
       ),
     );
@@ -188,10 +207,25 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
   Widget _head(ColorScheme cs, NxKvController c) {
     final drift = c.drift != null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.sm, AppSpacing.xxs),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.sm, AppSpacing.xxs),
       child: Row(
         children: [
-          Text('nx-kv', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+          // 品牌点：一行小圆点比「nx-kv」四个字更快被认成一个 App 的身份
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'nx',
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: cs.primary, letterSpacing: -0.3),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text('nx-kv', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface)),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Text(
@@ -202,19 +236,22 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
             ),
           ),
           // 契约对不上就红点，点进去看差在哪
-          InkWell(
-            borderRadius: BorderRadius.circular(3),
+          NxKvPress(
             onTap: widget.onOpenContract,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            semanticLabel: '契约状态',
+            child: AnimatedContainer(
+              duration: NxKvMotion.base,
+              curve: NxKvMotion.soft,
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
-                border: Border.all(color: drift ? cs.error : cs.outlineVariant),
-                borderRadius: BorderRadius.circular(3),
+                color: (drift ? cs.error : cs.onSurfaceVariant).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: (drift ? cs.error : cs.outlineVariant).withValues(alpha: drift ? 0.55 : 0.8),
+                ),
               ),
               child: Text(
-                drift
-                    ? '契约过期'
-                    : '契约 ${c.localHash.length > 6 ? c.localHash.substring(0, 6) : c.localHash}',
+                drift ? '契约过期' : '契约 ${c.localHash.length > 6 ? c.localHash.substring(0, 6) : c.localHash}',
                 style: TextStyle(fontSize: 9, color: drift ? cs.error : cs.outline),
               ),
             ),
@@ -224,79 +261,105 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
     );
   }
 
+  /// 搜索：iOS 搜索栏的样子（填充底、无框、聚焦才浮一圈细描边）。
+  ///
+  /// 用自绘容器而不是 `InputDecoration.border`：后者在高度变化时会出现
+  /// 「框先变、字后变」的抖动。这里只有底色和描边在过渡（[NxKvMotion.soft]）。
   Widget _searchRow(ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 0, AppSpacing.sm, AppSpacing.xxs),
-      child: SizedBox(
-        height: 36,
-        child: TextField(
-          controller: _search,
-          style: const TextStyle(fontSize: 13),
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: '搜组 / 项目 / 任务',
-            hintStyle: TextStyle(fontSize: 12, color: cs.outline),
-            prefixIcon: Icon(Icons.search, size: 16, color: cs.outline),
-            prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            suffixIcon: _q.isEmpty
-                ? null
-                : InkWell(
-                    onTap: () {
-                      _search.clear();
-                      setState(() => _q = '');
-                    },
-                    child: Icon(Icons.close, size: 14, color: cs.outline),
-                  ),
-            suffixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: cs.outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: cs.outlineVariant),
-            ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 0, AppSpacing.sm, AppSpacing.xs),
+      child: AnimatedContainer(
+        duration: NxKvMotion.base,
+        curve: NxKvMotion.soft,
+        height: 38,
+        padding: const EdgeInsets.only(left: 10, right: 4),
+        decoration: BoxDecoration(
+          color: _searchOn ? cs.surface : cs.onSurfaceVariant.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(
+            color: _searchOn ? cs.primary.withValues(alpha: 0.35) : Colors.transparent,
           ),
-          onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, size: 17, color: _searchOn ? cs.primary : cs.outline),
+            const SizedBox(width: 6),
+            Expanded(
+              child: TextField(
+                controller: _search,
+                focusNode: _searchFocus,
+                style: const TextStyle(fontSize: 13),
+                cursorColor: cs.primary,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: '搜组 / 项目 / 任务',
+                  hintStyle: TextStyle(fontSize: 12, color: cs.outline),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
+              ),
+            ),
+            AnimatedSize(
+              duration: NxKvMotion.base,
+              curve: NxKvMotion.glide,
+              child: _q.isEmpty
+                  ? const SizedBox.shrink()
+                  : NxKvPress(
+                      onTap: () {
+                        _search.clear();
+                        setState(() => _q = '');
+                      },
+                      scale: 0.9,
+                      semanticLabel: '清空搜索',
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(Icons.close_rounded, size: 14, color: cs.outline),
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// 导航区：组 + 项目两段平铺。
+  /// 导航区：**一棵树**（组行在前、项目行在后），与面板侧栏同一形态。
   ///
-  /// 高度封顶（抽屉纵向还有任务清单要留位置），里面自己滚。搜索时不留折叠：
-  /// 结果只有几条，折叠着等于藏起来。
+  /// 没有两段标题：面板的侧栏就是一串行，靠图标与位置区分。手机上少两行标题
+  /// 就多两条行的高度 —— 抽屉纵向还要留给任务清单。
   Widget _nav(ColorScheme cs, NxKvController c) {
     final list = c.sideList(query: _q);
-    final maxHeight = (MediaQuery.sizeOf(context).height * 0.34).clamp(96.0, 280.0);
+    final maxHeight = (MediaQuery.sizeOf(context).height * 0.38).clamp(120.0, 320.0);
 
     final rows = <Widget>[];
-    final groups = list.groups;
-    final repos = list.repos;
-    if (groups.isNotEmpty) {
-      rows.add(_section(cs, '项目组', groups.length));
-      for (final g in groups) {
-        rows.add(_groupRow(cs, c, g));
+    for (final r in list.rows) {
+      if (r.isGroup) {
+        rows.add(_groupRow(cs, c, r));
+        continue;
       }
-    }
-    if (repos.isNotEmpty) {
-      rows.add(_section(cs, '项目', repos.length));
-      for (final r in repos) {
-        final open = _q.isNotEmpty || _expanded.contains(r.id);
-        rows.add(_repoRow(cs, c, r, open));
-        if (open && r.queues.length > 1) {
-          for (final t in r.queues) {
-            rows.add(_queueRow(cs, c, r, t));
-          }
-        }
+      final open = _q.isNotEmpty || _expanded.contains(r.id);
+      rows.add(_repoRow(cs, c, r, open));
+      // 队列子行：只在多队列时出现（单队列点行就进去了），展开动作带 q 弹
+      if (r.hasChevron) {
+        rows.add(AnimatedSize(
+          duration: NxKvMotion.base,
+          curve: NxKvMotion.glide,
+          alignment: Alignment.topCenter,
+          child: open
+              ? Column(
+                  children: [
+                    for (final t in r.queues) _queueRow(cs, c, r, t),
+                  ],
+                )
+              : const SizedBox(width: double.infinity),
+        ));
       }
     }
 
     if (rows.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
         child: Text(
           _q.isNotEmpty ? '没有匹配「$_q」的组或项目' : '还没有任务队列',
           style: TextStyle(fontSize: 11, color: cs.outline),
@@ -308,142 +371,103 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
       constraints: BoxConstraints(maxHeight: maxHeight),
       child: ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         children: rows,
       ),
     );
   }
 
-  /// 分段标题：手机上只有这一处能说明「上面那几行是组、下面这些是项目」。
-  Widget _section(ColorScheme cs, String label, int count) {
-    return Container(
-      height: 26,
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 6, AppSpacing.sm, 0),
+  /// 组行：**叶子**。
+  ///
+  /// 徽标口径：[NxKvSideRow.badgeText]（有活报活、没活报成员数、拿不到报 `—`）。
+  /// 行尾**没有箭头** —— 组没有下一层，画箭头就是在暗示「点进去还有东西」。
+  Widget _groupRow(ColorScheme cs, NxKvController c, NxKvSideRow g) {
+    final on = c.selectedBoardKey == g.groupKey;
+    return _tappable(
+      onTap: () => widget.onBoard(g.groupKey),
+      selected: on,
+      semanticLabel: '${g.label}，${g.badgeHint}',
       child: Row(
         children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 10, letterSpacing: 0.6, color: cs.outline, fontWeight: FontWeight.w600),
+          // 与项目行的箭头槽同宽：留空是为了竖排对齐，不是为了画假箭头
+          const SizedBox(width: 16),
+          NxKvIconTile(
+            icon: Icons.workspaces_rounded,
+            color: on ? cs.primary : cs.onSurfaceVariant,
           ),
-          const SizedBox(width: 4),
-          Text('$count', style: TextStyle(fontSize: 10, color: cs.outline.withValues(alpha: 0.7))),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              g.label.isEmpty ? '(未命名)' : g.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.3,
+                fontWeight: FontWeight.w600,
+                color: on ? cs.primary : cs.onSurface,
+              ),
+            ),
+          ),
+          NxKvBadge(
+            g.badgeText,
+            emphasize: g.badgeEmphasized,
+            tooltip: g.badgeHint,
+          ),
+          const SizedBox(width: 2),
         ],
       ),
     );
   }
 
-  /// 组行：**叶子**。点一下进组视图（看本组有哪些项目、各多少待领）。
-  ///
-  /// 徽标口径：**本组任务**的待领数（不是成员队列之和 —— 那是上一版的错）。
-  /// `boardtasks` 拉不到时报不出数，就退回成员数并说清「数暂时没有」，
-  /// 绝不把「拿不到」画成「0 条」。
-  Widget _groupRow(ColorScheme cs, NxKvController c, NxKvSideRow g) {
-    final on = c.selectedBoardKey == g.groupKey;
-    final hint = g.statsKnown
-        ? '${g.label} · ${g.memberCount} 个绑定仓库｜组任务待领 ${g.pending}/${g.total}'
-        : '${g.label} · ${g.memberCount} 个绑定仓库｜组任务数暂时拿不到（刷新试试）';
-    return Tooltip(
-      message: hint,
-      waitDuration: const Duration(milliseconds: 500),
-      child: InkWell(
-        onTap: () => widget.onBoard(g.groupKey),
-        child: Container(
-          height: 32,
-          padding: const EdgeInsets.only(left: AppSpacing.xxs, right: AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: on ? cs.primary.withValues(alpha: 0.06) : null,
-            border: Border(left: BorderSide(color: on ? cs.primary : Colors.transparent, width: 2)),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 14),
-              Icon(
-                on ? Icons.folder_shared : Icons.folder_shared_outlined,
-                size: 14,
-                color: on ? cs.primary : cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  g.label.isEmpty ? '(未命名)' : g.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.3,
-                    fontWeight: on ? FontWeight.w700 : FontWeight.w600,
-                    color: on ? cs.primary : cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              if (g.statsKnown)
-                _badge(cs, pending: g.pending, total: g.total)
-              else
-                Text('—', style: TextStyle(fontSize: 9, color: cs.outline)),
-              Icon(Icons.chevron_right, size: 14, color: cs.outline.withValues(alpha: 0.7)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 项目行：点一下（单队列）进队列，（多队列）展开；右侧箭头总是能开合。
+  /// 项目行：点一下进队列，箭头展开多队列。
   Widget _repoRow(ColorScheme cs, NxKvController c, NxKvSideRow r, bool open) {
     final selected = r.contains(c.selectedKey ?? '');
-    final badge = _badge(cs, pending: r.pending, total: r.total);
-    return InkWell(
+    return _tappable(
       onTap: () {
-        if (r.expandable) {
-          setState(() => open ? _expanded.remove(r.id) : _expanded.add(r.id));
-        } else if (r.topicKey != null) {
-          _go(r.topicKey!);
-        }
+        final key = r.topicKey;
+        if (key != null) _go(key);
       },
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.only(left: AppSpacing.xxs, right: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: selected ? cs.primary.withValues(alpha: 0.06) : null,
-          border: Border(left: BorderSide(color: selected ? cs.primary : Colors.transparent, width: 2)),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              child: r.expandable
-                  ? InkWell(
-                      onTap: () => setState(() => open ? _expanded.remove(r.id) : _expanded.add(r.id)),
-                      child: Icon(
-                        open ? Icons.keyboard_arrow_down : Icons.chevron_right,
-                        size: 14,
-                        color: cs.outline,
-                      ),
-                    )
-                  : null,
-            ),
-            Icon(
-              selected ? Icons.folder : Icons.folder_outlined,
-              size: 14,
-              color: selected ? cs.primary : cs.outline,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                r.label.isEmpty ? '(未命名)' : r.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.3,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? cs.primary : cs.onSurface,
-                ),
+      selected: selected,
+      semanticLabel: '${r.label}，${r.badgeHint}',
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            child: r.hasChevron
+                ? NxKvPress(
+                    onTap: () => setState(() => open ? _expanded.remove(r.id) : _expanded.add(r.id)),
+                    scale: 0.85,
+                    semanticLabel: open ? '收起队列' : '展开队列',
+                    child: NxKvChevron(open: open, size: 17, color: cs.outline),
+                  )
+                : null,
+          ),
+          NxKvIconTile(
+            icon: Icons.folder_rounded,
+            color: selected ? cs.primary : cs.onSurfaceVariant,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              r.label.isEmpty ? '(未命名)' : r.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.3,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? cs.primary : cs.onSurface,
               ),
             ),
-            badge,
-          ],
-        ),
+          ),
+          NxKvBadge(
+            r.badgeText,
+            emphasize: r.badgeEmphasized,
+            tooltip: r.badgeHint,
+          ),
+          const SizedBox(width: 2),
+        ],
       ),
     );
   }
@@ -451,78 +475,116 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
   /// 队列子行：只在项目有多条队列时出现（单队列点项目本身就到这儿了）。
   Widget _queueRow(ColorScheme cs, NxKvController c, NxKvSideRow r, kv.LocaltaskListTopic t) {
     final selected = t.key == c.selectedKey;
-    return InkWell(
-      onTap: () => _go(t.key),
-      child: Container(
-        height: 28,
-        padding: const EdgeInsets.only(left: AppSpacing.xxs + 20, right: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: selected ? cs.primary.withValues(alpha: 0.06) : null,
-          border: Border(left: BorderSide(color: selected ? cs.primary : Colors.transparent, width: 2)),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.subdirectory_arrow_right, size: 13, color: selected ? cs.primary : cs.outline),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                t.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  height: 1.3,
-                  color: selected ? cs.primary : cs.onSurface,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    return Padding(
+      padding: const EdgeInsets.only(left: 41, right: 0, bottom: 2),
+      child: NxKvPress(
+        onTap: () => _go(t.key),
+        semanticLabel: '${t.name}，待领 ${t.pending} / ${t.total}',
+        child: AnimatedContainer(
+          duration: NxKvMotion.base,
+          curve: NxKvMotion.soft,
+          height: 38,
+          padding: const EdgeInsets.only(left: 6, right: 8),
+          decoration: BoxDecoration(
+            color: selected ? cs.primary.withValues(alpha: 0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.subdirectory_arrow_right_rounded,
+                size: 15,
+                color: selected ? cs.primary : cs.outline,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  t.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.3,
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ),
-            ),
-            _badge(cs, pending: t.pending, total: t.total),
-          ],
+              // 队列行报「待领 / 总数」：它是一整条队列，总数在这里有意义
+              NxKvBadge(
+                t.pending > 0 ? '${t.pending}' : '${t.total}',
+                emphasize: t.pending > 0,
+                tooltip: '待领 ${t.pending} / 共 ${t.total}',
+                fontSize: 9,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// 徽标：待领数（有就强调），否则总数 —— 项目侧与组侧口径都由行模型算好。
-  Widget _badge(ColorScheme cs, {required int pending, required int total}) {
-    if (pending > 0) {
-      return Container(
-        margin: const EdgeInsets.only(left: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-        decoration: BoxDecoration(
-          border: Border.all(color: cs.primary.withValues(alpha: 0.6)),
-          borderRadius: BorderRadius.circular(3),
+  /// 行的共用外壳：高度、圆角、选中底、按压回弹，一处定义。
+  Widget _tappable({
+    required VoidCallback onTap,
+    required bool selected,
+    required Widget child,
+    String? semanticLabel,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: NxKvPress(
+        onTap: onTap,
+        semanticLabel: semanticLabel,
+        child: AnimatedContainer(
+          duration: NxKvMotion.base,
+          curve: NxKvMotion.soft,
+          height: _rowH,
+          padding: const EdgeInsets.only(left: 6, right: 8),
+          decoration: BoxDecoration(
+            color: selected ? cs.primary.withValues(alpha: 0.10) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          child: child,
         ),
-        child: Text('$pending', style: TextStyle(fontSize: 9, color: cs.primary)),
-      );
-    }
-    if (total > 0) return Text('$total', style: TextStyle(fontSize: 9, color: cs.outline));
-    return const SizedBox.shrink();
+      ),
+    );
   }
 
   /// 一行动作：新建 + 状态筛选 —— 没有「领一条」：手机是验收端，不是干活端。
-  Widget _row(ColorScheme cs, NxKvController c) {
-    return SizedBox(
-      height: 36,
+  Widget _actions(ColorScheme cs, NxKvController c) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 0, AppSpacing.sm, AppSpacing.xxs),
       child: Row(
         children: [
-          const SizedBox(width: AppSpacing.xs),
-          TextButton.icon(
-            onPressed: widget.onCreate,
-            icon: const Icon(Icons.add, size: 15),
-            label: const Text('新建', style: TextStyle(fontSize: 11)),
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+          NxKvPress(
+            onTap: widget.onCreate,
+            semanticLabel: '新建任务',
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.add_rounded, size: 16, color: cs.primary),
+                  const SizedBox(width: 4),
+                  Text('新建', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: cs.primary)),
+                ],
+              ),
+            ),
           ),
           const Spacer(),
           _statusMenu(cs, c),
-          const SizedBox(width: AppSpacing.xxs),
         ],
       ),
     );
   }
 
-  /// 状态筛选收成一个菜单：四个 chip 常驻会把抽屉撑高一整行。
+  /// 状态筛选收成一个胶囊菜单：四个 chip 常驻会把抽屉撑高一整行。
   Widget _statusMenu(ColorScheme cs, NxKvController c) {
     const items = <(String?, String)>[
       (null, '全部'),
@@ -530,6 +592,7 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
       ('claimed', '进行中'),
       ('done', '已完成'),
     ];
+    final active = c.statusFilter != null;
     final label = items.firstWhere((e) => e.$1 == c.statusFilter, orElse: () => (null, '全部')).$2;
     return PopupMenuButton<String?>(
       tooltip: '按状态筛选',
@@ -537,14 +600,39 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
       onSelected: c.filterTasks,
       itemBuilder: (_) => [
         for (final (value, text) in items)
-          PopupMenuItem<String?>(value: value, height: 36, child: Text(text, style: const TextStyle(fontSize: 12))),
+          PopupMenuItem<String?>(
+            value: value,
+            height: 40,
+            child: Row(
+              children: [
+                Icon(
+                  value == c.statusFilter ? Icons.check_rounded : Icons.circle_outlined,
+                  size: 14,
+                  color: value == c.statusFilter ? cs.primary : cs.outlineVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(text, style: const TextStyle(fontSize: 12.5)),
+              ],
+            ),
+          ),
       ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: AnimatedContainer(
+        duration: NxKvMotion.base,
+        curve: NxKvMotion.soft,
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: active ? cs.primary.withValues(alpha: 0.10) : cs.onSurfaceVariant.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(999),
+        ),
         child: Row(
           children: [
-            Text(label, style: TextStyle(fontSize: 11, color: cs.outline)),
-            Icon(Icons.filter_list, size: 14, color: cs.outline),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11.5, color: active ? cs.primary : cs.outline, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.tune_rounded, size: 14, color: active ? cs.primary : cs.outline),
           ],
         ),
       ),
@@ -577,7 +665,7 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
       itemCount: rows.length,
       itemBuilder: (_, i) => _taskRow(cs, c, rows[i]),
     );
@@ -585,55 +673,68 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
 
   Widget _taskRow(ColorScheme cs, NxKvController c, _TaskItem t) {
     final on = t.id == widget.currentId;
-    return InkWell(
-      onTap: () => widget.onPick(t.id, t.topicKey),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 6, AppSpacing.sm, 6),
-        decoration: BoxDecoration(
-          color: on ? cs.primary.withValues(alpha: 0.06) : null,
-          border: Border(left: BorderSide(color: on ? cs.primary : Colors.transparent, width: 2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              t.title.isEmpty ? '(无标题)' : t.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.35,
-                color: on ? cs.primary : cs.onSurface,
-                fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: NxKvPress(
+        onTap: () => widget.onPick(t.id, t.topicKey),
+        semanticLabel: '任务 ${t.id}，${t.title}',
+        child: AnimatedContainer(
+          duration: NxKvMotion.base,
+          curve: NxKvMotion.soft,
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: on ? cs.primary.withValues(alpha: 0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.title.isEmpty ? '(无标题)' : t.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.35,
+                  color: on ? cs.primary : cs.onSurface,
+                  fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+                ),
               ),
-            ),
-            const SizedBox(height: 1),
-            Row(
-              children: [
-                Text('#${t.id}', style: TextStyle(fontSize: 9, color: cs.outline)),
-                const SizedBox(width: 4),
-                NxKvStatusTag(t.status),
-                if (t.round > 1) ...[
-                  const SizedBox(width: 4),
-                  Text('第${t.round}轮', style: TextStyle(fontSize: 9, color: cs.outline)),
-                ],
-                // 组任务：标出它物理上落在哪个项目（组页的「项目 tag」，与面板同取舍）
-                if (t.project != null) ...[
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      t.project!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 9, color: cs.primary.withValues(alpha: 0.8)),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Text(
+                    '#${t.id}',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: cs.outline,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
+                  const SizedBox(width: 5),
+                  NxKvStatusTag(t.status),
+                  if (t.round > 1) ...[
+                    const SizedBox(width: 5),
+                    Text('第${t.round}轮', style: TextStyle(fontSize: 9, color: cs.outline)),
+                  ],
+                  // 组任务：标出它物理上落在哪个项目（组页的「项目 tag」，与面板同取舍）
+                  if (t.project != null) ...[
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        t.project!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 9, color: cs.primary.withValues(alpha: 0.8)),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Text(humanTime(t.createdAt), style: TextStyle(fontSize: 9, color: cs.outline)),
                 ],
-                const Spacer(),
-                Text(humanTime(t.createdAt), style: TextStyle(fontSize: 9, color: cs.outline)),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -641,30 +742,43 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
 
   /// 底部：主题 / 契约 / 刷新 —— 低频入口，别占抽屉的黄金位置。
   Widget _foot(ColorScheme cs, NxKvController c) {
+    Widget entry({required IconData icon, required String label, required VoidCallback onTap}) {
+      return NxKvPress(
+        onTap: onTap,
+        semanticLabel: label,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            children: [
+              Icon(icon, size: 15, color: cs.outline),
+              const SizedBox(width: 5),
+              Text(label, style: TextStyle(fontSize: 11, color: cs.outline)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
-      height: 34,
-      child: Row(
-        children: [
-          const SizedBox(width: AppSpacing.xxs),
-          TextButton(
-            onPressed: widget.onOpenTopics,
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            child: Text('主题', style: TextStyle(fontSize: 11, color: cs.outline)),
-          ),
-          TextButton(
-            onPressed: widget.onOpenContract,
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            child: Text('契约', style: TextStyle(fontSize: 11, color: cs.outline)),
-          ),
-          const Spacer(),
-          IconButton(
-            tooltip: '刷新主题与清单',
-            iconSize: 16,
-            visualDensity: VisualDensity.compact,
-            icon: Icon(Icons.refresh, color: cs.outline),
-            onPressed: c.bootstrap,
-          ),
-        ],
+      height: 40,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            entry(icon: Icons.layers_rounded, label: '主题', onTap: widget.onOpenTopics),
+            entry(icon: Icons.verified_rounded, label: '契约', onTap: widget.onOpenContract),
+            const Spacer(),
+            NxKvPress(
+              onTap: c.bootstrap,
+              scale: 0.88,
+              semanticLabel: '刷新主题与清单',
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(Icons.refresh_rounded, size: 17, color: cs.outline),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
