@@ -364,19 +364,36 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
             children: [
               _contextBar(c),
               Expanded(
-                child: _taskId == null
-                    ? NxKvQueueView(
-                        controller: c,
-                        onOpen: (id, topicKey) => _open(id, topicKey: topicKey),
-                      )
-                    : NxKvTaskView(
-                        key: ValueKey(_taskId),
-                        controller: c,
-                        id: _taskId!,
-                        // 组任务跨成员队列：用打开时记下的落点，不用「当前选中项」
-                        topicKey: _taskTopicKey,
-                        onSwitch: (id) => _open(id, topicKey: _taskTopicKey),
-                      ),
+                // 队列 ⇄ 任务：淡入 + 极轻微右移。没有这一层时，点开一条任务是
+                // 整屏「啪」一下换掉 —— 内容全变、位置全变，眼睛要重新找落点。
+                // 位移只给 3%（240ms 走完），是「推入」的暗示而不是真的滑动：
+                // 真滑一整屏会让中间的列表跟着抖，反而慢。
+                child: AnimatedSwitcher(
+                  duration: NxKvMotion.base,
+                  switchInCurve: NxKvMotion.glide,
+                  switchOutCurve: NxKvMotion.soft,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(begin: const Offset(0.03, 0), end: Offset.zero).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: _taskId == null
+                      ? NxKvQueueView(
+                          key: const ValueKey('queue'),
+                          controller: c,
+                          onOpen: (id, topicKey) => _open(id, topicKey: topicKey),
+                        )
+                      : NxKvTaskView(
+                          key: ValueKey('task-$_taskId'),
+                          controller: c,
+                          id: _taskId!,
+                          // 组任务跨成员队列：用打开时记下的落点，不用「当前选中项」
+                          topicKey: _taskTopicKey,
+                          onSwitch: (id) => _open(id, topicKey: _taskTopicKey),
+                        ),
+                ),
               ),
             ],
           ),
