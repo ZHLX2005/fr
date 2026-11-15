@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
 import '../../../../api/mnws/mnws.dart';
 import '../../../../core/note/composer/md_composer.dart';
@@ -38,6 +37,18 @@ import 'nxkv_topics_view.dart';
 ///   3. 「确保编辑区有 80% 的编辑空间」——
 ///      任务页的 chrome 只剩 36（上下文条）+ 40（动作条）= 76dp，正文拿到 ~88%；
 ///      编辑页（[MdComposerPage]）也只留 44 + 40 + 48 三条，正文同样过 80%。
+///
+/// ## 第 4 轮的落点（样式优化）
+///
+/// 反馈三条，各自落在哪一层：
+///
+///   1. 「项目和项目组不要以侧边栏的滚动 tab 表示，应该用目录树」——
+///      [NxKvDrawer] 里的横向 chips 换成 `NxKvController.tree()` 画的
+///      组 → 项目 → 主题三级树（见 `api/mnws/nxkv/nxkv_tree.dart`）；
+///   2. 「任务只标记完成，不要领任务的 btn」—— 抽屉里的「领一条」与正文页的
+///      「领取」都删了，动作条只留「标完成」；
+///   3. 「附件也应该通过网络传输到手机端展示」—— 见 [NxKvTaskView] 的附件区：
+///      图片经桥取字节内联画出来，其它文件落盘后交给系统打开。
 ///
 /// ## 为什么第一屏是队列而不是任务
 ///
@@ -114,28 +125,7 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
     if (s != null && s.isDrawerOpen) s.closeDrawer();
   }
 
-  // ── 动作（抽屉里点的那两个）────────────────────────────────
-
-  Future<void> _claim() async {
-    final c = _controller!;
-    final topic = c.selected;
-    if (topic == null) return;
-    _closeDrawer();
-    try {
-      final r = await c.claim(topic);
-      await c.refresh();
-      if (!mounted) return;
-      if (r.status == kv.LocaltaskClaimStatus.ok && r.taskId != null) {
-        _open(r.taskId);
-      } else {
-        _toast(r.status == kv.LocaltaskClaimStatus.blocked
-            ? '这个主题的任务被依赖挡住了，先去完成上游'
-            : '这个主题暂时没有可领的任务');
-      }
-    } catch (e) {
-      _toast('领取失败：${NxKvController.humanize(e)}');
-    }
-  }
+  // ── 动作（抽屉里点的那个）──────────────────────────────────
 
   Future<void> _create() async {
     final c = _controller!;
@@ -214,7 +204,6 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
         currentId: _taskId,
         onPick: _open,
         onTopic: _switchTopic,
-        onClaim: _claim,
         onCreate: _create,
         onOpenTopics: _openTopics,
         onOpenContract: _openContract,

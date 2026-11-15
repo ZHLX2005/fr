@@ -1,6 +1,11 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/note/composer/md_composer.dart';
 import '../../../../core/note/note_root_scope.dart';
@@ -93,21 +98,6 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
   }
 
   // ── 动作 ──────────────────────────────────────────────────
-
-  Future<void> _claimThis() async {
-    final topic = widget.controller.selected;
-    if (topic == null) return;
-    setState(() => _busy = true);
-    try {
-      await widget.controller.claim(topic);
-      await _load();
-      await widget.controller.refresh();
-    } catch (e) {
-      _toast('领取失败：${NxKvController.humanize(e)}');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
 
   Future<void> _done() async {
     final t = _task;
@@ -361,40 +351,107 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
     );
   }
 
+  /// 附件：**经网络取回本体**，不再只报 PC 上的路径。
+  ///
+  /// 第 4 轮反馈第三条：「当前附件也应该通过网络传输到手机端展示」。以前这里写的是
+  /// `本机：D:\…\x.png` —— 那行字在手机上没有意义：路径在 PC 的盘上，手机既打不开
+  /// 也画不出来。现在：
+  ///
+  ///   · 图片 → 经桥取字节，**内联画出来**，点开全屏可缩放；
+  ///   · 其它文件 → 同样取字节落到手机临时目录，再交给系统打开（docx / zip / pdf）；
+  ///   · 取失败 → 这一条自己说清「取不回来」，不连累整页正文。
+  ///
+  /// 服务端给的本机路径仍然保留一行小字：PC 上的 agent 要读的是那个路径，
+  /// 端侧只是多了一条自己的路。
   Widget _attachment(kv.LocaltaskGetAttachment a) {
     final cs = Theme.of(context).colorScheme;
+    final canFetch = a.kind == 'file' && a.id.isNotEmpty;
+    final showImage = canFetch && a.isImage;
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(a.isImage ? Icons.image_outlined : Icons.attach_file, size: 14, color: cs.outline),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
+          InkWell(
+            onTap: canFetch ? () => _openAttachment(a) : null,
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(a.name, style: const TextStyle(fontSize: 12)),
-                Text(
-                  [a.kindLabel, a.sizeText, if (a.note != null && a.note!.isNotEmpty) a.note!].join(' · '),
-                  style: TextStyle(fontSize: 10, color: cs.outline, height: 1.5),
+                Icon(a.isImage ? Icons.image_outlined : Icons.attach_file, size: 14, color: cs.outline),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(a.name, style: const TextStyle(fontSize: 12)),
+                      Text(
+                        [a.kindLabel, a.sizeText, if (a.note != null && a.note!.isNotEmpty) a.note!].join(' · '),
+                        style: TextStyle(fontSize: 10, color: cs.outline, height: 1.5),
+                      ),
+                      // 服务端给的 PC 路径照旧透出（那是 agent 侧的事实），
+                      // 但不再是「附件在哪」的唯一答案
+                      if (a.localPath != null && a.localPath!.isNotEmpty)
+                        Text(
+                          'PC 上：${a.localPath}',
+                          style: TextStyle(fontSize: 10, color: cs.outline.withValues(alpha: 0.85)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
                 ),
-                // 本机路径是「附件到底在哪」的唯一答案：有就直说，
-                // 没有（未同步）就把同步命令摆出来，不让人猜。
-                Text(
-                  (a.localPath != null && a.localPath!.isNotEmpty)
-                      ? '本机：${a.localPath}'
-                      : (a.cmd != null && a.cmd!.isNotEmpty ? '需同步：${a.cmd}' : '未落盘'),
-                  style: TextStyle(fontSize: 10, color: cs.outline.withValues(alpha: 0.85)),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                if (canFetch)
+                  Icon(
+                    a.isImage ? Icons.zoom_in : Icons.download_outlined,
+                    size: 15,
+                    color: cs.outline,
+                  ),
               ],
             ),
           ),
+          if (showImage) ...[
+            const SizedBox(height: AppSpacing.xs),
+            _RemoteImage(
+              controller: widget.controller,
+              attachment: a,
+              onTap: () => _openAttachment(a),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  /// 点附件：图片进全屏、其它文件先落盘再交给系统打开。
+  Future<void> _openAttachment(kv.LocaltaskGetAttachment a) async {
+    if (a.isImage) {
+      await Navigator.of(context).push(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _ImagePage(controller: widget.controller, attachment: a),
+      ));
+      return;
+    }
+    if (kIsWeb) {
+      _toast('网页端不落盘：图片能看，文件请到 PC 上打开');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final bytes = await widget.controller.attachmentBytes(a.id);
+      final dir = await getTemporaryDirectory();
+      final safeName = a.name.isEmpty ? a.id : a.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final file = File('${dir.path}/nxkv_att/$safeName');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes, flush: true);
+      final r = await OpenFilex.open(file.path);
+      if (r.type != ResultType.done) {
+        _toast('已保存到手机：${file.path}（系统没有能打开它的应用）');
+      }
+    } catch (e) {
+      _toast('附件取不回来：${NxKvController.humanize(e)}');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _onBlockTap(Block block) async {
@@ -470,9 +527,16 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
   }
 
   /// 底部动作条：44dp 高，只放「对这条任务能做什么」。
+  ///
+  /// 第 4 轮反馈第二条：「对于任务只标记完成，不要领任务的 btn」。所以这里
+  /// **只有**「标完成」—— 没有「领取」。手机是验收端：活由 PC 上的 agent 领走，
+  /// 人在手机上读正文、标完成、提反馈。
+  ///
+  /// 一条还没被领取的任务，标完成会被服务端拦下（`status=blocked`，
+  /// `reason=not_claimed`）—— 那个 hint 原样弹出来，而不是把按钮藏掉：
+  /// 「点不动」和「为什么点不动」是两件事，藏掉按钮只会让人以为页面坏了。
   Widget _actionBar(kv.LocaltaskGetOutput t) {
     final cs = Theme.of(context).colorScheme;
-    final pending = t.status == 'pending';
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: cs.outlineVariant)),
@@ -480,20 +544,12 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
       child: Row(
         children: [
-          if (pending)
-            TextButton.icon(
-              onPressed: _busy ? null : _claimThis,
-              icon: const Icon(Icons.download_outlined, size: 16),
-              label: const Text('领取', style: TextStyle(fontSize: 12)),
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            )
-          else
-            TextButton.icon(
-              onPressed: _busy ? null : _done,
-              icon: const Icon(Icons.check, size: 16),
-              label: const Text('标完成', style: TextStyle(fontSize: 12)),
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            ),
+          TextButton.icon(
+            onPressed: _busy ? null : _done,
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('标完成', style: TextStyle(fontSize: 12)),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+          ),
           TextButton.icon(
             onPressed: _busy ? null : _feedback,
             icon: const Icon(Icons.rate_review_outlined, size: 16),
@@ -509,6 +565,167 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
             onPressed: _busy ? null : _load,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 内联图片：**字节经桥取回来**，直接画在正文里。
+///
+/// 为什么不走 `Image.network`：附件地址在 PC 的 nx-kv 上，取它要带 mn-ws 的
+/// 门禁头与应用标识 —— 那是 [MnWsEndpoint] 的活，`Image.network` 只会带个裸 URL
+/// 过去，结果必然是 401/404。所以先取字节，再 `Image.memory`。
+class _RemoteImage extends StatefulWidget {
+  const _RemoteImage({
+    required this.controller,
+    required this.attachment,
+    required this.onTap,
+  });
+
+  final NxKvController controller;
+  final kv.LocaltaskGetAttachment attachment;
+  final VoidCallback onTap;
+
+  @override
+  State<_RemoteImage> createState() => _RemoteImageState();
+}
+
+class _RemoteImageState extends State<_RemoteImage> {
+  late Future<Uint8List> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.controller.attachmentBytes(widget.attachment.id);
+  }
+
+  void _retry() {
+    setState(() {
+      _future = widget.controller.attachmentBytes(widget.attachment.id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return FutureBuilder<Uint8List>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return Container(
+            height: 96,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: cs.outlineVariant),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: AppSpacing.xs),
+                Text('正从 PC 传过来…', style: TextStyle(fontSize: 10, color: cs.outline)),
+              ],
+            ),
+          );
+        }
+        if (snap.hasError) {
+          return Row(
+            children: [
+              Icon(Icons.broken_image_outlined, size: 14, color: cs.error),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '取不回来：${NxKvController.humanize(snap.error!)}',
+                  style: TextStyle(fontSize: 10, color: cs.error),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              TextButton(
+                onPressed: _retry,
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                child: const Text('重试', style: TextStyle(fontSize: 10)),
+              ),
+            ],
+          );
+        }
+        final bytes = snap.data ?? Uint8List(0);
+        if (bytes.isEmpty) {
+          return Text('（这张图是空的）', style: TextStyle(fontSize: 10, color: cs.outline));
+        }
+        return InkWell(
+          onTap: widget.onTap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.memory(
+              bytes,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => Text('这张图画不出来（格式不支持）', style: TextStyle(fontSize: 10, color: cs.outline)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 全屏看图：黑底 + 可双指缩放，四个角都能拖。
+class _ImagePage extends StatefulWidget {
+  const _ImagePage({required this.controller, required this.attachment});
+
+  final NxKvController controller;
+  final kv.LocaltaskGetAttachment attachment;
+
+  @override
+  State<_ImagePage> createState() => _ImagePageState();
+}
+
+class _ImagePageState extends State<_ImagePage> {
+  late Future<Uint8List> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.controller.attachmentBytes(widget.attachment.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(widget.attachment.name, style: const TextStyle(fontSize: 14)),
+      ),
+      body: FutureBuilder<Uint8List>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+          }
+          final bytes = snap.data;
+          if (snap.hasError || bytes == null || bytes.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  '取不回来：${snap.hasError ? NxKvController.humanize(snap.error!) : '空文件'}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+          return InteractiveViewer(
+            maxScale: 6,
+            child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
+          );
+        },
       ),
     );
   }

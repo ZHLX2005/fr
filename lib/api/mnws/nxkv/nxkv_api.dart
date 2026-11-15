@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
 import '../mnws_app_client.dart';
 import '../mnws_endpoint.dart';
 import '../mnws_models.dart';
+import 'nxkv_boards.dart';
 
 /// nx-kv 的端侧客户端 —— 接口**不是手写的**，是服务端契约生成出来的。
 ///
@@ -45,6 +47,49 @@ class NxKvApi extends MnWsAppClient {
     if (remote.hash == kv.contractHash) return null;
     return '端侧契约 ${kv.contractHash} 与服务端 ${remote.hash} 不一致'
         '（nx-kv ${remote.version}）：bump fr pubspec.yaml 里 nx_kv_client 的 ref';
+  }
+
+  // ───────────────────────── 契约外的两件事 ─────────────────────────
+  //
+  // 契约只声明「端侧要调的 action」，不是服务端能力的全集。侧边栏的**组名**
+  // 与附件**本体**都不在那 10 条里 —— 这两件是手机端独有的需求（PC 上组名由
+  // 面板自己接口给，附件本体就在本机盘上）。所以这里各留一个刻意的手写读，
+  // 路径固定、解析失败就退化，绝不把「装饰」做成「前置」：
+  //
+  //   1. GET /api/boards       → 组名 + 成员仓库（树的第一层）
+  //   2. GET /api/file/content/:fileId → 附件字节（图片要在手机屏幕上画出来）
+  //
+  // nx-kv 哪天把 board.list / file.content 写进契约，这两个方法整个可以删掉。
+
+  /// 项目组（看板）清单。读不到就返回空列表 —— 界面退化成「全在未分组下」。
+  Future<List<NxKvBoard>> boards(MnWsEndpoint endpoint) async {
+    final res = await call(endpoint, method: 'GET', path: '/api/boards');
+    final json = res.json;
+    if (json == null) return const [];
+    return NxKvBoard.parse(json);
+  }
+
+  /// 附件本体（原始字节）。
+  ///
+  /// 失败时抛 [MnWsException]：这条链路没有「部分成功」，画不出图就是画不出。
+  Future<Uint8List> attachmentBytes(MnWsEndpoint endpoint, String fileId) async {
+    final id = fileId.trim();
+    if (id.isEmpty) {
+      throw const MnWsException(MnWsErrorKind.malformed, '附件没有 id，取不到本体');
+    }
+    final res = await endpoint.requestBytes(
+      path: '/api/file/content/$id',
+      app: app,
+      pc: pc,
+    );
+    if (!res.ok) {
+      throw MnWsException(
+        res.status == 404 ? MnWsErrorKind.rejected : MnWsErrorKind.malformed,
+        '附件取不回来（HTTP ${res.status}）${res.errorText.isEmpty ? '' : '：${res.errorText}'}',
+        status: res.status,
+      );
+    }
+    return res.bytes;
   }
 
   // ───────────────────────── 传输 ─────────────────────────

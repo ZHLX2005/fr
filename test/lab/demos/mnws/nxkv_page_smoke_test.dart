@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_boards.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_controller.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_page.dart';
 
@@ -42,6 +43,15 @@ void main() {
     claimed: 0,
     done: 1,
     total: 2,
+    repo: kv.LocaltaskListTopicRepo(name: 'fr', key: 'github.com/zhlx2005/fr'),
+  );
+
+  /// 侧边栏第一层（组）的数据源：`GET /api/boards`。
+  /// 没有它，树也要能用（全落在「未分组」下）——这里给上，才能验「组行画得出来」。
+  const mobileBoard = NxKvBoard(
+    key: 'group/mobile',
+    name: 'mobile',
+    repoKeys: ['github.com/zhlx2005/fr'],
   );
 
   const task = kv.LocaltaskTasksTask(
@@ -62,6 +72,7 @@ void main() {
     ..topics = const [topic]
     ..selectedKey = topic.key
     ..tasks = const [task]
+    ..boards = const [mobileBoard]
     ..loading = false;
 
   testWidgets('首帧渲得出来：上下文条 + 队列行', (tester) async {
@@ -85,13 +96,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('搜任务：标题或编号'), findsOneWidget);
+    expect(find.text('搜组 / 项目 / 任务'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '99');
     await tester.pump();
 
     // 搜不到时要说清「搜的是什么」，不能只留一片空
     expect(find.text('没有匹配「99」的任务'), findsOneWidget);
+  });
+
+  testWidgets('抽屉第一层是项目组，不是一排滚动 tab', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(home: NxKvPage(target: target, controller: ready())),
+    ));
+
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    // 组行 + 组下的项目（单队列项目直接可选，所以 'fr' 在这里是叶子）
+    expect(find.text('mobile'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // 第 4 轮反馈第二条：不要「领任务的 btn」
+    expect(find.textContaining('领一条'), findsNothing);
   });
 
   testWidgets('抽屉点一条 → 主区切到任务', (tester) async {
@@ -143,7 +170,7 @@ void main() {
       // 真的能点开（touch 走 UI 树，不只是几何位置对）
       await tester.tap(find.byIcon(Icons.menu));
       await tester.pumpAndSettle();
-      expect(find.text('搜任务：标题或编号'), findsOneWidget);
+      expect(find.text('搜组 / 项目 / 任务'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

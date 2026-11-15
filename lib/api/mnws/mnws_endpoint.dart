@@ -193,8 +193,60 @@ class MnWsEndpoint {
     );
   }
 
-  // ── 传输 ───────────────────────────────────────────────────────────────
+  /// 经桥取**原始字节**（附件本体、图片流）。
+  ///
+  /// 与 [request] 的唯一区别是响应怎么读：这里保留 `bodyBytes`，绝不先解成
+  /// String —— PNG/JPEG 里到处是非法 UTF-8 序列，`bytesToString` 会把它们
+  /// 换成 U+FFFD，图片就再也画不出来了。
+  ///
+  /// 超时也单独给：附件动辄几 MB，走的是公网中继，15 秒那条线是给「一次
+  /// JSON 调用」定的，拿来卡图片会让大图必失败。
+  Future<MnWsBytesResponse> requestBytes({
+    required String path,
+    String method = 'GET',
+    String? app,
+    String? pc,
+    Map<String, String> headers = const {},
+    String? body,
+    Duration? timeout,
+  }) async {
+    final grant = await grantReader();
+    if (grant == null) {
+      throw const MnWsException(
+        MnWsErrorKind.unauthorized,
+        '还没有 mn-ws 的凭据，请先登录',
+      );
+    }
+    final uri = Uri.parse('$_base${path.startsWith('/') ? path : '/$path'}');
+    final allHeaders = <String, String>{
+      // 二进制不要 Accept: application/json —— 被代理的服务会据此挑渲染分支
+      'Accept': '*/*',
+      MnWsConfig.gateHeader: grant.token,
+      if (app != null && app.isNotEmpty) MnWsConfig.appHeader: app,
+      if (pc != null && pc.isNotEmpty) MnWsConfig.pcHeader: pc,
+      ...headers,
+    };
 
+    final stopwatch = Stopwatch()..start();
+    final res = await _send(() {
+      final req = http.Request(method.toUpperCase(), uri)..headers.addAll(allHeaders);
+      if (body != null && body.isNotEmpty) req.body = body;
+      return _client.send(req).timeout(timeout ?? MnWsConfig.transferTimeout);
+    });
+    final bytes = await res.stream.toBytes();
+    stopwatch.stop();
+
+    final flat = <String, String>{};
+    res.headers.forEach((k, v) => flat[k] = v);
+    return MnWsBytesResponse(
+      status: res.statusCode,
+      bytes: bytes,
+      headers: flat,
+      elapsed: stopwatch.elapsed,
+    );
+  }
+
+  // ── 传输 ───────────────────────────────────────────────────────────────
   /// 统一处理超时与网络层失败。
   ///
   /// 泛型是因为有两种响应：普通调用拿到 [http.Response]，

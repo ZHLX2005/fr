@@ -73,4 +73,10 @@ class MnWsConfig {
   ///
   /// mn-ws 是登录链路上的依赖，超时必须短；240 秒那种量级会让用户以为 App 卡死。
   static const Duration httpTimeout = Duration(seconds: 15);
+
+  /// 取**附件本体**的超时。
+  ///
+  /// 图片几 MB、走公网中继，15 秒那条线是给「一次 JSON 调用」定的 —— 拿它卡
+  /// 大图会让「网络明明通、图就是出不来」，而且失败点看起来像服务端坏了。
+  static const Duration transferTimeout = Duration(seconds: 60);
 }

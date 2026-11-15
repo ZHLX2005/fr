@@ -3,6 +3,8 @@ import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 
 import '../mnws.dart';
 import 'nxkv_api.dart';
+import 'nxkv_boards.dart';
+import 'nxkv_tree.dart';
 
 /// nx-kv 界面的**唯一数据入口**。
 ///
@@ -25,12 +27,16 @@ import 'nxkv_api.dart';
 /// 三个视图共享同一份，用 provider 拆开反而要维护「谁先刷新」的顺序。
 class NxKvController extends ChangeNotifier {
   NxKvController({required this.target, required this.endpoint})
-      : _client = NxKvApi(pc: target.bridgeId).bind(endpoint);
+      : _api = NxKvApi(pc: target.bridgeId),
+        _client = NxKvApi(pc: target.bridgeId).bind(endpoint);
 
   /// 点的是哪台 PC 上的 nx-kv。
   final MnWsAppTarget target;
 
   final MnWsEndpoint endpoint;
+
+  /// 契约之外的两次读（组清单 / 附件字节）走它。
+  final NxKvApi _api;
   final kv.NxKvClientApi _client;
 
   /// 生成客户端的直接引用（视图只碰这个）。
@@ -42,6 +48,19 @@ class NxKvController extends ChangeNotifier {
   kv.LocaltaskListSettings? settings;
   bool loading = true;
   String? error;
+
+  /// 项目组（看板）清单 —— 侧边栏树的第一层。
+  ///
+  /// 它是**装饰**：拉不到就是空列表，界面把项目全挂到「未分组」下，
+  /// 任务队列照样能用。所以这里没有 `boardsError`，也不参与 loading 判定。
+  List<NxKvBoard> boards = const [];
+
+  /// 侧边栏要画的那棵树（组 → 项目 → 主题）。搜索词非空时只留命中的分支。
+  List<NxKvTreeNode> tree({String query = ''}) => buildTopicTree(
+        topics: topics,
+        boards: boards,
+        query: query,
+      );
 
   /// 当前选中的主题键（三个视图共享：「队列」页选的、「主题」页点的，是同一个）。
   String? selectedKey;
@@ -142,8 +161,23 @@ class NxKvController extends ChangeNotifier {
       loading = false;
       notifyListeners();
     }
+    // 组清单与主题清单是两个来源：一个失败不该让另一个也空着，
+    // 所以分两次 await（不是 Future.wait 里一起失败）。
+    await loadBoards();
     // 主题清单变了，当前主题的活也可能变了（领走一条、被 prune 掉）—— 一起刷
     await loadTasks();
+  }
+
+  /// 拉项目组清单（失败即空，不报错）。
+  Future<void> loadBoards() async {
+    try {
+      final out = await _api.boards(endpoint);
+      // 组变了树就要重画：界面订阅的是本 controller
+      boards = out;
+    } catch (_) {
+      boards = const [];
+    }
+    notifyListeners();
   }
 
   Future<void> checkContract() async {
@@ -211,6 +245,54 @@ class NxKvController extends ChangeNotifier {
   /// 少了它后面每个参数都会左移一格（CI 上就是这么炸的：13 required, 12 given）。
   Future<kv.LocaltaskAddOutput> add(String text, String cwd) =>
       _client.localtaskAdd(text, null, cwd, null, null, null, null, null, null, null, null, null, null);
+
+  // ── 附件本体（手机端要真的画出来）──────────────────────────
+  //
+  // 任务详情里的附件以前只显示「本机：D:\…\x.png」—— 那句话对手机毫无用处：
+  // 路径在 PC 上，手机既打不开也看不到。第 4 轮反馈第 3 条要的就是这件事：
+  // **附件要经网络传到手机端展示**。
+
+  /// 已取回的附件字节：fileId → bytes。
+  ///
+  /// 同一张图会被重画很多次（滚动、切任务、旋转屏幕），每画一次走一遍公网
+  /// 就是几百 KB 的白流量，所以按 id 缓存。
+  final Map<String, Uint8List> _attachmentCache = {};
+
+  /// 缓存预算按**字节**算而不是按条数：20 张 1MB 的截图和 20 张 20KB 的图标
+  /// 是两回事，按条数限等于没限。
+  static const int _attachmentCacheBudget = 16 * 1024 * 1024;
+  int _attachmentCacheUsed = 0;
+
+  /// 取一个附件的字节（命中缓存就不再发请求）。
+  Future<Uint8List> attachmentBytes(String fileId) async {
+    final hit = _attachmentCache[fileId];
+    if (hit != null) return hit;
+    final bytes = await _api.attachmentBytes(endpoint, fileId);
+    _rememberAttachment(fileId, bytes);
+    return bytes;
+  }
+
+  void _rememberAttachment(String id, Uint8List bytes) {
+    if (bytes.isEmpty) return;
+    // 单张就超预算的不缓存（几十 MB 的录屏/压缩包，本来也不该内联画）
+    if (bytes.length > _attachmentCacheBudget) return;
+    final old = _attachmentCache.remove(id);
+    if (old != null) _attachmentCacheUsed -= old.length;
+    _attachmentCache[id] = bytes;
+    _attachmentCacheUsed += bytes.length;
+    // 先进先出地丢：Map 保持插入序
+    while (_attachmentCacheUsed > _attachmentCacheBudget && _attachmentCache.length > 1) {
+      final first = _attachmentCache.keys.first;
+      _attachmentCacheUsed -= _attachmentCache.remove(first)!.length;
+    }
+  }
+
+  @override
+  void dispose() {
+    _attachmentCache.clear();
+    _attachmentCacheUsed = 0;
+    super.dispose();
+  }
 
   // ── 错误人话 ──────────────────────────────────────────────
 

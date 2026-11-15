@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 /// mn-ws 的数据形状。
 ///
@@ -322,6 +323,39 @@ class MnWsResponse {  final int status;
       return jsonDecode(body);
     } catch (_) {
       return null;
+    }
+  }
+}
+
+/// 一次**二进制**请求的结果（附件本体、图片流）。
+///
+/// 与 [MnWsResponse] 分开是因为 `body` 是 String：图片字节经 UTF-8 解码再编码
+/// 回去必然损坏（PNG 的 0x89 开头就不是合法 UTF-8）。这里保留原始字节，
+/// 只在真要用文字时才由调用方自己解。
+class MnWsBytesResponse {
+  final int status;
+  final Uint8List bytes;
+  final Map<String, String> headers;
+  final Duration elapsed;
+
+  const MnWsBytesResponse({
+    required this.status,
+    required this.bytes,
+    required this.headers,
+    required this.elapsed,
+  });
+
+  /// 服务端声明的 MIME（没有就是空串）。
+  String get contentType => headers['content-type'] ?? '';
+
+  bool get ok => status >= 200 && status < 300;
+
+  /// 失败时把响应体当成一句话读出来（被代理的服务报错走的是 JSON/纯文本）。
+  String get errorText {
+    try {
+      return utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      return '';
     }
   }
 }

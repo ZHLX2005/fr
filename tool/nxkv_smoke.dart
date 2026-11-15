@@ -15,6 +15,7 @@
 import 'package:xiaodouzi_fr/api/mnws/mnws_endpoint.dart';
 import 'package:xiaodouzi_fr/api/mnws/mnws_models.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_api.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_tree.dart';
 
 Future<void> main(List<String> args) async {
   final base = args.isNotEmpty ? args.first : 'http://127.0.0.1:7877';
@@ -48,6 +49,23 @@ Future<void> main(List<String> args) async {
     print('  · ${t.key}  pending=${t.pending} claimed=${t.claimed} done=${t.done}');
   }
   if (tasks.topics.length > 5) print('  …还有 ${tasks.topics.length - 5} 个');
+
+  // 侧边栏的树：组（GET /api/boards）→ 项目 → 主题。
+  // 这一行同时也验证了「契约外那一次读」在本机服务上确实拿得到数据。
+  try {
+    final boards = await api.boards(endpoint);
+    final tree = buildTopicTree(topics: tasks.topics, boards: boards);
+    print('项目组    ${boards.length} 个 · 树 ${tree.length} 组');
+    for (final g in tree.take(4)) {
+      print('  ${g.label}（待领 ${g.pending}）');
+      for (final p in g.children.take(4)) {
+        print('    · ${p.label}  → ${p.topicKey ?? '(容器，${p.children.length} 条队列)'}  ${p.pending}/${p.total}');
+      }
+      if (g.children.length > 4) print('    …还有 ${g.children.length - 4} 个项目');
+    }
+  } catch (e) {
+    print('项目组    读不到（$e）—— 树会退化成「未分组」，不影响任务');
+  }
 
   // 写操作的契约（0.54.0 起）：清单 + 详情。
   // 冒烟只读 —— 领取/完成会动真实任务队列，那得有真任务才做，脚本不替用户决定。
