@@ -5,6 +5,7 @@ import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_boards.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_controller.dart';
+import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_template.dart';
 import 'package:xiaodouzi_fr/core/note/note_root_scope.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_motion.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_page.dart';
@@ -317,6 +318,12 @@ void main() {
       // 落点就是上下文里那个队列（标题里带名字，人才知道派到哪去了）
       expect(find.text('新建任务 · fr'), findsOneWidget);
       expect(find.text('派发任务'), findsOneWidget);
+
+      // fr #23：正文骨架来自服务端模板；桩不可达 → 面板同款兜底，且标题行在前
+      // （服务端拿首个 `# ` 行当任务标题，没有这一行标题就会变成「本轮问题」）
+      final box = tester.widget<TextField>(find.byType(TextField)).controller!;
+      expect(box.text, '# \n\n$nxKvNewTaskFallbackBody');
+      expect(box.selection.baseOffset, 2, reason: '光标落在标题行，不是模板末尾');
     });
 
     testWidgets('没选队列时点 ＋ 说清该先做什么', (tester) async {

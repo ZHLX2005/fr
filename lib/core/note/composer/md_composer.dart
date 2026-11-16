@@ -75,6 +75,9 @@ Future<String?> openMdComposer(
   required String title,
   String hint = '支持 Markdown：# 标题、- 列表、> 引用、```代码',
   String initialText = '',
+  /// 初始光标位置（null = 编辑器自己的默认：文末）。模板正文很长时要把光标
+  /// 放到该改的那一处（新建任务是标题行），否则一进来就停在文末。
+  int? initialCaret,
   String submitLabel = '提交',
   String? quote,
   bool showPreview = true,
@@ -90,6 +93,7 @@ Future<String?> openMdComposer(
         title: title,
         hint: hint,
         initialText: initialText,
+        initialCaret: initialCaret,
         submitLabel: submitLabel,
         quote: quote,
         showPreview: showPreview,
@@ -110,6 +114,7 @@ class MdComposerPage extends StatefulWidget {
     required this.hint,
     required this.initialText,
     required this.submitLabel,
+    this.initialCaret,
     this.quote,
     this.showPreview = true,
     this.showInsertBlock = true,
@@ -121,6 +126,10 @@ class MdComposerPage extends StatefulWidget {
   final String title;
   final String hint;
   final String initialText;
+
+  /// 打开时的光标位置（null = 默认文末）；越界一律忽略，不抛。
+  final int? initialCaret;
+
   final String submitLabel;
 
   /// 锚定原文（划线评价时给）：只读展示，提交时由调用方带进 `--quote`。
@@ -143,8 +152,18 @@ class MdComposerPage extends StatefulWidget {
 }
 
 class _MdComposerPageState extends State<MdComposerPage> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialText);
+  late final TextEditingController _controller = _initialController();
+
+  /// 初始文本 + 初始光标。光标越界/没给 → 交给编辑器默认（文末），不报错：
+  /// 调用方算错一个下标不该让人打不开编辑器。
+  TextEditingController _initialController() {
+    final c = TextEditingController(text: widget.initialText);
+    final at = widget.initialCaret;
+    if (at != null && at >= 0 && at <= widget.initialText.length) {
+      c.selection = TextSelection.collapsed(offset: at);
+    }
+    return c;
+  }
   final _focus = FocusNode();
   bool _preview = false;
 

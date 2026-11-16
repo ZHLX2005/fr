@@ -4,6 +4,7 @@ import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import '../mnws.dart';
 import 'nxkv_api.dart';
 import 'nxkv_boards.dart';
+import 'nxkv_template.dart';
 import 'nxkv_tree.dart';
 
 /// nx-kv 界面的**唯一数据入口**。
@@ -398,6 +399,20 @@ class NxKvController extends ChangeNotifier {
     final bytes = await _api.attachmentBytes(endpoint, fileId);
     _rememberAttachment(fileId, bytes);
     return bytes;
+  }
+
+  /// 新建任务的起始正文（fr #23）。
+  ///
+  /// 取服务端的默认模板并按 `{{槽位}}` 渲染；拉不到 / 没模板 / 模板被删 →
+  /// 面板同款兜底骨架。**任何情况都返回可直接放进编辑器的正文**，不抛：
+  /// 派活是主路径，模板取不回来只是「正文朴素一点」，不该变成派不出去。
+  Future<String> newTaskBody() async {
+    try {
+      final set = await _api.templates(endpoint);
+      return nxKvNewTaskBody(set);
+    } catch (_) {
+      return nxKvNewTaskBody(null);
+    }
   }
 
   /// 上传一张图片到本机附件仓，返回可直接插进正文的嵌入片段。

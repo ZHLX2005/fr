@@ -216,13 +216,20 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
     // 选完落点是异步的（弹窗）：页面可能已经关了，别拿着旧 context 开编辑页
     if (!mounted) return;
 
+    // 正文骨架取服务端的默认任务模板（面板同一条）；标题行自己留一行 `# `
+    // —— 服务端拿「首个 # 行」当任务标题，模板正文第一行是 `## 本轮问题`，
+    // 不补这一行，标题就会变成「本轮问题」（面板的 composeText 干的是同一件事）。
+    final body = await c.newTaskBody();
+    if (!mounted) return;
+
     final md = await openMdComposer(
       context,
       title: composerTitle,
-      hint: '第一行写标题（# 开头），下面写背景/验收/约束。',
-      initialText: '# \n\n## 背景\n\n\n## 验收\n\n- [ ] \n\n## 约束\n\n- \n',
+      // 光标落在标题处：模板正文很长，停在文末等于让人先滑回顶部
+      hint: '第一行写标题（# 开头），正文是面板里的默认任务模板。',
+      initialText: '# \n\n$body',
+      initialCaret: 2,
       submitLabel: '派发任务',
-      templates: const ['背景', '验收', '约束'],
       pickImage: () => pickAndUploadImage(c, context),
       imageResolver: c.attachmentBytes,
     );

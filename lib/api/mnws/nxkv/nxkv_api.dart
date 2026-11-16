@@ -7,6 +7,7 @@ import '../mnws_app_client.dart';
 import '../mnws_endpoint.dart';
 import '../mnws_models.dart';
 import 'nxkv_boards.dart';
+import 'nxkv_template.dart';
 
 /// nx-kv 的端侧客户端 —— 接口**不是手写的**，是服务端契约生成出来的。
 ///
@@ -49,19 +50,22 @@ class NxKvApi extends MnWsAppClient {
         '（nx-kv ${remote.version}）：bump fr pubspec.yaml 里 nx_kv_client 的 ref';
   }
 
-  // ───────────────────────── 契约外的两件事 ─────────────────────────
+  // ───────────────────────── 契约外的三件事 ─────────────────────────
   //
-  // 契约只声明「端侧要调的 action」，不是服务端能力的全集。侧边栏的**组名与成员表**
-  // 与附件**本体**都不在契约里 —— 这两件是手机端独有的需求（PC 上组名由面板自己的
-  // 接口给，附件本体就在本机盘上）。所以这里各留一个刻意的手写读，路径固定、
-  // 解析失败就退化，绝不把「装饰」做成「前置」：
+  // 契约只声明「端侧要调的 action」，不是服务端能力的全集。侧边栏的**组名与成员表**、
+  // 附件**本体**、以及「新建任务的正文该长什么样」都不在契约里 —— 这三件是手机端
+  // 独有的需求（PC 上组名由面板自己的接口给、附件本体就在本机盘上、模板由面板的
+  // MD 工作台直接用）。所以这里各留一个刻意的手写读，路径固定、解析失败就退化，
+  // 绝不把「装饰」做成「前置」：
   //
   //   1. GET /api/boards       → 组名 + 成员仓库（组行 / 新建任务选落点）
   //   2. GET /api/file/content/:fileId → 附件字节（图片要在手机屏幕上画出来）
+  //   3. GET /api/templates    → 任务模板（新建页的起始正文，fr #23）
   //
   // **组任务本身走契约**（`localtask.boardtasks`，见 controller.loadBoardTasks）：
   // 那条是端侧组页的正文数据，不能靠手写解析凑。
-  // nx-kv 哪天把 board.list / file.content 也写进契约，这两个方法整个可以删掉。
+  // nx-kv 哪天把 board.list / file.content / template.list 也写进契约，这几个方法
+  // 整个可以删掉。
 
   /// 项目组（看板）清单。读不到就返回空列表 —— 界面退化成「全在未分组下」。
   Future<List<NxKvBoard>> boards(MnWsEndpoint endpoint) async {
@@ -145,6 +149,19 @@ class NxKvApi extends MnWsAppClient {
       isImage: data['isImage'] == true,
       markdown: snippet.isNotEmpty ? snippet : '![$name]($fileId)',
     );
+  }
+
+  /// 任务模板（`GET /api/templates`）：**新建页起始正文的真相在服务端**。
+  ///
+  /// fr #23「fr侧任务模板不对，应该和web对齐」的落点：端侧不再自己编正文，
+  /// 取面板同一条 `defaultId` 模板、用同一条规则渲染 `{{槽位}}`，只在拉不到时
+  /// 退回与面板逐字同构的兜底骨架（见 `nxkv_template.dart`）。
+  ///
+  /// 失败**抛**而不是返回空：调用方要能区分「没模板」与「没拉到」，
+  /// 但两者最终都走同一段兜底 —— 差别只在要不要提示。
+  Future<NxKvTemplateSet?> templates(MnWsEndpoint endpoint) async {
+    final res = await call(endpoint, method: 'GET', path: '/api/templates');
+    return NxKvTemplateSet.tryParse(res.json);
   }
 
   // ───────────────────────── 传输 ─────────────────────────

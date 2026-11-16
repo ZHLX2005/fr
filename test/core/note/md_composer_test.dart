@@ -107,6 +107,35 @@ void main() {
     });
   });
 
+  group('初始光标：长正文要停在「该改的那一处」', () {
+    Future<TextEditingController> open(WidgetTester tester, {int? caret}) async {
+      await tester.pumpWidget(MaterialApp(
+        home: MdComposerPage(
+          title: '新建任务',
+          hint: '',
+          initialText: '# \n\n## 本轮问题\n\n（把这轮要解决的问题写在这里）\n',
+          initialCaret: caret,
+          submitLabel: '派发任务',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      return tester.widget<TextField>(find.byType(TextField)).controller!;
+    }
+
+    testWidgets('给了就落在标题行末尾（否则一进来停在模板末尾）', (tester) async {
+      final c = await open(tester, caret: 2);
+      expect(c.selection.baseOffset, 2);
+      expect(c.selection.isCollapsed, isTrue);
+    });
+
+    testWidgets('越界忽略，不抛（调用方算错一个下标不该打不开编辑器）', (tester) async {
+      await open(tester, caret: 99999);
+      expect(tester.takeException(), isNull);
+      await open(tester, caret: -3);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('MdRemoteImage：预览里的桥取图片', () {
     testWidgets('字节到位画出图，失败给占位（可点按重试）', (tester) async {
       // 成功路径（key 区分两棵树：State 复用会把 late 字段的 future 带过来）
