@@ -5,6 +5,7 @@ import 'package:nx_kv_client/nx_kv_client.dart' as kv;
 import 'package:xiaodouzi_fr/api/mnws/mnws.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_boards.dart';
 import 'package:xiaodouzi_fr/api/mnws/nxkv/nxkv_controller.dart';
+import 'package:xiaodouzi_fr/core/note/note_root_scope.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_motion.dart';
 import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_page.dart';
 
@@ -283,6 +284,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('fr-docs'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  /// fr #22：「在侧边栏按钮旁边增加一个新建任务 icon」。
+  ///
+  /// 派活是这一页最高频的动作，不该「开抽屉 → 再点一次新建」。这两条锁住：
+  /// ① 它在 ☰ **旁边**（同一排、右边），且点了真能到编辑页；
+  /// ② 没选中任何队列时它不是死键，要说清该先做什么。
+  group('上下文条 · 快速新建', () {
+    Widget page(_StubController c) => ProviderScope(
+          child: MaterialApp(
+            home: NoteRootScope(
+              noteRoot: NoteFactory.create(),
+              child: NxKvPage(target: target, controller: c),
+            ),
+          ),
+        );
+
+    testWidgets('＋ 与 ☰ 同排相邻，点它直接进派活编辑页', (tester) async {
+      await tester.pumpWidget(page(ready()));
+
+      final menu = tester.getRect(find.byIcon(Icons.menu_rounded));
+      final add = tester.getRect(find.byIcon(Icons.add_rounded));
+      expect(add.left, greaterThanOrEqualTo(menu.right),
+          reason: '要挨在侧边栏按钮右边，不是收进抽屉里');
+      expect(add.center.dy, closeTo(menu.center.dy, 0.5), reason: '同一排');
+
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      // 落点就是上下文里那个队列（标题里带名字，人才知道派到哪去了）
+      expect(find.text('新建任务 · fr'), findsOneWidget);
+      expect(find.text('派发任务'), findsOneWidget);
+    });
+
+    testWidgets('没选队列时点 ＋ 说清该先做什么', (tester) async {
+      final c = ready()
+        ..topics = const []
+        ..selectedKey = null;
+      await tester.pumpWidget(page(c));
+
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pump();
+
+      expect(find.text('先在侧边栏选一个组或项目队列，再新建任务'), findsOneWidget);
+      expect(find.text('派发任务'), findsNothing, reason: '没落点就不该打开编辑页');
+    });
   });
 
   /// 真机状态栏高度不是 0 —— 上面三条用的是测试默认环境（padding=0），

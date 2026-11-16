@@ -184,7 +184,11 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
     final c = _controller!;
     final board = c.selectedGroup;
     final topic = c.selected;
-    if (board == null && topic == null) return;
+    // 上下文条上的 ＋ 常驻可见，没选中任何队列时不能静默无反应（那是死键）
+    if (board == null && topic == null) {
+      _toast('先在侧边栏选一个组或项目队列，再新建任务');
+      return;
+    }
     _closeDrawer();
 
     // 组里派活：先选落点（成员仓库 → 它的队列），归属写本组
@@ -430,6 +434,19 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
             constraints: const BoxConstraints.tightFor(width: 44, height: 36),
             icon: Icon(Icons.menu_rounded, color: cs.onSurfaceVariant),
             onPressed: () => _scaffold.currentState?.openDrawer(),
+          ),
+          // 快速新建（fr #22）：「派一条活」是这一页最高频的动作，不该先开抽屉、
+          // 再点一次「新建」。放在 ☰ 旁边紧邻，是因为两者是同一组「换个地方 / 添一条」
+          // 的入口；用 primary 上色把它和导航用的 ☰ 区分开（同排第三颗是刷新/返回，
+          // 灰的）。落点即当前选中的组或项目队列 —— 与抽屉里那颗按钮同一条流程。
+          IconButton(
+            tooltip: '新建任务',
+            iconSize: 18,
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 40, height: 36),
+            icon: Icon(Icons.add_rounded, color: cs.primary),
+            onPressed: _create,
           ),
           Expanded(
             child: AnimatedBuilder(
