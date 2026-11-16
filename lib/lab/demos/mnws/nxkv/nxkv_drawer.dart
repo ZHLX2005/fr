@@ -144,7 +144,11 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
             title: t.title,
             status: t.status,
             round: t.round,
-            createdAt: t.createdAt,
+            stamp: nxKvTaskStamp(
+              createdAt: t.createdAt,
+              consumedAt: t.consumedAt,
+              completedAt: t.completedAt,
+            ),
             topicKey: t.topicKey,
             project: t.project,
           ),
@@ -158,7 +162,11 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
             title: t.title,
             status: t.status,
             round: t.round,
-            createdAt: t.createdAt,
+            stamp: nxKvTaskStamp(
+              createdAt: t.createdAt,
+              consumedAt: t.consumedAt,
+              completedAt: t.completedAt,
+            ),
             topicKey: key,
           ),
       ];
@@ -730,7 +738,7 @@ class _NxKvDrawerState extends State<NxKvDrawer> {
                     ),
                   ],
                   const Spacer(),
-                  Text(humanTime(t.createdAt), style: TextStyle(fontSize: 9, color: cs.outline)),
+                  Text(humanTime(t.stamp), style: TextStyle(fontSize: 9, color: cs.outline)),
                 ],
               ),
             ],
@@ -792,7 +800,7 @@ class _TaskItem {
     required this.title,
     required this.status,
     required this.round,
-    required this.createdAt,
+    required this.stamp,
     required this.topicKey,
     this.project,
   });
@@ -801,7 +809,10 @@ class _TaskItem {
   final String title;
   final String status;
   final int round;
-  final String createdAt;
+
+  /// 最近一次变化的时刻（完成/领取/入队，口径见 `nxKvTaskStamp`）——
+  /// 列表按它倒序排，行上也画它，两处必须是同一把尺子。
+  final String stamp;
 
   /// 这条任务物理落在哪个队列（组任务跨成员队列，不能拿当前选中项顶替）。
   final String topicKey;

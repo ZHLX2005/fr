@@ -37,6 +37,14 @@
 ///     项目行箭头只在多队列时出现。上一版给组行画了 `chevron_right` ——
 ///     「项目组的不要跳到项目去」的视觉残留，箭头本身就在暗示「还能钻进去」。
 ///
+/// ## 第 8 轮：任务清单的显示序（反馈「时间最新的在最上面」）
+///
+/// 队列真相是**追加序**（`seq` = 发布先后 = agent 领取优先级），直接画就是
+/// 「刚发的活在最底下」。[sortTasksForDisplay] 把显示序与队列序分开：
+/// 待领取 → 已领取 → 已终态，桶内按「最近一次变化」倒序。与面板
+/// `sortTasksForDisplay` 同构，仅一处刻意差异（面板待领取保队列序——它有
+/// 拖动排序；手机没有，且本轮反馈明确要最新的在上面）。
+///
 /// ## 进不来的队列
 ///
 /// 没登记仓库的队列（纯本机目录）在 PC 侧栏里没有行 —— 它不属于任何仓库。
@@ -360,6 +368,66 @@ NxKvSideList buildSideList({
     ...repoRows.where(repoHit),
   ];
   return NxKvSideList(rows: rows, matched: rows.length);
+}
+
+// ─── 任务列表的显示序 ─────────────────────────────────────────────
+//
+// 反馈（fr #20）：「当前 task 排序反了，应该时间最新的在最上面；
+// 未完成优先级 > 已领取 > 已完成」。
+//
+// 队列真相是**追加序**（`tasks.seq` = 发布先后，也是 agent 的领取优先级），
+// 于是刚发布的那条活被压在几十条历史下面 —— 这就是「反了」的体感，与面板
+// 2026-11-03 那次反馈同因（`modules/board/board-view.ts` 的 `sortTasksForDisplay`）。
+//
+// 两段式，与面板同构：
+//   1. **分桶**：待领取 → 已领取 → 终态（已完成 / 已取消）。终态一律沉底；
+//   2. **桶内最新在前**：取「这条任务最近一次变化的时刻」
+//      （`completedAt → consumedAt → createdAt` 依次取第一个非空）倒序。
+//
+// 与面板的**一处刻意差异**：面板的待领取桶保「队列原序」（它支持拖动排序，
+// 显示序 *就是* 领取优先级，动了就把优先级弄乱）。手机没有拖动，而本轮反馈
+// 明确要求「最新的在最上面」，所以这里倒序 —— 领取优先级仍读得出来：
+// 任务编号随发布递增，编号小的先被领。
+
+/// 一条任务的显示序键：[bucket] 小的在前；同桶内 [stamp] 大的在前。
+typedef NxKvTaskOrder = ({int bucket, String stamp, int id});
+
+/// 状态 → 分桶。不认识的状态按终态处理（沉底），不会挤到待领取里冒充「还有活」。
+int nxKvTaskBucket(String status) => switch (status) {
+      'pending' => 0,
+      'claimed' => 1,
+      _ => 2,
+    };
+
+/// 「最近一次变化的时刻」。服务端给的是定宽本地时间串（`YYYY-MM-DD HH:mm:ss`），
+/// 字典序即时间序，不必解析成 DateTime。
+String nxKvTaskStamp({
+  String createdAt = '',
+  String consumedAt = '',
+  String completedAt = '',
+}) {
+  if (completedAt.isNotEmpty) return completedAt;
+  if (consumedAt.isNotEmpty) return consumedAt;
+  return createdAt;
+}
+
+/// 按显示序排一份**新**列表（不改入参）。
+///
+/// [orderOf] 把各自的模型映射成 [NxKvTaskOrder]：项目任务
+/// （`LocaltaskTasksTask`）与组任务（`LocaltaskBoardTasksBoardTask`）字段名不同，
+/// 但排序口径必须只有一份 —— 否则两个列表的「最新」会各算各的。
+List<T> sortTasksForDisplay<T>(List<T> list, NxKvTaskOrder Function(T) orderOf) {
+  final out = List<T>.of(list);
+  out.sort((a, b) {
+    final ka = orderOf(a);
+    final kb = orderOf(b);
+    if (ka.bucket != kb.bucket) return ka.bucket - kb.bucket;
+    final byStamp = kb.stamp.compareTo(ka.stamp); // 倒序：新的在前
+    if (byStamp != 0) return byStamp;
+    // 同一秒发布的两条：编号大的（后发的）在前；编号相同则保持调用方给的相对序
+    return kb.id - ka.id;
+  });
+  return out;
 }
 
 /// 名字序的「自然」比较：先小写比，完全一样再比原文（保证排序稳定）。

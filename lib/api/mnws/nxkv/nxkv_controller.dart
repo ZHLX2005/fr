@@ -140,7 +140,20 @@ class NxKvController extends ChangeNotifier {
       final out = await _client.localtaskTasks(key, null, status ?? statusFilter);
       // 期间切了主题：这份结果已经过时，别把别人的清单贴到当前主题上
       if (selectedKey != key) return;
-      tasks = out.tasks.where((t) => t.board.isEmpty).toList();
+      // 显示序 = 待领取 → 已领取 → 终态，桶内最新在前（`sortTasksForDisplay`）。
+      // 服务端给的是队列追加序（seq），直接画会出现「刚发的活在最底下」。
+      tasks = sortTasksForDisplay(
+        out.tasks.where((t) => t.board.isEmpty).toList(),
+        (t) => (
+          bucket: nxKvTaskBucket(t.status),
+          stamp: nxKvTaskStamp(
+            createdAt: t.createdAt,
+            consumedAt: t.consumedAt,
+            completedAt: t.completedAt,
+          ),
+          id: t.id,
+        ),
+      );
     } catch (e) {
       if (selectedKey == key) tasksError = humanize(e);
     } finally {
@@ -149,15 +162,29 @@ class NxKvController extends ChangeNotifier {
     }
   }
 
-  /// 当前组的任务清单（按 [statusFilter] 过滤）。
+  /// 当前组的任务清单（按 [statusFilter] 过滤，按显示序排）。
   ///
   /// 数据来自 [boardTasks]（一次拿全的组任务），**不再逐成员队列去问** ——
   /// 那在手机上就是 28 次请求，每次服务端还要重读一遍 store。
+  ///
+  /// 排序与项目队列同一份口径（[sortTasksForDisplay]）：服务端按「待领在前、
+  /// 编号升序」给，那是队列序；组页要看的是「最新在最上面」。
   List<kv.LocaltaskBoardTasksBoardTask> get groupTasks {
-    final list = selectedBoard?.tasks ?? const <kv.LocaltaskBoardTasksBoardTask>[];
+    final sorted = sortTasksForDisplay(
+      selectedBoard?.tasks ?? const <kv.LocaltaskBoardTasksBoardTask>[],
+      (t) => (
+        bucket: nxKvTaskBucket(t.status),
+        stamp: nxKvTaskStamp(
+          createdAt: t.createdAt,
+          consumedAt: t.consumedAt,
+          completedAt: t.completedAt,
+        ),
+        id: t.id,
+      ),
+    );
     final f = statusFilter;
-    if (f == null) return list;
-    return list.where((t) => t.status == f).toList();
+    if (f == null) return sorted;
+    return sorted.where((t) => t.status == f).toList();
   }
 
   /// 换状态过滤并重拉（抽屉与队列页共用）。组页只筛本地缓存，不发请求。

@@ -4,6 +4,7 @@ import '../../../../design_tokens/radius.dart';
 import '../../../../design_tokens/spacing.dart';
 import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import '../../../../api/mnws/nxkv/nxkv_md.dart';
+import '../../../../api/mnws/nxkv/nxkv_tree.dart';
 import 'nxkv_motion.dart';
 import 'nxkv_widgets.dart';
 
@@ -104,6 +105,8 @@ class NxKvQueueView extends StatelessWidget {
                 status: t.status,
                 round: t.round,
                 createdAt: t.createdAt,
+                consumedAt: t.consumedAt,
+                completedAt: t.completedAt,
               ),
         ],
       ),
@@ -156,6 +159,8 @@ class NxKvQueueView extends StatelessWidget {
                 status: t.status,
                 round: t.round,
                 createdAt: t.createdAt,
+                consumedAt: t.consumedAt,
+                completedAt: t.completedAt,
                 project: t.project,
               ),
         ],
@@ -242,6 +247,11 @@ class NxKvQueueView extends StatelessWidget {
   }
 
   /// 一条任务 = 一张卡：圆角 + 极轻底色，按下去整块弹一下。
+  ///
+  /// 右下角那个时间是**这条任务最近一次变化的时刻**（已完成→完成时刻、进行中→领取
+  /// 时刻、待领取→入队时刻，见 [nxKvTaskStamp]）—— 与列表排序用的是同一把尺子。
+  /// 只画入队时刻的话，「按完成时间排」会看起来像随机序。状态标签就在左边，
+  /// 所以这里不必再写「完成于」。
   Widget _row(
     BuildContext context, {
     required VoidCallback onTap,
@@ -250,8 +260,11 @@ class NxKvQueueView extends StatelessWidget {
     required String status,
     required int round,
     required String createdAt,
+    String consumedAt = '',
+    String completedAt = '',
     String? project,
   }) {
+    final stamp = nxKvTaskStamp(createdAt: createdAt, consumedAt: consumedAt, completedAt: completedAt);
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -317,7 +330,7 @@ class NxKvQueueView extends StatelessWidget {
                           ),
                         ],
                         const SizedBox(width: AppSpacing.xxs),
-                        Text(humanTime(createdAt), style: TextStyle(fontSize: 10, color: cs.outline)),
+                        Text(humanTime(stamp), style: TextStyle(fontSize: 10, color: cs.outline)),
                       ],
                     ),
                   ],

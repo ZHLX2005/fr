@@ -445,4 +445,102 @@ void main() {
       expect(side.repos.firstWhere((r) => r.label == 'mn-rt').hasChevron, isFalse);
     });
   });
+
+  // ── 显示序（fr #20）──────────────────────────────────────────
+  //
+  // 反馈原话：「当前 task 排序反了，应该时间最新的在最上面；未完成优先级 >
+  // 已领取 > 已完成」。队列真相是追加序（seq），直接画就是「刚发的活在
+  // 最底下」。这组用例钉住两件事：**分桶**与**桶内倒序**。
+  group('显示序：未完成 → 已领取 → 已结，桶内最新在前', () {
+    List<int> orderOf(List<NxKvTestTask> ts) => sortTasksForDisplay(
+          ts,
+          (t) => (
+            bucket: nxKvTaskBucket(t.status),
+            stamp: nxKvTaskStamp(
+              createdAt: t.createdAt,
+              consumedAt: t.consumedAt,
+              completedAt: t.completedAt,
+            ),
+            id: t.id,
+          ),
+        ).map((t) => t.id).toList();
+
+    test('分桶：待领取全在已领取上面，已领取全在已完成上面', () {
+      final got = orderOf([
+        NxKvTestTask(id: 1, status: 'done', createdAt: '2026-11-16 10:00:00', completedAt: '2026-11-16 11:00:00'),
+        NxKvTestTask(id: 2, status: 'claimed', createdAt: '2026-11-16 09:00:00', consumedAt: '2026-11-16 09:30:00'),
+        NxKvTestTask(id: 3, status: 'pending', createdAt: '2026-11-16 08:00:00'),
+      ]);
+      expect(got, [3, 2, 1], reason: '入队最久的待领取，也要压在最新完成的上面');
+    });
+
+    test('桶内倒序：待领取按入队时刻，最新的在最上面', () {
+      final got = orderOf([
+        NxKvTestTask(id: 10, status: 'pending', createdAt: '2026-11-16 08:00:00'),
+        NxKvTestTask(id: 12, status: 'pending', createdAt: '2026-11-16 10:00:00'),
+        NxKvTestTask(id: 11, status: 'pending', createdAt: '2026-11-16 09:00:00'),
+      ]);
+      expect(got, [12, 11, 10]);
+    });
+
+    test('桶内倒序按「最近一次变化」：已完成的是完成时刻说了算', () {
+      // #20 是三天前入队、今天才完成的；#30 昨天入队、昨天就完成了。
+      // 按入队时刻排会把 #20 埋到 #30 下面 —— 而人刚看见的是「今天完成的」。
+      final got = orderOf([
+        NxKvTestTask(id: 20, status: 'done', createdAt: '2026-11-13 08:00:00', completedAt: '2026-11-16 12:00:00'),
+        NxKvTestTask(id: 30, status: 'done', createdAt: '2026-11-15 08:00:00', completedAt: '2026-11-15 09:00:00'),
+      ]);
+      expect(got, [20, 30]);
+    });
+
+    test('同一秒发布的两条：编号大的（后发的）在前', () {
+      final got = orderOf([
+        NxKvTestTask(id: 41, status: 'pending', createdAt: '2026-11-16 10:00:00'),
+        NxKvTestTask(id: 42, status: 'pending', createdAt: '2026-11-16 10:00:00'),
+      ]);
+      expect(got, [42, 41]);
+    });
+
+    test('不认识的状态按终态沉底，不冒充「还有活」', () {
+      final got = orderOf([
+        NxKvTestTask(id: 51, status: 'blocked', createdAt: '2026-11-16 12:00:00'),
+        NxKvTestTask(id: 52, status: 'pending', createdAt: '2026-11-16 08:00:00'),
+      ]);
+      expect(got, [52, 51]);
+    });
+
+    test('不改入参（视图可能还要按原序做别的事）', () {
+      final src = [
+        NxKvTestTask(id: 1, status: 'done', createdAt: '2026-11-16 10:00:00', completedAt: '2026-11-16 11:00:00'),
+        NxKvTestTask(id: 2, status: 'pending', createdAt: '2026-11-16 08:00:00'),
+      ];
+      final out = sortTasksForDisplay(
+        src,
+        (t) => (
+          bucket: nxKvTaskBucket(t.status),
+          stamp: nxKvTaskStamp(createdAt: t.createdAt, consumedAt: t.consumedAt, completedAt: t.completedAt),
+          id: t.id,
+        ),
+      );
+      expect(out.map((t) => t.id), [2, 1]);
+      expect(src.map((t) => t.id), [1, 2], reason: '排序必须是纯的');
+    });
+  });
+}
+
+/// 排序用例的最小任务形状：只带排序用得到的五个字段。
+class NxKvTestTask {
+  const NxKvTestTask({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+    this.consumedAt = '',
+    this.completedAt = '',
+  });
+
+  final int id;
+  final String status;
+  final String createdAt;
+  final String consumedAt;
+  final String completedAt;
 }
