@@ -9,6 +9,7 @@ import 'nxkv_contract_view.dart';
 import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import '../../../../api/mnws/nxkv/nxkv_tree.dart';
 import 'nxkv_drawer.dart';
+import 'nxkv_image_pick.dart';
 import 'nxkv_motion.dart';
 import 'nxkv_queue_view.dart';
 import 'nxkv_task_view.dart';
@@ -218,6 +219,8 @@ class _NxKvPageState extends ConsumerState<NxKvPage> {
       initialText: '# \n\n## 背景\n\n\n## 验收\n\n- [ ] \n\n## 约束\n\n- \n',
       submitLabel: '派发任务',
       templates: const ['背景', '验收', '约束'],
+      pickImage: () => pickAndUploadImage(c, context),
+      imageResolver: c.attachmentBytes,
     );
     if (md == null || md.trim().isEmpty) return;
     final target = landing;

@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart' hide RichText;
+import 'package:flutter/services.dart' show TextInputFormatter, TextEditingValue;
 
 import '../../../design_tokens/radius.dart';
 import '../../../design_tokens/spacing.dart';
@@ -29,6 +32,21 @@ import '../note_root_scope.dart';
 /// 于是「预览里长什么样」与块编辑器里长什么样是**同一套渲染**，
 /// 不会出现「编辑器里是引用块、预览里是一行文本」。
 ///
+/// ## 第 9 轮（反馈：「全面优化 md 编辑器，支持上传图片」）
+///
+/// 调研过开源方案（AppFlowy Editor / flutter_quill / fleather / markdown_widget /
+/// super_editor），**不引入编辑器依赖**：这页的约束是「预览与块编辑器同一套渲染」
+/// （`NoteFactory.renderBlock`），换一套编辑内核等于把这条约束拆了，而那几个包
+/// 要么是另一套 Delta 范式、要么依赖重/发版停滞。采纳的是它们的**实践**：
+///
+///   · **贴图走附件仓**（面板同款 `POST /api/file`）：选图 → base64 上传 → 把
+///     服务端生成的 `![名](fileId)` 片段插进光标处。任务入库时服务端自动登记
+///     附件关系，端侧不用再调 attach；预览与任务正文都能把 fileId 画成图
+///     （经 [MdImageResolver] 桥取字节）。
+///   · **回车自动续列表**：`- ` / `1. ` / `- [ ] ` / `> ` 在敲回车时自动延续，
+///     空列表项上再敲一次回车退出（TextInputFormatter 实现，程序化插入不走它）。
+///   · **字数统计**贴在提交条上（开源编辑器的标配，写反馈时知道写了多少）。
+///
 /// ## 没做的
 ///
 /// 不做 gutter 把手、拖拽排序、AI 对话——那些是 `block_editor_demo` 的完整编辑器
@@ -41,6 +59,16 @@ class MdComposerResult {
   final String markdown;
 }
 
+/// 贴图入口：选图 + 上传，返回**服务端生成的嵌入片段**（`![名](fileId)`）。
+///
+/// 编辑器不关心图从哪来（相册/相机）、传到哪去 —— 那是装配方的活；
+/// 它只负责「拿到片段插进正文 + 上传期间把按钮转起来」。抛错由编辑器接住弹提示。
+typedef MdImagePicker = Future<String> Function();
+
+/// 预览里 fileId 图片的取字节回调（经桥）。null = 预览不画 fileId 图，
+/// 显示占位（不是报错 —— 没接桥的装配方不该因此坏掉）。
+typedef MdImageResolver = Future<Uint8List?> Function(String fileId);
+
 /// 打开 md 编辑器（整页，返回 null = 取消）。
 Future<String?> openMdComposer(
   BuildContext context, {
@@ -52,6 +80,8 @@ Future<String?> openMdComposer(
   bool showPreview = true,
   bool showInsertBlock = true,
   List<String> templates = const [],
+  MdImagePicker? pickImage,
+  MdImageResolver? imageResolver,
 }) {
   return Navigator.of(context).push<String>(
     MaterialPageRoute(
@@ -65,6 +95,8 @@ Future<String?> openMdComposer(
         showPreview: showPreview,
         showInsertBlock: showInsertBlock,
         templates: templates,
+        pickImage: pickImage,
+        imageResolver: imageResolver,
       ),
     ),
   );
@@ -82,6 +114,8 @@ class MdComposerPage extends StatefulWidget {
     this.showPreview = true,
     this.showInsertBlock = true,
     this.templates = const [],
+    this.pickImage,
+    this.imageResolver,
   });
 
   final String title;
@@ -98,6 +132,12 @@ class MdComposerPage extends StatefulWidget {
   /// 模板片段（点一下插到末尾）：如「完成总结」的四段式。
   final List<String> templates;
 
+  /// 贴图入口；null = 不显示图片按钮（见 [MdImagePicker]）。
+  final MdImagePicker? pickImage;
+
+  /// 预览取 fileId 图片字节；null = 预览不画 fileId 图（见 [MdImageResolver]）。
+  final MdImageResolver? imageResolver;
+
   @override
   State<MdComposerPage> createState() => _MdComposerPageState();
 }
@@ -107,6 +147,9 @@ class _MdComposerPageState extends State<MdComposerPage> {
       TextEditingController(text: widget.initialText);
   final _focus = FocusNode();
   bool _preview = false;
+
+  /// 贴图上传中：图片按钮变成小转圈，提交条禁用（一次只传一张，别把正文插乱）
+  bool _uploading = false;
 
   @override
   void dispose() {
@@ -163,6 +206,44 @@ class _MdComposerPageState extends State<MdComposerPage> {
     _controller.text = '$text${needsNl ? '\n\n' : ''}$snippet';
     _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
     _focus.requestFocus();
+  }
+
+  /// 在**光标处**插入（贴图用）：图片落在人正看着的地方，不挪到文末。
+  /// 前后各补空行，保证嵌入独立成段（md 的图片语法必须独占一行才渲染）。
+  void _insertAtCaret(String snippet) {
+    final value = _controller.value;
+    final text = value.text;
+    final caret = value.selection.isValid ? value.selection.end : text.length;
+    final before = text.substring(0, caret);
+    final after = text.substring(caret);
+    final lead = before.isEmpty || before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : '\n\n');
+    final tail = after.isEmpty || after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : '\n\n');
+    final next = '$before$lead$snippet$tail$after';
+    final at = before.length + lead.length + snippet.length;
+    _controller.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: at),
+    );
+    _focus.requestFocus();
+  }
+
+  /// 贴图：装配方的 [MdImagePicker] 负责选图与上传，这里只管插与提示。
+  /// 返回空串 = 用户取消（没选图），什么都不做。
+  Future<void> _pickAndInsertImage() async {
+    if (_uploading) return;
+    setState(() => _uploading = true);
+    try {
+      final snippet = await widget.pickImage!();
+      if (!mounted || snippet.isEmpty) return;
+      _insertAtCaret(snippet);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('图片传不上去：$e', style: const TextStyle(fontSize: 12))),
+      );
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   // ── 插入块 ────────────────────────────────────────────────
@@ -247,7 +328,9 @@ class _MdComposerPageState extends State<MdComposerPage> {
             _topBar(cs),
             if (widget.quote != null && widget.quote!.trim().isNotEmpty) _QuoteAnchor(text: widget.quote!),
             Expanded(
-              child: _preview ? _Preview(text: _controller.text) : _editor(cs),
+              child: _preview
+                  ? _Preview(text: _controller.text, imageResolver: widget.imageResolver)
+                  : _editor(cs),
             ),
             _toolbar(cs),
           ],
@@ -256,14 +339,26 @@ class _MdComposerPageState extends State<MdComposerPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, 4, AppSpacing.md, AppSpacing.sm),
-          child: SizedBox(
-            height: 40,
-            child: FilledButton(
-              onPressed: canSave
-                  ? () => Navigator.of(context).pop(_controller.text.trim())
-                  : null,
-              child: Text(widget.submitLabel),
-            ),
+          child: Row(
+            children: [
+              // 字数（不含空白）：开源编辑器的标配 —— 写反馈时知道写了多少
+              Text(
+                '${_controller.text.replaceAll(RegExp(r'\s'), '').length} 字',
+                style: TextStyle(fontSize: 10, color: cs.outline),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: FilledButton(
+                    onPressed: canSave && !_uploading
+                        ? () => Navigator.of(context).pop(_controller.text.trim())
+                        : null,
+                    child: Text(widget.submitLabel),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -324,6 +419,9 @@ class _MdComposerPageState extends State<MdComposerPage> {
         expands: true,
         textAlignVertical: TextAlignVertical.top,
         keyboardType: TextInputType.multiline,
+        // 回车自动续列表：键盘敲进去的换行在这里拦（程序化插入不经过 formatter，
+        // 所以模板/贴图的插入不会被误加前缀）
+        inputFormatters: const [MdListContinuation()],
         style: const TextStyle(fontSize: 14, height: 1.55),
         decoration: InputDecoration(
           hintText: widget.hint,
@@ -372,6 +470,15 @@ class _MdComposerPageState extends State<MdComposerPage> {
           ),
           // 模板从「一整行 chip」收进菜单：那一行白占 44dp，而模板一次只用得上一个
           if (widget.templates.isNotEmpty) _templateMenu(cs),
+          // 贴图：面板同款链路（选图 → 附件仓 → 嵌入片段插光标处）。
+          // 上传中转圈并禁点 —— 一次一张，插乱正文比慢更伤。
+          if (widget.pickImage != null)
+            _uploading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 11),
+                    child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                : btn(Icons.image_outlined, '插入图片（经 PC 附件仓）', _pickAndInsertImage),
           if (widget.showInsertBlock)
             TextButton.icon(
               onPressed: _insertBlock,
@@ -446,9 +553,12 @@ class _QuoteAnchor extends StatelessWidget {
 
 /// 预览：与块编辑器共用 `NoteFactory` 的渲染策略。
 class _Preview extends StatelessWidget {
-  const _Preview({required this.text});
+  const _Preview({required this.text, this.imageResolver});
 
   final String text;
+
+  /// 预览取 fileId 图片字节；null = 显示占位（见 [MdImageResolver]）。
+  final MdImageResolver? imageResolver;
 
   @override
   Widget build(BuildContext context) {
@@ -465,9 +575,190 @@ class _Preview extends StatelessWidget {
         for (final b in blocks)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-            child: noteRoot.renderBlock(context, b),
+            child: _blockOrAttachment(context, noteRoot, b),
           ),
       ],
+    );
+  }
+
+  /// fileId 图片经 [MdImageResolver] 取字节画（通用渲染器只认 http/本地文件）；
+  /// 其余块照旧走 NoteFactory —— 预览与块编辑器同一套渲染的约束不破。
+  Widget _blockOrAttachment(BuildContext context, NoteFactory noteRoot, Block b) {
+    final resolver = imageResolver;
+    if (resolver != null && b.type is ImageType) {
+      final t = b.type as ImageType;
+      final src = t.src.trim();
+      if (looksLikeAttachmentFileId(src)) {
+        return MdRemoteImage(resolver: resolver, fileId: src, alt: t.caption ?? '');
+      }
+    }
+    return noteRoot.renderBlock(context, b);
+  }
+}
+
+/// 这段图片 `src` 是不是附件仓的不透明 id（要经桥取字节的那种）。
+///
+/// 口径与 nx-kv 面板 `shared/attach.ts` 的 FILE_ID_RE 一致：≥16 位 hex、可带
+/// 一个短扩展名。URL（含 `://`）与路径都不匹配 —— 判定窄是刻意的，正文里一条
+/// 普通图片链接不会被误认成附件。放编辑器这边而不是 api 层：预览是通用渲染，
+/// 不该为这个判定反向依赖 nxkv。
+final RegExp _attachmentFileIdRe = RegExp(r'^[0-9a-fA-F]{16,}(\.[A-Za-z0-9]{1,8})?$');
+
+bool looksLikeAttachmentFileId(String src) => _attachmentFileIdRe.hasMatch(src.trim());
+
+/// 回车自动续列表：上一行是 `- ` / `1. ` / `- [ ] ` / `> ` 开头时，
+/// 新行自动带上同样的前缀；空列表项上再敲回车 = 退出列表（把空项删掉）。
+///
+/// 用 [TextInputFormatter] 而不是 `onChanged` 比对：formatter 拿到的是**这次编辑**
+/// 的精确 delta，不会在快速连打时误判；且只拦「插入了一个 \n」这一种编辑。
+class MdListContinuation extends TextInputFormatter {
+  const MdListContinuation();
+
+  static final _prefix = RegExp(r'^(\s*)(?:(- \[[ x]\] |[-*] |\d+\. |> )(.*))$');
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final oldText = oldValue.text;
+    final newText = newValue.text;
+    // 只处理「光标处插了一个换行」这一种编辑
+    if (newText.length != oldText.length + 1) return newValue;
+    final sel = newValue.selection;
+    if (!sel.isValid || sel.baseOffset != sel.extentOffset) return newValue;
+    final caret = sel.baseOffset;
+    if (caret == 0 || newText.substring(0, caret) != '${oldText.substring(0, caret - 1)}\n') {
+      return newValue;
+    }
+
+    // 找换行所在的那一行（新行的上一行）
+    final lineStart = oldText.lastIndexOf('\n', caret - 2) + 1;
+    final line = oldText.substring(lineStart, caret - 1);
+    final m = _prefix.firstMatch(line);
+    if (m == null) return newValue;
+
+    final indent = m.group(1)!;
+    final prefix = m.group(2)!;
+    final content = m.group(3)!.trim();
+    // 空列表项上再敲回车 = 退出列表：把空项连同它**前面的换行**一起删掉
+    //（上一行的终止符），光标落回上一行末尾 —— 这是所有 md 编辑器的合并语义。
+    // 空项就是第一行时没有前换行，从行首删起。
+    if (content.isEmpty) {
+      final lineStart0 = lineStart;
+      final start = lineStart0 > 0 ? lineStart0 - 1 : lineStart0;
+      final next = newText.replaceRange(start, caret, '');
+      return TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: start),
+      );
+    }
+    // 序号列表续号：`3. ` 的下一行是 `4. `
+    final numbered = RegExp(r'^(\d+)\. $').firstMatch(prefix);
+    final continued = numbered != null ? '${int.parse(numbered.group(1)!) + 1}. ' : prefix;
+    // 换行本身已经在这次编辑里了，这里只补前缀（多补一个 \n 会空一行）
+    final insertion = '$indent$continued';
+    final next = newText.replaceRange(caret, caret, insertion);
+    return TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: caret + insertion.length),
+    );
+  }
+}
+
+/// 预览里的 fileId 图片：字节经桥取回（[MdImageResolver]），画不好就给占位，
+/// **不连累整页预览** —— 一张传不回的图不该让其它段落也看不见。
+class MdRemoteImage extends StatefulWidget {
+  const MdRemoteImage({
+    super.key,
+    required this.resolver,
+    required this.fileId,
+    required this.alt,
+  });
+
+  final MdImageResolver resolver;
+  final String fileId;
+  final String alt;
+
+  @override
+  State<MdRemoteImage> createState() => _MdRemoteImageState();
+}
+
+class _MdRemoteImageState extends State<MdRemoteImage> {
+  late Future<Uint8List?> _future = _load();
+
+  /// resolver 同步抛错（比如 fileId 校验不过）也要收成**失败的 Future**，
+  /// 否则异常会冲出 build —— 一张图把整页预览干成红屏，违背本组件的存在理由。
+  ///
+  /// 而且错误必须在**源头**就吃掉：重试时这个 Future 生成在 setState 里、
+  /// 直到下一帧 FutureBuilder 才订阅，中间那一拍没人监听，Dart 会按
+  /// 「未处理异常」上报 —— 线上就是一段红字。兜底值 null 走占位分支。
+  Future<Uint8List?> _load() async {
+    try {
+      return await widget.resolver(widget.fileId);
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return FutureBuilder<Uint8List?>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return Container(
+            height: 96,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: cs.outlineVariant),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 8),
+                Text('正从 PC 传过来…', style: TextStyle(fontSize: 10, color: cs.outline)),
+              ],
+            ),
+          );
+        }
+        final bytes = snap.data;
+        if (snap.hasError || bytes == null || bytes.isEmpty) {
+          return GestureDetector(
+            // 块体不能是箭头函数：赋值表达式的值是 Future，setState 会把
+            // 「回调返回了 Future」当错误抛 —— 这是块体语句才有的坑
+            onTap: () {
+              setState(() {
+                _future = _load();
+              });
+            },
+            child: Row(
+              children: [
+                Icon(Icons.broken_image_outlined, size: 14, color: cs.error),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    widget.alt.isEmpty ? '这张图画不出来（点按重试）' : '${widget.alt}（画不出来，点按重试）',
+                    style: TextStyle(fontSize: 10, color: cs.error),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.memory(
+            bytes,
+            width: double.infinity,
+            fit: BoxFit.contain,
+            alignment: Alignment.topCenter,
+            errorBuilder: (_, _, _) => Text('这张图画不出来（格式不支持）', style: TextStyle(fontSize: 10, color: cs.outline)),
+          ),
+        );
+      },
     );
   }
 }

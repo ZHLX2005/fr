@@ -94,6 +94,59 @@ class NxKvApi extends MnWsAppClient {
     return res.bytes;
   }
 
+  /// 上传一张图片（或任意文件）到**本机附件仓** —— 面板贴图走的就是这条
+  /// `POST /api/file`（base64，服务端落盘后返回可直接贴进正文的 markdown 片段）。
+  ///
+  /// 任务入库时（`localtask.add` / `reopen`）服务端会自动解析正文里的
+  /// `![名](fileId)` 并登记附件关系（`syncTaskAttachments`），所以端侧**只管
+  /// 把片段插进正文**，不用再调 attach —— 与面板同一条链路，两端不分叉。
+  ///
+  /// 返回 [NxKvUpload]：[NxKvUpload.fileId] 是嵌入语法的 id，[NxKvUpload.markdown]
+  /// 是服务端生成的片段（图片语法 `![名](id)`）。
+  Future<NxKvUpload> uploadFile(
+    MnWsEndpoint endpoint, {
+    required String name,
+    required Uint8List bytes,
+    String contentType = '',
+  }) async {
+    final res = await call(
+      endpoint,
+      method: 'POST',
+      path: '/api/file',
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        // data URL 形式：服务端 decodeBase64 会剥掉前缀（file/service.ts）
+        'content': 'data:$contentType;base64,${base64Encode(bytes)}',
+        if (contentType.isNotEmpty) 'contentType': contentType,
+      }),
+    );
+    final json = res.json;
+    if (json == null) {
+      throw MnWsException(
+        MnWsErrorKind.malformed,
+        '上传返回的不是 JSON（HTTP ${res.status}）',
+        status: res.status,
+      );
+    }
+    final data = json is Map && json['data'] is Map ? json['data'] as Map : json;
+    final fileId = '${data['fileId'] ?? ''}'.trim();
+    if (fileId.isEmpty) {
+      throw const MnWsException(MnWsErrorKind.malformed, '上传没有返回附件 id');
+    }
+    final md = data['markdown'];
+    final snippet = md is Map
+        ? '${md['image'] ?? md['file'] ?? ''}'
+        : (md is String ? md : '');
+    // 服务端总给片段；万一没给（旧版本），按图片语法本地拼一份 —— 语义不变
+    return NxKvUpload(
+      fileId: fileId,
+      name: '${data['name'] ?? name}',
+      isImage: data['isImage'] == true,
+      markdown: snippet.isNotEmpty ? snippet : '![$name]($fileId)',
+    );
+  }
+
   // ───────────────────────── 传输 ─────────────────────────
 
   /// [kv.NxKvTransport] 的实现：四样东西 → 一次经桥的请求。
@@ -127,3 +180,20 @@ class NxKvApi extends MnWsAppClient {
     return json;
   }
 }
+
+/// 上传结果：`fileId` 是嵌入语法里的 id；`markdown` 是服务端生成的片段
+/// （图片 `![名](id)` / 文件 `[名](id)`），**直接插进正文**就是全部接入。
+class NxKvUpload {
+  const NxKvUpload({
+    required this.fileId,
+    required this.name,
+    required this.isImage,
+    required this.markdown,
+  });
+
+  final String fileId;
+  final String name;
+  final bool isImage;
+  final String markdown;
+}
+

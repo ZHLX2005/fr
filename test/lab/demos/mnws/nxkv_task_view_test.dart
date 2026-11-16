@@ -24,6 +24,8 @@ icon 标识上优化，用一些更加圆滑的 icon 提升质感。
 - [ ] 组行不再画展开箭头
 - [ ] 徽标口径与面板 `.cnt` 一致
 
+![验收截图](c0ffee00c0ffee00c0ffee00c0ffee00.png)
+
 > [!NOTE] 第 1 轮 · 完成总结
 > 侧栏改成组 + 项目平铺，去掉了两段标题。
 > 徽标改成有活才画。
@@ -178,6 +180,18 @@ void main() {
     expect(find.textContaining('第 2 轮 · 验收反馈'), findsOneWidget);
     // 轮次正文（callout 的行）
     expect(find.textContaining('项目组的不要跳到项目去'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('正文里的 fileId 图片：整行嵌入解析成图块，桥打不通时该块自己降级', (tester) async {
+    await boot(tester);
+
+    // 整行 `![...]` 被解析成图块：正文里不再有字面的嵌入语法
+    expect(find.textContaining('![验收截图]'), findsNothing);
+    // 桩的 endpoint 指向 127.0.0.1:9：字节取不回来 —— 内联图块自己降级（不连累整页）
+    expect(find.textContaining('取不回来'), findsWidgets);
+    // 正文其余段落照常
+    expect(find.textContaining('侧边栏的逻辑仍然不对'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

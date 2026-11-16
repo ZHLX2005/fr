@@ -400,6 +400,17 @@ class NxKvController extends ChangeNotifier {
     return bytes;
   }
 
+  /// 上传一张图片到本机附件仓，返回可直接插进正文的嵌入片段。
+  ///
+  /// 这是 md 编辑器贴图的唯一网络动作：编辑器拿到片段插进正文，任务提交时
+  /// 服务端自动解析嵌入并登记附件关系 —— 端侧不再调 attach（面板同一条链路）。
+  Future<NxKvUpload> uploadImage({
+    required String name,
+    required Uint8List bytes,
+    String contentType = '',
+  }) =>
+      _api.uploadFile(endpoint, name: name, bytes: bytes, contentType: contentType);
+
   void _rememberAttachment(String id, Uint8List bytes) {
     if (bytes.isEmpty) return;
     // 单张就超预算的不缓存（几十 MB 的录屏/压缩包，本来也不该内联画）

@@ -59,6 +59,22 @@ class MdToBlock {
         continue;
       }
 
+      // 图片：`![说明](目标)`。这是标准 markdown，不发明方言 —— 目标可以是
+      // http(s) 链接、本机路径，也可以是附件仓的不透明 id（`![截图](3f2a…9c)`）；
+      // 是哪种由渲染端判定（渲染器只认 http/本地文件，附件 id 经桥取字节）。
+      // 只认**整行就是一张图**的写法：行内混排图片存为纯文本段落，不假装支持。
+      final imageMatch = RegExp(r'^!\[([^\]]*)\]\(([^)\s]+)\)$').firstMatch(trimmed);
+      if (imageMatch != null) {
+        final alt = imageMatch.group(1)!.trim();
+        blocks.add(Block(
+          id: _nextId(),
+          type: ImageType(src: imageMatch.group(2)!, caption: alt.isEmpty ? null : alt),
+          content: RichText.empty(),
+        ));
+        i++;
+        continue;
+      }
+
       final todoMatch = RegExp(r'^-\s+\[(x| )\]\s+(.+)$', caseSensitive: false).firstMatch(trimmed);
       if (todoMatch != null) {
         final checked = todoMatch.group(1)!.toLowerCase() == 'x';

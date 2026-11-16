@@ -14,6 +14,7 @@ import '../../../../design_tokens/spacing.dart';
 import '../../../../api/mnws/nxkv/nxkv_controller.dart';
 import '../../../../api/mnws/nxkv/nxkv_md.dart';
 import 'nxkv_motion.dart';
+import 'nxkv_image_pick.dart';
 import 'nxkv_widgets.dart';
 
 /// 一条任务的**正文视图**（不是一整页：外壳由 `NxKvPage` 提供）。
@@ -131,6 +132,8 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
       initialText: '## 本轮做了什么\n\n- \n\n## 怎么验的\n\n- \n\n## 遗留\n\n- 无\n',
       submitLabel: '标记完成',
       templates: const ['完成总结'],
+      pickImage: () => pickAndUploadImage(widget.controller, context),
+      imageResolver: widget.controller.attachmentBytes,
     );
     if (md == null || md.trim().isEmpty) return;
     setState(() => _busy = true);
@@ -160,6 +163,8 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
       hint: '说清哪里不对、期望是什么。提交后任务会重开为下一轮，旧的压进历史。',
       submitLabel: '提交反馈',
       templates: const ['验收反馈'],
+      pickImage: () => pickAndUploadImage(widget.controller, context),
+      imageResolver: widget.controller.attachmentBytes,
     );
     if (md == null || md.trim().isEmpty) return;
     await _reopen(t.id, kind: 'reopen', md: md);
@@ -175,6 +180,8 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
       hint: '针对上面这段说点什么；提交后作为「反馈修改」追加到任务正文。',
       quote: quote,
       submitLabel: '提交评价',
+      pickImage: () => pickAndUploadImage(widget.controller, context),
+      imageResolver: widget.controller.attachmentBytes,
     );
     if (md == null || md.trim().isEmpty) return;
     await _reopen(t.id, kind: 'comment', md: md, quote: quote);
@@ -367,7 +374,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
           Text('（正文为空）', style: TextStyle(fontSize: 12, color: cs.outline))
         else
           for (final b in blocks)
-            _BlockTap(onTap: () => _onBlockTap(b), child: noteRoot.renderBlock(context, b)),
+            _BlockTap(onTap: () => _onBlockTap(b), child: _bodyBlock(context, noteRoot, b)),
         if (t.attachments != null && t.attachments!.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.sm),
           _label('附件', count: '${t.attachments!.length}'),
@@ -414,6 +421,36 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
         ],
       ),
     );
+  }
+
+  /// 正文里的图片块：`![说明](fileId)` 的目标是**附件仓的不透明 id**，
+  /// 通用渲染器（http/本地文件）画不了 —— 经桥取字节内联画出来，点开全屏。
+  /// 其余块照旧走 NoteFactory（预览与块编辑器同一套渲染）。
+  ///
+  /// 这条链路与「手机贴图」是一对：编辑器上传后插入的片段，交完任务在正文里
+  /// 就地可见；附件区还会有一张（服务端入库时自动登记）。
+  Widget _bodyBlock(BuildContext context, NoteFactory noteRoot, Block b) {
+    if (b.type is ImageType) {
+      final t = b.type as ImageType;
+      final src = t.src.trim();
+      if (looksLikeAttachmentFileId(src)) {
+        final name = (t.caption ?? '').isEmpty ? src : t.caption!;
+        final fake = kv.LocaltaskGetAttachment(
+          id: src,
+          kind: 'file',
+          kindLabel: '图片',
+          name: name,
+          sizeText: '',
+          isImage: true,
+        );
+        return _RemoteImage(
+          controller: widget.controller,
+          attachment: fake,
+          onTap: () => _openAttachment(fake),
+        );
+      }
+    }
+    return noteRoot.renderBlock(context, b);
   }
 
   /// 附件：**经网络取回本体**，不再只报 PC 上的路径。
