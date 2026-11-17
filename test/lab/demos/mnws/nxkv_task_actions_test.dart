@@ -107,6 +107,53 @@ void main() {
     expect(find.text('重试'), findsOneWidget);
     expect(tester.takeException(), isNull, reason: '附件失败不该变成整页异常');
   });
+
+  // ─────────────── 再编辑（fr #10：已存在的任务要能改） ───────────────
+
+  testWidgets('头部有「编辑正文」，点开预填的是原文（含轮次，不是裁剪版）', (tester) async {
+    final c = _StubController(taskOutput: task());
+    await pump(tester, c);
+
+    expect(find.byTooltip('编辑正文'), findsOneWidget, reason: '入口得在，藏进菜单等于没有');
+
+    await tester.tap(find.byTooltip('编辑正文'));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, c.taskOutput.text, reason: '打开的就是文件原文');
+    expect(find.text('保存'), findsOneWidget);
+  });
+
+  testWidgets('改完提交：走 localtask.update，还是同一条 #3（不是再派一条）', (tester) async {
+    final c = _StubController(taskOutput: task());
+    await pump(tester, c);
+
+    await tester.tap(find.byTooltip('编辑正文'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '# 优化样式 v2\n\n正文改过');
+    await tester.pump();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(c.edits, hasLength(1));
+    expect(c.edits.single.$1, 3, reason: '改的是这条自己的编号');
+    expect(c.edits.single.$2, 'k', reason: '跨队列的组任务要带物理落点，否则改不到');
+    expect(c.edits.single.$3, contains('优化样式 v2'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('一个字没改就点保存：不发请求，也别假装保存了', (tester) async {
+    final c = _StubController(taskOutput: task());
+    await pump(tester, c);
+
+    await tester.tap(find.byTooltip('编辑正文'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(c.edits, isEmpty, reason: '白跑一趟公网还闪一下 busy，不如直接说没改');
+    expect(find.text('没有改动'), findsOneWidget);
+  });
 }
 
 class _StubController extends NxKvController {
@@ -132,8 +179,21 @@ class _StubController extends NxKvController {
   /// 用例断言「真的为哪些 id 取了字节」。
   final List<String> fetchedIds = [];
 
+  /// 再编辑发出去的请求：`(编号, 落点队列, 新正文)`。
+  final List<(int, String?, String)> edits = [];
+
   @override
   Future<kv.LocaltaskGetOutput> task(int id, String? key) async => taskOutput;
+
+  @override
+  Future<kv.LocaltaskUpdateOutput> editTask(int id, String? key, String text) async {
+    edits.add((id, key, text));
+    return kv.LocaltaskUpdateOutput(status: 'ok', id: id);
+  }
+
+  /// 这页保存完会顺手刷队列（侧栏徽标要跟上）；用例里没有服务端，空实现。
+  @override
+  Future<void> refresh() async {}
 
   @override
   Future<Uint8List> attachmentBytes(String fileId) async {

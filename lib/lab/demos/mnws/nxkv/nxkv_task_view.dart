@@ -154,8 +154,50 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
     }
   }
 
-  Future<void> _feedback() async {
+  /// 再编辑这条任务的正文（fr #10）。
+  ///
+  /// 与右侧那两颗的区别：标完成 / 反馈都是**流转**（产生新状态、甚至新任务），
+  /// 这里是**改内容** —— 编号不变、领取状态不变、轮次历史不动，换掉的只是文件。
+  ///
+  /// 打开的是**原文**（frontmatter + 轮次 + 正文都在），不是详情页画出来的
+  /// 「去掉轮次之后那一段」：服务端存的就是这份文件，只把正文写回去等于把历史
+  /// 抹了。所以 hint 里把「别删 `---`」说清楚，而不是替用户做裁剪。
+  Future<void> _edit() async {
     final t = _task;
+    if (t == null) return;
+    final md = await openMdComposer(
+      context,
+      title: '编辑 #${t.id}',
+      hint: '这是任务原文：开头 `---` 那段是归属信息别删；轮次是历史，通常只改正文。',
+      initialText: t.text,
+      // 光标落在文件开头（标题行）：再编辑多半是改标题或第一段，
+      // 停在文末等于先让人滑回顶部
+      initialCaret: 0,
+      submitLabel: '保存',
+      pickImage: () => pickAndUploadImage(widget.controller, context),
+      imageResolver: widget.controller.attachmentBytes,
+    );
+    if (md == null || md.trim().isEmpty) return;
+    // 一个字没改就别发请求：busy 会白闪一下，公网也白跑一趟
+    if (md.trim() == t.text.trim()) {
+      _toast('没有改动');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.controller.editTask(t.id, widget.topicKey, md);
+      await _load();
+      await widget.controller.refresh();
+      if (!mounted) return;
+      _toast('已保存');
+    } catch (e) {
+      _toast('保存失败：${NxKvController.humanize(e)}');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _feedback() async {    final t = _task;
     if (t == null) return;
     final md = await openMdComposer(
       context,
@@ -292,7 +334,18 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
               ],
               const Spacer(),
               if (_busy)
-                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                const Padding(
+                  padding: EdgeInsets.only(right: AppSpacing.xs),
+                  child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+              // 再编辑的入口在头部而不是底部动作条：动作条那两颗是**流转**
+              // （标完成 / 反馈会改状态、甚至派生新任务），改内容属于「这条本身
+              // 是谁」，跟编号/状态/轮次是一类信息，放在一起才好找。
+              _PillIconButton(
+                icon: Icons.edit_note_rounded,
+                tooltip: '编辑正文',
+                onTap: _busy ? null : _edit,
+              ),
             ],
           ),
           const SizedBox(height: 2),

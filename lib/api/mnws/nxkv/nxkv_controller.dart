@@ -351,6 +351,16 @@ class NxKvController extends ChangeNotifier {
   }) =>
       _client.localtaskReopen(id, null, key, null, kind, quote, md, heading, null);
 
+  /// 改一条**已存在**任务的正文（服务端 `localtask.update --text`）。
+  ///
+  /// 「再编辑」不是「再派一条」：编号不变、队列位置不变、领取状态与轮次历史
+  /// 都不动，换掉的只是文件内容。服务端按首个 `#` 行取标题，所以改标题也走这里。
+  ///
+  /// 十个位置参数是生成客户端的形制（`id, text, cwd, key, ...`），后面的时间目标
+  /// 与 DAG 字段手机端不碰 —— 全传 null 就是「这几样别动」。
+  Future<kv.LocaltaskUpdateOutput> editTask(int id, String? key, String text) =>
+      _client.localtaskUpdate(id, text, null, key, null, null, null, null, null, null);
+
   /// 派一条任务。
   ///
   /// 契约 0.55.x 起 `localtaskAdd` 多了第二个参数 `file`（正文可以走文件，
