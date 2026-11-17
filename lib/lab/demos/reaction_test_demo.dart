@@ -16,6 +16,12 @@ class ReactionTestDemo extends DemoPage {
   @override
   String get description => '等待颜色变绿立即点击，测量反应速度';
 
+  /// 这一页自己带 AppBar（标题 + 重置记录），外壳再给一条就是两条标题 +
+  /// 两个返回箭头 —— 反馈「这个页面也错误存在两个返回按钮」说的就是它。
+  /// 整页全屏的 demo 都按这个口径自管头部，外面的 `DemoDetailPage` 不再加。
+  @override
+  bool get preferFullScreen => true;
+
   @override
   Widget buildPage(BuildContext context) => const ReactionTestPage();
 }

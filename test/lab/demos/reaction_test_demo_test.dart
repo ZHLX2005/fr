@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaodouzi_fr/core/theme/app_theme.dart';
 import 'package:xiaodouzi_fr/lab/demos/reaction_test_demo.dart';
+import 'package:xiaodouzi_fr/screens/profile/lab/demo_detail_page.dart';
 
 /// WCAG 相对对比度。
 double _contrast(Color a, Color b) {
@@ -142,6 +143,36 @@ void main() {
 
       expect(_phaseBg(tester), ReactionPalette.goBg);
       expect(_phaseBg(tester), isNot(idleBg));
+    });
+  });
+
+  group('外壳头部：这一页自管 AppBar，外层不再叠一条', () {
+    // 回归 fr #13「这个页面也错误存在两个返回按钮」：DemoDetailPage 会给一条
+    // 带返回箭头的 AppBar，页面自己也有一条 —— 两条叠着，返回箭头就成双了。
+    testWidgets('DemoDetailPage 里只有一个 AppBar / 一条标题', (tester) async {
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(MaterialApp(
+        home: DemoDetailPage(demo: ReactionTestDemo()),
+      ));
+      await tester.pump();
+
+      expect(find.byType(AppBar), findsOneWidget);
+      // 正文里那颗 40sp 的大标题本来就叫这个名字，所以只看 AppBar 里的那条
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: find.text('反应力测试')),
+        findsOneWidget,
+        reason: '标题叠两条等于重复',
+      );
+
+      // 返回箭头只该有一个（内页那条 AppBar 自己长的）
+      final backs = find.byIcon(Icons.arrow_back).evaluate().length +
+          find.byIcon(Icons.arrow_back_ios_new).evaluate().length +
+          find.byIcon(Icons.arrow_back_ios).evaluate().length;
+      expect(backs, lessThanOrEqualTo(1), reason: '两个返回按钮是这次反馈的原话');
     });
   });
 }
