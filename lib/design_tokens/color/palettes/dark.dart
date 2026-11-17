@@ -10,7 +10,7 @@ class DarkColors {
   /// 暗黑主题（dark）— 中性石墨无彩系，OLED 友好，内容优先。
   ///
   /// 2026-10-13 提案落码（对照 temp/theme-dark-mode-prototype.html）：
-  /// 与暮紫（冷紫 + 鎏金）区隔——本套无色彩倾向，secondary/tertiary 均为
+  /// 与暮紫（银白月光 + 鎏金）区隔——本套无色彩倾向，secondary/tertiary 均为
   /// 中性灰系，error 用去饱和柔红。surfaceContainerHighest #0C0C0A 贴近纯黑。
   static const ColorScheme scheme = ColorScheme(
     brightness: Brightness.dark,

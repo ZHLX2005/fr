@@ -5,7 +5,7 @@
 
 /// 应用主题模式（7 套 zen / purple / ink / rose / lemon / cobalt / dark）。
 enum AppThemeMode {
-  /// 暮紫主题（深色）— 暮紫主色 ↔ 冷炭紫环境 + 稀用鎏金。
+  /// 暮紫主题（深色）— 银白月光主色 ↔ 近中性冷灰环境 + 稀用鎏金。
   purple,
 
   /// 茶禅主题（zen）—— sage 绿 + 暖米环境 + 陶土红强调。
