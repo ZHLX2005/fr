@@ -112,8 +112,10 @@ class _MnWsHomePageState extends ConsumerState<MnWsHomePage> {
     final bottomPad = QuickNavBottomBar.bodyBottomReserve(context);
 
     return Scaffold(
+      // 这一支自己就是整页（`preferFullScreen`，外壳不再叠一条 AppBar）：
+      // 标题跟底栏那颗 tab 用同一个名字，别再出现「双向桥 / 桥接」两种叫法。
       appBar: AppBar(
-        title: const Text('mn-ws 桥接'),
+        title: const Text('mn-ws 双向桥'),
         actions: [
           IconButton(
             tooltip: '请求台',

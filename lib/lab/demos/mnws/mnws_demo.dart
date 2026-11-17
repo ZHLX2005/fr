@@ -27,6 +27,12 @@ class MnWsDemo extends DemoPage {
   @override
   DemoType get type => DemoType.tool;
 
+  /// 这一支自己带 AppBar（标题 + 请求台/设置/刷新三颗），外壳再给一条就是两条
+  /// 头部叠着 —— 反馈「这个页面存在两个头部」说的就是这个。按整页 demo 的惯例
+  /// 交给自己管：外壳不加 AppBar，返回箭头由内层 AppBar 自己长出来。
+  @override
+  bool get preferFullScreen => true;
+
   @override
   Widget buildPage(BuildContext context) => const MnWsHomePage();
 }

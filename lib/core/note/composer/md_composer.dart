@@ -341,7 +341,6 @@ class _MdComposerPageState extends State<MdComposerPage> {
       // 800dp 的屏上输入区 670dp ≈ 84%。原来那条 AppBar（56）+ 模板横条（44）
       // 白吃掉 100dp，写三行就要滚动。
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
             _topBar(cs),
@@ -352,34 +351,42 @@ class _MdComposerPageState extends State<MdComposerPage> {
                   : _editor(cs),
             ),
             _toolbar(cs),
+            // 提交条放在 body 里，**不做 bottomNavigationBar**。
+            // Scaffold 只把 body 让给键盘：底栏永远是「屏幕底 − 自身高度」
+            // （SDK `scaffold.dart` 的 `bottomNavigationBarTop = bottom - height`），
+            // 键盘一弹，整颗「派发任务」就落在键盘背面 —— 手指点不到，看着像按钮没了。
+            // 放进 Column 尾巴上，它天然被 body 的收缩顶到键盘上沿。
+            _submitBar(cs, canSave),
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 4, AppSpacing.md, AppSpacing.sm),
-          child: Row(
-            children: [
-              // 字数（不含空白）：开源编辑器的标配 —— 写反馈时知道写了多少
-              Text(
-                '${_controller.text.replaceAll(RegExp(r'\s'), '').length} 字',
-                style: TextStyle(fontSize: 10, color: cs.outline),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: SizedBox(
-                  height: 40,
-                  child: FilledButton(
-                    onPressed: canSave && !_uploading
-                        ? () => Navigator.of(context).pop(_controller.text.trim())
-                        : null,
-                    child: Text(widget.submitLabel),
-                  ),
-                ),
-              ),
-            ],
+    );
+  }
+
+  /// 48dp 提交条：字数 + 整行按钮。
+  Widget _submitBar(ColorScheme cs, bool canSave) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 4, AppSpacing.md, AppSpacing.sm),
+      child: Row(
+        children: [
+          // 字数（不含空白）：开源编辑器的标配 —— 写反馈时知道写了多少
+          Text(
+            '${_controller.text.replaceAll(RegExp(r'\s'), '').length} 字',
+            style: TextStyle(fontSize: 10, color: cs.outline),
           ),
-        ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: SizedBox(
+              height: 40,
+              child: FilledButton(
+                onPressed: canSave && !_uploading
+                    ? () => Navigator.of(context).pop(_controller.text.trim())
+                    : null,
+                child: Text(widget.submitLabel),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

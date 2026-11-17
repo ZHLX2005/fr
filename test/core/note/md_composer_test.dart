@@ -201,4 +201,35 @@ void main() {
       expect(find.textContaining('画不出来'), findsOneWidget);
     });
   });
+
+  group('提交条：键盘弹起也要点得到', () {
+    // 回归 fr #9「派发任务按钮布局有问题」：提交条原来挂在 bottomNavigationBar 上，
+    // 而 Scaffold 只把 body 让给键盘（底栏永远钉在屏幕底部），键盘一弹整颗按钮
+    // 就落到键盘背面。现在它在 body 的 Column 尾巴上，必须被顶到键盘上沿之上。
+    testWidgets('键盘 300dp：按钮整体在键盘上沿之上', (tester) async {
+      const kb = 300.0;
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3;
+      tester.view.viewInsets = const FakeViewPadding(bottom: kb * 3);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+
+      await tester.pumpWidget(const MaterialApp(
+        home: MdComposerPage(
+          title: '新建任务',
+          hint: '',
+          initialText: '# 标题\n',
+          submitLabel: '派发任务',
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final screenH = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      final btn = tester.getRect(find.byType(FilledButton));
+      expect(btn.bottom, lessThanOrEqualTo(screenH - kb + 0.5),
+          reason: '提交条被键盘盖住了 —— 落回 bottomNavigationBar 就会这样');
+      expect(btn.height, greaterThan(0), reason: '按钮还得是完整一颗，不是被压扁的一条');
+    });
+  });
 }
