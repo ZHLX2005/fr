@@ -7,19 +7,24 @@ import '../../core/ui/global/button/main.dart';
 import '../../core/ui/global/nav/main.dart';
 import '../lab_container.dart';
 import 'api_test/api_download_manager.dart';
-import 'api_test/api_speech_tab.dart';
 import '../../core/utils/format/main.dart';
 
-/// API 测试 Demo
+/// APK 下载 Demo（原来叫「API 测试」，是 APK 更新 + 语音合成两个 Tab）。
+///
+/// 语音合成那一整个 Tab 已按反馈删除（连页面一起，`api_speech_tab.dart` 不再存在）：
+/// 两个 Tab 只留一个时，TabBar 就是纯粹多出来的一层 —— 点进来先选一次「APK 更新」，
+/// 才能看到唯一的内容。现在打开就是下载页。
 class ApiTestDemo extends DemoPage {
   @override
-  String get title => 'API 测试';
+  String get title => 'APK 下载';
 
+  /// slug 保持 `api-test`：导航钉选、图标表（`core/ui/lab/icons` 的
+  /// `'api-test': '19-api-test'`）都按它认，改名等于让已钉的入口失效。
   @override
   String get slug => 'api-test';
 
   @override
-  String get description => '测试后端API接口';
+  String get description => '检查并下载 FR 最新版 APK（内部下载 / 浏览器下载 / 自动更新）';
 
   @override
   Widget buildPage(BuildContext context) {
@@ -190,41 +195,20 @@ class _ApiTestPageState extends State<_ApiTestPage> {
   // ===== Build =====
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = Theme.of(context).colorScheme;
     // 主壳浮层底栏：勿用 SafeArea(bottom)——会吃掉 MediaQuery.padding 后
     // 露出外层 Scaffold 白条。页底色铺满，滚动区自行留白。
     return ColoredBox(
       color: cs.surfaceContainerHighest,
       child: SafeArea(
         bottom: false,
-        child: DefaultTabController(
-          length: 2,
-          child: Column(
-            children: [
-              const TabBar(
-                tabs: [
-                  Tab(text: 'APK 更新'),
-                  Tab(text: '语音合成'),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildApkTab(),
-                    const ApiSpeechTabPage(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: _buildApkPage(),
       ),
     );
   }
 
-  // --- APK 更新 Tab ---
-  Widget _buildApkTab() {
+  // --- APK 下载 ---
+  Widget _buildApkPage() {
     return ValueListenableBuilder<ApkDownloadState>(
       valueListenable: _apkManager.state,
       builder: (context, apkState, child) {
