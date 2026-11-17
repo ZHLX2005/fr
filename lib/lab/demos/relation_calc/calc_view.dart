@@ -12,6 +12,8 @@ import '../../../core/theme/context/colors.dart';
 import '../../../core/ui/global/button/main.dart';
 import '../../../core/ui/global/zen/main.dart';
 import 'const_relation_calc.dart';
+import 'kinship_solver.dart';
+import 'kinship_table.g.dart';
 import 'relation_calc_models.dart';
 import 'relation_engine.dart';
 import '../../../core/ui/global/section/main.dart';
@@ -114,6 +116,20 @@ class _CalcViewState extends State<CalcView> {
     final result = start == null
         ? const RelationCalcResult(steps: [], success: false, failedIndex: 0)
         : _engine.resolve(start.id, _termIds);
+    // 规则库没配到 → **结构推导**兜底（fr #14）。
+    //
+    // 关系库是用户可编辑的称谓表，十词三层共 1000 条组合它覆盖不完；以前没配到
+    // 就一句「无法计算」，等于把「我没配」说成「这关系不存在」。现在这类链交给
+    // `solveKinship` 按辈分与性别推：推得出来给称谓或描述式，推不出来才说
+    // 无此关系（并说清是性别矛盾还是真的没有）。
+    //
+    // 只对起点「我」生效：三层组合都是以我为原点数的；换起点（爷爷/组长）
+    // 走关系库那套领域无关的引擎。
+    final derived = (!result.success &&
+            _termIds.isNotEmpty &&
+            start?.name == RelationCalcConsts.defaultStartEntityName)
+        ? _derive()
+        : null;
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -128,9 +144,9 @@ class _CalcViewState extends State<CalcView> {
                 children: [
                   _buildStartRow(start),
                   SizedBox(height: 12),
-                  _buildChainCard(result, start),
+                  _buildChainCard(result, start, derived),
                   SizedBox(height: 12),
-                  _buildResultCard(result),
+                  _buildResultCard(result, derived),
                   SizedBox(height: 12),
                   _buildTermPad(),
                   SizedBox(height: 12),
@@ -142,6 +158,30 @@ class _CalcViewState extends State<CalcView> {
         },
       ),
     );
+  }
+
+  /// 三层组合优先查**审阅过的表**（`kinship_table.g.dart`，1000 条，
+  /// 生成后人工填充/减枝过），表里没有才现场按结构推。
+  ///
+  /// 为什么不一上来就推：表里那 188 条剔除项写着「为什么不可能」，
+  /// 现场推虽然也能判性别矛盾，但表是**人看过一遍**的，说法更稳。
+  KinAnswer? _derive() {
+    final labels = <String>[];
+    for (final id in _termIds) {
+      final name = _engine.term(id)?.name;
+      if (name == null) return solveKinship(_termIds);
+      labels.add(name);
+    }
+    final key = labels.join(',');
+    final pruned = kKinshipThreeLayerPruned[key];
+    if (pruned != null) {
+      return KinAnswer(label: '', standard: false, reason: pruned);
+    }
+    final hit = kKinshipThreeLayer[key];
+    if (hit != null) {
+      return KinAnswer(label: hit, standard: !hit.contains('的'));
+    }
+    return solveKinship(_termIds);
   }
 
   /// 顶部：起点实体 chip + 切换。
@@ -180,7 +220,11 @@ class _CalcViewState extends State<CalcView> {
   }
 
   /// 关系链展示：我 → 爸爸 → 爸爸（含失败步高亮）。
-  Widget _buildChainCard(RelationCalcResult result, RelationEntity? start) {
+  Widget _buildChainCard(
+    RelationCalcResult result,
+    RelationEntity? start,
+    KinAnswer? derived,
+  ) {
     return BaseSection(
       title: RelationCalcUiText.chainLabel,
       child: SingleChildScrollView(
@@ -200,7 +244,8 @@ class _CalcViewState extends State<CalcView> {
               _chainChip(
                 _engine.term(_termIds[i])?.name ?? '?',
                 emphasized: false,
-                failed: result.failedIndex == i,
+                // 推导兜得住就不标红：这一步不是「断了」，只是规则库没配
+                failed: derived == null && result.failedIndex == i,
               ),
             ],
           ],
@@ -240,9 +285,18 @@ class _CalcViewState extends State<CalcView> {
   }
 
   /// 中央结果大卡。
-  Widget _buildResultCard(RelationCalcResult result) {
-    final ok = result.success;
-    final finalName = ok ? (result.finalEntity?.name ?? '—') : null;
+  Widget _buildResultCard(RelationCalcResult result, KinAnswer? derived) {
+    // 三段取值：规则库命中 > 结构推导 > 都无法计算
+    final fromGraph = result.success;
+    final label = fromGraph
+        ? (result.finalEntity?.name ?? '—')
+        : (derived != null && !derived.impossible ? derived.label : null);
+    final impossible = !fromGraph && (derived?.impossible ?? false);
+    final hint = fromGraph || label == null
+        ? null
+        : (derived!.standard
+            ? RelationCalcUiText.derivedHint
+            : RelationCalcUiText.descriptiveHint);
     return BaseSection(
       title: RelationCalcUiText.resultLabel,
       child: Container(
@@ -251,28 +305,36 @@ class _CalcViewState extends State<CalcView> {
         decoration: zenCardTheme(context),
         child: Column(
           children: [
-            if (finalName != null)
+            if (label != null) ...[
               Text(
-                finalName,
+                label,
                 style: ZenText.monoDigitLarge.copyWith(
                   color: context.colors.text,
                   fontSize: 56,
                   fontWeight: FontWeight.w700,
                 ),
                 textAlign: TextAlign.center,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-              )
-            else ...[
+              ),
+              if (hint != null) ...[
+                SizedBox(height: 8),
+                Text(hint, style: ZenText.label, textAlign: TextAlign.center),
+              ],
+            ] else ...[
               Text(
-                RelationCalcUiText.notResolvable,
+                impossible
+                    ? RelationCalcUiText.noSuchRelation
+                    : RelationCalcUiText.notResolvable,
                 style: ZenText.title.copyWith(color: context.colors.danger),
               ),
               SizedBox(height: 6),
               Text(
                 _termIds.isEmpty
                     ? RelationCalcUiText.emptyChainHint
-                    : RelationCalcUiText.notResolvableHint,
+                    : (impossible
+                        ? derived!.reason!
+                        : RelationCalcUiText.notResolvableHint),
                 style: ZenText.label,
                 textAlign: TextAlign.center,
               ),

@@ -29,6 +29,13 @@ class RelationCalcUiText {
   static const String notResolvable = '无法计算';
   static const String notResolvableHint = '当前关系链在此步骤无匹配规则';
 
+  /// 结构推导：关系库没配到，但这条链本身说得通（fr #14）
+  static const String derivedHint = '规则库里没配这条，按辈分与性别推出来的';
+  /// 结构推导：给的是描述式（这层关系没有通行叫法）
+  static const String descriptiveHint = '这层关系没有通行叫法，按链条读';
+  /// 结构推导：结构上不成立
+  static const String noSuchRelation = '无此关系';
+
   static const String undo = '撤销';
   static const String clear = '清空';
   static const String pickStart = '选择起点';
