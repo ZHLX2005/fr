@@ -54,3 +54,4 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 - **治理史不进 skill**：落地记录、审计快照、阶段史归档到 `docs/architecture/` 与 `plan/`，册内只留指针与活清单。
 - **单一事实源**：一条规则只在一处写正文，其余位置一律一行指针；新增约束前先找它的属主页，不在第二处复写正文（速记区只留红线摘要，正文以指针目标为准）。
 - **三段式准入**：新 ref 必须满足「何时读 + 步骤或决策表 + 验证出口」三段式；教程叙述与治理史不合此形态，写进 `docs/` 不进 `references/`。
+- **自检闸门**：改动 `references/` 后运行 `python .claude/skills/fr-engineer-flowot/scripts/validate_refs.py`——断链 wikilink 与《》跨序列引用、frontmatter name 不符、陈旧外仓绝对路径会被拦（error 即退出码 1）；缺 frontmatter/「何时读」、超 400 行只记 warning（存量欠账容忍）。
