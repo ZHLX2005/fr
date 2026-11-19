@@ -9,7 +9,10 @@
      （frontmatter 形态存疑或无 name 字段按缺失处理                    [warning]——
        首行 `---` 分隔线易被误认成 frontmatter，歧义场景不拦截）
   4. frontmatter 缺失                                                  [warning]
-  5. 成员页找不到「何时读」表述（三段式第 1 段）                       [warning]
+  5. 三段式准入（成员页强制；00 路由页只查第 1 段）：
+     5a. 「何时读」缺失                                                [error]
+     5b. 无步骤/决策表（编号步骤、勾选清单、含步骤类标题、表格任一）   [error]
+     5c. 无验证出口（验证类标题或 analyze/test/grep 等实际命令）       [error]
   6. 绝对 Windows 路径必须位于本仓库根，陈旧外仓路径                   [error]
      （跑全文含代码块——示例里也不该出现外仓路径；只覆盖反斜杠风格）
   7. 单文件超过 400 行拆分阈值                                         [warning]
@@ -17,6 +20,8 @@
 
 链接类检查（1/2）在剥离 fenced code 与行内代码后的正文上进行，避免代码里的
 数组索引（如 [[0, -1]]）和反引号内的假链接被误判；路径检查（6）有意跑全文。
+三段式检查（5）：5b/5c 豁免 00 路由页——路由页本身是动线表（诉求决策表），
+不承载操作步骤；SKILL.md 不参与三段式。
 
 用法：python scripts/validate_refs.py
 退出码：0 = 通过（允许 warning）；1 = 存在 error
@@ -39,6 +44,13 @@ WINPATH_RE = re.compile(r"[A-Za-z]:\\[^\s`》」』）)，。；:*]*")
 FRONT_NAME_RE = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 WHEN_READ_RE = re.compile(r"何时读")
+ROUTER_RE = re.compile(r"^[A-H]00-")
+STEP_RE = re.compile(r"^\s*\d+\.\s+\S", re.MULTILINE)
+CHECKBOX_RE = re.compile(r"^\s*- \[.\]", re.MULTILINE)
+STEP_HEADING_RE = re.compile(r"^#{1,4}\s.*(?:步骤|SOP|工作流|Checklist|清单|检查表|动线)", re.MULTILINE)
+TABLE_ROW_MIN = 3
+VERIFY_HEADING_RE = re.compile(r"^#{1,4}\s.*(?:验证出口|验证|自检|回归|检查)", re.MULTILINE)
+VERIFY_CMD_RE = re.compile(r"flutter analyze|flutter test|grep -|validate_refs|退出码|golden")
 
 
 def collect_files() -> list[Path]:
@@ -98,6 +110,33 @@ def check_winpaths(text: str, path: Path, errors: list[str]) -> None:
             errors.append(f"{path.name}: 非本仓绝对路径 {winpath}")
 
 
+def has_sop_body(text: str) -> bool:
+    """三段式第 2 段：步骤/决策表信号（编号步骤、勾选清单、步骤类标题、表格）。"""
+    if STEP_RE.search(text) or CHECKBOX_RE.search(text) or STEP_HEADING_RE.search(text):
+        return True
+    table_rows = sum(
+        1 for line in text.splitlines() if line.strip().startswith("|") and not line.strip().startswith("|--")
+    )
+    return table_rows >= TABLE_ROW_MIN
+
+
+def has_verify_exit(prose_text: str, full_text: str) -> bool:
+    """三段式第 3 段：验证类标题，或 analyze/test/grep 等实际验证命令。"""
+    return bool(VERIFY_HEADING_RE.search(prose_text) or VERIFY_CMD_RE.search(full_text))
+
+
+def check_sop_form(text: str, prose_text: str, path: Path, errors: list[str]) -> None:
+    is_router = bool(ROUTER_RE.match(path.name))
+    if not WHEN_READ_RE.search(text):
+        errors.append(f"{path.name}: 三段式缺「何时读」（第 1 段）")
+    if is_router:
+        return  # 路由页只查第 1 段：动线表即其决策表，不承载操作步骤
+    if not has_sop_body(text):
+        errors.append(f"{path.name}: 三段式缺步骤/决策表（第 2 段）")
+    if not has_verify_exit(prose_text, text):
+        errors.append(f"{path.name}: 三段式缺验证出口（第 3 段）")
+
+
 def check_frontmatter(text: str, path: Path, errors: list[str], warnings: list[str]) -> None:
     match = FRONTMATTER_RE.match(text)
     if not match:
@@ -139,10 +178,10 @@ def main() -> int:
 
         if path.name != "SKILL.md":
             check_frontmatter(text, path, errors, warnings)
-            if not WHEN_READ_RE.search(text):
-                warnings.append(f"{path.name}: 未找到「何时读」表述（三段式第 1 段）")
 
         body = prose(text)
+        if path.name != "SKILL.md":
+            check_sop_form(text, body, path, errors)
         check_wikilinks(body, path, known, errors)
         check_cjk_refs(body, path, known, errors)
         check_winpaths(text, path, errors)
