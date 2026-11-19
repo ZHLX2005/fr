@@ -1,3 +1,8 @@
+---
+name: Ca02-命名与GameMeta
+description: FR 联机 demo 命名与 kGameMeta 登记契约——title（联机）后缀、slug 与 kGameMeta 字符级一致、GameCategory/mode 选类与已踩反例。在 lib/lab/demos 下新增联机房间业务并登记游戏中心时读。
+---
+
 # naming-and-game-meta — 联机 demo 命名与 kGameMeta 登记契约
 
 > 本 ref 是 [[C00-RelayLua路由]] 的**联机 demo 命名与登记契约**页。
@@ -6,6 +11,8 @@
 >
 > 是 [[Cb01-双人对战房间模板]]（端到端模板）落地前的**命名/分类环节**——和
 > [[Cc01-团队卡牌大厅模式]]（多人派对分类示例）配套使用。
+>
+> **何时读**：在 `lib/lab/demos/<game>_lua*/` 下新增联机房间业务、需要定 `title`/`slug` 并向 `kGameMeta` 登记分类时。
 
 ---
 
@@ -150,3 +157,5 @@ flutter analyze lib/lab/ lib/screens/profile/lab/
 | `reversi-lua` | 黑白翻转棋（联机） | multiplayer + board | |
 | `chess-online` | 国际象棋（联机） | multiplayer + board | |
 | `jungle-chess-lua` | 斗兽棋（联机） | multiplayer + board | 2026-08-30 新增 |
+
+> 通用交付门槛见《V00-工程收尾与排障动线》§1。

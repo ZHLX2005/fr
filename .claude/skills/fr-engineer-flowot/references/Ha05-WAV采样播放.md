@@ -5,6 +5,8 @@ description: 在 Oboe audio callback 里混入 WAV 采样替代合成音色 — 
 
 # WAV 采样播放 — 自定义拍声音色
 
+> **何时读**：三档合成音色不够自然、想把真实乐器 WAV 采样混入既有 Oboe 桥接的 `onAudioReady` 回调，或多个页面要共用同一份 Oboe stream 与已加载采样时。
+
 ## 适用场景
 
 - 你觉得三档合成音色（weak/medium/accent）太"电子"了，想用真实乐器采样替换
@@ -266,3 +268,9 @@ controller.soundForLevel(uiToCppSlot[displayIdx]);
 | 用 `_uiToCppSlot`（带下划线）命名局部变量 | Dart lint: `no_leading_underscores_for_local_identifiers` | 局部变量不要下划线前缀 |
 | import `package:ffi` 但不加 pubspec 依赖 | `depend_on_referenced_packages` lint warning | 在 pubspec 显式加 `ffi: ^2.1.0` |
 | 多个 LabClockProvider 实例各自跑 timer | wipe 一个实例后另一个写回旧数据 | 确保单例；clock_demo 复用 main 的 provider |
+
+## 验证出口
+
+- 按 bad_eg 自查：`MetronomeController.dispose()` 只 `pause()` 不 `shutdown()`；UI 行序经 `uiToCppSlot = [2, 1, 0]` 映射后再 `loadSample`。
+- 按本页改动范围跑 `flutter analyze lib/services/metronome lib/lab/demos/metronome`。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

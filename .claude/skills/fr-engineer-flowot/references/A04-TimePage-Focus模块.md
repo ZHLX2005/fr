@@ -1,3 +1,8 @@
+---
+name: A04-TimePage-Focus模块
+description: FR time 模块完整指南——timePage 标记、kTimePageMeta、Lab 过滤与 Focus 主页消费，含加工作流、改面板、统计扩展、深链验证。改任何 time 模块相关文件时读取。
+---
+
 # Flutter-TimePage — Focus 时间模块完整指南
 
 > 单一长 ref：整个 time 模块的**架构 + 4 个独立方面**（加新工作流 / 改面板 / 统计与心流空间扩展 / Lab 过滤与深链）按章节一次性加载。

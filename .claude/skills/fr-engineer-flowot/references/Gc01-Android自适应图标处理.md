@@ -5,6 +5,8 @@ description: Android自适应图标前景图处理工作流。当用户提到图
 
 # Android Adaptive Icon Foreground Processing Skill
 
+> **何时读**：需要把原始图片处理成 Android 自适应图标前景图时——去边缘色块、提取中心内容、居中缩放，或排查图标铺满/白边/灰边问题，走本页完整流水线。
+
 ## Overview
 
 This skill handles the complete workflow of converting a raw image into an Android adaptive icon foreground. It addresses common issues like removing background colors, eliminating edge artifacts (dark/light borders), extracting the main content region, centering and scaling, and configuring the Android adaptive icon XML.
@@ -235,3 +237,9 @@ python .claude/skills/fr-engineer-flowot/scripts/generate_android_icon.py <源�
 ```
 
 脚本里 `fix_adaptive_icon_xml` 写入的 `ic_launcher.xml` 路径硬编码为相对路径 `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`，只有在项目根执行该路径才存在；非项目根执行 `fix_adaptive_icon_xml` 会因 `os.path.exists(xml_path)` 为 false 而**静默跳过 XML 修改**，仅生成缩放后的 PNG，故务必从项目根调用。
+
+## 验证出口
+
+- 处理流水线跑完后核对输出 PNG：1024×1024 画布、内容占 40%（约 409px）、无残留边缘色块（对照本页 Key Parameters）。
+- 生成图标后检查 `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`，确认 foreground 无 `inset="16%"` 属性。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

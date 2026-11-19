@@ -1,3 +1,8 @@
+---
+name: Ga04-Widget样式规范
+description: Android AppWidget 的 layout 与样式规范——禁 emoji（改 vector/文字）、支持 1×1 的 manifest 三条件（40dp 下限、targetCellWidth/Height=1、仅横向 resize）、FrameLayout + match_parent 单交互元素布局，以及 MIUI/OneUI 等 launcher 的 1×2 占位现实与改完必删旧实例的强制操作。写 widget 布局、调尺寸或排查 launcher 显示异常时读。
+---
+
 # 桌面小组件样式规范(无 emoji · 支持 1×1 · launcher 兼容)
 
 本 ref 沉淀自 `notion_widget` 桌面小组件的样式优化实战(2026-07)。

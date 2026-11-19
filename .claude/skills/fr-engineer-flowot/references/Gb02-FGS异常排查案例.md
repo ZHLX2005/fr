@@ -1,3 +1,8 @@
+---
+name: Gb02-FGS异常排查案例
+description: Android 14+ MediaProjection 前台服务崩溃按异常类型分流的排查 SOP。日志出现 SecurityException / IllegalArgumentException / Unable to start service、foregroundServiceType subset mismatch，或怀疑已安装 APK 与源码不一致时，按异常分类器定位失败类别并走最小调试工作流。
+---
+
 # FGS MediaProjection Debug — 异常分类与排查流程
 
 > 何时读：遇到 SecurityException / IllegalArgumentException / Unable to start service，需要按异常类型分类排查，或怀疑已安装 APK 与源码不匹配时。
@@ -192,6 +197,8 @@ After edits, verify these points:
 3. `ACTION_START` path does not promote to `mediaProjection` too early.
 4. `MainActivity` performs permission-result handling for the service.
 5. The newest runtime stack matches the current local source lines.
+
+验证出口：上述 5 项逐条核对通过后，通用交付门槛见《V00-工程收尾与排障动线》§1（Dart 侧跑 `flutter analyze`；本页改动集中在 Android/Kotlin/Manifest，按该页要求补 `flutter build apk`）。
 
 ## What not to do
 

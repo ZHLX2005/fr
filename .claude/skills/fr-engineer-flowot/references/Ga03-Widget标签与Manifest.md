@@ -1,3 +1,8 @@
+---
+name: Ga03-Widget标签与Manifest
+description: Android AppWidget 的 picker label 与 Manifest 资源配置——每个 receiver 独立 android:label、appwidget-provider 补齐 description/previewLayout、widget 资源目录约定、改完 manifest 必须删旧实例，以及纯跳转型 widget 的 autostart 模式与 FrMethodChannelTranslator 收口。widget 在 picker 里分不清、资源改动不生效时读。
+---
+
 # 桌面小组件 Picker Label + Manifest 资源管理
 
 本 ref 沉淀自 2026-08 录音机 widget + 全量修复 widget picker label 实战。

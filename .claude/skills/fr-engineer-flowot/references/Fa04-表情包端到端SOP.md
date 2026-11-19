@@ -1,5 +1,12 @@
+---
+name: Fa04-表情包端到端SOP
+description: FR 表情包管线的专项 SOP。定位 scope 合并机制、emoji id 命名约束、KV value 两种形态及与 GameSkin 体系的差异，供独立处理 emoji pack 时使用。
+---
+
 # 表情包（emoji pack）端到端 SOP
 
+> **何时读**：独立处理 emoji pack、scope、id 或 KV value 格式时。
+>
 > 本文是 FR 表情包专项 SOP：scope 合并、id 命名、KV value 形态及与 GameSkin 的差异。总路由见 [[Fa01-外部游戏资源管线路由]]；通用端到端管线见 [[Fa02-端到端SOP与故障排查]]。
 > 通用 SOP 见 [[Fa02-端到端SOP与故障排查]] §6；架构细节见 [[Fa03-加载架构与文件地图]] §2.5 / §3.5。
 

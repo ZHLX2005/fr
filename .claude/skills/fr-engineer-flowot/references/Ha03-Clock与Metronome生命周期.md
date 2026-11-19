@@ -5,6 +5,8 @@ description: Clock 是数据驱动（startTime + wall-clock），Metronome 是�
 
 # Clock vs Metronome — 数据驱动 vs 流驱动 的生命周期差异
 
+> **何时读**：设计新功能要决定组件生命周期策略时——判断状态是「数据 + 时间差」还是「持续事件流」，进而定 Provider 能否随 page 销毁、Service 是否必须跨页面常驻。
+
 ## 一句话区别
 
 | 组件 | 状态类型 | 驱动模型 | 退出页面行为 |

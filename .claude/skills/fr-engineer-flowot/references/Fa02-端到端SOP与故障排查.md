@@ -1,5 +1,12 @@
+---
+name: Fa02-端到端SOP与故障排查
+description: 外部游戏资源五条线（chess/gomoku/game-center/line/emoji）的端到端发布 SOP 与故障排查手册。定位上传脚本用法、KV 索引合并发布流程与资源不生效的排查路径。
+---
+
 # 端到端 SOP + 故障排查（游戏资源全套）
 
+> **何时读**：上传皮肤/封面/歌曲/表情包、发布或更新 KV 索引，或资源在客户端不生效需要排查时。
+>
 > 本文是外部游戏资源管线的端到端发布与故障排查手册；总路由与远端变更安全约束见 [[Fa01-外部游戏资源管线路由]]，加载架构见 [[Fa03-加载架构与文件地图]]，表情包细节见 [[Fa04-表情包端到端SOP]]。
 >
 > 工具能力先核对（当前脚本实况）：`add_skin.py` / `add_emoji_pack.py` 无 dry-run，直接写远端；`retag_existing.py` 与 `migrate_line_from_supabase.py` 有 `--dry-run`。游戏中心目录不再手动发布（fr App 打开游戏中心时自动比对写 KV）。chess 皮肤只认固定 `.png` 文件名；gomoku/game-center 的 `board/small/large` 均为必选 key，缺任一脚本直接退出。
@@ -235,6 +242,8 @@ python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py D:/emojis/cel
 | 已下载到本地但点选仍 loading 转圈 | 根因：上层 `_downloadXxx` 不查缓存，会先删目录重下。已修复 —— 上层现在**缓存优先**（`isCached` 命中 → `fromCache` 直接加载）。若复现：① 确认走的是 `ensureLocal`/`isCached` 路径而非直接 `download()`；② 检查 `<documents>/<dir>/<id>/` 是否被误删 |
 | emoji 发了但客户端不显示 | ① scope 是否正确（common vs game）；② emoji id 是否匹配 `^[a-z0-9][a-z0-9-_]{0,31}$`；③ 客户端日志里看 KV 读取是否 200 |
 | chess 客户端本地 catalog 与 KV index 漂移 | `lib/core/chess/skins/chess_skin_meta.dart` 的 `kChessSkinsCatalog` 改后未重发 KV。修复：发布 KV 后保证客户端 Layer 1/2 一致 |
+
+本节各条的排查结论按《V00-工程收尾与排障动线》§1 的验证与交付门槛收口。
 
 ## 8. 后端参考（为何这么调）
 

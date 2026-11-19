@@ -1,8 +1,15 @@
+---
+name: Ca03-Action权限表
+description: FR Relay-v3 房间的 action 权限表驱动模式——Lua action_permissions 单点真相 + role_check 校验 + 客户端 canPerform 消费，含引入时机、5 种角色规则与迁移步骤。按钮约束特判散落或出现无效按钮 bug 时读。
+---
+
 # action-permission-table — "谁能做哪个 action"收敛到服务端单一表
 
 > ⚠️ **这是成熟期优化，前期开发不推荐。** 当 action 少（≤3-4 个）、业务规则还在频繁变时，简单的 `if (isHost)` 特判更直接、迭代更快。表驱动是"约束散落导致 bug"的解药，不是开局就该上的基础设施。**何时引入见 §1。**
 
 > 从 surround_game_lua（围追堵截）反复出现"客方显示无效按钮"UX bug 沉淀。适用于 **action 类型多、规则趋于稳定的成熟业务**：当你发现客户端按钮可点性靠散落特判（`if (isHost)` / `if (isMyTurn)`）维护、且开始出现"无效按钮"类 bug 时，就读这个 ref。
+>
+> **何时读**：客户端按钮可点性靠散落 `if (isHost)` 特判维护、出现"客方显示无效按钮"类 bug、action 类型 ≥5 个且规则趋稳时；何时引入与不该用的场景见 §1。
 
 > 是 [[Ca01-服务端权威状态]] 的姊妹篇：那篇讲"**为什么**角色不能自查"，本篇讲"**怎么做**"——把 action 约束做成服务端表 + 客户端单点消费的完整落地模式。
 
@@ -342,3 +349,11 @@ def test_action_permissions():
 | 有按钮/操作约束 | **本 ref** — 怎么把约束做成表 |
 | 对称对战棋盘 | [[Cb03-角色棋盘镜像]] — 视觉翻转（按钮 isTopTurn 等） |
 | 大厅/身份/就绪门 | [[Cc01-团队卡牌大厅模式]] — ACK/SIT 等也是 action，同样适用本表 |
+
+---
+
+## 验证出口
+
+- 每条权限规则至少一个拒绝 case + 一个接受 case（§9 测试策略）；现役工具 `.tool/relay-room-tester/emoji_e2e.dart` + `test/core/net_engine/relay_v3_transport_test.dart`。
+- 主动发 action 的方法（`_maybeDeclareWin` / `_requestUndo` 类）确认带本地防重发标志，并在 RESET/新局时重置（§5.1）。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

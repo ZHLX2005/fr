@@ -7,6 +7,8 @@ description: FR Hive StorageRegistry 与 BoxDescriptor 的职责边界、存储�
 
 > **适用范围**：仅适用于 FR 项目。此文只说明存储注册和 Lab 存储面板架构。新模块实现步骤见 [[D03-Hive新模块Checklist]]；常见读写排障见 [[D01-Hive存储工作流与排障]]。
 >
+> **何时读**：理解 Lab 存储面板如何列举/删除/清空已注册 Box、新 Box 要出现在面板、或迁移历史存储注册代码时。
+>
 > **实现真相**：`lib/core/storage/box_descriptor.dart`、`lib/core/storage/storage_registry.dart`、`lib/core/storage/storage_manager.dart`、`lib/core/storage/hive/hive_store.dart`。
 
 ## 责任边界
@@ -72,3 +74,9 @@ FR `pubspec.yaml` 使用 `hive_generator` 和 `build_runner`。当前 typed mode
 ## 历史实现不要复用
 
 旧文档曾展示手写 `TypeAdapter`、日历 `typeId=90/91`、`CalendarHive.events` 静态 getter、repository 直接打开 Hive box，以及未注册 box fallback。这些用于解释历史演进，不是当前新增模块范本。当前 typeId 集中表只分配了实际现行项；不要将已经释放的历史值复制到新模型。
+
+## 验证出口
+
+- 按「新 Box 如何出现在面板」核对：注册后面板出现新条目，删除/清空按 descriptor 生效；未出现时依次查 feature 初始化、descriptor name、open callback、注册顺序。
+- 按本页改动范围跑 `flutter analyze`（`lib/core/storage/` 与对应 repository）0 error。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

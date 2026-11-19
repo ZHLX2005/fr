@@ -210,3 +210,11 @@ catch (e: Exception) {
 | ref | 何时读取 | 路径 |
 |---|---|---|
 | [[Gb02-FGS异常排查案例]] | 按异常类型排查 subset mismatch、权限时机或 APK/源码不一致问题 | [[Gb02-FGS异常排查案例]] |
+
+---
+
+## 验证出口
+
+- 改完按本页「调试排查清单」5 条逐项自查：前台服务提升顺序、权限重复申请分支、`acquireFrame` 重试、等待标志复位、compileSdk/gradle 配置。
+- 真机复现截图流程，logcat 过滤本页列出的三个标签（`FloatingWindow` / `MainActivity` / `System.err`）确认无新异常。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

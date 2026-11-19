@@ -1,8 +1,15 @@
+---
+name: D03-Hive新模块Checklist
+description: FR 新建 Hive 持久化模块的分步 checklist——数据模型/API 先行、TypeId 集中分配、HiveStore 开箱、BoxDescriptor 面板注册与集成验证红线。新增本地持久化 feature 时逐节过。
+---
+
 # D03 — 创建 FR Hive 持久化模块 Checklist
 
 > **适用范围**：仅适用于 `D:\DevProjects\my\github\fr`。新增本地持久化 feature 时配合 [[D00-Hive存储路由]]、[[D01-Hive存储工作流与排障]] 和 [[D02-Hive-BoxDescriptor注册制]] 使用。
 >
 > **架构红线**：Hive 是实现细节。业务 UI 只调用领域 repository API，不接触 Hive 全局 API，不持有 Box 句柄。
+>
+> **何时读**：新增本地持久化 feature、从数据模型/API 设计到 repository 与面板注册落地时，按节过本清单。
 
 ## 1. 先定数据模型和 API
 

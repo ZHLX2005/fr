@@ -1,4 +1,11 @@
+---
+name: Gb03-Android14悬浮截屏常驻模式
+description: Android 14+ 上悬浮窗截屏从「每次建临时 VirtualDisplay」改为「常驻 ImageReader + VirtualDisplay」的适配方案。Android 14+ MediaProjection token 一次性化导致第二次截图黑屏时读本页，含常驻资源生命周期、权限撤回回调与旋转重建等未实现项的现状说明。
+---
+
 # Android FloatingWindow 常驻截屏模式适配 Android 14+
+
+> **何时读**：悬浮窗截屏在 Android 14+ 上只能截到一次、第二次黑屏或失败，需要把临时 VirtualDisplay 改为常驻模式时读本页。
 
 ## 项目背景
 
@@ -216,3 +223,9 @@ class ScreenCaptureManager(
 
 - `android/app/src/main/kotlin/.../native/overlay/FloatingWindowManager.kt` — 核心修改文件
 - Commit: `bb33fb9` — fix(overlay): 重构截屏逻辑为常驻模式，支持反复截屏
+
+## 验证出口
+
+- 按「关键设计点」自查：`captureInitialized` 只初始化一次；`acquireFrame` 失败路径恢复悬浮窗；截屏前隐藏悬浮窗。
+- 真机连续截图两次以上，确认第二次及之后不再黑屏（Android 14+ 一次性 token 已被常驻 VirtualDisplay 规避）。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

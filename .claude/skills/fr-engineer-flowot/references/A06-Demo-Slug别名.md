@@ -6,6 +6,8 @@ description: FR demo slug 兼容与外部 URL 别名注册 SOP。变更 demo URL
 # A06 — Demo slug 别名 SOP
 
 > **适用范围**：FR `DemoPage` / `demoRegistry`。本 ref 只讲 canonical slug 与兼容旧 URL，不包含大型模块合并、拆分或 Tab 容器设计方案。
+>
+> **何时读**：demo 的规范 slug 因命名调整而变化、已发布的 widget / 通知 / 外部文档仍指向旧 `fr://lab/demo/<slug>`，需要为旧地址保留 alias 并限期过渡时（触发条件详见下节「何时使用」）。
 
 ## 何时使用
 
@@ -62,3 +64,9 @@ if (needsLegacyCompatibility) {
 ## 边界说明
 
 多个 demo 是否应改造成统一 Tab 容器，是模块/产品结构决策，应先读 A00 与 A03 进行评估；本 ref 只负责 slug 别名，不承载合并方案。
+
+## 验证出口
+
+- 按「注册步骤」第 2 步搜索旧 slug 的真实来源（widget PendingIntent、MethodChannel、通知/分享链接、项目外文档、测试、本地持久化），确认需兼容来源已注册 alias、可控来源已切到 canonical slug。
+- 跑 registry/route 测试：canonical 与 alias 解析到同一实例（`same(demo)`），unknown/removed slug 断言预期 not-found；alias 打开错误页面时补 identity assertion。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

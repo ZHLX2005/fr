@@ -6,6 +6,8 @@ description: FR Lab registry、DemoPage、收藏面板和游戏中心的真实�
 # A03 — Lab 容器与模块扩展
 
 > **适用范围**：仅适用于 FR 的 Lab/UI 容器。当前目录、注册项会随代码演进；动手前以本文的真实代码入口与 `lib/lab/lab_bootstrap.dart` 注册表复核，不把数量/行数快照当契约。
+>
+> **何时读**：修改 Lab 层或收藏面板交互、新增 Lab Demo / 游戏，或排查 demo 在 Lab 与游戏中心重复、缺失、面板卡住时。
 
 ## 1. 先确定改动落点
 
@@ -67,3 +69,10 @@ Demo 默认单文件，不以目录树整洁为由先拆文件。超过约 400 �
 
 - 这一 ref 指导 Lab 容器与列表/面板；游戏规则、主题配色、远端资产、Hive 数据分别使用 C/E/F/D 序列。
 - 具体路径或数值若与当前源码不一致，应更新此导航表与对应 SOP，不能把旧快照当成事实。
+
+## 验证出口
+
+- 跑与本页改动对应的测试：新增/改动 demo 后运行相应 registry/slug 测试；动游戏目录后运行 `test/lab/game_center_catalog_test.dart`（目录 ↔ 注册表 ↔ kGameMeta 双向一致）。
+- 按本页改动范围跑 `flutter analyze lib/lab lib/screens/profile/lab`。
+- 面板交互改动按 §3 清单回归：展开、半途松手、取消指针、快速重复操作、滚动及收藏管理。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

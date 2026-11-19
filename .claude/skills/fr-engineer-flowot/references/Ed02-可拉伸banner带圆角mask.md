@@ -9,6 +9,8 @@ description: 顶部 App Bar 样式 · 子类方案 —— 可拉伸 Banner + 圆
 
 > 分类：样式大类 = **Top App Bar / Banner Header**，子类 = **Banner Stretch with Rounded Mask**。
 
+> **何时读**：要复现或修改「可拉伸 Banner + 圆角 mask 衔接列表」这一视觉模式时——顶部 banner 随下拉 overscroll 弹性拉伸回弹、且与下方列表之间是无可见接缝的圆角过渡。
+
 视觉目标（一句话）：顶部一张可点击的大图/渐变 banner，下拉 overscroll 时整个 banner 区域被拉伸成弹性区域再回弹，banner 与下方列表之间是**无可见接缝的圆角过渡**，列表背景色"贴进"AppBar 下方。
 
 落地代码段参考 `lib/screens/containers/profile_container.dart`（search: `flexibleSpace`）。
@@ -228,3 +230,11 @@ SliverToBoxAdapter(
 | `Stack(ClipRRect(circular(24)))` 直接盖 FlexibleSpaceBar 整体 | zoomBackground 仍然拉高 ClipRRect 的 sourceRect，圆角变形 |
 | `RenderSliver` 自定义类 | 维护成本高，本方案用 widget 层组合已能根治 |
 | 1 px 上探 / 1 px 下探 | 不够（坑 8、9） |
+
+---
+
+## 验证出口
+
+- 视觉与交互自检按上文「验收 checklist」逐条过：静止弧顶可见、下拉 stretch 回弹、上滑与下拉过程中接缝均无发丝线、点击 banner 触发回调、主题切换时三色一致。
+- 改动落在落地代码 `lib/screens/containers/profile_container.dart` 所在目录时，跑 `flutter analyze lib/screens/containers`。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。

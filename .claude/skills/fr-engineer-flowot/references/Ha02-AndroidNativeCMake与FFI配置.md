@@ -5,6 +5,8 @@ description: Flutter Android 项目里如何接入原生 C/C++ 代码 — CMake/
 
 # Android 原生 C 编码原理
 
+> **何时读**：要把 C/C++ 原生代码接入 Flutter Android 项目时——配置 CMakeLists.txt 与 Gradle externalNativeBuild、裁剪 ABI、选型 FFI vs JNI、处理 extern "C" 导出与 .so 库加载，走本页工具链全景。
+
 ## 1. 工具链全景
 
 ```

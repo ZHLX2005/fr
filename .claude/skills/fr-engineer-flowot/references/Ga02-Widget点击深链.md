@@ -1,3 +1,8 @@
+---
+name: Ga02-Widget点击深链
+description: 桌面 widget 主体点击直达 Flutter 内具体 demo 页面的端到端链路——Intent.data 深链 → MainActivity.handleIntent → WidgetChannel → FrMethodChannelTranslator → FrNavigator，含防重复堆叠 CLEAR_TOP 语义与「带 query 的 URI 必须 startsWith」必踩坑。给 widget 加点击跳转、或排查点击只进首页/页面重复入栈时读。
+---
+
 # 桌面小组件点击 → 直达具体 Demo 页面
 
 本 ref 沉淀自 2026-07 `clock_widget` "点击直达 clock 页面"实战(用户反馈:点击 widget 只进 lab 首页,多一步跳转)。

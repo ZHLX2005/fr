@@ -194,3 +194,10 @@ try {                                   // :1087
 `getInstance()` 抛异常（首次初始化 SharedPreferences 失败、平台通道异常）时，`finally` 根本进不去 → **`_loadingCache` 永久卡在 true** → picker 一直提示"数据库列表加载中"直到超时。
 
 **正确做法**：把 `await SharedPreferences.getInstance()` 挪进 `try`，或在它之前单独包一层 try/catch 保证 flag 一定落 false。
+
+## 验证出口
+
+- 落地后按上文「模式要点」五条自检：`_loadingCache` 默认 true、try/finally 必置 false、await 后查 mounted、`_pickDatabase` 打开 picker 前有等待 + 超时 + SnackBar 守卫、成功后存缓存。
+- 核对项目内范例的已知 caveat：`lib/lab/demos/notion_image_host_demo.dart` 中 `await SharedPreferences.getInstance()` 是否已挪进 try 块（flag 不能永久卡 true）。
+- 改动落在上述文件所在目录时，跑 `flutter analyze lib/lab/demos`。
+- 通用交付门槛见《V00-工程收尾与排障动线》§1。
