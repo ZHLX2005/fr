@@ -1,6 +1,9 @@
 ---
 name: fr-engineer-flowot
 description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、组件复用与组件分层决策、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 与横切 V 序列路由到对应 SOP。仅适用于 D:\DevProjects\my\github\fr。
+metadata:
+  author: joke-lx
+  tags: [flutter, android, relay-lua, hive, ui]
 ---
 
 # FR Engineer Flow — 工程总入口
@@ -42,6 +45,14 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 | 视觉统一全文（通道决策/豁免登记/默认文案本地化） | [[E00-UI骨架地图]] §四 全局红线；边框强调细节 [[Ed01-边框强调式减负]] |
 | 质量与交付（codegen/CHANGELOG/Git 全文） | 《V00-工程收尾与排障动线》§1 实现后验证、Git 与交付 |
 | 组件复用（先查 `lib/core/ui/`、`lib/core/game_kit/`） | [[Eb01-组件能力目录]] + [[Eb02-分层契约与放置]] |
+
+## Available Scripts
+
+| Script | Purpose | Arguments |
+|---|---|---|
+| `scripts/validate_refs.py` | `references/` 文档完整性自检：断链 wikilink 与《》跨序列引用、frontmatter name 不符、陈旧外仓绝对路径 | 无位置参数；退出码 0=通过（允许 warning），1=有 error |
+
+调用方式：支持 `run_script` 的 harness 直接 `run_script("scripts/validate_refs.py")`；Claude Code 环境用 Bash 执行 `python .claude/skills/fr-engineer-flowot/scripts/validate_refs.py`。检查范围与拦截级别详见下方维护规则的「自检闸门」。
 
 ## 维护规则
 
