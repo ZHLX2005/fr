@@ -30,6 +30,8 @@ description: FR Android 特殊组件与 Flutter/native 桥接的大序列路由�
 |---|---|
 | [[Gc01-Android自适应图标处理]] | 从原图处理 adaptive icon foreground、去边色或配置图标资源时 |
 
+**端到端动线**：新桌面 widget = [[Ga01-桌面Widget实时同步]]（数据/刷新）→ [[Ga03-Widget标签与Manifest]]（注册）→ [[Ga04-Widget样式规范]]（外观）→ 需点击跳页加 [[Ga02-Widget点击深链]] → 收尾《V00-工程收尾与排障动线》§1；原生改动一律过下节 build apk 闸门，运行期异常走《Gb02-FGS异常排查案例》。
+
 ## Native 工程约束
 
 - Flutter/native bridge 工具统一放在 `lib/native/`，业务层不散落平台通道细节。

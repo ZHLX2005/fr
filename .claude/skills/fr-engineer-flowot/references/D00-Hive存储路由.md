@@ -15,6 +15,8 @@ description: FR Hive 持久化架构与新模块接入入口。新增本地存�
 - 真实范例：`body_record_repository.dart`、`timetable_repository.dart`、`price_compare_repository.dart`。新增模式先比对它们及模型 adapter 生成方式。
 - 新 Box 须通过 `StorageRegistry.register(BoxDescriptor<T>(...))` 注册，让 Lab 存储分析面板读取；不要为每个业务修改 `storage_manager.dart` 或面板 UI。
 
+**端到端动线**：新模块带持久化 = [[D03-Hive新模块Checklist]]（逐项过）→ 模型/adapter 按下节「校验优先级」→ 面板可见性核对《D02-Hive-BoxDescriptor注册制》→ 收尾《V00-工程收尾与排障动线》§1；存储异常排障走《D01-Hive存储工作流与排障》。
+
 ## 何时读哪个文档
 
 | 文档 | 何时读取 |
