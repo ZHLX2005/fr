@@ -273,4 +273,4 @@ controller.soundForLevel(uiToCppSlot[displayIdx]);
 
 - 按 bad_eg 自查：`MetronomeController.dispose()` 只 `pause()` 不 `shutdown()`；UI 行序经 `uiToCppSlot = [2, 1, 0]` 映射后再 `loadSample`。
 - 按本页改动范围跑 `flutter analyze lib/services/metronome lib/lab/demos/metronome`。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[H00-音频路由]] 端到端动线收尾（原生改动过 build apk）。
