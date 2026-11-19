@@ -1,6 +1,6 @@
 # naming-and-game-meta — 联机 demo 命名与 kGameMeta 登记契约
 
-> 本 ref 是 `C00-RelayLua路由` skill 的**添加新游戏 demo 必读清单**。
+> 本 ref 是 [[C00-RelayLua路由]] 的**联机 demo 命名与登记契约**页。
 > 任何在 `lib/lab/demos/<game>_lua*/` 下新增 v3 联机房间业务，都要先过本契约：
 > demo `title` 怎么写、slug 怎么对、`kGameMeta` 怎么加、`GameCategory` 怎么选。
 >
@@ -97,19 +97,14 @@ flutter analyze lib/lab/ lib/screens/profile/lab/
 
 ---
 
-## 5. 添加新联机 demo 的 3 步清单
+## 5. 添加新联机 demo：登记步骤（指针）
 
-1. **kGameMeta 加条目**（`const_game_center.dart`）：
-   - 按 `slug` 排好；联机 demo 集中在 "── 联机（Relay v3 · Lua 状态机）──" 段
-   - `gradient` 用该游戏的**视觉识别色**（不是主题色）；保持 2 段 hex
-   - 不要复用现有游戏的渐变（避免用户混淆）；同游戏本地/联机版用**不同**渐变
+**登记机制的唯一事实源在《A05-游戏中心扩展》§加新游戏**——kGameMeta 条目位置与排序、tab 归类、4 处必改，都到那里执行。本契约只约束联机 demo 的命名/分类落点：
 
-2. **demo `title` 改 `（联机）`**（`lib/lab/demos/<game>_lua_demo.dart`）：
-   - 同步改 `AppBar.title` / `ChessLobbyPage(title:...)`
-
-3. **tab 排序检查**（无需新增 tab）：
-   - `jungle-chess-lua` 在棋游 tab 已有（multiplayer + board 多归属自动归类）
-   - 新分类才需要改 `kGameCategoryTabs` + `kGameCategoryIcons`
+1. `title` 带 `（联机）` 后缀，并同步 `AppBar.title` / lobby 页标题（§1）
+2. `slug` 与 `kGameMeta` key **字符级一致**，失配 = 静默 fallback 灰板（§2）
+3. `categories` 必含 `multiplayer`；`mode` 用 `'联机双人'` / `'联机多人'`（§3/§4）
+4. `gradient` 用本游戏**视觉识别色**，不复用本地版渐变——同游戏本地/联机必须一眼可区分（§6 反例）
 
 ---
 

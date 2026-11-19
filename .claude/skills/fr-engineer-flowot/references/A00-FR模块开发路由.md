@@ -40,7 +40,6 @@ description: FR 项目级工程入门与业务模块总览。新建/扩展 Lab�
 | [[A05-游戏中心扩展]] | 新增游戏、分类或封面入口时 |
 | [[A06-Demo-Slug别名]] | 兼容旧 `fr://` URL 的 slug 别名注册与移除时 |
 | [[A07-API模块规范与拦截器链]] | 新增 API 端点、接入后端或修改请求拦截链时 |
-| [[A08-FR工程开发与验证规范]] | 所有业务实现的目录/布局约束、analyze/codegen/测试/Android build、CHANGELOG 与 Git 交付前检查 |
 | [[A09-设置容器与导航目录注册]] | 新增可钉选入口、改底栏格子/容量/主题、改设置页本身，或判断「某页面的显示配置归谁管」时 |
 
 ## 容器与登录边界
@@ -54,7 +53,5 @@ description: FR 项目级工程入门与业务模块总览。新建/扩展 Lab�
 ## 模块开发骨架
 
 - 先看地图、目标模块、相关注册入口与可复用 shared/core 能力，确认 demo 级或 `lib/core/<module>/` 完整模块。
-- `lib/lab/demos/` 下 demo 默认单文件；超过 400 行按项目约定拆至 `lib/lab/demos/<模块名>/`。除非用户明确要求，不擅自采用完整 core 方案。
-- 常量集中在模块常量文件；Android bridge 集中在 `lib/native/`；Hive 通过 D 序列 repository/标准 API 封装。
+- 模块形态（demo 单文件 / 400 行拆分 / core 模块取舍）、常量与 native/Hive 封装、实现后验证——正文统一在《V00-工程收尾与排障动线》§1；Lab 拆分结构细节见 [[A03-Lab容器结构与扩展]]。
 - 外部 URL、桌面 widget、通知或多个入口需要唤起页面时使用项目 `fr://` 注册规范；流程内部一次性页面遵循模块现有导航模式。
-- 按仓库测试/codegen 约定验证。Android 原生变更额外执行 `flutter build apk`。
