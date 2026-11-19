@@ -704,3 +704,203 @@ rg -n --glob '*.dart' 'Theme\.of\(|context\.colors|context\.boardColors|context\
 游戏内容 -> context.gameColors
 独立内容主题 -> 明确的组件级 ThemeExtension/Strategy
 ```
+
+## 9. 用色审计快照与迁移史（v6.2 → v6.2.1 → v6.4，2026-08 ~ 2026-10）
+
+> 本节自 skill 册《Ec02-用色审计》外迁归档（2026-11-20）：审计快照、迁移批次史与架构议题属治理史，不进 skill；册内只保留审计 SOP 与目录推荐通道速查。
+> **本节所有数字都是快照，不是实时值**——各节数据分属不同统计时点（已标注），引用前先重跑 skill 册《Ec02-用色审计》§1 的命令现场重测。
+> 数据基线：v6.2 重构（5 strategy 拆出）+ tetris 特例修正（commit 24d91ea1，2026-08-29）+ v6.2.1 新增 ChessColorStrategy（第 6 个 strategy）+ v6.4 补账。
+
+### 9.1 迁移状态史
+
+**5 批迁移 + v6.2 收尾 + v6.2 特例修正 + v6.2.1 新增 ChessColorStrategy 全部落地**
+（124 处豁免 + 65 处迁移 + 86 处 BoardTheme 令牌 + 2 处特例 strategy + **1 处新增 strategy 通道**）。
+
+#### v6.2.1 关键变化（chess 新通道）
+- `lib/design_tokens/color/chess.dart`（13 角色 + *From() 派生）
+- `lib/core/theme/colors/strategy/chess_color_strategy/`（13 角色抽象 + Default 实现 + 单例缓存）
+- `lib/core/theme/extensions/chess_color_strategy_extension.dart`（注入器）
+- `lib/core/theme/context/chess_colors.dart`（`context.chessColors` 快捷入口，双层兜底）
+- `lib/core/theme/colors/factory.dart` 注册 `createChessColorStrategy`
+- `lib/core/theme/app_theme.dart` `_buildTheme` 注入 6 个 strategy（5→6）
+- **测试**：`test/core/theme/chess_color_strategy_test.dart`（12 个回归断言：单例缓存、派生正确性、==/hashCode）
+
+#### v6.2 关键变化
+- `lib/core/theme/colors/strategy/`（5 strategy 独立目录，替代原 `lib/core/theme/strategy/`）
+- `lib/design_tokens/color/palettes/<mode>.dart`（5 主题色板独立文件，替代原 `semantic/colors.dart`）
+- 5 strategy：ColorStrategy / BoardColorStrategy / **TetrisColorStrategy（特例）** / **TeamAvatarColorStrategy（特例）** / **TorchProtectColorStrategy（scheme 派生）**
+- 5 消费通道：context.colors / context.boardColors / **context.tetrisColors** / **context.teamAvatar** / context.sudokuColors
+  （`context.torchProtect` **不在其中**——扩展已注册但无 context 入口）
+
+#### tetris 特例修正（commit 24d91ea1）
+- 根因：v6.2 重构把 pieceColors 改 `List<Color>` 0..6 + 从 scheme 派生 → L 块 type 7 越界 + 1..6 颜色错位 + 棋盘环境跟主题漂移
+- 修法：4 角色全 native const + pieceColors 改 `Map<int, Color>` 1..7 + `DefaultTetrisColorStrategy` 不参与派生 + shouldRepaint 还原 `=> true`
+- 新增 15 个回归测试（`test/lab/tetris_lua/`，本地 .gitignore）：7 色 hex 逐项断言 + 越界保护 + 跨主题锁定
+
+### 9.2 残留 hex 分类快照（2026-08，v6.2.1 后，合计 224 处）
+
+| 分类 | 数量 | 说明 |
+| --- | --- | --- |
+| **S 令牌系统** | 86 | surround_game (54) + reversi (32) 的 `BoardThemeData` 独立令牌，与 `context.boardColors` 平级 |
+| **E 豁免** | 124 | 全部带 `主题豁免` 注释（品牌色/国际识别色/纸质书视觉/医学解剖色/sage 家族…） |
+| **特例 strategy** | 14 | `tokens/color/tetris/` (8) + `tokens/color/team/` (6) — 架构决策保留 |
+| **新增 strategy 通道** | 0 | `tokens/color/chess/` 13 角色基础色 + 13 *From scheme 派生 → 0 残留 |
+| **未分类** | **0** | — |
+
+### 9.3 顶层目录用色规模（2026-10 快照）
+
+| 目录 | Theme.of 文件数 | colors | board | chess | tetris | teamAvatar | torchProtect | 角色 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `lib/core/` | 133 | 47 | 5 | 11 | 2 | 3 | 1 | 业务核心模块（游戏/笔记/AI 聊天/表格） |
+| `lib/lab/` | 75 | 34 | 4 | 1 | 1 | 1 | 0 | Demo 实验场 |
+| `lib/screens/` | 20 | 1 | 0 | 0 | 0 | 0 | 0 | 主壳 + 设置 |
+| `lib/services/` | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 消息/图片 service |
+| `lib/core/ui/` | 16 | 5 | 0 | 0 | 0 | 0 | 0 | Base* 组件 + 5 个 context 扩展入口 |
+
+> 计数口径 = **文件数**（`grep -rl '<token>' <dir> --include='*.dart' | wc -l`）。
+> `lib/core/` 的 board=5 / chess=11 / torch=1 里包含 `lib/core/theme/` 下的定义文件与注释引用；真正的外部消费点见 §9.4。
+
+### 9.4 各通道使用点清单（2026-10 快照）
+
+#### `context.colors`（6 角色抽象，scheme 派生）
+覆盖 **82 个文件**（`grep -rl 'context\.colors\b' lib/`），分布见 §9.3（lab 34 + core 47 + screens 1 + core/ui 5）。`lib/core/ui/*.dart`（5 个文件）全部走 ColorStrategyExtension。
+
+#### `context.boardColors`（11 角色，scheme 派生）
+使用点 **4 个文件**：
+- `lib/lab/demos/go_lua/go_board.dart`、`widgets.dart`
+- `lib/lab/demos/gomoku_lua/board.dart`、`widgets.dart`
+
+> `lib/lab/demos/tetris_lua/board.dart` 走的是 `context.tetrisColors` 特例，**不是**本通道。
+> S 级并存系统：`surround_game` 与 `reversi` 用各自的 `BoardThemeData` 令牌，是架构决策保留的独立通道（议题见 §9.9）。
+
+#### `context.chessColors`（13 国际象棋角色，scheme 派生，v6.2.1 新通道）
+使用点 **9 个文件**（国际象棋 UI 已接入）：`lib/core/chess/chess.dart`、`p2p/chess_room_page.dart`、`skins/chess_skin_settings_page.dart`、`widgets/{board_palette,chess_board,chess_piece,chess_replay_bar,promotion_panel}.dart`、`lib/lab/demos/chess_online_demo.dart`。
+特殊豁免（未来 chess 模块）：棋子图案走 asset bundle，棋子本身不消费 `player1Stone / player2Stone`（棋子是图片而非纯色），仅棋盘底色 / 选中格 / 走法提示 / 将军警告等环境色走 strategy 派生。
+
+#### `context.tetrisColors`（3 角色 + 7 方块色 Map，native const 特例）
+使用点 1 个：`lib/lab/demos/tetris_lua/board.dart`（3 处 `pieceColors[...]!`：`:140` / `:168` / `:366`）。切任意主题 3 个颜色角色 + 7 方块色完全不变。
+
+#### `context.teamAvatar`（6 头像色，native const 特例）
+使用点 2 个：`lib/lab/demos/team_card/widgets.dart`、`lib/core/net_engine/relay_v3/participants_grid.dart`（v6.2 批迁入：12 头像色 → 6 头像色）。
+
+#### `context.torchProtect`（4 个 UI 环境角色，scheme 派生）——无 context 入口
+strategy 只承载 4 个护眼 UI 角色（protectWarmYellow/Orange/Neutral/CoolWhite），extension 已在 `app_theme.dart:156` 注册，但 `lib/core/theme/context/` 下无 torch 扩展文件，`grep -rn "get torchProtect" lib/` 0 命中 → `context.torchProtect` 不可用。10 种补光预设**不走本通道**：`lib/design_tokens/color/torch.dart` 的 `TorchColors.presets` 是补光实际输出色（主题豁免 const 表），2026-10 起由 `torch_demo.dart` 直连消费（单一来源设计）。
+
+### 9.5 用色热点 Top 20（2026-10 快照）
+
+> 计数 = `Theme.of(context)` 单文件出现次数。
+
+| 文件 | 调用数 | 备注 |
+| --- | --- | --- |
+| `lib/lab/demos/storage_analyze_demo.dart` | 82 | 存储分析，文件大 |
+| `lib/core/novel_reader/novel_reader_page.dart` | 61 | 阅读器主壳 |
+| `lib/lab/demos/web_bookmark_demo.dart` | 48 | 书签编辑器 |
+| `lib/lab/demos/pigment_palette_demo.dart` | 41 | 配色 demo |
+| `lib/core/word_drag/pages/word_drag_page.dart` | 39 | 单词拖拽 |
+| `lib/core/doubletime/doubletime_page.dart` | 33 | 时间双线 |
+| `lib/lab/demos/torch_demo.dart` | 31 | 护眼灯 |
+| `lib/lab/demos/notion_image_host_demo.dart` | 28 | 图床 |
+| `lib/lab/demos/coup_lua/widgets.dart` | 26 | 卡牌游戏 |
+| `lib/core/net_engine/pages/net_engine_debug_page.dart` | 26 | 网络调试 |
+| `lib/core/novel_reader/page_curl_view.dart` | 25 | 翻页视图 |
+| `lib/lab/demos/tetris_lua/widgets.dart` | 23 | 俄罗斯方块 HUD（棋盘色走 `context.tetrisColors`） |
+| `lib/lab/demos/game_2048_demo.dart` | 22 | 2048 |
+| `lib/core/focus/focus_timer_page.dart` | 22 | 专注计时 |
+| `lib/lab/demos/volume_decay_demo.dart` | 20 | 音量衰减 demo |
+| `lib/lab/demos/network/network_env_cards.dart` | 20 | 网络环境卡 |
+| `lib/screens/profile/lab/game_center/game_center_cards.dart` | 19 | 游戏中心卡片 |
+| `lib/screens/profile/lab/lab_panel/lab_panel_content.dart` | 18 | Lab 面板内容 |
+| `lib/lab/demos/team_card/widgets.dart` | 18 | 团队卡（用 `context.teamAvatar`） |
+| `lib/lab/demos/reversi_lua/widgets.dart` | 18 | 黑白棋 |
+
+### 9.6 残留 Color(0xFF) 664 处分类（2026-10 快照）
+
+> 口径 = `grep -rn "Color(0xFF" lib/ --include="*.dart" | grep -v "lib/core/theme/" | wc -l`。合计 **664**。
+
+| 目录 | 计数 | 归属 | 豁免理由 / 系统说明 |
+| --- | --- | --- | --- |
+| `lib/design_tokens/color/` | 328 | **token 层** | 7 套 palettes（zen 37 + 其余 6 套各 43）+ torch 10 + sudoku 9 + tetris 8 + team 6。token 文件本身就是色值真源，不算"残留" |
+| `lib/core/surround_game/` | 54 | **S** | `BoardThemeData` 令牌系统（warm/cool 两套预设，6 层视觉栈） |
+| `lib/lab/demos/` | 43 | **E** | reaction_test 13 / web_bookmark 15（demo 10 + provider 5）/ tetris_lua 12 / game_2048 3 |
+| `lib/core/reversi/` | 36 | **S 32 + E 4** | 32 同 surround_game；4 是 Othello 国际识别色 |
+| `lib/core/xiangqi/` | 30 | **S** | 象棋棋盘/棋子令牌（与 surround/reversi 同类，2026-10 新增模块） |
+| `lib/core/ui/` | 30 | **E** | `shell/app_notification.dart` 29（4 语义 × 明暗双模固定配色）+ `global_ring/ring_bubble.dart` 1 阴影 |
+| `lib/screens/profile/` | 26 | **E** | game_center 封面渐变 / character_profile 皮肤色 / lab_panel delete 红 |
+| `lib/core/novel_reader/` | 26 | **E** | 纸质书视觉语言：纸张底色/棕色墨水/烫金封面渐变 |
+| `lib/core/draughts/` | 14 | **S** | `DraughtsBoardPalette` 棋具令牌（对齐 surround/reversi 先例） |
+| `lib/core/chess/` | 14 | **E** | 玩家身份对（蓝/橙）+ 皮肤预设色（v6.2.1 新模块） |
+| `lib/core/game_kit/` | 12 | **E** | `chat/board_chat_overlay.dart` F2 设计移植保真配色 |
+| `lib/core/timetable/` | 9 | **E** | 莫兰迪课程色（light 主题专属）+ sage 1 |
+| `lib/core/focus/` | 9 | **E** | sage 家族 zen 风识别 |
+| `lib/core/body/` | 8 | **E** | 医学解剖标准色（骨蓝/肌红/关黄/器绿） |
+| `lib/core/jungle_chess/` | 7 | **E** | 斗兽棋国际识别色（暖米盘/浅蓝河/金兽穴/红蓝方） |
+| `lib/core/remotetype/` | 6 | **E** | 虚拟手柄按键识别色（A/B/X/Y，2026-10 新增模块） |
+| `lib/core/line/` | 6 | **E** | 音游评级奖励渐变（P 粉紫蓝 / S 金橙） |
+| `lib/services/message_strategy/` | 5 | **E** | 消息策略拟物水体等固定色（带 `主题豁免` 注释） |
+| `lib/app_lifecycle/` | 1 | **E** | `globals_error_guard.dart` 错误色 |
+
+> 表里的"归属"列是**按模块性质归纳**的，不是逐条核对豁免注释得到的统计；逐条判定必须跑命令 + 读源码 `主题豁免` 注释。
+> 特例 strategy 单独计：`lib/design_tokens/color/tetris.dart`（8 处）、`team.dart`（6 头像色）、`torch.dart`（10 预设）——已含在上面 328 里。
+
+### 9.7 迁移批次史（批次 1–9）
+
+| 批 | 目录 | 迁移数 | 改法摘要 |
+| --- | --- | --- | --- |
+| 1 | doubletime / message_strategy / word_drag | 21 | painter scheme 注入；PieChart 加 categoryColors；CategoryBucket.color 死字段删除 |
+| 2 | timetable / net_engine / focus | 14 | TimetableColors → 函数式（BuildContext）；kParticipantColors → avatarColors；TimePageMeta.color 删 → colorFor() |
+| 3 | profile / jungle_chess / body / line | 8 | lab_panel delete → scheme.error；jungle 5 色 → 顶层函数式 |
+| 4 | novel_reader | 6 | 错误/绿色强调 → scheme.error/tertiary |
+| 5 | lab/demos | 16 | bottom_bar 死字段删；reaction 5 phase → scheme；bookmark 2 处迁 |
+| 6（v6.2 收尾） | 全 lib 调用点 | 17 文件 | `zenButton` → `zenButtonTheme` 签名迁移；删 `ZenColors` 兼容层；zen 主题 5 色校准；calendar_import_dialog 最后 1 处 → scheme；recorder `zenCard` → `zenCardTheme` |
+| 7（v6.2.1 特例修正） | tetris_lua + tetris_color_strategy | 4 文件 | `pieceColors` 改 Map 1..7 + 4 角色 native const + shouldRepaint `=> true` + 新增 15 回归测试 |
+| 8（v6.2.1 新通道） | chess token/strategy/extension/factory/app_theme/context/test | 7 文件 | `ChessColorStrategy` 第 6 个 strategy：13 角色 from scheme 派生 + ThemeExtension + context 双层兜底 + 12 单元测试 |
+| 9（v6.4 补账，2026-10-18） | bill_overview_message_strategy (6) / draughts_room_page (3) / chess player_strip (1) | 10 处 M | 环形图 6 色 → `AppColorsExtension.category`；`_colorDot` → `DraughtsBoardPalette.light.*`；meta 灰 → `context.colors.textMuted` |
+
+#### v6.4 补账：E 豁免标注补齐（块级/文件级，逐项）
+
+- `draughts_board.dart` `DraughtsBoardPalette`：S 级模块棋具令牌（对齐 surround/reversi 先例），类注释逐项列出
+- `chess_skin_settings_page.dart`：皮肤预设/底板色板 = 用户可选识别色数据（两处块注释）
+- `chess player_strip` 蓝/橙身份对 + 白/黑棋子点：身份识别色（F2 设计规格），doc 注释逐项
+- `board_chat_overlay.dart`：F2 设计移植保真（1A1A1A 硬黑 / FAFAF7 --bg / 9B9B9B --text-2 / 2A6FDB-C2410C 身份对），文件头逐项
+- `tetris_lua/widgets.dart` 霓虹 HUD 7 色 + `board.dart` lerp 端点 2 处：固定皮肤（对齐 tetris 特例逻辑）
+- `app_notification.dart`：4 语义 × 明暗双模固定配色系统，类注释逐项
+- `web_bookmark/providers` 5 品牌色、`body_region.dart` 8 医学解剖色、`canvas_reader_engine.dart` 3 纸张主题、`line` 评级色 5 处、`focus` sage/workflow 措辞标准化、`water_capsule` 拟物水体 3 处、`globals_error_guard` 1、`ring_bubble` 阴影 1
+
+> v6.4 补账后残留 301 处（统计口径/时点与 §9.6 不同，引用前现场重测）全部有归属。
+
+#### v6.4 补账：几何令牌决断（同批落地）
+
+- `lib/design_tokens/radius.dart` / `spacing.dart` **接通**：`app_theme._buildTheme`（卡片/FAB xl、按钮 lg）、`base_button`（xs）、`base_section`（sm + `AppSpacing.sm`）、`zen_theme`（sm/xs）——组件层零视觉变化接线（token 实际路径没有 `tokens/` 中间层，仓库根下就是 `lib/design_tokens/`）
+- `lib/design_tokens/elevation.dart` **删除**（API 形态不匹配：ThemeData 收 shadowColor 而非 BoxShadow 列表，0 消费者）
+- `spacing.dart` 内 `AppInsets` **删除**（预设值与实际排版值错位，0 消费者）
+
+### 9.8 历史踩坑文件清单（迁移时排查入口）
+
+> 这些文件在历次主题迁移中**至少踩过 1 次主题色坑**。修法与根因的当前权威版本在 skill 册《Ec01 扩展SOP与迁移》§4.5；本清单保留为排查史索引。
+
+| 文件 | 踩过的坑 |
+| --- | --- |
+| `lib/lab/demos/clock_demo.dart` | 嵌套 `MaterialApp` 只复制 4 个字段，子树退回 Flutter 默认配色 |
+| `lib/lab/demos/calendar_demo.dart` | `Navigator.push` 推出后查不到 `LabCalendarProvider`，红屏崩溃（需 `MultiProvider` + `.value` 显式传） |
+| `lib/lab/demos/web_bookmark_demo.dart` | 卡片 `backgroundColor: onSurface`、selector `withAlpha(51)`、`surfaceVariant` deprecated |
+| `lib/core/word_drag/pages/word_drag_page.dart` | 拖拽背景 `onSurface`（深底） |
+| `lib/core/word_drag/widgets/word_card_content.dart` | 定义/例句容器用 `onSurfaceVariant` / `primary` 等不协调角色 |
+| `lib/core/ui/global/renderers/markdown_renderer_widget.dart` | code/codeblock 背景 `surfaceContainerHighest`（深） |
+| `lib/core/ui/global/zen/main.dart` `zenPageScaffold` | `backgroundColor: surfaceContainerHighest`（深） |
+| `lib/core/theme/app_theme.dart` `appBarTheme` / `bottomNavigationBarTheme` | 背景 `surfaceContainerHighest`（深） |
+| `lib/lab/demos/crash_log_demo.dart` 等 4 个 demo | AppBar `backgroundColor: inversePrimary`（暗沉互补色） |
+| `lib/design_tokens/color/palettes/lemon.dart` / `rose.dart` | `outline`/`outlineVariant` 鲜艳，与主题调性冲突 |
+| `lib/design_tokens/color/palettes/purple.dart` | `surface` 被基于错误诊断改亮 → 暮紫丢失"鎏金暖黑底"质感（ColorScheme 改动必须有"为什么"注释） |
+| `lib/lab/demos/notion_image_host_demo.dart` | 拍照/输入框底色 lerp 强度反复调试（§0.1 大色块契约规则） |
+| `lib/core/novel_reader/novel_reader_page.dart` | "全部豁免"注释含不该豁免的封面渐变；占位卡边框硬编码绿 |
+| `lib/design_tokens/color/tetris.dart`（v6.2） | pieceColors 改 List 0..6 + scheme 派生 → 越界 + 错位 + 漂移（《Ec03 特例豁免》§1） |
+
+### 9.9 v7 架构议题（未做，已记录）
+
+surround_game + reversi 的 `BoardThemeData`（86 处 hex）是否整合进 `context.boardColors`：
+- **保持现状**（推荐）：两系统各有 warm/cool 预设和多角色 3D 效果色，整合成本高、收益低
+- **整合**：统一棋牌策略通道，但 BoardColorStrategy 现有 11 角色无法覆盖 BoardThemeData 的 30+ 角色（棋子高光/边缘暗部/墙面高光…），需扩接口
+
+tetris 特例是否扩展为更通用的"识别色 strategy"模板：
+- **保持现状**（推荐）：tetris / teamAvatar 各一个 strategy，简单清晰
+- **提取模板**：写 `RecognizableColorStrategy<T>` 抽象，强制 `Map<int, Color>` + native const —— 抽象层对未来扩展收益不大

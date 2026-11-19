@@ -1,6 +1,6 @@
 ---
 name: Ea01-主题与token地图
-description: FR 主题与颜色的一页地图——取色决策树、7 套主题、分层链路、各色通道清单、主题切换数据流、待补缺口清单。判断「这个颜色该走哪个通道」「这个 extension 为什么读不到」时读；token 数值见 Ea02。
+description: FR 主题与颜色的一页地图——取色决策树、7 套主题、分层与切换链路、各色通道清单、待补缺口清单。判断「这个颜色该走哪个通道」「这个 extension 为什么读不到」时读；token 数值见 Ea02。
 ---
 
 # Ea01 — 主题与 token 地图
@@ -50,15 +50,22 @@ description: FR 主题与颜色的一页地图——取色决策树、7 套主�
 
 对应色板：`lib/design_tokens/color/palettes/{purple,zen,ink,rose,lemon,cobalt,dark}.dart`（一套 mode 一个文件）。
 
-## 3. 分层链路
+## 3. 分层与切换链路（30 秒）
 
 ```text
-design tokens / palettes            ← lib/design_tokens/（Layer 1，纯常量）
-    → Theme / ColorScheme           ← lib/core/theme/app_theme.dart 装配
-    → domain ColorStrategy          ← lib/core/theme/colors/strategy/（每域一个契约 + default 实现）
+读侧（装配一次，整树可用）
+design tokens / palettes      ← lib/design_tokens/（Layer 1，纯常量）
+    → Theme / ColorScheme     ← lib/core/theme/app_theme.dart 装配
+    → domain ColorStrategy    ← lib/core/theme/colors/strategy/（每域一个契约 + default 实现）
     → ThemeStrategyFactory + ThemeExtension ← factory.dart + lib/core/theme/extensions/
     → ThemeData 注入 MaterialApp
     → context.colors / boardColors / chessColors / sudokuColors / teamAvatar / tetrisColors
+
+切换侧（用户换 AppThemeMode 时走同一条装配线）
+ThemeNotifier / themeNotifierProvider 更新状态
+    → themeDataProvider 调 AppTheme 组装新 ThemeData
+    → ThemeStrategyFactory 从新 ColorScheme 重建各 domain strategy
+    → 新 ThemeExtension 注入 MaterialApp → widget 自动拿到新色
 ```
 
 依赖方向自上而下：token 不依赖组件；组件不各自造调色板。策略缓存与默认构造走 `factory.dart` / `Default...Strategy.of(scheme)`，不绕过。
@@ -77,18 +84,7 @@ design tokens / palettes            ← lib/design_tokens/（Layer 1，纯常量
 | 护眼 | **无 context 入口** | 4 | 见 §6 缺口清单 |
 | 成功/警告/信息 | **无 context 入口** | 12 | AppColorsExtension，见 §6 缺口清单 |
 
-## 5. 主题切换数据流
-
-```text
-用户选择 AppThemeMode
-   ↓ themeNotifierProvider / ThemeNotifier 更新状态
-   ↓ themeDataProvider 调用 AppTheme 组装 ThemeData
-   ↓ ThemeStrategyFactory 从新 ColorScheme 创建各 domain strategy
-   ↓ ThemeExtension 注入 MaterialApp 的 ThemeData
-   ↓ widget 读取 context.*Colors 或 Theme.of(context).colorScheme
-```
-
-## 6. 缺口清单（可勾销：补一个删一行）
+## 5. 缺口清单（可勾销：补一个删一行）
 
 | 缺口 | 现状 | 补法 |
 |---|---|---|
@@ -98,7 +94,7 @@ design tokens / palettes            ← lib/design_tokens/（Layer 1，纯常量
 
 > 引用 `context.torchProtect` / `context.appColors` 目前都是**不存在的 API**——写代码前先查本表。
 
-## 7. 红线
+## 6. 红线
 
 - `lib/` 新增 UI 默认禁止裸写 `Color(0xFF…)`；先消费 ColorScheme 或项目 strategy。
 - 只有业务语义要求颜色稳定、切主题会造成身份/规则误读时，才考虑固定识别色特例，按《Ec03 特例豁免》审核。

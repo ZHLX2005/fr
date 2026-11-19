@@ -65,7 +65,7 @@ description: FR 设计 token 数值字典——圆角/间距/字体档位、主�
 
 ### 3.3 `AppColorsExtension`（应用语义色，12 角色）
 
-`lib/design_tokens/color/app_colors_extension.dart:14-25`：success / warning / info 三组，各含 base、on、container、onContainer 四形态。按主题注入（`lib/core/theme/app_theme.dart:90-92`）。**暂无 context 访问器**——见《Ea01 主题与token地图》§6 缺口清单。
+`lib/design_tokens/color/app_colors_extension.dart:14-25`：success / warning / info 三组，各含 base、on、container、onContainer 四形态。按主题注入（`lib/core/theme/app_theme.dart:90-92`）。**暂无 context 访问器**——见《Ea01 主题与token地图》§5 缺口清单。
 
 ### 3.4 `ColorStrategy`（应用语义角色，6 个）
 
