@@ -1,11 +1,11 @@
 ---
 name: fr-engineer-flowot
-description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、组件复用与组件分层决策、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 序列路由到对应 SOP。仅适用于 D:\DevProjects\my\github\fr。
+description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、组件复用与组件分层决策、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 与横切 V 序列路由到对应 SOP。仅适用于 D:\DevProjects\my\github\fr。
 ---
 
 # FR Engineer Flow — 工程总入口
 
-> **适用范围**：仅适用于 `D:\DevProjects\my\github\fr`。本文档只做工程原则和 A–H 路由；操作细节在 `references/`。
+> **适用范围**：仅适用于 `D:\DevProjects\my\github\fr`。本文档只做工程原则和 A–H 与横切 V 路由；操作细节在 `references/`。
 >
 > 每项内容以 FR 当前实现为准，不能仅凭旧 skill 或历史示例推断。遇到文档和代码冲突时先核实真实实现，再更新文档。
 
@@ -21,6 +21,7 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 | **F** | 外部资产管理、皮肤与公开资源管线 | [[F00-外部资产管理路由]] | 导入/发布皮肤、封面、曲库、表情包或排查客户端资源加载/缓存时 |
 | **G** | Android 特殊组件与 Flutter/native 桥接 | [[G00-Android与Native路由]] | 改桌面 widget、MediaProjection/悬浮窗、图标、Manifest、Kotlin/C++/JNI/FFI 时 |
 | **H** | 音频、Oboe 与节拍器生命周期 | [[H00-音频路由]] | 低延迟音频、Oboe、C++ 音频回调、WAV 采样或跨页面音频 service 时 |
+| **V** | 横切规范：收尾验证门槛与排障入口 | [[V00-工程收尾与排障动线]] | 任何任务进入验证/交付阶段时（§1）；开始排障、定位该读哪篇调试节时（§2）。A–H 需求动线的最后一站 |
 
 ## FR 开发约束速记
 
@@ -36,9 +37,9 @@ description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab
 
 ## 维护规则
 
-- `SKILL.md` 只保留原则和 A–H 大序列入口；每份 `references/` 文档直接平铺在同一目录，文件名以其序列编号开头（如 `A01-...md`、`Ca01-...md`、`Ec01-...md`、`Ga01-...md`）。
+- `SKILL.md` 只保留原则和 A–H 大序列与横切 V 入口；每份 `references/` 文档直接平铺在同一目录，文件名以其序列编号开头（如 `A01-...md`、`Ca01-...md`、`Ec01-...md`、`Ga01-...md`）。
 - **只有大序列使用 `00` 总路由**：A00–H00 各自维护所辖全部子序列与成员路由；子序列不创建 `00` 文件，成员从 `01` 开始。E 序列的 Ea/Eb/Ec/Ed 四层成员统一由 E00 登记。
-- 编号范围：A00 维护业务 A01–A09；B00 维护 Ba 子序列；C00 维护 RelayLua 的 Ca/Cb/Cc；E00 维护 Ea/Eb/Ec/Ed 四层；F00 维护 Fa；G00 维护 Ga/Gb/Gc；H00 维护 Ha。D 是单一 Hive 子域，由 D00 维护 D01–D03。
+- 编号范围：A00 维护业务 A01–A09；B00 维护 Ba 子序列；C00 维护 RelayLua 的 Ca/Cb/Cc；E00 维护 Ea/Eb/Ec/Ed 四层；F00 维护 Fa；G00 维护 Ga/Gb/Gc；H00 维护 Ha。D 是单一 Hive 子域，由 D00 维护 D01–D03。V 是横切单页（V00 = 收尾验证门槛 + 排障动线），无子序列。
 - 同名 A/B/C 在大序列之间不能相互替代：用有命名空间的子序列前缀（如 `Ca01`、`Ea03`、`Fa02`）避免平铺目录时冲突。
 - **E 序列的字母表示层级与查阅优先级**（2026-11-02 重构）：Ea 主题与 token 骨架 / Eb 组件骨架 / Ec 骨架变更动作 / Ed 视觉配方（兜底）。案例沉底，骨架在前。
 - **单层路由 + 星型拓扑**：成员登记只在大序列的 `00` 路由；册与册之间不建 wikilink，需要引用时写纯文本《册名 §章节》；每册只在页首回指 `00` 一次。
