@@ -79,4 +79,4 @@ FR `pubspec.yaml` 使用 `hive_generator` 和 `build_runner`。当前 typed mode
 
 - 按「新 Box 如何出现在面板」核对：注册后面板出现新条目，删除/清空按 descriptor 生效；未出现时依次查 feature 初始化、descriptor name、open callback、注册顺序。
 - 按本页改动范围跑 `flutter analyze`（`lib/core/storage/` 与对应 repository）0 error。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[D00-Hive存储路由]] 端到端动线收尾。

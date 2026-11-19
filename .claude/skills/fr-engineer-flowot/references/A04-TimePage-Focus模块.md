@@ -9,7 +9,7 @@ description: FR time 模块完整指南——timePage 标记、kTimePageMeta、L
 >
 > **何时读这个 ref**：改任何 time 模块相关文件 — 改 `lib/core/focus/*`、动 `kTimePageMeta`、`timePage` 标记、Lab 过滤、桌面 widget 深链、新增 / 修改 time 工具时。**不要为了优化加载粒度而拆成多个 ref** — 这 5 个方面都同主题，强行拆开会让 ref 之间互相依赖 / 引用 / 重复定义，反而更难维护。
 >
-> **上游/相关成员**：FR 通用工程验证门槛见《V00-工程收尾与排障动线》§1；别名兼容、Lab 容器与游戏目录 SOP 分别见 [[A06-Demo-Slug别名]]、[[A03-Lab容器结构与扩展]]、[[A05-游戏中心扩展]]。
+> **上游/相关成员**：FR 通用工程验证门槛见 [[A00-FR模块开发路由]] 动线收尾；别名兼容、Lab 容器与游戏目录 SOP 分别见 [[A06-Demo-Slug别名]]、[[A03-Lab容器结构与扩展]]、[[A05-游戏中心扩展]]。
 
 ---
 

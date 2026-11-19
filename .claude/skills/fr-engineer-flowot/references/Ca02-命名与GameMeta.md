@@ -158,4 +158,4 @@ flutter analyze lib/lab/ lib/screens/profile/lab/
 | `chess-online` | 国际象棋（联机） | multiplayer + board | |
 | `jungle-chess-lua` | 斗兽棋（联机） | multiplayer + board | 2026-08-30 新增 |
 
-> 通用交付门槛见《V00-工程收尾与排障动线》§1。
+> 通用交付门槛见 [[C00-RelayLua路由]] 动线收尾。

@@ -54,7 +54,7 @@ E00 地图           每次涉及 UI 都先过本页：动线 + preflight + 红�
 3. **定几何档位**：圆角/间距只取 token 档位——《Ea02 token 字典》§1–§2。
 4. **定落点**：新组件放哪层、叫什么、怎么建 `main.dart`——《Eb02 分层契约与放置》§2。
 5. **参数化**：颜色走 strategy / ColorScheme；默认文案中文本地化；透明度用 `withValues(alpha:)`。
-6. **验证**：`flutter analyze` + 相关测试；涉及原生改动另跑 `flutter build apk`。
+6. **验证**：`flutter analyze` + 相关测试；涉及原生改动另跑 `flutter build apk`；交付门槛见《00-工程收尾与排障动线》§1。
 
 ## 四、全局红线
 

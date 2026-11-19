@@ -29,7 +29,7 @@ description: FR Lab registry、DemoPage、收藏面板和游戏中心的真实�
 2. 在 `lib/lab/demos/` 实现 `DemoPage` 子类，明确 title、description、canonical ASCII `slug`、`DemoType` 和需要的 scope。
 3. 在 `lib/lab/lab_bootstrap.dart` 注册一次；如要兼容旧 deep link，按 [[A06-Demo-Slug别名]] 注册旧 key 到同一实例。
 4. 外部/多入口导航遵循 [[A01-fr路由注册与防腐蚀]]；新游戏另执行 [[A05-游戏中心扩展]] 的 catalog 和发布步骤。
-5. 按《V00-工程收尾与排障动线》§1 对目录职责、布局、测试、analyze/codegen 和交付进行验证。
+5. 按 [[A00-FR模块开发路由]] 动线收尾对目录职责、布局、测试、analyze/codegen 和交付进行验证。
 
 Demo 默认单文件，不以目录树整洁为由先拆文件。超过约 400 行**或已有独立职责/复用边界**时，才评估移至 `lib/lab/demos/<module>/`；阈值是评估信号而非机械规则。
 
@@ -75,4 +75,4 @@ Demo 默认单文件，不以目录树整洁为由先拆文件。超过约 400 �
 - 跑与本页改动对应的测试：新增/改动 demo 后运行相应 registry/slug 测试；动游戏目录后运行 `test/lab/game_center_catalog_test.dart`（目录 ↔ 注册表 ↔ kGameMeta 双向一致）。
 - 按本页改动范围跑 `flutter analyze lib/lab lib/screens/profile/lab`。
 - 面板交互改动按 §3 清单回归：展开、半途松手、取消指针、快速重复操作、滚动及收藏管理。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[A00-FR模块开发路由]] 动线收尾。

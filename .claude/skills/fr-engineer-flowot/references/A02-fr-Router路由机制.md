@@ -172,7 +172,7 @@ nav.push(MaterialPageRoute(
 
 - `flutter test test/core/schema/` —— 41 个 case 全绿；新增/改动路由同步补三类断言：具体 handler 类型断言（陷阱 4）+ `fr://labfoo` 边界 case（陷阱 2）+ 原始中文 URL case（陷阱 3）。
 - `flutter analyze lib/core/schema lib/app_lifecycle` → 0 error。
-- 涉及原生入口（widget / onNewIntent）或 main.dart 接线的改动：《V00-工程收尾与排障动线》§1（build apk + CI 闸门）。
+- 涉及原生入口（widget / onNewIntent）或 main.dart 接线的改动：[[A00-FR模块开发路由]] 动线收尾（build apk + CI 闸门）。
 
 ## 边界
 

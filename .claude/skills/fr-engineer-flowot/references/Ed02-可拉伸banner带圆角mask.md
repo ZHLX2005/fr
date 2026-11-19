@@ -237,4 +237,4 @@ SliverToBoxAdapter(
 
 - 视觉与交互自检按上文「验收 checklist」逐条过：静止弧顶可见、下拉 stretch 回弹、上滑与下拉过程中接缝均无发丝线、点击 banner 触发回调、主题切换时三色一致。
 - 改动落在落地代码 `lib/screens/containers/profile_container.dart` 所在目录时，跑 `flutter analyze lib/screens/containers`。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[E00-UI骨架地图]] pre-flight 六步收尾。

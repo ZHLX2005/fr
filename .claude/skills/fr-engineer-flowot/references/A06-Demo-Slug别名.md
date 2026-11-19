@@ -69,4 +69,4 @@ if (needsLegacyCompatibility) {
 
 - 按「注册步骤」第 2 步搜索旧 slug 的真实来源（widget PendingIntent、MethodChannel、通知/分享链接、项目外文档、测试、本地持久化），确认需兼容来源已注册 alias、可控来源已切到 canonical slug。
 - 跑 registry/route 测试：canonical 与 alias 解析到同一实例（`same(demo)`），unknown/removed slug 断言预期 not-found；alias 打开错误页面时补 identity assertion。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[A00-FR模块开发路由]] 动线收尾。

@@ -356,4 +356,4 @@ def test_action_permissions():
 
 - 每条权限规则至少一个拒绝 case + 一个接受 case（§9 测试策略）；现役工具 `.tool/relay-room-tester/emoji_e2e.dart` + `test/core/net_engine/relay_v3_transport_test.dart`。
 - 主动发 action 的方法（`_maybeDeclareWin` / `_requestUndo` 类）确认带本地防重发标志，并在 RESET/新局时重置（§5.1）。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[C00-RelayLua路由]] 动线收尾。

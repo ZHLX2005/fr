@@ -94,4 +94,4 @@ Material(
 - 改 CTA 后按上文「判决表」逐场景复核几何与色：壳层 dock / 大厅仪式主 CTA / 房内就绪 CTA = 全胶囊 + `primary`；远程输入 chrome 与图标钮 = 方圆角 10–14（mic 20），不写死 `Colors.white`。
 - 房内就绪 CTA 若调整形状，先核对 `lib/core/ui/game/ready/main.dart` 的 `GameReadyCtaStyle` 真值，再同步文档，不能各改一半。
 - 改动落在上述 CTA 实现文件所在范围时，跑 `flutter analyze lib/core/ui/game`。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[E00-UI骨架地图]] pre-flight 六步收尾。

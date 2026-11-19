@@ -242,4 +242,4 @@ python .claude/skills/fr-engineer-flowot/scripts/generate_android_icon.py <源�
 
 - 处理流水线跑完后核对输出 PNG：1024×1024 画布、内容占 40%（约 409px）、无残留边缘色块（对照本页 Key Parameters）。
 - 生成图标后检查 `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`，确认 foreground 无 `inset="16%"` 属性。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[G00-Android与Native路由]] 端到端动线收尾（原生改动过 build apk）。

@@ -243,7 +243,7 @@ python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py D:/emojis/cel
 | emoji 发了但客户端不显示 | ① scope 是否正确（common vs game）；② emoji id 是否匹配 `^[a-z0-9][a-z0-9-_]{0,31}$`；③ 客户端日志里看 KV 读取是否 200 |
 | chess 客户端本地 catalog 与 KV index 漂移 | `lib/core/chess/skins/chess_skin_meta.dart` 的 `kChessSkinsCatalog` 改后未重发 KV。修复：发布 KV 后保证客户端 Layer 1/2 一致 |
 
-本节各条的排查结论按《V00-工程收尾与排障动线》§1 的验证与交付门槛收口。
+本节各条的排查结论按 [[F00-外部资产管理路由]] 端到端动线收尾收口。
 
 ## 8. 后端参考（为何这么调）
 

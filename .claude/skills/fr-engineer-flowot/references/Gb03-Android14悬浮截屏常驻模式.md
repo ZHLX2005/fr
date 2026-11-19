@@ -228,4 +228,4 @@ class ScreenCaptureManager(
 
 - 按「关键设计点」自查：`captureInitialized` 只初始化一次；`acquireFrame` 失败路径恢复悬浮窗；截屏前隐藏悬浮窗。
 - 真机连续截图两次以上，确认第二次及之后不再黑屏（Android 14+ 一次性 token 已被常驻 VirtualDisplay 规避）。
-- 通用交付门槛见《V00-工程收尾与排障动线》§1。
+- 通用交付门槛见 [[G00-Android与Native路由]] 端到端动线收尾（原生改动过 build apk）。
