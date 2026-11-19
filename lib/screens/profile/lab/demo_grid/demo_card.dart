@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/ui/global/renderers/main.dart';
 import '../../../../core/ui/lab/icons/main.dart';
+import '../../../../design_tokens/radius.dart';
 import '../demo_cover_image.dart';
 import '../lab_panel/const_lab_panel.dart';
 import '../providers/lab_card_provider.dart';
@@ -67,6 +68,16 @@ class _DemoCardState extends State<DemoCard> {
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      // 纯线条卡片：去掉 Material surface 填充、阴影与 surfaceTint，
+      // 只保留一圈 outline，避免浅色块在 Lab 网格里形成大面积视觉负担。
+      color: Colors.transparent,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppBorderRadius.allXl,
+        side: BorderSide(color: theme.colorScheme.outline, width: 1),
+      ),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
@@ -91,7 +102,9 @@ class _DemoCardState extends State<DemoCard> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Theme.of(context).colorScheme.onSurface.withValues(alpha: kLabCardScrimTopAlpha),
+                          Theme.of(context).colorScheme.onSurface.withValues(
+                            alpha: kLabCardScrimTopAlpha,
+                          ),
                           Theme.of(context).colorScheme.onSurface.withValues(
                             alpha: kLabCardScrimBottomAlpha,
                           ),
@@ -106,7 +119,8 @@ class _DemoCardState extends State<DemoCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLeadingIcon(
-                      hasBackground: backgroundUrl != null && backgroundUrl.isNotEmpty,
+                      hasBackground:
+                          backgroundUrl != null && backgroundUrl.isNotEmpty,
                       theme: theme,
                     ),
                     const SizedBox(height: 12),
@@ -114,7 +128,9 @@ class _DemoCardState extends State<DemoCard> {
                       widget.title,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: backgroundUrl != null ? Theme.of(context).colorScheme.surface : null,
+                        color: backgroundUrl != null
+                            ? Theme.of(context).colorScheme.surface
+                            : null,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -125,7 +141,9 @@ class _DemoCardState extends State<DemoCard> {
                         widget.description,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: backgroundUrl != null
-                              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70)
+                              ? Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.70)
                               : theme.colorScheme.onSurface.withValues(
                                   alpha: 0.7,
                                 ),
@@ -151,20 +169,12 @@ class _DemoCardState extends State<DemoCard> {
     required ThemeData theme,
   }) {
     if (hasBackground) {
-      return Icon(
-        Icons.widgets,
-        color: theme.colorScheme.surface,
-        size: 32,
-      );
+      return Icon(Icons.widgets, color: theme.colorScheme.surface, size: 32);
     }
     final kind = labIconForDemoSlug(widget.demoSlug);
     if (kind.isFallback) {
       // 暂无专属 SVG 时保留原通用占位 icon（便于发现遗漏）
-      return Icon(
-        Icons.widgets,
-        color: theme.colorScheme.primary,
-        size: 32,
-      );
+      return Icon(Icons.widgets, color: theme.colorScheme.primary, size: 32);
     }
     return LabDemoIcon(
       assetBaseName: kind.assetBaseName,
@@ -274,7 +284,10 @@ class _BackgroundSettingSheetState extends State<_BackgroundSettingSheet> {
                         )
                       : Icon(Icons.crop),
                   label: Text('选图并裁剪'),
-                  style: _outlinedBtnStyle(Theme.of(context).colorScheme.primary, borderWidth: 2),
+                  style: _outlinedBtnStyle(
+                    Theme.of(context).colorScheme.primary,
+                    borderWidth: 2,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
