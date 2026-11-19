@@ -65,19 +65,17 @@ class _DemoCardState extends State<DemoCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final backgroundUrl = _provider.getBackground(widget.title);
+    final hasBackground = backgroundUrl != null && backgroundUrl.isNotEmpty;
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      // 纯线条卡片：去掉 Material surface 填充、阴影与 surfaceTint，
-      // 只保留一圈 outline，避免浅色块在 Lab 网格里形成大面积视觉负担。
+      // 无边框、无色块：去掉 Material surface 填充、阴影、surfaceTint 和描边，
+      // 卡片只作为内容容器；无背景图时靠图标下的一条浅线做轻量分隔。
       color: Colors.transparent,
       elevation: 0,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppBorderRadius.allXl,
-        side: BorderSide(color: theme.colorScheme.outline, width: 1),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: AppBorderRadius.allXl),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
@@ -92,9 +90,9 @@ class _DemoCardState extends State<DemoCard> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (backgroundUrl != null && backgroundUrl.isNotEmpty)
+              if (hasBackground)
                 Positioned.fill(child: DemoCoverImage(path: backgroundUrl)),
-              if (backgroundUrl != null && backgroundUrl.isNotEmpty)
+              if (hasBackground)
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -119,16 +117,27 @@ class _DemoCardState extends State<DemoCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLeadingIcon(
-                      hasBackground:
-                          backgroundUrl != null && backgroundUrl.isNotEmpty,
+                      hasBackground: hasBackground,
                       theme: theme,
                     ),
-                    const SizedBox(height: 12),
+                    if (hasBackground)
+                      const SizedBox(height: 12)
+                    else ...[
+                      const SizedBox(height: 10),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: theme.colorScheme.outline.withValues(
+                          alpha: kLabCardDividerAlpha,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     Text(
                       widget.title,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: backgroundUrl != null
+                        color: hasBackground
                             ? Theme.of(context).colorScheme.surface
                             : null,
                       ),
@@ -140,7 +149,7 @@ class _DemoCardState extends State<DemoCard> {
                       child: Text(
                         widget.description,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: backgroundUrl != null
+                          color: hasBackground
                               ? Theme.of(
                                   context,
                                 ).colorScheme.onSurface.withValues(alpha: 0.70)

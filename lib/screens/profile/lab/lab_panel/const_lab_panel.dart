@@ -29,6 +29,9 @@ const double kLabCardPressScale = 0.97;
 const Duration kLabCardPressDuration = Duration(milliseconds: 100);
 const double kLabCardPadding = 16.0;
 
+/// 无背景图卡片：图标下方的极浅分隔线
+const double kLabCardDividerAlpha = 0.28;
+
 /// 卡片自定义背景图上的压暗蒙版（顶 → 底）
 const double kLabCardScrimTopAlpha = 0.3;
 const double kLabCardScrimBottomAlpha = 0.6;
