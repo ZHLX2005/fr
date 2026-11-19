@@ -265,9 +265,19 @@ class _LabPageState extends ConsumerState<LabPage>
       child: demos.isEmpty ? _buildEmptyState(theme) : _buildDemoGrid(demos),
     );
 
-    // 面板底 = 页面背景（同一个色）。展开时不再出现第二层表面，
-    // 浮卡直接浮在同一张纸上。
-    final panelBackground = ColoredBox(color: panelColors.background);
+    final panelBackground = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            panelColors.gradientTop,
+            panelColors.gradientMiddle,
+            panelColors.gradientBottom,
+          ],
+        ),
+      ),
+    );
 
     return PopScope(
       canPop: !_panelConsumesBack,
@@ -277,10 +287,7 @@ class _LabPageState extends ConsumerState<LabPage>
         }
       },
       child: Scaffold(
-        // 显式用 surface：面板底色也取 surface，两边必须同值——否则展开的
-        // 一瞬间会在接缝处露出一条色差（M3 默认 scaffoldBackgroundColor
-        // 与 colorScheme.surface 并不保证相等）。
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: RepaintBoundary(
