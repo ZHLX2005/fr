@@ -2,22 +2,13 @@
 
 import 'package:flutter/material.dart';
 
-/// 线性混色：Color a 向 b 过渡 t（0~1）。
-Color _mix(Color a, Color b, double t) {
-  int blend(int va, int vb) =>
-      (va + (vb - va) * t).round().clamp(0, 255);
-  return Color.fromARGB(
-    (a.a * 255).round(),
-    blend((a.r * 255).round(), (b.r * 255).round()),
-    blend((a.g * 255).round(), (b.g * 255).round()),
-    blend((a.b * 255).round(), (b.b * 255).round()),
-  );
-}
-
 class LabPanelColors {
-  final Color gradientTop;
-  final Color gradientMiddle;
-  final Color gradientBottom;
+  /// 面板底色 —— 与页面背景（`colorScheme.surface`）**完全同一个值**。
+  ///
+  /// 这里原先是一段 surface → surfaceContainerHighest 的纵向渐变，展开后
+  /// 下半截比页面背景更沉，整块读起来像贴在页底的深色色块。浮卡本身不改，
+  /// 只把面板底色拉平到背景：面板展开时不再有「另一层表面」的边界。
+  final Color background;
   final Color accent;
   final Color accentSoft;
   final Color accentDeep;
@@ -28,9 +19,7 @@ class LabPanelColors {
   final bool isDark;
 
   const LabPanelColors({
-    required this.gradientTop,
-    required this.gradientMiddle,
-    required this.gradientBottom,
+    required this.background,
     required this.accent,
     required this.accentSoft,
     required this.accentDeep,
@@ -47,14 +36,8 @@ class LabPanelColors {
   }) {
     final isDark = brightness == Brightness.dark;
     return LabPanelColors(
-      // 渐变背景：surface → surfaceContainerHighest，使用主题设计好的色阶
-      gradientTop: cs.surface,
-      gradientMiddle: _mix(
-        cs.surface,
-        cs.surfaceContainerHighest,
-        0.5,
-      ),
-      gradientBottom: cs.surfaceContainerHighest,
+      // 与页面背景同值：浮卡浮在「同一张纸」上，而不是浮在另一块底色上。
+      background: cs.surface,
       // 强调色：直接使用 ColorScheme 设计好的主色关系
       accent: cs.primary,
       accentSoft: cs.primaryContainer,
