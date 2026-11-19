@@ -50,7 +50,7 @@ Flutter 项目里出现以下任一情况时，必须走本 skill 路线：
 
 **关键**：音频和 tick 在同一个 native audio callback 里 emit，物理上不可能脱钩。
 
-原理详见 [[Ha04-Oboe实时合成原理]] 第 2、3、4 节。
+原理详见 [[Ha04-Oboe实时合成原理]]（30 秒模型）；公式与状态机全文在 `docs/architecture/oboe-realtime-synthesis.md` 第 2–4 节。
 
 ## 实施 SOP（6 步）
 
@@ -177,7 +177,7 @@ class MetronomeController extends ChangeNotifier {
 
 ### 6. 音色差异化（节拍器必读）
 
-强弱次强要"听感明显"必须 4 维同步拉开（详见 [[Ha04-Oboe实时合成原理]] 第 5 节）：
+强弱次强要"听感明显"必须 4 维同步拉开（原理详见 `docs/architecture/oboe-realtime-synthesis.md` 第 5 节）：
 
 | 维度 | weak | medium | accent |
 |------|------|--------|--------|
@@ -188,7 +188,7 @@ class MetronomeController extends ChangeNotifier {
 
 cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` 时循环 `setBeatAccentLevel(i, level)` 注入。
 
-**用真实采样替代合成音色**：走 [[Ha05-WAV采样播放]]。加载 WAV 后，对应 slot 的拍子播采样，其余保持合成。」
+**用真实采样替代合成音色**：走 [[Ha05-WAV采样播放]]。加载 WAV 后，对应 slot 的拍子播采样，其余保持合成。
 
 ## 验证流程
 
@@ -219,7 +219,7 @@ cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` �
 | 用 `Timer.periodic((60000/bpm).round() ms)` 整毫秒 | 每拍 +1ms 累积，1 分钟偏移半拍 | 用 `Duration(microseconds: ...)` 微秒级 |
 | `package:ffi/ffi.dart` import | pubspec 没直接依赖，会 warn | `dart:ffi` 已够用 |
 | NativeCallable 在 setTickCallback 之后才创建 | C++ 在 audio thread 拿不到函数指针崩 | 严格顺序：构造 callable → 注入 nativeFunction |
-| `sampleCounter = 0` 直接清零 | 一拍位置精确度差 ±numFrames | `sampleCounter -= samplesPerBeat` 保留余数（详见 [[Ha04-Oboe实时合成原理]] 第 4 节） |
+| `sampleCounter = 0` 直接清零 | 一拍位置精确度差 ±numFrames | `sampleCounter -= samplesPerBeat` 保留余数（详见 `docs/architecture/oboe-realtime-synthesis.md` 第 4 节） |
 
 ## 何时该停止用 Oboe 升级
 
@@ -246,7 +246,7 @@ cpp 端用 `beatAccentLevels[beatsPerBar]` 数组，Dart 在 `setBeatPattern` �
 
 | ref | 主题 | 行数 |
 |-----|------|------|
-| [[Ha04-Oboe实时合成原理]] | C++ Oboe 实时 sin 合成原理（sample 模型 / 回调机制 / 相位累加器 / 包络数学 / 钳位 / PerformanceMode） | ~200 |
+| [[Ha04-Oboe实时合成原理]] | 原理指针页（30 秒模型）；全文在 `docs/architecture/oboe-realtime-synthesis.md`（sample 模型 / 回调机制 / 相位累加器 / 包络数学 / 钳位 / PerformanceMode） | ~30 |
 | [[Ha02-AndroidNativeCMake与FFI配置]] | Android 原生 C 编码原理（CMake/Gradle/ABI/FFI vs JNI/库加载/extern "C"/调试技巧/错误排查） | ~250 |
 | [[Ha05-WAV采样播放]] | 自定义 WAV 采样拍声音色（3-slot 架构/dr_wav 加载/resample/asset materializer/FFI 传路径/slot 映射陷阱） | ~150 |
 | [[Ha03-Clock与Metronome生命周期]] | 数据驱动 UI（Clock）vs 流驱动音频（Metronome）的生命周期策略差异（哪些跟 page 销毁、哪些抽 service） | ~80 |
