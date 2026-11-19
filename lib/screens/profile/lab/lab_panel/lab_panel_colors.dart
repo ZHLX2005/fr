@@ -2,18 +2,6 @@
 
 import 'package:flutter/material.dart';
 
-/// 线性混色：Color a 向 b 过渡 t（0~1）。
-Color _mix(Color a, Color b, double t) {
-  int blend(int va, int vb) =>
-      (va + (vb - va) * t).round().clamp(0, 255);
-  return Color.fromARGB(
-    (a.a * 255).round(),
-    blend((a.r * 255).round(), (b.r * 255).round()),
-    blend((a.g * 255).round(), (b.g * 255).round()),
-    blend((a.b * 255).round(), (b.b * 255).round()),
-  );
-}
-
 class LabPanelColors {
   final Color gradientTop;
   final Color gradientMiddle;
@@ -47,14 +35,12 @@ class LabPanelColors {
   }) {
     final isDark = brightness == Brightness.dark;
     return LabPanelColors(
-      // 渐变背景：surface → surfaceContainerHighest，使用主题设计好的色阶
+      // 三段取同一个值 = 平色。面板底与页面背景（scaffoldBackgroundColor
+      // 在 M3 下即 colorScheme.surface）完全一致，展开时不会在底部留一层
+      // 「更沉的表面」。保留渐变结构而不换 widget：改动面越小越好定位。
       gradientTop: cs.surface,
-      gradientMiddle: _mix(
-        cs.surface,
-        cs.surfaceContainerHighest,
-        0.5,
-      ),
-      gradientBottom: cs.surfaceContainerHighest,
+      gradientMiddle: cs.surface,
+      gradientBottom: cs.surface,
       // 强调色：直接使用 ColorScheme 设计好的主色关系
       accent: cs.primary,
       accentSoft: cs.primaryContainer,
