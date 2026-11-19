@@ -379,6 +379,14 @@ class _MdComposerPageState extends State<MdComposerPage> {
             child: SizedBox(
               height: 40,
               child: FilledButton(
+                // 主题给 FilledButton 配了 vertical: 14 的内边距；在 40dp 高的
+                // 提交条里会把单行中文挤到只剩 12dp，底部笔画被裁掉。
+                // 这里覆盖成零纵向内边距，让按钮自己把文字垂直居中。
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  minimumSize: const Size.fromHeight(40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 onPressed: canSave && !_uploading
                     ? () => Navigator.of(context).pop(_controller.text.trim())
                     : null,

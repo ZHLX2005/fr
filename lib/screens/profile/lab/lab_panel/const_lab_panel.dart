@@ -22,7 +22,9 @@ import 'package:flutter/material.dart';
 const double kLabGridPadding = 16.0;
 const int kLabGridCrossAxisCount = 2;
 const double kLabGridSpacing = 16.0;
-const double kLabGridAspectRatio = 1.1;
+
+/// 卡片略高于正方形：保证两行标题 + 三行描述不被底部裁切。
+const double kLabGridAspectRatio = 0.92;
 
 /// 卡片按下缩放
 const double kLabCardPressScale = 0.97;

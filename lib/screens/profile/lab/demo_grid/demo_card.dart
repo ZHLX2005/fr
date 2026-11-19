@@ -141,7 +141,7 @@ class _DemoCardState extends State<DemoCard> {
                             ? Theme.of(context).colorScheme.surface
                             : null,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
@@ -157,7 +157,7 @@ class _DemoCardState extends State<DemoCard> {
                                   alpha: 0.7,
                                 ),
                         ),
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
