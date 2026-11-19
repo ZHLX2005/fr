@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../core/calendar/presentation/calendar_page.dart';
 import '../lab_container.dart';
 
-/// 日历待办 Demo —— 占位页
+/// 日历待办：仿滴答清单的月/周/日视图，任务存 SQLite。
 ///
-/// 原有 5 视图 / 农历 / DSL / 联系人 / 桌面小组件等实现已清空，等待重新设计。
 /// slug 保持 'calendar' 以兼容 `fr://lab/demo/calendar` 路由与 Focus 主页入口。
 class CalendarDemo extends DemoPage {
   @override
-  String get title => '日历待办';
+  String get title => '日历';
 
   @override
   String get slug => 'calendar';
 
   @override
-  String get description => '日历待办 - 待重构';
+  String get description => '月/周/日视图 · 拖拽折叠 · SQLite 任务';
 
   @override
   bool get preferFullScreen => true;
@@ -24,11 +24,7 @@ class CalendarDemo extends DemoPage {
 
   @override
   Widget buildPage(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('日历待办 - 占位'),
-      ),
-    );
+    return const CalendarPage();
   }
 }
 

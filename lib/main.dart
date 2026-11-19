@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, debugPrint, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart' hide RichText;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart' as classic_provider;
@@ -18,6 +19,7 @@ import 'core/timetable/timetable.dart';
 import 'core/schema/schema.dart';
 import 'lab/demos/clock/providers/lab_clock_provider.dart';
 import 'core/storage/hive/body_record_repository.dart';
+import 'core/storage/sqlite/sqlite.dart';
 import 'core/ai_chat/pi/pi_chat_message_repository.dart';
 import 'services/message_strategy/di/di.dart';
 import 'core/ai_chat/system_messages/system_events_controller.dart';
@@ -49,6 +51,32 @@ Future<dynamic> _handleRootMethodCall(MethodCall call) async {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     FrNavigator.handle(rootNavigatorKey.currentContext, frUrl);
   });
+}
+
+/// 打开 SQLite。Web / Windows / Linux 暂不启用，失败也不阻塞启动。
+///
+/// 数据库生命周期由这里持有，再把 `SqliteStorage` 注入 Provider；
+/// feature 代码不允许自己打开数据库，只允许读 `sqliteStorageProvider`。
+Future<SqliteStorage?> _openSqliteStorageIfSupported() async {
+  if (kIsWeb) return null;
+
+  final supported = defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+  if (!supported) {
+    debugPrint('[sqlite] 当前平台未启用 SQLite');
+    return null;
+  }
+
+  try {
+    final storage = await SqliteStorage.open();
+    debugPrint('[sqlite] 已初始化: ${storage.databasePath}');
+    return storage;
+  } catch (e, st) {
+    debugPrint('[sqlite] 初始化失败（不影响启动）: $e');
+    debugPrint('$st');
+    return null;
+  }
 }
 
 void main() async {
@@ -141,6 +169,9 @@ void main() async {
     debugPrint('$st');
   }
 
+  // SQLite 结构化存储：打开失败只记录，不阻塞 App 启动；Provider 里为 null。
+  final sqliteStorage = await _openSqliteStorageIfSupported();
+
   // 初始化消息策略
   registerMessageStrategies();
 
@@ -159,6 +190,8 @@ void main() async {
       TimetableStore.syncerProvider.overrideWithValue(
         const DefaultTimetableWidgetSyncer(),
       ),
+      if (sqliteStorage != null)
+        sqliteStorageProvider.overrideWithValue(sqliteStorage),
     ],
   );
 

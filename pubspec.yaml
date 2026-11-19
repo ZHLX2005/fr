@@ -49,6 +49,8 @@ dependencies:
   shared_preferences: ^2.3.3
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  # SQLite：结构化/事务型存储。sqflite 走平台自带 SQLite，不额外打包 libsqlite3.so。
+  sqflite: ^2.4.2+1
 
   # Data Models
   json_annotation: ^4.9.0
