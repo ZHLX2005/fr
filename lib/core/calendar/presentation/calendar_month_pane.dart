@@ -134,7 +134,10 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
     } else if (_flipSpring.value <= 0.001 && _shadowMonth != null) {
       _flipSpring.stop();
       _flipSpring.jump(0);
-      setState(() => _shadowMonth = null);
+      setState(() {
+        _shadowMonth = null;
+        _pendingMonth = null; // 未过阈值回弹：清掉残留目标，防后续误 commit。
+      });
     }
   }
 
@@ -203,12 +206,13 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
       setState(() {
         _flipDragging = true;
         _flipDir = dx < 0 ? 1 : -1;
-        _shadowMonth = widget.month;
-        _pendingMonth = DateTime(
+        // shadow = 待进入的目标月（从对侧滑入）；当前月由主层滑出。
+        _shadowMonth = DateTime(
           widget.month.year,
           widget.month.month + _flipDir,
           1,
         );
+        _pendingMonth = _shadowMonth;
       });
     }
     _flipSpring.jump(calendarClamp01(dx.abs() / width));
@@ -289,11 +293,13 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
                       final width = math.max(1.0, _areaWidth());
                       return Stack(
                         children: [
+                          // shadow：待进入的月份，从翻页方向对侧滑入
+                          // （flip 0→1 时 offset dir*w*(1-flip)：+w → 0）。
                           if (_shadowMonth != null)
                             Positioned.fill(
                               child: Transform.translate(
                                 offset:
-                                    Offset(-_flipDir * width * flip, 0),
+                                    Offset(_flipDir * width * (1 - flip), 0),
                                 child: CalendarMonthGridContent(
                                   month: _shadowMonth!,
                                   selectedDate: widget.selectedDate,
@@ -306,9 +312,12 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
                                 ),
                               ),
                             ),
+                          // 主层：当前月份，翻页时向方向侧滑出
+                          // （flip 0→1 时 offset -dir*w*flip：0 → -w）；
+                          // 静止态 flip=0 → offset 0，网格原位可见。
                           Positioned.fill(
                             child: Transform.translate(
-                              offset: Offset(_flipDir * width * (1 - flip), 0),
+                              offset: Offset(-_flipDir * width * flip, 0),
                               child: CalendarMonthGridContent(
                                 month: widget.month,
                                 selectedDate: widget.selectedDate,

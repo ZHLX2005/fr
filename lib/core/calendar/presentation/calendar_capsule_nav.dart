@@ -53,9 +53,10 @@ class _CalendarCapsuleNavState extends State<CalendarCapsuleNav> {
                 ),
                 child: Stack(
                   children: [
+                    // 指示 pill：随弹簧进度连续平移（t 即 0..4 的槽位坐标）。
                     Positioned(
                       top: pad,
-                      left: pad,
+                      left: pad + t.clamp(0.0, 4.0) * buttonWidth,
                       width: buttonWidth,
                       height: 44 - pad * 2,
                       child: Center(
@@ -83,21 +84,19 @@ class _CalendarCapsuleNavState extends State<CalendarCapsuleNav> {
                         ),
                       ),
                     ),
+                    // 页签文字：原位铺满，不随 pill 平移。
                     Positioned.fill(
-                      child: Transform.translate(
-                        offset: Offset(t * buttonWidth, 0),
-                        child: Row(
-                          children: [
-                            for (var i = 0; i < widget.tabs.length; i++)
-                              _NavButton(
-                                label: widget.tabs[i],
-                                active: i == widget.activeIndex,
-                                width: buttonWidth,
-                                palette: widget.palette,
-                                onTap: () => widget.onTap(i),
-                              ),
-                          ],
-                        ),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < widget.tabs.length; i++)
+                            _NavButton(
+                              label: widget.tabs[i],
+                              active: i == widget.activeIndex,
+                              width: buttonWidth,
+                              palette: widget.palette,
+                              onTap: () => widget.onTap(i),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -151,8 +150,12 @@ class _NavButtonState extends State<_NavButton> {
             curve: Curves.easeOutBack,
             child: AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 220),
+              // 显式带上主题字体族：AnimatedDefaultTextStyle 是 replace 语义，
+              // 不带 fontFamily 会退回引擎默认字体（丢全局字体）。
               style: TextStyle(
                 fontSize: 14,
+                fontFamily:
+                    Theme.of(context).textTheme.bodyMedium?.fontFamily,
                 fontWeight: widget.active ? FontWeight.w600 : FontWeight.w500,
                 color: widget.active
                     ? widget.palette.textPrimary
