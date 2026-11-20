@@ -29,12 +29,10 @@ class PinnedGrid extends ConsumerStatefulWidget {
   const PinnedGrid({
     super.key,
     required this.entries,
-    required this.visibleSlotCount,
     required this.onDraggingChanged,
   });
 
   final List<NavEntry> entries;
-  final int visibleSlotCount;
 
   /// 拖动开始/结束（宿主据此显隐屏幕底部垃圾桶 FAB）。
   final ValueChanged<bool> onDraggingChanged;
@@ -62,7 +60,6 @@ class _PinnedGridState extends ConsumerState<PinnedGrid> {
 
     return _SortableGrid(
       entries: entries,
-      visibleSlotCount: widget.visibleSlotCount,
       onDragStarted: _handleDragStarted,
       onDragEnd: _handleDragEnd,
       onReorder: _handleReorder,
@@ -100,14 +97,12 @@ class _PinnedGridState extends ConsumerState<PinnedGrid> {
 class _SortableGrid extends ConsumerWidget {
   const _SortableGrid({
     required this.entries,
-    required this.visibleSlotCount,
     required this.onDragStarted,
     required this.onDragEnd,
     required this.onReorder,
   });
 
   final List<NavEntry> entries;
-  final int visibleSlotCount;
   final ItemCallback onDragStarted;
   final ItemCallback onDragEnd;
   final void Function(List<String> Function(List<String>)) onReorder;
@@ -150,7 +145,6 @@ class _SortableGrid extends ConsumerWidget {
                   child: _PinnedCell(
                     entry: entries[i],
                     isHome: i == 0,
-                    inOverflow: i >= visibleSlotCount,
                     onTap: () {
                       Navigator.of(
                         context,
@@ -170,18 +164,17 @@ class _SortableGrid extends ConsumerWidget {
 
 // ── 已钉格子卡面 ────────────────────────────────────────────────────────
 
-/// 已钉格子：surface 卡面 + 角标（首页 / ⋯ 槽位）；按压 iOS 弹性缩放。
+/// 已钉格子：surface 卡面 + 角标（首页）；按压 iOS 弹性缩放。
+/// ⋯ 槽位角标已按 #30 去掉——槽位归属不再画在格子上。
 class _PinnedCell extends StatefulWidget {
   const _PinnedCell({
     required this.entry,
     required this.isHome,
-    required this.inOverflow,
     required this.onTap,
   });
 
   final NavEntry entry;
   final bool isHome;
-  final bool inOverflow;
   final VoidCallback onTap;
 
   @override
@@ -301,30 +294,6 @@ class _PinnedCellState extends State<_PinnedCell>
                         height: 1.2,
                         fontWeight: FontWeight.w700,
                         color: cs.onPrimary,
-                      ),
-                    ),
-                  ),
-                ),
-              if (widget.inOverflow)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.22),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '⋯',
-                        style: TextStyle(
-                          fontSize: 10,
-                          height: 1.0,
-                          fontWeight: FontWeight.w800,
-                          color: cs.onSurfaceVariant,
-                        ),
                       ),
                     ),
                   ),

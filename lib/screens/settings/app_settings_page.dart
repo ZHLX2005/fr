@@ -73,7 +73,6 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
                 ),
                 PinnedGrid(
                   entries: entries,
-                  visibleSlotCount: pins.visibleSlotCount,
                   onDraggingChanged: (v) {
                     if (_dragging == v) return;
                     setState(() => _dragging = v);
