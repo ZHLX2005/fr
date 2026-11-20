@@ -1,0 +1,126 @@
+/// 日历模块动效基建：弹簧吸附、动量投射、指数阻力、平滑曲线。
+///
+/// 参数族移植自 docs/prototypes/calendar-capsule-nav.html（与
+/// lib/lab/demos/notification_pull 同源的 SpringSimulation 参数）。
+library;
+
+import 'dart:math' as math;
+
+import 'package:flutter/animation.dart';
+import 'package:flutter/physics.dart';
+
+/// 跟手吸附弹簧（月历收展）。
+const SpringDescription kCalendarCollapseSpring = SpringDescription(
+  mass: 1,
+  stiffness: 205,
+  damping: 29,
+);
+
+/// 胶囊页签弹簧（微回弹）。
+const SpringDescription kCalendarTabSpring = SpringDescription(
+  mass: 1,
+  stiffness: 300,
+  damping: 22,
+);
+
+/// 月历 / 周条翻页轮盘弹簧。
+const SpringDescription kCalendarFlipSpring = SpringDescription(
+  mass: 1,
+  stiffness: 300,
+  damping: 28,
+);
+
+/// 松手前动量投射时长（ms）。
+const int kCalendarMomentumMs = 130;
+
+/// 指针死区（px）。
+const double kCalendarDragDeadZone = 4;
+
+/// 月历行高（收起态单周行 / 展开态每行统一高度）。
+const double kCalendarRowHeight = 56;
+
+double calendarClamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
+
+/// C² 连续平滑曲线（收起时非选中行的渐隐）。
+double calendarSmootherstep(double t) {
+  final x = calendarClamp01(t);
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+
+/// 收起端的指数阻力（通知栏 demo 同款）。
+double calendarRubber(double x) => 62 * (1 - math.exp(-x / 130));
+
+/// 动量投射：按松手速度 [velocityPxPerMs] 投射 130ms 后的值。
+double calendarProject(double value, double velocityPxPerMs, double range) =>
+    value + velocityPxPerMs * kCalendarMomentumMs / math.max(1.0, range);
+
+/// 弹簧驱动器：AnimationController.unbounded + SpringSimulation。
+///
+/// 所有状态变化都通过 [onUpdate] 回调（内含 ValueNotifier 时即逐帧通知）。
+class CalendarSpring {
+  CalendarSpring({
+    required TickerProvider vsync,
+    required this.description,
+    VoidCallback? onUpdate,
+  }) {
+    _controller = AnimationController.unbounded(vsync: vsync);
+    if (onUpdate != null) {
+      _controller.addListener(onUpdate);
+    }
+  }
+
+  final SpringDescription description;
+  late final AnimationController _controller;
+
+  double get value => _controller.value;
+  bool get isAnimating => _controller.isAnimating;
+
+  void jump(double value) {
+    _controller.stop();
+    _controller.value = value;
+  }
+
+  /// 以初速度 [velocity]（单位与 value 一致）向 [target] 吸附。
+  void to(double target, {double velocity = 0}) {
+    _controller.animateWith(
+      SpringSimulation(description, _controller.value, target, velocity),
+    );
+  }
+
+  void stop() => _controller.stop();
+
+  void dispose() => _controller.dispose();
+}
+
+/// 指针速度采样（8 帧窗口，px/ms）。
+class CalendarVelocitySampler {
+  final List<double> _times = [];
+  final List<double> _positions = [];
+
+  void reset(double position) {
+    _times
+      ..clear()
+      ..add(_nowMs());
+    _positions..clear()..add(position);
+  }
+
+  void add(double position) {
+    _times.add(_nowMs());
+    _positions.add(position);
+    if (_times.length > 8) {
+      _times.removeAt(0);
+      _positions.removeAt(0);
+    }
+  }
+
+  /// px/ms；样本不足或时间跨度过短时返回 0。
+  double pxPerMs() {
+    if (_times.length < 2) return 0;
+    final dt = _times.last - _times.first;
+    if (dt < 10) return 0;
+    return (_positions.last - _positions.first) / dt;
+  }
+
+  static double _nowMs() =>
+      DateTime.now().microsecondsSinceEpoch / 1000.0;
+}

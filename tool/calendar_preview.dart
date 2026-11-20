@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xiaodouzi_fr/core/calendar/domain/calendar_task.dart';
 import 'package:xiaodouzi_fr/core/calendar/presentation/calendar_page.dart';
-import 'package:xiaodouzi_fr/core/calendar/presentation/calendar_view_mode.dart';
 import 'package:xiaodouzi_fr/core/storage/hive/hive_calendar_store.dart';
 import 'package:xiaodouzi_fr/core/storage/hive/hive_store.dart';
 
@@ -10,18 +9,15 @@ import 'package:xiaodouzi_fr/core/storage/hive/hive_store.dart';
 ///
 /// 让 Windows 也能跑真 Flutter 布局（无 Android 设备时做视觉验收用），
 /// 不进入正式 App 的导航，也不参与业务包发布。
+/// URL 参数 `?view=year|week|day|agenda` 预置页签，避免靠坐标点胶囊。
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveStore.instance.init();
   final store = await HiveCalendarStore.open();
 
-  final requestedView = Uri.base.queryParameters['view'];
-  final initialView = CalendarViewMode.values.firstWhere(
-    (mode) => mode.name == requestedView,
-    orElse: () => CalendarViewMode.list,
-  );
-  // 预览入口用 URL 参数切视图，避免靠坐标点菜单做视觉验收。
-  await store.settings.write('calendar.viewMode', initialView.name);
+  const kTabs = ['year', 'month', 'week', 'day', 'agenda'];
+  final tabIdx = kTabs.indexOf(Uri.base.queryParameters['view'] ?? '');
+  final initialTab = tabIdx < 0 ? 1 : tabIdx;
 
   final today = DateTime.now();
   final existing = await store.calendar.tasksOnDay(today);
@@ -61,7 +57,7 @@ void main() async {
     ProviderScope(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: const CalendarPage(),
+        home: CalendarPage(initialTab: initialTab),
       ),
     ),
   );

@@ -82,6 +82,7 @@ ThemeNotifier
 - 反应力测试的红 / 绿 / 琥珀信号灯色（`ReactionPalette`）—— 底色即交互指令，跟随主题会在多数主题下失效；
 - 网站、平台和第三方品牌色；
 - 医学组织分类、痛感梯度等数据语义色；
+- 日历任务的用户自选标记色（`kCalendarTaskColors`，`lib/core/calendar/presentation/calendar_palette.dart`）—— 色值由用户按任务挑选，属数据语义，仅用于任务圆点/事件块着色；日历模块其余全部颜色均从 `ColorScheme` 派生；
 - 图表分类色，但建议优先评估 `AppColorsExtension.category`；
 - 手电筒、屏幕补光、颜料色板等功能实际输出色；
 - 小说阅读器纸张、墨色等独立内容主题；
@@ -640,6 +641,7 @@ bone/muscle/joint/organ 色板属于数据语义，默认豁免；禁止把页�
 - [ ] Torch 实际补光色登记豁免
 - [ ] 2048 方块色登记豁免
 - [x] `ReactionTestDemo` 信号灯色登记豁免（`ReactionPalette`，主屏底色/前景成对固定，AppBar 仍走主题）
+- [x] 日历任务标记色登记豁免（`kCalendarTaskColors`，数据语义；2026-11-20 日历胶囊重构时其余颜色已全部改为 `ColorScheme` 派生）
 - [ ] Web Bookmark 品牌色登记豁免
 - [ ] 棋盘、棋子、地形色登记专用通道
 - [ ] 小说阅读器纸张主题登记组件级独立主题

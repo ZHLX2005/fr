@@ -2,21 +2,18 @@ import 'package:flutter/material.dart';
 
 import 'calendar_controls.dart';
 import 'calendar_palette.dart';
-import 'calendar_view_menu.dart';
-import 'calendar_view_mode.dart';
 
+/// 日历设置（胶囊导航重构后不再有视图模式九宫格：
+/// 年/月/周/日/日程由顶部胶囊直接切换）。
 Future<void> showCalendarSettingsSheet(
   BuildContext context, {
   required CalendarPalette palette,
-  required CalendarViewMode viewMode,
   required bool showCompleted,
   required bool mondayFirst,
-  required ValueChanged<CalendarViewMode> onViewModeChanged,
   required ValueChanged<bool> onShowCompletedChanged,
   required ValueChanged<bool> onMondayFirstChanged,
   required VoidCallback onGoToday,
 }) {
-  var currentMode = viewMode;
   var currentShowCompleted = showCompleted;
   var currentMondayFirst = mondayFirst;
 
@@ -86,7 +83,7 @@ Future<void> showCalendarSettingsSheet(
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      '视图',
+                      '偏好',
                       style: TextStyle(
                         fontSize: 12,
                         letterSpacing: 0.6,
@@ -94,15 +91,6 @@ Future<void> showCalendarSettingsSheet(
                       ),
                     ),
                     const SizedBox(height: 9),
-                    _ViewModeGrid(
-                      current: currentMode,
-                      palette: palette,
-                      onSelected: (mode) {
-                        setSheetState(() => currentMode = mode);
-                        onViewModeChanged(mode);
-                      },
-                    ),
-                    const SizedBox(height: 14),
                     _SettingSwitchRow(
                       icon: Icons.check_circle_outline,
                       label: '显示已完成任务',
@@ -150,72 +138,6 @@ Future<void> showCalendarSettingsSheet(
       );
     },
   );
-}
-
-class _ViewModeGrid extends StatelessWidget {
-  const _ViewModeGrid({
-    required this.current,
-    required this.palette,
-    required this.onSelected,
-  });
-
-  final CalendarViewMode current;
-  final CalendarPalette palette;
-  final ValueChanged<CalendarViewMode> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = (constraints.maxWidth - 16) / 3;
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final mode in CalendarViewMode.values)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onSelected(mode),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  width: width,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        calendarViewModeIcon(mode),
-                        size: 18,
-                        color: current == mode
-                            ? palette.accent
-                            : palette.textSecondary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        mode.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: current == mode
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: current == mode
-                              ? palette.accent
-                              : palette.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
 }
 
 class _SettingSwitchRow extends StatelessWidget {

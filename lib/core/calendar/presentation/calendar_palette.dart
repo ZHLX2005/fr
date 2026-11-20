@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// 日历页专用配色。
+/// 日历页专用配色适配层。
 ///
-/// 仿滴答清单的浅青底 + 白色任务卡；暗色主题单独给一套低亮度版本，
-/// 不直接复用全局 ColorScheme，避免其他页面的 sage 色调串进来。
+/// 所有颜色派生自当前主题的 [ColorScheme]（成对角色：primary/primaryContainer、
+/// surface 系容器 + onSurface/onSurfaceVariant 前景），7 套主题（purple/zen/ink/
+/// rose/lemon/cobalt/dark）自动生效；不再维护明暗两套硬编码 hex。
 @immutable
 class CalendarPalette {
   const CalendarPalette({
@@ -35,41 +36,27 @@ class CalendarPalette {
   final Color overlay;
 
   factory CalendarPalette.of(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    if (dark) {
-      return const CalendarPalette(
-        background: Color(0xFF0B181B),
-        surface: Color(0xFF16272B),
-        surfaceAlt: Color(0xFF1D3237),
-        textPrimary: Color(0xFFEAF7F8),
-        textSecondary: Color(0xFF91A9AD),
-        accent: Color(0xFF76C9D6),
-        accentSoft: Color(0xFF1C3B40),
-        divider: Color(0xFF274247),
-        completed: Color(0xFF6A8286),
-        shadow: Color(0x55000000),
-        danger: Color(0xFFE48787),
-        overlay: Color(0xFF20363B),
-      );
-    }
-    return const CalendarPalette(
-      background: Color(0xFFEAF8FA),
-      surface: Color(0xFFFFFFFF),
-      surfaceAlt: Color(0xFFF4FBFC),
-      textPrimary: Color(0xFF1D2A2C),
-      textSecondary: Color(0xFF8DA1A4),
-      accent: Color(0xFF70BFCB),
-      accentSoft: Color(0xFFD5EFF3),
-      divider: Color(0xFFDCEAEC),
-      completed: Color(0xFFA1B2B5),
-      shadow: Color(0x140B3A40),
-      danger: Color(0xFFD86C6C),
-      overlay: Color(0xFFF9FDFE),
+    final scheme = Theme.of(context).colorScheme;
+    return CalendarPalette(
+      background: scheme.surface,
+      surface: scheme.surfaceContainerLow,
+      surfaceAlt: scheme.surfaceContainer,
+      textPrimary: scheme.onSurface,
+      textSecondary: scheme.onSurfaceVariant,
+      accent: scheme.primary,
+      accentSoft: scheme.primaryContainer,
+      divider: scheme.outlineVariant,
+      completed: scheme.onSurfaceVariant,
+      shadow: scheme.scrim.withValues(alpha: 0.20),
+      danger: scheme.error,
+      overlay: scheme.surfaceContainerLow,
     );
   }
 }
 
-/// 任务图标用的柔和色盘；没有显式 color 时按任务 id 取一个稳定色。
+/// 任务色盘：**数据语义色**（任务归属标记，用户可选的稳定身份色），
+/// 按主题通道审计 §8 规则 2 在 docs/architecture/theme-channel-audit.md 登记
+/// 豁免；不随主题变化以保持任务数据的可识别性。
 const List<Color> kCalendarTaskColors = [
   Color(0xFF8A83D4),
   Color(0xFF63C39E),
