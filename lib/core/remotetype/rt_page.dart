@@ -51,7 +51,12 @@ import '../../core/ui/global/notification/main.dart';
 import '../../core/ui/global/button/main.dart';
 import '../../core/theme/context/colors.dart';
 import '../../core/ui/global/nav/main.dart'
-    show QuickNavBottomBar, bottomBarVisibilityProvider;
+    show
+        AppNavBar,
+        QuickNavBottomBar,
+        bottomBarVisibilityProvider,
+        kCompactNavControlIconSize,
+        kCompactNavControlSize;
 import '../../lab/demo_session_host.dart';
 import 'data/rt_constants.dart';
 import 'ui/rt_connecting_overlay.dart';
@@ -475,11 +480,13 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
     unawaited(LineOrientation.enableAll());
   }
 
-  /// 共享头部（所有布局共用）：返回小圆按钮 + 布局胶囊。
+  /// 共享头部（所有布局共用）：无 title 紧凑导航（AppNavBar.compact）。
   ///
   /// 内置（游戏 / 键盘 / 触控屏）、内置固定（写字）、用户自定义——一律
-  /// 走这一份，页面级浮层，画布与写字页长得一样。胶囊点开是布局抽屉：
-  /// 方格网格两组（竖屏在上、横屏在下），右上角「更多设置」入口。
+  /// 走这一份，页面级浮层，画布与写字页长得一样。本头部是 compact 变体的
+  /// 规范样板（原手写 Row 已收编进全局组件，见 app_nav_bar.dart）。胶囊
+  /// 点开是布局抽屉：方格网格两组（竖屏在上、横屏在下），右上角「更多设置」
+  /// 入口。
   ///
   /// 高度 [kRtSharedHeaderHeight]，写字页内容按它让位（画布是全出血，
   /// 头部浮在画布左上角，和原来的胶囊一个位置）。
@@ -488,38 +495,24 @@ class _RemoteTypePageState extends ConsumerState<RemoteTypePage> {
       top: 0,
       left: 0,
       right: 0,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-          child: Row(
-            children: [
-              BaseIconButton(
-                icon: Icons.arrow_back_ios_new,
-                tooltip: '返回连接列表',
-                onTap: _exitDetail,
-                variant: BaseIconButtonVariant.glass,
-                size: kRtTopControlHeight,
-                iconSize: 18,
-              ),
-              const SizedBox(width: 8),
-              RtLayoutCapsule(
-                connected: _connected,
-                layoutName: _activeEntry?.name ?? '写字',
-                onOpen: _openLayoutPicker,
-              ),
-              const Spacer(),
-              BaseIconButton(
-                icon: Icons.refresh_rounded,
-                tooltip: '重连',
-                onTap: _connecting ? () {} : _reconnect,
-                variant: BaseIconButtonVariant.glass,
-                size: kRtTopControlHeight,
-                iconSize: 18,
-              ),
-            ],
-          ),
+      child: AppNavBar.compact(
+        onBack: _exitDetail,
+        backTooltip: '返回连接列表',
+        titleSlot: RtLayoutCapsule(
+          connected: _connected,
+          layoutName: _activeEntry?.name ?? '写字',
+          onOpen: _openLayoutPicker,
         ),
+        actions: [
+          BaseIconButton(
+            icon: Icons.refresh_rounded,
+            tooltip: '重连',
+            onTap: _connecting ? () {} : _reconnect,
+            variant: BaseIconButtonVariant.glass,
+            size: kCompactNavControlSize,
+            iconSize: kCompactNavControlIconSize,
+          ),
+        ],
       ),
     );
   }

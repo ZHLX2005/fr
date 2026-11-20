@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../nav/nav_route.dart';
+import '../../ui/global/button/main.dart';
 import '../../ui/global/dialog/main.dart';
+import '../../ui/global/nav/main.dart';
 import '../data/timetable_repository.dart';
 import '../domain/models.dart';
 import 'timetable_store.dart';
@@ -153,39 +155,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        // 快捷钉选根页隐藏返回；从 Time 工具 push 进来时显示。
-        automaticallyImplyLeading: navCanPop(context),
-        title: Text(
-          '时间周期',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          // 头部空间选择（仿 kv 清单工作空间选择模式）
-          IconButton(
-            icon: Icon(Icons.workspaces_outlined),
-            tooltip: '工作空间: $activeSpaceName（点击切换）',
-            onPressed: _openSpaceSheet,
-          ),
-          IconButton(
-            icon: Icon(Icons.image_outlined),
-            onPressed: _pickBackgroundImage,
-            tooltip: '设置背景图',
-          ),
-          IconButton(
-            icon: Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TimetableSettingsPage()),
-            ),
-          ),
-        ],
-      ),
+      // 无 title 紧凑导航（AppNavBar.compact，无 title 版规范样板）：课表
+      // 属于要尽量让出界面的板块，头部只留小按钮返回 + 顶部操作，标题不再
+      // 占一行；背景图（若有）延伸到头部之后，导航透明浮在其上。
       body: Stack(
         children: [
           // 背景图（固定不动）
@@ -199,6 +171,43 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
           // 课表内容层
           Column(
             children: [
+              AppNavBar.compact(
+                // 快捷钉选根页隐藏返回；从 Time 工具 push 进来时显示。
+                onBack: navCanPop(context)
+                    ? () => Navigator.maybePop(context)
+                    : null,
+                actions: [
+                  // 头部空间选择（仿 kv 清单工作空间选择模式）
+                  BaseIconButton(
+                    icon: Icons.workspaces_outlined,
+                    tooltip: '工作空间: $activeSpaceName（点击切换）',
+                    onTap: _openSpaceSheet,
+                    variant: BaseIconButtonVariant.glass,
+                    size: kCompactNavControlSize,
+                    iconSize: kCompactNavControlIconSize,
+                  ),
+                  BaseIconButton(
+                    icon: Icons.image_outlined,
+                    tooltip: '设置背景图',
+                    onTap: _pickBackgroundImage,
+                    variant: BaseIconButtonVariant.glass,
+                    size: kCompactNavControlSize,
+                    iconSize: kCompactNavControlIconSize,
+                  ),
+                  BaseIconButton(
+                    icon: Icons.settings_outlined,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TimetableSettingsPage(),
+                      ),
+                    ),
+                    variant: BaseIconButtonVariant.glass,
+                    size: kCompactNavControlSize,
+                    iconSize: kCompactNavControlIconSize,
+                  ),
+                ],
+              ),
               // 天数标题行
               _buildWeekdayHeader(theme, config),
               const Divider(height: 1),

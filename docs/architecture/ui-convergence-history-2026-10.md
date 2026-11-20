@@ -30,6 +30,12 @@
 - **N7**：`game/chat` 1030 行与 image_picker 555 行拆分；确认 `BaseButton` 已被采用、保留（b8b5c64e）。
 - 每轮闸门：`flutter analyze lib` 新增 error/warning = 0（存量 152 issues / 6 warnings）；`flutter test` 不新增失败（基线 +1266 ~3 -10 为环境项）。
 
+### nav 无 title 版收编（2026-11-20）
+
+- 远程操作页手写的共享头部（返回小圆钮 + 布局胶囊 + 重连）抽离为 **`AppNavBar.compact`**——nav 家族第 4 变体、无 title 版规范样板：SafeArea + `fromLTRB(16,6,16,0)` + Row（小玻璃返回钮 32/18 + 8 + 可选插槽 + Spacer + 操作钮间距 6）。**与 floating 的返回契约不同**：compact 不做 `navCanPop` 闸门（样板场景 rt 的返回是页内状态切换，钉选根页也必须显示），显示与否完全由调用方传不传 `onBack` 决定；操作钮规格档 `kCompactNavControlSize/IconSize`（32/18）随组件导出。
+- 课程表头部去标题改用 compact：原 AppBar「时间周期」标题行撤掉，三个 48dp IconButton 换同规格小玻璃钮；背景图延伸到头部之后，课表整体上移。
+- 验证：`flutter analyze` 0 error（11 issues 均存量）；`build_runner` 无生成 diff；临时 golden 截图核过 compact 独立样板（cobalt/dark）与课表根页/push 页四态。
+
 ### 导航抽离记录（2026-10-24）
 
 页头导航统一为 **`AppNavBar`**（`lib/core/ui/global/nav/app_nav_bar.dart`，L5 shell）：

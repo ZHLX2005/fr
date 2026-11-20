@@ -1,19 +1,26 @@
 // 应用级页面导航（AppNavBar）—— 全应用统一的页头导航组件。
 //
-// 三种样式（其他特殊样式的 nav 一律收敛为这里的变体，不得再造第三套手写实现）：
+// 四种样式（其他特殊样式的 nav 一律收敛为这里的变体，不得再造手写实现）：
 //   - AppNavBar.standard : AppBar 规范样式（返回 + 左对齐标题 + actions）。
-//                          规范样板 = 远程输入设置页（RtSettingsPage）。
+//                          title 版规范样板 = 远程输入设置页（RtSettingsPage）。
+//   - AppNavBar.compact  : 无 title 紧凑行——小玻璃返回钮 + 内容插槽 + 顶部
+//                          小玻璃操作钮（SafeArea 自带，可作浮层也可入 Column）。
+//                          无 title 版规范样板 = 远程操作页共享头部（原 rt_page
+//                          手写 _sharedHeader 收编于此）。
 //   - AppNavBar.floating : 全出血内容上的浮层行（SafeArea + 返回钮 + 标题插槽 + actions）。
 //                          服务 rt 主页头部、line 全出血页、focus 计时头部等。
 //   - AppNavBar.pill     : 浮卡胶囊条（圆角卡：返回 + 标题插槽 + trailing）。
 //                          服务阅读器顶栏这类"卡片式"页头。
 //
 // 色源约束：standard/pill 默认走 ColorScheme；确需主题豁免（如阅读器纸质色）
-// 通过显式颜色参数在调用点声明，不在组件内写死。
+// 通过显式颜色参数在调用点声明，不在组件内写死。compact 的按钮一律走
+// BaseIconButton.glass（色源 ColorScheme，自带磨砂玻璃底）。
 //
 // 返回逻辑：standard 走 AppBar 自带 automaticallyImplyLeading；floating/pill
 // 传 onBack 即显示返回钮，配合 `context.navCanPop`（lib/core/nav/nav_route.dart）
-// 在根页自动隐藏。
+// 在根页自动隐藏。compact **不做** navCanPop 闸门——返回是否显示完全由调用方
+// 决定（传不传 onBack）：样板场景 rt 的返回是页内状态切换（钉选根页
+// navCanPop == false 也必须显示），不是 Navigator.pop。
 
 import 'package:flutter/material.dart';
 
@@ -28,6 +35,11 @@ enum NavBackStyle {
   /// 裸图标（无底色）——浮在游戏画面/渐变上，不遮挡内容。
   plain,
 }
+
+/// compact 导航顶部操作钮的标准规格（小玻璃圆钮，与内置返回钮同颗大小）。
+/// 调用方构造 [AppNavBar.compact.actions] 时用这两档，保证整行按钮同一规格。
+const double kCompactNavControlSize = 32;
+const double kCompactNavControlIconSize = 18;
 
 class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
   /// 标准导航（AppBar 规范样式，对齐 RtSettingsPage 配方）。
@@ -101,6 +113,34 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
         backgroundColor = null,
         foregroundColor = null;
 
+  /// 无 title 紧凑导航（小玻璃返回钮 + 可选内容插槽 + 顶部小玻璃操作钮）。
+  ///
+  /// 规范样板 = 远程操作页共享头部：返回小圆钮在左、内容胶囊紧随、操作收右，
+  /// 整行浮在内容上（透明底），SafeArea 自带。返回钮只在 [onBack] 非 null 时
+  /// 显示——是否返回、怎么返回（Navigator.pop / 页内状态切换）由调用方定，
+  /// 组件不做 navCanPop 闸门。
+  const AppNavBar.compact({
+    super.key,
+    this.onBack,
+    this.backTooltip,
+    this.titleSlot,
+    this.actions = const [],
+    this.floatingPadding = const EdgeInsets.fromLTRB(16, 6, 16, 0),
+  })  : _kind = _AppNavBarKind.compact,
+        title = null,
+        centerTitle = false,
+        centerTitleSlot = false,
+        transparent = false,
+        backgroundColor = null,
+        foregroundColor = null,
+        backStyle = NavBackStyle.solid,
+        leading = null,
+        floatingActions = const [],
+        trailing = null,
+        pillBackground = null,
+        pillBorder = null,
+        pillRadius = 20;
+
   final _AppNavBarKind _kind;
 
   // — standard —
@@ -110,11 +150,6 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
   final bool transparent;
   final Color? backgroundColor;
   final Color? foregroundColor;
-
-  // — floating / pill —
-  final VoidCallback? onBack;
-  final NavBackStyle backStyle;
-  final String? backTooltip;
 
   // — floating —
   final Widget? titleSlot;
@@ -128,6 +163,11 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
   final Color? pillBackground;
   final Color? pillBorder;
   final double pillRadius;
+
+  // — floating / pill —
+  final VoidCallback? onBack;
+  final NavBackStyle backStyle;
+  final String? backTooltip;
 
   @override
   Size get preferredSize {
@@ -143,6 +183,7 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return switch (_kind) {
       _AppNavBarKind.standard => _buildStandard(context),
+      _AppNavBarKind.compact => _buildCompact(context),
       _AppNavBarKind.floating => _buildFloating(context),
       _AppNavBarKind.pill => _buildPill(context),
     };
@@ -159,6 +200,40 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
           : backgroundColor,
       elevation: transparent ? 0 : null,
       foregroundColor: foregroundColor,
+    );
+  }
+
+  /// 无 title 紧凑行：小玻璃返回钮 + 可选内容插槽 + 顶部小玻璃操作钮。
+  /// 视觉配方与远程操作页共享头部逐项一致（16/6/0 内边距、32 高玻璃圆钮、
+  /// 图标 18、返回与插槽间距 8、操作钮间距 6）。
+  Widget _buildCompact(BuildContext context) {
+    final actionList = actions ?? const <Widget>[];
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: floatingPadding,
+        child: Row(
+          children: [
+            if (onBack != null) ...[
+              BaseIconButton(
+                icon: Icons.arrow_back_ios_new,
+                tooltip: backTooltip ?? '返回',
+                onTap: onBack,
+                variant: BaseIconButtonVariant.glass,
+                size: kCompactNavControlSize,
+                iconSize: kCompactNavControlIconSize,
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (titleSlot != null) Flexible(child: titleSlot!),
+            const Spacer(),
+            for (var i = 0; i < actionList.length; i++) ...[
+              if (i > 0) const SizedBox(width: 6),
+              actionList[i],
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -275,4 +350,4 @@ class AppNavBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-enum _AppNavBarKind { standard, floating, pill }
+enum _AppNavBarKind { standard, compact, floating, pill }
