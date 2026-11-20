@@ -75,7 +75,7 @@ class NxKvTaskView extends StatefulWidget {
 }
 
 class _NxKvTaskViewState extends State<NxKvTaskView> {
-  kv.LocaltaskGetOutput? _task;
+  kv.LocaltaskShowOutput? _task;
   bool _loading = true;
   String? _error;
   bool _busy = false;
@@ -287,7 +287,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
   }
 
   /// 标题区：三行以内解决 —— 编号/状态、标题、一行元信息（可展开更详细）。
-  Widget _header(kv.LocaltaskGetOutput t) {
+  Widget _header(kv.LocaltaskShowOutput t) {
     final cs = Theme.of(context).colorScheme;
     final topic = widget.controller.selected?.name ?? widget.topicKey ?? '—';
     return Padding(
@@ -395,7 +395,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
     );
   }
 
-  Widget _meta(kv.LocaltaskGetOutput t) {
+  Widget _meta(kv.LocaltaskShowOutput t) {
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xxs, right: AppSpacing.xs),
       child: Column(
@@ -411,7 +411,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
     );
   }
 
-  Widget _body(kv.LocaltaskGetOutput t) {
+  Widget _body(kv.LocaltaskShowOutput t) {
     final cs = Theme.of(context).colorScheme;
     final rounds = extractRounds(t.text);
     final body = bodyWithoutRounds(t.text);
@@ -488,7 +488,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
       final src = t.src.trim();
       if (looksLikeAttachmentFileId(src)) {
         final name = (t.caption ?? '').isEmpty ? src : t.caption!;
-        final fake = kv.LocaltaskGetAttachment(
+        final fake = kv.LocaltaskShowAttachment(
           id: src,
           kind: 'file',
           kindLabel: '图片',
@@ -518,7 +518,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
   ///
   /// 服务端给的本机路径仍然保留一行小字：PC 上的 agent 要读的是那个路径，
   /// 端侧只是多了一条自己的路。
-  Widget _attachment(kv.LocaltaskGetAttachment a) {
+  Widget _attachment(kv.LocaltaskShowAttachment a) {
     final cs = Theme.of(context).colorScheme;
     final canFetch = a.kind == 'file' && a.id.isNotEmpty;
     final showImage = canFetch && a.isImage;
@@ -597,7 +597,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
   }
 
   /// 点附件：图片进全屏、其它文件先落盘再交给系统打开。
-  Future<void> _openAttachment(kv.LocaltaskGetAttachment a) async {
+  Future<void> _openAttachment(kv.LocaltaskShowAttachment a) async {
     if (a.isImage) {
       await Navigator.of(context).push(MaterialPageRoute(
         fullscreenDialog: true,
@@ -741,7 +741,7 @@ class _NxKvTaskViewState extends State<NxKvTaskView> {
   /// 形制：两个**等宽胶囊** + 一颗圆形刷新。原来是两个 `TextButton.icon` 挨在
   /// 左边、右边一大片空 —— 动作条是这页唯一「会动手」的地方，用 Material 的
   /// 文字按钮等于把它降级成一行普通控件；胶囊 + 实心主操作才配得上它的分量。
-  Widget _actionBar(kv.LocaltaskGetOutput t) {
+  Widget _actionBar(kv.LocaltaskShowOutput t) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
@@ -1070,7 +1070,7 @@ class _RemoteImage extends StatefulWidget {
   });
 
   final NxKvController controller;
-  final kv.LocaltaskGetAttachment attachment;
+  final kv.LocaltaskShowAttachment attachment;
   final VoidCallback onTap;
 
   @override
@@ -1168,7 +1168,7 @@ class _ImagePage extends StatefulWidget {
   const _ImagePage({required this.controller, required this.attachment});
 
   final NxKvController controller;
-  final kv.LocaltaskGetAttachment attachment;
+  final kv.LocaltaskShowAttachment attachment;
 
   @override
   State<_ImagePage> createState() => _ImagePageState();

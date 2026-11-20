@@ -331,12 +331,15 @@ class NxKvController extends ChangeNotifier {
   Future<kv.LocaltaskTasksOutput> tasksOf(String key, {String? status}) =>
       _client.localtaskTasks(key, null, status);
 
-  Future<kv.LocaltaskGetOutput> task(int id, String? key) =>
-      _client.localtaskGet(id, null, key);
+  /// 看一条任务的详情（契约 0.65.x 起：详情走 `localtaskShow`，
+  /// `localtaskGet` 改成「领一条」的语义）。
+  Future<kv.LocaltaskShowOutput> task(int id, String? key) =>
+      _client.localtaskShow(id, null, key);
 
-  /// 领一条（HTTP 侧恒为「没活就立刻回」，不会挂住请求）。
-  Future<kv.LocaltaskClaimOutput> claim(kv.LocaltaskListTopic topic) =>
-      _client.localtaskClaim(topic.cwd, null, true, null);
+  /// 领一条（契约 0.65.x 起：`localtaskGet` = 领一条 + 返回任务信封；
+  /// 旧的 `localtaskClaim` 已并入它）。
+  Future<kv.LocaltaskGetOutput> claim(kv.LocaltaskListTopic topic) =>
+      _client.localtaskGet(topic.cwd, null, true, null);
 
   Future<kv.LocaltaskDoneOutput> done(int id, String? key, String summary) =>
       _client.localtaskDone(id, null, key, summary);

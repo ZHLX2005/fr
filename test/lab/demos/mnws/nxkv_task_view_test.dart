@@ -35,8 +35,8 @@ icon 标识上优化，用一些更加圆滑的 icon 提升质感。
 > 绑定仓库，项目就是项目，项目组的不要跳到项目去。
 ''';
 
-const attachments = <kv.LocaltaskGetAttachment>[
-  kv.LocaltaskGetAttachment(
+const attachments = <kv.LocaltaskShowAttachment>[
+  kv.LocaltaskShowAttachment(
     id: 'a2',
     kind: 'file',
     kindLabel: '文档',
@@ -48,7 +48,7 @@ const attachments = <kv.LocaltaskGetAttachment>[
   ),
 ];
 
-kv.LocaltaskGetOutput detail() => kv.LocaltaskGetOutput(
+kv.LocaltaskShowOutput detail() => kv.LocaltaskShowOutput(
       id: 19,
       text: text,
       status: 'claimed',
@@ -262,5 +262,5 @@ class _Stub extends NxKvController {
   Future<void> loadTasks({String? status}) async {}
 
   @override
-  Future<kv.LocaltaskGetOutput> task(int id, String? key) async => detail();
+  Future<kv.LocaltaskShowOutput> task(int id, String? key) async => detail();
 }

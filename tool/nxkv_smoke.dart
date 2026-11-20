@@ -102,7 +102,8 @@ Future<void> main(List<String> args) async {
     print('详情      跳过（清单是空的）');
     return;
   }
-  final task = await client.localtaskGet(row.id, null, topic.key);
+  // 契约 0.65.x 起：详情走 localtaskShow（localtaskGet 改成「领一条」语义）。
+  final task = await client.localtaskShow(row.id, null, topic.key);
   print('详情      #${task.id} ${task.status} · 第 ${task.round} 轮 · '
       '正文 ${task.text.length} 字 · 附件 ${task.attachments?.length ?? 0} 个');
   final contract = await client.systemContract();

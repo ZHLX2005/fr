@@ -15,7 +15,7 @@ import 'package:xiaodouzi_fr/lab/demos/mnws/nxkv/nxkv_task_view.dart';
 ///   · 动作条原来按状态在「领取 / 标完成」之间切 —— 现在只留「标完成」；
 ///   · 附件原来只报 PC 上的路径 —— 现在图片要真的画出来（字节经桥取回）。
 void main() {
-  kv.LocaltaskGetOutput task({String status = 'claimed'}) => kv.LocaltaskGetOutput.fromJson({
+  kv.LocaltaskShowOutput task({String status = 'claimed'}) => kv.LocaltaskShowOutput.fromJson({
         'id': 3,
         'text': '# 优化样式\n\n正文',
         'status': status,
@@ -173,7 +173,7 @@ class _StubController extends NxKvController {
           endpoint: MnWsEndpoint(baseUrl: 'http://127.0.0.1:9', grantReader: () async => null),
         );
 
-  final kv.LocaltaskGetOutput taskOutput;
+  final kv.LocaltaskShowOutput taskOutput;
   final bool failAttachments;
 
   /// 用例断言「真的为哪些 id 取了字节」。
@@ -183,7 +183,7 @@ class _StubController extends NxKvController {
   final List<(int, String?, String)> edits = [];
 
   @override
-  Future<kv.LocaltaskGetOutput> task(int id, String? key) async => taskOutput;
+  Future<kv.LocaltaskShowOutput> task(int id, String? key) async => taskOutput;
 
   @override
   Future<kv.LocaltaskUpdateOutput> editTask(int id, String? key, String text) async {

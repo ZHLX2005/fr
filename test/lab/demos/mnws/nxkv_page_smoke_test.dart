@@ -431,6 +431,6 @@ class _StubController extends NxKvController {
 
   /// 正文视图像「点了但拉不到」：这里就让它拉不到，看它会不会挂住整个页面。
   @override
-  Future<kv.LocaltaskGetOutput> task(int id, String? key) async =>
+  Future<kv.LocaltaskShowOutput> task(int id, String? key) async =>
       throw const MnWsException(MnWsErrorKind.unreachable, '测试桩：不连桥');
 }
