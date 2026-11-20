@@ -1,31 +1,36 @@
 // 日历任务面板：浮在日历之上的下拉面板（列表视图用）。
 //
-// 面板关系参考 Lab 容器的下拉面板：主内容（日历）在下层，任务面板**覆盖**
-// 在上层——圆角顶部 + 把手 + 阴影，拖把手在「收起 / 展开」两态间吸附。
-// 不做成上下并列（那样两个面板的层级关系读不出来），也不做成 Lab 那套
-// 完整状态机（Lab 的状态机在 screens 层，日历在 core 层，不反向依赖）。
+// 面板关系参考 Lab 容器的下拉面板：主内容（日历）在后景，任务面板**覆盖**
+// 在前景——圆角顶部 + 把手 + 阴影，拖把手在「收起 / 展开」两态间吸附。
+// **默认展开**：进来任务面板是主内容，日历缩为后景（页面按 progress 做
+// 后景变换）；下拉把手才露出完整日历。
+//
+// 高度进度（0 收起 / 1 展开）写在页面持有的 [progress] notifier 上，
+// 页面据此联动日历层变换与 FAB 显隐——面板自身只管高度与内容。
 //
 // 拖拽只发生在把手区：面板内的任务列表照常滚动，两者不抢手势。
-// 面板高度 = 收起态（把手 + 当日标题 + 一行预览）↔ 展开态（屏高 72%）。
 
 import 'package:flutter/material.dart';
 
 import 'calendar_palette.dart';
 
-/// 面板高度相对展开高度的比例（收起态 = 展开高度的 1/4 左右）。
 class CalendarTaskPanel extends StatefulWidget {
   const CalendarTaskPanel({
     super.key,
     required this.palette,
+    required this.progress,
     required this.child,
     required this.headerLabel,
     this.headerTrailing,
     this.expandedRatio = 0.72,
     this.collapsedRatio = 0.26,
-    this.onExpandedChanged,
   });
 
   final CalendarPalette palette;
+
+  /// 高度进度（0 = 收起，1 = 展开）。页面持有，面板写值，
+  /// 页面的日历后景变换与 FAB 显隐随之联动。
+  final ValueNotifier<double> progress;
 
   /// 面板主体（任务列表）。
   final Widget child;
@@ -42,18 +47,16 @@ class CalendarTaskPanel extends StatefulWidget {
   /// 收起态高度 = 展开高 × 此比例。
   final double collapsedRatio;
 
-  /// 展开/收起状态变化（调用方可用于关掉 FAB 等）。
-  final ValueChanged<bool>? onExpandedChanged;
-
   @override
   State<CalendarTaskPanel> createState() => _CalendarTaskPanelState();
 }
 
 class _CalendarTaskPanelState extends State<CalendarTaskPanel> {
-  /// 0 = 收起，1 = 展开；拖拽中实时变化，松手吸附到端点。
-  double _progress = 0;
   double _dragStartHeight = 0;
   bool _dragging = false;
+
+  /// 本帧进度镜像（AnimatedContainer 的动画时长按是否拖拽切换）。
+  double get _progress => widget.progress.value;
 
   static const double _handleAreaHeight = 34;
 
@@ -63,8 +66,7 @@ class _CalendarTaskPanelState extends State<CalendarTaskPanel> {
         maxHeight * 0.5,
       );
 
-  double _expandedHeight(double maxHeight) =>
-      maxHeight * widget.expandedRatio;
+  double _expandedHeight(double maxHeight) => maxHeight * widget.expandedRatio;
 
   void _onDragStart(DragStartDetails details, double maxHeight) {
     _dragging = true;
@@ -77,12 +79,10 @@ class _CalendarTaskPanelState extends State<CalendarTaskPanel> {
     final range = expanded - collapsed;
     if (range <= 0) return;
     final next = _dragStartHeight - details.delta.dy;
-    setState(() {
-      _progress = ((next - collapsed) / range).clamp(0.0, 1.0);
-    });
+    widget.progress.value = ((next - collapsed) / range).clamp(0.0, 1.0);
   }
 
-  void _onDragEnd(DragEndDetails details, double maxHeight) {
+  void _onDragEnd(DragEndDetails details) {
     _dragging = false;
     final velocity = details.primaryVelocity ?? 0;
     // 快速上滑/下滑优先按速度定档，否则按当前进度过半定档。
@@ -95,13 +95,11 @@ class _CalendarTaskPanelState extends State<CalendarTaskPanel> {
   }
 
   void _settle(double target) {
-    setState(() => _progress = target);
-    widget.onExpandedChanged?.call(target > 0.5);
+    widget.progress.value = target;
   }
 
   void _toggle() {
-    final target = _progress > 0.5 ? 0.0 : 1.0;
-    _settle(target);
+    _settle(_progress > 0.5 ? 0.0 : 1.0);
   }
 
   double _currentHeight(double maxHeight) {
@@ -118,80 +116,84 @@ class _CalendarTaskPanelState extends State<CalendarTaskPanel> {
         final maxHeight = constraints.maxHeight;
         final collapsed = _collapsedHeight(maxHeight);
         final expanded = _expandedHeight(maxHeight);
-        final height = collapsed + (expanded - collapsed) * _progress;
 
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: AnimatedContainer(
-            duration: _dragging
-                ? Duration.zero
-                : const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-            height: height,
-            decoration: BoxDecoration(
-              color: palette.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              boxShadow: [
-                BoxShadow(
-                  color: palette.shadow,
-                  blurRadius: 24,
-                  offset: const Offset(0, -6),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                // 把手区：拖这里改高度；点一下切换展开/收起。
-                GestureDetector(
-                  key: const ValueKey('calendar-panel-handle'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _toggle,
-                  onVerticalDragStart: (d) => _onDragStart(d, maxHeight),
-                  onVerticalDragUpdate: (d) => _onDragUpdate(d, maxHeight),
-                  onVerticalDragEnd: (d) => _onDragEnd(d, maxHeight),
-                  child: SizedBox(
-                    height: _handleAreaHeight,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: palette.divider,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ],
-                    ),
+        return ValueListenableBuilder<double>(
+          valueListenable: widget.progress,
+          builder: (context, progress, _) {
+            final height = collapsed + (expanded - collapsed) * progress;
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: AnimatedContainer(
+                duration: _dragging
+                    ? Duration.zero
+                    : const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                height: height,
+                decoration: BoxDecoration(
+                  color: palette.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.shadow,
+                      blurRadius: 24,
+                      offset: const Offset(0, -6),
+                    ),
+                  ],
                 ),
-                // 头部信息行：当前日期 + 任务数（面板自己的标题，语义闭合）。
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.headerLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: palette.textSecondary,
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    // 把手区：拖这里改高度；点一下切换展开/收起。
+                    GestureDetector(
+                      key: const ValueKey('calendar-panel-handle'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _toggle,
+                      onVerticalDragStart: (d) => _onDragStart(d, maxHeight),
+                      onVerticalDragUpdate: (d) => _onDragUpdate(d, maxHeight),
+                      onVerticalDragEnd: _onDragEnd,
+                      child: SizedBox(
+                        height: _handleAreaHeight,
+                        child: Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: palette.divider,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
                       ),
-                      if (widget.headerTrailing != null)
-                        widget.headerTrailing!,
-                    ],
-                  ),
+                    ),
+                    // 头部信息行：当前日期 + 任务数（面板自己的标题，语义闭合）。
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.headerLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: palette.textSecondary,
+                              ),
+                            ),
+                          ),
+                          if (widget.headerTrailing != null)
+                            widget.headerTrailing!,
+                        ],
+                      ),
+                    ),
+                    Expanded(child: widget.child),
+                  ],
                 ),
-                Expanded(child: widget.child),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

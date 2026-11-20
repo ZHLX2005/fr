@@ -6,12 +6,14 @@ import 'package:xiaodouzi_fr/core/calendar/presentation/calendar_page.dart';
 import 'package:xiaodouzi_fr/core/storage/calendar_store.dart';
 import 'package:xiaodouzi_fr/core/storage/sqlite/sqlite_providers.dart';
 
-/// 日历列表视图：**任务面板浮在日历之上**（参考 Lab 容器下拉面板的层级）。
+/// 日历列表视图：**任务面板浮在日历之上、默认展开**（参考 Lab 容器
+/// 下拉面板的层级：面板前景主导，日历缩为后景）。
 ///
 /// 回归点：
 ///   · 列表视图渲染出面板把手（面板在场，不是上下并列两半屏）；
-///   · 点把手面板展开 → FAB 让位（不压在面板内容上）；
-///   · 再点收起 → FAB 回来。
+///   · 默认展开态：加号 FAB 收起（不压面板内容）；
+///   · 点把手收起面板 → 日历回正景，FAB 回来；
+///   · 再点展开 → FAB 又让位。
 class _FakeRepo implements CalendarTaskRepository {
   _FakeRepo() {
     final now = DateTime.now();
@@ -75,26 +77,24 @@ Future<void> _pumpCalendar(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('列表视图：任务面板浮在日历上，把手可展开收起', (tester) async {
+  testWidgets('列表视图：面板默认展开（FAB 让位），把手可收起展开', (tester) async {
     await _pumpCalendar(tester);
 
     // 面板在场：把手可见。
     final handle = find.byKey(const ValueKey('calendar-panel-handle'));
     expect(handle, findsOneWidget);
 
-    // 收起态：FAB 在（面板还没盖住它）。
-    final fab = find.byType(FloatingActionButton);
-    expect(fab, findsNothing); // 日历用自定义 FAB 容器，不是 M3 FAB
+    // 默认展开态：加号 FAB 收起（不压面板内容）。
+    expect(find.byIcon(Icons.add), findsNothing);
+
+    // 点把手 → 收起：日历回正景，FAB 回来。
+    await tester.tap(handle);
+    await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add), findsOneWidget);
 
-    // 点把手 → 展开：FAB 让位给面板。
+    // 再点 → 展开：FAB 又让位。
     await tester.tap(handle);
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.add), findsNothing);
-
-    // 再点 → 收起：FAB 回来。
-    await tester.tap(handle);
-    await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.add), findsOneWidget);
   });
 }

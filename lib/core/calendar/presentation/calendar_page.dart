@@ -48,8 +48,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   bool _showCompleted = true;
   bool _mondayFirst = true;
 
-  /// 列表视图：任务面板是否展开（展开时 FAB 让位给面板）。
-  bool _panelExpanded = false;
+  /// 列表视图：任务面板高度进度（0 收起 / 1 展开）。**默认展开**——
+  /// 进来主内容是当天任务，日历缩为后景。
+  final ValueNotifier<double> _panelProgress = ValueNotifier<double>(1.0);
 
   bool _loading = true;
   List<CalendarTask> _tasks = const [];
@@ -73,6 +74,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _bindStorage());
+  }
+
+  @override
+  void dispose() {
+    _panelProgress.dispose();
+    super.dispose();
   }
 
   Future<void> _bindStorage() async {
@@ -544,42 +551,66 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           ],
         ),
       ),
-      floatingActionButton: _viewMode == CalendarViewMode.year ||
-              (_viewMode == CalendarViewMode.list && _panelExpanded)
+      floatingActionButton: _viewMode == CalendarViewMode.year
           ? null
-          : GestureDetector(
-              onTap: _addTask,
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: palette.accent,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: palette.accent.withValues(alpha: 0.32),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+          : ValueListenableBuilder<double>(
+              valueListenable: _panelProgress,
+              builder: (context, progress, _) {
+                // 面板展开（前景主导）时加号按钮收起，不压任务内容。
+                if (_viewMode == CalendarViewMode.list && progress > 0.5) {
+                  return const SizedBox.shrink();
+                }
+                return GestureDetector(
+                  onTap: _addTask,
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: palette.accent,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: palette.accent.withValues(alpha: 0.32),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: const Icon(Icons.add, size: 30, color: Colors.white),
-              ),
+                    child:
+                        const Icon(Icons.add, size: 30, color: Colors.white),
+                  ),
+                );
+              },
             ),
     );
   }
 
-  /// 列表视图：日历在下、任务面板浮在上（覆盖关系，见 CalendarTaskPanel）。
+  /// 列表视图：日历在后景、任务面板浮在前景（覆盖关系，见 CalendarTaskPanel）。
+  ///
+  /// 面板**默认展开**——进来主内容就是当天任务，日历缩为后景（缩放 + 上移 +
+  /// 压暗，随拖拽进度联动）；下拉把手才露出完整日历。与 Lab 容器下拉面板
+  /// 同构的层级：面板在上、主内容在后、进度驱动两态。
   Widget _buildListView(CalendarPalette palette) {
     return Stack(
       children: [
-        // 日历层：折叠月历（可展开为月视图）。面板升起时整体轻微下沉，
-        // 让「面板在上、日历在下」的层级读得出来。
+        // 日历后景层：随面板进度缩小 + 上移 + 压暗（iOS sheet 的背景语义）。
         Positioned.fill(
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: _panelPush(context),
-            ),
+          child: ValueListenableBuilder<double>(
+            valueListenable: _panelProgress,
+            builder: (context, progress, child) {
+              final scale = 1.0 - 0.07 * progress;
+              return Opacity(
+                opacity: 1.0 - 0.35 * progress,
+                child: Transform.translate(
+                  offset: Offset(0, -14 * progress),
+                  child: Transform.scale(
+                    scale: scale,
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
+                ),
+              );
+            },
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onHorizontalDragEnd: _onCalendarSwipe,
@@ -587,20 +618,16 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             ),
           ),
         ),
-        // 任务面板层：浮在日历之上。
+        // 任务前景面板：浮在日历之上，默认展开。
         Positioned.fill(
           child: CalendarTaskPanel(
             palette: palette,
+            progress: _panelProgress,
             headerLabel: _selectedDateLabel(_selectedDate),
             headerTrailing: Text(
               _tasks.isEmpty ? '暂无任务' : '${_tasks.length} 项',
               style: TextStyle(fontSize: 11, color: palette.textSecondary),
             ),
-            onExpandedChanged: (expanded) {
-              // 面板展开时收起 FAB，避免它压在面板内容上。
-              if (!mounted) return;
-              setState(() => _panelExpanded = expanded);
-            },
             child: CalendarTaskList(
               tasks: _tasks,
               loading: _loading,
@@ -616,9 +643,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       ],
     );
   }
-
-  /// 日历层随面板升起而下沉的距离（面板展开 1 的满推量）。
-  double _panelPush(BuildContext context) => _panelExpanded ? 56 : 0;
 
   Widget _buildHeader(CalendarPalette palette) {
     return Padding(
