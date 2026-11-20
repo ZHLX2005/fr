@@ -23,13 +23,13 @@ void main() {
       addTearDown(container.dispose);
       final notifier = container.read(navPinsProvider.notifier);
 
-      await notifier.setPins(['core-profile', 'core-time', 'core-lab']);
+      await notifier.setPins(['core-profile', 'core-games', 'core-lab']);
       expect(container.read(navPinsProvider).pinIds.length, 3);
 
-      await notifier.removePin('core-time');
+      await notifier.removePin('core-games');
       final next = container.read(navPinsProvider).pinIds;
       expect(next, ['core-profile', 'core-lab']);
-      expect(next.contains('core-time'), isFalse);
+      expect(next.contains('core-games'), isFalse);
     });
 
     test('删除不存在的 id 时 pinIds 不变（幂等）', () async {
@@ -37,11 +37,11 @@ void main() {
       addTearDown(container.dispose);
       final notifier = container.read(navPinsProvider.notifier);
 
-      await notifier.setPins(['core-profile', 'core-time', 'core-lab']);
+      await notifier.setPins(['core-profile', 'core-games', 'core-lab']);
       await notifier.removePin('nonexistent-id');
       expect(
         container.read(navPinsProvider).pinIds,
-        ['core-profile', 'core-time', 'core-lab'],
+        ['core-profile', 'core-games', 'core-lab'],
       );
     });
 

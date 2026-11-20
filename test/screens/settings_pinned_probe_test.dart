@@ -21,16 +21,16 @@ void main() {
     );
     await container.read(navPinsProvider.notifier).setPins([
       'core-profile',
-      'core-time',
+      'core-games',
       'core-lab',
     ]);
     await tester.pumpAndSettle();
     return container;
   }
 
-  /// 长按「Time」格 200ms 触发拖动（阈值见 kSettingsDragLongPressDelay）。
-  Future<TestGesture> startDraggingTime(WidgetTester tester) async {
-    final cell = find.text('Time');
+  /// 长按「游戏中心」格 200ms 触发拖动（阈值见 kSettingsDragLongPressDelay）。
+  Future<TestGesture> startDraggingGames(WidgetTester tester) async {
+    final cell = find.text('游戏中心');
     final gesture = await tester.startGesture(tester.getCenter(cell));
     await tester.pump(const Duration(milliseconds: 350)); // 过长按阈值
     await gesture.moveBy(const Offset(0, 200)); // 明确进入拖拽态
@@ -45,7 +45,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('个人'), findsOneWidget);
-    expect(find.text('Time'), findsOneWidget);
+    expect(find.text('游戏中心'), findsOneWidget);
     expect(find.text('实验室'), findsOneWidget);
   });
 
@@ -53,7 +53,7 @@ void main() {
     final container = await pump(tester);
     addTearDown(container.dispose);
 
-    final gesture = await startDraggingTime(tester);
+    final gesture = await startDraggingGames(tester);
     addTearDown(gesture.up);
 
     final bar = find.byKey(kSettingsTrashBarKey);
@@ -77,14 +77,14 @@ void main() {
     addTearDown(container.dispose);
     expect(container.read(navPinsProvider).pinIds, [
       'core-profile',
-      'core-time',
+      'core-games',
       'core-lab',
     ]);
 
     // 垃圾桶默认不可见
     expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
 
-    final gesture = await startDraggingTime(tester);
+    final gesture = await startDraggingGames(tester);
 
     // 拖动中屏幕底部垃圾桶投放条可见
     final trashIcon = find.byIcon(Icons.delete_outline_rounded);
@@ -116,8 +116,8 @@ void main() {
     final container = await pump(tester);
     addTearDown(container.dispose);
 
-    // 长按「Time」格，小幅拖到第一格位置（网格内换位，不触垃圾桶）
-    final cell = find.text('Time');
+    // 长按「游戏中心」格，小幅拖到第一格位置（网格内换位，不触垃圾桶）
+    final cell = find.text('游戏中心');
     final cellCenter = tester.getCenter(cell);
     final gesture = await tester.startGesture(cellCenter);
     await tester.pump(const Duration(milliseconds: 350));
@@ -128,7 +128,7 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
 
-    expect(container.read(navPinsProvider).pinIds.first, 'core-time');
+    expect(container.read(navPinsProvider).pinIds.first, 'core-games');
     // 换位路径没碰垃圾桶，列表长度不变
     expect(container.read(navPinsProvider).pinIds.length, 3);
   });

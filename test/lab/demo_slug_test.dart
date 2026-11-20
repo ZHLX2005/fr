@@ -24,7 +24,7 @@ void main() {
       // 验证：直接读 DemoPage.slug 字段值（不通过 map 查询）。
       final clock = demoRegistry.getByTitle('时钟')!;
       expect(clock.slug, 'clock');
-      final calendar = demoRegistry.getByTitle('日历待办')!;
+      final calendar = demoRegistry.getByTitle('日历')!;
       expect(calendar.slug, 'calendar');
       // 新合并的统一 demo 走 rive-demo slug，旧的 3 个 slug（rive-pendulum /
       // rive-data-bind / demo-lab）以 register(demo, key: alias) 别名形式注册。

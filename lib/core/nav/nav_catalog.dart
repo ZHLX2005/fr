@@ -18,7 +18,6 @@ import '../../screens/containers/lab_container.dart';
 import '../../screens/containers/profile_container.dart';
 import '../../screens/containers/theme_container.dart';
 import '../ui/lab/icons/main.dart';
-import '../../screens/containers/time_container.dart';
 import 'nav_builder_registry.dart';
 import 'nav_entry.dart';
 
@@ -49,14 +48,6 @@ IconData resolveDemoNavIcon(DemoPage demo) {
 List<NavEntry> buildNavCatalog() {
   final entries = <NavEntry>[
     // ── 核心 / 浏览壳 ─────────────────────────────────────────
-    NavEntry(
-      id: 'core-time',
-      title: 'Time',
-      icon: Icons.timer_outlined,
-      group: NavGroup.core,
-      subtitle: '专注',
-      builder: (_) => const FocusHomePage(),
-    ),
     NavEntry(
       id: kLabNavId,
       title: '实验室',
@@ -122,7 +113,6 @@ List<NavEntry> buildNavCatalog() {
   for (final e in demoRegistry.getAll()) {
     final demo = e.value;
     if (!seenDemos.add(demo)) continue;
-    // timePage 已并入 Focus，仍可作为独立钉选（需要时可开）
     final group = demo.type == DemoType.game ? NavGroup.game : NavGroup.lab;
     // demo 专属 SVG（Lab 图标集）；未登记的保持 null 走 Material icon
     final kind = labIconForDemoSlug(demo.slug);

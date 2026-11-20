@@ -34,10 +34,6 @@ abstract class DemoPage {
   /// 游戏类 demo 需 override 为 [DemoType.game] 以接入游戏中心。
   DemoType get type => DemoType.util;
 
-  /// 时间页：true 时在 Focus 主页显示入口，并从 Lab 列表隐藏。
-  /// 与 [type] 正交（一个 demo 可同时是 game 或 util，timePage 只决定是否进 Focus）。
-  bool get timePage => false;
-
   /// 快捷导航 / 底栏图标。null 时由 nav 目录回退：
   /// 游戏 → GameMeta.icon；其它 → DemoType 默认 icon。
   /// 与 [slug] 一样 co-located：需要独特图标时在本 demo 文件 override。
@@ -74,14 +70,6 @@ extension DemoTypeFilter on Iterable<MapEntry<String, DemoPage>> {
   /// ```
   List<MapEntry<String, DemoPage>> filterByType(DemoType t) =>
       where((e) => e.value.type == t).toList();
-}
-
-/// 过滤出标记了 [DemoPage.timePage] == true 的条目。供 Focus 主页查
-/// `demoRegistry.getAll().filterByTimePage()` 使用 —— 与 gamecenter 的
-/// `filterByType(DemoType.game)` 对称。
-extension DemoTimePageFilter on Iterable<MapEntry<String, DemoPage>> {
-  List<MapEntry<String, DemoPage>> filterByTimePage() =>
-      where((e) => e.value.timePage).toList();
 }
 
 /// Demo 注册表

@@ -11,10 +11,10 @@ import 'nav_catalog.dart';
 const _kCapacityKey = 'nav_bar_capacity';
 const _kPinsKey = 'nav_pin_ids';
 
-/// 出厂默认：个人 · Time · 实验室浏览壳（对齐旧三 Tab 主页/Time/AI 去掉 AI）。
+/// 出厂默认：个人 · 实验室浏览壳（fr 33 起 Time 核心容器退役，其模块
+/// 时钟/日历/节拍器/番茄钟/课程表以 Lab demo 身份独立钉选）。
 const kDefaultNavPins = <String>[
   'core-profile',
-  'core-time',
   'core-lab',
 ];
 

@@ -28,6 +28,8 @@ void main() {
       // （52/53 补绘后 ai-gallery、mn-ws 已转正，从本清单移除。）
       const noIconSlug = {
         'session-host', // 后增的会话托管 demo，2026-10-13 时未列入图标集
+        'focus', // 番茄钟（fr 33 从 Time 容器拆出），图标集无对应 SVG
+        'timetable', // 课程表（fr 33 从 Time 容器拆出），图标集无对应 SVG
       };
       final mainSlugs = <String>{};
       for (final entry in demoRegistry.getAll()) {

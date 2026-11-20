@@ -89,9 +89,8 @@ class _LabPageState extends ConsumerState<LabPage>
     // rive-pendulum + rive-data-bind + demo-lab 4 个 slug 指向同一实例）。
     // 按 entries 顺序保留首个 slug = 注册时最先写的主 slug。
     final seen = <DemoPage>{};
-    // 先按 timePage 标记排除时间页 demo（已在 Focus 主页展示），
-    // 再按 excludeGames 过滤游戏，最后按 demo 实例去重（保留注册时首个 slug）。
-    final all = demoRegistry.getAll().where((e) => !e.value.timePage);
+    // 按 excludeGames 过滤游戏，再按 demo 实例去重（保留注册时首个 slug）。
+    final all = demoRegistry.getAll();
     _demos = (widget.excludeGames
             ? all.where((e) => e.value.type != DemoType.game)
             : all)

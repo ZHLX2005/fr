@@ -75,8 +75,6 @@ class ClockDemo extends DemoPage {
   String get description => '时钟 · 编排 · 节拍';
   @override
   bool get preferFullScreen => true;
-  @override
-  bool get timePage => true;
 
   @override
   Widget buildPage(BuildContext context) {
