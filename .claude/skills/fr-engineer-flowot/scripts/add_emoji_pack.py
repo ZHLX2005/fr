@@ -8,13 +8,13 @@ add_emoji_pack.py —— 端到端：扫描 emoji 目录 → 上传 → 更新 K
 
 示例：
     # common 作用域（全局）
-    python add_emoji_pack.py D:/emojis/celebration celebration --scope common --name "庆祝"
+    python add_emoji_pack.py path/to/emojis/celebration celebration --scope common --name "庆祝"
 
     # 特定游戏作用域（chess 房间可见）
-    python add_emoji_pack.py D:/emojis/chess_only chess-faces --scope chess
+    python add_emoji_pack.py path/to/emojis/chess_only chess-faces --scope chess
 
     # 同 pack 重发（覆盖语义：删除旧 pack 中消失的 emoji file）
-    python add_emoji_pack.py D:/emojis/celebration celebration --scope common
+    python add_emoji_pack.py path/to/emojis/celebration celebration --scope common
 
 行为：
   1. 扫描 <source_dir>：每个 <emoji_id>.<ext> 文件 = 一个 emoji（.webp/.png/.jpg/.gif）

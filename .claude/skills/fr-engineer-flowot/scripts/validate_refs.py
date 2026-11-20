@@ -13,8 +13,8 @@
      5a. 「何时读」缺失                                                [error]
      5b. 无步骤/决策表（编号步骤、勾选清单、含步骤类标题、表格任一）   [error]
      5c. 无验证出口（验证类标题或 analyze/test/grep 等实际命令）       [error]
-  6. 绝对 Windows 路径必须位于本仓库根，陈旧外仓路径                   [error]
-     （跑全文含代码块——示例里也不该出现外仓路径；只覆盖反斜杠风格）
+  6. 绝对 Windows 路径（盘符路径，正反斜杠均查）一律拦截——零本地路径  [error]
+     （跑全文含代码块——示例里也不该出现任何机器本地路径）
   7. 单文件超过 400 行拆分阈值                                         [warning]
   8. SKILL.md 入口文件缺失                                             [error]
 
@@ -35,12 +35,11 @@ from pathlib import Path
 SKILL_DIR = Path(__file__).resolve().parent.parent
 REF_DIR = SKILL_DIR / "references"
 SKILL_ENTRY = SKILL_DIR / "SKILL.md"
-ALLOWED_ROOTS = ("D:\\DevProjects\\my\\github\\fr",)
 LINE_LIMIT = 400
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)")
 CJK_FILE_RE = re.compile(r"《([A-Z][a-z]?\d{2}[-\s][^§》《]+)》")
-WINPATH_RE = re.compile(r"[A-Za-z]:\\[^\s`》」』）)，。；:*]*")
+WINPATH_RE = re.compile(r"(?<![A-Za-z])[A-Za-z]:[\\/][^\s`》」』）)，。；:*]*")
 FRONT_NAME_RE = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 WHEN_READ_RE = re.compile(r"何时读")
@@ -82,15 +81,6 @@ def prose(text: str) -> str:
     return re.sub(r"`[^`\n]+`", "", "\n".join(kept))
 
 
-def in_allowed_roots(winpath: str) -> bool:
-    """前缀匹配但要求路径边界：D:\\...\\fr-backup 不得冒充本仓。"""
-    upper = winpath.upper()
-    return any(
-        upper == root_upper or upper.startswith(root_upper + "\\")
-        for root_upper in (root.upper() for root in ALLOWED_ROOTS)
-    )
-
-
 def check_wikilinks(text: str, path: Path, known: set[str], errors: list[str]) -> None:
     for target in WIKILINK_RE.findall(text):
         name = target.strip()
@@ -105,9 +95,9 @@ def check_cjk_refs(text: str, path: Path, known: set[str], errors: list[str]) ->
 
 
 def check_winpaths(text: str, path: Path, errors: list[str]) -> None:
+    """零本地路径：任何盘符绝对路径（正反斜杠）都不允许出现在文档中。"""
     for winpath in WINPATH_RE.findall(text):
-        if not in_allowed_roots(winpath):
-            errors.append(f"{path.name}: 非本仓绝对路径 {winpath}")
+        errors.append(f"{path.name}: 绝对路径 {winpath}")
 
 
 def has_sop_body(text: str) -> bool:

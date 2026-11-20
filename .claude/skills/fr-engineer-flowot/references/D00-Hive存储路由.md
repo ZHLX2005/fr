@@ -5,7 +5,7 @@ description: FR Hive 持久化架构与新模块接入入口。新增本地存�
 
 # D00 — Hive 存储与 repository 路由
 
-> 适用范围：仅适用于 `D:\DevProjects\my\github\fr`。当前实现真实路径在 `lib/core/storage/`。
+> 适用范围：仅适用于 FR 项目。当前实现真实路径在 `lib/core/storage/`。
 
 ## 核心原则
 

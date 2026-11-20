@@ -5,7 +5,7 @@ description: FR 新建 Hive 持久化模块的分步 checklist——数据模型
 
 # D03 — 创建 FR Hive 持久化模块 Checklist
 
-> **适用范围**：仅适用于 `D:\DevProjects\my\github\fr`。新增本地持久化 feature 时配合 [[D00-Hive存储路由]]、[[D01-Hive存储工作流与排障]] 和 [[D02-Hive-BoxDescriptor注册制]] 使用。
+> **适用范围**：仅适用于 FR 项目。新增本地持久化 feature 时配合 [[D00-Hive存储路由]]、[[D01-Hive存储工作流与排障]] 和 [[D02-Hive-BoxDescriptor注册制]] 使用。
 >
 > **架构红线**：Hive 是实现细节。业务 UI 只调用领域 repository API，不接触 Hive 全局 API，不持有 Box 句柄。
 >

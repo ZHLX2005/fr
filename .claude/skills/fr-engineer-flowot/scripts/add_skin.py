@@ -7,9 +7,9 @@ add_skin.py —— 端到端：压缩 → 上传 → 更新 KV 一站式脚本�
     python add_skin.py <source_dir> <skin_id> [--name <display_name>] [--game <gameId>]
 
 示例：
-    python add_skin.py "D:/DevProjects/my/test/image/3/8" 8
-    python add_skin.py "D:/skins/neo" neo --name "霓虹"
-    python add_skin.py "D:/skins/gomoku_ink" ink --game gomoku --name "水墨"
+    python add_skin.py "path/to/images/3/8" 8
+    python add_skin.py "path/to/skins/neo" neo --name "霓虹"
+    python add_skin.py "path/to/skins/gomoku_ink" ink --game gomoku --name "水墨"
 
 行为：
   1. 可选：Pillow 压缩 PNG（paletted + max compression）→ tmp 文件

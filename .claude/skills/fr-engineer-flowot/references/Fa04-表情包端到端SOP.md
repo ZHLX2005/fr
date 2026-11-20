@@ -112,11 +112,11 @@ EmojiBundle.forGame(gameId) 流程:
 kvcli auth login
 
 # 1) 准备 emoji 目录：每个表情一个文件，文件名 = emojiId + 扩展名
-mkdir -p D:/emojis/celebration
+mkdir -p path/to/emojis/celebration
 # 文件示例：
-#   D:/emojis/celebration/thumbs-up.webp
-#   D:/emojis/celebration/happy.webp
-#   D:/emojis/celebration/heart.webp
+#   path/to/emojis/celebration/thumbs-up.webp
+#   path/to/emojis/celebration/happy.webp
+#   path/to/emojis/celebration/heart.webp
 ```
 
 文件命名约定：`<filename>` 的 stem（去掉扩展名）即 emoji id。允许的扩展名：`.webp / .png / .jpg / .jpeg / .gif`。
@@ -126,17 +126,17 @@ mkdir -p D:/emojis/celebration
 ```bash
 # common 作用域
 python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py \
-    D:/emojis/celebration celebration \
+    path/to/emojis/celebration celebration \
     --scope common --name "庆祝"
 
 # 游戏作用域
 python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py \
-    D:/emojis/chess_only chess-faces \
+    path/to/emojis/chess_only chess-faces \
     --scope chess
 
 # 同 pack 重发（覆盖：删除旧 emoji id 不再上传的 file）
 python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py \
-    D:/emojis/celebration celebration --scope common
+    path/to/emojis/celebration celebration --scope common
 ```
 
 脚本行为：

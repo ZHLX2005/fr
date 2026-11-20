@@ -62,7 +62,7 @@ description: 外部游戏资源五条线（chess/gomoku/game-center/line/emoji�
 ### 2.2 端到端
 
 ```bash
-python .claude/skills/fr-engineer-flowot/scripts/add_skin.py D:/skins/neo neo
+python .claude/skills/fr-engineer-flowot/scripts/add_skin.py path/to/skins/neo neo
 # 可选：--name "霓虹" 自定义 displayName
 ```
 
@@ -127,7 +127,7 @@ python .claude/skills/fr-engineer-flowot/scripts/retag_existing.py
 ### 3.2 端到端
 
 ```bash
-python .claude/skills/fr-engineer-flowot/scripts/add_skin.py D:/skins/ink ink --game gomoku --name "水墨"
+python .claude/skills/fr-engineer-flowot/scripts/add_skin.py path/to/skins/ink ink --game gomoku --name "水墨"
 ```
 
 脚本自动：上传 3 张（或 2 张，无 board）→ 拉旧 `gomoku_skin:index` → 合并 → 写回（`tags=['gomoku-skin']`）→ 验证 → 清理孤儿。
@@ -154,7 +154,7 @@ python .claude/skills/fr-engineer-flowot/scripts/add_skin.py D:/skins/ink ink --
 ### 4.2 端到端
 
 ```bash
-python .claude/skills/fr-engineer-flowot/scripts/add_skin.py D:/covers/gomoku gomoku-lua --game game-center --name "五子棋（联机）"
+python .claude/skills/fr-engineer-flowot/scripts/add_skin.py path/to/covers/gomoku gomoku-lua --game game-center --name "五子棋（联机）"
 ```
 
 发布后重启 app 进游戏中心即可看到新封面；换图只需重传同 slug（version+1）。
@@ -214,13 +214,13 @@ python .claude/skills/fr-engineer-flowot/scripts/migrate_line_from_supabase.py
 
 ```bash
 # common 作用域（全局）
-python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common --name "庆祝"
+python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py path/to/emojis/celebration celebration --scope common --name "庆祝"
 
 # 游戏作用域（如 chess）
-python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py D:/emojis/chess_only chess-faces --scope chess
+python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py path/to/emojis/chess_only chess-faces --scope chess
 
 # 重发覆盖
-python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py D:/emojis/celebration celebration --scope common
+python .claude/skills/fr-engineer-flowot/scripts/add_emoji_pack.py path/to/emojis/celebration celebration --scope common
 ```
 
 文件命名约定见 [[Fa04-表情包端到端SOP]] §3。客户端验证：进对应游戏的房间 → 点表情按钮 → 新表情出现。

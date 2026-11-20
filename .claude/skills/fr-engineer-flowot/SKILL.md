@@ -1,14 +1,14 @@
 ---
 name: fr-engineer-flowot
-description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、组件复用与组件分层决策、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 与横切 V 序列路由到对应 SOP。仅适用于 D:\DevProjects\my\github\fr。
+description: FR 项目级 Flutter 工程总入口。涉及 FR 模块开发、Lab/游戏中心/Chat、fr:// 路由、API、RelayLua、Hive 仓库与存储、统一 UI/主题、组件复用与组件分层决策、外部资源/皮肤资产、Android 原生组件或 Oboe 音频时加载；先按 A–H 与横切 V 序列路由到对应 SOP。仅适用于 FR 项目。
 metadata:
-  author: joke-lx
+  author: joke-lx, flowot
   tags: [flutter, android, relay-lua, hive, ui]
 ---
 
 # FR Engineer Flow — 工程总入口
 
-> **适用范围**：仅适用于 `D:\DevProjects\my\github\fr`。本文档只做工程原则和 A–H 与横切 V 路由；操作细节在 `references/`。
+> **适用范围**：仅适用于 FR 项目（本仓库）。本文档只做工程原则和 A–H 与横切 V 路由；操作细节在 `references/`。
 >
 > 每项内容以 FR 当前实现为准，不能仅凭旧 skill 或历史示例推断。遇到文档和代码冲突时先核实真实实现，再更新文档。
 
@@ -50,7 +50,7 @@ metadata:
 
 | Script | Purpose | Arguments |
 |---|---|---|
-| `scripts/validate_refs.py` | `references/` 文档完整性自检：断链 wikilink 与《》跨序列引用、frontmatter name 不符、陈旧外仓绝对路径 | 无位置参数；退出码 0=通过（允许 warning），1=有 error |
+| `scripts/validate_refs.py` | `references/` 文档完整性自检：断链 wikilink 与《》跨序列引用、frontmatter name 不符、绝对路径（零容忍） | 无位置参数；退出码 0=通过（允许 warning），1=有 error |
 
 调用方式：支持 `run_script` 的 harness 直接 `run_script("scripts/validate_refs.py")`；Claude Code 环境用 Bash 执行 `python .claude/skills/fr-engineer-flowot/scripts/validate_refs.py`。检查范围与拦截级别详见下方维护规则的「自检闸门」。
 
@@ -65,4 +65,4 @@ metadata:
 - **治理史不进 skill**：落地记录、审计快照、阶段史归档到 `docs/architecture/` 与 `plan/`，册内只留指针与活清单。
 - **单一事实源**：一条规则只在一处写正文，其余位置一律一行指针；新增约束前先找它的属主页，不在第二处复写正文（速记区只留红线摘要，正文以指针目标为准）。
 - **三段式准入**：成员 ref 必须满足「何时读 + 步骤或决策表 + 验证出口」三段式（`00` 路由页豁免后两段——动线表即其决策表）；教程叙述与治理史不合此形态，写进 `docs/` 不进 `references/`。三段由自检闸门按 error 级强制。
-- **自检闸门**：改动 `references/` 后运行 `python .claude/skills/fr-engineer-flowot/scripts/validate_refs.py`——断链 wikilink 与《》跨序列引用、frontmatter name 不符、陈旧外仓绝对路径、三段式缺段会被拦（error 即退出码 1）；缺 frontmatter、超 400 行只记 warning（存量欠账容忍）。
+- **自检闸门**：改动 `references/` 后运行 `python .claude/skills/fr-engineer-flowot/scripts/validate_refs.py`——断链 wikilink 与《》跨序列引用、frontmatter name 不符、绝对路径、三段式缺段会被拦（error 即退出码 1）；缺 frontmatter、超 400 行只记 warning（存量欠账容忍）。
