@@ -188,15 +188,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--stage-tea);outl
 .m-cell.sel .d{color:var(--p-tea);font-weight:700}
 .m-cell.today.sel .d{color:var(--p-cinn)}
 .m-cell.today.sel .sub{color:var(--p-cinn)}
-.m-handle{flex:none;height:36px;display:grid;place-items:center;cursor:pointer;color:var(--p-ink3);touch-action:none}
+.m-handle{flex:none;height:36px;display:grid;place-items:center;cursor:grab;color:var(--p-ink3);touch-action:none}
 
 /* 任务面板 */
 .p-panel{
   flex:1;min-height:0;background:var(--p-surface);border-radius:24px 24px 0 0;
-  box-shadow:0 -6px 24px var(--p-shadow);display:flex;flex-direction:column;overflow:hidden;
+  display:flex;flex-direction:column;overflow:hidden;
   margin:0 -16px;padding:0 16px;
 }
-.pp-head{flex:none;padding:12px 4px 8px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.pp-head{flex:none;padding:12px 4px 8px;display:flex;align-items:baseline;justify-content:space-between;gap:8px;cursor:grab;touch-action:none}
 .pp-head .pp-date{font-size:16px;font-weight:700;color:var(--p-ink)}
 .pp-head .pp-week{font-size:12px;color:var(--p-ink2);margin-left:6px;font-weight:400}
 .pp-head .pp-count{font-size:11px;color:var(--p-ink3)}
@@ -477,9 +477,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--stage-tea);outl
       <h2>交互速查</h2>
       <table class="note-table">
         <tr><td>胶囊点按</td><td>页签弹簧切换，指示条微回弹</td></tr>
-        <tr><td>月历纵向拖拽</td><td>收起 ⇄ 展开，跟手 + 两端阻力</td></tr>
+        <tr><td>月历 / 面板拖拽</td><td>上拖收起月历 / 下拖展开（跟手 + 阻力 + 松手吸附）</td></tr>
         <tr><td>月历横向滑动</td><td>翻月（速度感知 + 动量投射）</td></tr>
-        <tr><td>把手 / 箭头点按</td><td>收起 / 展开切换</td></tr>
+        <tr><td>抓手 / 面板头部点按</td><td>收起 / 展开切换</td></tr>
         <tr><td>周条横向滑动</td><td>翻周（周 / 日页共用）</td></tr>
         <tr><td>时间轴 / 列表拖拽</td><td>滚动，两端 iOS 阻力 + 惯性回弹</td></tr>
         <tr><td>右下 ＋</td><td>新建日程（抓手下拉可关）</td></tr>
@@ -1632,6 +1632,48 @@ function carCommit(velPxMs){
 }
 /* 跟手吸附弹簧：通知栏 demo 同参（k=205 c=29） */
 const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse(); });
+/* 松手收尾：动量投射 130ms → 最近档（月历网格与面板抓手共用；上拖=收起 / 下拖=展开） */
+function collapseFinish(vPxMs){
+  const range = Math.max(1,mH-ROW_H);
+  const proj = collapseRaw + vPxMs*130/range;
+  colP.set(collapseRaw);
+  colP.to(proj>0.5 ? 1 : 0, vPxMs*1000/range);
+}
+/* 面板抓手 / 头部拖拽：1:1 跟手 + 两端阻力 + 松手自动吸附；返回「是否消费了本次 click」 */
+function bindCollapseDrag(el){
+  const vel = new Vel();
+  let pid = null, y0 = 0, base = 0, moved = false;
+  el.addEventListener('pointerdown',e=>{
+    if(pid!==null) return;
+    pid = e.pointerId; el.setPointerCapture(pid);
+    y0 = e.clientY; base = collapseRaw; moved = false;
+    vel.down(e.clientY);
+    colP.set(collapseRaw);
+    if(!carS.settled) carS.jump(carS.target);
+  });
+  el.addEventListener('pointermove',e=>{
+    if(e.pointerId!==pid) return;
+    vel.move(e.clientY);
+    const dy = e.clientY-y0;
+    if(!moved && Math.abs(dy)>4) moved = true;
+    if(!moved) return;
+    const range = Math.max(1,mH-ROW_H);
+    const drive = dy>0 ? dy-4 : dy+4;            // 4px 死区
+    collapseRaw = base + drive/range;            // 上拖（dy<0）= 收起
+    colP.set(collapseRaw);
+  });
+  const up = e=>{
+    if(e.pointerId!==pid) return;
+    pid = null;
+    if(!moved) return;
+    collapseFinish(vel.get());
+  };
+  el.addEventListener('pointerup',up);
+  el.addEventListener('pointercancel',up);
+  return ()=>{ if(moved){ moved = false; return true; } return false; };
+}
+const handleConsumeDrag = bindCollapseDrag($('#mHandle'));
+bindCollapseDrag($('.pp-head'));
 
 /* 月区手势：轴向锁定 —— 纵向=收起/展开（4px 死区），横向=翻月 */
 {
@@ -1656,7 +1698,7 @@ const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse(); });
     if(axis === 'v'){
       const range = Math.max(1,mH-ROW_H);
       const drive = dy>0 ? dy-4 : dy+4;          // 4px 死区
-      collapseRaw = base - drive/range;          // 向下拖 = 收起
+      collapseRaw = base + drive/range;          // 上拖=收起 / 下拖=展开（与面板抓手同向）
       colP.set(collapseRaw);                     // 1:1 跟手
     }else{
       const W = mArea.clientWidth||358;
@@ -1674,10 +1716,7 @@ const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse(); });
       if(car.pending && (proj>0.5 || Math.abs(v)>0.35)) carCommit(v);
       else{ car.dragging = false; carS.set(carS.x); carS.to(0); }
     }else{
-      const range = Math.max(1,mH-ROW_H);
-      const proj = collapseRaw - v*130/range;
-      colP.set(collapseRaw);
-      colP.to(proj>0.5 ? 1 : 0, -v*1000/range);
+      collapseFinish(v);
     }
   };
   mArea.addEventListener('pointerup',finish);
@@ -1691,6 +1730,7 @@ const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse(); });
   },true);
 }
 $('#mHandle').addEventListener('click',()=>{
+  if(handleConsumeDrag()) return;               // 拖拽结束后的 click 不触发切换
   colP.set(collapseRaw);
   colP.to(clamp01(collapseRaw)>0.5 ? 0 : 1);
 });
