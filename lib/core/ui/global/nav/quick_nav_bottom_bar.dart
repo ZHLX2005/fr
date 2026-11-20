@@ -62,6 +62,15 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
   static const double _barH = QuickNavBottomBar.barHeight;
   static const double _capsuleH = 48;
 
+  // 外壳宽度自适应（#31）：左右边距两档——默认 28（与旧版一致的最小宽），
+  // 槽多放不下时收窄到 16（外壳稍增宽的最大宽）。
+  static const double _minHMargin = 28;
+  static const double _maxHMargin = 16;
+
+  /// 每槽目标宽度：槽数 × 62 超过最小宽，外壳才向最大宽扩；
+  /// 3/4 槽永远落在最小宽（现状观感不变），6 槽窄屏也保证单槽 ≥ ~55。
+  static const double _targetSlotW = 62;
+
   late final AnimationController _ctrl;
   late final CurvedAnimation _curve;
   int _prev = 0;
@@ -143,13 +152,21 @@ class _QuickNavBottomBarState extends State<QuickNavBottomBar>
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final n = _slotCount;
 
+    // 外壳宽 = 槽数需求宽夹在 [最小宽, 最大宽]：3/4 槽取最小宽（屏宽 − 56，
+    // 与旧版一致），5/6 槽按需向最大宽（屏宽 − 32）扩，槽宽不致过挤。
+    final screenW = MediaQuery.sizeOf(context).width;
+    final shellW = (n * _targetSlotW).clamp(
+      screenW - _minHMargin * 2,
+      screenW - _maxHMargin * 2,
+    );
+
     return SizedBox(
       height: _barH + bottomInset + QuickNavBottomBar.barBottomGap,
       child: Align(
         alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          // 胶囊外壳本身；外层 SizedBox 无背景，避免矩形父容器铺色。
+        // 胶囊外壳本身；外层 SizedBox 无背景，避免矩形父容器铺色。
+        child: SizedBox(
+          width: shellW,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(_barH / 2),
             child: BackdropFilter(

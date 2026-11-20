@@ -72,6 +72,9 @@ class NavPinsNotifier extends Notifier<NavPinsState> {
     return const NavPinsState(capacity: 4, pinIds: kDefaultNavPins);
   }
 
+  /// 容量档位（含末位 ⋯ 槽）：设置页选择器与两处校验共用（#31 起最大 6）。
+  static const List<int> kCapacityChoices = [3, 4, 5, 6];
+
   /// main() runApp 前调用一次。
   Future<void> hydrate() async {
     final prefs = await SharedPreferences.getInstance();
@@ -81,7 +84,7 @@ class NavPinsNotifier extends Notifier<NavPinsState> {
       (pins == null || pins.isEmpty) ? kDefaultNavPins : pins,
     );
     state = NavPinsState(
-      capacity: (cap == 3 || cap == 4 || cap == 5) ? cap! : 4,
+      capacity: kCapacityChoices.contains(cap) ? cap! : 4,
       pinIds: cleaned,
     );
     // 若消毒改写了列表，落盘一次
@@ -101,7 +104,7 @@ class NavPinsNotifier extends Notifier<NavPinsState> {
   }
 
   Future<void> setCapacity(int capacity) async {
-    if (capacity != 3 && capacity != 4 && capacity != 5) return;
+    if (!kCapacityChoices.contains(capacity)) return;
     if (state.capacity == capacity) return;
     state = state.copyWith(capacity: capacity);
     final prefs = await SharedPreferences.getInstance();

@@ -280,10 +280,10 @@ class _GeneralCard extends StatelessWidget {
                     return cs.surfaceContainerHighest;
                   }),
                 ),
-                segments: const [
-                  ButtonSegment(value: 3, label: Text('3')),
-                  ButtonSegment(value: 4, label: Text('4')),
-                  ButtonSegment(value: 5, label: Text('5')),
+                // 档位与校验同源（NavPinsNotifier.kCapacityChoices，3–6）
+                segments: [
+                  for (final c in NavPinsNotifier.kCapacityChoices)
+                    ButtonSegment(value: c, label: Text('$c')),
                 ],
                 selected: {capacity},
                 onSelectionChanged: (s) => onCapacity(s.first),
