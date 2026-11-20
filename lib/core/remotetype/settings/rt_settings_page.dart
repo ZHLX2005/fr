@@ -1,6 +1,8 @@
 // lib/core/remotetype/settings/rt_settings_page.dart
 //
 // 远程输入设置页：RT 的「编排」与偏好落点。
+// 页面骨架 = SettingsPageScaffold 家族（无边框色块配方）的规范样板，
+// 组件本体在 lib/core/ui/global/settings/main.dart。
 //
 // 布局区 = 一张大卡（RtLayoutsCard，见 rt_layouts_card.dart）：
 //   · 上栏「竖屏」组、下栏「横屏」组，两组各自独立管理——点行切激活、
@@ -28,7 +30,7 @@ import '../data/rt_layout_ops.dart'
         rtLayoutsResetBuiltin;
 import '../data/rt_prefs.dart';
 import '../ui/rt_shortcut_bar.dart' show showRtShortcutListEditor;
-import '../../../core/ui/global/nav/main.dart';
+import '../../../core/ui/global/settings/main.dart';
 import '../ble/rt_ble_mouse_page.dart';
 import 'rt_layouts_card.dart';
 import 'rt_new_layout_row.dart';
@@ -176,153 +178,89 @@ class _RtSettingsPageState extends State<RtSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final cs = c.scheme;
+    final cs = context.colors.scheme;
     final isEnter = _enterMode == 'enter';
-    return Scaffold(
-      // 规范导航样板：AppNavBar.standard（返回 + 左对齐标题）。
-      appBar: const AppNavBar.standard(title: '远程输入设置'),
-      // 灰底画布：与卡面 surface 靠明度分层（对齐 app 设置页配方，不用投影）。
-      backgroundColor: cs.surfaceContainerHighest,
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          const _SectionHeader('布局'),
-          RtLayoutsCard(
-            layouts: _layouts,
-            canEditOnCanvas: widget.onEditCanvasLayout != null,
-            onSwitch: (orient, id) =>
-                _saveLayouts(_layouts.withActiveFor(orient, id)),
-            onReorder: (orient, oldIndex, newIndex) => _saveLayouts(
-              rtLayoutsReorder(_layouts, orient, oldIndex, newIndex),
-            ),
-            onEditOnCanvas: widget.onEditCanvasLayout == null
-                ? null
-                : _editOnCanvas,
-            onResetBuiltin: (id) =>
-                _saveLayouts(rtLayoutsResetBuiltin(_layouts, id)),
-            onRename: (id, name) => _saveLayouts(rtLayoutsRename(_layouts, id, name)),
-            onDelete: (id) => _saveLayouts(rtLayoutsDeleteCustom(_layouts, id)),
+    // 规范样板 = SettingsPageScaffold 家族（无边框色块配方，见
+    // core/ui/global/settings/main.dart；本页即该配方的出处）。
+    return SettingsPageScaffold(
+      title: '远程输入设置',
+      children: [
+        const SettingsSectionHeader('布局'),
+        RtLayoutsCard(
+          layouts: _layouts,
+          canEditOnCanvas: widget.onEditCanvasLayout != null,
+          onSwitch: (orient, id) =>
+              _saveLayouts(_layouts.withActiveFor(orient, id)),
+          onReorder: (orient, oldIndex, newIndex) => _saveLayouts(
+            rtLayoutsReorder(_layouts, orient, oldIndex, newIndex),
           ),
-          RtNewLayoutRow(
-            onCreate: (orient) =>
-                _saveLayouts(rtLayoutsCopyToCustom(_layouts, orient)),
-          ),
-          const _SectionHeader('输入'),
-          _PrefCard(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.keyboard_return),
-                title: const Text('回车行为'),
-                subtitle: Text(isEnter ? '发送（普通 Enter）' : '换行（Shift+Enter）'),
-                trailing: Icon(Icons.swap_horiz, color: cs.primary),
-                onTap: _toggleEnterMode,
-              ),
-              const _CardSeparator(),
-              ListTile(
-                leading: const Icon(Icons.content_paste_go),
-                title: const Text('发送后自动粘贴'),
-                subtitle: Text(
-                  _autoPaste
-                      ? '开——送达剪贴板 ${(kRtAutoPasteDelay.inMilliseconds / 1000).toStringAsFixed(1)}s 后'
-                          '自动发 Ctrl+V，贴进电脑当前焦点窗口'
-                      : '关——到剪贴板为止，在电脑上手动 Ctrl+V',
-                ),
-                trailing: Switch(value: _autoPaste, onChanged: (_) => _toggleAutoPaste()),
-              ),
-            ],
-          ),
-          const _SectionHeader('蓝牙鼠标'),
-          _PrefCard(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.mouse),
-                title: const Text('蓝牙鼠标'),
-                subtitle: const Text('连上物理鼠标，用它远程操作这台电脑'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showRtBleMousePage(context),
-              ),
-            ],
-          ),
-          const _SectionHeader('其他'),
-          _PrefCard(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.speed),
-                title: const Text('触摸板灵敏度'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openSensitivity,
-              ),
-              const _CardSeparator(),
-              ListTile(
-                leading: const Icon(Icons.playlist_add),
-                title: const Text('编辑快捷键'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _editShortcuts,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 偏好白卡：把偏好行归进卡片（对齐 app 设置页 _GeneralCard 的做法——
-/// 灰底画布 + 卡面 surface，靠明度分层，不用投影/描边）。
-class _PrefCard extends StatelessWidget {
-  const _PrefCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colors.scheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      child: Material(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: Column(mainAxisSize: MainAxisSize.min, children: children),
-      ),
-    );
-  }
-}
-
-/// 白卡内两行之间的细分隔（缩进对齐行文本）。
-class _CardSeparator extends StatelessWidget {
-  const _CardSeparator();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = context.colors.scheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Divider(height: 1, thickness: 1, color: cs.surfaceContainerHighest),
-    );
-  }
-}
-
-/// 分区标题（与模块页同款观感）。
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: c.textMuted,
+          onEditOnCanvas: widget.onEditCanvasLayout == null
+              ? null
+              : _editOnCanvas,
+          onResetBuiltin: (id) =>
+              _saveLayouts(rtLayoutsResetBuiltin(_layouts, id)),
+          onRename: (id, name) => _saveLayouts(rtLayoutsRename(_layouts, id, name)),
+          onDelete: (id) => _saveLayouts(rtLayoutsDeleteCustom(_layouts, id)),
         ),
-      ),
+        RtNewLayoutRow(
+          onCreate: (orient) =>
+              _saveLayouts(rtLayoutsCopyToCustom(_layouts, orient)),
+        ),
+        const SettingsSectionHeader('输入'),
+        SettingsCard(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.keyboard_return),
+              title: const Text('回车行为'),
+              subtitle: Text(isEnter ? '发送（普通 Enter）' : '换行（Shift+Enter）'),
+              trailing: Icon(Icons.swap_horiz, color: cs.primary),
+              onTap: _toggleEnterMode,
+            ),
+            const SettingsCardSeparator(),
+            ListTile(
+              leading: const Icon(Icons.content_paste_go),
+              title: const Text('发送后自动粘贴'),
+              subtitle: Text(
+                _autoPaste
+                    ? '开——送达剪贴板 ${(kRtAutoPasteDelay.inMilliseconds / 1000).toStringAsFixed(1)}s 后'
+                        '自动发 Ctrl+V，贴进电脑当前焦点窗口'
+                    : '关——到剪贴板为止，在电脑上手动 Ctrl+V',
+              ),
+              trailing: Switch(value: _autoPaste, onChanged: (_) => _toggleAutoPaste()),
+            ),
+          ],
+        ),
+        const SettingsSectionHeader('蓝牙鼠标'),
+        SettingsCard(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.mouse),
+              title: const Text('蓝牙鼠标'),
+              subtitle: const Text('连上物理鼠标，用它远程操作这台电脑'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showRtBleMousePage(context),
+            ),
+          ],
+        ),
+        const SettingsSectionHeader('其他'),
+        SettingsCard(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.speed),
+              title: const Text('触摸板灵敏度'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openSensitivity,
+            ),
+            const SettingsCardSeparator(),
+            ListTile(
+              leading: const Icon(Icons.playlist_add),
+              title: const Text('编辑快捷键'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _editShortcuts,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

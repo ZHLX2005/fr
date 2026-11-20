@@ -30,6 +30,13 @@
 - **N7**：`game/chat` 1030 行与 image_picker 555 行拆分；确认 `BaseButton` 已被采用、保留（b8b5c64e）。
 - 每轮闸门：`flutter analyze lib` 新增 error/warning = 0（存量 152 issues / 6 warnings）；`flutter test` 不新增失败（基线 +1266 ~3 -10 为环境项）。
 
+### 设置页骨架统一（2026-11-20）
+
+- rt 设置页的「无边框色块」配方抽离为 **`SettingsPageScaffold` 家族**（`lib/core/ui/global/settings/main.dart`）：壳（灰底画布 `surfaceContainerHighest` + `AppNavBar.standard` + ListView）+ `SettingsSectionHeader`（卡外分区标题）+ `SettingsCard`（surface 圆角 16 白卡，可选内边距）+ `SettingsCardSeparator`（缩进 16 细线）。层次靠明度差，无投影无描边；配方出处 = app 设置页 `_GeneralCard`，App 自身设置不消费。
+- **9 个 demo 设置页迁移**：rt（样板自身，删私有三件）、mnws（弃 `MnWsBlock` 边框分块，该件保留给首页/请求台）、AI 图库、block 编辑器 AI、AI 聊天、pi 聊天、LAN 网络（壳走 body 模式 + 内部列表重排）、课表设置、课表高级设置（后两页从 `zenPageScaffold`+`BaseSection` 切到标准骨架，卡内 zen 控件保留——取色走主题通道，暗色自适应已核）。
+- **有意不改**：棋盘皮肤选择器（宽窄双栏预览选择器形态）、音游调速台（全出血预览调参形态）——非设置列表页，套配方需另起设计任务；`calendar_settings_sheet` 是 sheet 不是页面。
+- 验证：`flutter analyze` 0 新增问题；`build_runner` 无生成 diff；golden 截图核过 rt 样板（cobalt）、课表设置（cobalt）、课表高级（dark）。
+
 ### nav 无 title 版收编（2026-11-20）
 
 - 远程操作页手写的共享头部（返回小圆钮 + 布局胶囊 + 重连）抽离为 **`AppNavBar.compact`**——nav 家族第 4 变体、无 title 版规范样板：SafeArea + `fromLTRB(16,6,16,0)` + Row（小玻璃返回钮 32/18 + 8 + 可选插槽 + Spacer + 操作钮间距 6）。**与 floating 的返回契约不同**：compact 不做 `navCanPop` 闸门（样板场景 rt 的返回是页内状态切换，钉选根页也必须显示），显示与否完全由调用方传不传 `onBack` 决定；操作钮规格档 `kCompactNavControlSize/IconSize`（32/18）随组件导出。

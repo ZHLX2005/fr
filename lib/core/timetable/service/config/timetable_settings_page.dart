@@ -11,7 +11,7 @@ import 'timetable_anime_import_dialog.dart';
 import 'timetable_week_calculator.dart';
 import 'advanced/shared/zen_controls.dart';
 import '../../../../core/ui/global/zen/main.dart';
-import '../../../../core/ui/global/section/main.dart';
+import '../../../../core/ui/global/settings/main.dart';
 import '../../../../core/ui/global/notification/main.dart';
 
 /// 课表设置页 —— 第一层：模式选择 + 起始日期 UX + 数据来源预设。
@@ -131,137 +131,140 @@ class _TimetableSettingsPageState
 
   @override
   Widget build(BuildContext context) {
-    return zenPageScaffold(
-      context: context,
-  title: '时间配置',
+    // 设置页骨架配方（SettingsPageScaffold 家族，灰底画布 + 卡面 surface）；
+    // 卡内的模式分段 / 动作行沿用课表域的 zen 控件（取色走主题通道）。
+    return SettingsPageScaffold(
+      title: '时间配置',
       actions: [
         IconButton(
-          icon: Icon(Icons.save),
+          icon: const Icon(Icons.save),
           tooltip: '保存',
           onPressed: _save,
         ),
       ],
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ── 模式选择（第一层）──
-          BaseSection(
-            title: '课表模式',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildModeSelector(),
-                const SizedBox(height: 8),
-                Text(
-                  _isAnimeMode
-                      ? '追剧模式：剧模型驱动，行列周期自动计算'
-                      : (_isSchoolMode
-                            ? '学校模式：周一为起始日期，7天固定'
-                            : '通用模式：自由配置，默认一周7天·每天5节·20周期'),
-                  style: ZenText.label.copyWith(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // ── 起始日期（课表模式 UX 自动化，不在高级设置内）──
-          if (!_isAnimeMode) ...[
-            BaseSection(
-              title: '起始日期',
-              child: _buildDateField(),
-            ),
-            const SizedBox(height: 12),
-          ],
-          // ── 数据来源（第一层预设）──
-          _buildDataSourceSection(),
-          const SizedBox(height: 12),
-          // ── 高级设置入口（独立页面承载非常用配置）──
-          BaseSection(
-            title: '高级设置',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ZenActionButton(
-                  icon: Icons.tune,
-                  label: '打开高级设置（周期/日期/左侧指示/DSL）',
-                  onPressed: _openAdvanced,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDataSourceSection() {
-    if (_isAnimeMode) {
-      // 追剧模式：排期编辑（主）+ API 导入（辅助）
-      return BaseSection(
-        title: '数据来源',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── 模式选择（第一层）──
+        const SettingsSectionHeader('课表模式'),
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           children: [
-            ZenActionButton(
-              icon: Icons.schedule,
-              label: '打开排期编辑（剧模型 CRUD）',
-              onPressed: _openAnimeEditor,
-            ),
-            const SizedBox(height: 8),
-            ZenActionButton(
-              icon: Icons.movie_outlined,
-              label: '从开放 API 导入番剧',
-              onPressed: _openAnimeImport,
-              secondary: true,
-            ),
+            _buildModeSelector(),
             const SizedBox(height: 8),
             Text(
-              '剧变更后自动重算课表，无需手动生成 DSL',
-              style: ZenText.label.copyWith(fontSize: 11),
+              _isAnimeMode
+                  ? '追剧模式：剧模型驱动，行列周期自动计算'
+                  : (_isSchoolMode
+                        ? '学校模式：周一为起始日期，7天固定'
+                        : '通用模式：自由配置，默认一周7天·每天5节·20周期'),
+              style: ZenText.label.copyWith(fontSize: 12),
             ),
           ],
         ),
+        // ── 起始日期（课表模式 UX 自动化，不在高级设置内）──
+        if (!_isAnimeMode) ...[
+          const SettingsSectionHeader('起始日期'),
+          SettingsCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            children: [_buildDateField()],
+          ),
+        ],
+        // ── 数据来源（第一层预设）──
+        _buildDataSourceSection(),
+        // ── 高级设置入口（独立页面承载非常用配置）──
+        const SettingsSectionHeader('高级设置'),
+        SettingsCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          children: [
+            ZenActionButton(
+              icon: Icons.tune,
+              label: '打开高级设置（周期/日期/左侧指示/DSL）',
+              onPressed: _openAdvanced,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 数据来源分区（Header + Card 结构随模式而变）。
+  Widget _buildDataSourceSection() {
+    if (_isAnimeMode) {
+      // 追剧模式：排期编辑（主）+ API 导入（辅助）
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SettingsSectionHeader('数据来源'),
+          SettingsCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            children: [
+              ZenActionButton(
+                icon: Icons.schedule,
+                label: '打开排期编辑（剧模型 CRUD）',
+                onPressed: _openAnimeEditor,
+              ),
+              const SizedBox(height: 8),
+              ZenActionButton(
+                icon: Icons.movie_outlined,
+                label: '从开放 API 导入番剧',
+                onPressed: _openAnimeImport,
+                secondary: true,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '剧变更后自动重算课表，无需手动生成 DSL',
+                style: ZenText.label.copyWith(fontSize: 11),
+              ),
+            ],
+          ),
+        ],
       );
     }
     if (_isSchoolMode) {
       // 学校模式：只保留 SICAU 导入
-      return BaseSection(
-        title: '数据来源',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ZenActionButton(
-              icon: Icons.school,
-              label: 'SICAU 课表导入',
-              onPressed: _openSicauImport,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '其他导入 / 导出入口在「高级设置」',
-              style: ZenText.label.copyWith(fontSize: 11),
-            ),
-          ],
-        ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SettingsSectionHeader('数据来源'),
+          SettingsCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            children: [
+              ZenActionButton(
+                icon: Icons.school,
+                label: 'SICAU 课表导入',
+                onPressed: _openSicauImport,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '其他导入 / 导出入口在「高级设置」',
+                style: ZenText.label.copyWith(fontSize: 11),
+              ),
+            ],
+          ),
+        ],
       );
     }
     // 通用模式：无预设，提示走高级设置 DSL 导入
-    return BaseSection(
-      title: '数据来源',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ZenActionButton(
-            icon: Icons.edit_note,
-            label: '通用模式：在高级设置导入 DSL',
-            onPressed: _openAdvanced,
-            secondary: true,
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SettingsSectionHeader('数据来源'),
+        SettingsCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          children: [
+            ZenActionButton(
+              icon: Icons.edit_note,
+              label: '通用模式：在高级设置导入 DSL',
+              onPressed: _openAdvanced,
+              secondary: true,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  /// 起始日期：通用模式单日期选择（原样保存）；学校模式周数推算/自动对齐周一
+  /// 起始日期：通用模式单日期选择（原样保存）；学校模式周数推算/自动对齐周一。
+  /// 行坐在 SettingsCard 里（外层 Material 提供水波纹），不再自带卡片装饰。
   Widget _buildDateField() {
     if (_isSchoolMode) {
       return InkWell(
@@ -275,19 +278,18 @@ class _TimetableSettingsPageState
             setState(() => _startDateController.text = date);
           }
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: zenCardTheme(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             children: [
               Icon(Icons.calendar_today, size: 18, color: context.colors.textMuted),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('起始日期（周一，周数推算自动对齐）', style: ZenText.label),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       _startDateController.text,
                       style: ZenText.body.copyWith(fontWeight: FontWeight.w600),
@@ -316,19 +318,18 @@ class _TimetableSettingsPageState
         final iso = picked.toIso8601String().split('T')[0];
         setState(() => _startDateController.text = iso);
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: zenCardTheme(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           children: [
             Icon(Icons.calendar_today, size: 18, color: context.colors.textMuted),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('起始日期', style: ZenText.label),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     _startDateController.text,
                     style: ZenText.body.copyWith(fontWeight: FontWeight.w600),

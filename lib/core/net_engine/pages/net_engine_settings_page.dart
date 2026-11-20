@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import 'package:xiaodouzi_fr/core/net_engine/lan/lan_discovery.dart';
 import 'package:xiaodouzi_fr/core/ui/global/notification/main.dart';
+import 'package:xiaodouzi_fr/core/ui/global/settings/main.dart';
 
 import '../net_engine_types.dart';
 
 /// LAN 设置壳（v3 移除 Relay 模式独立设置；v3 直接使用 `RelayV3Widget`）
 ///
 /// 业务侧零配置代码 — 只渲染对应 Discovery 的 buildSettingsPage()。
+/// 页面壳 = SettingsPageScaffold（设置页骨架配方，灰底画布 + 规范导航）。
 class NetEngineSettingsPage extends StatelessWidget {
   const NetEngineSettingsPage({
     super.key,
@@ -22,8 +24,8 @@ class NetEngineSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+    return SettingsPageScaffold(
+      title: '设置',
       body: LanDiscovery(
         multicastPort: multicastPort,
         multicastAddress: multicastAddress,

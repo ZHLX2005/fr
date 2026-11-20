@@ -12,8 +12,9 @@ import '../../../design_tokens/radius.dart';
 /// 在浅色主题下多个块糊成一片（第一张截图的黄色块），层次全靠底色而丢了。
 /// 而「层次靠线不靠面」正是本项目的视觉口径。
 ///
-/// 单独成文件而不是塞进 mnws_home_page.dart：mn-ws 的三个页面（首页 /
-/// 设置页 / 请求台）都要用它，放在其中一个页面里会让另外两个反向依赖首页。
+/// 单独成文件而不是塞进 mnws_home_page.dart：mn-ws 的两个页面（首页 /
+/// 请求台）都要用它，放在其中一个页面里会让另外两个反向依赖首页。
+/// （设置页 2026-11-20 起改用全局设置页骨架 SettingsPageScaffold。）
 class MnWsBlock extends StatelessWidget {
   const MnWsBlock({super.key, required this.child, this.margin, this.emphasized = false});
 

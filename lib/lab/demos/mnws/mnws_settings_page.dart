@@ -2,9 +2,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../api/mnws/mnws.dart';
+import '../../../core/theme/context/colors.dart';
 import '../../../core/ui/global/button/main.dart';
-import '../../../core/ui/global/nav/main.dart';
-import 'mnws_blocks.dart';
+import '../../../core/ui/global/settings/main.dart';
 
 /// mn-ws 模块的**设置页**。
 ///
@@ -82,23 +82,28 @@ class _MnWsSettingsPageState extends ConsumerState<MnWsSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = QuickNavBottomBar.bodyBottomReserve(context);
     final ready = _readiness;
     final grant = _grant;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('mn-ws 设置')),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPad),
-        children: [
-          _section('连接', [
+    // 设置页骨架配方（SettingsPageScaffold 家族，灰底画布 + 卡面 surface），
+    // 不再沿用 MnWsBlock 的边框分块——设置页统一走全应用设置页标准。
+    return SettingsPageScaffold(
+      title: 'mn-ws 设置',
+      children: [
+        const SettingsSectionHeader('连接'),
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          children: [
             _kv('server', MnWsConfig.baseUrl),
             _kv('认证中心', MnWsConfig.issuer),
             _kv('设备标识', MnWsConfig.deviceId),
             _kv('设备名', MnWsConfig.deviceName),
-          ]),
-          const SizedBox(height: 12),
-          _section('凭据', [
+          ],
+        ),
+        const SettingsSectionHeader('凭据'),
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          children: [
             _kv(
               '统一登录态',
               ready == null
@@ -113,9 +118,12 @@ class _MnWsSettingsPageState extends ConsumerState<MnWsSettingsPage> {
             ),
             if (grant != null && !grant.isExpired)
               _kv('到期', _expiryOf(grant.tokenExpiresAt)),
-          ]),
-          const SizedBox(height: 12),
-          _section('白名单', [
+          ],
+        ),
+        const SettingsSectionHeader('白名单'),
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          children: [
             const Text(
               '要桥哪些服务是在**电脑上**配的，不是在手机上：\n'
               '  mn-ws apps set --apps my-api=http://127.0.0.1:9999\n'
@@ -123,71 +131,51 @@ class _MnWsSettingsPageState extends ConsumerState<MnWsSettingsPage> {
               '改完那边，这台手机刷新目录就能看到。',
               style: TextStyle(fontSize: 12),
             ),
-          ]),
-          const SizedBox(height: 12),
-          if (_error != null)
-            MnWsBlock(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Text(_error!, style: TextStyle(color: _cs.error)),
-              ),
-            ),
-          MnWsBlock(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          style: EmphasisButton.borderEmphasis(
-                            context,
-                            color: _cs.primary,
-                          ),
-                          onPressed: _busy ? null : () => _reauthorize(),
-                          child: const Text('重新换令牌'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton(
-                          style: EmphasisButton.dangerEmphasis(context),
-                          onPressed: _busy ? null : () => _signOut(),
-                          child: const Text('清除业务令牌'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '「重新换令牌」会用当前的统一登录态静默换一枚新的业务令牌；'
-                    '旧的那枚随即作废。',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _section(String title, List<Widget> children) {
-    return MnWsBlock(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            ...children,
           ],
         ),
-      ),
+        if (_error != null) ...[
+          const SettingsSectionHeader('错误'),
+          SettingsCard(
+            padding: const EdgeInsets.all(14),
+            children: [
+              Text(_error!, style: TextStyle(color: _cs.error)),
+            ],
+          ),
+        ],
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: EmphasisButton.borderEmphasis(
+                      context,
+                      color: _cs.primary,
+                    ),
+                    onPressed: _busy ? null : () => _reauthorize(),
+                    child: const Text('重新换令牌'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton(
+                    style: EmphasisButton.dangerEmphasis(context),
+                    onPressed: _busy ? null : () => _signOut(),
+                    child: const Text('清除业务令牌'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '「重新换令牌」会用当前的统一登录态静默换一枚新的业务令牌；'
+              '旧的那枚随即作废。',
+              style: TextStyle(fontSize: 11, color: context.colors.textMuted),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

@@ -9,6 +9,7 @@ import 'http/http_server.dart';
 import 'lan_transport.dart';
 import 'transport.dart';
 import '../../ui/global/notification/main.dart';
+import '../../ui/global/settings/main.dart';
 
 /// LAN 发现 — 没有抽象，直接具体 widget
 ///
@@ -757,16 +758,17 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
     if (!_ready) {
       return const Center(child: CircularProgressIndicator());
     }
+    // 设置页骨架配方（SettingsPageScaffold 家族）：分区标题在卡外，
+    // 内容收进卡面 surface 白卡；本列表作为壳的 body 使用。
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 24),
       children: [
         // 设备身份
-        Text('设备身份', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
+        const SettingsSectionHeader('设备身份'),
+        SettingsCard(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextField(
               controller: _aliasCtrl,
               decoration: const InputDecoration(
                 labelText: '设备名称',
@@ -774,55 +776,52 @@ class _LanSettingsPageState extends State<_LanSettingsPage> {
                 prefixIcon: Icon(Icons.label_outline),
               ),
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 24),
 
         // 网络参数
-        Text('网络参数', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: _portCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '多播端口',
-                    prefixIcon: Icon(Icons.wifi),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _addrCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '多播地址',
-                    prefixIcon: Icon(Icons.router),
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
-                const SizedBox(height: 8),
-                Text('修改端口/地址后需要重新扫描才能生效。',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                    )),
-              ],
+        const SettingsSectionHeader('网络参数'),
+        SettingsCard(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextField(
+              controller: _portCtrl,
+              decoration: const InputDecoration(
+                labelText: '多播端口',
+                prefixIcon: Icon(Icons.wifi),
+              ),
+              keyboardType: TextInputType.number,
             ),
-          ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _addrCtrl,
+              decoration: const InputDecoration(
+                labelText: '多播地址',
+                prefixIcon: Icon(Icons.router),
+              ),
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 8),
+            Text('修改端口/地址后需要重新扫描才能生效。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                )),
+          ],
         ),
-        const SizedBox(height: 24),
 
-        OutlinedButton.icon(
-          onPressed: _save,
-          icon: const Icon(Icons.save),
-          label: const Text('保存'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: theme.colorScheme.primary,
-            side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-          ),
+        SettingsCard(
+          padding: const EdgeInsets.all(16),
+          children: [
+            OutlinedButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.save),
+              label: const Text('保存'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary,
+                side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -9,7 +9,7 @@ import 'advanced/cycle_config_strategy.dart';
 import 'advanced/shared/zen_controls.dart';
 import '../../../ui/global/zen/main.dart';
 import '../../../../core/ui/global/dialog/main.dart';
-import '../../../../core/ui/global/section/main.dart';
+import '../../../../core/ui/global/settings/main.dart';
 import '../../../../core/ui/global/notification/main.dart';
 
 /// 课表高级设置页 —— 独立页面承载非常用数字配置。
@@ -154,12 +154,11 @@ class _TimetableAdvancedSettingsPageState
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(TimetableStore.configProvider);
-    // 周期配置策略：课表/通用/番剧 三模式平级路由（fr 30），页面零模式分支
+    // 周期配置策略：课表/通用/番剧 三模式平级路由（fr 30），页面零模式分支。
     final cycleStrategy = cycleStrategyFor(config);
-
-    return zenPageScaffold(
-      context: context,
-  title: '高级设置',
+    // 设置页骨架配方（SettingsPageScaffold 家族）；卡内滑杆/分段沿用 zen 控件。
+    return SettingsPageScaffold(
+      title: '高级设置',
       actions: [
         IconButton(
           icon: const Icon(Icons.save),
@@ -167,13 +166,13 @@ class _TimetableAdvancedSettingsPageState
           onPressed: _save,
         ),
       ],
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ── 周期配置（3 模式策略驱动：课表固定7天/通用全可调/番剧自动派生）──
-          BaseSection(
-            title: '周期配置',
-            child: cycleStrategy.buildCycleSection(
+      children: [
+        // ── 周期配置（3 模式策略驱动：课表固定7天/通用全可调/番剧自动派生）──
+        const SettingsSectionHeader('周期配置'),
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          children: [
+            cycleStrategy.buildCycleSection(
               cycleCount: _cycleCount,
               daysPerCycle: _daysPerCycle,
               slotsPerDay: _slotsPerDay,
@@ -184,12 +183,14 @@ class _TimetableAdvancedSettingsPageState
                 _ensureSlotLists();
               },
             ),
-          ),
-          const SizedBox(height: 12),
-          // ── 每页显示行数（全模式通用：行数超出则纵向滚动）──
-          BaseSection(
-            title: '显示视口',
-            child: ZenConfigSlider(
+          ],
+        ),
+        // ── 每页显示行数（全模式通用：行数超出则纵向滚动）──
+        const SettingsSectionHeader('显示视口'),
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          children: [
+            ZenConfigSlider(
               label: '每页显示行数 '
                   '(${TimetableConfig.minSlotsPerPage}-${TimetableConfig.maxSlotsPerPage}，超出滚动)',
               value: _slotsPerPage.toDouble(),
@@ -201,106 +202,101 @@ class _TimetableAdvancedSettingsPageState
                 setState(() => _slotsPerPage = v.round());
               },
             ),
-          ),
-          const SizedBox(height: 12),
-          // ── 左侧指示显示控制 ──
-          BaseSection(
-            title: '左侧指示',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        // ── 左侧指示显示控制 ──
+        const SettingsSectionHeader('左侧指示'),
+        SettingsCard(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: ZenSegmentButton(
-                        label: '序号',
-                        selected: _leftLabelMode == 0,
-                        onTap: () => setState(() => _leftLabelMode = 0),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ZenSegmentButton(
-                        label: '时间段',
-                        selected: _leftLabelMode == 1,
-                        onTap: () => setState(() => _leftLabelMode = 1),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ZenSegmentButton(
-                        label: '自定义',
-                        selected: _leftLabelMode == 2,
-                        onTap: () => setState(() => _leftLabelMode = 2),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ZenConfigSlider(
-                  label: '左侧宽度 (px)',
-                  value: _leftWidth,
-                  min: 44,
-                  max: 110,
-                  divisions: 33,
-                  onChanged: (v) =>
-                      setState(() => _leftWidth = v.roundToDouble()),
-                ),
-                if (_leftLabelMode == 1) ...[
-                  const SizedBox(height: 4),
-                  ZenConfigSlider(
-                    label: '每节时长 (分钟)',
-                    value: _slotDurationMin.toDouble(),
-                    min: 15,
-                    max: 120,
-                    divisions: 21,
-                    onChanged: (v) =>
-                        setState(() => _slotDurationMin = v.round()),
+                Expanded(
+                  child: ZenSegmentButton(
+                    label: '序号',
+                    selected: _leftLabelMode == 0,
+                    onTap: () => setState(() => _leftLabelMode = 0),
                   ),
-                  const SizedBox(height: 8),
-                  Text('每节开始时间（HH:mm，自动计算结束）', style: ZenText.label),
-                  const SizedBox(height: 8),
-                  _buildTimeFields(),
-                ],
-                if (_leftLabelMode == 2) ...[
-                  const SizedBox(height: 8),
-                  Text('每节自定义文字（留空回退序号）', style: ZenText.label),
-                  const SizedBox(height: 8),
-                  _buildLabelFields(),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // ── DSL 管理 ──
-          BaseSection(
-            title: 'DSL 管理',
-            child: Column(
-              children: [
-                ZenActionButton(
-                  icon: Icons.upload_file,
-                  label: '导入 DSL（含配置）',
-                  onPressed: _openImport,
                 ),
-                const SizedBox(height: 8),
-                ZenActionButton(
-                  icon: Icons.download,
-                  label: '导出 DSL（含配置）',
-                  onPressed: _exportDsl,
-                  secondary: true,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ZenSegmentButton(
+                    label: '时间段',
+                    selected: _leftLabelMode == 1,
+                    onTap: () => setState(() => _leftLabelMode = 1),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                ZenActionButton(
-                  icon: Icons.delete_outline,
-                  label: '清空所有课程',
-                  onPressed: _clearAll,
-                  danger: true,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ZenSegmentButton(
+                    label: '自定义',
+                    selected: _leftLabelMode == 2,
+                    onTap: () => setState(() => _leftLabelMode = 2),
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
+            const SizedBox(height: 8),
+            ZenConfigSlider(
+              label: '左侧宽度 (px)',
+              value: _leftWidth,
+              min: 44,
+              max: 110,
+              divisions: 33,
+              onChanged: (v) =>
+                  setState(() => _leftWidth = v.roundToDouble()),
+            ),
+            if (_leftLabelMode == 1) ...[
+              const SizedBox(height: 4),
+              ZenConfigSlider(
+                label: '每节时长 (分钟)',
+                value: _slotDurationMin.toDouble(),
+                min: 15,
+                max: 120,
+                divisions: 21,
+                onChanged: (v) =>
+                    setState(() => _slotDurationMin = v.round()),
+              ),
+              const SizedBox(height: 8),
+              Text('每节开始时间（HH:mm，自动计算结束）', style: ZenText.label),
+              const SizedBox(height: 8),
+              _buildTimeFields(),
+            ],
+            if (_leftLabelMode == 2) ...[
+              const SizedBox(height: 8),
+              Text('每节自定义文字（留空回退序号）', style: ZenText.label),
+              const SizedBox(height: 8),
+              _buildLabelFields(),
+            ],
+          ],
+        ),
+        // ── DSL 管理 ──
+        const SettingsSectionHeader('DSL 管理'),
+        SettingsCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          children: [
+            ZenActionButton(
+              icon: Icons.upload_file,
+              label: '导入 DSL（含配置）',
+              onPressed: _openImport,
+            ),
+            const SizedBox(height: 8),
+            ZenActionButton(
+              icon: Icons.download,
+              label: '导出 DSL（含配置）',
+              onPressed: _exportDsl,
+              secondary: true,
+            ),
+            const SizedBox(height: 8),
+            ZenActionButton(
+              icon: Icons.delete_outline,
+              label: '清空所有课程',
+              onPressed: _clearAll,
+              danger: true,
+            ),
+          ],
+        ),
+      ],
     );
   }
 

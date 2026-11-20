@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../state.dart';
 import 'ai_settings_store.dart';
+import '../../../../core/ui/global/settings/main.dart';
 
 /// AI 配置独立页 — 配置 apiKey / 模型 / Base URL。
 ///
 /// 从 block_editor AppBar 齿轮按钮 push 进入。保存后同步到
 /// [EditorState.updateAiSettings] 并持久化到 [AiSettingsStore]。
+/// 页面壳 = SettingsPageScaffold（设置页骨架配方）。
 class AiSettingsPage extends StatefulWidget {
   final EditorState editorState;
 
@@ -59,55 +61,62 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('AI 配置')),
+    return SettingsPageScaffold(
+      title: 'AI 配置',
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _apiKeyCtl,
-                    decoration: const InputDecoration(
-                      labelText: 'API Key',
-                      helperText: '后端创建 ChatModel 用',
-                      border: OutlineInputBorder(),
+          : ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                const SettingsSectionHeader('连接'),
+                SettingsCard(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  children: [
+                    TextField(
+                      controller: _apiKeyCtl,
+                      decoration: const InputDecoration(
+                        labelText: 'API Key',
+                        helperText: '后端创建 ChatModel 用',
+                        border: OutlineInputBorder(),
+                      ),
+                      obscureText: true,
                     ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _modelCtl,
-                    decoration: const InputDecoration(
-                      labelText: '模型名（可选）',
-                      hintText: '如 glm-4.7',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _baseUrlCtl,
-                    decoration: const InputDecoration(
-                      labelText: 'Base URL（可选）',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  OutlinedButton.icon(
-                    onPressed: _save,
-                    icon: const Icon(Icons.save),
-                    label: const Text('保存'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.primary,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _modelCtl,
+                      decoration: const InputDecoration(
+                        labelText: '模型名（可选）',
+                        hintText: '如 glm-4.7',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _baseUrlCtl,
+                      decoration: const InputDecoration(
+                        labelText: 'Base URL（可选）',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.save),
+                      label: const Text('保存'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.primary,
+                        side: BorderSide(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
     );
   }
