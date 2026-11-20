@@ -22,12 +22,17 @@ import 'package:flutter/material.dart';
 const double kLabGridPadding = 16.0;
 const int kLabGridCrossAxisCount = 2;
 const double kLabGridSpacing = 16.0;
-const double kLabGridAspectRatio = 1.1;
+
+/// 卡片略高于正方形：保证两行标题 + 三行描述不被底部裁切。
+const double kLabGridAspectRatio = 0.92;
 
 /// 卡片按下缩放
 const double kLabCardPressScale = 0.97;
 const Duration kLabCardPressDuration = Duration(milliseconds: 100);
 const double kLabCardPadding = 16.0;
+
+/// 无背景图卡片：图标下方的极浅分隔线
+const double kLabCardDividerAlpha = 0.28;
 
 /// 卡片自定义背景图上的压暗蒙版（顶 → 底）
 const double kLabCardScrimTopAlpha = 0.3;
