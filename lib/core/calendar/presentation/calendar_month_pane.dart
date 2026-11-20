@@ -33,6 +33,7 @@ class CalendarMonthPane extends StatefulWidget {
     required this.onToggleTask,
     required this.onDeleteTask,
     this.onRetryStorage,
+    this.gridAreaKey,
   });
 
   final DateTime month;
@@ -55,6 +56,10 @@ class CalendarMonthPane extends StatefulWidget {
   final ValueChanged<CalendarTask> onToggleTask;
   final ValueChanged<CalendarTask> onDeleteTask;
   final VoidCallback? onRetryStorage;
+
+  /// 月历网格区（weekday 表头之下、抓手之上）的 key，供容器变换
+  /// 测量终态矩形——对应原型的 #mArea，不含周条/任务面板。
+  final GlobalKey? gridAreaKey;
 
   @override
   State<CalendarMonthPane> createState() => _CalendarMonthPaneState();
@@ -286,6 +291,7 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
               onHorizontalDragEnd: _onHorizontalEnd,
               child: ClipRect(
                 child: SizedBox(
+                  key: widget.gridAreaKey,
                   height: height,
                   child: ValueListenableBuilder<double>(
                     valueListenable: _flipT,

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../domain/calendar_date_utils.dart';
@@ -8,6 +10,10 @@ import 'calendar_palette.dart';
 /// 点卡片通过 [onMonthTap] 上报（携带卡片 RenderBox 全局矩形，供
 /// 年→月容器变换转场取起点）；卡片外观组件 [CalendarMiniMonthCard]
 /// 同时被 ghost 转场复用。
+///
+/// [gridTransform] / [staggerT] / [staggerTarget] 用于月→年容器变换：
+/// 网格整体做 FLIP 汇聚（原型 .year-grid 的 transform 关键帧），其余
+/// 卡片按与目标卡的距离错峰浮现（原型逐卡 opacity + delay）。
 class CalendarYearPane extends StatelessWidget {
   const CalendarYearPane({
     super.key,
@@ -19,6 +25,9 @@ class CalendarYearPane extends StatelessWidget {
     required this.onYearChanged,
     required this.onMonthTap,
     this.cardKeys,
+    this.gridTransform,
+    this.staggerT,
+    this.staggerTarget = 0,
   });
 
   final int year;
@@ -31,6 +40,26 @@ class CalendarYearPane extends StatelessWidget {
 
   /// 按月份序号（0-11）提供卡片 GlobalKey，供容器变换取终态矩形。
   final Map<int, GlobalKey>? cardKeys;
+
+  /// 月→年汇聚：作用于卡片网格的变换矩阵（null = 恒等）。
+  final Matrix4? gridTransform;
+
+  /// 错峰浮现进度（0..1），null = 不启用（全部卡片完全可见）。
+  final double? staggerT;
+
+  /// 错峰基准卡片（目标月序 0-11）。
+  final int staggerTarget;
+
+  /// 原型：delay = 100+min(220, |i-target|*32) ms，时长 240ms，ease-out。
+  double _cardOpacity(int i) {
+    final t = staggerT;
+    if (t == null) return 1;
+    final elapsed = t.clamp(0.0, 1.0) * 520;
+    final delay =
+        100.0 + math.min(220.0, (i - staggerTarget).abs() * 32.0);
+    final p = ((elapsed - delay) / 240).clamp(0.0, 1.0);
+    return 1 - (1 - p) * (1 - p);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,27 +95,34 @@ class CalendarYearPane extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: GridView.count(
-            crossAxisCount: 3,
-            mainAxisSpacing: 6,
-            crossAxisSpacing: 6,
-            padding: const EdgeInsets.fromLTRB(0, 2, 0, 116),
-            childAspectRatio: 0.82,
-            children: [
-              for (var m = 1; m <= 12; m++)
-                CalendarMiniMonthCard(
-                  key: cardKeys?[m - 1],
-                  month: DateTime(year, m, 1),
-                  today: today,
-                  selectedDate: null,
-                  markedDates: markedDates,
-                  mondayFirst: mondayFirst,
-                  palette: palette,
-                  isCurrentMonth:
-                      year == today.year && m == today.month,
-                  onTap: () => onMonthTap(context, DateTime(year, m, 1)),
-                ),
-            ],
+          child: Transform(
+            alignment: Alignment.topLeft,
+            transform: gridTransform ?? Matrix4.identity(),
+            child: GridView.count(
+              crossAxisCount: 3,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              padding: const EdgeInsets.fromLTRB(0, 2, 0, 116),
+              childAspectRatio: 0.82,
+              children: [
+                for (var m = 1; m <= 12; m++)
+                  Opacity(
+                    opacity: _cardOpacity(m - 1),
+                    child: CalendarMiniMonthCard(
+                      key: cardKeys?[m - 1],
+                      month: DateTime(year, m, 1),
+                      today: today,
+                      selectedDate: null,
+                      markedDates: markedDates,
+                      mondayFirst: mondayFirst,
+                      palette: palette,
+                      isCurrentMonth:
+                          year == today.year && m == today.month,
+                      onTap: () => onMonthTap(context, DateTime(year, m, 1)),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ],

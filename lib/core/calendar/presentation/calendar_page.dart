@@ -71,10 +71,19 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   String? _storageError;
   int _loadToken = 0;
 
-  /// 容器变换进行中：月/年页内容隐藏，由 ghost 覆盖。
+  /// 容器变换进行中：页签瞬跳落位，目标面板由淡入进度驱动，ghost 覆盖转场。
   bool _morphing = false;
   OverlayEntry? _morphEntry;
   AnimationController? _morphController;
+
+  /// morph 期间目标面板的淡入进度（原型 paneM/paneY 的 opacity 动画）。
+  int _morphFadePane = -1;
+  final ValueNotifier<double> _paneFade = ValueNotifier<double>(1.0);
+
+  /// 月→年：年网格汇聚 FLIP（原型 .year-grid 的 transform）与卡片错峰浮现。
+  final ValueNotifier<Matrix4?> _yearGridXform = ValueNotifier<Matrix4?>(null);
+  final ValueNotifier<double> _yearStagger = ValueNotifier<double>(1.0);
+  int _staggerTarget = 0;
 
   @override
   void initState() {
@@ -102,6 +111,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     _collapseSpring.dispose();
     _tabT.dispose();
     _collapse.dispose();
+    _paneFade.dispose();
+    _yearGridXform.dispose();
+    _yearStagger.dispose();
     super.dispose();
   }
 
@@ -311,8 +323,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       );
       _visibleMonth = monthFirst;
       _tab = 1;
-      _tabSpring.to(1);
+      // 原型 tabInstant：morph 期间页签瞬跳落位（面板不滑动，避免与
+      // ghost 双重运动；同时让月面板回到原位，终态矩形测量才准确）。
+      _tabSpring.jump(1);
       _morphing = true;
+      _morphFadePane = 1;
+      _paneFade.value = 0;
     });
     unawaited(_reload());
 
@@ -321,7 +337,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       if (!mounted || !_morphing) return;
       final box = _monthGridAreaKey.currentContext?.findRenderObject();
       if (box is! RenderBox || !box.hasSize) {
-        setState(() => _morphing = false);
+        setState(() {
+          _morphing = false;
+          _morphFadePane = -1;
+          _paneFade.value = 1.0;
+        });
         return;
       }
       final monthRect = box.localToGlobal(Offset.zero) & box.size;
@@ -356,32 +376,42 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     _morphToMonth(key!.currentContext!, _visibleMonth);
   }
 
-  /// 月 → 年：ghost 月历缩回目标卡片位，年页随之汇聚浮现。
+  /// 月 → 年：ghost 月历缩回目标卡片位，年页网格 FLIP 汇聚 + 卡片错峰浮现。
   void _morphToYear() {
     if (_morphing) return;
+    // 原型顺序：先量月历区矩形（月页尚在视口内），后 tabInstant。
+    // 瞬跳后月页即被平移出屏，届时再量就拿到错误矩形了。
+    final monthBox = _monthGridAreaKey.currentContext?.findRenderObject();
+    if (monthBox is! RenderBox || !monthBox.hasSize) {
+      _setTab(0);
+      return;
+    }
+    final monthRect = monthBox.localToGlobal(Offset.zero) & monthBox.size;
     setState(() {
       _tab = 0;
-      _tabSpring.to(0);
+      // 原型 tabInstant：瞬跳落位（理由同 _morphToMonth）。
+      _tabSpring.jump(0);
       _morphing = true;
+      _morphFadePane = 0;
+      _paneFade.value = 0;
+      _staggerTarget = _visibleMonth.month - 1;
+      if (_year != _visibleMonth.year) {
+        _year = _visibleMonth.year;
+      }
     });
     unawaited(_reload());
-    if (_year != _visibleMonth.year) {
-      setState(() => _year = _visibleMonth.year);
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_morphing) return;
-      final monthBox = _monthGridAreaKey.currentContext?.findRenderObject();
       final cardKey = _yearCardKeys[_visibleMonth.month - 1];
       final cardBox = cardKey?.currentContext?.findRenderObject();
-      if (monthBox is! RenderBox ||
-          !monthBox.hasSize ||
-          cardBox is! RenderBox ||
-          !cardBox.hasSize) {
-        setState(() => _morphing = false);
+      if (cardBox is! RenderBox || !cardBox.hasSize) {
+        setState(() {
+          _morphing = false;
+          _morphFadePane = -1;
+          _paneFade.value = 1.0;
+        });
         return;
       }
-      final monthRect =
-          monthBox.localToGlobal(Offset.zero) & monthBox.size;
       final cardRect =
           cardBox.localToGlobal(Offset.zero) & cardBox.size;
       final palette = CalendarPalette.of(context);
@@ -447,51 +477,77 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
     _morphController = controller;
 
+    // 目标面板淡入 + 年网格汇聚：与 ghost 共用同一控制器（原型里
+    // paneM/paneY opacity、.year-grid FLIP 与 ghost 同周期播放）。
+    curve.addListener(() {
+      final t = curve.value;
+      _paneFade.value = expand
+          ? ((t - 0.5) / 0.5).clamp(0.0, 1.0) // 原型 paneM：0.5 起淡入
+          : (t / 0.45).clamp(0.0, 1.0); // 原型 paneY：0.45 内淡入
+      if (!expand) {
+        // 网格汇聚与 expand 同形：起点变换 → 80% 过冲 → 恒等。
+        _yearGridXform.value =
+            _morphMatrix(t, dx, dy, scaleX, scaleY, expand: true);
+        _yearStagger.value = t;
+      }
+    });
+
     final entry = OverlayEntry(
       builder: (context) {
         return AnimatedBuilder(
           animation: curve,
           builder: (context, _) {
             final t = curve.value;
-            final tx = expand ? dx * (1 - t) : dx * t;
-            final ty = expand ? dy * (1 - t) : dy * t;
-            final sx = expand
-                ? scaleX + (1 - scaleX) * t
-                : 1 + (scaleX - 1) * t;
-            final sy = expand
-                ? scaleY + (1 - scaleY) * t
-                : 1 + (scaleY - 1) * t;
             final monthOpacity = expand
                 ? ((t - 0.42) / 0.58).clamp(0.0, 1.0)
                 : (t < 0.8 ? 1.0 : (1 - t) / 0.2);
-            final startOpacity = expand
-                ? (t < 0.55 ? 1 - t / 0.55 : 0.0)
-                : ((t - 0.6) / 0.4).clamp(0.0, 1.0);
+            final startOpacity = _cardFadeOpacity(t);
+            // 收缩方向 ghost 整体淡出（原型 gh opacity 1→.9→0）。
+            final ghostOpacity = expand
+                ? 1.0
+                : (t < 0.8 ? 1.0 - 0.1 * (t / 0.8) : (1 - t) / 0.2 * 0.9);
             return Positioned(
               left: finalOrigin.dx,
               top: finalOrigin.dy,
               width: finalRect.width,
               height: finalRect.height,
               child: IgnorePointer(
-                child: Transform(
-                  transform: Matrix4.identity()
-                    ..translateByDouble(tx, ty, 0, 1)
-                    ..scaleByDouble(sx, sy, 1, 1),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Opacity(
-                          opacity: monthOpacity,
-                          child: monthContent,
-                        ),
+                // OverlayEntry 不经过路由的 Material，子树拿不到
+                // DefaultTextStyle/IconTheme（真机丢全局字体），补一层。
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Opacity(
+                    opacity: ghostOpacity.clamp(0.0, 1.0),
+                    child: Transform(
+                      alignment: Alignment.topLeft,
+                      transform: _morphMatrix(
+                        t,
+                        dx,
+                        dy,
+                        scaleX,
+                        scaleY,
+                        expand: expand,
                       ),
-                      Positioned.fill(
-                        child: Opacity(
-                          opacity: startOpacity,
-                          child: startContent,
-                        ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Opacity(
+                              opacity: monthOpacity,
+                              child: monthContent,
+                            ),
+                          ),
+                          // 原型收缩方向 ghost 只装月历克隆；起点卡片
+                          // 克隆（cc）仅在放大方向存在。
+                          if (expand)
+                            Positioned.fill(
+                              child: Opacity(
+                                opacity: startOpacity,
+                                child: startContent,
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -507,13 +563,71 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       _morphEntry = null;
       _morphController?.dispose();
       _morphController = null;
+      _yearGridXform.value = null;
+      _yearStagger.value = 1.0;
       if (!mounted) return;
-      setState(() => _morphing = false);
+      setState(() {
+        _morphing = false;
+        _morphFadePane = -1;
+        _paneFade.value = 1.0;
+      });
     });
   }
 
+  /// 原型 morph 关键帧（分段缓动）：
+  /// - expand（卡片→月历）：起点(dx,dy,sx,sy) → 80% 轻微过冲 → 恒等；
+  /// - collapse（月历→卡片）：恒等 → 80% 落到卡片矩形 → 保持并淡出。
+  /// 年网格汇聚（月→年）与 expand 同形：起点变换 → 过冲 → 恒等。
+  Matrix4 _morphMatrix(
+    double t,
+    double dx,
+    double dy,
+    double sx,
+    double sy, {
+    required bool expand,
+  }) {
+    const ease = Cubic(0.32, 0.72, 0.22, 1);
+    final over = [
+      -dx * 0.05,
+      -dy * 0.05,
+      1 + 0.05 * (1 - sx),
+      1 + 0.05 * (1 - sy),
+    ];
+    final List<double> r;
+    if (expand) {
+      r = t <= 0.8
+          ? _mix4([dx, dy, sx, sy], over, ease.transform(t / 0.8))
+          : _mix4(over, [0, 0, 1, 1], Curves.easeOut.transform((t - 0.8) / 0.2));
+    } else {
+      r = t <= 0.8
+          ? _mix4([0, 0, 1, 1], [dx, dy, sx, sy], ease.transform(t / 0.8))
+          : [dx, dy, sx, sy];
+    }
+    return Matrix4.identity()
+      ..translateByDouble(r[0], r[1], 0, 1)
+      ..scaleByDouble(r[2], r[3], 1, 1);
+  }
+
+  List<double> _mix4(List<double> a, List<double> b, double p) => [
+        for (var i = 0; i < 4; i++) a[i] + (b[i] - a[i]) * p,
+      ];
+
+  /// 起点卡片淡出：原型 cc {1} → {.5@.28} → {0@.55}。
+  double _cardFadeOpacity(double t) {
+    if (t < 0.28) return 1.0 - 0.5 * (t / 0.28);
+    if (t < 0.55) return 0.5 * (1.0 - (t - 0.28) / 0.27);
+    return 0.0;
+  }
+
   final GlobalKey _monthGridAreaKey = GlobalKey();
-  final Map<int, GlobalKey> _yearCardKeys = {};
+  // 整个月面板（含周条/任务面板），仅用于树位置保持；morph 矩形测量
+  // 用 _monthGridAreaKey（对应原型的 #mArea——仅月历网格区）。
+  final GlobalKey _monthPaneKey = GlobalKey();
+  // 12 张年卡片的 GlobalKey（ morph 终态矩形测量用），须预先建好——
+  // 空 Map 会让卡片拿不到 key，月→年 morph 静默 bail 退化成瞬跳。
+  final Map<int, GlobalKey> _yearCardKeys = {
+    for (var i = 0; i < 12; i++) i: GlobalKey(),
+  };
 
   /* ═══════════ 收展 ═══════════ */
 
@@ -724,17 +838,29 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   /// 页签层：远端（|i-t|>1.1）不绘制；近端按距离缩放/淡出/视差滞后。
+  /// morph 期间目标面板（已瞬跳至活动位）由 [_paneFade] 驱动淡入，
+  /// 与 ghost 转场同步（原型 paneM/paneY 的 opacity 动画）。
   Widget _paneLayer(int i, double t, double w) {
     final dRaw = (i - t).abs();
     if (dRaw > 1.1) {
       return const SizedBox.expand();
     }
+    if (i == _morphFadePane) {
+      return ValueListenableBuilder<double>(
+        valueListenable: _paneFade,
+        builder: (context, fade, _) => Opacity(
+          opacity: fade,
+          child: Transform.scale(
+            scale: 1,
+            alignment: const Alignment(0, -0.16),
+            child: _buildPane(i, w),
+          ),
+        ),
+      );
+    }
     final d = math.min(dRaw, 1.0);
     final dd = d * d;
-    // morph 期间 ghost 覆盖年/月两层，真实内容暂隐。
-    final opacity = _morphing && (i == 0 || i == 1)
-        ? 0.0
-        : (1 - 1.25 * d).clamp(0.0, 1.0);
+    final opacity = (1 - 1.25 * d).clamp(0.0, 1.0);
     final scale = 1 - 0.10 * dd;
     final px = (t.clamp(0.0, 4.0) - i) * w * 0.16 * (1 - d);
     return Transform.translate(
@@ -759,24 +885,35 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         return Container(
           color: palette.background,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: CalendarYearPane(
-            year: _year,
-            today: _today,
-            markedDates: _markedDates,
-            mondayFirst: _mondayFirst,
-            palette: palette,
-            cardKeys: _yearCardKeys,
-            onYearChanged: (year) {
-              final days = calendarDaysInMonth(year, _visibleMonth.month);
-              final day = math.min(_selectedDate.day, days);
-              setState(() {
-                _year = year;
-                _selectedDate = DateTime(year, _visibleMonth.month, day);
-                _visibleMonth = DateTime(year, _visibleMonth.month, 1);
-              });
-              unawaited(_reload());
-            },
-            onMonthTap: _morphToMonth,
+          child: ValueListenableBuilder<Matrix4?>(
+            valueListenable: _yearGridXform,
+            builder: (context, gridXform, _) => ValueListenableBuilder<double>(
+              valueListenable: _yearStagger,
+              builder: (context, stagger, _) => CalendarYearPane(
+                year: _year,
+                today: _today,
+                markedDates: _markedDates,
+                mondayFirst: _mondayFirst,
+                palette: palette,
+                cardKeys: _yearCardKeys,
+                gridTransform: gridXform,
+                staggerT: stagger >= 1 ? null : stagger,
+                staggerTarget: _staggerTarget,
+                onYearChanged: (year) {
+                  if (_morphing) return;
+                  final days =
+                      calendarDaysInMonth(year, _visibleMonth.month);
+                  final day = math.min(_selectedDate.day, days);
+                  setState(() {
+                    _year = year;
+                    _selectedDate = DateTime(year, _visibleMonth.month, day);
+                    _visibleMonth = DateTime(year, _visibleMonth.month, 1);
+                  });
+                  unawaited(_reload());
+                },
+                onMonthTap: _morphToMonth,
+              ),
+            ),
           ),
         );
       case 1:
@@ -784,7 +921,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           color: palette.background,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: KeyedSubtree(
-            key: _monthGridAreaKey,
+            key: _monthPaneKey,
             child: CalendarMonthPane(
               month: _visibleMonth,
               selectedDate: _selectedDate,
@@ -798,6 +935,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
               storageAvailable: _repo != null,
               storageMessage: _storageError,
               onRetryStorage: _retryStorage,
+              gridAreaKey: _monthGridAreaKey,
               onCollapseDrive: _onCollapseDrive,
               onCollapseSettle: _onCollapseSettle,
               onFlipCommit: _flipMonth,
