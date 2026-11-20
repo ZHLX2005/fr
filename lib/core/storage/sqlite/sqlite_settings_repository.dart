@@ -1,3 +1,4 @@
+import '../calendar_store.dart';
 import 'sqlite_migrations.dart';
 import 'sqlite_store.dart';
 
@@ -5,11 +6,12 @@ import 'sqlite_store.dart';
 ///
 /// 所有 SQL 都收口在这里：外部只看到 `read/write/remove/readAll/clear`，
 /// 拿不到 `SqliteStore`，更拿不到 sqflite 的 `Database`。
-class SqliteSettingsRepository {
+class SqliteSettingsRepository implements KeyValueRepository {
   SqliteSettingsRepository(this._store);
 
   final SqliteStore _store;
 
+  @override
   Future<String?> read(String key) async {
     final rows = await _store.query(
       SqliteMigrations.appSettingsTable,
@@ -22,6 +24,7 @@ class SqliteSettingsRepository {
     return rows.first['value'] as String;
   }
 
+  @override
   Future<void> write(String key, String value) async {
     if (key.isEmpty) {
       throw ArgumentError.value(key, 'key', '设置键不能为空');
@@ -33,6 +36,7 @@ class SqliteSettingsRepository {
     });
   }
 
+  @override
   Future<void> remove(String key) async {
     await _store.delete(
       SqliteMigrations.appSettingsTable,

@@ -1,16 +1,18 @@
 import '../../calendar/domain/calendar_date_utils.dart';
 import '../../calendar/domain/calendar_task.dart';
+import '../calendar_store.dart';
 import 'sqlite_migrations.dart';
 import 'sqlite_store.dart';
 
 /// 日历任务的数据访问层。
 ///
 /// 所有 SQL 只在这里出现；UI 通过 provider 拿到本类，不接触 `SqliteStore`。
-class SqliteCalendarRepository {
+class SqliteCalendarRepository implements CalendarTaskRepository {
   SqliteCalendarRepository(this._store);
 
   final SqliteStore _store;
 
+  @override
   Future<List<CalendarTask>> tasksOnDay(
     DateTime day, {
     bool includeCompleted = true,
@@ -42,6 +44,7 @@ class SqliteCalendarRepository {
   }
 
   /// 月视图的任务点：返回范围内有任务的日期 key（`yyyy-mm-dd`）。
+  @override
   Future<Set<String>> taskDateKeysBetween(
     DateTime start,
     DateTime end, {
@@ -96,6 +99,7 @@ class SqliteCalendarRepository {
     return result;
   }
 
+  @override
   Future<CalendarTask> create(CalendarTaskDraft draft) async {
     final title = draft.title.trim();
     if (title.isEmpty) {
@@ -130,6 +134,7 @@ class SqliteCalendarRepository {
     return task.copyWith(id: id);
   }
 
+  @override
   Future<void> update(CalendarTask task) async {
     await _store.update(
       SqliteMigrations.calendarTasksTable,
@@ -139,6 +144,7 @@ class SqliteCalendarRepository {
     );
   }
 
+  @override
   Future<void> toggleCompleted(CalendarTask task) async {
     final now = DateTime.now();
     final next = task.copyWith(
@@ -149,6 +155,7 @@ class SqliteCalendarRepository {
     await update(next);
   }
 
+  @override
   Future<void> delete(int id) async {
     await _store.delete(
       SqliteMigrations.calendarTasksTable,

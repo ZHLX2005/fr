@@ -43,3 +43,8 @@ bool calendarDateInRange(DateTime date, DateTime start, DateTime end) {
 /// 取两个日期中较早/较晚的一个。
 DateTime calendarMinDate(DateTime a, DateTime b) => a.isBefore(b) ? a : b;
 DateTime calendarMaxDate(DateTime a, DateTime b) => a.isAfter(b) ? a : b;
+
+/// 某月天数。
+int calendarDaysInMonth(int year, int month) =>
+    DateTime(year, month + 1, 0).day;
+

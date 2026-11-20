@@ -1,41 +1,28 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../storage/calendar_store.dart';
+import '../../storage/hive/hive_calendar_store.dart';
 import '../../storage/sqlite/sqlite.dart';
 import '../domain/calendar_date_utils.dart';
 import '../domain/calendar_task.dart';
+import 'calendar_collapsible.dart';
+import 'calendar_controls.dart';
+import 'calendar_dialogs.dart';
 import 'calendar_grid.dart';
 import 'calendar_palette.dart';
+import 'calendar_pickers.dart';
+import 'calendar_settings_sheet.dart';
 import 'calendar_task_list.dart';
 import 'calendar_task_sheet.dart';
-
-enum CalendarViewMode {
-  list('列表'),
-  month('月'),
-  week('周'),
-  day('日');
-
-  const CalendarViewMode(this.label);
-  final String label;
-}
-
-const _kMonthNames = [
-  '一',
-  '二',
-  '三',
-  '四',
-  '五',
-  '六',
-  '七',
-  '八',
-  '九',
-  '十',
-  '十一',
-  '十二',
-];
+import 'calendar_view_menu.dart';
+import 'calendar_view_mode.dart';
+import 'calendar_year_view.dart';
 
 class CalendarPage extends ConsumerStatefulWidget {
   const CalendarPage({super.key});
@@ -52,11 +39,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   final DateTime _today = calendarDateOnly(DateTime.now());
 
   DateTime _selectedDate = calendarDateOnly(DateTime.now());
-  DateTime _visibleMonth = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-    1,
-  );
+  DateTime _visibleMonth =
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
 
   bool _expanded = true;
   CalendarViewMode _viewMode = CalendarViewMode.list;
@@ -67,13 +51,19 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   List<CalendarTask> _tasks = const [];
   Set<String> _markedDates = const {};
 
-  SqliteCalendarRepository? _repo;
-  SqliteSettingsRepository? _settings;
+  CalendarTaskRepository? _repo;
+  KeyValueRepository? _settings;
+  String? _storageError;
 
   int _loadToken = 0;
-  double _dragAccum = 0;
 
   CalendarPalette get _palette => CalendarPalette.of(context);
+
+  bool get _isMobilePlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   @override
   void initState() {
@@ -82,12 +72,65 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   }
 
   Future<void> _bindStorage() async {
-    final repo = ref.read(sqliteCalendarRepositoryProvider);
-    final settings = ref.read(sqliteSettingsRepositoryProvider);
-    if (!mounted) return;
+    final overrideRepo = ref.read(sqliteCalendarRepositoryProvider);
+    if (overrideRepo != null) {
+      _repo = overrideRepo;
+      _settings = ref.read(sqliteSettingsRepositoryProvider);
+    } else {
+      await _openOwnedStorage();
+    }
 
-    _repo = repo;
-    _settings = settings;
+    await _loadPreferences();
+    await _reload();
+  }
+
+  Future<void> _openOwnedStorage() async {
+    if (_isMobilePlatform) {
+      try {
+        final storage = await SqliteStorage.open();
+        _repo = storage.calendar;
+        _settings = storage.settings;
+        _storageError = null;
+      } catch (error, stack) {
+        debugPrint('[calendar] SQLite 打开失败: $error');
+        debugPrint('$stack');
+        // 手机端 SQLite 插件/数据库异常时，退回同一套领域契约的 Hive 缓存，
+        // 至少保证日历可读写；错误保留用于诊断，不让整页停在“未启用”。
+        try {
+          final storage = await HiveCalendarStore.open();
+          _repo = storage.calendar;
+          _settings = storage.settings;
+          _storageError = null;
+          debugPrint('[calendar] 已切换到 Hive 本地缓存');
+        } catch (fallbackError, fallbackStack) {
+          _repo = null;
+          _settings = null;
+          _storageError = '$error';
+          debugPrint('[calendar] Hive 兜底也失败: $fallbackError');
+          debugPrint('$fallbackStack');
+        }
+      }
+      return;
+    }
+
+    // Web / Windows / Linux 没有 sqflite 实现，走同一套领域契约的 Hive 缓存。
+    try {
+      final storage = await HiveCalendarStore.open();
+      _repo = storage.calendar;
+      _settings = storage.settings;
+      _storageError = null;
+    } catch (error, stack) {
+      _repo = null;
+      _settings = null;
+      _storageError = '$error';
+      debugPrint('[calendar] 本地缓存打开失败: $error');
+      debugPrint('$stack');
+    }
+  }
+
+  Future<void> _retryStorage() async {
+    setState(() => _loading = true);
+    await _openOwnedStorage();
     await _loadPreferences();
     await _reload();
   }
@@ -134,20 +177,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final token = ++_loadToken;
     setState(() => _loading = true);
 
-    final gridStart = calendarMonthGridStart(
-      _visibleMonth,
-      mondayFirst: _mondayFirst,
-    );
-    final gridEnd = gridStart.add(const Duration(days: 42));
-
+    final range = _markedRange();
     try {
       final tasks = await repo.tasksOnDay(
         _selectedDate,
         includeCompleted: _showCompleted,
       );
       final marked = await repo.taskDateKeysBetween(
-        gridStart,
-        gridEnd,
+        range.$1,
+        range.$2,
         includeCompleted: _showCompleted,
       );
       if (!mounted || token != _loadToken) return;
@@ -164,18 +202,57 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         _tasks = const [];
         _markedDates = const {};
         _loading = false;
+        _storageError = '$error';
       });
+    }
+  }
+
+  (DateTime, DateTime) _markedRange() {
+    switch (_viewMode) {
+      case CalendarViewMode.year:
+        return (
+          DateTime(_selectedDate.year, 1, 1),
+          DateTime(_selectedDate.year + 1, 1, 1),
+        );
+      case CalendarViewMode.month:
+      case CalendarViewMode.list:
+        final start = calendarMonthGridStart(
+          _visibleMonth,
+          mondayFirst: _mondayFirst,
+        );
+        return (start, start.add(const Duration(days: 42)));
+      case CalendarViewMode.week:
+        final start = calendarWeekStart(
+          _selectedDate,
+          mondayFirst: _mondayFirst,
+        );
+        return (start, start.add(const Duration(days: 7)));
+      case CalendarViewMode.threeDay:
+        final start = _selectedDate.subtract(const Duration(days: 1));
+        return (start, start.add(const Duration(days: 3)));
+      case CalendarViewMode.day:
+        return (_selectedDate, _selectedDate.add(const Duration(days: 1)));
     }
   }
 
   void _selectDate(DateTime date) {
     final day = calendarDateOnly(date);
-    if (calendarDateKey(day) == calendarDateKey(_selectedDate)) return;
     setState(() {
       _selectedDate = day;
       _visibleMonth = DateTime(day.year, day.month, 1);
     });
     unawaited(_reload());
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showCalendarDatePicker(
+      context,
+      palette: _palette,
+      initialDate: _selectedDate,
+    );
+    if (picked != null) {
+      _selectDate(picked);
+    }
   }
 
   void _goToday() {
@@ -185,38 +262,108 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     }
   }
 
+  void _setViewMode(CalendarViewMode mode) {
+    if (mode == _viewMode) return;
+    setState(() {
+      _viewMode = mode;
+      if (mode == CalendarViewMode.list) {
+        _expanded = true;
+      }
+      if (mode == CalendarViewMode.year) {
+        _visibleMonth = DateTime(_selectedDate.year, 1, 1);
+      }
+    });
+    unawaited(_persist(_viewModeKey, mode.name));
+    unawaited(_reload());
+  }
+
+  void _onExpandedChanged(bool expanded) {
+    if (!mounted) return;
+    setState(() => _expanded = expanded);
+  }
+
+  void _onCalendarSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 80) return;
+    HapticFeedback.selectionClick();
+
+    final forward = velocity < 0;
+    switch (_viewMode) {
+      case CalendarViewMode.list:
+      case CalendarViewMode.month:
+        final targetMonth = DateTime(
+          _visibleMonth.year,
+          _visibleMonth.month + (forward ? 1 : -1),
+          1,
+        );
+        final day = mathMin(
+          _selectedDate.day,
+          calendarDaysInMonth(targetMonth.year, targetMonth.month),
+        );
+        _selectDate(DateTime(targetMonth.year, targetMonth.month, day));
+      case CalendarViewMode.week:
+        _selectDate(
+          _selectedDate.add(Duration(days: forward ? 7 : -7)),
+        );
+      case CalendarViewMode.threeDay:
+        _selectDate(
+          _selectedDate.add(Duration(days: forward ? 3 : -3)),
+        );
+      case CalendarViewMode.day:
+        _selectDate(
+          _selectedDate.add(Duration(days: forward ? 1 : -1)),
+        );
+      case CalendarViewMode.year:
+        break;
+    }
+  }
+
   void _toggleExpanded() {
     if (_viewMode != CalendarViewMode.list) return;
     HapticFeedback.selectionClick();
     setState(() => _expanded = !_expanded);
   }
 
-  void _onVerticalDragUpdate(DragUpdateDetails details) {
-    if (_viewMode != CalendarViewMode.list) return;
-    _dragAccum += details.delta.dy;
-    if (_dragAccum > 18 && !_expanded) {
-      HapticFeedback.selectionClick();
-      setState(() {
-        _expanded = true;
-        _dragAccum = 0;
-      });
-    } else if (_dragAccum < -18 && _expanded) {
-      HapticFeedback.selectionClick();
-      setState(() {
-        _expanded = false;
-        _dragAccum = 0;
-      });
+  Future<void> _showViewMenu() async {
+    final mode = await showCalendarViewMenu(
+      context,
+      current: _viewMode,
+      palette: _palette,
+    );
+    if (mode != null) {
+      _setViewMode(mode);
     }
   }
 
-  void _onVerticalDragEnd(DragEndDetails details) {
-    _dragAccum = 0;
+  Future<void> _showSettings() async {
+    await showCalendarSettingsSheet(
+      context,
+      palette: _palette,
+      viewMode: _viewMode,
+      showCompleted: _showCompleted,
+      mondayFirst: _mondayFirst,
+      onViewModeChanged: _setViewMode,
+      onShowCompletedChanged: (value) {
+        setState(() => _showCompleted = value);
+        unawaited(_persist(_showCompletedKey, value.toString()));
+        unawaited(_reload());
+      },
+      onMondayFirstChanged: (value) {
+        setState(() => _mondayFirst = value);
+        unawaited(_persist(_mondayFirstKey, value.toString()));
+        unawaited(_reload());
+      },
+      onGoToday: _goToday,
+    );
   }
 
   Future<void> _addTask() async {
-    final repo = _repo;
-    if (repo == null) {
-      _showMessage('当前平台未启用 SQLite，无法创建任务');
+    if (_repo == null) {
+      CalendarToast.show(
+        context,
+        _storageError ?? '本地数据库未就绪，请先重试',
+        _palette,
+      );
       return;
     }
 
@@ -226,12 +373,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       initialDate: _selectedDate,
     );
     if (draft == null) return;
+    if (!mounted) return;
 
     try {
-      await repo.create(draft);
+      await _repo!.create(draft);
       await _reload();
     } catch (error) {
-      _showMessage('添加任务失败: $error');
+      if (!mounted) return;
+      CalendarToast.show(context, '添加任务失败: $error', _palette);
     }
   }
 
@@ -242,7 +391,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       await repo.toggleCompleted(task);
       await _reload();
     } catch (error) {
-      _showMessage('更新任务失败: $error');
+      if (!mounted) return;
+      CalendarToast.show(context, '更新任务失败: $error', _palette);
     }
   }
 
@@ -250,30 +400,20 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     final repo = _repo;
     if (repo == null) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('删除任务'),
-        content: Text('确定删除「${task.title}」吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await showCalendarConfirm(
+      context,
+      palette: _palette,
+      title: '删除任务',
+      message: '确定删除「${task.title}」吗？',
     );
-    if (confirmed != true) return;
+    if (!confirmed || !mounted) return;
 
     try {
       await repo.delete(task.id);
       await _reload();
     } catch (error) {
-      _showMessage('删除任务失败: $error');
+      if (!mounted) return;
+      CalendarToast.show(context, '删除任务失败: $error', _palette);
     }
   }
 
@@ -283,163 +423,25 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
     await settings.write(key, value);
   }
 
-  Future<void> _showSettings() async {
-    final palette = _palette;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: palette.surface,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                      child: Text(
-                        '日历设置',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: palette.textPrimary,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-                      child: Text(
-                        '视图',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: palette.textSecondary,
-                        ),
-                      ),
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final mode in CalendarViewMode.values)
-                          ChoiceChip(
-                            label: Text(mode.label),
-                            selected: _viewMode == mode,
-                            selectedColor: palette.accentSoft,
-                            labelStyle: TextStyle(
-                              color: _viewMode == mode
-                                  ? palette.accent
-                                  : palette.textPrimary,
-                              fontWeight: _viewMode == mode
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                            ),
-                            side: BorderSide(
-                              color: _viewMode == mode
-                                  ? palette.accent.withValues(alpha: 0.5)
-                                  : palette.divider,
-                            ),
-                            onSelected: (_) {
-                              setState(() {
-                                _viewMode = mode;
-                                if (mode == CalendarViewMode.month) {
-                                  _expanded = true;
-                                } else if (mode == CalendarViewMode.week) {
-                                  _expanded = false;
-                                }
-                              });
-                              setSheetState(() {});
-                              unawaited(_persist(_viewModeKey, mode.name));
-                            },
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        '显示已完成任务',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: palette.textPrimary,
-                        ),
-                      ),
-                      value: _showCompleted,
-                      activeThumbColor: palette.accent,
-                      onChanged: (value) {
-                        setState(() => _showCompleted = value);
-                        setSheetState(() {});
-                        unawaited(
-                          _persist(_showCompletedKey, value.toString()),
-                        );
-                        unawaited(_reload());
-                      },
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        '周一作为一周开始',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: palette.textPrimary,
-                        ),
-                      ),
-                      value: _mondayFirst,
-                      activeThumbColor: palette.accent,
-                      onChanged: (value) {
-                        setState(() => _mondayFirst = value);
-                        setSheetState(() {});
-                        unawaited(_persist(_mondayFirstKey, value.toString()));
-                        unawaited(_reload());
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        Icons.today_outlined,
-                        color: palette.accent,
-                      ),
-                      title: Text(
-                        '回到今天',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: palette.textPrimary,
-                        ),
-                      ),
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        color: palette.textSecondary,
-                      ),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _goToday();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  String _monthTitle(DateTime date) {
+  String _headerTitle() {
+    final date = _selectedDate;
     final now = DateTime.now();
-    if (date.year == now.year) {
-      return '${_kMonthNames[date.month - 1]}月';
+    switch (_viewMode) {
+      case CalendarViewMode.year:
+        return '${date.year}年';
+      case CalendarViewMode.threeDay:
+        return '${date.month}月${date.day}日';
+      case CalendarViewMode.day:
+        return date.year == now.year
+            ? '${date.month}月'
+            : '${date.year}年${date.month}月';
+      case CalendarViewMode.list:
+      case CalendarViewMode.month:
+      case CalendarViewMode.week:
+        return date.year == now.year
+            ? '${date.month}月'
+            : '${date.year}年${date.month}月';
     }
-    return '${date.year}年${date.month}月';
   }
 
   String _selectedDateLabel(DateTime date) {
@@ -450,7 +452,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     final palette = _palette;
-    final title = _monthTitle(_selectedDate);
 
     return Scaffold(
       backgroundColor: palette.background,
@@ -458,152 +459,246 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
         bottom: false,
         child: Column(
           children: [
-            _buildHeader(palette, title),
-            if (_viewMode == CalendarViewMode.list)
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: _onVerticalDragUpdate,
-                onVerticalDragEnd: _onVerticalDragEnd,
-                child: AnimatedSize(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  alignment: Alignment.topCenter,
-                  child: _expanded
-                      ? _buildMonthGrid(palette)
-                      : _buildWeekStrip(palette),
+            _buildHeader(palette),
+            if (_viewMode == CalendarViewMode.year)
+              Expanded(
+                child: CalendarYearView(
+                  year: _selectedDate.year,
+                  selectedDate: _selectedDate,
+                  markedDates: _markedDates,
+                  mondayFirst: _mondayFirst,
+                  palette: palette,
+                  onDateSelected: (date) {
+                    setState(() {
+                      _selectedDate = calendarDateOnly(date);
+                      _visibleMonth = DateTime(date.year, date.month, 1);
+                      _viewMode = CalendarViewMode.month;
+                    });
+                    unawaited(_persist(_viewModeKey, _viewMode.name));
+                    unawaited(_reload());
+                  },
+                  onYearChanged: (year) {
+                    final days = calendarDaysInMonth(
+                      year,
+                      _selectedDate.month,
+                    );
+                    final next = DateTime(
+                      year,
+                      _selectedDate.month,
+                      mathMin(_selectedDate.day, days),
+                    );
+                    setState(() {
+                      _selectedDate = next;
+                      _visibleMonth = DateTime(year, next.month, 1);
+                    });
+                    unawaited(_reload());
+                  },
                 ),
               )
-            else if (_viewMode == CalendarViewMode.month)
-              _buildMonthGrid(palette)
-            else if (_viewMode == CalendarViewMode.week)
-              _buildWeekStrip(palette)
-            else
-              _buildDayHeader(palette),
-            const SizedBox(height: 4),
-            if (_viewMode != CalendarViewMode.day)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _selectedDateLabel(_selectedDate),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: palette.textSecondary,
+            else ...[
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragEnd: _onCalendarSwipe,
+                child: _buildCalendarHeader(palette),
+              ),
+              if (_viewMode != CalendarViewMode.day)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _selectedDateLabel(_selectedDate),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: palette.textSecondary,
+                      ),
                     ),
                   ),
                 ),
+              Expanded(
+                child: CalendarTaskList(
+                  tasks: _tasks,
+                  loading: _loading,
+                  palette: palette,
+                  storageAvailable: _repo != null,
+                  storageMessage: _storageError,
+                  onRetry: _retryStorage,
+                  onToggle: _toggleTask,
+                  onDelete: _deleteTask,
+                ),
               ),
-            Expanded(
-              child: CalendarTaskList(
-                tasks: _tasks,
-                loading: _loading,
-                palette: palette,
-                storageAvailable: _repo != null,
-                onToggle: _toggleTask,
-                onDelete: _deleteTask,
-              ),
-            ),
+            ],
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addTask,
-        backgroundColor: palette.accent,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, size: 28),
-      ),
+      floatingActionButton: _viewMode == CalendarViewMode.year
+          ? null
+          : GestureDetector(
+              onTap: _addTask,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: palette.accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.accent.withValues(alpha: 0.32),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.add, size: 30, color: Colors.white),
+              ),
+            ),
     );
   }
 
-  Widget _buildHeader(CalendarPalette palette, String title) {
+  Widget _buildHeader(CalendarPalette palette) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 8, 4),
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 2),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 30,
-                height: 1.1,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.4,
-                color: palette.textPrimary,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _pickDate,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _headerTitle(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 34,
+                        height: 1.12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.6,
+                        color: palette.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Icon(
+                    Icons.expand_more,
+                    size: 18,
+                    color: palette.textSecondary.withValues(alpha: 0.8),
+                  ),
+                ],
               ),
             ),
           ),
-          IconButton(
-            tooltip: '视图与设置',
-            onPressed: _showSettings,
-            icon: Icon(
-              _viewMode == CalendarViewMode.week
-                  ? Icons.view_week_outlined
-                  : _viewMode == CalendarViewMode.day
-                  ? Icons.view_day_outlined
-                  : Icons.view_agenda_outlined,
-              color: palette.textPrimary,
-            ),
+          CalendarIconButton(
+            icon: calendarViewModeIcon(_viewMode),
+            palette: palette,
+            tooltip: '视图',
+            onTap: _showViewMenu,
           ),
-          IconButton(
-            tooltip: '更多设置',
-            onPressed: _showSettings,
-            icon: Icon(Icons.more_horiz, color: palette.textPrimary),
+          CalendarIconButton(
+            icon: Icons.more_horiz,
+            palette: palette,
+            tooltip: '日历设置',
+            onTap: _showSettings,
           ),
           if (_viewMode == CalendarViewMode.list)
-            IconButton(
+            CalendarIconButton(
+              icon: _expanded
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+              palette: palette,
               tooltip: _expanded ? '收起为周' : '展开为月',
-              onPressed: _toggleExpanded,
-              icon: Icon(
-                _expanded ? Icons.unfold_less : Icons.unfold_more,
-                color: palette.textSecondary,
-              ),
+              onTap: _toggleExpanded,
             ),
         ],
       ),
     );
   }
 
-  Widget _buildMonthGrid(CalendarPalette palette) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: CalendarMonthGrid(
-        month: _visibleMonth,
-        selectedDate: _selectedDate,
-        markedDates: _markedDates,
-        mondayFirst: _mondayFirst,
-        palette: palette,
-        onSelected: _selectDate,
-      ),
-    );
+  Widget _buildCalendarHeader(CalendarPalette palette) {
+    switch (_viewMode) {
+      case CalendarViewMode.list:
+        return CalendarCollapsibleMonth(
+          month: _visibleMonth,
+          selectedDate: _selectedDate,
+          markedDates: _markedDates,
+          mondayFirst: _mondayFirst,
+          palette: palette,
+          expanded: _expanded,
+          onExpandedChanged: _onExpandedChanged,
+          onSelected: _selectDate,
+        );
+      case CalendarViewMode.month:
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: CalendarMonthGrid(
+            month: _visibleMonth,
+            selectedDate: _selectedDate,
+            markedDates: _markedDates,
+            mondayFirst: _mondayFirst,
+            palette: palette,
+            onSelected: _selectDate,
+          ),
+        );
+      case CalendarViewMode.week:
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: CalendarWeekStrip(
+            selectedDate: _selectedDate,
+            markedDates: _markedDates,
+            mondayFirst: _mondayFirst,
+            palette: palette,
+            onSelected: _selectDate,
+          ),
+        );
+      case CalendarViewMode.threeDay:
+        return CalendarThreeDayStrip(
+          selectedDate: _selectedDate,
+          markedDates: _markedDates,
+          palette: palette,
+          onSelected: _selectDate,
+        );
+      case CalendarViewMode.day:
+        return _DayHeader(
+          date: _selectedDate,
+          palette: palette,
+          onPrevious: () =>
+              _selectDate(_selectedDate.subtract(const Duration(days: 1))),
+          onNext: () => _selectDate(_selectedDate.add(const Duration(days: 1))),
+        );
+      case CalendarViewMode.year:
+        return const SizedBox.shrink();
+    }
   }
+}
 
-  Widget _buildWeekStrip(CalendarPalette palette) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: CalendarWeekStrip(
-        selectedDate: _selectedDate,
-        markedDates: _markedDates,
-        mondayFirst: _mondayFirst,
-        palette: palette,
-        onSelected: _selectDate,
-      ),
-    );
-  }
+class _DayHeader extends StatelessWidget {
+  const _DayHeader({
+    required this.date,
+    required this.palette,
+    required this.onPrevious,
+    required this.onNext,
+  });
 
-  Widget _buildDayHeader(CalendarPalette palette) {
-    final weekday = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  final DateTime date;
+  final CalendarPalette palette;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            '${_selectedDate.day}',
+            '${date.day}',
             style: TextStyle(
-              fontSize: 42,
+              fontSize: 46,
               height: 1,
               fontWeight: FontWeight.w600,
               color: palette.textPrimary,
@@ -611,14 +706,43 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
           ),
           const SizedBox(width: 10),
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              '${_selectedDate.month}月 · ${weekday[_selectedDate.weekday - 1]}',
-              style: TextStyle(fontSize: 14, color: palette.textSecondary),
+            padding: const EdgeInsets.only(top: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${date.month}月',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: palette.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  weekdays[date.weekday - 1],
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: palette.textSecondary,
+                  ),
+                ),
+              ],
             ),
+          ),
+          const Spacer(),
+          CalendarIconButton(
+            icon: Icons.chevron_left,
+            palette: palette,
+            onTap: onPrevious,
+          ),
+          CalendarIconButton(
+            icon: Icons.chevron_right,
+            palette: palette,
+            onTap: onNext,
           ),
         ],
       ),
     );
   }
 }
+
+int mathMin(int a, int b) => a < b ? a : b;
