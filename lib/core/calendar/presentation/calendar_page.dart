@@ -19,6 +19,7 @@ import 'calendar_palette.dart';
 import 'calendar_pickers.dart';
 import 'calendar_settings_sheet.dart';
 import 'calendar_task_list.dart';
+import 'calendar_task_panel.dart';
 import 'calendar_task_sheet.dart';
 import 'calendar_view_menu.dart';
 import 'calendar_view_mode.dart';
@@ -46,6 +47,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   CalendarViewMode _viewMode = CalendarViewMode.list;
   bool _showCompleted = true;
   bool _mondayFirst = true;
+
+  /// 列表视图：任务面板是否展开（展开时 FAB 让位给面板）。
+  bool _panelExpanded = false;
 
   bool _loading = true;
   List<CalendarTask> _tasks = const [];
@@ -496,42 +500,52 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
                 ),
               )
             else ...[
-              GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onHorizontalDragEnd: _onCalendarSwipe,
-                child: _buildCalendarHeader(palette),
-              ),
-              if (_viewMode != CalendarViewMode.day)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _selectedDateLabel(_selectedDate),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: palette.textSecondary,
+              // 列表视图：日历在下层、任务面板覆盖在上（参考 Lab 容器下拉面板
+              // 的层级关系）——面板浮起带圆角顶与把手，日历随之被轻推下沉，
+              // 两个面板的主次一眼可读，而不是上下并列两半屏。
+              if (_viewMode == CalendarViewMode.list)
+                Expanded(
+                  child: _buildListView(palette),
+                )
+              else ...[
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: _onCalendarSwipe,
+                  child: _buildCalendarHeader(palette),
+                ),
+                if (_viewMode != CalendarViewMode.day)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _selectedDateLabel(_selectedDate),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: palette.textSecondary,
+                        ),
                       ),
                     ),
                   ),
+                Expanded(
+                  child: CalendarTaskList(
+                    tasks: _tasks,
+                    loading: _loading,
+                    palette: palette,
+                    storageAvailable: _repo != null,
+                    storageMessage: _storageError,
+                    onRetry: _retryStorage,
+                    onToggle: _toggleTask,
+                    onDelete: _deleteTask,
+                  ),
                 ),
-              Expanded(
-                child: CalendarTaskList(
-                  tasks: _tasks,
-                  loading: _loading,
-                  palette: palette,
-                  storageAvailable: _repo != null,
-                  storageMessage: _storageError,
-                  onRetry: _retryStorage,
-                  onToggle: _toggleTask,
-                  onDelete: _deleteTask,
-                ),
-              ),
+              ],
             ],
           ],
         ),
       ),
-      floatingActionButton: _viewMode == CalendarViewMode.year
+      floatingActionButton: _viewMode == CalendarViewMode.year ||
+              (_viewMode == CalendarViewMode.list && _panelExpanded)
           ? null
           : GestureDetector(
               onTap: _addTask,
@@ -554,6 +568,57 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
             ),
     );
   }
+
+  /// 列表视图：日历在下、任务面板浮在上（覆盖关系，见 CalendarTaskPanel）。
+  Widget _buildListView(CalendarPalette palette) {
+    return Stack(
+      children: [
+        // 日历层：折叠月历（可展开为月视图）。面板升起时整体轻微下沉，
+        // 让「面板在上、日历在下」的层级读得出来。
+        Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: _panelPush(context),
+            ),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragEnd: _onCalendarSwipe,
+              child: _buildCalendarHeader(palette),
+            ),
+          ),
+        ),
+        // 任务面板层：浮在日历之上。
+        Positioned.fill(
+          child: CalendarTaskPanel(
+            palette: palette,
+            headerLabel: _selectedDateLabel(_selectedDate),
+            headerTrailing: Text(
+              _tasks.isEmpty ? '暂无任务' : '${_tasks.length} 项',
+              style: TextStyle(fontSize: 11, color: palette.textSecondary),
+            ),
+            onExpandedChanged: (expanded) {
+              // 面板展开时收起 FAB，避免它压在面板内容上。
+              if (!mounted) return;
+              setState(() => _panelExpanded = expanded);
+            },
+            child: CalendarTaskList(
+              tasks: _tasks,
+              loading: _loading,
+              palette: palette,
+              storageAvailable: _repo != null,
+              storageMessage: _storageError,
+              onRetry: _retryStorage,
+              onToggle: _toggleTask,
+              onDelete: _deleteTask,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 日历层随面板升起而下沉的距离（面板展开 1 的满推量）。
+  double _panelPush(BuildContext context) => _panelExpanded ? 56 : 0;
 
   Widget _buildHeader(CalendarPalette palette) {
     return Padding(
