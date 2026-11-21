@@ -109,9 +109,14 @@ class XiangqiRoom {
 
   /// 准备阶段改规则（SET_RULES）—— 仅 host、仅 lobby/ready；
   /// 服务端改完清 ready、回 lobby。[hostColor] ∈ 'r' / 'b' / 'random'。
-  Future<void> setRules({String? hostColor}) {
+  ///
+  /// [variant] 玩法变体：'jieqi'（揭棋，服务端当场洗牌开局）/
+  /// 'standard'（切回标准）。与 [hostColor] 一样是 SET_RULES 载荷，
+  /// 两者可同发；揭棋洗牌每次 SET_RULES 都会重掷。
+  Future<void> setRules({String? hostColor, String? variant}) {
     final params = <String, dynamic>{};
     if (hostColor != null) params['host_color'] = hostColor;
+    if (variant != null) params['variant'] = variant;
     return handle.applyAction(type: 'SET_RULES', params: params);
   }
 
@@ -285,6 +290,13 @@ class XiangqiRoom {
 
   static String? endgameLabel(Snapshot? s) =>
       s?.context['endgame_label']?.toString();
+
+  /// 玩法变体：null = 标准对局；'jieqi' = 揭棋
+  /// （Lua `c.variant`，SET_RULES 设置 / RESET 按变体重洗）。
+  static String? variant(Snapshot? s) => s?.context['variant']?.toString();
+
+  /// 当前对局是否为揭棋。
+  static bool isJieqi(Snapshot? s) => variant(s) == 'jieqi';
 
   /// 谁先手：'r'（红）/ 'b'（黑）
   static XiangqiColor initialSide(Snapshot? s) =>

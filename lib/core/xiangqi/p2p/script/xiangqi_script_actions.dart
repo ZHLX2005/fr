@@ -75,11 +75,27 @@ on_action_SET_RULES = function(c, p)
 
   local starting = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1"
 
-  if p.clear_endgame == true then
+  -- 玩法变体（揭棋）优先：variant 分支自产 initial_fen（服务端洗牌），
+  -- 不吃 p.initial_fen —— 客户端算不了洗牌，也**不该**算（两端只认
+  -- 服务端权威开局，见 jieqi_shuffled_fen 注释）。
+  if p.variant == "jieqi" then
+    c.variant = "jieqi"
+    c.initial_fen = jieqi_shuffled_fen()
+    c.initial_side = "r"
+    c.endgame_label = "揭棋"
+  elseif p.variant == "standard" then
+    -- 切回标准：清变体 + 回标准开局（与 clear_endgame 同语义）。
+    c.variant = nil
+    c.initial_fen = starting
+    c.initial_side = "r"
+    c.endgame_label = nil
+  elseif p.clear_endgame == true then
+    c.variant = nil
     c.initial_fen = starting
     c.initial_side = "r"
     c.endgame_label = nil
   elseif type(p.initial_fen) == "string" and is_valid_xiangqi_fen(p.initial_fen) then
+    c.variant = nil
     c.initial_fen = p.initial_fen
     if type(p.first_mover) == "string" and (p.first_mover == "r" or p.first_mover == "b") then
       c.initial_side = p.first_mover
@@ -342,6 +358,10 @@ on_action_RESET = function(c, p)
   end
   if state ~= "ended" then
     return c
+  end
+  -- 揭棋重开**重洗**：新对局新开局（残局/标准对局沿用原 initial_fen 不变）。
+  if c.variant == "jieqi" then
+    c.initial_fen = jieqi_shuffled_fen()
   end
   c.fen = c.initial_fen or "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1"
   c.moves = {}

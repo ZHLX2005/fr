@@ -2,8 +2,11 @@
 //
 // 中国象棋准备卡「房间规则」面板 —— 行样式对齐 DraughtsRoomRulesPanel。
 //
-// 只保留执子色三选（host_color）：红先黑后（红方永远先手），
-// 无 first_mover；残局 Lua 端已支持（initial_fen），客户端暂无残局库，本期不暴露入口。
+// 两块配置：
+//   · 玩法：标准对局 / 揭棋（host 切换，SET_RULES variant；揭棋由服务端
+//     当场洗牌，重复点「揭棋」= 重新洗牌）；残局 Lua 端已支持（initial_fen），
+//     客户端暂无残局库，本期不暴露入口。
+//   · 执子色三选（host_color）：红先黑后（红方永远先手）。
 //
 // 与跳棋面板的差异：颜色是「红 / 黑」而不是「白 / 黑」。
 
@@ -14,13 +17,16 @@ enum XiangqiColorChoice { hostRed, hostBlack, random }
 
 /// 准备阶段规则面板 —— 可嵌入 lobby/ready 浮卡。
 ///
-/// [editable]=true（房主）时点选即 [onChanged]；guest 只读展示当前规则。
+/// [editable]=true（房主）时点选即 [onChanged] / [onModeChanged]；
+/// guest 只读展示当前规则。
 class XiangqiRoomRulesPanel extends StatelessWidget {
   const XiangqiRoomRulesPanel({
     super.key,
     required this.editable,
     required this.hostColor,
+    this.variant,
     this.onChanged,
+    this.onModeChanged,
   });
 
   /// 房主可改；guest 只读。
@@ -29,8 +35,17 @@ class XiangqiRoomRulesPanel extends StatelessWidget {
   /// 当前服务端权威 host 执子色（'r' / 'b'；random 已在服务端解析）。
   final String hostColor;
 
+  /// 当前玩法变体：null = 标准对局；'jieqi' = 揭棋。
+  final String? variant;
+
   /// 房主改执子色时回调。
   final ValueChanged<XiangqiColorChoice>? onChanged;
+
+  /// 房主切玩法时回调（true = 揭棋）。重复点当前玩法也会回调：
+  /// 揭棋重复点 = 服务端重新洗牌。
+  final ValueChanged<bool>? onModeChanged;
+
+  bool get _isJieqi => variant == 'jieqi';
 
   XiangqiColorChoice get _colorChoice =>
       hostColor == 'b' ? XiangqiColorChoice.hostBlack : XiangqiColorChoice.hostRed;
@@ -38,6 +53,11 @@ class XiangqiRoomRulesPanel extends StatelessWidget {
   void _emit(XiangqiColorChoice choice) {
     if (!editable || onChanged == null) return;
     onChanged!(choice);
+  }
+
+  void _emitMode(bool jieqi) {
+    if (!editable || onModeChanged == null) return;
+    onModeChanged!(jieqi);
   }
 
   @override
@@ -55,6 +75,8 @@ class XiangqiRoomRulesPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (editable) ...[
+          _modeRow(context),
+          const SizedBox(height: 6),
           _colorRow(
             context,
             value: XiangqiColorChoice.hostRed,
@@ -91,8 +113,96 @@ class XiangqiRoomRulesPanel extends StatelessWidget {
     );
   }
 
+  /// 玩法行：标准 / 揭棋双选（点当前项 = 揭棋重新洗牌）。
+  Widget _modeRow(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '玩法',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: _modeChip(
+                  context,
+                  selected: !_isJieqi,
+                  label: '标准对局',
+                  onTap: () => _emitMode(false),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _modeChip(
+                  context,
+                  selected: _isJieqi,
+                  label: _isJieqi ? '揭棋 · 重洗' : '揭棋（暗子）',
+                  onTap: () => _emitMode(true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeChip(
+    BuildContext context, {
+    required bool selected,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
+            width: selected ? 1.4 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
   String _guestSummary() {
     final hostSide = hostColor == 'b' ? '黑' : '红';
+    if (_isJieqi) {
+      return '玩法：揭棋 —— 暗子随机摆放，走一步翻开一张；房主执$hostSide，红方先走。';
+    }
     return '房主执$hostSide；标准开局，红方先走。';
   }
 

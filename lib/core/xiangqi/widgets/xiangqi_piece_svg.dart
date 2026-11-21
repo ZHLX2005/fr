@@ -124,6 +124,39 @@ class XiangqiPieceArt {
     return built;
   }
 
+  /// 暗子（揭棋背面朝上的棋子）SVG（记忆化）。
+  ///
+  /// 背面 = 圆盘 + 内环 + 中央小圆凸纹，**不含任何字形** ——
+  /// 暗子的真实棋种在翻开前不可见（揭棋核心信息纪律）。
+  /// 缓存 key 前缀 'h:' 与明子隔离。
+  static String hiddenSvgFor(XiangqiColor color, {XiangqiPieceColors? colors}) {
+    final c = colors ?? XiangqiPieceColors.of(color);
+    final key = 'h:${color.index}:${c.scheme}';
+    final cached = _cache[key];
+    if (cached != null) return cached;
+    final built = _buildHidden(c);
+    _cache[key] = built;
+    return built;
+  }
+
+  static String _buildHidden(XiangqiPieceColors colors) {
+    // 背面观感：外圈圆盘 + 内环（与明子同构），中央一圈小凸纹 +
+    // 四个对称小圆点 —— 与实物棋子背面的木纹 / 印记呼应，且明确
+    // 表达「这枚子没有字」。
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        '<circle cx="50" cy="50" r="47" fill="${_hex(colors.disc)}" '
+        'stroke="${_hex(colors.ring)}" stroke-width="2.6"/>'
+        '<circle cx="50" cy="50" r="39.5" fill="none" '
+        'stroke="${_hex(colors.ring)}" stroke-width="1.2" opacity="0.62"/>'
+        '<circle cx="50" cy="50" r="18" fill="none" '
+        'stroke="${_hex(colors.ring)}" stroke-width="2" opacity="0.55"/>'
+        '<circle cx="50" cy="20" r="3" fill="${_hex(colors.ring)}" opacity="0.55"/>'
+        '<circle cx="50" cy="80" r="3" fill="${_hex(colors.ring)}" opacity="0.55"/>'
+        '<circle cx="20" cy="50" r="3" fill="${_hex(colors.ring)}" opacity="0.55"/>'
+        '<circle cx="80" cy="50" r="3" fill="${_hex(colors.ring)}" opacity="0.55"/>'
+        '</svg>';
+  }
+
   static String _build(XiangqiPiece piece, XiangqiPieceColors colors) {
     final glyph = kXiangqiGlyphPaths[piece.chineseName] ?? '';
     // 字形 path 在 100×100 画布里占 6..94；棋子内圈直径 79 → 缩到 0.72
@@ -165,6 +198,7 @@ class XiangqiPieceSvg extends StatelessWidget {
     required this.piece,
     required this.size,
     this.colors,
+    this.hidden = false,
   });
 
   /// 要渲染的棋子
@@ -172,6 +206,11 @@ class XiangqiPieceSvg extends StatelessWidget {
 
   /// 渲染边长（px）
   final double size;
+
+  /// true = 渲染揭棋暗子背面（圆盘无字，颜色仍按红黑区分敌我）。
+  ///
+  /// [piece] 此时只提供颜色（真实棋种不参与渲染 —— 翻开前不可见）。
+  final bool hidden;
 
   /// 配色覆盖（由棋盘 palette 注入；null = 按棋子颜色取默认浅色主题配色）。
   ///
@@ -182,6 +221,15 @@ class XiangqiPieceSvg extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = colors ?? XiangqiPieceColors.of(piece.color);
+    if (hidden) {
+      return SvgPicture.string(
+        XiangqiPieceArt.hiddenSvgFor(piece.color, colors: c),
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => _FallbackDisc(colors: c, size: size),
+      );
+    }
     // 纯圆盘，**不画落子阴影** —— 阴影那层椭圆把圆盘压得"不圆"，
     // 看着发扁；去掉后棋子就是干净的正圆（也更像实物棋子）。
     return SvgPicture.string(

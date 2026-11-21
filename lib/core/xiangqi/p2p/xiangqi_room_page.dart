@@ -65,6 +65,8 @@ import '../engine/fen_codec.dart';
 import '../engine/make_move.dart';
 import '../engine/move_generator.dart';
 import '../engine/xiangqi_engine.dart';
+import '../jieqi/jieqi_engine.dart';
+import '../jieqi/jieqi_state.dart';
 import '../models/board_state.dart';
 import '../models/game_status.dart';
 import '../models/move.dart';
@@ -97,6 +99,12 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   Snapshot? _snap;
   List<XiangqiMoveRecord> _history = const [];
   XiangqiBoardState _board = XiangqiBoardState.initial();
+
+  /// 揭棋暗子集合（非揭棋对局恒空集）。
+  ///
+  /// 从「初始暗置集合 + 棋谱结构重放」推得（走过即翻开）；
+  /// 重放失败降级为空集（全部按明子渲染，desync banner 另行提示）。
+  Set<int> _hidden = const {};
 
   int? _selected;
   Set<int> _targets = const {};
@@ -145,6 +153,10 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   /// 每步的起止点（paths[i] = 通向 states[i] 那一手的 from/to）。
   List<XiangqiBoardState> _replayStates = const [];
   List<(int?, int?)> _replayPaths = const [];
+
+  /// 揭棋复盘的逐手暗子集合（与 [_replayStates] 同长；
+  /// 非揭棋 / 重放失败为空表 → 复盘按明子渲染）。
+  List<Set<int>> _replayHidden = const [];
 
   // ── 对话（BoardChatOverlay：chatRing + emojiRing，对齐 chess / draughts）──
   EmojiBundle _emojiBundle = EmojiBundle.empty();
@@ -292,6 +304,8 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
       initialSide: XiangqiRoom.initialSide(s),
     );
     _board = replay.board;
+    // 揭棋暗子集合（非揭棋对局恒空集）。
+    _hidden = XiangqiRoom.isJieqi(s) ? _computeHidden() : const {};
     // 棋谱与服务端对不上（异常客户端 / 引擎分歧）→ 提示玩家，
     // 避免「棋盘点不动又看不出原因」（见 XiangqiRoom.rebuildBoardVerified）。
     _desynced = !replay.consistent || !replay.matchesServerFen;
@@ -314,6 +328,31 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   XiangqiColor get _myColor => XiangqiRoom.myColor(widget.handle, _snap);
   bool get _isHost => _me == XiangqiRoom.hostId(_snap);
   bool get _isPlaying => _snap?.state == 'playing';
+
+  /// 当前对局是否为揭棋（服务端 c.variant 权威）。
+  bool get _isJieqi => XiangqiRoom.isJieqi(_snap);
+
+  /// 从揭棋开局 + 棋谱推当前暗子集合（走过即翻开）。
+  ///
+  /// 降级口径：重放失败（畸形 FEN / 坏记录）→ 空集 = 全部按明子渲染
+  /// —— 棋盘照常可走（rebuildBoardVerified 的修复路径仍在），
+  /// desync banner 会另行提示棋谱异常。
+  Set<int> _computeHidden() {
+    try {
+      final initial = boardStateFromFen(XiangqiRoom.initialFen(_snap));
+      final j0 = JieqiState(
+        board: initial,
+        hidden: jieqiInitialHidden(initial),
+      );
+      final states = jieqiReplayStates(j0, [
+        for (final rec in _history) rec.uci,
+      ]);
+      return states.last.hidden;
+    } catch (_) {
+      return const {};
+    }
+  }
+
   bool get _isMyTurn =>
       _isPlaying && _board.sideToMove == _myColor && !_endDeclared;
 
@@ -325,24 +364,35 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   bool _canPerform(String action) =>
       XiangqiRoom.canPerform(action, _snap, isHost: _isHost);
 
+  /// 当前 JieqiState（揭棋用；非揭棋对局 hidden 为空集 → 等价标准棋盘）。
+  JieqiState get _jieqiState =>
+      JieqiState(board: _board, hidden: _hidden);
+
   List<XiangqiMove> get _myLegalMoves => _isMyTurn
-      ? kDefaultXiangqiEngine.legalMoves(_board)
+      ? (_isJieqi
+          ? jieqiLegalMoves(_jieqiState)
+          : kDefaultXiangqiEngine.legalMoves(_board))
       : const [];
 
   /// 被将军的将/帅所在交点（轮到走的一方被将军才有）。
   int? get _checkSquare {
     if (!_isPlaying) return null;
     final side = _board.sideToMove;
-    if (!xiangqiIsInCheck(_board, side)) return null;
+    if (!_inCheckFor(side)) return null;
     return _board.generalSquareOf(side);
   }
+
+  /// 将军判定（揭棋走虚拟棋盘：对方暗子按点位棋种算威胁）。
+  bool _inCheckFor(XiangqiColor color) => _isJieqi
+      ? jieqiIsInCheck(_jieqiState, color)
+      : xiangqiIsInCheck(_board, color);
 
   /// 操作条是否提示「将军」（对手被将军）。
   bool get _opponentInCheck {
     if (!_isPlaying) return false;
     final side = _board.sideToMove;
     if (side == _myColor) return false;
-    return xiangqiIsInCheck(_board, side);
+    return _inCheckFor(side);
   }
 
   /// **我**被将军（轮到我走且我的将被攻击）—— 必须立刻明示"必须应将"。
@@ -352,7 +402,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   bool get _iAmInCheck {
     if (!_isPlaying) return false;
     if (_board.sideToMove != _myColor) return false;
-    return xiangqiIsInCheck(_board, _myColor);
+    return _inCheckFor(_myColor);
   }
 
   // ── 终局上报 ──
@@ -372,11 +422,16 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
 
   void _maybeDeclareEnd() {
     if (_endDeclared || !_isPlaying) return;
-    final keys = XiangqiRoom.rebuildPositionHistory(
-      _history,
-      initialFen: XiangqiRoom.initialFen(_snap),
-    );
-    final st = XiangqiRoom.checkStatus(_board, keys);
+    // 揭棋终局走揭棋引擎（暗子按点位棋种算走法）；标准对局走原路径。
+    final st = _isJieqi
+        ? jieqiStatus(_jieqiState)
+        : XiangqiRoom.checkStatus(
+            _board,
+            XiangqiRoom.rebuildPositionHistory(
+              _history,
+              initialFen: XiangqiRoom.initialFen(_snap),
+            ),
+          );
     if (!st.isOver) return;
     _endDeclared = true;
     // 只有"刚走完的一方"能声明（= 非当前走子方）
@@ -436,7 +491,10 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
   }
 
   Future<void> _playMove(XiangqiMove move) async {
-    final next = applyXiangqiMove(_board, move).nextState;
+    // 揭棋：走子后暗子翻开（真实棋盘走法不变，只是 hidden 集合收缩）。
+    final next = _isJieqi
+        ? jieqiApplyMove(_jieqiState, move).board
+        : applyXiangqiMove(_board, move).nextState;
     // 预计算走后 FEN，给 [_applySnapshot] 做 echo 识别（避免重复响）。
     final nextFen = fenFromBoardState(next);
     setState(() {
@@ -521,6 +579,28 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     });
     try {
       await _room.setRules(hostColor: raw);
+    } catch (e) {
+      if (mounted) {
+        AppNotification.show(context, '改规则失败: $e', type: AppNotificationType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _setRulesLock = false);
+    }
+  }
+
+  /// 房主切玩法（SET_RULES variant）—— 揭棋由服务端当场洗牌；
+  /// 重复点「揭棋」= 重新洗牌；点「标准对局」且已是标准 → 忽略。
+  /// 服务端改完清 ready、回 lobby。
+  Future<void> _applyModeRules(bool jieqi) async {
+    if (_setRulesLock || !_canPerform('SET_RULES')) return;
+    final current = XiangqiRoom.variant(_snap);
+    if (!jieqi && current == null) return; // 已是标准对局
+    setState(() {
+      _setRulesLock = true;
+      _ackedLocally = false;
+    });
+    try {
+      await _room.setRules(variant: jieqi ? 'jieqi' : 'standard');
     } catch (e) {
       if (mounted) {
         AppNotification.show(context, '改规则失败: $e', type: AppNotificationType.error);
@@ -904,11 +984,15 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
               GameReadyRoomCodeChip(code: code),
               const SizedBox(height: 20),
 
-              // 房间规则：host 可改执子色；guest 只读。改规则会清 ready。
+              // 房间规则：host 可改玩法（标准/揭棋）与执子色；guest 只读。
+              // 改规则会清 ready。揭棋洗牌在服务端（重复点揭棋 = 重洗）。
               XiangqiRoomRulesPanel(
                 editable: _canPerform('SET_RULES') && !_setRulesLock,
                 hostColor: hostIsRed ? 'r' : 'b',
+                variant: XiangqiRoom.variant(snap),
                 onChanged: _canPerform('SET_RULES') ? _applyColorRules : null,
+                onModeChanged:
+                    _canPerform('SET_RULES') ? _applyModeRules : null,
               ),
               const SizedBox(height: 12),
 
@@ -1033,6 +1117,26 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
             '$meName（我·${_myColor == XiangqiColor.red ? '执红' : '执黑'}）',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          // 玩法徽标：揭棋对局必须在局内一眼可见（暗子 / 明子是两种体验）。
+          if (_isJieqi) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: scheme.primary, width: 1),
+              ),
+              child: Text(
+                '揭棋',
+                style: TextStyle(
+                  color: scheme.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
           const Spacer(),
           if (oppOffline)
             Text('对手已离线',
@@ -1177,6 +1281,24 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     }
     final states = <XiangqiBoardState>[state];
     final paths = <(int?, int?)>[(null, null)];
+    // 揭棋复盘：逐手暗子集合与局面子序列同步推（走过即翻开）。
+    // 重放失败 → 空表 = 复盘全程按明子渲染（降级不阻塞复盘）。
+    var replayHidden = const <Set<int>>[];
+    if (_isJieqi) {
+      try {
+        final init = boardStateFromFen(XiangqiRoom.initialFen(_snap!));
+        final j0 = JieqiState(
+          board: init,
+          hidden: jieqiInitialHidden(init),
+        );
+        final jstates = jieqiReplayStates(j0, [
+          for (final rec in _history) rec.uci,
+        ]);
+        replayHidden = [for (final js in jstates) js.hidden];
+      } catch (_) {
+        replayHidden = const <Set<int>>[];
+      }
+    }
     for (final rec in _history) {
       final m = XiangqiMove.fromUci(rec.uci);
       if (m != null) {
@@ -1192,6 +1314,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     setState(() {
       _replayStates = states;
       _replayPaths = paths;
+      _replayHidden = replayHidden;
       _replayIndex = _history.length; // 从终局开始往回看
       _replayMode = true;
       _selected = null;
@@ -1209,6 +1332,7 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
     _replayIndex = 0;
     _replayStates = const [];
     _replayPaths = const [];
+    _replayHidden = const [];
   }
 
   /// 手动退出复放（UI 入口：回放条退出键 / 返回键）。
@@ -1300,6 +1424,13 @@ class _XiangqiRoomPageState extends State<XiangqiRoomPage> {
                   replaying ? _replayPaths[replayIndex].$1 : _lastFrom,
               lastMoveTo: replaying ? _replayPaths[replayIndex].$2 : _lastTo,
               checkSquare: replaying ? null : _checkSquare,
+              // 揭棋暗子：实况用当前集合；复盘用逐手集合（重放失败为空表
+              // → 复盘按明子渲染，见 _enterReplay）。
+              hiddenSquares: replaying
+                  ? (_replayHidden.isNotEmpty
+                      ? _replayHidden[replayIndex]
+                      : const <int>{})
+                  : _hidden,
               // 叠加服务端权限表判定（A03 §3④）：服务端会拒绝的着法，
               // 客户端就不该给出可点的手感。
               interactive: _isMyTurn &&

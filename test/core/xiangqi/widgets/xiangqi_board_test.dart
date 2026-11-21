@@ -100,6 +100,49 @@ void main() {
       expect(red, isNot(equals(black)));
     });
 
+    test('揭棋暗子背面：无字形 path、红黑不同、记忆化复用', () {
+      final red = XiangqiPieceArt.hiddenSvgFor(XiangqiColor.red);
+      final black = XiangqiPieceArt.hiddenSvgFor(XiangqiColor.black);
+      for (final svg in [red, black]) {
+        expect(svg, contains('<svg'));
+        expect(svg, contains('<circle'), reason: '背面 = 圆盘 + 环纹');
+        expect(svg, isNot(contains('<path d="')),
+            reason: '背面绝不带字形 —— 暗子真实棋种在翻开前不可见');
+        expect(svg, isNot(contains('<text')));
+      }
+      expect(red, isNot(equals(black)), reason: '红黑背面仍需可区分敌我');
+      // 记忆化：同色重复取是同一字符串（命中 flutter_svg 全局缓存）
+      expect(
+        identical(XiangqiPieceArt.hiddenSvgFor(XiangqiColor.red), red),
+        isTrue,
+      );
+    });
+
+    testWidgets('暗子 widget 能渲染（hidden 模式 SVG 可解析）', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 60,
+                height: 60,
+                child: XiangqiPieceSvg(
+                  piece: XiangqiPiece(
+                    XiangqiColor.black,
+                    XiangqiPieceType.cannon,
+                  ),
+                  size: 60,
+                  hidden: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('棋子 widget 能渲染（SVG 能被 flutter_svg 解析）', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(

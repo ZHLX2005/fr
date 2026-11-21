@@ -35,6 +35,7 @@ void main() {
   _setRulesGuards();
   _emptyRoomReclaimGuards();
   _moveGuards();
+  _jieqiGuards();
 }
 
 /// 截取指定函数块（从定义起，到下一个顶层 `on_` 定义）。
@@ -441,6 +442,89 @@ void _moveGuards() {
       expect(helper, contains('#ranks ~= 10'));
       expect(helper, contains('width ~= 9'));
       expect(helper, contains('turn ~= "r" and turn ~= "b"'));
+    });
+  });
+}
+
+void _jieqiGuards() {
+  group('kXiangqiScript 揭棋（variant = "jieqi"）静态守卫', () {
+    test('jieqi_shuffled_fen 存在且产标准字符集开局（洗牌在服务端）', () {
+      expect(_script, contains('function jieqi_shuffled_fen()'));
+      expect(
+        _script,
+        contains('for i = #letters, 2, -1 do'),
+        reason: 'Fisher-Yates 洗牌（math.random 与 host_color=random 同源）',
+      );
+      expect(
+        _script,
+        contains('if lower then'),
+        reason: '黑方棋种字母必须转小写（FEN 大写红 / 小写黑）',
+      );
+      expect(_script, contains('.."k"..'), reason: '黑将明置原位');
+      expect(_script, contains('.."K"..'), reason: '红帅明置原位');
+    });
+
+    test('SET_RULES variant 分支：jieqi 洗牌 / standard 还原，均回 lobby', () {
+      final block = _functionBlock('on_action_SET_RULES = function');
+      final jieqiIdx = block.indexOf('p.variant == "jieqi"');
+      final standardIdx = block.indexOf('p.variant == "standard"');
+      final clearIdx = block.indexOf('p.clear_endgame == true');
+      expect(jieqiIdx, isNot(-1));
+      expect(standardIdx, isNot(-1));
+      expect(clearIdx, isNot(-1));
+      expect(jieqiIdx, lessThan(clearIdx),
+          reason: 'variant 分支必须先于 clear_endgame / initial_fen 分支'
+              '（variant 自产开局，不吃 p.initial_fen）');
+      final jieqiBody = block.substring(jieqiIdx, standardIdx);
+      expect(jieqiBody, contains('c.variant = "jieqi"'));
+      expect(jieqiBody, contains('c.initial_fen = jieqi_shuffled_fen()'));
+      expect(jieqiBody, contains('c.initial_side = "r"'),
+          reason: '揭棋固定红先（执子色由 host_color 决定）');
+      expect(jieqiBody, contains('c.endgame_label = "揭棋"'));
+      final standardBody = block.substring(standardIdx, clearIdx);
+      expect(standardBody, contains('c.variant = nil'));
+      expect(standardBody, contains('c.initial_fen = starting'));
+    });
+
+    test('variant 分支不吃 p.initial_fen，其余分支清 variant', () {
+      final block = _functionBlock('on_action_SET_RULES = function');
+      final fenIdx = block.indexOf('type(p.initial_fen) == "string"');
+      expect(fenIdx, isNot(-1));
+      final fenBody = block.substring(fenIdx);
+      expect(
+        fenBody.substring(0, fenBody.indexOf('c.initial_fen = p.initial_fen')),
+        contains('c.variant = nil'),
+        reason: '残局/自定义开局分支必须清变体（残局与揭棋互斥）',
+      );
+      expect(
+        block.substring(block.indexOf('p.clear_endgame == true'),
+            block.indexOf('type(p.initial_fen) == "string"')),
+        contains('c.variant = nil'),
+        reason: 'clear_endgame 分支必须清变体',
+      );
+    });
+
+    test('RESET 揭棋重开重洗（新对局新开局）', () {
+      final block = _functionBlock('on_action_RESET = function');
+      expect(
+        block,
+        contains('if c.variant == "jieqi" then'),
+      );
+      expect(
+        block,
+        contains('c.initial_fen = jieqi_shuffled_fen()'),
+        reason: '揭棋 RESET 必须重洗（残局 / 标准对局沿用原 initial_fen）',
+      );
+    });
+
+    test('on_init 与空房回收都把 variant 归零', () {
+      final onInit = _functionBlock('on_init = function');
+      expect(onInit, contains('c.variant = nil'),
+          reason: '新建房间默认标准对局');
+      final onJoin = _functionBlock('on_join = function');
+      expect(onJoin, contains('c.variant = nil'),
+          reason: '空房回收后的新房是标准对局 —— 否则留下 '
+              '"variant=jieqi + 标准 FEN" 的矛盾态，客户端把标准开局全当暗子');
     });
   });
 }

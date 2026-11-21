@@ -148,6 +148,7 @@ class XiangqiBoard extends StatelessWidget {
     this.checkSquare,
     this.palette,
     this.interactive = true,
+    this.hiddenSquares = const {},
   });
 
   final XiangqiBoardState state;
@@ -178,6 +179,13 @@ class XiangqiBoard extends StatelessWidget {
 
   /// false = 只读（终局回顾 / 观战）
   final bool interactive;
+
+  /// 揭棋暗子集合（1D 索引）—— 这些格上的棋子渲染为**背面圆盘**（无字）。
+  ///
+  /// 真实棋种仍在 [state] 里（引擎 / 重放需要），但**只在此处决定渲染
+  /// 形态**：集合里的格一律画背面，UI 层永不泄露暗子字面。
+  /// 空集 = 标准对局（全部明子）。
+  final Set<int> hiddenSquares;
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +306,7 @@ class XiangqiBoard extends StatelessWidget {
       cell * _Grid.viewX(col, flipped) - size / 2,
       cell * _Grid.viewY(row, flipped) - size / 2,
     );
+    final isHidden = hiddenSquares.contains(idx);
     return Positioned(
       left: center.dx,
       top: center.dy,
@@ -308,6 +317,7 @@ class XiangqiBoard extends StatelessWidget {
           piece: piece,
           size: size,
           colors: palette.pieceOf(piece.color),
+          hidden: isHidden,
         ),
       ),
     );

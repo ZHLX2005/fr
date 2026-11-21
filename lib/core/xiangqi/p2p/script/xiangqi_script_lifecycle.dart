@@ -104,6 +104,48 @@ function side_to_move(c, n)
   return "r"
 end
 
+-- ════════════════════════════════════════════════════════════════
+-- 揭棋（variant = "jieqi"）开局洗牌
+-- ════════════════════════════════════════════════════════════════
+
+-- 生成揭棋开局 FEN（服务端权威洗牌）。
+--   · 将 / 帅**明置**原位（col 4 底线）；其余每方 15 子
+--     （车马炮士象各 2 + 卒/兵 5）洗乱后暗置己方 15 个起始点。
+--   · 产物是**标准字符集** FEN（各棋种数量恰在上限内），现有
+--     is_valid_xiangqi_fen 直接放行 —— 校验器零改动。
+--   · math.random 与 host_color="random" 同源（relay VM 提供）。
+--   · 洗牌放服务端：两端只认 initial_fen，不共享种子（客户端从
+--     「从未移动过的起始子」推暗子集合，见客户端 jieqi 模块）。
+function jieqi_shuffled_fen()
+  -- Fisher-Yates：15 子袋，lower = 黑方小写
+  local function bag(lower)
+    local letters = { "R","R","N","N","C","C","A","A","B","B","P","P","P","P","P" }
+    for i = #letters, 2, -1 do
+      local j = math.random(i)
+      letters[i], letters[j] = letters[j], letters[i]
+    end
+    if lower then
+      for i = 1, #letters do
+        letters[i] = string.lower(letters[i])
+      end
+    end
+    return letters
+  end
+  local b = bag(true)
+  local r = bag(false)
+  -- 黑方（FEN 前 3 段）：底线 8 子 + k 在 col4；炮位 row2；卒位 row3
+  local black_back  = b[1]..b[2]..b[3]..b[4].."k"..b[5]..b[6]..b[7]..b[8]
+  local black_cannon = "1"..b[9].."5"..b[10].."1"
+  local black_pawn  = b[11].."1"..b[12].."1"..b[13].."1"..b[14].."1"..b[15]
+  -- 红方（FEN 后 3 段）：兵位 row6；炮位 row7；底线 8 子 + K 在 col4
+  local red_pawn    = r[11].."1"..r[12].."1"..r[13].."1"..r[14].."1"..r[15]
+  local red_cannon  = "1"..r[9].."5"..r[10].."1"
+  local red_back    = r[1]..r[2]..r[3]..r[4].."K"..r[5]..r[6]..r[7]..r[8]
+  return black_back.."/9/"..black_cannon.."/"..black_pawn
+      .."/9/9/"..red_pawn.."/"..red_cannon.."/9/"..red_back
+      .." r - - 0 1"
+end
+
 -- 角色权限检查（象棋：谁执 host_color、谁是当前走子方）
 --   current_player：走子方执 c.host_color → 是不是 host？
 --   non_current_player：刚走完的一方（= side_to_move(#moves - 1)）
@@ -170,6 +212,9 @@ on_init = function(c, p)
   if c.initial_fen == nil then
     c.initial_fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1"
   end
+  -- 玩法变体：nil = 标准对局；"jieqi" = 揭棋（SET_RULES 设置，
+  -- RESET 时按变体重洗开局）。
+  c.variant = nil
   c.fen = c.initial_fen
   c.moves = {}
   c.draw_offers = {}
@@ -226,8 +271,11 @@ on_join = function(c, p)
     c.host_color = "r"
     c.initial_fen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR r - - 0 1"
     c.initial_side = "r"
-    c.fen = c.initial_fen
+    -- 变体一并清掉：回收后的新房是标准对局（否则会留下「variant=jieqi +
+    -- 标准 FEN」的矛盾态，客户端把标准开局全部当暗子渲染）。
+    c.variant = nil
     c.endgame_label = nil
+    c.fen = c.initial_fen
     c.moves = {}
     c.draw_offers = {}
     c.undo_offers = {}
