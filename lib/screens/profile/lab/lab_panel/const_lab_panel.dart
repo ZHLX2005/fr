@@ -23,9 +23,11 @@ const double kLabGridPadding = 16.0;
 const int kLabGridCrossAxisCount = 2;
 const double kLabGridSpacing = 16.0;
 
-/// 卡片略扁于正方形（fr #38 压缩密度）：配合描述 maxLines=2，保证
-/// 两行标题 + 两行描述不被底部裁切；旧值 0.92 显得过高过空。
-const double kLabGridAspectRatio = 1.02;
+/// 卡片略扁于正方形（fr #38/#41 两轮压缩密度）：配合描述 maxLines=2。
+/// 412 宽手机实测内容高 ~139px；1.08 → 卡高 ~168px，两行标题最坏情形
+/// （~163px）不裁切，1 行标题的常见卡留白从 ~39px 收到 ~29px。
+/// 旧值 0.92 显得过高过空。
+const double kLabGridAspectRatio = 1.08;
 
 /// 卡片按下缩放
 const double kLabCardPressScale = 0.97;

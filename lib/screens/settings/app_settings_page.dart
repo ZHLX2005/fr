@@ -241,6 +241,10 @@ class _GeneralCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          // 必须 stretch：默认 center 会按最宽子项（4 段 SegmentedButton）
+          // 把双行的底栏容量区块整体居中——标题与选择器无故右移、选择器
+          // 贴不满行宽（fr #41 golden 实测偏移 37.8px）。
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ListTile(
               title: const Text('主题'),
