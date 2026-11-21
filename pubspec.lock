@@ -1045,7 +1045,7 @@ packages:
     description:
       path: "contract/dart"
       ref: main
-      resolved-ref: "95fa2ee4b869911db8d1b048c933a2411f54d1de"
+      resolved-ref: "918c545e6186f5889c4153c3f214ec5d5d855a05"
       url: "https://github.com/On-DevPlan/nx-kv.git"
     source: git
     version: "0.65.4"
