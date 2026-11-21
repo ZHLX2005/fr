@@ -20,7 +20,7 @@ class FocusDemo extends DemoPage {
   @override
   bool get preferFullScreen => true;
 
-  /// 无专属 SVG（图标集 53 张已用尽），底栏/钉选网格回退 Material 图标。
+  /// 专属 SVG = 55-pomodoro（fr #38 补绘）；navIcon 仅作 SVG 加载失败的兜底。
   @override
   IconData? get navIcon => Icons.timer_outlined;
 

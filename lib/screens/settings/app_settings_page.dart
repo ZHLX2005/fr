@@ -65,10 +65,7 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
                   padding: const EdgeInsets.fromLTRB(4, 6, 4, 12),
                   child: Text(
                     '点按打开 · 长按拖动排序 · 拖到右下垃圾桶删除',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 ),
                 PinnedGrid(
@@ -263,30 +260,44 @@ class _GeneralCard extends StatelessWidget {
                 ).push(MaterialPageRoute(builder: (_) => const ThemePage()));
               },
             ),
-            ListTile(
-              title: const Text('底栏容量（含 ⋯）'),
-              trailing: SegmentedButton<int>(
-                style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return cs.onPrimary;
-                    }
-                    return cs.onSurfaceVariant;
-                  }),
-                  backgroundColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return cs.primary;
-                    }
-                    return cs.surfaceContainerHighest;
-                  }),
-                ),
-                // 档位与校验同源（NavPinsNotifier.kCapacityChoices，3–6）
-                segments: [
-                  for (final c in NavPinsNotifier.kCapacityChoices)
-                    ButtonSegment(value: c, label: Text('$c')),
+            // 底栏容量不用 ListTile：4 段 SegmentedButton 的固有宽度会
+            // 把 title 挤成一字一行竖排（trailing 吃掉行宽，标题只剩 ~80px）。
+            // 改 Material 3 设置项的双行布局——标题独占一行，选择器整行铺满。
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('底栏容量（含 ⋯）'),
+                  const SizedBox(height: 10),
+                  SegmentedButton<int>(
+                    style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.selected)) {
+                          return cs.onPrimary;
+                        }
+                        return cs.onSurfaceVariant;
+                      }),
+                      backgroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.selected)) {
+                          return cs.primary;
+                        }
+                        return cs.surfaceContainerHighest;
+                      }),
+                    ),
+                    // 档位与校验同源（NavPinsNotifier.kCapacityChoices，3–6）
+                    segments: [
+                      for (final c in NavPinsNotifier.kCapacityChoices)
+                        ButtonSegment(value: c, label: Text('$c')),
+                    ],
+                    selected: {capacity},
+                    onSelectionChanged: (s) => onCapacity(s.first),
+                  ),
                 ],
-                selected: {capacity},
-                onSelectionChanged: (s) => onCapacity(s.first),
               ),
             ),
           ],

@@ -65,7 +65,8 @@ class LabDemoIcon extends StatefulWidget {
   }
 
   /// 单一预热入口，给一个 basename。
-  static Future<void> prewarmOne(String assetBaseName) => _loadSvg(assetBaseName);
+  static Future<void> prewarmOne(String assetBaseName) =>
+      _loadSvg(assetBaseName);
 }
 
 class _LabDemoIconState extends State<LabDemoIcon> {
@@ -85,8 +86,7 @@ class _LabDemoIconState extends State<LabDemoIcon> {
     final brightness = Theme.of(context).colorScheme.brightness;
     final baseInk = widget.inkColor ?? strategy.text;
     final baseAccent = widget.accentColor ?? strategy.accent;
-    final (fg, accent) =
-        adaptiveLabIconColors(baseInk, baseAccent, brightness);
+    final (fg, accent) = adaptiveLabIconColors(baseInk, baseAccent, brightness);
     final fgHex = _toHex(fg);
     final accentHex = _toHex(accent);
 
@@ -105,18 +105,11 @@ class _LabDemoIconState extends State<LabDemoIcon> {
             );
             return true;
           }());
-          return Icon(
-            Icons.widgets_outlined,
-            size: widget.size,
-            color: accent,
-          );
+          return Icon(Icons.widgets_outlined, size: widget.size, color: accent);
         }
         if (snap.connectionState != ConnectionState.done || !snap.hasData) {
           // 加载中：占一个同等尺寸的盒子，避免布局抖动
-          return SizedBox(
-            width: widget.size,
-            height: widget.size,
-          );
+          return SizedBox(width: widget.size, height: widget.size);
         }
         final colored = _colorize(
           snap.data!,
@@ -157,7 +150,11 @@ Future<String> _loadSvg(String assetBaseName) {
 }
 
 /// 把设计稿硬编码的两种颜色替换成主题色。
-String _colorize(String svg, {required String inkHex, required String accentHex}) {
+String _colorize(
+  String svg, {
+  required String inkHex,
+  required String accentHex,
+}) {
   return svg
       .replaceAll(_kSvgInkHex, inkHex)
       .replaceAll(_kSvgInkAltLower, inkHex)
@@ -168,16 +165,8 @@ String _colorize(String svg, {required String inkHex, required String accentHex}
 /// 色值替换的可测出口：输入原始 SVG 文本，输出替换后的文本。
 /// `flutter test` 里断言换色正确性用它，不走渲染管线。
 @visibleForTesting
-String colorizeLabSvg(
-  String svg, {
-  required Color ink,
-  required Color accent,
-}) {
-  return _colorize(
-    svg,
-    inkHex: _toHex(ink),
-    accentHex: _toHex(accent),
-  );
+String colorizeLabSvg(String svg, {required Color ink, required Color accent}) {
+  return _colorize(svg, inkHex: _toHex(ink), accentHex: _toHex(accent));
 }
 
 /// 双色图标自适应着色：在传入的 ink/accent 基础上保证与强调点的明度差，
@@ -203,7 +192,10 @@ String colorizeLabSvg(
   final inkL = HSLColor.fromColor(baseInk).lightness;
   final accentL = HSLColor.fromColor(baseAccent).lightness;
   if ((inkL - accentL).abs() >= 0.28) return (baseInk, baseAccent);
-  return (baseInk, HSLColor.fromColor(baseAccent).withLightness(0.62).toColor());
+  return (
+    baseInk,
+    HSLColor.fromColor(baseAccent).withLightness(0.62).toColor(),
+  );
 }
 
 /// Flutter [Color] 转 `#RRGGBB` hex（半透明时 `#RRGGBBAA`，flutter_svg 支持
@@ -259,8 +251,8 @@ LabIconKind labIconForDemoSlug(String demoSlug) {
 }
 
 /// 当前 demo 用到的全部 SVG basename（不重复），用 [LabDemoIcon.prewarm] 一次性预热。
-List<String> get allLabIconAssetBaseNames => _slugToAsset.values.toSet().toList()
-  ..sort();
+List<String> get allLabIconAssetBaseNames =>
+    _slugToAsset.values.toSet().toList()..sort();
 
 const Map<String, String> _slugToAsset = {
   // ── 效率 · 系统 ─────────────────────────────────────────
@@ -323,6 +315,10 @@ const Map<String, String> _slugToAsset = {
   // ── 后增 demo（设计稿 48 张之外补绘的 52/53）────────────────
   'ai-gallery': '52-ai-gallery',
   'mn-ws': '53-mn-ws',
+
+  // ── 后增 demo（fr #38 补绘的 54/55）──────────────────────────
+  'timetable': '54-timetable',
+  'focus': '55-pomodoro',
 };
 
 /// 测试与 lint 用：覆盖率提示。所有 48 个 asset 都应至少被一个 demo slug 引用。

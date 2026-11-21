@@ -23,8 +23,9 @@ const double kLabGridPadding = 16.0;
 const int kLabGridCrossAxisCount = 2;
 const double kLabGridSpacing = 16.0;
 
-/// 卡片略高于正方形：保证两行标题 + 三行描述不被底部裁切。
-const double kLabGridAspectRatio = 0.92;
+/// 卡片略扁于正方形（fr #38 压缩密度）：配合描述 maxLines=2，保证
+/// 两行标题 + 两行描述不被底部裁切；旧值 0.92 显得过高过空。
+const double kLabGridAspectRatio = 1.02;
 
 /// 卡片按下缩放
 const double kLabCardPressScale = 0.97;
@@ -83,10 +84,16 @@ const double kLabEmptyIconSize = 26.0;
 
 // ── 拖拽删除区 ──────────────────────────────────────────────────
 /// 删除按钮 active 状态固定红（scheme.error 已统一为红族，跨主题保持破坏性语义）。
-const Color kLabDeleteActiveColor = Color(0xFFD63B3B); // 历史参考，build 时改用 scheme.error
-const Color kLabDeleteIdleColor = Color(0xFFEF6B6B);     // 同上，build 时改用 scheme.error + alpha
+const Color kLabDeleteActiveColor = Color(
+  0xFFD63B3B,
+); // 历史参考，build 时改用 scheme.error
+const Color kLabDeleteIdleColor = Color(
+  0xFFEF6B6B,
+); // 同上，build 时改用 scheme.error + alpha
 const double kLabDeleteIdleAlpha = 0.92;
-const Color kLabDeleteShadowColor = Color(0xFFB3261E);  // 同上，build 时改用 scheme.errorContainer
+const Color kLabDeleteShadowColor = Color(
+  0xFFB3261E,
+); // 同上，build 时改用 scheme.errorContainer
 
 // ★ 迁移说明：以下 3 个 const Color 字段保留作历史参考常量，实际使用点已迁到
 //   `Theme.of(context).colorScheme.error` / `.errorContainer` 派生（lab_panel_content.dart

@@ -123,7 +123,7 @@ class _DemoCardState extends State<DemoCard> {
                     if (hasBackground)
                       const SizedBox(height: 12)
                     else ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Divider(
                         height: 1,
                         thickness: 1,
@@ -131,7 +131,7 @@ class _DemoCardState extends State<DemoCard> {
                           alpha: kLabCardDividerAlpha,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                     ],
                     Text(
                       widget.title,
@@ -157,7 +157,9 @@ class _DemoCardState extends State<DemoCard> {
                                   alpha: 0.7,
                                 ),
                         ),
-                        maxLines: 3,
+                        // 卡片压扁后（kLabGridAspectRatio 1.02）只留两行描述，
+                        // 三行会被底部裁切。
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

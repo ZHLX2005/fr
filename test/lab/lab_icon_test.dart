@@ -25,11 +25,9 @@ void main() {
       // 例外清单：设计稿（assets/lab-demo-icons/index.html）共 48 个图标，
       // 但 lab 后增了几款 demo，本批注册时无对应图标 —— 留 fallback 显示通用图标。
       // 这是有意为之的「已登记但无专属 SVG」白名单，避免每次 demo 增加都强制塞图标。
-      // （52/53 补绘后 ai-gallery、mn-ws 已转正，从本清单移除。）
+      // （52/53 补绘后 ai-gallery、mn-ws 已转正；54/55 补绘后 timetable、focus 亦转正。）
       const noIconSlug = {
         'session-host', // 后增的会话托管 demo，2026-10-13 时未列入图标集
-        'focus', // 番茄钟（fr 33 从 Time 容器拆出），图标集无对应 SVG
-        'timetable', // 课程表（fr 33 从 Time 容器拆出），图标集无对应 SVG
       };
       final mainSlugs = <String>{};
       for (final entry in demoRegistry.getAll()) {
@@ -40,9 +38,13 @@ void main() {
       for (final slug in mainSlugs) {
         if (noIconSlug.contains(slug)) continue;
         final kind = labIconForDemoSlug(slug);
-        expect(kind.isFallback, isFalse,
-            reason: '$slug 走通用 fallback，缺少 SVG 映射；'
-                '若确实无专属 SVG，请加到 _noIconSlug 白名单（设计集 48 张之外的后增 demo）');
+        expect(
+          kind.isFallback,
+          isFalse,
+          reason:
+              '$slug 走通用 fallback，缺少 SVG 映射；'
+              '若确实无专属 SVG，请加到 _noIconSlug 白名单（设计集 48 张之外的后增 demo）',
+        );
       }
     });
 
@@ -50,33 +52,39 @@ void main() {
       // 项目内 48 个 svg 文件（assets/lab-demo-icons/*.svg）
       // 这里只验证 SVG basename 集合非空且去重；不做纯文件名比对避免硬编码漂移。
       final bases = allLabIconAssetBaseNames;
-      expect(bases.length, greaterThanOrEqualTo(48),
-          reason: '当前表里有 ${bases.length} 个 SVG，少于设计稿 48 个；'
-              '说明漏登记。');
-      expect(bases.toSet().length, bases.length,
-          reason: '重复登记');
+      expect(
+        bases.length,
+        greaterThanOrEqualTo(48),
+        reason:
+            '当前表里有 ${bases.length} 个 SVG，少于设计稿 48 个；'
+            '说明漏登记。',
+      );
+      expect(bases.toSet().length, bases.length, reason: '重复登记');
     });
 
     test('全部 SVG 真实可加载，主色锚点逐个齐全，强调色锚点覆盖集合', () async {
       var accentCount = 0;
       for (final base in allLabIconAssetBaseNames) {
-        final svg = await rootBundle.loadString('assets/lab-demo-icons/$base.svg');
-        expect(svg, contains('<svg'),
-            reason: '$base.svg 不是合法 SVG');
+        final svg = await rootBundle.loadString(
+          'assets/lab-demo-icons/$base.svg',
+        );
+        expect(svg, contains('<svg'), reason: '$base.svg 不是合法 SVG');
         // 主题色化的 ink 替换依赖此锚点；丢失会导致图标不随主题明暗变色。
-        final hasInk =
-            svg.contains('#2B3445') || svg.contains('#2b3445');
-        expect(hasInk, isTrue,
-            reason: '$base.svg 缺少主色锚点 #2B3445，主题色化会失效');
+        final hasInk = svg.contains('#2B3445') || svg.contains('#2b3445');
+        expect(hasInk, isTrue, reason: '$base.svg 缺少主色锚点 #2B3445，主题色化会失效');
         // 部分图标设计上就是纯单色（如 01-clock），accent 锚点不做逐个强求，
         // 只在集合级保证「绝大多数双色图标可随主题强调色切换」。
         if (svg.contains('#5B7CFA') || svg.contains('#5b7cfa')) {
           accentCount++;
         }
       }
-      expect(accentCount, greaterThan(allLabIconAssetBaseNames.length * 2 ~/ 3),
-          reason: '含强调色锚点 #5B7CFA 的 SVG 只有 $accentCount 个，'
-              '远低于设计稿双色图标的占比——可能色值被改动，强调色不再随主题切换');
+      expect(
+        accentCount,
+        greaterThan(allLabIconAssetBaseNames.length * 2 ~/ 3),
+        reason:
+            '含强调色锚点 #5B7CFA 的 SVG 只有 $accentCount 个，'
+            '远低于设计稿双色图标的占比——可能色值被改动，强调色不再随主题切换',
+      );
     });
   });
 }
