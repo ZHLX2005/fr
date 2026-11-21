@@ -50,7 +50,8 @@ class CalendarMonthPane extends StatefulWidget {
   final bool storageAvailable;
   final String? storageMessage;
   final ValueChanged<double> onCollapseDrive;
-  final void Function(double target, double velocity) onCollapseSettle;
+  final void Function(double target, double velocity, bool fromDrag)
+      onCollapseSettle;
   final ValueChanged<DateTime> onFlipCommit;
   final ValueChanged<DateTime> onSelect;
   final ValueChanged<CalendarTask> onToggleTask;
@@ -178,17 +179,20 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
     _collapseDragging = false;
     _dragStart = null;
     final velocity = (d.primaryVelocity ?? 0) / 1000; // px/ms，向下为正
-    final proj = calendarProject(_collapseBase, velocity, _range);
-    final threshold = _collapseBase > 0.5 ? 0.88 : 0.12;
+    // 投射必须基于「当前」收展值：用拖拽起点值会让慢速拖拽（速度≈0）
+    // 永远吸附回起点，表现为「怎么拖都不收起」。
+    final current = calendarClamp01(widget.collapse.value);
+    final proj = calendarProject(current, velocity, _range);
     widget.onCollapseSettle(
-      proj > threshold ? 1 : 0,
+      proj > 0.5 ? 1 : 0,
       velocity * 1000 / _range,
+      true,
     );
   }
 
   void _toggleCollapse() {
     final raw = calendarClamp01(widget.collapse.value);
-    widget.onCollapseSettle(raw > 0.5 ? 0 : 1, 0);
+    widget.onCollapseSettle(raw > 0.5 ? 0 : 1, 0, false);
   }
 
   /* ───────────── 横向：翻月轮盘 ───────────── */

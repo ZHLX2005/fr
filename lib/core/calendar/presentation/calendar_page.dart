@@ -53,6 +53,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   final ValueNotifier<double> _collapse = ValueNotifier<double>(1);
   late final CalendarSpring _collapseSpring;
 
+  /// 「月面板拖成单周行 → 自动落周页签」的一次性标记：拖拽松手判定为
+  /// 收起时置位，弹簧逼近 0 才消费；中途拖回展开会取消，防误切页签。
+  bool _collapseHandoff = false;
+
+  /// 交接后待复位的收展态：等月页完全移出视口再复位为展开。
+  bool _collapseResetPending = false;
+
   DateTime _selectedDate = calendarDateOnly(DateTime.now());
   DateTime _visibleMonth =
       DateTime(DateTime.now().year, DateTime.now().month, 1);
@@ -96,6 +103,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       onUpdate: () {
         _tabT.value = _tabSpring.value;
         _tabV.value = _tabSpring.velocity;
+        // 「收 → 周」交接的收尾：月页已完全移出视口（t≥1.9 时其
+        // 透明度为 0）后再把收展态复位成展开，否则扫尾过程中会看到
+        // 月历重新长高。
+        if (_collapseResetPending && _tabSpring.value >= 1.9) {
+          _collapseResetPending = false;
+          _collapseSpring.jump(1);
+        }
       },
     );
     _tabSpring.jump(_tab.toDouble());
@@ -105,7 +119,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     _collapseSpring = CalendarSpring(
       vsync: this,
       description: kCalendarCollapseSpring,
-      onUpdate: () => _collapse.value = _collapseSpring.value,
+      onUpdate: _onCollapseTick,
     );
     // 收展控制器初值 0 ≠ 展开态 1：对齐，否则首次收展弹簧从 0 起算跳变。
     _collapseSpring.jump(1);
@@ -292,7 +306,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   void _setTab(int index) {
     if (index == _tab) return;
-    setState(() => _tabSpring.to(index.toDouble()));
+    setState(() {
+      // 页签真值必须随弹簧一起更新：标题文案、胶囊高亮与后续 morph
+      // 的方向判定（月⇄年）都读 _tab，只动弹簧会让状态机停在旧页签。
+      _tab = index;
+      _tabSpring.to(index.toDouble());
+    });
     unawaited(_reload());
   }
 
@@ -644,9 +663,38 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   void _onCollapseDrive(double raw) {
     _collapseSpring.stop();
     _collapse.value = raw;
+    // 拖回展开方向 → 撤销尚未兑现的「收 → 周」交接。
+    if (_collapseHandoff && raw > 0.2) _collapseHandoff = false;
   }
 
-  void _onCollapseSettle(double target, double velocity) {
+  /// 收展弹簧每帧：单周行落定时把当前拖拽交给周页签。
+  void _onCollapseTick() {
+    final value = _collapseSpring.value;
+    _collapse.value = value;
+    if (!_collapseHandoff) return;
+    if (value > 0.08 || _tab != 1 || _morphing) return;
+    _collapseHandoff = false;
+    _goWeekFromCollapse();
+  }
+
+  /// 月面板收成单周行后，页签自动滑向「周」：同一条手势从月历形态
+  /// 连续落到周视图，而不是停在一个半收起的月页。
+  void _goWeekFromCollapse() {
+    if (!mounted || _tab == 2) return;
+    setState(() {
+      _tab = 2;
+      _tabSpring.to(2);
+      _collapseResetPending = true;
+    });
+    unawaited(_reload());
+  }
+
+  void _onCollapseSettle(double target, double velocity, bool fromDrag) {
+    // 只有拖拽（非抓手点按）落点为收起时才交接；抓手点按仍保留
+    // 「月页收起态」这一固有形态。
+    if (fromDrag && target == 0 && _tab == 1 && !_morphing) {
+      _collapseHandoff = true;
+    }
     _collapseSpring.to(target, velocity: velocity);
   }
 

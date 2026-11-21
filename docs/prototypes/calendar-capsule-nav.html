@@ -1685,13 +1685,26 @@ function carCommit(velPxMs){
   updateTitle();
 }
 /* 跟手吸附弹簧：通知栏 demo 同参（k=205 c=29） */
-const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse(); });
-/* 松手收尾：动量投射 130ms → 最近档（月历网格与面板抓手共用；上拖=收起 / 下拖=展开） */
+let collapseToWeek = false;                    // 拖拽收成单周行 → 待交接给周页签
+const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse();
+  // 单周行落定：页签由「月」自动滑到「周」，同一条手势连续落到周视图。
+  if(collapseToWeek && colP.settled && v<=0.02 && state.tab===1){
+    collapseToWeek = false;
+    switchTab(2);
+    setTimeout(()=>{                            // 月页已移出视口，复位为展开
+      colP.set(1); applyCollapse();
+    }, 520);
+  }
+});
+/* 松手收尾：动量投射 130ms → 最近档（月历网格与面板抓手共用；上拖=收起 / 下拖=展开）
+   返回吸附目标（1 展开 / 0 收起），供网格拖拽判断是否交接给周页签 */
 function collapseFinish(vPxMs, thr){
   const range = Math.max(1,mH-ROW_H);
   const proj = collapseRaw + vPxMs*130/range;
+  const target = proj > (thr===undefined ? 0.5 : thr) ? 1 : 0;
   colP.set(collapseRaw);
-  colP.to(proj > (thr===undefined ? 0.5 : thr) ? 1 : 0, vPxMs*1000/range);
+  colP.to(target, vPxMs*1000/range);
+  return target;
 }
 /* 面板抓手 / 头部拖拽：1:1 跟手 + 两端阻力 + 松手自动吸附；返回「是否消费了本次 click」 */
 function bindCollapseDrag(el){
@@ -1755,6 +1768,7 @@ bindCollapseDrag($('.pp-head'));
       const drive = dy>0 ? dy-4 : dy+4;          // 4px 死区
       collapseRaw = base + drive/range;          // 上拖=收起 / 下拖=展开（与面板抓手同向）
       colP.set(collapseRaw);                     // 1:1 跟手
+      if(collapseRaw > 0.2) collapseToWeek = false;  // 拖回展开 → 撤销交接
     }else{
       const W = mArea.clientWidth||358;
       if(!car.dragging){ car.dragging = true; carBegin(dx<0?1:-1); }
@@ -1763,7 +1777,9 @@ bindCollapseDrag($('.pp-head'));
   });
   const finish = e=>{
     if(e.pointerId !== pid) return;
-    pid = null; axis = null;
+    pid = null;
+    const wasVertical = axis === 'v';
+    axis = null;
     const v = vel.get();
     if(car.dragging){
       const W = mArea.clientWidth||358;
@@ -1771,7 +1787,9 @@ bindCollapseDrag($('.pp-head'));
       if(car.pending && (proj>0.5 || Math.abs(v)>0.35)) carCommit(v);
       else{ car.dragging = false; carS.set(carS.x); carS.to(0); }
     }else{
-      collapseFinish(v);
+      // 只有纵向拖拽收成单周行才交接周页签；点按不触发。
+      const target = collapseFinish(v);
+      if(wasVertical && target === 0) collapseToWeek = true;
     }
   };
   mArea.addEventListener('pointerup',finish);

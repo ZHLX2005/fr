@@ -211,6 +211,56 @@ void main() {
     expect(find.textContaining('第'), findsNothing);
   });
 
+  testWidgets('点胶囊页签：activeIndex 与标题跟随切换', (tester) async {
+    await _pumpCalendar(tester, initialTab: 1);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CalendarCapsuleNav),
+        matching: find.text('周'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
+          .activeIndex,
+      2,
+      reason: '胶囊高亮的页签真值必须同步到「周」',
+    );
+  });
+
+  testWidgets('月页纵向拖拽收成单周行 → 页签自动落到周', (tester) async {
+    await _pumpCalendar(tester, initialTab: 1);
+
+    // 月历网格上半区向上拖：收展弹簧落到 0 后应交接到周页签。
+    final today = DateTime.now();
+    await tester.drag(
+      find.descendant(
+        of: find.byType(CalendarMonthGridContent),
+        matching: find.text('${today.day}'),
+      ).first,
+      const Offset(0, -260),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
+          .activeIndex,
+      2,
+      reason: '月面板收成一行后，页签应自动变成「周」',
+    );
+    // 交接完成后月页收展态复位，回到月页仍是完整月历。
+    final monthPane = tester.widget<CalendarMonthPane>(
+      find.byType(CalendarMonthPane),
+    );
+    expect(
+      monthPane.collapse.value,
+      closeTo(1, 0.001),
+      reason: '交接后收展态应复位为展开，避免回到月页时只剩一行',
+    );
+  });
+
   testWidgets('任务勾选：完成态切换并回写仓储', (tester) async {
     tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1.0;
