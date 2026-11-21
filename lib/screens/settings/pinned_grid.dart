@@ -42,6 +42,17 @@ class PinnedGrid extends ConsumerStatefulWidget {
 }
 
 class _PinnedGridState extends ConsumerState<PinnedGrid> {
+  /// 钉选 notifier 在 initState 捕获：拖拽被取消时包组件会走
+  /// deactivate → onReorder 回调，此时再 `ref.read` 会查已失活节点的祖先
+  /// （riverpod 抛 "Looking up a deactivated widget's ancestor is unsafe"）。
+  late final NavPinsNotifier _notifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifier = ref.read(navPinsProvider.notifier);
+  }
+
   @override
   Widget build(BuildContext context) {
     final entries = widget.entries;
@@ -80,15 +91,13 @@ class _PinnedGridState extends ConsumerState<PinnedGrid> {
     final entriesIds = widget.entries.map((e) => e.id).toList();
     // 拖拽途中格子被垃圾桶删走 → provider 列表已比拖起时短。此时基于旧
     // entries 重排会把已删 id 写回，跳过本次 onReorder（列表保持删后状态）。
-    if (ref.read(navPinsProvider).pinIds.length < entriesIds.length) return;
-    ref
-        .read(navPinsProvider.notifier)
-        .setPins(
-          // 必须用网格 children 同源的 entries 派生列表，保证与
-          // reorderFn 的 index 逐位对齐（pinIds 里若有未解析 id，
-          // entries 会比 pinIds 短，直接喂 pinIds 会错位重排）。
-          reorderFn(entriesIds),
-        );
+    if (_notifier.pinCount < entriesIds.length) return;
+    _notifier.setPins(
+      // 必须用网格 children 同源的 entries 派生列表，保证与
+      // reorderFn 的 index 逐位对齐（pinIds 里若有未解析 id，
+      // entries 会比 pinIds 短，直接喂 pinIds 会错位重排）。
+      reorderFn(entriesIds),
+    );
   }
 }
 

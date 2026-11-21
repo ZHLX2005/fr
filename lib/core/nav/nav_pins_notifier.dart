@@ -75,6 +75,10 @@ class NavPinsNotifier extends Notifier<NavPinsState> {
   /// 容量档位（含末位 ⋯ 槽）：设置页选择器与两处校验共用（#31 起最大 6）。
   static const List<int> kCapacityChoices = [3, 4, 5, 6];
 
+  /// 当前钉选数 —— 供外部守卫读取（外部直接摸 `state` 会触发
+  /// riverpod 的 protected/visible_for_testing lint）。
+  int get pinCount => state.pinIds.length;
+
   /// main() runApp 前调用一次。
   Future<void> hydrate() async {
     final prefs = await SharedPreferences.getInstance();
