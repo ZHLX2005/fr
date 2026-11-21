@@ -74,7 +74,9 @@ class _CalendarWeekStripState extends State<CalendarWeekStrip>
         _t.value = 0;
       });
       widget.onShift(pending);
-    } else if (_spring.value <= 0.001 && _shadowBase != null) {
+    } else if (_spring.value <= 0.001 &&
+        _shadowBase != null &&
+        _spring.lastToTarget < 0.5) {
       _spring.stop();
       _spring.jump(0);
       setState(() => _shadowBase = null);
@@ -109,8 +111,9 @@ class _CalendarWeekStripState extends State<CalendarWeekStrip>
             setState(() {
               _dragging = true;
               _dir = dx < 0 ? 1 : -1;
-              _shadowBase = widget.weekBase;
+              // shadow 层存目标周（滑入），主层始终是当前周（滑出）。
               _pendingBase = widget.weekBase.add(Duration(days: _dir * 7));
+              _shadowBase = _pendingBase;
             });
           }
           _spring.jump(calendarClamp01(dx.abs() / _width()));
@@ -136,17 +139,21 @@ class _CalendarWeekStripState extends State<CalendarWeekStrip>
               final width = _width();
               return Stack(
                 children: [
+                  // shadow：待进入的周，从翻页方向对侧滑入
+                  // （t 0→1 时 offset dir*w*(1-t)：+w → 0）。
                   if (_shadowBase != null)
                     Positioned.fill(
                       child: Transform.translate(
-                        offset: Offset(-_dir * width * t, 0),
+                        offset: Offset(_dir * width * (1 - t), 0),
                         child: _week(_shadowBase!),
                       ),
                     ),
+                  // 主层：当前周，翻页时向方向侧滑出
+                  // （offset -dir*w*t：0 → -w）；静止态 t=0 → 0，原位可见。
                   Positioned.fill(
                     child: Transform.translate(
-                      offset: Offset(_dir * width * (1 - t), 0),
-                      child: _week(_pendingBase ?? widget.weekBase),
+                      offset: Offset(-_dir * width * t, 0),
+                      child: _week(widget.weekBase),
                     ),
                   ),
                 ],

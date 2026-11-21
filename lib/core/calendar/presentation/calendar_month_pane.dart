@@ -136,7 +136,9 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
       _pendingMonth = null;
       _flipT.value = 0;
       widget.onFlipCommit(pending);
-    } else if (_flipSpring.value <= 0.001 && _shadowMonth != null) {
+    } else if (_flipSpring.value <= 0.001 &&
+        _shadowMonth != null &&
+        _flipSpring.lastToTarget < 0.5) {
       _flipSpring.stop();
       _flipSpring.jump(0);
       setState(() {

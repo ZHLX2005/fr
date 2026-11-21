@@ -14,6 +14,7 @@ class CalendarPalette {
     required this.textPrimary,
     required this.textSecondary,
     required this.accent,
+    required this.onAccent,
     required this.accentSoft,
     required this.divider,
     required this.completed,
@@ -28,6 +29,9 @@ class CalendarPalette {
   final Color textPrimary;
   final Color textSecondary;
   final Color accent;
+
+  /// accent 的成对前景（scheme.onPrimary）：accent 底上的图标/文字必须用它。
+  final Color onAccent;
   final Color accentSoft;
   final Color divider;
   final Color completed;
@@ -44,6 +48,7 @@ class CalendarPalette {
       textPrimary: scheme.onSurface,
       textSecondary: scheme.onSurfaceVariant,
       accent: scheme.primary,
+      onAccent: scheme.onPrimary,
       accentSoft: scheme.primaryContainer,
       divider: scheme.outlineVariant,
       completed: scheme.onSurfaceVariant,

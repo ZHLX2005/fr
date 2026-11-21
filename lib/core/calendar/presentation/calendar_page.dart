@@ -95,11 +95,16 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       onUpdate: () => _tabT.value = _tabSpring.value,
     );
     _tabSpring.jump(_tab.toDouble());
+    // jump 对同值短路（防 _onTick 重入），而 unbounded 控制器初值是 0，
+    // initialTab=0 时不会触发 onUpdate —— 通知器必须显式对齐。
+    _tabT.value = _tab.toDouble();
     _collapseSpring = CalendarSpring(
       vsync: this,
       description: kCalendarCollapseSpring,
       onUpdate: () => _collapse.value = _collapseSpring.value,
     );
+    // 收展控制器初值 0 ≠ 展开态 1：对齐，否则首次收展弹簧从 0 起算跳变。
+    _collapseSpring.jump(1);
     WidgetsBinding.instance.addPostFrameCallback((_) => _bindStorage());
   }
 
@@ -1113,7 +1118,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
                 ),
               ],
             ),
-            child: const Icon(Icons.add, size: 26, color: Colors.white),
+            child: Icon(Icons.add, size: 26, color: palette.onAccent),
           ),
         ),
       ],

@@ -72,16 +72,29 @@ class CalendarSpring {
   final SpringDescription description;
   late final AnimationController _controller;
 
+  /// 最近一次 [to] 的目标值。用于 onTick 分支判断当前弹簧的意图方向：
+  /// 从 0 起步 to(1) 的首个 tick 上报 value=0（elapsed=0），若回弹分支
+  /// 只看 value≤0.001 会误杀动画（此为既有 StackOverflow 的根因）。
+  double? _lastToTarget;
+
   double get value => _controller.value;
   bool get isAnimating => _controller.isAnimating;
 
+  /// 最近一次 [to] 的目标；从未调用过时视为 1（朝目标吸附）。
+  double get lastToTarget => _lastToTarget ?? 1;
+
   void jump(double value) {
     _controller.stop();
+    // 同值短路：onUpdate 回调（_onTick）里常出现 jump(0) 复位，若不
+    // 短路，value= 会同步 notifyListeners 重入 _onTick 造成无限递归
+    // （StackOverflow）。值未变化时跳过通知即可斩断重入链。
+    if (_controller.value == value) return;
     _controller.value = value;
   }
 
   /// 以初速度 [velocity]（单位与 value 一致）向 [target] 吸附。
   void to(double target, {double velocity = 0}) {
+    _lastToTarget = target;
     _controller.animateWith(
       SpringSimulation(description, _controller.value, target, velocity),
     );
