@@ -323,7 +323,7 @@ class _CalendarYearPaneState extends State<CalendarYearPane>
   }
 }
 
-class _YearArrow extends StatelessWidget {
+class _YearArrow extends StatefulWidget {
   const _YearArrow({
     required this.icon,
     required this.palette,
@@ -335,25 +335,40 @@ class _YearArrow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_YearArrow> createState() => _YearArrowState();
+}
+
+class _YearArrowState extends State<_YearArrow> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: palette.surfaceAlt,
-          shape: BoxShape.circle,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.88 : 1,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: widget.palette.surfaceAlt,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(widget.icon, size: 20, color: widget.palette.textSecondary),
         ),
-        child: Icon(icon, size: 20, color: palette.textSecondary),
       ),
     );
   }
 }
 
 /// 迷你月卡：label + 迷你日历（固定 6 行布局保证卡片等高）。
-class CalendarMiniMonthCard extends StatelessWidget {
+class CalendarMiniMonthCard extends StatefulWidget {
   const CalendarMiniMonthCard({
     super.key,
     required this.month,
@@ -376,63 +391,86 @@ class CalendarMiniMonthCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<CalendarMiniMonthCard> createState() => _CalendarMiniMonthCardState();
+}
+
+class _CalendarMiniMonthCardState extends State<CalendarMiniMonthCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    final palette = widget.palette;
+    final month = widget.month;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
-        decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Text(
-              '${month.month}月',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: isCurrentMonth ? FontWeight.w700 : FontWeight.w500,
-                color: isCurrentMonth
-                    ? palette.accent
-                    : palette.textSecondary,
+      onTapDown:
+          widget.onTap == null ? null : (_) => setState(() => _pressed = true),
+      onTapUp: widget.onTap == null
+          ? null
+          : (_) => setState(() => _pressed = false),
+      onTapCancel:
+          widget.onTap == null ? null : () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+          decoration: BoxDecoration(
+            color: palette.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Text(
+                '${month.month}月',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight:
+                      widget.isCurrentMonth ? FontWeight.w700 : FontWeight.w500,
+                  color: widget.isCurrentMonth
+                      ? palette.accent
+                      : palette.textSecondary,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: Column(
-                children: [
-                  for (var row = 0; row < 6; row++)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          for (var col = 0; col < 7; col++)
-                            Expanded(
-                              child: Center(
-                                child: _MiniCell(
-                                  date: _cellDate(month, row, col),
-                                  month: month,
-                                  today: today,
-                                  selectedDate: selectedDate,
-                                  markedDates: markedDates,
-                                  palette: palette,
+              const SizedBox(height: 6),
+              Expanded(
+                child: Column(
+                  children: [
+                    for (var row = 0; row < 6; row++)
+                      Expanded(
+                        child: Row(
+                          children: [
+                            for (var col = 0; col < 7; col++)
+                              Expanded(
+                                child: Center(
+                                  child: _MiniCell(
+                                    date: _cellDate(month, row, col),
+                                    month: month,
+                                    today: widget.today,
+                                    selectedDate: widget.selectedDate,
+                                    markedDates: widget.markedDates,
+                                    palette: palette,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   DateTime _cellDate(DateTime month, int row, int col) {
-    final start = calendarMonthGridStart(month, mondayFirst: mondayFirst);
+    final start =
+        calendarMonthGridStart(month, mondayFirst: widget.mondayFirst);
     return start.add(Duration(days: row * 7 + col));
   }
 }

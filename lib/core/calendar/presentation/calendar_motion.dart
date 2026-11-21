@@ -78,6 +78,11 @@ class CalendarSpring {
   double? _lastToTarget;
 
   double get value => _controller.value;
+
+  /// 当前速度（单位/秒，与 AnimationController.velocity 一致）。
+  /// 胶囊 pill 的高速拉伸按原型 stretch=min(0.14,|v|*0.012) 由此驱动。
+  double get velocity => _controller.velocity;
+
   bool get isAnimating => _controller.isAnimating;
 
   /// 最近一次 [to] 的目标；从未调用过时视为 1（朝目标吸附）。

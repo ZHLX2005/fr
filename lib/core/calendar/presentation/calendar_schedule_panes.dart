@@ -187,7 +187,7 @@ class _CalendarWeekStripState extends State<CalendarWeekStrip>
   }
 }
 
-class _WeekCell extends StatelessWidget {
+class _WeekCell extends StatefulWidget {
   const _WeekCell({
     required this.date,
     required this.selectedDate,
@@ -202,22 +202,34 @@ class _WeekCell extends StatelessWidget {
   final CalendarPalette palette;
   final VoidCallback onTap;
 
+  @override
+  State<_WeekCell> createState() => _WeekCellState();
+}
+
+class _WeekCellState extends State<_WeekCell> {
+  bool _pressed = false;
+
   bool get isToday =>
-      date.year == today.year &&
-      date.month == today.month &&
-      date.day == today.day;
+      widget.date.year == widget.today.year &&
+      widget.date.month == widget.today.month &&
+      widget.date.day == widget.today.day;
 
   bool get isSelected =>
-      date.year == selectedDate.year &&
-      date.month == selectedDate.month &&
-      date.day == selectedDate.day;
+      widget.date.year == widget.selectedDate.year &&
+      widget.date.month == widget.selectedDate.month &&
+      widget.date.day == widget.selectedDate.day;
 
   @override
   Widget build(BuildContext context) {
+    final date = widget.date;
+    final palette = widget.palette;
     final sub = calendarLunarSubLabel(date);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -227,28 +239,34 @@ class _WeekCell extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: isToday
-                    ? Border.all(color: palette.danger, width: 1.5)
-                    : null,
-              ),
-              child: Text(
-                '${date.day}',
-                style: TextStyle(
-                  fontSize: 17,
-                  height: 1,
-                  fontWeight:
-                      isToday || isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isToday
-                      ? palette.danger
-                      : (isSelected
-                          ? palette.accent
-                          : palette.textPrimary),
+            AnimatedScale(
+              scale: _pressed ? 0.86 : 1,
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutBack,
+              child: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: isToday
+                      ? Border.all(color: palette.danger, width: 1.5)
+                      : null,
+                ),
+                child: Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    fontSize: 17,
+                    height: 1,
+                    fontWeight: isToday || isSelected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: isToday
+                        ? palette.danger
+                        : (isSelected
+                            ? palette.accent
+                            : palette.textPrimary),
+                  ),
                 ),
               ),
             ),
@@ -496,7 +514,8 @@ class CalendarTimeline extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 0, color: palette.danger),
+          // 原型 .tl-now：1.5px 柿朱横线 + 左端 8px 圆点（原 height:0 不画线）。
+          Container(height: 1.5, color: palette.danger),
           Transform.translate(
             offset: const Offset(34, -4),
             child: Container(
@@ -572,7 +591,7 @@ class CalendarAgendaPane extends StatelessWidget {
             Icon(
               Icons.local_cafe_outlined,
               size: 44,
-              color: palette.textSecondary.withValues(alpha: 0.5),
+              color: palette.textSecondary,
             ),
             const SizedBox(height: 10),
             Text(
@@ -594,7 +613,7 @@ class CalendarAgendaPane extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(2, 6, 2, 116),
       itemCount: groups.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 4),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final entry = groups[index];
         final day = entry.key;

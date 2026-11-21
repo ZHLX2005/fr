@@ -506,7 +506,7 @@ class CalendarMonthGridContent extends StatelessWidget {
 }
 
 /// 月格子：日号圆环 + 农历次级文案。
-class _MonthCell extends StatelessWidget {
+class _MonthCell extends StatefulWidget {
   const _MonthCell({
     required this.date,
     required this.month,
@@ -525,15 +525,25 @@ class _MonthCell extends StatelessWidget {
   final CalendarPalette palette;
   final VoidCallback? onTap;
 
-  bool get _out => date.month != month.month;
+  @override
+  State<_MonthCell> createState() => _MonthCellState();
+}
+
+class _MonthCellState extends State<_MonthCell> {
+  bool _pressed = false;
+
+  bool get _out => widget.date.month != widget.month.month;
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
+    final date = widget.date;
+    final today = widget.today;
+    final palette = widget.palette;
     final isToday = _sameDay(date, today);
-    final isSelected = _sameDay(date, selectedDate);
+    final isSelected = _sameDay(date, widget.selectedDate);
     final sub = _out ? null : calendarLunarSubLabel(date);
     final subColor = (sub != null && sub.$2)
         ? palette.accent
@@ -541,7 +551,15 @@ class _MonthCell extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTapDown: widget.onTap == null
+          ? null
+          : (_) => setState(() => _pressed = true),
+      onTapUp: widget.onTap == null
+          ? null
+          : (_) => setState(() => _pressed = false),
+      onTapCancel:
+          widget.onTap == null ? null : () => setState(() => _pressed = false),
+      onTap: widget.onTap,
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -551,30 +569,36 @@ class _MonthCell extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: isToday
-                    ? Border.all(color: palette.danger, width: 1.5)
-                    : null,
-              ),
-              child: Text(
-                '${date.day}',
-                style: TextStyle(
-                  fontSize: 17,
-                  height: 1,
-                  fontWeight:
-                      isToday || isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isToday
-                      ? palette.danger
-                      : (isSelected
-                          ? palette.accent
-                          : (_out
-                              ? palette.textSecondary
-                              : palette.textPrimary)),
+            AnimatedScale(
+              scale: _pressed ? 0.86 : 1,
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutBack,
+              child: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: isToday
+                      ? Border.all(color: palette.danger, width: 1.5)
+                      : null,
+                ),
+                child: Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    fontSize: 17,
+                    height: 1,
+                    fontWeight: isToday || isSelected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: isToday
+                        ? palette.danger
+                        : (isSelected
+                            ? palette.accent
+                            : (_out
+                                ? palette.textSecondary
+                                : palette.textPrimary)),
+                  ),
                 ),
               ),
             ),

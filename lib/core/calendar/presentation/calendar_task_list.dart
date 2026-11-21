@@ -246,7 +246,7 @@ class _TaskRow extends StatelessWidget {
   }
 }
 
-class _TaskGlyph extends StatelessWidget {
+class _TaskGlyph extends StatefulWidget {
   const _TaskGlyph({
     required this.color,
     required this.completed,
@@ -258,26 +258,72 @@ class _TaskGlyph extends StatelessWidget {
   final CalendarPalette palette;
 
   @override
+  State<_TaskGlyph> createState() => _TaskGlyphState();
+}
+
+class _TaskGlyphState extends State<_TaskGlyph>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.completed) _pop.value = 1;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TaskGlyph oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 原型 chk-pop：勾选瞬间 scale 1→1.22→1（300ms，回弹曲线）。
+    if (widget.completed && !oldWidget.completed) {
+      _pop.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pop.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: completed ? palette.accent : color,
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: completed
-            ? const Icon(Icons.check, size: 16, color: Colors.white)
-            : Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: BoxShape.circle,
-                ),
-              ),
-      ),
+    return AnimatedBuilder(
+      animation: _pop,
+      builder: (context, _) {
+        final t = _pop.value;
+        // 0→.45 放大到 1.22，.45→1 回弹到 1。
+        final scale = t < 0.45
+            ? 1 + 0.22 * (t / 0.45)
+            : 1.22 - 0.22 * ((t - 0.45) / 0.55);
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: widget.completed ? widget.palette.accent : widget.color,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: widget.completed
+                  ? Icon(Icons.check, size: 16, color: widget.palette.onAccent)
+                  : Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: widget.palette.onAccent
+                            .withValues(alpha: 0.9),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

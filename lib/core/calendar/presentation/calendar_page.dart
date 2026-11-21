@@ -47,6 +47,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   int _tab = 1; // 0 年 1 月 2 周 3 日 4 日程
   final ValueNotifier<double> _tabT = ValueNotifier<double>(1);
+  final ValueNotifier<double> _tabV = ValueNotifier<double>(0);
   late final CalendarSpring _tabSpring;
 
   final ValueNotifier<double> _collapse = ValueNotifier<double>(1);
@@ -92,7 +93,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     _tabSpring = CalendarSpring(
       vsync: this,
       description: kCalendarTabSpring,
-      onUpdate: () => _tabT.value = _tabSpring.value,
+      onUpdate: () {
+        _tabT.value = _tabSpring.value;
+        _tabV.value = _tabSpring.velocity;
+      },
     );
     _tabSpring.jump(_tab.toDouble());
     // jump 对同值短路（防 _onTick 重入），而 unbounded 控制器初值是 0，
@@ -115,6 +119,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     _tabSpring.dispose();
     _collapseSpring.dispose();
     _tabT.dispose();
+    _tabV.dispose();
     _collapse.dispose();
     _paneFade.dispose();
     _yearGridXform.dispose();
@@ -799,6 +804,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
               tabs: const ['年', '月', '周', '日', '日程'],
               activeIndex: _tab,
               progress: _tabT,
+              velocity: _tabV,
               onTap: _handleTabTap,
               palette: palette,
             ),
@@ -1072,56 +1078,97 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        GestureDetector(
+        _CalendarFab(
+          size: 44,
+          color: palette.surfaceAlt,
+          border: Border.all(color: palette.divider),
+          shadowBlur: 12,
+          shadowOffsetY: 5,
           onTap: _goToday,
-          child: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: palette.surfaceAlt,
-              shape: BoxShape.circle,
-              border: Border.all(color: palette.divider),
-              boxShadow: [
-                BoxShadow(
-                  color: palette.shadow,
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Text(
-              '今',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: palette.danger,
-              ),
+          child: Text(
+            '今',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: palette.danger,
             ),
           ),
         ),
         const SizedBox(height: 12),
-        GestureDetector(
+        _CalendarFab(
+          size: 52,
+          color: palette.accent,
+          shadowBlur: 14,
+          shadowOffsetY: 6,
           onTap: _addTask,
-          child: Container(
-            width: 52,
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: palette.accent,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: palette.shadow,
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Icon(Icons.add, size: 26, color: palette.onAccent),
-          ),
+          child: Icon(Icons.add, size: 26, color: palette.onAccent),
         ),
       ],
+    );
+  }
+}
+
+/// FAB 通用壳：按压缩放 .92（原型）+ 阴影随按压收缩，抬手回弹。
+class _CalendarFab extends StatefulWidget {
+  const _CalendarFab({
+    required this.size,
+    required this.color,
+    required this.onTap,
+    required this.child,
+    this.border,
+    this.shadowBlur = 14,
+    this.shadowOffsetY = 6,
+  });
+
+  final double size;
+  final Color color;
+  final Border? border;
+  final double shadowBlur;
+  final double shadowOffsetY;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_CalendarFab> createState() => _CalendarFabState();
+}
+
+class _CalendarFabState extends State<_CalendarFab> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = CalendarPalette.of(context);
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutBack,
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: widget.color,
+            shape: BoxShape.circle,
+            border: widget.border,
+            boxShadow: [
+              BoxShadow(
+                color: palette.shadow,
+                blurRadius: _pressed ? widget.shadowBlur * 0.5 : widget.shadowBlur,
+                offset: Offset(
+                  0,
+                  _pressed ? widget.shadowOffsetY * 0.5 : widget.shadowOffsetY,
+                ),
+              ),
+            ],
+          ),
+          child: widget.child,
+        ),
+      ),
     );
   }
 }
