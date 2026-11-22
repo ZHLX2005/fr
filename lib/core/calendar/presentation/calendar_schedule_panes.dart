@@ -360,27 +360,40 @@ class CalendarTimeline extends StatelessWidget {
     required this.showNowLine,
     required this.palette,
     required this.onToggle,
+    this.dayDates = const [],
+    this.onCreateAt,
+    this.onResize,
   });
 
   /// 1 列（日）或 7 列（周）。
   final List<List<CalendarTask>> days;
+
+  /// 每列对应日期（空白处点按换算用），长度与 [days] 一致时才生效。
+  final List<DateTime> dayDates;
 
   /// 日页且选中日为今天时为 true（画「现在」线）。
   final bool showNowLine;
   final CalendarPalette palette;
   final ValueChanged<CalendarTask> onToggle;
 
+  /// 点按空白：返回四舍五入到 30 分钟的起始时刻。
+  final ValueChanged<DateTime>? onCreateAt;
+
+  /// 拖拽任务块上下边缘改时长后回调。
+  final void Function(CalendarTask task, DateTime start, DateTime end)?
+      onResize;
+
   static const double _startHour = 6;
   static const double _rowHeight = 52;
   static const int _hours = 18;
   static const double _labelWidth = 38;
 
-  double get _gridHeight => _hours * _rowHeight;
-
   @override
   Widget build(BuildContext context) {
     final cols = days.length;
     return SingleChildScrollView(
+      // 底部留出悬浮底栏 / 系统手势区的可滚余量。
+      padding: const EdgeInsets.only(bottom: 96),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final contentWidth = math.max(
@@ -398,55 +411,19 @@ class CalendarTimeline extends StatelessWidget {
               final bottom = (end.hour - _startHour) * _rowHeight +
                   end.minute / 60 * _rowHeight;
               final height = math.max(26.0, bottom - top - 2);
-              final color = calendarTaskColor(task.colorValue, task.id);
               events.add(
-                Positioned(
+                _TimelineEvent(
+                  key: ValueKey(task.id),
+                  task: task,
                   left: _labelWidth + c * colWidth + 3,
                   width: math.max(12.0, colWidth - 6),
                   top: top,
                   height: height,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onToggle(task),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: cols == 1 ? 4 : 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border(
-                          left: BorderSide(color: color, width: 3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            task.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: cols == 1 ? 12 : 10.5,
-                              height: 1.2,
-                              fontWeight: FontWeight.w700,
-                              color: palette.textPrimary,
-                            ),
-                          ),
-                          if (cols == 1)
-                            Text(
-                              _hhmm(task.start),
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                height: 1.2,
-                                color: palette.textSecondary,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  dense: cols > 1,
+                  palette: palette,
+                  color: calendarTaskColor(task.colorValue, task.id),
+                  onTap: () => onToggle(task),
+                  onResize: onResize,
                 ),
               );
             }
@@ -454,43 +431,68 @@ class CalendarTimeline extends StatelessWidget {
           final nowLine = _nowLineOrNull();
           if (nowLine != null) events.add(nowLine);
 
+          final createAt = onCreateAt;
           return SizedBox(
-            height: _gridHeight,
+            height: _hours * _rowHeight,
             child: Stack(
               children: [
-                Column(
-                  children: [
-                    for (var h = 0; h < _hours; h++)
-                      Container(
-                        height: _rowHeight,
-                        decoration: BoxDecoration(
-                          border: h == 0
-                              ? null
-                              : Border(
-                                  top: BorderSide(
-                                    color: palette.divider,
-                                    width: 0.6,
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: createAt == null
+                      ? null
+                      : (d) {
+                          final dx = d.localPosition.dx - _labelWidth;
+                          if (dx < 0) return;
+                          final col = (dx / colWidth).floor().clamp(0, cols - 1);
+                          if (dayDates.length != cols) return;
+                          final date = dayDates[col];
+                          final rawMinutes = _startHour * 60 +
+                              d.localPosition.dy / _rowHeight * 60;
+                          final minutes = ((rawMinutes / 30).round() * 30)
+                              .clamp(
+                                _startHour.toInt() * 60,
+                                (_startHour.toInt() + _hours) * 60 - 30,
+                              )
+                              .toInt();
+                          createAt(
+                            DateTime(date.year, date.month, date.day)
+                                .add(Duration(minutes: minutes)),
+                          );
+                        },
+                  child: Column(
+                    children: [
+                      for (var h = 0; h < _hours; h++)
+                        Container(
+                          height: _rowHeight,
+                          decoration: BoxDecoration(
+                            border: h == 0
+                                ? null
+                                : Border(
+                                    top: BorderSide(
+                                      color: palette.divider,
+                                      width: 0.6,
+                                    ),
                                   ),
-                                ),
-                        ),
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: SizedBox(
-                            width: _labelWidth,
-                            child: Transform.translate(
-                              offset: const Offset(0, -6),
-                              child: Text(
-                                '${(_startHour.toInt() + h).toString().padLeft(2, '0')}:00',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: palette.textSecondary,
+                          ),
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: SizedBox(
+                              width: _labelWidth,
+                              child: Transform.translate(
+                                offset: const Offset(0, -6),
+                                child: Text(
+                                  '${(_startHour.toInt() + h).toString().padLeft(2, '0')}:00',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: palette.textSecondary,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
                 ...events,
               ],
@@ -511,27 +513,242 @@ class CalendarTimeline extends StatelessWidget {
       left: 0,
       right: 0,
       top: top,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: IgnorePointer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 原型 .tl-now：1.5px 柿朱横线 + 左端 8px 圆点（原 height:0 不画线）。
+            Container(height: 1.5, color: palette.danger),
+            Transform.translate(
+              offset: const Offset(34, -4),
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                    color: palette.danger, shape: BoxShape.circle),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 时间轴事件块：点按切换完成；上下边缘的圆点可拖拽调整起止时间。
+///
+/// 拖拽位移先只改本地几何（跟手），松手按 15 分钟吸附后回写；
+/// 回写成功后父级会用新任务重建，[_didUpdateWidget] 以几何变化为准
+/// 清零本地位移，避免中间帧闪回旧时长。
+class _TimelineEvent extends StatefulWidget {
+  const _TimelineEvent({
+    super.key,
+    required this.task,
+    required this.left,
+    required this.width,
+    required this.top,
+    required this.height,
+    required this.dense,
+    required this.palette,
+    required this.color,
+    required this.onTap,
+    required this.onResize,
+  });
+
+  final CalendarTask task;
+  final double left;
+  final double width;
+  final double top;
+  final double height;
+  final bool dense;
+  final CalendarPalette palette;
+  final Color color;
+  final VoidCallback onTap;
+  final void Function(CalendarTask task, DateTime start, DateTime end)?
+      onResize;
+
+  @override
+  State<_TimelineEvent> createState() => _TimelineEventState();
+}
+
+class _TimelineEventState extends State<_TimelineEvent> {
+  static const double _minHeight = 26;
+  static const int _snapMinutes = 15;
+
+  double _adjustTop = 0;
+  double _adjustBottom = 0;
+  bool _dragging = false;
+
+  @override
+  void didUpdateWidget(covariant _TimelineEvent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.top != widget.top ||
+        oldWidget.height != widget.height ||
+        oldWidget.task.start != widget.task.start ||
+        oldWidget.task.end != widget.task.end) {
+      _adjustTop = 0;
+      _adjustBottom = 0;
+    }
+  }
+
+  double get _gridHeight =>
+      CalendarTimeline._hours * CalendarTimeline._rowHeight;
+
+  void _dragStart() {
+    _dragging = true;
+  }
+
+  void _dragUpdate(bool topEdge, DragUpdateDetails d) {
+    setState(() {
+      if (topEdge) {
+        final maxTop = widget.height + _adjustBottom - _minHeight;
+        _adjustTop = (_adjustTop + d.delta.dy).clamp(-widget.top, maxTop);
+      } else {
+        final minBottom = _minHeight - widget.height + _adjustTop;
+        final maxBottom =
+            _gridHeight - widget.top - widget.height - _adjustTop;
+        _adjustBottom = (_adjustBottom + d.delta.dy).clamp(minBottom, maxBottom);
+      }
+    });
+  }
+
+  void _dragEnd() {
+    if (!_dragging) return;
+    _dragging = false;
+    final newTop = widget.top + _adjustTop;
+    final newHeight = widget.height + _adjustBottom - _adjustTop;
+    final base = DateTime(
+      widget.task.start.year,
+      widget.task.start.month,
+      widget.task.start.day,
+    );
+    DateTime at(double px) {
+      final minutes = px / CalendarTimeline._rowHeight * 60;
+      final snapped = (minutes / _snapMinutes).round() * _snapMinutes;
+      return base.add(
+        Duration(
+          minutes: CalendarTimeline._startHour.toInt() * 60 + snapped,
+        ),
+      );
+    }
+
+    final start = at(newTop);
+    final end = at(newTop + newHeight);
+    widget.onResize?.call(widget.task, start, end);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = widget.palette;
+    final top = widget.top + _adjustTop;
+    final height = widget.height + _adjustBottom - _adjustTop;
+    final canResize = widget.onResize != null &&
+        !widget.task.completed &&
+        height >= 36;
+    final showTime = !widget.dense && height >= 42;
+
+    return Positioned(
+      left: widget.left,
+      width: widget.width,
+      top: top,
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // 原型 .tl-now：1.5px 柿朱横线 + 左端 8px 圆点（原 height:0 不画线）。
-          Container(height: 1.5, color: palette.danger),
-          Transform.translate(
-            offset: const Offset(34, -4),
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration:
-                  BoxDecoration(color: palette.danger, shape: BoxShape.circle),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onTap,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: widget.dense ? 3 : 4,
+                ),
+                decoration: BoxDecoration(
+                  color: widget.color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border(
+                    left: BorderSide(color: widget.color, width: 3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.task.title,
+                      maxLines: showTime ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: widget.dense ? 10.5 : 12,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: palette.textPrimary,
+                      ),
+                    ),
+                    if (showTime)
+                      Text(
+                        '${widget.task.start.hour.toString().padLeft(2, '0')}:'
+                        '${widget.task.start.minute.toString().padLeft(2, '0')}',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          height: 1.2,
+                          color: palette.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
+          if (canResize) ...[
+            // 手柄贴块内边缘：Positioned 超出父盒的部分不参与命中测试，
+            // 放在块内才能稳定抢到纵向拖拽。
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 14,
+              child: Center(child: _handle(true)),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 14,
+              child: Center(child: _handle(false)),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  String _hhmm(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  Widget _handle(bool topEdge) {
+    return GestureDetector(
+      key: ValueKey(
+        'timeline-resize-${topEdge ? 'start' : 'end'}-${widget.task.id}',
+      ),
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragStart: (_) => _dragStart(),
+      onVerticalDragUpdate: (d) => _dragUpdate(topEdge, d),
+      onVerticalDragEnd: (_) => _dragEnd(),
+      child: SizedBox(
+        width: 30,
+        height: 14,
+        child: Center(
+          child: Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.palette.overlay,
+              border: Border.all(color: widget.color, width: 1.5),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 日程页：未来两周按天分组。

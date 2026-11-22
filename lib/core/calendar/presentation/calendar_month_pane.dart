@@ -392,21 +392,242 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
           ),
         ),
         Expanded(
-          child: CalendarTaskList(
-            tasks: widget.tasks,
-            loading: widget.loading,
-            palette: widget.palette,
-            storageAvailable: widget.storageAvailable,
-            storageMessage: widget.storageMessage,
-            onRetry: widget.onRetryStorage,
-            onToggle: widget.onToggleTask,
-            onDelete: widget.onDeleteTask,
+          // 底部为悬浮 FAB / 悬浮底栏预留的空白放在滚动视口之外：只缩小
+          // 可视区，不计入内容高度——装饰性留白不得制造可滚动量，否则
+          // 空面板也能被拖出回弹。
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: 120 + MediaQuery.paddingOf(context).bottom,
+            ),
+            child: _PanelScroll(
+              collapse: widget.collapse,
+              collapseRange: _range,
+              onCollapseDrive: widget.onCollapseDrive,
+              onCollapseSettle: widget.onCollapseSettle,
+              child: CalendarTaskList(
+                tasks: widget.tasks,
+                loading: widget.loading,
+                palette: widget.palette,
+                storageAvailable: widget.storageAvailable,
+                storageMessage: widget.storageMessage,
+                onRetry: widget.onRetryStorage,
+                onToggle: widget.onToggleTask,
+                onDelete: widget.onDeleteTask,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 }
+
+/// 月页任务面板的滚动层（原型 makeKinetic 的 Flutter 落地）。
+///
+/// 与原生 ListView 的差别正是本次要修的冲突点：
+/// · 内容不溢出（含完全无内容）时不可滚动，纵向拖拽整段驱动月历收展；
+/// · 内容溢出时先滚动内容，到达上/下端点后的剩余位移才交接给收展；
+/// · 松手按 130ms 动量投射惯性滑行，越界用 k170/c26 弹簧回弹。
+class _PanelScroll extends StatefulWidget {
+  const _PanelScroll({
+    required this.child,
+    required this.collapse,
+    required this.collapseRange,
+    required this.onCollapseDrive,
+    required this.onCollapseSettle,
+  });
+
+  final Widget child;
+  final ValueListenable<double> collapse;
+  final double collapseRange;
+  final ValueChanged<double> onCollapseDrive;
+  final void Function(double target, double velocity, bool fromDrag)
+      onCollapseSettle;
+
+  @override
+  State<_PanelScroll> createState() => _PanelScrollState();
+}
+
+class _PanelScrollState extends State<_PanelScroll>
+    with SingleTickerProviderStateMixin {
+  final GlobalKey _contentKey = GlobalKey();
+  late final CalendarSpring _spring;
+
+  double _off = 0;
+  double _max = 0;
+  double _viewport = 300;
+
+  double? _startY;
+  double _rawBase = 0;
+  double _collapseBase = 1;
+  bool _dragging = false;
+  bool _moved = false;
+  bool _handoff = false;
+  bool _measuring = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _spring = CalendarSpring(
+      vsync: this,
+      description: kCalendarPanelSpring,
+      onUpdate: _onSpringTick,
+    );
+  }
+
+  @override
+  void dispose() {
+    _spring.dispose();
+    super.dispose();
+  }
+
+  void _onSpringTick() {
+    final next = _spring.value.clamp(0.0, _max);
+    if (next == _off) return;
+    setState(() => _off = next);
+  }
+
+  void _setOff(double value) {
+    if (value == _off) return;
+    setState(() => _off = value);
+  }
+
+  /// 内容高度只能在布局后量：post-frame 读 RenderBox，量到变化才 setState。
+  void _scheduleMeasure(double viewport) {
+    _viewport = viewport;
+    if (_measuring) return;
+    _measuring = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measuring = false;
+      if (!mounted) return;
+      final box = _contentKey.currentContext?.findRenderObject();
+      if (box is! RenderBox) return;
+      final max = math.max(0.0, box.size.height - _viewport);
+      if (max == _max) return;
+      setState(() {
+        _max = max;
+        if (_off > _max) _off = _max;
+      });
+    });
+  }
+
+  void _onDragStart(DragStartDetails d) {
+    _spring.stop();
+    _dragging = true;
+    _moved = false;
+    _handoff = false;
+    _startY = d.localPosition.dy;
+    _rawBase = _off;
+    _collapseBase = calendarClamp01(widget.collapse.value);
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    final startY = _startY;
+    if (startY == null) return;
+    // 手指上移为正 = 内容上移（与 off 同向）；月历收展方向与之相反。
+    final dy = startY - d.localPosition.dy;
+    if (!_moved) {
+      if (dy.abs() <= kCalendarDragDeadZone) return;
+      _moved = true;
+    }
+    final raw = _rawBase + dy;
+    final range = math.max(1.0, widget.collapseRange);
+    if (raw < 0) {
+      // 列表顶端的下拉：整个面板展开。
+      _handoff = true;
+      _setOff(0);
+      widget.onCollapseDrive(_collapseBase - raw / range);
+    } else if (raw > _max) {
+      // 列表底端的继续上推：整个面板收成单周行。
+      _handoff = true;
+      _setOff(_max);
+      widget.onCollapseDrive(_collapseBase - (raw - _max) / range);
+    } else {
+      if (_handoff) {
+        _handoff = false;
+        widget.onCollapseDrive(_collapseBase);
+      }
+      _setOff(raw);
+    }
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    if (!_dragging) return;
+    _dragging = false;
+    _startY = null;
+    final fingerV = (d.primaryVelocity ?? 0) / 1000; // px/ms，向下为正
+    if (_handoff) {
+      // 端点的剩余位移已经驱动收展：松手交给收展弹簧吸附。
+      _handoff = false;
+      final current = calendarClamp01(widget.collapse.value);
+      final proj = calendarProject(current, fingerV, widget.collapseRange);
+      widget.onCollapseSettle(
+        proj > 0.5 ? 1 : 0,
+        fingerV * 1000 / math.max(1.0, widget.collapseRange),
+        true,
+      );
+      return;
+    }
+    if (!_moved) return;
+    final contentV = -fingerV; // 内容位移速度
+    if (contentV.abs() <= 0.05) return;
+    final target =
+        (_off + contentV * kCalendarMomentumMs).clamp(0.0, _max);
+    _spring.to(target, velocity: contentV * 1000);
+  }
+
+  void _onDragCancel() {
+    _dragging = false;
+    _startY = null;
+    if (_handoff) {
+      _handoff = false;
+      widget.onCollapseSettle(
+        calendarClamp01(widget.collapse.value) > 0.5 ? 1 : 0,
+        0,
+        true,
+      );
+    }
+    _spring.to(_off.clamp(0.0, _max));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewport = constraints.maxHeight;
+        _scheduleMeasure(viewport);
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragStart: _onDragStart,
+          onVerticalDragUpdate: _onDragUpdate,
+          onVerticalDragEnd: _onDragEnd,
+          onVerticalDragCancel: _onDragCancel,
+          child: ClipRect(
+            child: SizedBox.expand(
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: -_off,
+                    child: KeyedSubtree(
+                      key: _contentKey,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: viewport),
+                        child: widget.child,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 
 /// 月网格内容：行 + 格子（农历/节气/节日次级文案）。
 ///

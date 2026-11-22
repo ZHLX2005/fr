@@ -217,9 +217,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--stage-tea);outl
 .pp-head .pp-date{font-family:"Noto Serif SC",serif;font-size:17px;font-weight:700;color:var(--p-ink)}
 .pp-head .pp-week{font-size:12px;color:var(--p-ink2);margin-left:6px;font-weight:400}
 .pp-head .pp-count{font-size:11px;color:var(--p-ink3)}
-.pp-list{flex:1;min-height:0;overflow:hidden;position:relative;cursor:grab}
+.pp-list{flex:1;min-height:0;overflow:hidden;position:relative;cursor:grab;margin-bottom:116px}
 .pp-list:active{cursor:grabbing}
-.pp-inner{padding:2px 2px 116px;display:flex;flex-direction:column;gap:8px}
+.pp-inner{padding:2px 2px 0;display:flex;flex-direction:column;gap:8px}
 .task{
   background:var(--p-surface2);border-radius:14px;padding:11px 13px;display:flex;align-items:center;gap:11px;
 }
@@ -1504,9 +1504,11 @@ class Vel{
   }
 }
 
-/* ═══════════════ 动量滚动容器（iOS 阻力 + 惯性 + 回弹） ═══════════════ */
-function makeKinetic(view,content){
-  const K = {off:0,max:0,drag:false,moved:false,vel:new Vel()};
+/* ═══════════════ 动量滚动容器（iOS 阻力 + 惯性 + 回弹） ═══════════════
+   hooks.onEdge(rawOffset,max)：拖到内容端点（或内容根本不可滚）时，剩余位移
+   交给上层手势（月页面板用它驱动收展）；hooks.onEdgeEnd(vel) 松手时收尾。 */
+function makeKinetic(view,content,hooks){
+  const K = {off:0,max:0,drag:false,moved:false,edge:false,vel:new Vel()};
   const H = () => view.clientHeight||300;
   const apply = () => { content.style.transform = `translateY(${-K.off}px)`; };
   K.spring = new Spring(0,170,26, x=>{ K.off = x; apply(); });
@@ -1521,7 +1523,7 @@ function makeKinetic(view,content){
   view.addEventListener('pointerdown',e=>{
     if(K.drag) return;
     stopGlide();
-    K.drag = true; K.moved = false;
+    K.drag = true; K.moved = false; K.edge = false;
     view.setPointerCapture(e.pointerId);
     y0 = e.clientY; raw = K.off; K.vel.down(e.clientY);
     K.spring.set(K.off);
@@ -1531,11 +1533,27 @@ function makeKinetic(view,content){
     const dy = y0-e.clientY;
     if(!K.moved && Math.abs(dy)>4) K.moved = true;
     K.vel.move(e.clientY);
-    K.off = vis(raw+dy); apply();
+    const target = raw+dy;
+    if(hooks && hooks.onEdge && (K.max===0 || target<0 || target>K.max)){
+      K.edge = true;
+      K.off = clamp(target,0,K.max); apply();
+      hooks.onEdge(target,K.max);
+      return;
+    }
+    if(K.edge){                          // 拖回内容区：撤销端点驱动
+      K.edge = false;
+      if(hooks && hooks.onEdgeLeave) hooks.onEdgeLeave();
+    }
+    K.off = vis(target); apply();
   });
   const end = e=>{
     if(!K.drag) return; K.drag = false;
     const v = K.vel.get();
+    if(K.edge){                          // 端点位移已交接：交给上层吸附
+      K.edge = false;
+      if(hooks && hooks.onEdgeEnd) hooks.onEdgeEnd(v);
+      return;
+    }
     if(K.off<0 || K.off>K.max){          // 越界：弹回
       K.spring.set(K.off); K.spring.to(clamp(K.off,0,K.max), -v*1000); return;
     }
@@ -1684,18 +1702,9 @@ function carCommit(velPxMs){
   carS.to(1, Math.abs(velPxMs)*1000/(mArea.clientWidth||358));
   updateTitle();
 }
-/* 跟手吸附弹簧：通知栏 demo 同参（k=205 c=29） */
-let collapseToWeek = false;                    // 拖拽收成单周行 → 待交接给周页签
-const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse();
-  // 单周行落定：页签由「月」自动滑到「周」，同一条手势连续落到周视图。
-  if(collapseToWeek && colP.settled && v<=0.02 && state.tab===1){
-    collapseToWeek = false;
-    switchTab(2);
-    setTimeout(()=>{                            // 月页已移出视口，复位为展开
-      colP.set(1); applyCollapse();
-    }, 520);
-  }
-});
+/* 跟手吸附弹簧：通知栏 demo 同参（k=205 c=29）
+   月面板收成单周行只是月页的固有形态，页签留在「月」（旧版会自动落「周」，已改正） */
+const colP = new Spring(1,205,29, v=>{ collapseRaw = v; applyCollapse(); });
 /* 松手收尾：动量投射 130ms → 最近档（月历网格与面板抓手共用；上拖=收起 / 下拖=展开）
    返回吸附目标（1 展开 / 0 收起），供网格拖拽判断是否交接给周页签 */
 function collapseFinish(vPxMs, thr){
@@ -1768,7 +1777,6 @@ bindCollapseDrag($('.pp-head'));
       const drive = dy>0 ? dy-4 : dy+4;          // 4px 死区
       collapseRaw = base + drive/range;          // 上拖=收起 / 下拖=展开（与面板抓手同向）
       colP.set(collapseRaw);                     // 1:1 跟手
-      if(collapseRaw > 0.2) collapseToWeek = false;  // 拖回展开 → 撤销交接
     }else{
       const W = mArea.clientWidth||358;
       if(!car.dragging){ car.dragging = true; carBegin(dx<0?1:-1); }
@@ -1778,7 +1786,6 @@ bindCollapseDrag($('.pp-head'));
   const finish = e=>{
     if(e.pointerId !== pid) return;
     pid = null;
-    const wasVertical = axis === 'v';
     axis = null;
     const v = vel.get();
     if(car.dragging){
@@ -1787,9 +1794,7 @@ bindCollapseDrag($('.pp-head'));
       if(car.pending && (proj>0.5 || Math.abs(v)>0.35)) carCommit(v);
       else{ car.dragging = false; carS.set(carS.x); carS.to(0); }
     }else{
-      // 只有纵向拖拽收成单周行才交接周页签；点按不触发。
-      const target = collapseFinish(v);
-      if(wasVertical && target === 0) collapseToWeek = true;
+      collapseFinish(v);
     }
   };
   mArea.addEventListener('pointerup',finish);
@@ -1842,7 +1847,23 @@ function popChk(root, id){
   chk.classList.add('pop');
   chk.addEventListener('animationend', ()=>chk.classList.remove('pop'), {once:true});
 }
-const kinPanel = makeKinetic($('#ppList'),$('#ppInner'));
+/* 任务面板滚到端点后的剩余位移交给月历收展：内容不溢出时整段驱动，
+   即「没有内容时面板本身不可滚动」；页签始终留在「月」。 */
+let ppEdgeBase = null;
+const kinPanel = makeKinetic($('#ppList'),$('#ppInner'),{
+  onEdge: (target,max) => {
+    if(ppEdgeBase === null) ppEdgeBase = collapseRaw;
+    const range = Math.max(1,mH-ROW_H);
+    const excess = target > max ? target-max : target;   // >0 继续上推 / <0 顶端下拉
+    collapseRaw = ppEdgeBase - excess/range;
+    colP.set(collapseRaw);
+  },
+  onEdgeLeave: () => {
+    if(ppEdgeBase === null) return;
+    collapseRaw = ppEdgeBase; colP.set(collapseRaw); ppEdgeBase = null;
+  },
+  onEdgeEnd: v => { ppEdgeBase = null; collapseFinish(v); },
+});
 </script>
 <!--FRAG-END-->
 <!--FRAG-START-->
@@ -2051,8 +2072,8 @@ function measurePills(){
 function measureNav(){ measurePanes(); measurePills(); }
 
 /* 每帧渲染页签轨道：iOS 式滑动交叉淡化
-   关键约束：静止（d=1）时相邻页必须严格完全不可见——视差随 (1-d) 归零、
-   不透明度在 d≥0.8 前降到 0，绝不让邻页内容压到当前页上 */
+   静止（d=1）时相邻页必须完全不可见——视差随 (1-d) 归零、不透明度随 d 线性
+   衰减，整个弹簧行程里两页自然交叠（旧版 d≥0.8 就归零，观感会「闪一下」） */
 function renderTabFrame(t){
   const tc = clamp(t,0,4);
   panes.style.transform = `translate3d(${-tc*paneW}px,0,0)`;
@@ -2065,14 +2086,14 @@ function renderTabFrame(t){
     }
     if(el.style.visibility==='hidden') el.style.visibility = 'visible';
     const d  = Math.min(dRaw,1), dd = d*d;
-    const s  = 1-0.10*dd;                            // 缩放：离场收小 / 进场撑开
-    const o  = Math.max(0, 1-1.25*d);                // d≥0.8 即完全透明 → 静止零串显
+    const s  = 1-0.07*dd;                            // 缩放：离场收小 / 进场撑开
+    const o  = Math.max(0, 1-d);                     // 全程交叉淡化
     const px = (tc-i)*paneW*0.16*(1-d);              // 视差滞后：飞行中慢半拍，到位归零
     el.style.opacity   = o.toFixed(3);
     el.style.transform = `translate3d(${px.toFixed(1)}px,0,0) scale(${s.toFixed(4)})`;
   }
 }
-const tabS = new Spring(1,380,28, v=>{
+const tabS = new Spring(1,170,26, v=>{
   const tc = clamp(v,0,4);
   const i0 = Math.floor(tc), i1 = Math.min(4,i0+1), f = tc-i0;
   const a = pillPos[i0], b = pillPos[i1];
@@ -2106,7 +2127,7 @@ function switchTab(i){
    · 年→月：卡片放大成月历，卡片内容前半程淡出、月网格后半程淡入
    · 月→年：月历缩回目标卡片位淡出，年网格 FLIP 汇聚、非目标卡片错峰浮现 */
 let morphActive = false;
-const MORPH_MS = 520, MORPH_EASE = 'cubic-bezier(.32,.72,.22,1)';
+const MORPH_MS = 780, MORPH_EASE = 'cubic-bezier(.34,.02,.16,1)';
 function tabInstant(i){
   capBtns.forEach((b,j)=>b.classList.toggle('on',j===i));
   state.tab = i;

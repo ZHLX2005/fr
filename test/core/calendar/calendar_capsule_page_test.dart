@@ -74,7 +74,11 @@ class _FakeRepo implements CalendarTaskRepository {
       _tasks.first;
 
   @override
-  Future<void> update(CalendarTask task) async {}
+  Future<void> update(CalendarTask task) async {
+    _tasks = [
+      for (final t in _tasks) t.id == task.id ? task : t,
+    ];
+  }
 
   @override
   Future<void> toggleCompleted(CalendarTask task) async {
@@ -230,10 +234,10 @@ void main() {
     );
   });
 
-  testWidgets('月页纵向拖拽收成单周行 → 页签自动落到周', (tester) async {
+  testWidgets('月页纵向拖拽收成单周行：页签仍停在月', (tester) async {
     await _pumpCalendar(tester, initialTab: 1);
 
-    // 月历网格上半区向上拖：收展弹簧落到 0 后应交接到周页签。
+    // 月历网格上半区向上拖：收展弹簧落到 0 后只收起中间几行日期。
     final today = DateTime.now();
     await tester.drag(
       find.descendant(
@@ -247,17 +251,85 @@ void main() {
     expect(
       tester.widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
           .activeIndex,
-      2,
-      reason: '月面板收成一行后，页签应自动变成「周」',
+      1,
+      reason: '月面板收成一行只是月页的固有形态，页签不应跳到「周」',
     );
-    // 交接完成后月页收展态复位，回到月页仍是完整月历。
     final monthPane = tester.widget<CalendarMonthPane>(
       find.byType(CalendarMonthPane),
     );
     expect(
       monthPane.collapse.value,
-      closeTo(1, 0.001),
-      reason: '交接后收展态应复位为展开，避免回到月页时只剩一行',
+      closeTo(0, 0.001),
+      reason: '拖到上方后月历应稳定停在单周行',
+    );
+    expect(find.textContaining('第'), findsOneWidget,
+        reason: '收起态标题应为「N月 · 第N周」');
+  });
+
+  testWidgets('任务面板短内容上滑：整面板收成单周行（页签不动）', (tester) async {
+    await _pumpCalendar(tester, initialTab: 1);
+
+    // 任务不足一屏时列表本身不可滚动，纵向拖拽直接驱动月历收展。
+    await tester.drag(
+      find.descendant(
+        of: find.byType(CalendarMonthPane),
+        matching: find.text('晨会'),
+      ),
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
+          .activeIndex,
+      1,
+    );
+    expect(
+      tester.widget<CalendarMonthPane>(find.byType(CalendarMonthPane))
+          .collapse
+          .value,
+      closeTo(0, 0.001),
+    );
+  });
+
+  testWidgets('日视图任务块：拖下边缘拉长时长并回写仓储', (tester) async {
+    final repo = _FakeRepo();
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sqliteCalendarRepositoryProvider.overrideWithValue(repo),
+          sqliteSettingsRepositoryProvider.overrideWithValue(_FakeSettings()),
+        ],
+        child: const MaterialApp(home: CalendarPage(initialTab: 3)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final timeline = find.byType(CalendarTimeline).last;
+    final block = find.descendant(of: timeline, matching: find.text('晨会'));
+    expect(block, findsOneWidget);
+
+    // 下边缘手柄位于任务块底边；向下拖 52px（= 1 小时）后松手。
+    final endHandle = find.descendant(
+      of: timeline,
+      matching: find.byKey(const ValueKey('timeline-resize-end-1')),
+    );
+    expect(endHandle, findsOneWidget);
+    await tester.dragFrom(
+      tester.getRect(endHandle).center,
+      const Offset(0, 52),
+    );
+    await tester.pumpAndSettle();
+
+    final task = (await repo.tasksOnDay(DateTime.now()))
+        .firstWhere((t) => t.title == '晨会');
+    expect(
+      task.end!.difference(task.start).inMinutes,
+      greaterThan(60),
+      reason: '拖动下边缘后结束时间应被拉长',
     );
   });
 

@@ -44,8 +44,8 @@ class CalendarTaskList extends StatelessWidget {
     }
 
     if (!storageAvailable) {
-      return _scrollable(
-        _StorageUnavailable(
+      return Center(
+        child: _StorageUnavailable(
           palette: palette,
           message: storageMessage,
           onRetry: onRetry,
@@ -54,37 +54,28 @@ class CalendarTaskList extends StatelessWidget {
     }
 
     if (tasks.isEmpty) {
-      return _scrollable(const _EmptyState());
+      return const Center(child: _EmptyState());
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
-      itemCount: tasks.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final task = tasks[index];
-        return _TaskRow(
-          task: task,
-          palette: palette,
-          showConnector: index != tasks.length - 1,
-          onToggle: () => onToggle(task),
-          onDelete: () => onDelete(task),
-        );
-      },
-    );
-  }
-
-  Widget _scrollable(Widget child) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 96),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: child,
-          ),
-        );
-      },
+    // 滚动交给外层 _PanelScroll（与月历收展共用同一条纵向手势），
+    // 这里只负责内容排版；空态不产生任何可滚动量。
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < tasks.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _TaskRow(
+              task: tasks[i],
+              palette: palette,
+              showConnector: i != tasks.length - 1,
+              onToggle: () => onToggle(tasks[i]),
+              onDelete: () => onDelete(tasks[i]),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -53,13 +53,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   final ValueNotifier<double> _collapse = ValueNotifier<double>(1);
   late final CalendarSpring _collapseSpring;
 
-  /// 「月面板拖成单周行 → 自动落周页签」的一次性标记：拖拽松手判定为
-  /// 收起时置位，弹簧逼近 0 才消费；中途拖回展开会取消，防误切页签。
-  bool _collapseHandoff = false;
-
-  /// 交接后待复位的收展态：等月页完全移出视口再复位为展开。
-  bool _collapseResetPending = false;
-
   DateTime _selectedDate = calendarDateOnly(DateTime.now());
   DateTime _visibleMonth =
       DateTime(DateTime.now().year, DateTime.now().month, 1);
@@ -103,13 +96,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       onUpdate: () {
         _tabT.value = _tabSpring.value;
         _tabV.value = _tabSpring.velocity;
-        // 「收 → 周」交接的收尾：月页已完全移出视口（t≥1.9 时其
-        // 透明度为 0）后再把收展态复位成展开，否则扫尾过程中会看到
-        // 月历重新长高。
-        if (_collapseResetPending && _tabSpring.value >= 1.9) {
-          _collapseResetPending = false;
-          _collapseSpring.jump(1);
-        }
       },
     );
     _tabSpring.jump(_tab.toDouble());
@@ -498,11 +484,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
     final controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 780),
     );
     final curve = CurvedAnimation(
       parent: controller,
-      curve: const Cubic(0.32, 0.72, 0.22, 1),
+      curve: const Cubic(0.34, 0.02, 0.16, 1),
     );
     _morphController = controller;
 
@@ -615,7 +601,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     double sy, {
     required bool expand,
   }) {
-    const ease = Cubic(0.32, 0.72, 0.22, 1);
+    const ease = Cubic(0.33, 0.0, 0.18, 1);
     final over = [
       -dx * 0.05,
       -dy * 0.05,
@@ -663,38 +649,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   void _onCollapseDrive(double raw) {
     _collapseSpring.stop();
     _collapse.value = raw;
-    // 拖回展开方向 → 撤销尚未兑现的「收 → 周」交接。
-    if (_collapseHandoff && raw > 0.2) _collapseHandoff = false;
   }
 
-  /// 收展弹簧每帧：单周行落定时把当前拖拽交给周页签。
+  /// 收展弹簧每帧只同步可视值：月页收成单周行是它自己的固有形态，
+  /// 不交接页签（之前收尾自动落「周」是错误实现）。
   void _onCollapseTick() {
-    final value = _collapseSpring.value;
-    _collapse.value = value;
-    if (!_collapseHandoff) return;
-    if (value > 0.08 || _tab != 1 || _morphing) return;
-    _collapseHandoff = false;
-    _goWeekFromCollapse();
-  }
-
-  /// 月面板收成单周行后，页签自动滑向「周」：同一条手势从月历形态
-  /// 连续落到周视图，而不是停在一个半收起的月页。
-  void _goWeekFromCollapse() {
-    if (!mounted || _tab == 2) return;
-    setState(() {
-      _tab = 2;
-      _tabSpring.to(2);
-      _collapseResetPending = true;
-    });
-    unawaited(_reload());
+    _collapse.value = _collapseSpring.value;
   }
 
   void _onCollapseSettle(double target, double velocity, bool fromDrag) {
-    // 只有拖拽（非抓手点按）落点为收起时才交接；抓手点按仍保留
-    // 「月页收起态」这一固有形态。
-    if (fromDrag && target == 0 && _tab == 1 && !_morphing) {
-      _collapseHandoff = true;
-    }
     _collapseSpring.to(target, velocity: velocity);
   }
 
@@ -733,7 +696,16 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   /* ═══════════ 任务操作 ═══════════ */
 
-  Future<void> _addTask() async {
+  Future<void> _addTask() => _createTask(_selectedDate);
+
+  /// 周/日时间轴空白处点按：以点中的时间点预填表单。
+  Future<void> _addTaskAt(DateTime start) =>
+      _createTask(start, initialTime: TimeOfDay.fromDateTime(start));
+
+  Future<void> _createTask(
+    DateTime date, {
+    TimeOfDay? initialTime,
+  }) async {
     if (_repo == null) {
       CalendarToast.show(
         context,
@@ -745,7 +717,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     final draft = await showCalendarTaskSheet(
       context,
       palette: CalendarPalette.of(context),
-      initialDate: _selectedDate,
+      initialDate: date,
+      initialTime: initialTime,
     );
     if (draft == null || !mounted) return;
     try {
@@ -754,6 +727,24 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     } catch (error) {
       if (!mounted) return;
       CalendarToast.show(context, '添加任务失败: $error', CalendarPalette.of(context));
+    }
+  }
+
+  /// 时间轴任务块上下拖拽改时长后回写。
+  Future<void> _resizeTask(
+    CalendarTask task,
+    DateTime start,
+    DateTime end,
+  ) async {
+    final repo = _repo;
+    if (repo == null) return;
+    if (start == task.start && end == task.end) return;
+    try {
+      await repo.update(task.copyWith(start: start, end: end));
+      await _reload();
+    } catch (error) {
+      if (!mounted) return;
+      CalendarToast.show(context, '调整时间失败: $error', CalendarPalette.of(context));
     }
   }
 
@@ -919,8 +910,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     }
     final d = math.min(dRaw, 1.0);
     final dd = d * d;
-    final opacity = (1 - 1.25 * d).clamp(0.0, 1.0);
-    final scale = 1 - 0.10 * dd;
+    // 全程交叉淡入淡出：旧版 (1-1.25d) 在 d>0.8 就归零，配合急促弹簧
+    // 观感是「闪一下」；线性衰减让两页在整个弹簧行程里自然交叠。
+    final opacity = (1 - d).clamp(0.0, 1.0);
+    final scale = 1 - 0.07 * dd;
     final px = (t.clamp(0.0, 4.0) - i) * w * 0.16 * (1 - d);
     return Transform.translate(
       offset: Offset(px, 0),
@@ -1026,9 +1019,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
               Expanded(
                 child: CalendarTimeline(
                   days: _weekTasks,
+                  dayDates: [
+                    for (var i = 0; i < 7; i++)
+                      weekStart.add(Duration(days: i)),
+                  ],
                   showNowLine: false,
                   palette: palette,
                   onToggle: _toggleTask,
+                  onCreateAt: _addTaskAt,
+                  onResize: _resizeTask,
                 ),
               ),
             ],
@@ -1054,10 +1053,13 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
               Expanded(
                 child: CalendarTimeline(
                   days: [_selectedDayTasks],
+                  dayDates: [_selectedDate],
                   showNowLine:
                       _selectedDate == _today,
                   palette: palette,
                   onToggle: _toggleTask,
+                  onCreateAt: _addTaskAt,
+                  onResize: _resizeTask,
                 ),
               ),
             ],
@@ -1122,36 +1124,41 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   Widget _buildFabs(CalendarPalette palette) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _CalendarFab(
-          size: 44,
-          color: palette.surfaceAlt,
-          border: Border.all(color: palette.divider),
-          shadowBlur: 12,
-          shadowOffsetY: 5,
-          onTap: _goToday,
-          child: Text(
-            '今',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: palette.danger,
+    // 主壳的悬浮底栏（64 高 + 16 间距）以 Stack 叠在页面之上，会把
+    // 贴底的 FAB 压住；这里整体上提到栏体之上。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 72),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _CalendarFab(
+            size: 44,
+            color: palette.surfaceAlt,
+            border: Border.all(color: palette.divider),
+            shadowBlur: 12,
+            shadowOffsetY: 5,
+            onTap: _goToday,
+            child: Text(
+              '今',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: palette.danger,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        _CalendarFab(
-          size: 52,
-          color: palette.accent,
-          shadowBlur: 14,
-          shadowOffsetY: 6,
-          onTap: _addTask,
-          child: Icon(Icons.add, size: 26, color: palette.onAccent),
-        ),
-      ],
+          const SizedBox(height: 12),
+          _CalendarFab(
+            size: 52,
+            color: palette.accent,
+            shadowBlur: 14,
+            shadowOffsetY: 6,
+            onTap: _addTask,
+            child: Icon(Icons.add, size: 26, color: palette.onAccent),
+          ),
+        ],
+      ),
     );
   }
 }

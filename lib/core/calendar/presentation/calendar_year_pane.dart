@@ -199,7 +199,7 @@ class _CalendarYearPaneState extends State<CalendarYearPane>
   double _cardOpacity(int i) {
     final t = widget.staggerT;
     if (t == null) return 1;
-    final elapsed = t.clamp(0.0, 1.0) * 520;
+    final elapsed = t.clamp(0.0, 1.0) * 780;
     final delay = 100.0 +
         math.min(220.0, (i - widget.staggerTarget).abs() * 32.0);
     final p = ((elapsed - delay) / 240).clamp(0.0, 1.0);

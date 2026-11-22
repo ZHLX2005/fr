@@ -96,21 +96,21 @@ Future<void> _pumpApp(WidgetTester tester, int tab) async {
   await tester.pumpAndSettle();
 }
 
-/// morph 是 520ms 定长动画。注意 Ticker 首次 tick 上报 0 elapsed：
+/// morph 是 780ms 定长动画。注意 Ticker 首次 tick 上报 0 elapsed：
 /// pump() 布局并在帧尾 postFrame 启动 forward；下一次 pump 首帧 t=0，
-/// 之后每 pump 140ms 采样一次（0 → 0.27 → 0.54 → settle 终态）。
+/// 之后每 pump 210ms 采样一次（0 → 0.27 → 0.54 → settle 终态）。
 Future<void> _captureFrames(
   WidgetTester tester,
   String prefix,
 ) async {
   await tester.pump(); // 帧 A：setState + postFrame 启动控制器
-  await tester.pump(const Duration(milliseconds: 140)); // t = 0
-  await tester.pump(const Duration(milliseconds: 140)); // t ≈ 0.27
+  await tester.pump(const Duration(milliseconds: 210)); // t = 0
+  await tester.pump(const Duration(milliseconds: 210)); // t ≈ 0.27
   await expectLater(
     find.byType(MaterialApp),
     matchesGoldenFile('goldens/${prefix}_27.png'),
   );
-  await tester.pump(const Duration(milliseconds: 140)); // t ≈ 0.54
+  await tester.pump(const Duration(milliseconds: 210)); // t ≈ 0.54
   await expectLater(
     find.byType(MaterialApp),
     matchesGoldenFile('goldens/${prefix}_54.png'),

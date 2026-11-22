@@ -11,12 +11,13 @@ Future<CalendarTaskDraft?> showCalendarTaskSheet(
   BuildContext context, {
   required CalendarPalette palette,
   required DateTime initialDate,
+  TimeOfDay? initialTime,
 }) async {
   final titleController = TextEditingController();
   final notesController = TextEditingController();
   var allDay = false;
   var date = calendarDateOnly(initialDate);
-  var time = TimeOfDay.now();
+  var time = initialTime ?? TimeOfDay.now();
 
   try {
     final result = await showModalBottomSheet<CalendarTaskDraft>(

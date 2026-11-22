@@ -16,11 +16,19 @@ const SpringDescription kCalendarCollapseSpring = SpringDescription(
   damping: 29,
 );
 
-/// 胶囊页签弹簧（微回弹）。
+/// 胶囊页签弹簧。原 300/22（≈230ms、带回弹）手感过急；改用面板滑行的
+/// 170/26（近临界阻尼）——过渡拉长且收尾柔和，五页签联动更顺。
 const SpringDescription kCalendarTabSpring = SpringDescription(
   mass: 1,
-  stiffness: 300,
-  damping: 22,
+  stiffness: 170,
+  damping: 26,
+);
+
+/// 面板内容惯性滑行弹簧（原型 makeKinetic 同参 k170/c26）。
+const SpringDescription kCalendarPanelSpring = SpringDescription(
+  mass: 1,
+  stiffness: 170,
+  damping: 26,
 );
 
 /// 月历 / 周条翻页轮盘弹簧。
@@ -49,6 +57,10 @@ double calendarSmootherstep(double t) {
 
 /// 收起端的指数阻力（通知栏 demo 同款）。
 double calendarRubber(double x) => 62 * (1 - math.exp(-x / 130));
+
+/// 列表边缘阻力：随视口高度放大（原型 makeKinetic 的 rubberWK）。
+double calendarRubberView(double x, double viewport) =>
+    viewport * (1 - 1 / (x * 0.55 / math.max(1.0, viewport) + 1));
 
 /// 动量投射：按松手速度 [velocityPxPerMs] 投射 130ms 后的值。
 double calendarProject(double value, double velocityPxPerMs, double range) =>
