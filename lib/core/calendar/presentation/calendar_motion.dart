@@ -9,6 +9,28 @@ import 'dart:math' as math;
 import 'package:flutter/animation.dart';
 import 'package:flutter/physics.dart';
 
+/// 指数摩擦惯性滑行（原型 makeKinetic 的松手感）：速度按 e^(−t/τ) 衰减，
+/// 降到 [stopV] 以下判定完成。与 SpringSimulation 的区别：滑行距离
+/// 由初速线性决定（≈v0·τ），不向目标吸附——适合「滚到哪儿算哪儿」
+/// 的内容列表；越界/落点由调用方在 tick 里钳位与接管。
+class CalendarFrictionGlide extends Simulation {
+  CalendarFrictionGlide(this.x0, this.v0, {this.stopV = kCalendarGlideStopV});
+
+  final double x0;
+  final double v0;
+  final double stopV;
+
+  @override
+  double dx(double time) => v0 * math.exp(-time / kCalendarGlideTau);
+
+  @override
+  double x(double time) =>
+      x0 + v0 * kCalendarGlideTau * (1 - math.exp(-time / kCalendarGlideTau));
+
+  @override
+  bool isDone(double time) => dx(time).abs() < stopV;
+}
+
 /// 跟手吸附弹簧（月历收展）。
 const SpringDescription kCalendarCollapseSpring = SpringDescription(
   mass: 1,
@@ -40,6 +62,14 @@ const SpringDescription kCalendarFlipSpring = SpringDescription(
 
 /// 松手前动量投射时长（ms）。
 const int kCalendarMomentumMs = 130;
+
+/// 惯性摩擦滑行的时间常数（秒）：v(t) = v0·e^(−t/τ)，原型 makeKinetic
+/// 同参（html:1560，τ≈0.32）。滑行总距离 ≈ v0·τ，明显长于 130ms 投射——
+/// 快速轻扫的滑行手感与原型一致，减少「轻扫一下就被交接收起」。
+const double kCalendarGlideTau = 0.32;
+
+/// 滑行停止速度（px/s）：低于该值视为静止（原型同参）。
+const double kCalendarGlideStopV = 12;
 
 /// 指针死区（px）。
 const double kCalendarDragDeadZone = 4;
@@ -131,7 +161,9 @@ class CalendarVelocitySampler {
     _times
       ..clear()
       ..add(_nowMs());
-    _positions..clear()..add(position);
+    _positions
+      ..clear()
+      ..add(position);
   }
 
   void add(double position) {
@@ -151,6 +183,5 @@ class CalendarVelocitySampler {
     return (_positions.last - _positions.first) / dt;
   }
 
-  static double _nowMs() =>
-      DateTime.now().microsecondsSinceEpoch / 1000.0;
+  static double _nowMs() => DateTime.now().microsecondsSinceEpoch / 1000.0;
 }

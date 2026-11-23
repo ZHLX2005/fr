@@ -37,8 +37,9 @@ class CalendarCapsuleNav extends StatefulWidget {
 
 class _CalendarCapsuleNavState extends State<CalendarCapsuleNav> {
   /// 无速度源时用的常量 notifier（保持静止态 stretch=1）。
-  static final ValueNotifier<double> _kVelocityFallback =
-      ValueNotifier<double>(0);
+  static final ValueNotifier<double> _kVelocityFallback = ValueNotifier<double>(
+    0,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -168,13 +169,15 @@ class _NavButtonState extends State<_NavButton> {
             duration: const Duration(milliseconds: 130),
             curve: Curves.easeOutBack,
             child: AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 220),
+              duration: const Duration(milliseconds: 170),
+              // easeOut 收尾柔和：pill 是弹簧（ease-out 型收敛），文字
+              // 若走默认 linear 会比 pill 晚变色且观感拖尾。
+              curve: Curves.easeOut,
               // 显式带上主题字体族：AnimatedDefaultTextStyle 是 replace 语义，
               // 不带 fontFamily 会退回引擎默认字体（丢全局字体）。
               style: TextStyle(
                 fontSize: 14,
-                fontFamily:
-                    Theme.of(context).textTheme.bodyMedium?.fontFamily,
+                fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
                 fontWeight: widget.active ? FontWeight.w600 : FontWeight.w500,
                 color: widget.active
                     ? widget.palette.textPrimary

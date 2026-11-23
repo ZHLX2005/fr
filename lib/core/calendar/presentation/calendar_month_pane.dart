@@ -51,7 +51,7 @@ class CalendarMonthPane extends StatefulWidget {
   final String? storageMessage;
   final ValueChanged<double> onCollapseDrive;
   final void Function(double target, double velocity, bool fromDrag)
-      onCollapseSettle;
+  onCollapseSettle;
   final ValueChanged<DateTime> onFlipCommit;
   final ValueChanged<DateTime> onSelect;
   final ValueChanged<CalendarTask> onToggleTask;
@@ -87,11 +87,9 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
 
   int _rowsFor(DateTime month) {
     final first = DateTime(month.year, month.month, 1);
-    final start =
-        calendarWeekStart(first, mondayFirst: widget.mondayFirst);
+    final start = calendarWeekStart(first, mondayFirst: widget.mondayFirst);
     final offset = first.difference(start).inDays;
-    return ((offset + calendarDaysInMonth(month.year, month.month)) / 7)
-        .ceil();
+    return ((offset + calendarDaysInMonth(month.year, month.month)) / 7).ceil();
   }
 
   @override
@@ -183,11 +181,7 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
     // 永远吸附回起点，表现为「怎么拖都不收起」。
     final current = calendarClamp01(widget.collapse.value);
     final proj = calendarProject(current, velocity, _range);
-    widget.onCollapseSettle(
-      proj > 0.5 ? 1 : 0,
-      velocity * 1000 / _range,
-      true,
-    );
+    widget.onCollapseSettle(proj > 0.5 ? 1 : 0, velocity * 1000 / _range, true);
   }
 
   void _toggleCollapse() {
@@ -310,8 +304,10 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
                           if (_shadowMonth != null)
                             Positioned.fill(
                               child: Transform.translate(
-                                offset:
-                                    Offset(_flipDir * width * (1 - flip), 0),
+                                offset: Offset(
+                                  _flipDir * width * (1 - flip),
+                                  0,
+                                ),
                                 child: CalendarMonthGridContent(
                                   month: _shadowMonth!,
                                   selectedDate: widget.selectedDate,
@@ -427,7 +423,8 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
 /// 与原生 ListView 的差别正是本次要修的冲突点：
 /// · 内容不溢出（含完全无内容）时不可滚动，纵向拖拽整段驱动月历收展；
 /// · 内容溢出时先滚动内容，到达上/下端点后的剩余位移才交接给收展；
-/// · 松手按 130ms 动量投射惯性滑行，越界用 k170/c26 弹簧回弹。
+/// · 松手按指数摩擦滑行（τ≈320ms，与原型同参），滑行越界即停在端点，
+///   越界用 k170/c26 弹簧回弹。
 class _PanelScroll extends StatefulWidget {
   const _PanelScroll({
     required this.child,
@@ -442,16 +439,17 @@ class _PanelScroll extends StatefulWidget {
   final double collapseRange;
   final ValueChanged<double> onCollapseDrive;
   final void Function(double target, double velocity, bool fromDrag)
-      onCollapseSettle;
+  onCollapseSettle;
 
   @override
   State<_PanelScroll> createState() => _PanelScrollState();
 }
 
 class _PanelScrollState extends State<_PanelScroll>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final GlobalKey _contentKey = GlobalKey();
   late final CalendarSpring _spring;
+  late final AnimationController _glide;
 
   double _off = 0;
   double _max = 0;
@@ -473,10 +471,13 @@ class _PanelScrollState extends State<_PanelScroll>
       description: kCalendarPanelSpring,
       onUpdate: _onSpringTick,
     );
+    _glide = AnimationController.unbounded(vsync: this)
+      ..addListener(_onGlideTick);
   }
 
   @override
   void dispose() {
+    _glide.dispose();
     _spring.dispose();
     super.dispose();
   }
@@ -485,6 +486,20 @@ class _PanelScrollState extends State<_PanelScroll>
     final next = _spring.value.clamp(0.0, _max);
     if (next == _off) return;
     setState(() => _off = next);
+  }
+
+  /// 滑行 tick：越界即停（内容滚到端点就算滚完了，不再驱动收展——
+  /// 收展交接只发生在手指还按着的时候，与原型一致）。
+  void _onGlideTick() {
+    final v = _glide.value;
+    if (v < 0 || v > _max) {
+      _glide.stop();
+      final clamped = v.clamp(0.0, _max);
+      _setOff(clamped);
+      _spring.to(clamped);
+      return;
+    }
+    _setOff(v);
   }
 
   void _setOff(double value) {
@@ -513,6 +528,7 @@ class _PanelScrollState extends State<_PanelScroll>
 
   void _onDragStart(DragStartDetails d) {
     _spring.stop();
+    _glide.stop();
     _dragging = true;
     _moved = false;
     _handoff = false;
@@ -525,10 +541,13 @@ class _PanelScrollState extends State<_PanelScroll>
     final startY = _startY;
     if (startY == null) return;
     // 手指上移为正 = 内容上移（与 off 同向）；月历收展方向与之相反。
-    final dy = startY - d.localPosition.dy;
+    var dy = startY - d.localPosition.dy;
     if (!_moved) {
       if (dy.abs() <= kCalendarDragDeadZone) return;
       _moved = true;
+      // 死区补偿：跨过阈值前内容没动，过阈值那一刻把已消耗的前几像素
+      // 从位移里扣掉，否则内容瞬间跳过死区宽度（与月历手势同口径）。
+      dy -= dy.sign * kCalendarDragDeadZone;
     }
     final raw = _rawBase + dy;
     final range = math.max(1.0, widget.collapseRange);
@@ -569,11 +588,15 @@ class _PanelScrollState extends State<_PanelScroll>
       return;
     }
     if (!_moved) return;
-    final contentV = -fingerV; // 内容位移速度
-    if (contentV.abs() <= 0.05) return;
-    final target =
-        (_off + contentV * kCalendarMomentumMs).clamp(0.0, _max);
-    _spring.to(target, velocity: contentV * 1000);
+    final contentV = -fingerV; // 内容位移速度（px/ms）
+    // 指数摩擦滑行（原型 makeKinetic 同参）：距离 ≈ v0·τ，快扫滑行
+    // 明显长于旧 130ms 投射；滑行 tick 内钳位越界，端点接管交给弹簧。
+    if (contentV.abs() <= 0.02) {
+      _spring.to(_off.clamp(0.0, _max));
+      return;
+    }
+    _spring.stop();
+    _glide.animateWith(CalendarFrictionGlide(_off, contentV * 1000));
   }
 
   void _onDragCancel() {
@@ -587,6 +610,7 @@ class _PanelScrollState extends State<_PanelScroll>
         true,
       );
     }
+    _glide.stop();
     _spring.to(_off.clamp(0.0, _max));
   }
 
@@ -628,7 +652,6 @@ class _PanelScrollState extends State<_PanelScroll>
   }
 }
 
-
 /// 月网格内容：行 + 格子（农历/节气/节日次级文案）。
 ///
 /// 收起态：整层上移让选中周贴顶，非选中行按 smootherstep 渐隐；
@@ -663,8 +686,7 @@ class CalendarMonthGridContent extends StatelessWidget {
     final first = DateTime(month.year, month.month, 1);
     final start = calendarWeekStart(first, mondayFirst: mondayFirst);
     final offset = first.difference(start).inDays;
-    return ((offset + calendarDaysInMonth(month.year, month.month)) / 7)
-        .ceil();
+    return ((offset + calendarDaysInMonth(month.year, month.month)) / 7).ceil();
   }
 
   int get _selWeek {
@@ -677,7 +699,9 @@ class CalendarMonthGridContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = calendarClamp01(collapse);
     final range = math.max(
-        1.0, _rows * kCalendarRowHeight - kCalendarRowHeight);
+      1.0,
+      _rows * kCalendarRowHeight - kCalendarRowHeight,
+    );
     final extraY = collapse < 0
         ? calendarRubber(-collapse * range)
         : (collapse > 1 ? -calendarRubber((collapse - 1) * range) : 0.0);
@@ -694,37 +718,40 @@ class CalendarMonthGridContent extends StatelessWidget {
         maxHeight: _rows * kCalendarRowHeight,
         alignment: Alignment.topCenter,
         child: Column(
-        children: [
-          for (var row = 0; row < _rows; row++)
-            Opacity(
-              opacity: row == _selWeek ? 1 : othersOpacity,
-              child: SizedBox(
-                height: kCalendarRowHeight,
-                child: Row(
-                  children: [
-                    for (var col = 0; col < 7; col++)
-                      Expanded(
-                        child: _MonthCell(
-                          date: start.add(Duration(days: row * 7 + col)),
-                          month: month,
-                          selectedDate: selectedDate,
-                          today: today,
-                          hasTask: markedDates
-                              .contains(calendarDateKey(start.add(
-                                  Duration(days: row * 7 + col)))),
-                          palette: palette,
-                          onTap: ignoreDayTap
-                              ? null
-                              : () => onDayTap?.call(
-                                  start.add(Duration(days: row * 7 + col))),
+          children: [
+            for (var row = 0; row < _rows; row++)
+              Opacity(
+                opacity: row == _selWeek ? 1 : othersOpacity,
+                child: SizedBox(
+                  height: kCalendarRowHeight,
+                  child: Row(
+                    children: [
+                      for (var col = 0; col < 7; col++)
+                        Expanded(
+                          child: _MonthCell(
+                            date: start.add(Duration(days: row * 7 + col)),
+                            month: month,
+                            selectedDate: selectedDate,
+                            today: today,
+                            hasTask: markedDates.contains(
+                              calendarDateKey(
+                                start.add(Duration(days: row * 7 + col)),
+                              ),
+                            ),
+                            palette: palette,
+                            onTap: ignoreDayTap
+                                ? null
+                                : () => onDayTap?.call(
+                                    start.add(Duration(days: row * 7 + col)),
+                                  ),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -782,8 +809,9 @@ class _MonthCellState extends State<_MonthCell> {
       onTapUp: widget.onTap == null
           ? null
           : (_) => setState(() => _pressed = false),
-      onTapCancel:
-          widget.onTap == null ? null : () => setState(() => _pressed = false),
+      onTapCancel: widget.onTap == null
+          ? null
+          : () => setState(() => _pressed = false),
       onTap: widget.onTap,
       child: Container(
         alignment: Alignment.center,
@@ -819,10 +847,10 @@ class _MonthCellState extends State<_MonthCell> {
                     color: isToday
                         ? palette.danger
                         : (isSelected
-                            ? palette.accent
-                            : (_out
-                                ? palette.textSecondary
-                                : palette.textPrimary)),
+                              ? palette.accent
+                              : (_out
+                                    ? palette.textSecondary
+                                    : palette.textPrimary)),
                   ),
                 ),
               ),
@@ -885,10 +913,7 @@ class _TaskPanelHeader extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 1),
             child: Text(
               weekdays[selectedDate.weekday - DateTime.monday],
-              style: TextStyle(
-                fontSize: 12,
-                color: palette.textSecondary,
-              ),
+              style: TextStyle(fontSize: 12, color: palette.textSecondary),
             ),
           ),
           const Spacer(),

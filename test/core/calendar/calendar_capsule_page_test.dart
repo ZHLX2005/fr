@@ -17,7 +17,7 @@ import 'package:xiaodouzi_fr/core/storage/sqlite/sqlite_providers.dart';
 ///   · 月页收展抓手：抓手在场（月历+面板双态的固有件）；
 ///   · 任务勾选切换完成态（fake repo 状态联动）。
 class _FakeRepo implements CalendarTaskRepository {
-  _FakeRepo() {
+  _FakeRepo({List<CalendarTask> extra = const []}) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
@@ -46,6 +46,7 @@ class _FakeRepo implements CalendarTaskRepository {
         createdAt: now,
         updatedAt: now,
       ),
+      ...extra,
     ];
   }
 
@@ -53,31 +54,32 @@ class _FakeRepo implements CalendarTaskRepository {
   bool _toggled = false;
 
   @override
-  Future<List<CalendarTask>> tasksOnDay(DateTime day,
-      {bool includeCompleted = true}) async {
+  Future<List<CalendarTask>> tasksOnDay(
+    DateTime day, {
+    bool includeCompleted = true,
+  }) async {
     final dayOnly = DateTime(day.year, day.month, day.day);
     final tomorrow = dayOnly.add(const Duration(days: 1));
     return _tasks
-        .where((t) =>
-            !t.start.isBefore(dayOnly) && t.start.isBefore(tomorrow))
+        .where((t) => !t.start.isBefore(dayOnly) && t.start.isBefore(tomorrow))
         .toList();
   }
 
   @override
-  Future<Set<String>> taskDateKeysBetween(DateTime start, DateTime end,
-      {bool includeCompleted = true}) async {
+  Future<Set<String>> taskDateKeysBetween(
+    DateTime start,
+    DateTime end, {
+    bool includeCompleted = true,
+  }) async {
     return {};
   }
 
   @override
-  Future<CalendarTask> create(CalendarTaskDraft draft) async =>
-      _tasks.first;
+  Future<CalendarTask> create(CalendarTaskDraft draft) async => _tasks.first;
 
   @override
   Future<void> update(CalendarTask task) async {
-    _tasks = [
-      for (final t in _tasks) t.id == task.id ? task : t,
-    ];
+    _tasks = [for (final t in _tasks) t.id == task.id ? task : t];
   }
 
   @override
@@ -87,9 +89,7 @@ class _FakeRepo implements CalendarTaskRepository {
       completedAt: _toggled ? DateTime.now() : null,
       clearCompletedAt: !_toggled,
     );
-    _tasks = [
-      for (final t in _tasks) t.id == task.id ? updated : t,
-    ];
+    _tasks = [for (final t in _tasks) t.id == task.id ? updated : t];
   }
 
   @override
@@ -105,10 +105,7 @@ class _FakeSettings implements KeyValueRepository {
   Future<void> remove(String key) async {}
 }
 
-Future<void> _pumpCalendar(
-  WidgetTester tester, {
-  int initialTab = 1,
-}) async {
+Future<void> _pumpCalendar(WidgetTester tester, {int initialTab = 1}) async {
   // 默认 800×600 视口下月历+抓手+面板头部会把任务列表挤到 ~44px，
   // 条目被裁剪导致 tap 落空；用更高视口贴近真机比例。
   tester.view.physicalSize = const Size(800, 1400);
@@ -120,9 +117,7 @@ Future<void> _pumpCalendar(
         sqliteCalendarRepositoryProvider.overrideWithValue(_FakeRepo()),
         sqliteSettingsRepositoryProvider.overrideWithValue(_FakeSettings()),
       ],
-      child: MaterialApp(
-        home: CalendarPage(initialTab: initialTab),
-      ),
+      child: MaterialApp(home: CalendarPage(initialTab: initialTab)),
     ),
   );
   await tester.pumpAndSettle();
@@ -205,8 +200,11 @@ void main() {
     await tester.tap(handle);
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.textContaining('第'), findsOneWidget,
-        reason: '收起态标题应为「N月 · 第N周」');
+    expect(
+      find.textContaining('第'),
+      findsOneWidget,
+      reason: '收起态标题应为「N月 · 第N周」',
+    );
 
     // 再点 → 展开回月态标题（图标恒为 arrow_down，靠旋转表达方向）。
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
@@ -227,7 +225,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
+      tester
+          .widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
           .activeIndex,
       2,
       reason: '胶囊高亮的页签真值必须同步到「周」',
@@ -240,16 +239,19 @@ void main() {
     // 月历网格上半区向上拖：收展弹簧落到 0 后只收起中间几行日期。
     final today = DateTime.now();
     await tester.drag(
-      find.descendant(
-        of: find.byType(CalendarMonthGridContent),
-        matching: find.text('${today.day}'),
-      ).first,
+      find
+          .descendant(
+            of: find.byType(CalendarMonthGridContent),
+            matching: find.text('${today.day}'),
+          )
+          .first,
       const Offset(0, -260),
     );
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
+      tester
+          .widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
           .activeIndex,
       1,
       reason: '月面板收成一行只是月页的固有形态，页签不应跳到「周」',
@@ -262,8 +264,11 @@ void main() {
       closeTo(0, 0.001),
       reason: '拖到上方后月历应稳定停在单周行',
     );
-    expect(find.textContaining('第'), findsOneWidget,
-        reason: '收起态标题应为「N月 · 第N周」');
+    expect(
+      find.textContaining('第'),
+      findsOneWidget,
+      reason: '收起态标题应为「N月 · 第N周」',
+    );
   });
 
   testWidgets('任务面板短内容上滑：整面板收成单周行（页签不动）', (tester) async {
@@ -280,12 +285,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
+      tester
+          .widget<CalendarCapsuleNav>(find.byType(CalendarCapsuleNav))
           .activeIndex,
       1,
     );
     expect(
-      tester.widget<CalendarMonthPane>(find.byType(CalendarMonthPane))
+      tester
+          .widget<CalendarMonthPane>(find.byType(CalendarMonthPane))
           .collapse
           .value,
       closeTo(0, 0.001),
@@ -324,12 +331,157 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final task = (await repo.tasksOnDay(DateTime.now()))
-        .firstWhere((t) => t.title == '晨会');
+    final task = (await repo.tasksOnDay(
+      DateTime.now(),
+    )).firstWhere((t) => t.title == '晨会');
     expect(
       task.end!.difference(task.start).inMinutes,
       greaterThan(60),
       reason: '拖动下边缘后结束时间应被拉长',
+    );
+  });
+
+  testWidgets('重叠事件并排分栏：同列重叠任务泳道并排不叠画', (tester) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final repo = _FakeRepo(
+      extra: [
+        CalendarTask(
+          id: 4,
+          title: '头脑风暴',
+          // 与「晨会」（9:00-10:00）重叠 → 必须分泳道并排。
+          start: today.add(const Duration(minutes: 9 * 60 + 30)),
+          end: today.add(const Duration(minutes: 10 * 60 + 30)),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ],
+    );
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sqliteCalendarRepositoryProvider.overrideWithValue(repo),
+          sqliteSettingsRepositoryProvider.overrideWithValue(_FakeSettings()),
+        ],
+        child: const MaterialApp(home: CalendarPage(initialTab: 3)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final timeline = find.byType(CalendarTimeline).last;
+    final a = tester.getRect(
+      find.descendant(of: timeline, matching: find.text('晨会')),
+    );
+    final b = tester.getRect(
+      find.descendant(of: timeline, matching: find.text('头脑风暴')),
+    );
+    expect(b.left, greaterThan(a.left + 12), reason: '重叠事件应并排分栏，而不是同一位置叠画');
+    // 泳道算法本体（块几何派生自它）：同簇等宽数、泳道号互异。
+    final lanes = CalendarTimeline.layoutTimelineLanes(
+      await repo.tasksOnDay(DateTime.now()),
+    );
+    expect(lanes, hasLength(3));
+    for (final l in lanes) {
+      expect(l.lanes, 2, reason: '${l.task.title} 所在簇应有 2 条泳道');
+    }
+    final byTitle = {for (final l in lanes) l.task.title: l};
+    expect(
+      byTitle['晨会']!.lane,
+      isNot(byTitle['头脑风暴']!.lane),
+      reason: '晨会与头脑风暴时间重叠，必须异泳道',
+    );
+    expect(
+      byTitle['晨会']!.lane,
+      byTitle['团队周会']!.lane,
+      reason: '团队周会 10:00 开始，恰在晨会结束后，可复用泳道 0',
+    );
+  });
+
+  testWidgets('拖下边缘 10px：吸附到 15 分钟网格（无松手跳变口径）', (tester) async {
+    final repo = _FakeRepo();
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sqliteCalendarRepositoryProvider.overrideWithValue(repo),
+          sqliteSettingsRepositoryProvider.overrideWithValue(_FakeSettings()),
+        ],
+        child: const MaterialApp(home: CalendarPage(initialTab: 3)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final timeline = find.byType(CalendarTimeline).last;
+    final endHandle = find.descendant(
+      of: timeline,
+      matching: find.byKey(const ValueKey('timeline-resize-end-1')),
+    );
+    // 10px ≈ 11.5 分钟 → 吸附 15 分钟；rowHeight 52 → 15 分钟 = 13px。
+    await tester.dragFrom(
+      tester.getRect(endHandle).center,
+      const Offset(0, 10),
+    );
+    await tester.pumpAndSettle();
+
+    final task = (await repo.tasksOnDay(
+      DateTime.now(),
+    )).firstWhere((t) => t.title == '晨会');
+    expect(
+      task.end!.difference(task.start).inMinutes,
+      75,
+      reason: '9:00-10:00 的任务下缘拖 10px 后应吸附到 10:15',
+    );
+  });
+
+  testWidgets('30 分钟短事件也有上下拖拽手柄', (tester) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final repo = _FakeRepo(
+      extra: [
+        CalendarTask(
+          id: 5,
+          title: '小憩',
+          start: today.add(const Duration(hours: 13)),
+          end: today.add(const Duration(hours: 13, minutes: 30)),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ],
+    );
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sqliteCalendarRepositoryProvider.overrideWithValue(repo),
+          sqliteSettingsRepositoryProvider.overrideWithValue(_FakeSettings()),
+        ],
+        child: const MaterialApp(home: CalendarPage(initialTab: 3)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final timeline = find.byType(CalendarTimeline).last;
+    expect(
+      find.descendant(
+        of: timeline,
+        matching: find.byKey(const ValueKey('timeline-resize-start-5')),
+      ),
+      findsOneWidget,
+      reason: '短事件（高 26px）也应有上缘手柄',
+    );
+    expect(
+      find.descendant(
+        of: timeline,
+        matching: find.byKey(const ValueKey('timeline-resize-end-5')),
+      ),
+      findsOneWidget,
     );
   });
 
@@ -349,10 +501,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.descendant(
-      of: find.byType(CalendarMonthPane),
-      matching: find.text('晨会'),
-    ));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CalendarMonthPane),
+        matching: find.text('晨会'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final task = (await repo.tasksOnDay(DateTime.now())).first;

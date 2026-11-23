@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -120,12 +121,10 @@ class _CalendarWeekStripState extends State<CalendarWeekStrip>
         },
         onHorizontalDragEnd: (d) {
           final velocity = (d.primaryVelocity ?? 0) / 1000;
-          final proj =
-              calendarProject(_t.value, velocity.abs(), _width());
+          final proj = calendarProject(_t.value, velocity.abs(), _width());
           _dragging = false;
           _startX = null;
-          if (_pendingBase != null &&
-              (proj > 0.5 || velocity.abs() > 0.35)) {
+          if (_pendingBase != null && (proj > 0.5 || velocity.abs() > 0.35)) {
             _spring.to(1, velocity: velocity.abs() * _width());
           } else {
             _spring.to(0);
@@ -177,8 +176,7 @@ class _CalendarWeekStripState extends State<CalendarWeekStrip>
                 selectedDate: widget.selectedDate,
                 today: widget.today,
                 palette: widget.palette,
-                onTap: () =>
-                    widget.onSelect(base.add(Duration(days: i))),
+                onTap: () => widget.onSelect(base.add(Duration(days: i))),
               ),
             ),
         ],
@@ -263,9 +261,7 @@ class _WeekCellState extends State<_WeekCell> {
                         : FontWeight.w500,
                     color: isToday
                         ? palette.danger
-                        : (isSelected
-                            ? palette.accent
-                            : palette.textPrimary),
+                        : (isSelected ? palette.accent : palette.textPrimary),
                   ),
                 ),
               ),
@@ -338,8 +334,10 @@ class CalendarAllDayChips extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
-        color: calendarTaskColor(task.colorValue, task.id)
-            .withValues(alpha: 0.14),
+        color: calendarTaskColor(
+          task.colorValue,
+          task.id,
+        ).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(7),
       ),
       child: Text(
@@ -381,7 +379,7 @@ class CalendarTimeline extends StatelessWidget {
 
   /// 拖拽任务块上下边缘改时长后回调。
   final void Function(CalendarTask task, DateTime start, DateTime end)?
-      onResize;
+  onResize;
 
   static const double _startHour = 6;
   static const double _rowHeight = 52;
@@ -392,8 +390,10 @@ class CalendarTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final cols = days.length;
     return SingleChildScrollView(
-      // 底部留出悬浮底栏 / 系统手势区的可滚余量。
-      padding: const EdgeInsets.only(bottom: 96),
+      // 底部留出悬浮底栏 / 系统手势区的可滚余量：FAB 底边约在屏底上方
+      // 88px（72 padding + 16 悬浮）+ ~20px 阴影，132 保证末尾事件与
+      // 按钮阴影之间仍有呼吸感。
+      padding: const EdgeInsets.only(bottom: 132),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final contentWidth = math.max(
@@ -403,20 +403,32 @@ class CalendarTimeline extends StatelessWidget {
           final colWidth = contentWidth / cols;
           final events = <Widget>[];
           for (var c = 0; c < cols; c++) {
-            for (final task in days[c]) {
-              if (task.allDay) continue;
-              final top = (task.start.hour - _startHour) * _rowHeight +
+            // 泳道分栏：同列时间重叠的事件并排铺开，而不是叠画互相盖住。
+            final lanes = layoutTimelineLanes(days[c]);
+            for (final layout in lanes) {
+              final task = layout.task;
+              final top =
+                  (task.start.hour - _startHour) * _rowHeight +
                   task.start.minute / 60 * _rowHeight;
               final end = task.end ?? task.start.add(const Duration(hours: 1));
-              final bottom = (end.hour - _startHour) * _rowHeight +
+              final bottom =
+                  (end.hour - _startHour) * _rowHeight +
                   end.minute / 60 * _rowHeight;
               final height = math.max(26.0, bottom - top - 2);
+              // 列内先按泳道数均分，再扣泳道间 2px 缝。
+              final slot =
+                  (colWidth - 6 - (layout.lanes - 1) * 2) / layout.lanes;
+              final width = math.max(12.0, slot);
               events.add(
                 _TimelineEvent(
                   key: ValueKey(task.id),
                   task: task,
-                  left: _labelWidth + c * colWidth + 3,
-                  width: math.max(12.0, colWidth - 6),
+                  left:
+                      _labelWidth +
+                      c * colWidth +
+                      3 +
+                      layout.lane * (width + 2),
+                  width: width,
                   top: top,
                   height: height,
                   dense: cols > 1,
@@ -443,10 +455,14 @@ class CalendarTimeline extends StatelessWidget {
                       : (d) {
                           final dx = d.localPosition.dx - _labelWidth;
                           if (dx < 0) return;
-                          final col = (dx / colWidth).floor().clamp(0, cols - 1);
+                          final col = (dx / colWidth).floor().clamp(
+                            0,
+                            cols - 1,
+                          );
                           if (dayDates.length != cols) return;
                           final date = dayDates[col];
-                          final rawMinutes = _startHour * 60 +
+                          final rawMinutes =
+                              _startHour * 60 +
                               d.localPosition.dy / _rowHeight * 60;
                           final minutes = ((rawMinutes / 30).round() * 30)
                               .clamp(
@@ -455,8 +471,11 @@ class CalendarTimeline extends StatelessWidget {
                               )
                               .toInt();
                           createAt(
-                            DateTime(date.year, date.month, date.day)
-                                .add(Duration(minutes: minutes)),
+                            DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            ).add(Duration(minutes: minutes)),
                           );
                         },
                   child: Column(
@@ -503,11 +522,61 @@ class CalendarTimeline extends StatelessWidget {
     );
   }
 
+  /// 泳道分栏（Google Calendar 同款口径）：
+  /// 1. 按开始时间排序，切成互不重叠的「簇」（新事件开始 ≥ 簇内最晚结束 → 开新簇）；
+  /// 2. 簇内贪心分配泳道（第一个空闲泳道），同簇事件等宽并排。
+  /// 全天任务由调用方过滤，这里只处理时间轴任务。
+  @visibleForTesting
+  static List<TimelineLane> layoutTimelineLanes(List<CalendarTask> tasks) {
+    final timed = [...tasks.where((t) => !t.allDay)]
+      ..sort((a, b) {
+        final c = a.start.compareTo(b.start);
+        if (c != 0) return c;
+        return (a.end ?? a.start.add(const Duration(hours: 1))).compareTo(
+          b.end ?? b.start.add(const Duration(hours: 1)),
+        );
+      });
+
+    final out = <TimelineLane>[];
+    var cluster = <CalendarTask>[];
+    var clusterEnd = DateTime.fromMillisecondsSinceEpoch(0);
+
+    void flush() {
+      if (cluster.isEmpty) return;
+      final laneEnds = <DateTime>[];
+      final laneOf = <CalendarTask, int>{};
+      for (final t in cluster) {
+        final end = t.end ?? t.start.add(const Duration(hours: 1));
+        var lane = 0;
+        while (lane < laneEnds.length && laneEnds[lane].isAfter(t.start)) {
+          lane++;
+        }
+        if (lane == laneEnds.length) laneEnds.add(end);
+        laneEnds[lane] = end;
+        laneOf[t] = lane;
+      }
+      for (final t in cluster) {
+        out.add(TimelineLane(t, laneOf[t]!, laneEnds.length));
+      }
+      cluster = <CalendarTask>[];
+      clusterEnd = DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    for (final t in timed) {
+      final end = t.end ?? t.start.add(const Duration(hours: 1));
+      if (cluster.isNotEmpty && !t.start.isBefore(clusterEnd)) flush();
+      cluster.add(t);
+      if (end.isAfter(clusterEnd)) clusterEnd = end;
+    }
+    flush();
+    return out;
+  }
+
   Widget? _nowLineOrNull() {
     if (!showNowLine) return null;
     final now = DateTime.now();
-    final top = (now.hour - _startHour) * _rowHeight +
-        now.minute / 60 * _rowHeight;
+    final top =
+        (now.hour - _startHour) * _rowHeight + now.minute / 60 * _rowHeight;
     if (top < 0) return null;
     return Positioned(
       left: 0,
@@ -525,7 +594,9 @@ class CalendarTimeline extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                    color: palette.danger, shape: BoxShape.circle),
+                  color: palette.danger,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ],
@@ -537,9 +608,11 @@ class CalendarTimeline extends StatelessWidget {
 
 /// 时间轴事件块：点按切换完成；上下边缘的圆点可拖拽调整起止时间。
 ///
-/// 拖拽位移先只改本地几何（跟手），松手按 15 分钟吸附后回写；
-/// 回写成功后父级会用新任务重建，[_didUpdateWidget] 以几何变化为准
-/// 清零本地位移，避免中间帧闪回旧时长。
+/// 拖拽全程 1:1 跟手，位移在**拖动中就实时吸附到 15 分钟网格**（块体
+/// 以吸附后的几何渲染，松手即所见即所得，无松手瞬间跳变）；拖动时
+/// 被拖边缘旁显示时间气泡。回写后父级用新任务重建，didUpdateWidget
+/// 以几何变化为准清零本地位移；若回写失败（toast 报错）则由兜底
+/// 定时器复位假位置。
 class _TimelineEvent extends StatefulWidget {
   const _TimelineEvent({
     super.key,
@@ -565,7 +638,7 @@ class _TimelineEvent extends StatefulWidget {
   final Color color;
   final VoidCallback onTap;
   final void Function(CalendarTask task, DateTime start, DateTime end)?
-      onResize;
+  onResize;
 
   @override
   State<_TimelineEvent> createState() => _TimelineEventState();
@@ -574,10 +647,15 @@ class _TimelineEvent extends StatefulWidget {
 class _TimelineEventState extends State<_TimelineEvent> {
   static const double _minHeight = 26;
   static const int _snapMinutes = 15;
+  static const double _handleZone = 14;
 
   double _adjustTop = 0;
   double _adjustBottom = 0;
   bool _dragging = false;
+
+  /// 本次拖拽正在动的边缘（null = 未拖拽）。时间气泡按它定位。
+  bool? _dragTopEdge;
+  Timer? _resetFallback;
 
   @override
   void didUpdateWidget(covariant _TimelineEvent oldWidget) {
@@ -588,14 +666,45 @@ class _TimelineEventState extends State<_TimelineEvent> {
         oldWidget.task.end != widget.task.end) {
       _adjustTop = 0;
       _adjustBottom = 0;
+      _resetFallback?.cancel();
     }
+  }
+
+  @override
+  void dispose() {
+    _resetFallback?.cancel();
+    super.dispose();
   }
 
   double get _gridHeight =>
       CalendarTimeline._hours * CalendarTimeline._rowHeight;
 
-  void _dragStart() {
+  /// 15 分钟网格吸附（px 口径）。
+  double _snapPx(double px) {
+    final minutes = px / CalendarTimeline._rowHeight * 60;
+    final snapped = (minutes / _snapMinutes).round() * _snapMinutes;
+    return snapped / 60 * CalendarTimeline._rowHeight;
+  }
+
+  /// 拖拽中的吸附显示几何：[displayTop, displayBottom]。
+  /// 拖上缘时吸附顶边、拖下缘时吸附底边，另一侧保持；吸附后不足
+  /// 最小高度或越出网格时把被拖侧钳回来。
+  (double, double) _displayGeometry() {
+    var top = widget.top + _adjustTop;
+    var bottom = widget.top + widget.height + _adjustBottom;
+    if (_dragging && _dragTopEdge != null) {
+      if (_dragTopEdge!) {
+        top = _snapPx(top).clamp(0.0, bottom - _minHeight);
+      } else {
+        bottom = _snapPx(bottom).clamp(top + _minHeight, _gridHeight);
+      }
+    }
+    return (top.clamp(0.0, _gridHeight), bottom.clamp(0.0, _gridHeight));
+  }
+
+  void _dragStart(bool topEdge) {
     _dragging = true;
+    _dragTopEdge = topEdge;
   }
 
   void _dragUpdate(bool topEdge, DragUpdateDetails d) {
@@ -605,18 +714,26 @@ class _TimelineEventState extends State<_TimelineEvent> {
         _adjustTop = (_adjustTop + d.delta.dy).clamp(-widget.top, maxTop);
       } else {
         final minBottom = _minHeight - widget.height + _adjustTop;
-        final maxBottom =
-            _gridHeight - widget.top - widget.height - _adjustTop;
-        _adjustBottom = (_adjustBottom + d.delta.dy).clamp(minBottom, maxBottom);
+        final maxBottom = _gridHeight - widget.top - widget.height - _adjustTop;
+        _adjustBottom = (_adjustBottom + d.delta.dy).clamp(
+          minBottom,
+          maxBottom,
+        );
       }
     });
   }
 
   void _dragEnd() {
     if (!_dragging) return;
+    // 先取吸附后的显示几何（依赖 _dragging/_dragTopEdge 标记），再清标记。
+    final (top, bottom) = _displayGeometry();
     _dragging = false;
-    final newTop = widget.top + _adjustTop;
-    final newHeight = widget.height + _adjustBottom - _adjustTop;
+    _dragTopEdge = null;
+    // 本地偏移固化成吸附后几何：回写往返期间块体停在松手所见位置，
+    // 不闪回未吸附的旧值。
+    _adjustTop = top - widget.top;
+    _adjustBottom = bottom - (widget.top + widget.height);
+    setState(() {});
     final base = DateTime(
       widget.task.start.year,
       widget.task.start.month,
@@ -626,26 +743,48 @@ class _TimelineEventState extends State<_TimelineEvent> {
       final minutes = px / CalendarTimeline._rowHeight * 60;
       final snapped = (minutes / _snapMinutes).round() * _snapMinutes;
       return base.add(
-        Duration(
-          minutes: CalendarTimeline._startHour.toInt() * 60 + snapped,
-        ),
+        Duration(minutes: CalendarTimeline._startHour.toInt() * 60 + snapped),
       );
     }
 
-    final start = at(newTop);
-    final end = at(newTop + newHeight);
+    final start = at(top);
+    final end = at(bottom);
+    // 几何没变（原地点了一下边缘）就不打扰仓储。
+    if (start == widget.task.start && end == (widget.task.end ?? start)) {
+      if (_adjustTop != 0 || _adjustBottom != 0) {
+        setState(() {
+          _adjustTop = 0;
+          _adjustBottom = 0;
+        });
+      }
+      return;
+    }
     widget.onResize?.call(widget.task, start, end);
+    // 回写失败（或写入丢失）兜底：600ms 内父级没带来新几何就复位，
+    // 不让块体停在拖拽后的假位置。
+    _resetFallback?.cancel();
+    _resetFallback = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      if (_adjustTop != 0 || _adjustBottom != 0) {
+        setState(() {
+          _adjustTop = 0;
+          _adjustBottom = 0;
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = widget.palette;
-    final top = widget.top + _adjustTop;
-    final height = widget.height + _adjustBottom - _adjustTop;
-    final canResize = widget.onResize != null &&
-        !widget.task.completed &&
-        height >= 36;
+    final (displayTop, displayBottom) = _displayGeometry();
+    final top = displayTop;
+    final height = math.max(_minHeight, displayBottom - displayTop);
+    final canResize = widget.onResize != null && !widget.task.completed;
     final showTime = !widget.dense && height >= 42;
+    // 短事件也给手柄：命中条高度压到块高一半以内，圆点只在块足够高时
+    // 画（避免压住标题文字）；低块整条边缘就是拖拽热区。
+    final zoneH = math.min(_handleZone, height / 2);
 
     return Positioned(
       left: widget.left,
@@ -700,6 +839,34 @@ class _TimelineEventState extends State<_TimelineEvent> {
               ),
             ),
           ),
+          // 拖拽中的时间气泡：贴被拖边缘内侧，显示吸附后的时刻。
+          if (_dragging && _dragTopEdge != null)
+            Positioned(
+              top: _dragTopEdge! ? 2 : null,
+              bottom: _dragTopEdge! ? null : 2,
+              right: 2,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.color,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _bubbleText(displayTop, displayBottom, _dragTopEdge!),
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      height: 1.1,
+                      fontWeight: FontWeight.w700,
+                      color: palette.background,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (canResize) ...[
             // 手柄贴块内边缘：Positioned 超出父盒的部分不参与命中测试，
             // 放在块内才能稳定抢到纵向拖拽。
@@ -707,15 +874,15 @@ class _TimelineEventState extends State<_TimelineEvent> {
               top: 0,
               left: 0,
               right: 0,
-              height: 14,
-              child: Center(child: _handle(true)),
+              height: zoneH,
+              child: Center(child: _handle(true, height >= 30)),
             ),
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
-              height: 14,
-              child: Center(child: _handle(false)),
+              height: zoneH,
+              child: Center(child: _handle(false, height >= 30)),
             ),
           ],
         ],
@@ -723,32 +890,54 @@ class _TimelineEventState extends State<_TimelineEvent> {
     );
   }
 
-  Widget _handle(bool topEdge) {
+  /// 气泡文案：拖上缘显示新开始时刻，拖下缘显示新结束时刻。
+  String _bubbleText(double top, double bottom, bool topEdge) {
+    final px = topEdge ? top : bottom;
+    final minutes =
+        (px / CalendarTimeline._rowHeight * 60).round() +
+        CalendarTimeline._startHour.toInt() * 60;
+    final clamped = minutes.clamp(0, 24 * 60 - 1);
+    return '${(clamped ~/ 60).toString().padLeft(2, '0')}:'
+        '${(clamped % 60).toString().padLeft(2, '0')}';
+  }
+
+  Widget _handle(bool topEdge, bool showDot) {
     return GestureDetector(
       key: ValueKey(
         'timeline-resize-${topEdge ? 'start' : 'end'}-${widget.task.id}',
       ),
       behavior: HitTestBehavior.opaque,
-      onVerticalDragStart: (_) => _dragStart(),
+      onVerticalDragStart: (_) => _dragStart(topEdge),
       onVerticalDragUpdate: (d) => _dragUpdate(topEdge, d),
       onVerticalDragEnd: (_) => _dragEnd(),
-      child: SizedBox(
-        width: 30,
-        height: 14,
-        child: Center(
-          child: Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: widget.palette.overlay,
-              border: Border.all(color: widget.color, width: 1.5),
-            ),
-          ),
-        ),
+      onVerticalDragCancel: () => _dragEnd(),
+      child: SizedBox.expand(
+        // 短事件不画圆点（会压住标题），整条边缘就是拖拽热区。
+        child: showDot
+            ? Center(
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.palette.overlay,
+                    border: Border.all(color: widget.color, width: 1.5),
+                  ),
+                ),
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }
+}
+
+/// 泳道布局结果：任务 + 在簇内的泳道号 / 簇内总泳道数。
+class TimelineLane {
+  const TimelineLane(this.task, this.lane, this.lanes);
+
+  final CalendarTask task;
+  final int lane;
+  final int lanes;
 }
 
 /// 日程页：未来两周按天分组。
@@ -909,9 +1098,9 @@ class _AgendaRow extends StatelessWidget {
     final timeLabel = task.allDay
         ? '全天'
         : '${task.start.hour.toString().padLeft(2, '0')}:'
-            '${task.start.minute.toString().padLeft(2, '0')} – '
-            '${(task.end ?? task.start).hour.toString().padLeft(2, '0')}:'
-            '${(task.end ?? task.start).minute.toString().padLeft(2, '0')}';
+              '${task.start.minute.toString().padLeft(2, '0')} – '
+              '${(task.end ?? task.start).hour.toString().padLeft(2, '0')}:'
+              '${(task.end ?? task.start).minute.toString().padLeft(2, '0')}';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onLongPress: onDelete,

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../storage/calendar_store.dart';
 import '../../storage/hive/hive_calendar_store.dart';
 import '../../storage/sqlite/sqlite.dart';
+import '../../ui/global/nav/quick_nav_bottom_bar.dart';
 import '../domain/calendar_date_utils.dart';
 import '../domain/calendar_task.dart';
 import 'calendar_capsule_nav.dart';
@@ -54,8 +55,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   late final CalendarSpring _collapseSpring;
 
   DateTime _selectedDate = calendarDateOnly(DateTime.now());
-  DateTime _visibleMonth =
-      DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _visibleMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
   int _year = DateTime.now().year;
 
   bool _showCompleted = true;
@@ -133,8 +137,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.macOS);
 
-  bool get _reduceMotion =>
-      MediaQuery.of(context).disableAnimations;
+  bool get _reduceMotion => MediaQuery.of(context).disableAnimations;
 
   /* ═══════════ 存储绑定（与旧版一致的分层策略） ═══════════ */
 
@@ -237,8 +240,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         _visibleMonth,
         mondayFirst: _mondayFirst,
       );
-      final weekStart =
-          calendarWeekStart(_selectedDate, mondayFirst: _mondayFirst);
+      final weekStart = calendarWeekStart(
+        _selectedDate,
+        mondayFirst: _mondayFirst,
+      );
 
       final selected = await repo.tasksOnDay(
         _selectedDate,
@@ -251,10 +256,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       );
       final week = <List<CalendarTask>>[];
       for (var i = 0; i < 7; i++) {
-        week.add(await repo.tasksOnDay(
-          weekStart.add(Duration(days: i)),
-          includeCompleted: _showCompleted,
-        ));
+        week.add(
+          await repo.tasksOnDay(
+            weekStart.add(Duration(days: i)),
+            includeCompleted: _showCompleted,
+          ),
+        );
       }
       final agenda = <MapEntry<DateTime, List<CalendarTask>>>[];
       for (var i = -1; i <= 14; i++) {
@@ -374,7 +381,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           palette: palette,
           isCurrentMonth:
               monthFirst.year == _today.year &&
-                  monthFirst.month == _today.month,
+              monthFirst.month == _today.month,
         ),
       );
     });
@@ -427,8 +434,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
         });
         return;
       }
-      final cardRect =
-          cardBox.localToGlobal(Offset.zero) & cardBox.size;
+      final cardRect = cardBox.localToGlobal(Offset.zero) & cardBox.size;
       final palette = CalendarPalette.of(context);
       _startMorphGhost(
         finalRect: monthRect,
@@ -443,7 +449,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           palette: palette,
           isCurrentMonth:
               _visibleMonth.year == _today.year &&
-                  _visibleMonth.month == _today.month,
+              _visibleMonth.month == _today.month,
         ),
       );
     });
@@ -501,8 +507,14 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           : (t / 0.45).clamp(0.0, 1.0); // 原型 paneY：0.45 内淡入
       if (!expand) {
         // 网格汇聚与 expand 同形：起点变换 → 80% 过冲 → 恒等。
-        _yearGridXform.value =
-            _morphMatrix(t, dx, dy, scaleX, scaleY, expand: true);
+        _yearGridXform.value = _morphMatrix(
+          t,
+          dx,
+          dy,
+          scaleX,
+          scaleY,
+          expand: true,
+        );
         _yearStagger.value = t;
       }
     });
@@ -612,7 +624,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     if (expand) {
       r = t <= 0.8
           ? _mix4([dx, dy, sx, sy], over, ease.transform(t / 0.8))
-          : _mix4(over, [0, 0, 1, 1], Curves.easeOut.transform((t - 0.8) / 0.2));
+          : _mix4(over, [
+              0,
+              0,
+              1,
+              1,
+            ], Curves.easeOut.transform((t - 0.8) / 0.2));
     } else {
       r = t <= 0.8
           ? _mix4([0, 0, 1, 1], [dx, dy, sx, sy], ease.transform(t / 0.8))
@@ -624,8 +641,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   List<double> _mix4(List<double> a, List<double> b, double p) => [
-        for (var i = 0; i < 4; i++) a[i] + (b[i] - a[i]) * p,
-      ];
+    for (var i = 0; i < 4; i++) a[i] + (b[i] - a[i]) * p,
+  ];
 
   /// 起点卡片淡出：原型 cc {1} → {.5@.28} → {0@.55}。
   double _cardFadeOpacity(double t) {
@@ -681,8 +698,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   void _shiftWeek(DateTime newWeekBase) {
     setState(() {
       _selectedDate = calendarDateOnly(newWeekBase);
-      _visibleMonth =
-          DateTime(newWeekBase.year, newWeekBase.month, 1);
+      _visibleMonth = DateTime(newWeekBase.year, newWeekBase.month, 1);
     });
     unawaited(_reload());
   }
@@ -702,10 +718,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   Future<void> _addTaskAt(DateTime start) =>
       _createTask(start, initialTime: TimeOfDay.fromDateTime(start));
 
-  Future<void> _createTask(
-    DateTime date, {
-    TimeOfDay? initialTime,
-  }) async {
+  Future<void> _createTask(DateTime date, {TimeOfDay? initialTime}) async {
     if (_repo == null) {
       CalendarToast.show(
         context,
@@ -726,7 +739,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       await _reload();
     } catch (error) {
       if (!mounted) return;
-      CalendarToast.show(context, '添加任务失败: $error', CalendarPalette.of(context));
+      CalendarToast.show(
+        context,
+        '添加任务失败: $error',
+        CalendarPalette.of(context),
+      );
     }
   }
 
@@ -744,7 +761,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       await _reload();
     } catch (error) {
       if (!mounted) return;
-      CalendarToast.show(context, '调整时间失败: $error', CalendarPalette.of(context));
+      CalendarToast.show(
+        context,
+        '调整时间失败: $error',
+        CalendarPalette.of(context),
+      );
     }
   }
 
@@ -756,7 +777,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       await _reload();
     } catch (error) {
       if (!mounted) return;
-      CalendarToast.show(context, '更新任务失败: $error', CalendarPalette.of(context));
+      CalendarToast.show(
+        context,
+        '更新任务失败: $error',
+        CalendarPalette.of(context),
+      );
     }
   }
 
@@ -775,7 +800,11 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       await _reload();
     } catch (error) {
       if (!mounted) return;
-      CalendarToast.show(context, '删除任务失败: $error', CalendarPalette.of(context));
+      CalendarToast.show(
+        context,
+        '删除任务失败: $error',
+        CalendarPalette.of(context),
+      );
     }
   }
 
@@ -808,8 +837,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       case 1:
         final p = calendarClamp01(_collapse.value);
         if (p < 0.5) {
-          final weekStart =
-              calendarWeekStart(_selectedDate, mondayFirst: _mondayFirst);
+          final weekStart = calendarWeekStart(
+            _selectedDate,
+            mondayFirst: _mondayFirst,
+          );
           final week = _selectedDate.difference(weekStart).inDays ~/ 7 + 1;
           return '${_visibleMonth.month}月 · 第$week周';
         }
@@ -930,8 +961,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   Widget _buildPane(int index, double width) {
     final palette = CalendarPalette.of(context);
-    final weekStart =
-        calendarWeekStart(_selectedDate, mondayFirst: _mondayFirst);
+    final weekStart = calendarWeekStart(
+      _selectedDate,
+      mondayFirst: _mondayFirst,
+    );
     switch (index) {
       case 0:
         return Container(
@@ -953,8 +986,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
                 staggerTarget: _staggerTarget,
                 onYearChanged: (year) {
                   if (_morphing) return;
-                  final days =
-                      calendarDaysInMonth(year, _visibleMonth.month);
+                  final days = calendarDaysInMonth(year, _visibleMonth.month);
                   final day = math.min(_selectedDate.day, days);
                   setState(() {
                     _year = year;
@@ -998,8 +1030,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           ),
         );
       case 2:
-        final weekStart =
-            calendarWeekStart(_selectedDate, mondayFirst: _mondayFirst);
+        final weekStart = calendarWeekStart(
+          _selectedDate,
+          mondayFirst: _mondayFirst,
+        );
         return Container(
           color: palette.background,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1054,8 +1088,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
                 child: CalendarTimeline(
                   days: [_selectedDayTasks],
                   dayDates: [_selectedDate],
-                  showNowLine:
-                      _selectedDate == _today,
+                  showNowLine: _selectedDate == _today,
                   palette: palette,
                   onToggle: _toggleTask,
                   onCreateAt: _addTaskAt,
@@ -1124,10 +1157,15 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
   }
 
   Widget _buildFabs(CalendarPalette palette) {
-    // 主壳的悬浮底栏（64 高 + 16 间距）以 Stack 叠在页面之上，会把
-    // 贴底的 FAB 压住；这里整体上提到栏体之上。
+    // 主壳的悬浮底栏（barHeight 64 + barBottomGap 16）以 Stack 叠在
+    // 页面之上，会把贴底的 FAB 压住。这里引用底栏常量整体上提到栏体
+    // 之上，另加 24px 净空给按钮阴影（blur 14 / offsetY 6 下探 ~20px）
+    // 与底栏自身向上阴影留出呼吸感——任何一方改数都自动联动。
     return Padding(
-      padding: const EdgeInsets.only(bottom: 72),
+      padding: EdgeInsets.only(
+        bottom:
+            QuickNavBottomBar.barHeight + QuickNavBottomBar.barBottomGap + 24,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1213,7 +1251,9 @@ class _CalendarFabState extends State<_CalendarFab> {
             boxShadow: [
               BoxShadow(
                 color: palette.shadow,
-                blurRadius: _pressed ? widget.shadowBlur * 0.5 : widget.shadowBlur,
+                blurRadius: _pressed
+                    ? widget.shadowBlur * 0.5
+                    : widget.shadowBlur,
                 offset: Offset(
                   0,
                   _pressed ? widget.shadowOffsetY * 0.5 : widget.shadowOffsetY,
