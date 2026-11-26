@@ -192,8 +192,8 @@ void main() {
   testWidgets('月视图：点抓手可切换收展（弹簧动画后稳定）', (tester) async {
     await _pumpCalendar(tester, initialTab: 1);
 
-    // 抓手（chevron 图标）在场。
-    final handle = find.byIcon(Icons.keyboard_arrow_down);
+    // 抓手在场（页头也有同款箭头，这里用卡片抓手的稳定 Key 定位）。
+    final handle = find.byKey(kCalendarMonthHandleKey);
     expect(handle, findsOneWidget);
 
     // 点抓手 → 收起：标题切换为周态文案。
@@ -201,16 +201,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 600));
     expect(
-      find.textContaining('第'),
+      find.textContaining('月 · 第'),
       findsOneWidget,
       reason: '收起态标题应为「N月 · 第N周」',
     );
 
     // 再点 → 展开回月态标题（图标恒为 arrow_down，靠旋转表达方向）。
-    await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await tester.tap(find.byKey(kCalendarMonthHandleKey));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.textContaining('第'), findsNothing);
+    expect(find.textContaining('月 · 第'), findsNothing);
   });
 
   testWidgets('点胶囊页签：activeIndex 与标题跟随切换', (tester) async {
@@ -265,7 +265,7 @@ void main() {
       reason: '拖到上方后月历应稳定停在单周行',
     );
     expect(
-      find.textContaining('第'),
+      find.textContaining('月 · 第'),
       findsOneWidget,
       reason: '收起态标题应为「N月 · 第N周」',
     );

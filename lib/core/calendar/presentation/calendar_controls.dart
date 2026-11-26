@@ -12,6 +12,8 @@ class CalendarIconButton extends StatefulWidget {
     this.tooltip,
     this.size = 44,
     this.iconSize = 22,
+    this.angle = 0,
+    this.radius = 14,
   });
 
   final IconData icon;
@@ -20,6 +22,12 @@ class CalendarIconButton extends StatefulWidget {
   final String? tooltip;
   final double size;
   final double iconSize;
+
+  /// 图标旋转角（收起/展开的箭头朝向）。
+  final double angle;
+
+  /// 悬浮底色的圆角（页头小按钮 11，页面级按钮 14）。
+  final double radius;
 
   @override
   State<CalendarIconButton> createState() => _CalendarIconButtonState();
@@ -47,12 +55,15 @@ class _CalendarIconButtonState extends State<CalendarIconButton> {
             color: _pressed
                 ? widget.palette.accentSoft
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(widget.radius),
           ),
-          child: Icon(
-            widget.icon,
-            size: widget.iconSize,
-            color: widget.palette.textPrimary,
+          child: Transform.rotate(
+            angle: widget.angle,
+            child: Icon(
+              widget.icon,
+              size: widget.iconSize,
+              color: widget.palette.textPrimary,
+            ),
           ),
         ),
       ),

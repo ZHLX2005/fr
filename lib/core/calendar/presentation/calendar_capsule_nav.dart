@@ -18,6 +18,7 @@ class CalendarCapsuleNav extends StatefulWidget {
     required this.onTap,
     required this.palette,
     this.velocity,
+    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 4),
   });
 
   final List<String> tabs;
@@ -25,6 +26,10 @@ class CalendarCapsuleNav extends StatefulWidget {
   final ValueListenable<double> progress;
   final ValueChanged<int> onTap;
   final CalendarPalette palette;
+
+  /// 外框留白：独立成条时左右 16；嵌进顶栏（品牌 + 胶囊 + 动作同一行）
+  /// 时传 [EdgeInsets.zero]，宽度交给外层约束。
+  final EdgeInsets padding;
 
   /// 页签弹簧速度（槽/秒）。原型按速度驱动 pill 高速拉伸
   /// stretch = min(0.14, |v|*0.012)：起手加速变宽、落定回弹收窄。
@@ -44,7 +49,7 @@ class _CalendarCapsuleNavState extends State<CalendarCapsuleNav> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: widget.padding,
       child: ValueListenableBuilder<double>(
         valueListenable: widget.progress,
         builder: (context, t, _) {

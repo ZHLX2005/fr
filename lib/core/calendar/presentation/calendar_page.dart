@@ -12,6 +12,7 @@ import '../../storage/hive/hive_calendar_store.dart';
 import '../../storage/sqlite/sqlite.dart';
 import '../../ui/global/nav/quick_nav_bottom_bar.dart';
 import '../domain/calendar_date_utils.dart';
+import '../domain/calendar_lunar.dart';
 import '../domain/calendar_task.dart';
 import 'calendar_capsule_nav.dart';
 import 'calendar_controls.dart';
@@ -19,6 +20,7 @@ import 'calendar_dialogs.dart';
 import 'calendar_motion.dart';
 import 'calendar_month_pane.dart';
 import 'calendar_palette.dart';
+import 'calendar_pane_header.dart';
 import 'calendar_schedule_panes.dart';
 import 'calendar_settings_sheet.dart';
 import 'calendar_task_sheet.dart';
@@ -26,14 +28,26 @@ import 'calendar_year_pane.dart';
 
 /// 胶囊日历页（原型 docs/prototypes/calendar-capsule-nav.html 的 Flutter 落地）。
 ///
+/// 版式对齐原型：整宽顶栏（品牌 + 胶囊导航 + 动作）→ 内容区收在 1280 内居中
+/// → 每个页签「页头（标题/副标题/控件）+ 内容」。月页 ≥861px 为两栏
+/// （月历卡片 + 日面板），窄屏上下排；日面板自带日期头、农历、任务列表与
+/// 「快速添加到 X月X日」。
+///
 /// 五页签：年 / 月 / 周 / 日 / 日程。页签间为深度层叠转场（滑动 × 视差 ×
 /// 缩放 × 淡入淡出，纯 transform/opacity 合成器路径）；年 ⇄ 月为容器变换
 /// （卡片放大成月历 / 月历缩回卡片 + 全年卡片汇聚）。
 class CalendarPage extends ConsumerStatefulWidget {
-  const CalendarPage({super.key, this.initialTab = 1});
+  const CalendarPage({
+    super.key,
+    this.initialTab = 1,
+    this.initialCollapsed = false,
+  });
 
   /// 初始页签（0 年 / 1 月 / 2 周 / 3 日 / 4 日程）。
   final int initialTab;
+
+  /// 初始月面板是否收成单周（深链/调试直达 `?collapsed=1`）。
+  final bool initialCollapsed;
 
   @override
   ConsumerState<CalendarPage> createState() => _CalendarPageState();
@@ -112,7 +126,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       onUpdate: _onCollapseTick,
     );
     // 收展控制器初值 0 ≠ 展开态 1：对齐，否则首次收展弹簧从 0 起算跳变。
-    _collapseSpring.jump(1);
+    final double collapse0 = widget.initialCollapsed ? 0 : 1;
+    _collapseSpring.jump(collapse0);
+    _collapse.value = collapse0;
     WidgetsBinding.instance.addPostFrameCallback((_) => _bindStorage());
   }
 
@@ -714,6 +730,70 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
 
   Future<void> _addTask() => _createTask(_selectedDate);
 
+  /// 日面板「快速添加」：只收标题，起止时间按原型推算——
+  /// 默认 09:00–10:00；当天已有任务时接在最后一个之后 30 分钟（上限 23:00）。
+  Future<void> _quickAddTask(String title) async {
+    final repo = _repo;
+    if (repo == null) {
+      CalendarToast.show(
+        context,
+        _storageError ?? '本地数据库未就绪，请先重试',
+        CalendarPalette.of(context),
+      );
+      return;
+    }
+    final day = _selectedDate;
+    final timed = _selectedDayTasks.where((t) => !t.allDay).toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+    var startMinutes = 9 * 60;
+    if (timed.isNotEmpty) {
+      final lastEnd = timed.last.end ?? timed.last.start.add(
+        const Duration(hours: 1),
+      );
+      final endMinutes = lastEnd.hour * 60 + lastEnd.minute;
+      startMinutes = math.min(23 * 60, math.max(9 * 60, endMinutes + 30));
+    }
+    final start = DateTime(
+      day.year,
+      day.month,
+      day.day,
+      startMinutes ~/ 60,
+      startMinutes % 60,
+    );
+    try {
+      await repo.create(
+        CalendarTaskDraft(
+          title: title,
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+        ),
+      );
+      await _reload();
+      if (!mounted) return;
+      final hh = start.hour.toString().padLeft(2, '0');
+      final mm = start.minute.toString().padLeft(2, '0');
+      CalendarToast.show(
+        context,
+        '已添加 · ${start.month}月${start.day}日 $hh:$mm',
+        CalendarPalette.of(context),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      CalendarToast.show(
+        context,
+        '添加任务失败: $error',
+        CalendarPalette.of(context),
+      );
+    }
+  }
+
+  /// ISO 周序号（周一副标题用）。
+  int _isoWeekOfYear(DateTime date) {
+    final day = calendarDateOnly(date);
+    final dayOfYear = day.difference(DateTime(day.year, 1, 1)).inDays + 1;
+    return ((dayOfYear - day.weekday + 10) / 7).floor();
+  }
+
   /// 周/日时间轴空白处点按：以点中的时间点预填表单。
   Future<void> _addTaskAt(DateTime start) =>
       _createTask(start, initialTime: TimeOfDay.fromDateTime(start));
@@ -828,35 +908,6 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
   }
 
-  /* ═══════════ 标题 ═══════════ */
-
-  String _titleText() {
-    switch (_tab) {
-      case 0:
-        return '${_visibleMonth.year}年';
-      case 1:
-        final p = calendarClamp01(_collapse.value);
-        if (p < 0.5) {
-          final weekStart = calendarWeekStart(
-            _selectedDate,
-            mondayFirst: _mondayFirst,
-          );
-          final week = _selectedDate.difference(weekStart).inDays ~/ 7 + 1;
-          return '${_visibleMonth.month}月 · 第$week周';
-        }
-        return _visibleMonth.year == _today.year
-            ? '${_visibleMonth.month}月'
-            : '${_visibleMonth.year}年${_visibleMonth.month}月';
-      case 2:
-      case 3:
-        return _selectedDate.year == _today.year
-            ? '${_selectedDate.month}月${_selectedDate.day}日'
-            : '${_selectedDate.year}年${_selectedDate.month}月${_selectedDate.day}日';
-      default:
-        return '日程';
-    }
-  }
-
   /* ═══════════ 构建 ═══════════ */
 
   @override
@@ -866,48 +917,51 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
       backgroundColor: palette.background,
       body: SafeArea(
         bottom: false,
+        // 顶栏整宽（原型 `.topbar` 贴窗口左右各 30），内容区单独收在
+        // 1280 内居中（原型 `.viewport`）——两者缩进不同，不能共用一个框。
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(palette),
-            CalendarCapsuleNav(
-              tabs: const ['年', '月', '周', '日', '日程'],
-              activeIndex: _tab,
-              progress: _tabT,
-              velocity: _tabV,
-              onTap: _handleTabTap,
-              palette: palette,
-            ),
+            _buildTopbar(palette),
             Expanded(
-              child: ClipRect(
-                child: ValueListenableBuilder<double>(
-                  valueListenable: _tabT,
-                  builder: (context, t, _) {
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        final w = math.max(1.0, constraints.maxWidth);
-                        final tc = t.clamp(0.0, 4.0);
-                        // 深度层叠：各面板独立 translate((i-tc)*w)。
-                        // 命中区随偏移平移（active 面板 offset=0 恰好占满可视区，
-                        // 相邻面板被自身边界拒绝），不会出现整排 Row 的
-                        // 溢出或「只有第 0 页可点」的命中黑洞。
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            for (var i = 0; i < 5; i++)
-                              Transform.translate(
-                                offset: Offset((i - tc) * w, 0),
-                                child: SizedBox(
-                                  width: w,
-                                  height: constraints.maxHeight,
-                                  child: _paneLayer(i, t, w),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    );
-                  },
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1280),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: ClipRect(
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _tabT,
+                        builder: (context, t, _) {
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              final w = math.max(1.0, constraints.maxWidth);
+                              final tc = t.clamp(0.0, 4.0);
+                              // 深度层叠：各面板独立 translate((i-tc)*w)。
+                              // 命中区随偏移平移（active 面板 offset=0 恰好占满
+                              // 可视区，相邻面板被自身边界拒绝），不会出现整排
+                              // Row 的溢出或「只有第 0 页可点」的命中黑洞。
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  for (var i = 0; i < 5; i++)
+                                    Transform.translate(
+                                      offset: Offset((i - tc) * w, 0),
+                                      child: SizedBox(
+                                        width: w,
+                                        height: constraints.maxHeight,
+                                        child: _paneLayer(i, t, w),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -967,9 +1021,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     );
     switch (index) {
       case 0:
-        return Container(
-          color: palette.background,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        return _paneShell(
+          palette: palette,
+          title: '$_year年',
+          subtitle: '全年 ${_markedDates.length} 天有安排',
           child: ValueListenableBuilder<Matrix4?>(
             valueListenable: _yearGridXform,
             builder: (context, gridXform, _) => ValueListenableBuilder<double>(
@@ -1001,9 +1056,9 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           ),
         );
       case 1:
-        return Container(
-          color: palette.background,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        return _paneShell(
+          palette: palette,
+          header: _buildMonthHeader(palette),
           child: KeyedSubtree(
             key: _monthPaneKey,
             child: CalendarMonthPane(
@@ -1026,6 +1081,8 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
               onSelect: _selectDate,
               onToggleTask: _toggleTask,
               onDeleteTask: _deleteTask,
+              onQuickAdd: _quickAddTask,
+              rowHeight: calendarRowHeightFor(MediaQuery.sizeOf(context)),
             ),
           ),
         );
@@ -1034,9 +1091,27 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           _selectedDate,
           mondayFirst: _mondayFirst,
         );
-        return Container(
-          color: palette.background,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        return _paneShell(
+          palette: palette,
+          title: '${weekStart.month}月${weekStart.day}日 – '
+              '${weekEnd.month}月${weekEnd.day}日',
+          subtitle: '第 ${_isoWeekOfYear(weekStart)} 周 · 拖动空白处新建',
+          actions: [
+            CalendarPaneAction(
+              icon: Icons.chevron_left,
+              palette: palette,
+              tooltip: '上一周',
+              onTap: () =>
+                  _shiftWeek(weekStart.subtract(const Duration(days: 7))),
+            ),
+            CalendarPaneAction(
+              icon: Icons.chevron_right,
+              palette: palette,
+              tooltip: '下一周',
+              onTap: () => _shiftWeek(weekStart.add(const Duration(days: 7))),
+            ),
+          ],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1068,9 +1143,29 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           ),
         );
       case 3:
-        return Container(
-          color: palette.background,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        return _paneShell(
+          palette: palette,
+          title:
+              '${_selectedDate.month}月${_selectedDate.day}日 '
+              '${_kWeekdayCn[_selectedDate.weekday - 1]}',
+          subtitle: '${_selectedDayTasks.length} 项安排 · 拖动空白处新建',
+          actions: [
+            CalendarPaneAction(
+              icon: Icons.chevron_left,
+              palette: palette,
+              tooltip: '前一天',
+              onTap: () => _selectDate(
+                _selectedDate.subtract(const Duration(days: 1)),
+              ),
+            ),
+            CalendarPaneAction(
+              icon: Icons.chevron_right,
+              palette: palette,
+              tooltip: '后一天',
+              onTap: () =>
+                  _selectDate(_selectedDate.add(const Duration(days: 1))),
+            ),
+          ],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1099,9 +1194,10 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
           ),
         );
       default:
-        return Container(
-          color: palette.background,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        return _paneShell(
+          palette: palette,
+          title: '日程',
+          subtitle: '${_agendaGroups.length} 天有安排',
           child: CalendarAgendaPane(
             groups: _agendaGroups,
             today: _today,
@@ -1117,44 +1213,244 @@ class _CalendarPageState extends ConsumerState<CalendarPage>
     }
   }
 
-  Widget _buildHeader(CalendarPalette palette) {
+  /// 顶栏（原型 `.topbar`）：品牌 + 日期/农历副行、胶囊导航、动作按钮。
+  ///
+  /// ≥860px 三者同一行（胶囊收在 400 内），窄屏换行成「品牌行 / 胶囊行」。
+  Widget _buildTopbar(CalendarPalette palette) {
+    final lunar = solar2lunar(_today.year, _today.month, _today.day);
+    final lunarText = lunar == null
+        ? ''
+        : '${_chineseYear(lunar.lunarYear)}年 ${lunar.monthCn}${lunar.dayCn}';
+    final dateText =
+        '${_today.year}年${_today.month}月${_today.day}日 '
+        '${_kWeekdayCn[_today.weekday - 1]}';
+    final brand = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '茶禅日历',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 21,
+            height: 1.25,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+            color: palette.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 1),
+        Text(
+          lunarText.isEmpty
+              ? '$dateText · 拖动、滑动、直接编辑'
+              : '$dateText · $lunarText · 拖动、滑动、直接编辑',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11.5,
+            height: 1.4,
+            color: palette.textSecondary.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+    final nav = CalendarCapsuleNav(
+      tabs: const ['年', '月', '周', '日', '日程'],
+      activeIndex: _tab,
+      progress: _tabT,
+      velocity: _tabV,
+      onTap: _handleTabTap,
+      palette: palette,
+      padding: EdgeInsets.zero,
+    );
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CalendarPaneAction(
+          icon: Icons.today_outlined,
+          palette: palette,
+          tooltip: '回到今天',
+          onTap: _goToday,
+        ),
+        CalendarPaneAction(
+          icon: Icons.more_horiz,
+          palette: palette,
+          tooltip: '日历设置',
+          onTap: _showSettings,
+        ),
+      ],
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 8, 2),
-      child: Row(
-        children: [
-          Expanded(
-            child: ValueListenableBuilder<double>(
-              valueListenable: _collapse,
-              builder: (context, _, _) => Text(
-                _titleText(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 26,
-                  height: 1.12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.3,
-                  color: palette.textPrimary,
+      padding: const EdgeInsets.fromLTRB(30, 14, 30, 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 860) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: brand),
+                    actions,
+                  ],
                 ),
+                const SizedBox(height: 10),
+                nav,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: brand),
+              SizedBox(
+                width: math.min(400, constraints.maxWidth * 0.44),
+                child: nav,
               ),
-            ),
-          ),
-          CalendarIconButton(
-            icon: Icons.today_outlined,
-            palette: palette,
-            tooltip: '回到今天',
-            onTap: _goToday,
-          ),
-          CalendarIconButton(
-            icon: Icons.more_horiz,
-            palette: palette,
-            tooltip: '日历设置',
-            onTap: _showSettings,
-          ),
+              const SizedBox(width: 12),
+              actions,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// 页签外壳：页头（标题 + 副标题 + 控件）+ 内容区（原型 `.pane`）。
+  Widget _paneShell({
+    required CalendarPalette palette,
+    required Widget child,
+    Widget? header,
+    String title = '',
+    String? subtitle,
+    List<Widget> actions = const <Widget>[],
+  }) {
+    final wide = MediaQuery.sizeOf(context).width >= 861;
+    return Container(
+      color: palette.background,
+      padding: EdgeInsets.symmetric(horizontal: wide ? 1 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          header ??
+              CalendarPaneHeader(
+                title: title,
+                subtitle: subtitle,
+                palette: palette,
+                actions: actions,
+              ),
+          Expanded(child: child),
         ],
       ),
     );
   }
+
+  /// 月页页头：标题随收展在「2026年 11月 / 11月 · 第 1 周」间切换，
+  /// 控件为「上一月 / 下一月 / 收展」（原型 `.pctl`）。
+  Widget _buildMonthHeader(CalendarPalette palette) {
+    return ValueListenableBuilder<double>(
+      valueListenable: _collapse,
+      builder: (context, raw, _) {
+        final p = calendarClamp01(raw);
+        final collapsed = p < 0.5;
+        final markedInMonth = _markedDates
+            .where(
+              (key) =>
+                  key.startsWith(
+                    '${_visibleMonth.year}-'
+                    '${_visibleMonth.month.toString().padLeft(2, '0')}-',
+                  ),
+            )
+            .length;
+        final title = collapsed
+            ? '${_visibleMonth.month}月 · 第${_selectedWeekOfMonth()}周'
+            : '${_visibleMonth.year}年 ${_visibleMonth.month}月';
+        final subtitle = collapsed
+            ? '收起态 · 上滑展开整月'
+            : '${_lunarMonthText()} · 本月 $markedInMonth 天有安排';
+        return CalendarPaneHeader(
+          title: title,
+          subtitle: subtitle,
+          palette: palette,
+          actions: [
+            CalendarPaneAction(
+              icon: Icons.chevron_left,
+              palette: palette,
+              tooltip: '上一月',
+              onTap: () => _stepMonth(-1),
+            ),
+            CalendarPaneAction(
+              icon: Icons.chevron_right,
+              palette: palette,
+              tooltip: '下一月',
+              onTap: () => _stepMonth(1),
+            ),
+            CalendarPaneAction(
+              key: kCalendarPaneCollapseKey,
+              icon: Icons.keyboard_arrow_down,
+              palette: palette,
+              tooltip: collapsed ? '展开整月' : '收起为单周',
+              angle: math.pi * (1 - p),
+              onTap: () => _collapseSpring.to(collapsed ? 1 : 0),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  int _selectedWeekOfMonth() {
+    final first = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
+    final start = calendarWeekStart(first, mondayFirst: _mondayFirst);
+    final offset = _selectedDate.difference(start).inDays;
+    final rows =
+        ((first
+                        .difference(start)
+                        .inDays +
+                    calendarDaysInMonth(
+                      _visibleMonth.year,
+                      _visibleMonth.month,
+                    )) /
+                7)
+            .ceil();
+    final week = (offset ~/ 7).clamp(0, math.max(0, rows - 1));
+    return week.toInt() + 1;
+  }
+  String _lunarMonthText() {
+    final lunar = solar2lunar(_visibleMonth.year, _visibleMonth.month, 1);
+    if (lunar == null) return '';
+    return '${_chineseYear(lunar.lunarYear)}年';
+  }
+
+  static const List<String> _kCnDigits = [
+    '〇', '一', '二', '三', '四', '五', '六', '七', '八', '九',
+  ];
+
+  /// 汉字年份（原型 `yearCn`：二零二六年）。
+  static String _chineseYear(int year) =>
+      year.toString().split('').map((d) => _kCnDigits[int.parse(d)]).join();
+
+  void _stepMonth(int delta) {
+    final next = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + delta,
+      1,
+    );
+    _flipMonth(next);
+  }
+
+  /// 页头「收展」按钮的稳定 Key（与卡片抓手区分）。
+  static const Key kCalendarPaneCollapseKey = Key('calendar.pane.collapse');
+
+  static const List<String> _kWeekdayCn = [
+    '星期一',
+    '星期二',
+    '星期三',
+    '星期四',
+    '星期五',
+    '星期六',
+    '星期日',
+  ];
 
   Widget _buildFabs(CalendarPalette palette) {
     // 主壳的悬浮底栏（barHeight 64 + barBottomGap 16）以 Stack 叠在

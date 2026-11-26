@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:xiaodouzi_fr/core/calendar/presentation/calendar_year_pane.dart';
 import 'package:xiaodouzi_fr/core/calendar/domain/calendar_task.dart';
 import 'package:xiaodouzi_fr/core/calendar/presentation/calendar_page.dart';
 import 'package:xiaodouzi_fr/core/storage/calendar_store.dart';
@@ -170,7 +172,13 @@ void main() {
   testWidgets('年页：箭头点按走同一轮盘动效', (tester) async {
     await _pumpApp(tester, 0);
     final yearBefore = DateTime.now().year;
-    await tester.tap(find.byIcon(Icons.chevron_right));
+    // 页头（月页）也有一对箭头，这里限定在年轮盘内点，避免歧义。
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CalendarYearPane),
+        matching: find.byIcon(Icons.chevron_right),
+      ),
+    );
     // 动画进行中不应立即出现新年份（瞬跳会让此断言失败）。
     await tester.pump(const Duration(milliseconds: 80));
     await tester.pumpAndSettle();

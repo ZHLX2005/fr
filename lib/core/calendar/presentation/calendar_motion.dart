@@ -77,6 +77,18 @@ const double kCalendarDragDeadZone = 4;
 /// 月历行高（收起态单周行 / 展开态每行统一高度）。
 const double kCalendarRowHeight = 56;
 
+/// 按视口挑行高（原型 `--row-h` 的三档媒体查询 + 窄屏 52）。
+///
+/// 高屏多给一点高度，月历不至于在大显示器上显得局促；窄屏压缩到 52
+/// 让「周条 + 日面板」在手机上一屏能同时看到。
+double calendarRowHeightFor(Size viewport) {
+  if (viewport.width < 861) return 52;
+  if (viewport.height >= 900) return 76;
+  if (viewport.height >= 790) return 68;
+  if (viewport.height >= 700) return 62;
+  return 58;
+}
+
 double calendarClamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
 
 /// C² 连续平滑曲线（收起时非选中行的渐隐）。

@@ -32,8 +32,10 @@ class CalendarMonthPane extends StatefulWidget {
     required this.onSelect,
     required this.onToggleTask,
     required this.onDeleteTask,
+    required this.onQuickAdd,
     this.onRetryStorage,
     this.gridAreaKey,
+    this.rowHeight = kCalendarRowHeight,
   });
 
   final DateTime month;
@@ -56,11 +58,18 @@ class CalendarMonthPane extends StatefulWidget {
   final ValueChanged<DateTime> onSelect;
   final ValueChanged<CalendarTask> onToggleTask;
   final ValueChanged<CalendarTask> onDeleteTask;
+
+  /// 日面板底部「快速添加到 X月X日」：只提交标题，时间由页面侧排布。
+  final ValueChanged<String> onQuickAdd;
+
   final VoidCallback? onRetryStorage;
 
   /// 月历网格区（weekday 表头之下、抓手之上）的 key，供容器变换
   /// 测量终态矩形——对应原型的 #mArea，不含周条/任务面板。
   final GlobalKey? gridAreaKey;
+
+  /// 单行行高（原型 `--row-h`：窄屏 52，宽屏按视口高 58/62/68/76）。
+  final double rowHeight;
 
   @override
   State<CalendarMonthPane> createState() => _CalendarMonthPaneState();
@@ -82,8 +91,8 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
   bool _collapseDragging = false;
 
   int get _rows => _rowsFor(widget.month);
-  double get _monthHeight => _rows * kCalendarRowHeight;
-  double get _range => math.max(1.0, _monthHeight - kCalendarRowHeight);
+  double get _monthHeight => _rows * widget.rowHeight;
+  double get _range => math.max(1.0, _monthHeight - widget.rowHeight);
 
   int _rowsFor(DateTime month) {
     final first = DateTime(month.year, month.month, 1);
@@ -252,35 +261,91 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
     final header = widget.mondayFirst
         ? weekdays
         : ['日', ...weekdays.sublist(0, 6)];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 2, 2, 4),
-          child: Row(
+    // 原型 `.mbody`：≥861px 两栏（月历卡片 + 日面板），窄屏单栏上下排。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 861;
+        final card = _buildGridCard(header);
+        final panel = _buildDayPanel(context);
+        if (!wide) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final w in header)
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      w,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: widget.palette.textSecondary,
+              card,
+              const SizedBox(height: 14),
+              Expanded(child: panel),
+            ],
+          );
+        }
+        final panelWidth = (constraints.maxWidth * 0.27).clamp(264.0, 330.0);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: card),
+            const SizedBox(width: 14),
+            SizedBox(
+              width: panelWidth,
+              height: constraints.maxHeight,
+              child: panel,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 卡片外观（原型 `.card`）：surface 底 + 1px line 边 + 22 圆角 + 大投影。
+  BoxDecoration _cardDecoration() => BoxDecoration(
+    color: widget.palette.surface,
+    borderRadius: BorderRadius.circular(22),
+    border: Border.all(color: widget.palette.divider),
+    boxShadow: [
+      BoxShadow(
+        color: widget.palette.shadow,
+        blurRadius: 44,
+        offset: const Offset(0, 18),
+      ),
+    ],
+  );
+
+  /// 月历卡片（原型 `.mleft`）：周条 + 网格 + 抓手。
+  Widget _buildGridCard(List<String> header) {
+    return Container(
+      decoration: _cardDecoration(),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 2, 0, 6),
+            child: Row(
+              children: [
+                for (final w in header)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        w,
+                        style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                          color: widget.palette.textSecondary.withValues(
+                            alpha: 0.72,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
         // 月历区：高度随收展弹簧联动，内部支持纵向收展 / 横向翻月。
         ValueListenableBuilder<double>(
           valueListenable: widget.collapse,
           builder: (context, raw, _) {
             final p = calendarClamp01(raw);
             final height =
-                kCalendarRowHeight + (_monthHeight - kCalendarRowHeight) * p;
+                widget.rowHeight + (_monthHeight - widget.rowHeight) * p;
             return GestureDetector(
               behavior: HitTestBehavior.translucent,
               onVerticalDragStart: _onVerticalStart,
@@ -315,6 +380,7 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
                                   markedDates: widget.markedDates,
                                   mondayFirst: widget.mondayFirst,
                                   palette: widget.palette,
+                                  rowHeight: widget.rowHeight,
                                   collapse: raw,
                                   ignoreDayTap: true,
                                 ),
@@ -333,6 +399,7 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
                                 markedDates: widget.markedDates,
                                 mondayFirst: widget.mondayFirst,
                                 palette: widget.palette,
+                                rowHeight: widget.rowHeight,
                                 collapse: raw,
                                 onDayTap: widget.onSelect,
                               ),
@@ -347,75 +414,119 @@ class _CalendarMonthPaneState extends State<CalendarMonthPane>
             );
           },
         ),
-        // 抓手：点按切换收展，拖拽跟手。
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggleCollapse,
-          onVerticalDragStart: _onVerticalStart,
-          onVerticalDragUpdate: _onVerticalUpdate,
-          onVerticalDragEnd: _onVerticalEnd,
-          child: SizedBox(
-            height: 40,
-            child: ValueListenableBuilder<double>(
-              valueListenable: widget.collapse,
-              builder: (context, raw, _) {
-                final p = calendarClamp01(raw);
-                return Center(
-                  child: Transform.rotate(
-                    angle: math.pi * (1 - p),
-                    child: Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 22,
-                      color: widget.palette.textSecondary,
+          // 抓手：点按切换收展，拖拽跟手。
+          GestureDetector(
+            key: kCalendarMonthHandleKey,
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleCollapse,
+            onVerticalDragStart: _onVerticalStart,
+            onVerticalDragUpdate: _onVerticalUpdate,
+            onVerticalDragEnd: _onVerticalEnd,
+            child: SizedBox(
+              height: 30,
+              child: ValueListenableBuilder<double>(
+                valueListenable: widget.collapse,
+                builder: (context, raw, _) {
+                  final p = calendarClamp01(raw);
+                  return Center(
+                    child: Transform.rotate(
+                      angle: math.pi * (1 - p),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 22,
+                        color: widget.palette.textSecondary,
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        // 任务面板（月页固有下半区）：点按/拖拽均可切换收展。
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggleCollapse,
-          onVerticalDragStart: _onVerticalStart,
-          onVerticalDragUpdate: _onVerticalUpdate,
-          onVerticalDragEnd: _onVerticalEnd,
-          child: _TaskPanelHeader(
-            selectedDate: widget.selectedDate,
-            tasks: widget.tasks,
-            palette: widget.palette,
-          ),
-        ),
-        Expanded(
-          // 底部为悬浮 FAB / 悬浮底栏预留的空白放在滚动视口之外：只缩小
-          // 可视区，不计入内容高度——装饰性留白不得制造可滚动量，否则
-          // 空面板也能被拖出回弹。
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: 120 + MediaQuery.paddingOf(context).bottom,
-            ),
-            child: _PanelScroll(
-              collapse: widget.collapse,
-              collapseRange: _range,
-              onCollapseDrive: widget.onCollapseDrive,
-              onCollapseSettle: widget.onCollapseSettle,
-              child: CalendarTaskList(
-                tasks: widget.tasks,
-                loading: widget.loading,
-                palette: widget.palette,
-                storageAvailable: widget.storageAvailable,
-                storageMessage: widget.storageMessage,
-                onRetry: widget.onRetryStorage,
-                onToggle: widget.onToggleTask,
-                onDelete: widget.onDeleteTask,
+                  );
+                },
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+
+  /// 日面板（原型 `.dpanel`）：日期头 + 农历 + 任务列表 + 快速添加。
+  Widget _buildDayPanel(BuildContext context) {
+    final selected = widget.selectedDate;
+    final lunar = solar2lunar(selected.year, selected.month, selected.day);
+    final lunarLabel = lunar == null
+        ? ''
+        : '${_chineseYear(lunar.lunarYear)}年 ${lunar.monthCn}${lunar.dayCn}';
+    return Container(
+      decoration: _cardDecoration(),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 日期头：点按/拖拽同样可切换收展（与卡片区域手势一致）。
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleCollapse,
+            onVerticalDragStart: _onVerticalStart,
+            onVerticalDragUpdate: _onVerticalUpdate,
+            onVerticalDragEnd: _onVerticalEnd,
+            child: _TaskPanelHeader(
+              selectedDate: selected,
+              tasks: widget.tasks,
+              palette: widget.palette,
+            ),
+          ),
+          if (lunarLabel.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+              child: Text(
+                lunarLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: widget.palette.accent),
+              ),
+            ),
+          Expanded(
+            // 底部为悬浮 FAB / 悬浮底栏预留的空白放在滚动视口之外：只缩小
+            // 可视区，不计入内容高度——装饰性留白不得制造可滚动量，否则
+            // 空面板也能被拖出回弹。
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: 108 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: _PanelScroll(
+                collapse: widget.collapse,
+                collapseRange: _range,
+                onCollapseDrive: widget.onCollapseDrive,
+                onCollapseSettle: widget.onCollapseSettle,
+                child: CalendarTaskList(
+                  tasks: widget.tasks,
+                  loading: widget.loading,
+                  palette: widget.palette,
+                  storageAvailable: widget.storageAvailable,
+                  storageMessage: widget.storageMessage,
+                  onRetry: widget.onRetryStorage,
+                  onToggle: widget.onToggleTask,
+                  onDelete: widget.onDeleteTask,
+                ),
+              ),
+            ),
+          ),
+          _CalendarQuickAdd(
+            palette: widget.palette,
+            date: selected,
+            enabled: widget.storageAvailable,
+            onSubmit: widget.onQuickAdd,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const List<String> _kCnDigits = [
+    '〇', '一', '二', '三', '四', '五', '六', '七', '八', '九',
+  ];
+
+  /// 农历年份用汉字数字（原型 `yearCn`：二零二六）。
+  static String _chineseYear(int year) =>
+      year.toString().split('').map((d) => _kCnDigits[int.parse(d)]).join();
 }
 
 /// 月页任务面板的滚动层（原型 makeKinetic 的 Flutter 落地）。
@@ -666,6 +777,7 @@ class CalendarMonthGridContent extends StatelessWidget {
     required this.mondayFirst,
     required this.palette,
     required this.collapse,
+    this.rowHeight = kCalendarRowHeight,
     this.onDayTap,
     this.ignoreDayTap = false,
   });
@@ -679,6 +791,8 @@ class CalendarMonthGridContent extends StatelessWidget {
 
   /// 0..1 之外的值保留（拖拽越界映射为阻力位移）。
   final double collapse;
+
+  final double rowHeight;
   final ValueChanged<DateTime>? onDayTap;
   final bool ignoreDayTap;
 
@@ -700,12 +814,12 @@ class CalendarMonthGridContent extends StatelessWidget {
     final p = calendarClamp01(collapse);
     final range = math.max(
       1.0,
-      _rows * kCalendarRowHeight - kCalendarRowHeight,
+      _rows * rowHeight - rowHeight,
     );
     final extraY = collapse < 0
         ? calendarRubber(-collapse * range)
         : (collapse > 1 ? -calendarRubber((collapse - 1) * range) : 0.0);
-    final dy = -_selWeek * kCalendarRowHeight * (1 - p) + extraY;
+    final dy = -_selWeek * rowHeight * (1 - p) + extraY;
     final othersOpacity = calendarSmootherstep((p - 0.12) / 0.5);
     final start = calendarMonthGridStart(month, mondayFirst: mondayFirst);
 
@@ -714,8 +828,8 @@ class CalendarMonthGridContent extends StatelessWidget {
       // OverflowBox 让内容保持整月高度自然布局（收起态父高仅一行时
       // 不触发 RenderFlex overflow），超出部分由上层 ClipRect 裁剪。
       child: OverflowBox(
-        minHeight: _rows * kCalendarRowHeight,
-        maxHeight: _rows * kCalendarRowHeight,
+        minHeight: _rows * rowHeight,
+        maxHeight: _rows * rowHeight,
         alignment: Alignment.topCenter,
         child: Column(
           children: [
@@ -723,7 +837,7 @@ class CalendarMonthGridContent extends StatelessWidget {
               Opacity(
                 opacity: row == _selWeek ? 1 : othersOpacity,
                 child: SizedBox(
-                  height: kCalendarRowHeight,
+                  height: rowHeight,
                   child: Row(
                     children: [
                       for (var col = 0; col < 7; col++)
@@ -827,8 +941,8 @@ class _MonthCellState extends State<_MonthCell> {
               duration: const Duration(milliseconds: 160),
               curve: Curves.easeOutBack,
               child: Container(
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -839,7 +953,7 @@ class _MonthCellState extends State<_MonthCell> {
                 child: Text(
                   '${date.day}',
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: 16,
                     height: 1,
                     fontWeight: isToday || isSelected
                         ? FontWeight.w700
@@ -923,6 +1037,102 @@ class _TaskPanelHeader extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: palette.textSecondary),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// 月卡片底部抓手（点按/拖拽收展）的稳定 Key：页头也有同款箭头，
+/// 测试要用它区分「卡片抓手」与「页头收展按钮」。
+const Key kCalendarMonthHandleKey = Key('calendar.month.handle');
+
+/// 快速添加（原型 `.quickadd`）：虚线框输入框，回车即建任务。
+///
+/// 只收标题；起止时间由页面侧按「当天最后一个任务结束后 30 分钟」推算，
+/// 与原型 `#qaForm` 的提交逻辑一致。
+class _CalendarQuickAdd extends StatefulWidget {
+  const _CalendarQuickAdd({
+    required this.palette,
+    required this.date,
+    required this.enabled,
+    required this.onSubmit,
+  });
+
+  final CalendarPalette palette;
+  final DateTime date;
+  final bool enabled;
+  final ValueChanged<String> onSubmit;
+
+  @override
+  State<_CalendarQuickAdd> createState() => _CalendarQuickAddState();
+}
+
+class _CalendarQuickAddState extends State<_CalendarQuickAdd> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focus = FocusNode();
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() => _focused = _focus.hasFocus));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty || !widget.enabled) return;
+    _controller.clear();
+    _focus.unfocus();
+    widget.onSubmit(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.palette;
+    final hint = '＋ 快速添加到 ${widget.date.month}月${widget.date.day}日';
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: p.divider)),
+        ),
+        padding: const EdgeInsets.only(top: 8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: _focused ? p.surfaceAlt : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: _focused ? p.accent : p.divider,
+              width: _focused ? 1.2 : 1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+          child: TextField(
+            controller: _controller,
+            focusNode: _focus,
+            enabled: widget.enabled,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            style: TextStyle(fontSize: 12.5, color: p.textPrimary),
+            cursorColor: p.accent,
+            cursorHeight: 15,
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 9),
+              hintText: hint,
+              hintStyle: TextStyle(fontSize: 12.5, color: p.textSecondary),
+            ),
+          ),
+        ),
       ),
     );
   }

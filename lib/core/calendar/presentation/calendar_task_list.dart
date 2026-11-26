@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../domain/calendar_task.dart';
@@ -324,32 +322,30 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = CalendarPalette.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 72),
+        padding: const EdgeInsets.only(bottom: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
-              width: 220,
-              height: 160,
-              child: CustomPaint(painter: _EmptyCalendarPainter()),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '你这一天没有任务',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                color: CalendarPalette.of(context).textPrimary,
-              ),
+            // 原型 `.dp-empty`：一只淡茶盏 + 两行小字，不用大插画压住整块面板。
+            Icon(
+              Icons.emoji_food_beverage_outlined,
+              size: 34,
+              color: palette.textSecondary.withValues(alpha: 0.45),
             ),
             const SizedBox(height: 8),
             Text(
-              '放松一下吧',
+              '这一天还空着',
+              style: TextStyle(fontSize: 12, color: palette.textSecondary),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '下方面板可直接添加',
               style: TextStyle(
-                fontSize: 14,
-                color: CalendarPalette.of(context).textSecondary,
+                fontSize: 11,
+                color: palette.textSecondary.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -436,125 +432,4 @@ class _StorageUnavailable extends StatelessWidget {
       ),
     );
   }
-}
-
-class _EmptyCalendarPainter extends CustomPainter {
-  const _EmptyCalendarPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-
-    final blob = Paint()
-      ..color = const Color(0xFFD9ECE9).withValues(alpha: 0.9);
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(-0.16);
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset.zero, width: 185, height: 112),
-      blob,
-    );
-    canvas.restore();
-
-    final card = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: center, width: 115, height: 92),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(card.shift(const Offset(-4, 4)), Paint()..color = const Color(0x22000000));
-    canvas.drawRRect(card, Paint()..color = Colors.white);
-    canvas.drawRRect(
-      card,
-      Paint()
-        ..color = const Color(0xFF31424A)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6,
-    );
-
-    final header = RRect.fromRectAndRadius(
-      Rect.fromLTWH(card.left + 1, card.top + 1, card.width - 2, 22),
-      const Radius.circular(7),
-    );
-    canvas.drawRRect(header, Paint()..color = const Color(0xFF70BFCB));
-    canvas.drawRRect(
-      header,
-      Paint()
-        ..color = const Color(0xFF31424A)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
-    );
-
-    final ink = Paint()
-      ..color = const Color(0xFF31424A)
-      ..strokeWidth = 1.1;
-    for (var i = 0; i < 3; i++) {
-      final x = card.left + 28 + i * 28;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, card.top - 9, 5, 18),
-          const Radius.circular(3),
-        ),
-        Paint()..color = Colors.white,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, card.top - 9, 5, 18),
-          const Radius.circular(3),
-        ),
-        ink..strokeWidth = 1,
-      );
-    }
-
-    final grid = Paint()
-      ..color = const Color(0xFF9DB1B5)
-      ..strokeWidth = 0.8;
-    for (var row = 0; row < 3; row++) {
-      final y = card.top + 44 + row * 16;
-      canvas.drawLine(Offset(card.left + 10, y), Offset(card.right - 10, y), grid);
-      for (var col = 1; col < 3; col++) {
-        final x = card.left + 10 + col * 31;
-        canvas.drawLine(Offset(x, card.top + 24), Offset(x, card.bottom - 5), grid);
-      }
-    }
-
-    final clockCenter = Offset(card.left + 76, card.top + 46);
-    canvas.drawCircle(clockCenter, 9, Paint()..color = const Color(0xFF70BFCB));
-    canvas.drawArc(
-      Rect.fromCircle(center: clockCenter, radius: 5),
-      -math.pi / 2,
-      math.pi * 1.15,
-      false,
-      Paint()
-        ..color = Colors.white
-        ..strokeWidth = 1.5,
-    );
-    canvas.drawLine(clockCenter, clockCenter + const Offset(0, -5), ink..strokeWidth = 1.2);
-    canvas.drawLine(clockCenter, clockCenter + const Offset(4, 0), ink);
-
-    final sparkle = Paint()
-      ..color = const Color(0xFF31424A)
-      ..strokeWidth = 1;
-    _drawSparkle(canvas, Offset(card.left - 22, card.top - 12), 8, sparkle);
-    _drawSparkle(canvas, Offset(card.right + 16, card.bottom - 18), 6, sparkle);
-    canvas.drawCircle(
-      Offset(card.right - 12, card.top - 4),
-      2,
-      Paint()..color = const Color(0xFF31424A),
-    );
-  }
-
-  void _drawSparkle(Canvas canvas, Offset center, double radius, Paint paint) {
-    canvas.drawLine(
-      center + Offset(-radius, 0),
-      center + Offset(radius, 0),
-      paint,
-    );
-    canvas.drawLine(
-      center + Offset(0, -radius),
-      center + Offset(0, radius),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
